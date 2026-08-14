@@ -6,7 +6,7 @@
 export const NOTIFICATION_ENTITIES = [
   { value: 'Nonconformance', label: 'Nonconformances' },
   { value: 'Capa', label: 'CAPAs' },
-  { value: 'ChangeRequest', label: 'Change Requests' },
+  { value: 'ChangeRequest', label: 'Change Control' },
   { value: 'QualityEvent', label: 'Events & Observations' },
 ]
 

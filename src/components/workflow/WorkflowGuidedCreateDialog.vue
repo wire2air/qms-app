@@ -258,7 +258,7 @@ async function handleCreate() {
 
 function typeLabel(p) {
   if (p.stepType === 'APPROVAL') return 'Approval'
-  if (p.stepType === 'DELAY') return 'Delay Action'
+  if (p.stepType === 'DELAY') return 'Schedule Task'
   return 'Action'
 }
 </script>
@@ -415,14 +415,14 @@ class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
           <div class="tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3">
             <label class="tw:flex tw:items-center tw:justify-between tw:cursor-pointer">
               <span class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:text-on-main">
-                <IconClock :size="16" /> Need a follow-up effectiveness check?
+                <IconClock :size="16" /> Want to add a follow-up Schedule Task?
               </span>
               <BaseSwitch v-model="needCheck" />
             </label>
             <p class="tw:text-micro tw:text-secondary">
-              Adds a delayed step that waits a set time after the work completes, then assigns a
-              task to verify the fix actually worked. The record owner can reschedule or skip it
-              on each record.
+              Adds a scheduled step that waits a set time after the work completes, then assigns
+              its task — e.g. an Effectiveness check to verify the fix actually worked. The record
+              owner can reschedule or skip it on each record.
             </p>
             <template v-if="needCheck">
               <BaseField label="Check after">

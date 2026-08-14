@@ -174,9 +174,9 @@ export const CATEGORY_METADATA = {
     description: 'Manage access for Customer Complaints',
   },
   changeRequests: {
-    label: 'Change Requests',
+    label: 'Change Control',
     icon: IconReplace,
-    description: 'Manage access for Change Requests',
+    description: 'Manage access for Change Control',
   },
   qualityEvents: {
     label: 'Quality Events',

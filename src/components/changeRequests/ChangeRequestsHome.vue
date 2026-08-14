@@ -140,7 +140,7 @@ function onCreate() {
 
 <template>
   <BaseListLayout
-    title="Change Requests"
+    title="Change Control"
     subtitle="Plan, approve, implement, and verify the effectiveness of controlled changes."
     :state="list.state.value"
     :emptyTitle="

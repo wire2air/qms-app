@@ -14,15 +14,13 @@ export function uniqueTitle(tag) {
 }
 
 /**
- * Create a CAPA from the create page: fill required Classification fields,
- * pick the seeded workflow, confirm the auto-populated "Assign Step
- * Reviewers" dialog (role-expansion auto-selects the sole candidate per
- * seeded step role — same WorkflowReviewerPickerDialog documents/NCR use).
+ * Create a CAPA from the create page: fill required Classification fields
+ * and submit. The workflow is auto-selected (default template — the single
+ * ACTIVE CAPA workflow in E2ELAB is the implicit default) and there is NO
+ * reviewer dialog anymore (flow change 2026-08-12): the CAPA is created as
+ * a DRAFT, reviewers are assigned on the detail page's draft plan, and the
+ * workflow starts on Open CAPA (unpicked steps fall back to role expansion).
  * Ends on the new CAPA's detail page (DRAFT). Returns the title.
- *
- * Unlike NCR's raiseNc, reviewers are picked HERE (on create) — the CAPA
- * controller parks them in pendingReviewers until Open, but the picker
- * dialog itself fires before the POST /v1/services/capas call, not after.
  */
 export async function createCapa(page, title, { priority = null, ...hooks } = {}) {
   await page.goto('/capas/create')
@@ -40,17 +38,10 @@ export async function createCapa(page, title, { priority = null, ...hooks } = {}
  * @param {object} [opts]
  * @param {string} [opts.priority]
  * @param {(page) => Promise<void>} [opts.beforeSubmit] runs on the completed
- *   create form, just before Submit. Inert by default.
- * @param {(page) => Promise<void>} [opts.onReviewerDialog] runs on the
- *   "Assign Step Reviewers" dialog, before Confirm. Inert by default.
- *   Both exist so the screenshot specs can capture those states without
- *   duplicating this flow.
+ *   create form, just before Create CAPA. Inert by default. Exists so the
+ *   screenshot specs can capture that state without duplicating this flow.
  */
-export async function fillCapaCreateForm(
-  page,
-  title,
-  { priority = null, beforeSubmit, onReviewerDialog } = {},
-) {
+export async function fillCapaCreateForm(page, title, { priority = null, beforeSubmit } = {}) {
   await page.getByPlaceholder('Describe the CAPA…').fill(title)
 
   await selectFirstOption(page, 'Site')
@@ -63,32 +54,16 @@ export async function fillCapaCreateForm(
     await page.getByRole('radio', { name: priority, exact: true }).click()
   }
 
-  // Workflow — auto-selected (single ACTIVE workflow for CAPA in E2ELAB);
-  // click defensively so a slow IDB load doesn't leave it unset when Submit
-  // fires (mirrors documents.js createSopDocument / nonconformances.js raiseNc).
-  const workflowCard = page.getByRole('button', { name: `Select workflow ${CAPA_WORKFLOW_NAME}` })
-  if (await workflowCard.isVisible({ timeout: 10_000 }).catch(() => false)) {
-    await workflowCard.click()
-  }
+  // Workflow — auto-selected default (single ACTIVE workflow for CAPA in
+  // E2ELAB). Wait for the pre-selected strip so a slow IDB load doesn't
+  // leave it unset when Create CAPA fires.
+  await expect(page.getByText(CAPA_WORKFLOW_NAME, { exact: false }).first()).toBeVisible({
+    timeout: 15_000,
+  })
 
   if (beforeSubmit) await beforeSubmit(page)
 
-  await page.getByRole('button', { name: 'Submit' }).click()
-
-  // "Assign Step Reviewers" dialog — the seeded steps each have exactly one
-  // role member, so both pickers auto-select once IDB resolves; just wait for
-  // Confirm to enable (gated on the first/required step having a pick).
-  // Generous timeout — the create POST + dialog data fetch have been observed
-  // taking 20s+ under repeated test load (mirrors the identical comment in
-  // nonconformances.js raiseNc), especially right after a worker-heavy
-  // journey (J4's effectiveness-check job) leaves api/worker momentarily busy.
-  await expect(page.getByText('Assign task to user for each workflow step before submitting.')).toBeVisible({
-    timeout: 30_000,
-  })
-  const confirmBtn = page.getByRole('button', { name: 'Confirm' })
-  await expect(confirmBtn).toBeEnabled({ timeout: 15_000 })
-  if (onReviewerDialog) await onReviewerDialog(page)
-  await confirmBtn.click()
+  await page.getByRole('button', { name: 'Create CAPA' }).click()
 
   await expect(page).toHaveURL(/\/capas\/(?!create)[0-9a-f-]{36}/, { timeout: 45_000 })
   await expect(page.getByText(title).first()).toBeVisible()

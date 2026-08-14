@@ -23,8 +23,8 @@ supply chain.
 ## Explore by area
 
 ### Quality Management
-Log **Nonconformances**, run **CAPAs**, raise **Change Requests**, perform
-**Root Cause Analysis**, and assess **Risk** — all linked and auditable.
+Log **Nonconformances**, run **CAPAs**, manage changes with **Change Control**,
+perform **Root Cause Analysis**, and assess **Risk** — all linked and auditable.
 
 ### Document Control
 Author controlled **Documents** with versioning and approvals, and standardize

@@ -1,7 +1,9 @@
 <script setup>
-import { IconForms, IconPlus, IconPencil } from '@tabler/icons-vue'
+import { IconForms, IconLayoutBoard, IconArrowsMaximize } from '@tabler/icons-vue'
+import { useDebounceFn } from '@vueuse/core'
 import WorkflowStepFormBuilderPanel from './WorkflowStepFormBuilderPanel.vue'
 import WorkflowTaskFormTemplatePicker from './WorkflowTaskFormTemplatePicker.vue'
+import MiniFormBuilder from '@/components/form-builder/MiniFormBuilder.vue'
 
 const props = defineProps({
   stepId: { type: String, required: true },
@@ -19,45 +21,54 @@ const step = useLiveQueryWithDeps(
 
 const hasSchema = computed(() => (step.value?.formSchema?.length ?? 0) > 0)
 
-const fieldCountLabel = computed(() => {
-  const count = step.value?.formSchema?.length ?? 0
-  return count === 1 ? '1 field' : `${count} fields`
-})
+// ── Inline mini builder (user request 2026-08-14) ────────────────────────────
+// The canvas renders right here — no full-screen trip for "a couple of text
+// fields". Edits autosave (debounced, matching the step editor's cadence).
+// `builderSession` re-mounts the mini builder to re-seed it after an EXTERNAL
+// schema change (block picker / full-builder save); its own edits must NOT
+// re-mount it, or the canvas would reset mid-drag on every autosave.
+const builderSession = ref(0)
 
-const previewFieldNames = computed(() => {
-  const fields = step.value?.formSchema ?? []
-  return fields
-    .slice(0, 3)
-    .map((f) => f.label ?? f.id ?? 'Untitled')
-    .filter(Boolean)
-})
+const debouncedSchemaSave = useDebounceFn(async (schema) => {
+  if (!step.value || !props.canUpdate) return
+  step.value.formSchema = JSON.parse(JSON.stringify(schema))
+  await step.value.save()
+}, 800)
 
+function onSchemaChange(schema) {
+  debouncedSchemaSave(schema)
+}
+
+// Re-seed when switching steps.
+watch(
+  () => props.stepId,
+  () => {
+    builderSession.value++
+  },
+)
+
+// ── Secondary paths: block picker + full builder ─────────────────────────────
 const builderOpen = ref(false)
 const pickerOpen = ref(false)
-// Schema chosen in the template picker — seeds the builder for a NEW form.
-// null = editing the step's existing form.
-const seedSchema = ref(null)
 
-function openCreate() {
-  pickerOpen.value = true
-}
-
-// Picker choice (blank = [] / preset / saved template) → open the builder
-// seeded with it. Nothing persists until the builder's Save.
-function handleTemplatePicked(schema) {
-  seedSchema.value = schema
-  builderOpen.value = true
-}
-
-function openEdit() {
-  seedSchema.value = null
-  builderOpen.value = true
-}
-
-async function handleSave(schema) {
+// Block/preset pick seeds the schema DIRECTLY (it used to detour through the
+// full builder) — saved immediately, then the mini builder re-seeds.
+async function handleTemplatePicked(schema) {
   if (!step.value || !props.canUpdate) return
   step.value.formSchema = schema
   await step.value.save()
+  builderSession.value++
+}
+
+function openFullBuilder() {
+  builderOpen.value = true
+}
+
+async function handleFullBuilderSave(schema) {
+  if (!step.value || !props.canUpdate) return
+  step.value.formSchema = schema
+  await step.value.save()
+  builderSession.value++
 }
 </script>
 
@@ -68,70 +79,52 @@ async function handleSave(schema) {
       <IconForms :size="22" />
       <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Task Form</h2>
       <HelpButton slug="KB/automation/task-forms-and-form-blocks" :size="16" />
+      <div v-if="canUpdate" class="tw:ml-auto tw:flex tw:items-center tw:gap-2">
+        <BaseButton variant="outline" size="sm" @click="pickerOpen = true">
+          <template #icon><IconLayoutBoard :size="14" /></template>
+          Start from a block
+        </BaseButton>
+        <BaseButton variant="outline" size="sm" @click="openFullBuilder">
+          <template #icon><IconArrowsMaximize :size="14" /></template>
+          Full builder
+        </BaseButton>
+      </div>
     </div>
     <p class="tw:text-xs tw:text-secondary">
       The form the assignee fills in to complete this step — what they did, found, or decided.
+      <template v-if="canUpdate">
+        Add and arrange fields right here; drag to reorder, click a field to configure it.
+      </template>
     </p>
 
-    <!-- Empty state -->
-    <div
-      v-if="!hasSchema"
-      class="tw:border tw:border-dashed tw:border-divider tw:rounded-xl tw:p-6 tw:flex tw:flex-col tw:items-center tw:gap-4 tw:text-center"
-    >
-      <IconForms :size="40" class="tw:text-secondary tw:opacity-40" />
-      <div>
-        <p class="tw:font-semibold tw:text-on-main tw:text-sm">No task form yet</p>
-        <p class="tw:text-xs tw:text-secondary tw:mt-1">
-          Start from scratch or copy fields from an existing form template.
-        </p>
-      </div>
-      <BaseButton variant="secondary" size="sm" :disabled="!canUpdate" @click="openCreate">
-        <template #icon>
-          <IconPlus :size="14" />
-        </template>
-        Create Task Form
-      </BaseButton>
-    </div>
+    <!-- Editable: the inline mini builder (canvas + Add field). -->
+    <MiniFormBuilder
+      v-if="canUpdate && step"
+      :key="`${stepId}:${builderSession}`"
+      :initialSchema="step.formSchema ?? []"
+      @update:schema="onSchemaChange"
+    />
 
-    <!-- Has schema -->
-    <div v-else class="tw:border tw:border-divider tw:rounded-xl tw:overflow-hidden">
-      <!-- Header row -->
-      <div class="tw:flex tw:items-center tw:gap-4 tw:p-4 tw:border-b tw:border-divider">
-        <div class="tw:flex-1 tw:flex tw:flex-col tw:gap-1 tw:min-w-0">
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <span
-              class="tw:inline-flex tw:items-center tw:px-2 tw:py-0.5 tw:rounded-full tw:text-xs tw:font-semibold tw:bg-primary/10 tw:text-primary"
-            >
-              {{ fieldCountLabel }}
-            </span>
-          </div>
-          <p v-if="previewFieldNames.length > 0" class="tw:text-xs tw:text-secondary tw:truncate">
-            {{ previewFieldNames.join(', ') }}{{ (step?.formSchema?.length ?? 0) > 3 ? ', …' : '' }}
-          </p>
-        </div>
-        <BaseButton variant="secondary" size="sm" :disabled="!canUpdate" @click="openEdit">
-          <template #icon>
-            <IconPencil :size="14" />
-          </template>
-          Edit Form
-        </BaseButton>
+    <!-- Read-only: plain preview of the form -->
+    <template v-else-if="step">
+      <div v-if="!hasSchema" class="tw:text-sm tw:text-secondary tw:italic">
+        No task form configured for this step.
       </div>
-
-      <!-- Form preview -->
-      <div class="tw:p-6 tw:bg-main-hover/30">
-        <BaseText variant="overline" class="tw:block tw:mb-4">Preview</BaseText>
+      <div v-else class="tw:border tw:border-divider tw:rounded-xl tw:p-6 tw:bg-main-hover/30">
         <DynamicForm :fields="step.formSchema" :modelValue="{}" readonly />
       </div>
-    </div>
+    </template>
   </div>
 
-  <!-- Card-style starting-point picker (Blank / QMS presets / saved templates) -->
+  <!-- Card-style starting-point picker (Blank / QMS presets / saved blocks).
+       A pick replaces the step's current form. -->
   <WorkflowTaskFormTemplatePicker v-model="pickerOpen" @select="handleTemplatePicked" />
 
+  <!-- Full builder — for heavy editing (AI assistant, preview, JSON, undo). -->
   <WorkflowStepFormBuilderPanel
     v-model="builderOpen"
-    :initialSchema="seedSchema ?? step?.formSchema ?? []"
+    :initialSchema="step?.formSchema ?? []"
     builderTitle="Task Form"
-    @save="handleSave"
+    @save="handleFullBuilderSave"
   />
 </template>

@@ -377,6 +377,24 @@ function workflowVersionLabel(v) {
   return v.versionLabel || `${v.versionMajor ?? 1}.${v.versionMinor ?? 0}`
 }
 
+// Workflow selection lives in the rail (same model as NC, 2026-08-12): the
+// default template is auto-picked at create; the owner can switch it here
+// while DRAFT. Changing it resets the per-step assignee plan — the old picks
+// are keyed by step ids that no longer apply.
+const selectedWorkflowVersionId = computed({
+  get: () => capa.value?.workflowVersionId ?? null,
+  set: async (versionId) => {
+    if (!capa.value || versionId === capa.value.workflowVersionId) return
+    capa.value.workflowVersionId = versionId
+    capa.value.pendingReviewers = {}
+    try {
+      await capa.value.save()
+    } catch (e) {
+      toast.error(e?.message || 'Failed to set workflow')
+    }
+  },
+})
+
 const editingTitle = ref(false)
 
 // Cross-module shortcut: spawn a Change Request seeded from this CAPA.
@@ -632,7 +650,72 @@ const capaDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 3. Schedule — due, verified, closed -->
+      <!-- 3. Workflow — below People (same placement as NC, 2026-08-12).
+           While DRAFT the owner picks / switches the workflow here (the
+           default template is auto-picked at create); once opened it shows
+           the running instance's status + links. -->
+      <BaseRailCard title="Workflow">
+        <template v-if="workflowInstance">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <BaseText v-if="workflow" variant="body" weight="medium">
+              {{ workflow.name }}
+            </BaseText>
+            <div>
+              <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
+            </div>
+            <RouterLink
+              class="tw:mt-2 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
+              :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
+            >
+              View workflow details →
+            </RouterLink>
+            <RouterLink
+              v-if="workflow && workflowVersion"
+              class="tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
+              :to="
+                getCompanyPath(
+                  `/workflow-templates/${workflow.id}?version=${encodeURIComponent(
+                    workflowVersionLabel(workflowVersion),
+                  )}`,
+                )
+              "
+            >
+              View workflow template →
+            </RouterLink>
+          </div>
+        </template>
+        <template v-else-if="capa.statusId === 'DRAFT' && isOwner">
+          <div class="tw:flex tw:flex-col tw:gap-1.5">
+            <WorkflowVersionSelect v-model="selectedWorkflowVersionId" moduleId="CAPA" dense />
+            <BaseCaption>
+              {{
+                capa.workflowVersionId
+                  ? 'You can switch workflows while in draft — step assignments reset on change.'
+                  : 'Pick the approval workflow this CAPA will follow when you click Open CAPA.'
+              }}
+            </BaseCaption>
+          </div>
+        </template>
+        <template v-else-if="capa.workflowVersionId">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <BaseText v-if="workflow" variant="body" weight="medium">
+              {{ workflow.name }}
+            </BaseText>
+            <BaseText color="secondary" class="tw:text-sm">
+              {{
+                capa.statusId === 'DRAFT'
+                  ? 'Starts when the owner opens the CAPA.'
+                  : 'Workflow assigned but not yet submitted.'
+              }}
+            </BaseText>
+          </div>
+        </template>
+        <BaseText v-else color="secondary" class="tw:text-sm tw:italic">
+          No workflow selected yet — the CAPA owner picks one before opening.
+        </BaseText>
+      </BaseRailCard>
+
+      <!-- 4. Schedule — due, verified, closed -->
       <BaseRailCard title="Schedule">
         <BaseDetailField label="Due">
           <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
@@ -657,7 +740,7 @@ const capaDetailConfig = computed(() =>
         />
       </BaseRailCard>
 
-      <!-- 4. Notify (cc) — groups/people emailed + in-app on status change -->
+      <!-- 5. Notify (cc) — groups/people emailed + in-app on status change -->
       <BaseRailCard title="Notify (cc)">
         <NotificationCcField
           v-model:groupIds="capa.notifyGroupIds"
@@ -667,34 +750,8 @@ const capaDetailConfig = computed(() =>
         />
       </BaseRailCard>
 
-      <!-- 5. Related — workflow template link -->
-      <BaseRailCard v-if="workflow && workflowVersion" title="Related">
-        <!-- Workflow template card -->
-        <RouterLink
-          :to="
-            getCompanyPath(
-              `/workflow-templates/${workflow.id}?version=${encodeURIComponent(
-                workflowVersionLabel(workflowVersion),
-              )}`,
-            )
-          "
-          class="tw:flex tw:flex-col tw:gap-2 tw:hover:text-primary tw:transition-colors"
-        >
-          <div class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider tw:font-semibold">
-            Workflow template
-          </div>
-          <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
-            <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-              {{ workflow.name }}
-            </span>
-            <span
-              class="tw:text-xs tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
-            >
-              v{{ workflowVersionLabel(workflowVersion) }}
-            </span>
-          </div>
-        </RouterLink>
-      </BaseRailCard>
+      <!-- (Workflow template link moved into the dedicated Workflow rail
+           card below People — 2026-08-12.) -->
     </template>
   </BaseDetailLayout>
 

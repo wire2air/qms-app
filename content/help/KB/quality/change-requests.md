@@ -1,12 +1,12 @@
 ---
 id: change-requests
-title: Change Requests
+title: Change Control
 sidebar_position: 3
-description: Plan, approve, implement, and verify controlled changes using Change Requests in Qability QMS.
-keywords: [change request, change control, approval workflow, implementation, effectiveness check]
+description: Plan, approve, implement, and verify controlled changes with Change Control in Qability QMS.
+keywords: [change control, change request, approval workflow, implementation, effectiveness check]
 ---
 
-# Change Requests
+# Change Control
 
 ## Overview
 
@@ -16,7 +16,7 @@ equipment swap, a supplier change, and so on. Instead of making changes ad hoc,
 you raise a CR, route it through an approval workflow, implement it as a set of
 tracked sub-tasks, and (optionally) verify that the change worked.
 
-You'll find Change Requests under **Quality Management**. The landing page shows
+You'll find **Change Control** under **Quality Management**. The landing page shows
 summary tiles (Open CRs, Awaiting approval, Urgent open, Closed this month), a
 filterable list, and a **New Change Request** button. A CR can also be raised
 directly from a Nonconformance or a CAPA, in which case its title, site, and
@@ -56,7 +56,7 @@ exact names you see may differ from the examples above.
 
 ## How to raise a Change Request
 
-1. Open **Change Requests** and click **New Change Request**.
+1. Open **Change Control** and click **New Change Request**.
 2. Enter a **Title** and, optionally, a **Description** explaining what is changing and why.
 3. Choose the **Change Type** (required) and, if relevant, a **Classification**.
 4. Set the **Priority** (required).

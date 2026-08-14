@@ -6,11 +6,12 @@ import {
   IconArchive,
   IconRestore,
   IconTrash,
-  IconChevronLeft,
   IconAlertCircle,
+  IconPencil,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { copyVersionSteps } from './workflowVersionCopy.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -136,6 +137,45 @@ const steps = useLiveQueryWithDeps(
 
   { models: ['WorkflowStep'], initial: [] },
 )
+
+// The selected step instance (pooled — mutations hit the same object the
+// editor autosaves) + in-place rename in the dialog header (user request
+// 2026-08-14; the Settings tab's duplicate name field is gone).
+const selectedStep = computed(
+  () => steps.value?.find((s) => s.id === selectedStepId.value) ?? null,
+)
+const selectedStepName = computed(() => selectedStep.value?.name ?? '')
+
+const editingStepName = ref(false)
+let stepNameBeforeEdit = ''
+
+function startStepRename() {
+  if (!canUpdate.value || !selectedStep.value) return
+  stepNameBeforeEdit = selectedStep.value.name
+  editingStepName.value = true
+}
+
+async function finishStepRename() {
+  if (!editingStepName.value) return
+  editingStepName.value = false
+  const step = selectedStep.value
+  if (!step) return
+  // A blank name would render unnamed cards everywhere — restore instead.
+  if (!step.name?.trim()) {
+    step.name = stepNameBeforeEdit
+    return
+  }
+  if (step.name === stepNameBeforeEdit) return
+  try {
+    await step.save()
+  } catch (e) {
+    toast.error(e?.message || 'Failed to rename step')
+  }
+}
+
+watch(selectedStepId, () => {
+  editingStepName.value = false
+})
 
 watch(
   versions,
@@ -355,69 +395,9 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
   })
   await newVersion.save()
 
-  const sourceSteps = await db.WorkflowStep.where('workflowVersionId', sourceVersion?.id).exec()
-
-  // First pass: create all new steps and build old→new id map
-  const idMap = {}
-  const stepPairs = []
-
-  for (const step of sourceSteps) {
-    const newStep = db.WorkflowStep.create({
-      workflowVersionId: newVersion.id,
-      name: step.name,
-      description: step.description,
-      stepOrder: step.stepOrder,
-      // stepType was silently dropped here before the DELAY feature —
-      // APPROVAL/DELAY steps reverted to ACTION on every version bump.
-      stepType: step.stepType ?? 'ACTION',
-      approvalRule: step.approvalRule,
-      slaDays: step.slaDays,
-      delayDays: step.delayDays ?? null,
-      delayUntilDate: step.delayUntilDate ?? null,
-      maxDelayExtensions: step.maxDelayExtensions ?? null,
-      requireComments: step.requireComments,
-      requireEsignature: step.requireEsignature,
-      allowChildSteps: step.allowChildSteps ?? false,
-      formSchema: JSON.parse(JSON.stringify(step.formSchema ?? [])),
-    })
-    await newStep.save()
-    idMap[step.id] = newStep.id
-    stepPairs.push({ oldStep: step, newStep })
-
-    const users = await db.WorkflowStepUser.where('stepId', step.id).exec()
-    for (const su of users) {
-      const newSu = db.WorkflowStepUser.create({ stepId: newStep.id, userId: su.userId })
-      await newSu.save()
-    }
-
-    const roles = await db.WorkflowStepRole.where('stepId', step.id).exec()
-    for (const sr of roles) {
-      const newSr = db.WorkflowStepRole.create({ stepId: newStep.id, roleId: sr.roleId })
-      await newSr.save()
-    }
-
-    const outcomes = await db.AllowedOutcomeOnStep.where('stepId', step.id).exec()
-    for (const o of outcomes) {
-      const newO = db.AllowedOutcomeOnStep.create({
-        stepId: newStep.id,
-        outcomeId: o.outcomeId,
-      })
-      await newO.save()
-    }
-  }
-
-  // Second pass: remap parentStepId and clone send-back targets through the idMap
-  for (const { oldStep, newStep } of stepPairs) {
-    if (oldStep.parentStepId && idMap[oldStep.parentStepId]) {
-      newStep.parentStepId = idMap[oldStep.parentStepId]
-      await newStep.save()
-    }
-
-    // StepSendBackTarget rows are no longer carried forward — the engine
-    // computes send-back targets at runtime (parent step → entity owner;
-    // child task → parent step's assignee). Any legacy rows on the source
-    // version stay dead in place; the new version doesn't reference them.
-  }
+  // Steps + per-step users/roles/outcomes + parent remap — shared with the
+  // template list's Clone action (workflowVersionCopy.js).
+  await copyVersionSteps(db, sourceVersion?.id, newVersion.id)
 
   return newVersion
 })
@@ -453,8 +433,11 @@ useAutoSave(selectedVersion, { debounce: 1000 })
 useAutoSave(workflow, { debounce: 1000 })
 
 watch(steps, () => {
+  // Selection IS the settings dialog (its modelValue = !!selectedStepId), so never
+  // auto-select — falling back to the first step popped the dialog the moment a
+  // template was opened. A stale id (deleted step) simply clears.
   if (!steps.value.some((s) => s.id === selectedStepId.value)) {
-    selectedStepId.value = steps.value[0]?.id ?? null
+    selectedStepId.value = null
   }
 })
 </script>
@@ -599,82 +582,103 @@ watch(steps, () => {
         </span>
       </div>
 
-      <!-- Global Settings — one compact row: name + description side by side
-           so the strip doesn't eat vertical space the designer needs. -->
-      <div
-        class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_2fr] tw:gap-4 tw:bg-main tw:border-b tw:border-divider tw:px-6 tw:py-3"
-      >
-        <BaseField v-slot="{ id: fieldId }" label="Workflow Name">
-          <BaseTextInput
-            :id="fieldId"
-            v-model="workflow.name"
-            name="name"
-            placeholder="e.g. Global SOP Multi-Stage Workflow"
-            :disabled="!canUpdate"
-          />
-        </BaseField>
+      <!-- Global Settings — name and description stacked on their own rows,
+           aligned to the same centered column as the workflow canvas below
+           (user request 2026-08-13). -->
+      <div class="tw:bg-main tw:border-b tw:border-divider tw:py-4">
+        <div
+          class="tw:w-full tw:max-w-3xl tw:mx-auto tw:px-4 tw:md:px-8 tw:flex tw:flex-col tw:gap-4"
+        >
+          <BaseField v-slot="{ id: fieldId }" label="Workflow Name">
+            <BaseTextInput
+              :id="fieldId"
+              v-model="workflow.name"
+              name="name"
+              placeholder="e.g. Global SOP Multi-Stage Workflow"
+              :disabled="!canUpdate"
+            />
+          </BaseField>
 
-        <BaseTextarea
-          v-model="workflow.description"
-          name="description"
-          label="Description"
-          placeholder="Describe the purpose of this workflow"
-          :disabled="!canUpdate"
-          autosize
-          :maxRows="2"
-        />
+          <BaseTextarea
+            v-model="workflow.description"
+            name="description"
+            label="Description"
+            placeholder="Describe the purpose of this workflow"
+            :disabled="!canUpdate"
+            autosize
+            :maxRows="2"
+          />
+        </div>
       </div>
 
-      <!-- Two-Pane Designer -->
-      <div v-if="selectedVersion" class="tw:flex tw:flex-1 tw:overflow-hidden">
-        <!-- Left Pane: Step List — full-width on mobile; collapses once a step is
-             open (below lg) so the editor gets the screen. Back button restores. -->
+      <!-- Workflow canvas — steps only, rendered as a top-to-bottom flow.
+           Clicking a step opens its configuration in a dialog (redesign
+           2026-08-13; was a two-pane list + inline editor). -->
+      <div v-if="selectedVersion" class="tw:flex-1 tw:overflow-y-auto tw:bg-main">
         <WorkflowStepList
           v-model:stepId="selectedStepId"
           :versionId="selectedVersionId"
           :canUpdate="canUpdate"
           :showChildSteps="showChildSteps"
-          :class="selectedStepId && 'tw:max-lg:hidden'"
         />
-
-        <!-- Right Pane: Step Editor — hidden on mobile until a step is selected. -->
-        <div
-          class="tw:flex tw:flex-1 tw:flex-col tw:overflow-y-auto tw:bg-main tw:p-4 tw:md:p-8"
-          :class="!selectedStepId && 'tw:max-lg:hidden'"
-        >
-          <!-- Left-aligned next to the step list (was mx-auto centered, which
-               left a dead gap between the list and the editor). -->
-          <div v-if="selectedStepId" class="tw:w-full tw:max-w-5xl tw:space-y-8">
-            <!-- Mobile-only: return to the step list -->
-            <button
-              type="button"
-              class="tw:lg:hidden tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:font-medium tw:text-secondary tw:hover:text-on-main"
-              @click="selectedStepId = null"
-            >
-              <IconChevronLeft :size="16" /> Steps
-            </button>
-            <WorkflowStepEditor
-              :stepId="selectedStepId"
-              :canUpdate="canUpdate"
-              :showAllowedOutcomes="showAllowedOutcomes"
-              :showFormSchema="showFormSchema"
-              :showAllowChildSteps="showAllowChildSteps"
-              :stepApproversTab="stepApproversTab"
-              :selectedApprovalRule="selectedApprovalRule"
-            />
-          </div>
-
-          <div
-            v-else
-            class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full tw:gap-4 tw:text-secondary"
-          >
-            <IconCheck :size="48" class="tw:opacity-30" />
-            <p class="tw:text-sm tw:font-medium">
-              Select a step from the left panel or use the 'Add Step' button to get started.
-            </p>
-          </div>
-        </div>
       </div>
+
+      <!-- Step configuration dialog — autosaves as you edit; Done just closes.
+           persistent (+ explicit X): the form builder renders inside this
+           dialog's portal tree, so a stray Escape/backdrop click would close
+           the dialog and unmount the builder mid-edit. -->
+      <BaseDialog
+        :modelValue="!!selectedStepId"
+        :title="selectedStepName || 'Step Configuration'"
+        size="5xl"
+        persistent
+        showClose
+        @update:modelValue="(v) => !v && (selectedStepId = null)"
+      >
+        <!-- In-place editable step name (user request 2026-08-14) — click the
+             title (or its pencil) to rename; Enter/blur saves, blank restores. -->
+        <template #title>
+          <BaseTextInput
+            v-if="editingStepName && selectedStep"
+            v-model="selectedStep.name"
+            size="sm"
+            class="tw:w-80 tw:max-w-full"
+            placeholder="Step name"
+            autofocus
+            @keyup.enter="finishStepRename"
+            @blur="finishStepRename"
+          />
+          <button
+            v-else
+            type="button"
+            class="tw:group tw:inline-flex tw:items-center tw:gap-2 tw:min-w-0 tw:max-w-full tw:text-left"
+            :class="canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default'"
+            :aria-label="canUpdate ? 'Rename step' : undefined"
+            :disabled="!canUpdate"
+            @click="startStepRename"
+          >
+            <span class="tw:truncate">{{ selectedStepName || 'Step Configuration' }}</span>
+            <IconPencil
+              v-if="canUpdate"
+              :size="15"
+              class="tw:shrink-0 tw:text-secondary tw:opacity-0 tw:group-hover:opacity-100 tw:group-focus-visible:opacity-100 tw:transition-opacity"
+            />
+          </button>
+        </template>
+        <WorkflowStepEditor
+          v-if="selectedStepId"
+          :stepId="selectedStepId"
+          :canUpdate="canUpdate"
+          :showAllowedOutcomes="showAllowedOutcomes"
+          :showFormSchema="showFormSchema"
+          :showAllowChildSteps="showAllowChildSteps"
+          :stepApproversTab="stepApproversTab"
+          :selectedApprovalRule="selectedApprovalRule"
+        />
+        <template #footer="{ close }">
+          <BaseButton variant="primary" @click="close">Done</BaseButton>
+        </template>
+      </BaseDialog>
     </template>
 
     <!-- Publish readiness — checklist confirm instead of blind publish -->

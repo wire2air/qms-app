@@ -290,7 +290,7 @@ function goBack() {
       <template #title>
         <BaseBreadcrumbs
           :items="[
-            { label: 'Change Requests', to: getCompanyPath('/change-requests') },
+            { label: 'Change Control', to: getCompanyPath('/change-requests') },
             { label: 'New Change Request' },
           ]"
         />

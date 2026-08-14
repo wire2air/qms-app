@@ -264,19 +264,21 @@ defineExpose({
 </script>
 
 <template>
-  <!-- Main Container -->
+  <!-- Main Container — compact layout (user request 2026-08-14): slim label
+       row + a one-line dropzone strip instead of the old header bar + tall
+       centered dropzone (~6rem empty, was ~14rem). -->
   <div
     class="tw:w-full tw:bg-sidebar tw:shadow-sm tw:border tw:border-divider tw:rounded-xl tw:overflow-hidden"
   >
-    <!-- Header -->
+    <!-- Header — slim single row -->
     <div
       v-if="!hideHeader"
-      class="tw:bg-main-hover tw:px-5 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between"
+      class="tw:px-3 tw:py-1.5 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:gap-2"
     >
-      <BaseText as="h3" variant="overline" color="inherit" class="tw:text-on-sidebar">
+      <BaseText as="h3" variant="overline" color="inherit" class="tw:text-on-sidebar tw:truncate">
         {{ label }} <span v-if="required" class="tw:text-bad">*</span>
       </BaseText>
-      <div class="tw:flex tw:items-center tw:gap-2">
+      <div class="tw:flex tw:items-center tw:gap-1.5 tw:shrink-0">
         <span
           v-if="uploadedFiles?.length > 0"
           class="tw:text-micro tw:font-medium tw:bg-good/10 tw:text-good tw:px-2 tw:py-0.5 tw:rounded-full"
@@ -293,15 +295,12 @@ defineExpose({
     </div>
 
     <div v-if="readonly && uploadedFiles?.length === 0">
-      <div class="tw:p-5 tw:text-center tw:text-secondary tw:bg-primary/5 tw:rounded-2xl">
-        No files to display.
-      </div>
+      <div class="tw:p-3 tw:text-center tw:text-sm tw:text-secondary">No files to display.</div>
     </div>
 
     <!-- Already-uploaded files (from v-model) — rendered above the dropzone
          so users see what's already attached before they add more. -->
-    <div v-if="uploadedFiles?.length > 0" class="tw:px-5 tw:pt-5 tw:pb-3 tw:space-y-2">
-      <BaseText as="div" variant="overline" class="tw:mb-2">Uploaded Files</BaseText>
+    <div v-if="uploadedFiles?.length > 0" class="tw:px-3 tw:pt-2.5 tw:pb-1.5 tw:space-y-1.5">
       <BaseFileItem
         v-for="asset in uploadedFiles"
         :key="asset.id"
@@ -315,10 +314,10 @@ defineExpose({
       />
     </div>
 
-    <!-- Compact Dropzone -->
-    <div v-if="!readonly" class="tw:p-5">
+    <!-- Dropzone — one slim strip, not a tall centered box -->
+    <div v-if="!readonly" class="tw:p-3">
       <div
-        class="group tw:relative tw:flex tw:flex-col tw:items-center tw:justify-center tw:w-full tw:h-32 tw:border-2 tw:border-dashed tw:rounded-lg tw:transition-all tw:cursor-pointer"
+        class="group tw:relative tw:flex tw:items-center tw:gap-2.5 tw:w-full tw:px-3 tw:py-2.5 tw:border-2 tw:border-dashed tw:rounded-lg tw:transition-all tw:cursor-pointer"
         :class="{
           'tw:border-divider tw:bg-primary/5 tw:hover:border-primary/50 tw:hover:bg-primary/5':
             !isDragging,
@@ -342,20 +341,17 @@ defineExpose({
           @change="handleFileSelect"
         />
 
-        <div class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:pt-2 tw:pb-3">
-          <IconCloudUpload
-            :size="32"
-            class="tw:text-primary tw:mb-2 tw:opacity-80 tw:group-hover:scale-110 tw:transition-transform"
-          />
-          <p class="tw:mb-1 tw:text-sm tw:text-on-main tw:font-medium">
-            Drop files here or
-            <span class="tw:text-primary tw:hover:underline">browse</span>
-          </p>
-          <p class="tw:text-caption tw:text-secondary">
-            {{ acceptLabel }}
-            (Max. {{ formattedMaxSize }})
-          </p>
-        </div>
+        <IconCloudUpload
+          :size="20"
+          class="tw:text-primary tw:shrink-0 tw:opacity-80 tw:group-hover:scale-110 tw:transition-transform"
+        />
+        <p class="tw:text-sm tw:text-on-main tw:font-medium tw:whitespace-nowrap">
+          Drop files here or
+          <span class="tw:text-primary tw:hover:underline">browse</span>
+        </p>
+        <p class="tw:ml-auto tw:text-caption tw:text-secondary tw:truncate tw:text-right">
+          {{ acceptLabel }} · Max. {{ formattedMaxSize }}
+        </p>
       </div>
     </div>
 
@@ -363,9 +359,8 @@ defineExpose({
          since they're its transient queue. -->
     <div
       v-if="files?.length > 0"
-      class="tw:space-y-3 tw:max-h-96 tw:overflow-y-auto tw:px-5 tw:pb-5"
+      class="tw:space-y-1.5 tw:max-h-96 tw:overflow-y-auto tw:px-3 tw:pb-3"
     >
-      <BaseText as="div" variant="overline" class="tw:mb-2">Pending Files</BaseText>
       <BaseFileItem
         v-for="(fileObj, index) in files"
         :key="index"
@@ -382,10 +377,11 @@ defineExpose({
     <!-- Footer Action -->
     <div
       v-if="files?.length > 0"
-      class="tw:px-5 tw:py-3 tw:bg-primary/5 tw:border-t tw:border-divider tw:flex tw:justify-end tw:gap-2"
+      class="tw:px-3 tw:py-2 tw:bg-primary/5 tw:border-t tw:border-divider tw:flex tw:justify-end tw:gap-2"
     >
       <BaseButton
         variant="secondary"
+        size="sm"
         :disabled="files.some((f) => f.status === 'uploading')"
         @click="handleCancel"
       >
@@ -393,6 +389,7 @@ defineExpose({
       </BaseButton>
       <BaseButton
         variant="primary"
+        size="sm"
         :disabled="files?.length === 0 || files.some((f) => f.status === 'uploading')"
         @click="uploadAllFiles"
       >

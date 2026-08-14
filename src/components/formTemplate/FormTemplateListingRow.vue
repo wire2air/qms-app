@@ -1,5 +1,5 @@
 <script setup>
-import { IconHistory, IconClock, IconEdit, IconBrush, IconEye, IconArchive } from '@tabler/icons-vue'
+import { IconHistory, IconClock, IconEdit, IconBrush, IconEye, IconArchive, IconCopy } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -11,9 +11,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  canClone: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['navigate', 'preview', 'archive'])
+const emit = defineEmits(['navigate', 'preview', 'archive', 'clone'])
 
 const router = useRouter()
 
@@ -38,6 +42,9 @@ function menuItems() {
     items.push({ name: 'View', icon: IconEye, click: () => navigateToTemplate() })
   }
   items.push({ name: 'Preview', icon: IconEye, click: () => emit('preview', props.template) })
+  if (props.canClone) {
+    items.push({ name: 'Clone', icon: IconCopy, click: () => emit('clone', props.template) })
+  }
   // Archive-only lifecycle: templates are never deleted (archived rows are the
   // version history; existing records keep referencing them by id).
   if (props.canUpdate) {

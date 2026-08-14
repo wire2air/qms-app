@@ -1,5 +1,5 @@
 <script setup>
-import { IconEye, IconEdit, IconBrush, IconArchive, IconShare } from '@tabler/icons-vue'
+import { IconEye, IconEdit, IconBrush, IconArchive, IconShare, IconCopy } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -11,9 +11,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  canClone: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['archive'])
+const emit = defineEmits(['archive', 'clone'])
 
 const router = useRouter()
 
@@ -83,6 +87,9 @@ function rowMenuItems(row) {
   // Every template is shareable: module → internal create link; plain form →
   // public anonymous fill link. The dialog picks the right one.
   items.push({ name: 'Share link', icon: IconShare, click: () => openShare(row) })
+  if (props.canClone) {
+    items.push({ name: 'Clone', icon: IconCopy, click: () => emit('clone', row) })
+  }
   // Archive-only lifecycle: templates are never deleted (archived rows are the
   // version history; existing records keep referencing them by id).
   if (props.canUpdate) {

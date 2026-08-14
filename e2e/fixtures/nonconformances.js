@@ -45,6 +45,10 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
   // Screen 2 — the NC details form.
   await page.getByPlaceholder('Describe the nonconformance…').fill(title)
 
+  // Description — REQUIRED (2026-08-14). First rich-text editor in the
+  // section; an empty editor emits '<p></p>' and fails validation.
+  await page.locator('.create-nc-editor [contenteditable="true"]').nth(0).fill('E2E description: nonconformance details.')
+
   // Immediate containment action — REQUIRED, lives in Basic information
   // (2026-08-10). Second rich-text editor in the section (first is
   // Description); an empty editor emits '<p></p>' and fails validation.

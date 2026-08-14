@@ -40,7 +40,7 @@ watch(
 const loading = computed(() => cr.value === undefined)
 
 const breadcrumbs = computed(() => [
-  { label: 'Change Requests', to: getCompanyPath('/change-requests') },
+  { label: 'Change Control', to: getCompanyPath('/change-requests') },
   { label: cr.value?.crNumber || cr.value?.title || 'Loading…' },
 ])
 

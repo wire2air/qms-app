@@ -60,6 +60,12 @@ export const TOOLTIPS = [
     tooltip:
       'Controls whether this site can be chosen when assigning someone a primary or additional site. Turning it off does NOT remove anyone or hide the site: existing assignments are kept so a location being wound down does not silently revoke access mid-closeout, and the site still appears in filters and on existing records. It only stops appearing as an option for new assignments.',
   },
+  {
+    key: 'workflow.scheduleTask',
+    label: 'Schedule Task',
+    tooltip:
+      'A follow-up task that activates on a schedule instead of immediately: the step waits a set number of days (or until a date) after the previous step completes, then assigns its task. Example — an Effectiveness check that fires 90 days later to verify a corrective action actually worked. The record owner can adjust or skip the schedule on each record.',
+  },
 ]
 
 export default TOOLTIPS

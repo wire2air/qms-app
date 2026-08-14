@@ -69,7 +69,7 @@ export const ROUTE_META = {
     parent: '/customer-complaints',
   },
   '/change-requests': {
-    title: 'Change Requests',
+    title: 'Change Control',
     icon: IconReplace,
     permission: 'change_control:read',
   },

@@ -217,7 +217,9 @@ const navSections = computed(() => [
     label: 'Basic',
     icon: IconInfoCircle,
     status:
-      form.value.title && richTextFilled(form.value.immediateContainmentAction)
+      form.value.title &&
+      richTextFilled(form.value.description) &&
+      richTextFilled(form.value.immediateContainmentAction)
         ? 'complete'
         : null,
   },
@@ -479,7 +481,15 @@ async function handleReviewersConfirmed(reviewers) {
                 />
               </template>
             </BaseField>
-            <BaseField label="Description">
+            <!-- Description — REQUIRED (user decision 2026-08-14). Rich text:
+                 the rule strips markup, an empty editor still emits '<p></p>'. -->
+            <BaseField
+              id="nc-description"
+              label="Description"
+              required
+              :value="form.description"
+              :rules="[(v) => richTextFilled(v) || 'Description is required.']"
+            >
               <div class="create-nc-editor">
                 <BaseRichTextEditor
                   v-model="form.description"

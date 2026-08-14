@@ -826,76 +826,6 @@ const ncDetailConfig = computed(() =>
 
     <!-- Right column — stays here until Task 4 moves it into the BaseDetailLayout rail -->
     <template v-if="nc" #rail>
-      <!-- 0. Workflow — first card by design (user decision 2026-08-10).
-           While DRAFT the owner picks / switches the workflow here (the old
-           in-body selection card is gone); once opened it shows the running
-           instance's status + links. -->
-      <BaseRailCard title="Workflow">
-        <template v-if="workflowInstance">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <BaseText v-if="workflowTemplate" variant="body" weight="medium">
-              {{ workflowTemplate.name }}
-            </BaseText>
-            <div>
-              <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
-            </div>
-            <RouterLink
-              class="tw:mt-2 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-              :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
-            >
-              View workflow details →
-            </RouterLink>
-            <RouterLink
-              v-if="workflowVersion?.workflowId"
-              class="tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-              :to="
-                getCompanyPath(
-                  `/workflow-templates/${workflowVersion.workflowId}?version=${encodeURIComponent(
-                    workflowVersion.versionLabel ||
-                      `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`,
-                  )}`,
-                )
-              "
-            >
-              View workflow template →
-            </RouterLink>
-          </div>
-        </template>
-        <template v-else-if="nc.statusId === 'DRAFT' && isOwner">
-          <div class="tw:flex tw:flex-col tw:gap-1.5">
-            <WorkflowVersionSelect
-              v-model="selectedWorkflowVersionId"
-              moduleId="NON_CONFORMANCE"
-              dense
-            />
-            <BaseCaption>
-              {{
-                nc.workflowVersionId
-                  ? 'You can switch workflows while in draft — step assignments reset on change.'
-                  : 'Pick the approval workflow this NC will follow when you click Open NC.'
-              }}
-            </BaseCaption>
-          </div>
-        </template>
-        <template v-else-if="nc.workflowVersionId">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <BaseText v-if="workflowTemplate" variant="body" weight="medium">
-              {{ workflowTemplate.name }}
-            </BaseText>
-            <BaseText color="secondary" class="tw:text-sm">
-              {{
-                nc.statusId === 'DRAFT'
-                  ? 'Starts when the owner opens the NC.'
-                  : 'Workflow assigned but not yet submitted.'
-              }}
-            </BaseText>
-          </div>
-        </template>
-        <BaseText v-else color="secondary" class="tw:text-sm tw:italic">
-          No workflow selected yet — the NC owner picks one before opening.
-        </BaseText>
-      </BaseRailCard>
-
       <!-- 1. General — NC number, status, severity, type, source, priority, issue type, detected.
            Responsive grid: pairs up two-per-row when the rail is wide enough,
            collapses to one-per-row when narrow. -->
@@ -1027,7 +957,77 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 3. Schedule — due date -->
+      <!-- 3. Workflow — below People (user decision 2026-08-12).
+           While DRAFT the owner picks / switches the workflow here (the old
+           in-body selection card is gone); once opened it shows the running
+           instance's status + links. -->
+      <BaseRailCard title="Workflow">
+        <template v-if="workflowInstance">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <BaseText v-if="workflowTemplate" variant="body" weight="medium">
+              {{ workflowTemplate.name }}
+            </BaseText>
+            <div>
+              <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
+            </div>
+            <RouterLink
+              class="tw:mt-2 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
+              :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
+            >
+              View workflow details →
+            </RouterLink>
+            <RouterLink
+              v-if="workflowVersion?.workflowId"
+              class="tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
+              :to="
+                getCompanyPath(
+                  `/workflow-templates/${workflowVersion.workflowId}?version=${encodeURIComponent(
+                    workflowVersion.versionLabel ||
+                      `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`,
+                  )}`,
+                )
+              "
+            >
+              View workflow template →
+            </RouterLink>
+          </div>
+        </template>
+        <template v-else-if="nc.statusId === 'DRAFT' && isOwner">
+          <div class="tw:flex tw:flex-col tw:gap-1.5">
+            <WorkflowVersionSelect
+              v-model="selectedWorkflowVersionId"
+              moduleId="NON_CONFORMANCE"
+              dense
+            />
+            <BaseCaption>
+              {{
+                nc.workflowVersionId
+                  ? 'You can switch workflows while in draft — step assignments reset on change.'
+                  : 'Pick the approval workflow this NC will follow when you click Open NC.'
+              }}
+            </BaseCaption>
+          </div>
+        </template>
+        <template v-else-if="nc.workflowVersionId">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <BaseText v-if="workflowTemplate" variant="body" weight="medium">
+              {{ workflowTemplate.name }}
+            </BaseText>
+            <BaseText color="secondary" class="tw:text-sm">
+              {{
+                nc.statusId === 'DRAFT'
+                  ? 'Starts when the owner opens the NC.'
+                  : 'Workflow assigned but not yet submitted.'
+              }}
+            </BaseText>
+          </div>
+        </template>
+        <BaseText v-else color="secondary" class="tw:text-sm tw:italic">
+          No workflow selected yet — the NC owner picks one before opening.
+        </BaseText>
+      </BaseRailCard>
+
+      <!-- 4. Schedule — due date -->
       <BaseRailCard title="Schedule">
         <BaseDetailField label="Due date">
           <BaseDateField
@@ -1052,7 +1052,7 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 4. Notify (cc) — groups/people emailed + in-app on status change -->
+      <!-- 5. Notify (cc) — groups/people emailed + in-app on status change -->
       <BaseRailCard title="Notify (cc)">
         <NotificationCcField
           v-model:groupIds="nc.notifyGroupIds"
@@ -1062,7 +1062,7 @@ const ncDetailConfig = computed(() =>
         />
       </BaseRailCard>
 
-      <!-- 5. Product impact — supplier, supplier-facing + Convert path, product, qty+UOM, PO/Order/Lot.
+      <!-- 6. Product impact — supplier, supplier-facing + Convert path, product, qty+UOM, PO/Order/Lot.
                Collapsed by default; editable rows always render so a missing value can be ADDED;
                read-only mode keeps hiding empties. -->
       <BaseRailCard
@@ -1152,7 +1152,7 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 6. Related — CAPA state, linked complaints, workflow info card, shared-with panel -->
+      <!-- 7. Related — CAPA state, linked complaints, workflow info card, shared-with panel -->
       <BaseRailCard title="Related">
         <BaseDetailField label="CAPA">
           <BaseText
@@ -1175,7 +1175,7 @@ const ncDetailConfig = computed(() =>
         <NcLinkedComplaintsPanel :ncId="id" />
 
         <!-- (NC workflow panel moved to the dedicated Workflow rail card
-             at the top of the rail — 2026-08-10.) -->
+             below People — 2026-08-10.) -->
 
         <!-- External access — read-only panel populated by workflow-
              step assignment (autoShareSupplierUsers). Product decision

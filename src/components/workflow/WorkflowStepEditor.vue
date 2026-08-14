@@ -2,11 +2,13 @@
 import { useDebounceFn } from '@vueuse/core'
 import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 import {
-  IconNote,
   IconUsers,
   IconInfoCircle,
   IconAlertCircle,
+  IconHelpCircle,
   IconListCheck,
+  IconRubberStamp,
+  IconClockPause,
   IconCornerLeftUp,
   IconEdit,
 } from '@tabler/icons-vue'
@@ -34,6 +36,58 @@ const props = defineProps({
 // switches disabled so they can't be toggled into a misleading inert state.
 // Flip to true when steps 3–6 of the Adobe Sign integration land.
 const ADOBE_ESIGN_READY = false
+
+// Step type is IMMUTABLE once the step exists (user decision 2026-08-13) —
+// it's chosen in the Add-Step wizard and shown read-only here. "Schedule
+// Task" is the user-facing name for the DELAY type (DB value stays DELAY).
+const STEP_TYPE_META = {
+  ACTION: {
+    label: 'Task',
+    icon: IconListCheck,
+    blurb: 'A work step — the assignee fills in the task form and marks it complete.',
+  },
+  APPROVAL: {
+    label: 'Approval',
+    icon: IconRubberStamp,
+    blurb: 'A gate step — approvers review and sign off. Comment-only, no form.',
+  },
+  DELAY: {
+    label: 'Schedule Task',
+    icon: IconClockPause,
+    blurb: 'A follow-up task that activates later — e.g. an Effectiveness check.',
+  },
+}
+const typeMeta = computed(() => STEP_TYPE_META[step.value?.stepType] ?? STEP_TYPE_META.ACTION)
+
+// Help dialog: what each step type is for, with a usage example. Opened from
+// the read-only type row's help icon (tooltip → click).
+const showTypeHelp = ref(false)
+const STEP_TYPE_HELP = [
+  {
+    label: 'Task',
+    icon: IconListCheck,
+    purpose:
+      'A work step. The assignee fills in a task form (evidence, findings, decisions) and marks it complete to advance the workflow. Task steps can allow sub-tasks so the owner can fan work out at runtime.',
+    example:
+      'Example: "Root Cause Analysis" — the quality engineer completes a 5-Why form and marks the step complete.',
+  },
+  {
+    label: 'Approval',
+    icon: IconRubberStamp,
+    purpose:
+      'A gate step. Approvers review the record and approve or reject — comment-only, no form. Use the ALL/ANY rule to require every approver or just the first one, and require an e-signature for regulated sign-offs.',
+    example:
+      'Example: "QA Approval" — the Quality Manager reviews and signs off with a CFR 21 Part 11 e-signature.',
+  },
+  {
+    label: 'Schedule Task',
+    icon: IconClockPause,
+    purpose:
+      'A follow-up task that activates on a schedule instead of immediately: the step waits a set number of days (or until a date) after the previous step completes, then assigns its task. The record owner can reschedule or skip it on each record.',
+    example:
+      'Example: "Effectiveness Check" — fires 90 days after the corrective action closes to verify the fix actually worked.',
+  },
+]
 
 const step = useLiveQueryWithDeps(
   [() => props.stepId],
@@ -96,9 +150,10 @@ const showRolesInline = computed(() => props.stepApproversTab !== 'users')
 const showUsersInline = computed(() => props.stepApproversTab !== 'roles')
 
 // ─── Editor tabs — progressive disclosure instead of one long scroll ─────────
-// Setup (type/name/behavior/compliance) · Task Form (the form the assignee
-// fills in — hidden for APPROVAL steps and modules without step forms) ·
-// Assignees. Badges surface field/assignee counts without opening the tab.
+// Task Form FIRST (the form is the step's substance — user decision
+// 2026-08-14; hidden for APPROVAL steps and modules without step forms) ·
+// Settings (type/name/behavior/compliance) · Assignees. Badges surface
+// field/assignee counts without opening the tab.
 const activeTab = ref('setup')
 
 const showTaskFormTab = computed(
@@ -113,7 +168,7 @@ const missingTaskForm = computed(
 )
 
 const editorTabs = computed(() => {
-  const tabs = [{ value: 'setup', label: 'Setup' }]
+  const tabs = []
   if (showTaskFormTab.value) {
     const count = step.value?.formSchema?.length ?? 0
     tabs.push({
@@ -122,6 +177,7 @@ const editorTabs = computed(() => {
       ...(count ? { badge: String(count) } : { indicator: true }),
     })
   }
+  tabs.push({ value: 'setup', label: 'Settings' })
   const assigneeCount = roleIds.value.length + reviewerIds.value.length
   tabs.push({
     value: 'assignees',
@@ -131,17 +187,16 @@ const editorTabs = computed(() => {
   return tabs
 })
 
-// Selecting a different step starts back at Setup; if the current tab
-// disappears (e.g. type flipped to APPROVAL while on Task Form), snap back.
+// Land on the first tab: Task Form when the step has one, else Settings.
+// The step loads async (type unknown at mount), so react to the resolve too;
+// the type is immutable after creation, so this never fires mid-edit.
 watch(
-  () => props.stepId,
+  [() => props.stepId, showTaskFormTab],
   () => {
-    activeTab.value = 'setup'
+    activeTab.value = showTaskFormTab.value ? 'form' : 'setup'
   },
+  { immediate: true },
 )
-watch(showTaskFormTab, (show) => {
-  if (!show && activeTab.value === 'form') activeTab.value = 'setup'
-})
 
 // ─── Allowed Outcomes ─────────────────────────────────────────────────────────
 
@@ -185,11 +240,6 @@ watch(
 
 <template>
   <div v-if="step" class="tw:space-y-5">
-    <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
-      <IconNote :size="22" />
-      <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Step Configuration: {{ step.name }}</h2>
-    </div>
-
     <!-- Progressive disclosure: Setup / Task Form / Assignees. v-show (not
          v-if) so the autosave watchers and form-builder state survive tab
          switches. -->
@@ -206,107 +256,45 @@ watch(
            Sectioned cards replace the old two-column split: each concern gets
            one clearly-labelled card so the page reads top-to-bottom. -->
       <div class="tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
-          <!-- Step Type — gates which downstream controls render -->
+          <!-- Step Type — read-only once created (chosen in the Add-Step
+               wizard). The help icon opens the step-types guide. -->
           <BaseField label="Step Type">
-            <div class="tw:grid tw:grid-cols-3 tw:gap-3">
-              <label
-                class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
-                :class="
-                  step.stepType === 'ACTION'
-                    ? 'tw:border-primary tw:bg-primary/5 tw:ring-1 tw:ring-primary/20'
-                    : 'tw:border-divider tw:hover:bg-main-hover'
-                "
-              >
-                <input
-                  v-model="step.stepType"
-                  type="radio"
-                  value="ACTION"
-                  class="tw:sr-only"
-                  :disabled="!canUpdate"
-                />
-                <span
-                  class="tw:text-xs tw:font-bold tw:mb-1"
-                  :class="step.stepType === 'ACTION' ? 'tw:text-primary' : 'tw:text-on-main'"
-                >
-                  ACTION
+            <div
+              class="tw:flex tw:items-center tw:gap-3 tw:rounded-xl tw:border tw:border-divider tw:bg-main-hover/40 tw:px-4 tw:py-3"
+            >
+              <component :is="typeMeta.icon" :size="22" class="tw:text-primary tw:shrink-0" />
+              <div class="tw:min-w-0 tw:flex-1">
+                <span class="tw:text-sm tw:font-bold tw:text-on-main tw:block">
+                  {{ typeMeta.label }}
                 </span>
                 <span class="tw:text-micro tw:leading-tight tw:text-secondary">
-                  Work step. Form fields, optional sub-tasks. Assignee clicks Mark Complete.
+                  {{ typeMeta.blurb }}
                 </span>
-              </label>
-              <label
-                class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
-                :class="
-                  step.stepType === 'APPROVAL'
-                    ? 'tw:border-primary tw:bg-primary/5 tw:ring-1 tw:ring-primary/20'
-                    : 'tw:border-divider tw:hover:bg-main-hover'
-                "
-              >
-                <input
-                  v-model="step.stepType"
-                  type="radio"
-                  value="APPROVAL"
-                  class="tw:sr-only"
-                  :disabled="!canUpdate"
-                />
-                <span
-                  class="tw:text-xs tw:font-bold tw:mb-1"
-                  :class="step.stepType === 'APPROVAL' ? 'tw:text-primary' : 'tw:text-on-main'"
+              </div>
+              <BaseTooltip content="About step types — what each one is for, with examples">
+                <button
+                  type="button"
+                  class="tw:p-1.5 tw:rounded-lg tw:text-secondary tw:hover:text-primary tw:hover:bg-main-hover tw:transition-colors"
+                  aria-label="About step types"
+                  @click="showTypeHelp = true"
                 >
-                  APPROVAL
-                </span>
-                <span class="tw:text-micro tw:leading-tight tw:text-secondary">
-                  Gate step — approvers review and sign off. Comment-only, no form.
-                </span>
-              </label>
-              <label
-                class="tw:relative tw:flex tw:flex-col tw:p-4 tw:border tw:rounded-xl tw:cursor-pointer tw:transition-all"
-                :class="
-                  step.stepType === 'DELAY'
-                    ? 'tw:border-primary tw:bg-primary/5 tw:ring-1 tw:ring-primary/20'
-                    : 'tw:border-divider tw:hover:bg-main-hover'
-                "
-              >
-                <input
-                  v-model="step.stepType"
-                  type="radio"
-                  value="DELAY"
-                  class="tw:sr-only"
-                  :disabled="!canUpdate"
-                />
-                <span
-                  class="tw:text-xs tw:font-bold tw:mb-1"
-                  :class="step.stepType === 'DELAY' ? 'tw:text-primary' : 'tw:text-on-main'"
-                >
-                  DELAY ACTION
-                </span>
-                <span class="tw:text-micro tw:leading-tight tw:text-secondary">
-                  Waits a set number of days, then assigns the task (e.g. effectiveness check).
-                </span>
-              </label>
+                  <IconHelpCircle :size="18" />
+                </button>
+              </BaseTooltip>
             </div>
           </BaseField>
 
-          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
-            <BaseField v-slot="{ id: fieldId }" label="Step Name">
-              <BaseTextInput
-                :id="fieldId"
-                v-model="step.name"
-                name="name"
-                placeholder="e.g. Peer Review"
-                :disabled="!canUpdate"
-              />
-            </BaseField>
-            <BaseField v-slot="{ id: fieldId }" label="Instructions">
-              <BaseTextarea
-                :id="fieldId"
-                v-model="step.description"
-                placeholder="What does the assignee need to do?"
-                :disabled="!canUpdate"
-                rows="2"
-              />
-            </BaseField>
-          </div>
+          <!-- (Step Name lives in the dialog header now — click the title to
+               rename in place. 2026-08-14) -->
+          <BaseField v-slot="{ id: fieldId }" label="Instructions">
+            <BaseTextarea
+              :id="fieldId"
+              v-model="step.description"
+              placeholder="What does the assignee need to do?"
+              :disabled="!canUpdate"
+              rows="2"
+            />
+          </BaseField>
       </div>
 
       <!-- 2. Behavior — how the step advances (rule / delay default) + timing -->
@@ -594,7 +582,8 @@ watch(
         <p class="tw:text-xs tw:text-warning">
           <strong>This step has no task form.</strong> The assignee will only be able to add a
           comment and mark the step complete — no data or evidence is captured. Most
-          {{ step.stepType === 'DELAY' ? 'Delay' : 'Action' }} steps should collect something.
+          {{ step.stepType === 'DELAY' ? 'Schedule Task' : 'Action' }} steps should collect
+          something.
         </p>
       </div>
       <WorkflowStepFormSchema v-if="showTaskFormTab" :stepId="stepId" :canUpdate="canUpdate" />
@@ -677,6 +666,34 @@ watch(
       :canUpdate="canUpdate"
       :stepApproversTab="stepApproversTab"
     />
+
+    <!-- Step Types guide — opened from the read-only type row's help icon.
+         The type itself can't change after creation; this explains what each
+         type is for and when to use it. -->
+    <BaseDialog v-model="showTypeHelp" title="Step Types" maxWidth="lg">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <p class="tw:text-sm tw:text-secondary">
+          Every workflow step is one of three types. The type is chosen when the step is added
+          and can't be changed afterwards — delete the step and add a new one if you picked the
+          wrong type.
+        </p>
+        <div
+          v-for="t in STEP_TYPE_HELP"
+          :key="t.label"
+          class="tw:flex tw:gap-3 tw:rounded-xl tw:border tw:border-divider tw:p-4"
+        >
+          <component :is="t.icon" :size="22" class="tw:text-primary tw:shrink-0 tw:mt-0.5" />
+          <div class="tw:min-w-0">
+            <p class="tw:text-sm tw:font-bold tw:text-on-main">{{ t.label }}</p>
+            <p class="tw:text-xs tw:text-secondary tw:mt-1 tw:leading-relaxed">{{ t.purpose }}</p>
+            <p class="tw:text-xs tw:text-on-main tw:mt-1.5 tw:italic">{{ t.example }}</p>
+          </div>
+        </div>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="primary" @click="close">Got it</BaseButton>
+      </template>
+    </BaseDialog>
 
     <!-- Send-back target picker removed: the engine now auto-targets the
          entity owner (for a parent step) or the parent step's assignee

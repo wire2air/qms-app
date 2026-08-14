@@ -3,6 +3,7 @@ import { IconSitemap, IconLayoutList, IconLayoutRows, IconSparkles } from '@tabl
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { useCompanyLocalStorage } from '@/utils/useCompanyLocalStorage'
 import { isAllowed, canUseAi } from '@/utils/currentSession.js'
+import { copyVersionSteps, newestVersionOf } from './workflowVersionCopy.js'
 
 const router = useRouter()
 
@@ -44,6 +45,54 @@ function handleWorkflowCreated(workflow) {
   const path = getCompanyPath(`/workflow-templates/${workflow.id}`)
   router.push(path)
 }
+
+// ── Clone (user request 2026-08-14) — shared by both views ──────────────────
+// New Workflow + a 1.0 DRAFT version carrying the source's newest version's
+// steps (incl. roles/outcomes/child steps via the shared copy helper). Never
+// the default; the author reviews and publishes like any draft.
+const toast = useToast()
+const canCloneWorkflow = computed(() =>
+  isAllowed(['workflows_templates:create', 'workflows_templates:read']),
+)
+
+const cloneWorkflowMutation = useLiveMutation(async (db, source) => {
+  const workflow = db.Workflow.create({
+    name: `${source.name} (Copy)`,
+    description: source.description ?? '',
+    moduleId: source.moduleId,
+    statusId: 'ACTIVE',
+    isDefault: false,
+  })
+  await workflow.save()
+
+  const version = db.WorkflowVersion.create({
+    workflowId: workflow.id,
+    versionMajor: 1,
+    versionMinor: 0,
+    statusId: 'DRAFT',
+  })
+  await version.save()
+
+  const sourceVersion = await newestVersionOf(db, source.id)
+  await copyVersionSteps(db, sourceVersion?.id, version.id)
+
+  return workflow
+})
+
+const cloning = ref(false)
+async function handleClone(source) {
+  if (cloning.value) return
+  cloning.value = true
+  try {
+    const clone = await cloneWorkflowMutation(source)
+    toast.success(`Cloned as "${clone.name}" — opening the draft`)
+    router.push(getCompanyPath(`/workflow-templates/${clone.id}`))
+  } catch (err) {
+    toast.error(err?.message || 'Failed to clone workflow')
+  } finally {
+    cloning.value = false
+  }
+}
 </script>
 
 <template>
@@ -82,11 +131,15 @@ function handleWorkflowCreated(workflow) {
     <WorkflowsTable
       v-if="viewMode === 'table'"
       :workflows="filteredWorkflows"
+      :canClone="canCloneWorkflow"
+      @clone="handleClone"
     />
     <div v-else class="tw:flex-1 tw:overflow-y-auto">
       <WorkflowsList
         :workflows="filteredWorkflows"
         :allWorkflows="workflows ?? []"
+        :canClone="canCloneWorkflow"
+        @clone="handleClone"
       />
     </div>
   </BaseListLayout>
