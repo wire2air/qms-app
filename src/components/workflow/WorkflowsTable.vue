@@ -1,5 +1,5 @@
 <script setup>
-import { IconEdit, IconGitBranch } from '@tabler/icons-vue'
+import { IconEdit, IconGitBranch, IconCopy } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -9,7 +9,14 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  // Clone is handled by the parent (shared with the card-list view).
+  canClone: {
+    type: Boolean,
+    default: false,
+  },
 })
+
+const emit = defineEmits(['clone'])
 
 const router = useRouter()
 
@@ -82,7 +89,11 @@ function navigateToWorkflow(row) {
 // Archive / Restore / Delete live on the workflow detail page (header),
 // not here — they need the full version context to decide what's safe.
 function rowMenuItems(workflow) {
-  return [{ name: 'Edit', icon: IconEdit, click: () => navigateToWorkflow(workflow) }]
+  const items = [{ name: 'Edit', icon: IconEdit, click: () => navigateToWorkflow(workflow) }]
+  if (props.canClone) {
+    items.push({ name: 'Clone', icon: IconCopy, click: () => emit('clone', workflow) })
+  }
+  return items
 }
 
 const pagination = ref({ page: 1, pageSize: 50 })

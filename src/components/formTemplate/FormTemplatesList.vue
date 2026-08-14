@@ -8,9 +8,13 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  canClone: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['archive'])
+const emit = defineEmits(['archive', 'clone'])
 
 const showPreviewDialog = ref(false)
 const previewTemplate = ref(null)
@@ -42,8 +46,10 @@ const previewTitle = computed(() => {
       :key="template.id"
       :template="template"
       :canUpdate="canUpdate"
+      :canClone="canClone"
       @preview="handlePreview"
       @archive="(t) => emit('archive', t)"
+      @clone="(t) => emit('clone', t)"
     />
   </div>
 

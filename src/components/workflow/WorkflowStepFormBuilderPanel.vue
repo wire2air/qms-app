@@ -1,4 +1,5 @@
 <script setup>
+import { Portal } from '@headlessui/vue'
 import { IconArrowLeft, IconX, IconSearch, IconFileText, IconChevronRight } from '@tabler/icons-vue'
 import FormBuilder from '@/components/form-builder/FormBuilder.vue'
 
@@ -87,6 +88,22 @@ const headerTitle = computed(() => {
   return 'Form Builder'
 })
 
+// Recreate the Portal on every OPEN so its node is (re)appended as the LAST
+// child of the portal root at that moment. Stacking among equal z-modal
+// layers is DOM order, and the portal node is otherwise created when this
+// COMPONENT mounts — fine when the panel lives inside the launching dialog
+// (workflow step config), wrong when it lives at page level (Form Blocks /
+// Log Forms design dialog, bug 2026-08-14): the page-mount node predates the
+// dialog's, so the builder opened BEHIND it. Key only bumps on open — close
+// keeps the same instance so the leave transition still plays.
+const portalSession = ref(0)
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) portalSession.value++
+  },
+)
+
 const showBackButton = computed(() => {
   // Back from build → select only when we started from template flow
   if (currentStep.value === 'build' && props.startAtSelect) return true
@@ -97,8 +114,20 @@ const showBackButton = computed(() => {
 </script>
 
 <template>
-  <Teleport to="body">
+  <!-- HeadlessUI Portal (not a bare Teleport): the panel is opened from
+       inside BaseDialogs (step configuration, CAPA/CR add-child-step), and a
+       plain body teleport lands OUTSIDE the dialog's portal tree — HeadlessUI
+       marks it inert and its z-overlay painted below the dialog's z-modal, so
+       the builder was unreachable behind the dialog (bug 2026-08-14). Inside
+       the HUI portal stack it participates in dialog stacking: appended after
+       the launching dialog (above it at equal z-modal), and the FormBuilder's
+       own dialogs (Generate with AI, JSON, Clear, Preview) open later still,
+       so they stack above this panel. -->
+  <Portal :key="portalSession">
+    <!-- `appear`: after a key-bump the subtree mounts with modelValue already
+         true, so the enter animation must run on initial render. -->
     <Transition
+      appear
       enterActiveClass="tw:transition-transform tw:duration-300 tw:ease-out"
       enterFromClass="tw:translate-y-full"
       enterToClass="tw:translate-y-0"
@@ -106,9 +135,7 @@ const showBackButton = computed(() => {
       leaveFromClass="tw:translate-y-0"
       leaveToClass="tw:translate-y-full"
     >
-      <!-- z-overlay (below z-modal) so the FormBuilder's own dialogs (Generate
-           with AI, JSON, Clear, Preview) render above this panel, not behind. -->
-      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-overlay">
+      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-modal">
         <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
           <!-- Header -->
           <div
@@ -192,5 +219,5 @@ const showBackButton = computed(() => {
         </div>
       </div>
     </Transition>
-  </Teleport>
+  </Portal>
 </template>

@@ -6,6 +6,9 @@ import {
   IconArrowDown,
   IconTrash,
   IconDots,
+  IconListCheck,
+  IconRubberStamp,
+  IconClockPause,
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -72,6 +75,16 @@ const approverLabel = computed(() => {
   return parts.length > 0 ? parts.join(', ') : 'No tasks'
 })
 
+// Step-type chip — user-facing names ("Task" / "Approval" / "Schedule Task");
+// the type is immutable after creation, so the card is where you read it at
+// a glance without opening the step's configuration dialog.
+const TYPE_META = {
+  ACTION: { label: 'Task', icon: IconListCheck },
+  APPROVAL: { label: 'Approval', icon: IconRubberStamp },
+  DELAY: { label: 'Schedule Task', icon: IconClockPause },
+}
+const typeMeta = computed(() => TYPE_META[props.step?.stepType] ?? TYPE_META.ACTION)
+
 const menuItems = computed(() => {
   const items = []
   if (!props.isFirst)
@@ -125,7 +138,11 @@ const menuItems = computed(() => {
           </span>
         </div>
 
-        <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
+        <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary tw:flex-wrap">
+          <span class="tw:flex tw:items-center tw:gap-1 tw:font-medium tw:text-primary">
+            <component :is="typeMeta.icon" :size="16" />
+            {{ typeMeta.label }}
+          </span>
           <span class="tw:flex tw:items-center tw:gap-1">
             <IconUsers :size="16" />
             {{ approverLabel }}

@@ -330,7 +330,9 @@ const navItems = computed(() => {
       to: getCompanyPath('/capas'),
     },
     {
-      label: 'Change Requests',
+      // UI says "Change Control" (module name, user decision 2026-08-13);
+      // routes/DB stay change-requests / ChangeRequest, records stay "CR".
+      label: 'Change Control',
       permissions: ['change_control:read'],
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),

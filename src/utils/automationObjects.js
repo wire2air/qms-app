@@ -127,7 +127,7 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'ChangeRequest',
-    label: 'Change Requests',
+    label: 'Change Control',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'priority_id', label: 'Priority', type: 'enum' },

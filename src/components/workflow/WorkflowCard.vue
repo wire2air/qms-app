@@ -1,12 +1,22 @@
 <script setup>
-import { IconLayoutKanban, IconCalendar, IconStar, IconStarFilled } from '@tabler/icons-vue'
+import {
+  IconLayoutKanban,
+  IconCalendar,
+  IconStar,
+  IconStarFilled,
+  IconCopy,
+} from '@tabler/icons-vue'
 defineProps({
   workflow: {
     type: Object,
     required: true,
   },
+  canClone: {
+    type: Boolean,
+    default: false,
+  },
 })
-defineEmits(['setDefault'])
+defineEmits(['setDefault', 'clone'])
 </script>
 
 <template>
@@ -33,6 +43,16 @@ defineEmits(['setDefault'])
         </div>
       </div>
       <div class="tw:flex tw:items-center tw:gap-1">
+        <!-- Clone — copies the template (newest version's steps) into a new
+             draft workflow. -->
+        <button
+          v-if="canClone"
+          class="tw:p-1.5 tw:rounded tw:bg-transparent tw:border-0 tw:cursor-pointer tw:transition-colors tw:text-secondary tw:hover:text-primary"
+          title="Clone this workflow"
+          @click.stop="$emit('clone', workflow)"
+        >
+          <IconCopy :size="16" />
+        </button>
         <!-- Default toggle — the module's default workflow is auto-selected
              when users create a new entity. -->
         <button

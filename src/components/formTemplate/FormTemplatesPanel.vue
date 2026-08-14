@@ -85,6 +85,43 @@ function handleTemplateCreated(template) {
   router.push({ path, query: { mode: 'schema' } })
 }
 
+// ── Clone (user request 2026-08-14) ─────────────────────────────────────────
+// Copies schema/type/config + site applicability into a fresh DRAFT so the
+// author can tweak before activating. internalName is never copied — it's the
+// promoted-module marker and unique per company.
+const cloneTemplateMutation = useLiveMutation(async (db, source) => {
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
+  const clone = db.FormTemplate.create({
+    title: `${source.title} (Copy)`,
+    code: `${source.code}-COPY-${rand}`,
+    schema: JSON.parse(JSON.stringify(source.schema ?? [])),
+    documentTypeId: source.documentTypeId ?? null,
+    internalName: null,
+    statusId: 'DRAFT',
+    kind: source.kind ?? 'FORM',
+    blockCategory: source.blockCategory ?? null,
+    config: JSON.parse(JSON.stringify(source.config ?? {})),
+  })
+  await clone.save()
+  // Carry site applicability over so the clone shows up in the same places.
+  const siteLinks = await db.SiteOnTemplate.where('templateId', source.id).exec()
+  for (const link of siteLinks) {
+    const copy = db.SiteOnTemplate.create({ templateId: clone.id, siteId: link.siteId })
+    await copy.save()
+  }
+  return clone
+})
+
+async function onCloneTemplate(source) {
+  try {
+    const clone = await cloneTemplateMutation(source)
+    toast.success(`Cloned as "${clone.title}" (draft)`)
+    router.push(getCompanyPath(`/templates/${clone.id}`))
+  } catch (err) {
+    toast.error(err?.message || 'Failed to clone template')
+  }
+}
+
 // Templates are never deleted — archived rows are the version history, and
 // records/workflows built from a template keep referencing it by id. A DB
 // trigger enforces the same rule server-side.
@@ -124,13 +161,17 @@ async function onArchiveTemplate(template) {
       v-if="viewMode === 'table'"
       :rows="templates"
       :canUpdate="canUpdateTemplate"
+      :canClone="canCreateTemplate"
       @archive="onArchiveTemplate"
+      @clone="onCloneTemplate"
     />
     <div v-else class="tw:flex-1 tw:overflow-y-auto">
       <FormTemplatesList
         :templates="templates"
         :canUpdate="canUpdateTemplate"
+        :canClone="canCreateTemplate"
         @archive="onArchiveTemplate"
+        @clone="onCloneTemplate"
       />
     </div>
 

@@ -4,7 +4,6 @@ import { IconInfoCircle, IconCategory, IconBell, IconSitemap } from '@tabler/ico
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
-import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 import { required, requiredWhen } from '@shared/components/form/validators.js'
@@ -13,7 +12,6 @@ import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGua
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
-const workflowPickerRef = ref(null)
 const saving = ref(false)
 // Server-side save failure — surfaced persistently in the form footer.
 const submitError = ref('')
@@ -26,7 +24,7 @@ const PRIORITY_OPTIONS = [
 ]
 
 // Admin-defined custom fields — answers held locally, persisted after the CAPA
-// exists (see customFieldsRef.persist in handleReviewersConfirmed).
+// exists (see customFieldsRef.persist in handleCreate).
 const customFieldsData = ref({})
 const customFieldsRef = ref(null)
 
@@ -104,6 +102,55 @@ const form = ref({
   // Per-record cc recipients (notification engine).
   notifyGroupIds: [],
   notifyUserIds: [],
+})
+
+// ── Workflow — default template auto-select (user decision 2026-08-12) ──────
+// Same flow as NC: the CAPA is created as a DRAFT and the workflow does NOT
+// start here — step reviewers are assigned on the CAPA page's draft plan and
+// the owner clicks Open CAPA there. No workflow gallery on this form either:
+// the module's default template wins (a single active workflow is the
+// implicit default, mirroring WorkflowVersionSelect); only when there is NO
+// default does the form surface a compact picker. Either way the choice
+// stays changeable from the CAPA page's Workflow rail card while DRAFT.
+// NOTE: must sit BELOW the `form` declaration — the watch writes into it.
+const capaWorkflows = useLiveQuery(
+  async (db) => db.Workflow.where('moduleId', CAPA_MODULE.workflowVersionModuleId).exec(),
+  { models: ['Workflow'], initial: [] },
+)
+const capaWorkflowVersions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), {
+  models: ['WorkflowVersion'],
+  initial: [],
+})
+const activeCapaWorkflows = computed(() =>
+  capaWorkflows.value
+    .filter((w) => w.statusId === 'ACTIVE')
+    .map((w) => {
+      const version = capaWorkflowVersions.value.find(
+        (v) => v.workflowId === w.id && v.statusId === 'PUBLISHED',
+      )
+      return version ? { workflow: w, version } : null
+    })
+    .filter(Boolean),
+)
+const defaultCapaWorkflow = computed(() => {
+  const entries = activeCapaWorkflows.value
+  return entries.find((e) => e.workflow.isDefault) || (entries.length === 1 ? entries[0] : null)
+})
+watch(
+  defaultCapaWorkflow,
+  (def) => {
+    if (def && !form.value.workflowVersionId) form.value.workflowVersionId = def.version.id
+  },
+  { immediate: true },
+)
+// Name + version for the pre-selected default's context strip (versions
+// don't carry the name — the parent Workflow row does).
+const selectedWorkflowLabel = computed(() => {
+  const e = activeCapaWorkflows.value.find((x) => x.version.id === form.value.workflowVersionId)
+  if (!e) return ''
+  return `${e.workflow.name} · v${
+    e.version.versionLabel || `${e.version.versionMajor ?? 1}.${e.version.versionMinor ?? 0}`
+  }`
 })
 
 // Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
@@ -199,8 +246,8 @@ const navSections = computed(() => [
 ])
 
 // Per-field rules live on each <BaseField :rules> (see validators.js). The only
-// form-level check left is the workflow version: it's bound to a dialog launcher
-// inside the Workflow section, not a labeled BaseField, so it uses BaseForm's
+// form-level check left is the workflow version: it's a compact picker (or the
+// pre-selected default's strip), not a labeled BaseField, so it uses BaseForm's
 // validate() escape hatch and jumps to the section by id.
 function validate() {
   if (!form.value.workflowVersionId) {
@@ -216,22 +263,24 @@ function validate() {
 }
 
 // Fires only after validate() passes. Runs the async custom-fields check
-// (which surfaces its own inline errors), then opens the per-step reviewer picker.
+// (which surfaces its own inline errors), then creates the DRAFT — no
+// reviewer picker here anymore: step assignments happen on the CAPA page's
+// draft plan, and the workflow starts when the owner clicks Open CAPA there.
 async function onSubmit() {
   if ((await customFieldsRef.value?.validate()) === false) return
 
-  workflowPickerRef.value.submit()
+  await handleCreate()
 }
 
 function goBack() {
   router.push(getCompanyPath('/capas'))
 }
 
-async function handleReviewersConfirmed(reviewers) {
+async function handleCreate() {
   saving.value = true
   submitError.value = ''
   try {
-    const response = await post('/v1/services/capas', { ...form.value, reviewers }) // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+    const response = await post('/v1/services/capas', { ...form.value }) // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
     if (presetFindingIds.value.length && response.capa?.id) {
       try {
         // Link every selected finding to the new CAPA (N findings → 1 CAPA).
@@ -262,6 +311,10 @@ async function handleReviewersConfirmed(reviewers) {
           'CAPA created, but custom fields could not be saved — add them on the CAPA page',
       })
     }
+    toast.notify({
+      type: 'positive',
+      message: 'CAPA created as a draft — assign step reviewers, then Open CAPA to start the workflow.',
+    })
     allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/capas/${response.capa.id}`))
   } catch (e) {
@@ -292,7 +345,7 @@ async function handleReviewersConfirmed(reviewers) {
         :dirty="isDirty"
         :loading="saving"
         :submitError="submitError"
-        submitLabel="Submit"
+        submitLabel="Create CAPA"
         @submit="onSubmit"
         @cancel="goBack"
       >
@@ -495,20 +548,41 @@ async function handleReviewersConfirmed(reviewers) {
           />
         </FormSection>
 
-        <!-- Workflow -->
+        <!-- Workflow — no gallery here (user decision 2026-08-12): the default
+             template is pre-selected; only without a default does a compact
+             picker appear. Changeable from the CAPA page's Workflow rail card
+             while DRAFT; step reviewers are assigned there before Open CAPA. -->
         <FormSection id="capa-workflow" title="Workflow" :icon="IconSitemap">
-          <WorkflowReviewerPickerDialog
-            ref="workflowPickerRef"
-            v-model="form.workflowVersionId"
-            :module="CAPA_MODULE"
-            :isSupplierFacing="form.isSupplierFacing"
-            :supplierId="form.supplierId"
-            :ownerId="form.ownerId"
-            @submit="handleReviewersConfirmed"
-          />
+          <div
+            v-if="defaultCapaWorkflow && form.workflowVersionId === defaultCapaWorkflow.version.id"
+            class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
+          >
+            <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+            <div class="tw:min-w-0 tw:flex-1">
+              <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+                {{ selectedWorkflowLabel || 'Workflow selected' }}
+              </p>
+              <p class="tw:text-xs tw:text-secondary">
+                Default workflow — you can change it and assign step reviewers on the CAPA page
+                while it's a draft.
+              </p>
+            </div>
+          </div>
+          <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
+            <WorkflowVersionSelect
+              v-model="form.workflowVersionId"
+              :moduleId="CAPA_MODULE.workflowVersionModuleId"
+              compact
+            />
+            <BaseCaption>
+              No default workflow template is set for CAPAs — pick the workflow this CAPA will
+              follow. You can change it and assign step reviewers on the CAPA page while it's a
+              draft.
+            </BaseCaption>
+          </div>
           <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary tw:mt-2">
-            Supplier-facing CAPAs are auto-assigned to the supplier's first portal user and opened
-            on Submit — you can reassign any step afterwards.
+            Supplier-facing CAPAs default non-approval steps to the supplier's first portal user —
+            review the assignments on the CAPA page before opening.
           </p>
         </FormSection>
       </BaseForm>

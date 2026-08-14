@@ -7,9 +7,20 @@
  * of their own, so there is no detail page: Design opens the form builder
  * dialog directly.
  */
-import { IconLayoutGrid, IconPlus, IconPencil, IconArchive } from '@tabler/icons-vue'
+import {
+  IconLayoutGrid,
+  IconPlus,
+  IconPencil,
+  IconArchive,
+  IconCopy,
+  IconCircleCheck,
+  IconTrash,
+  IconArrowsMaximize,
+} from '@tabler/icons-vue'
+import { useDebounceFn } from '@vueuse/core'
 import { isAllowed } from '@/utils/currentSession.js'
 import WorkflowStepFormBuilderPanel from '@/components/workflow/WorkflowStepFormBuilderPanel.vue'
+import MiniFormBuilder from '@/components/form-builder/MiniFormBuilder.vue'
 
 const props = defineProps({
   // true when hosted by the standalone /form-blocks page — PageHeader owns the
@@ -26,6 +37,7 @@ const props = defineProps({
 })
 
 const toast = useToast()
+const { confirm: confirmDialog } = useConfirm()
 
 // Category-aware copy so one component serves both Form Blocks and Log Forms.
 const isLogForm = computed(() => props.category === 'LOG_FORM')
@@ -44,12 +56,29 @@ const canUpdate = computed(() => isAllowed(['form_blocks:update']))
 
 const search = ref('')
 
+// Status filter — working set (Active + Draft) by default (user request
+// 2026-08-14): archived blocks don't clutter the list, while a block you just
+// created (drafts since 2026-08-14) stays visible.
+const STATUS_FILTER_OPTIONS = [
+  { id: 'LIVE', name: 'Active & Draft' },
+  { id: 'ACTIVE', name: 'Active' },
+  { id: 'DRAFT', name: 'Draft' },
+  { id: 'ARCHIVED', name: 'Archived' },
+  { id: 'ALL', name: 'All statuses' },
+]
+const statusFilter = ref('LIVE')
+
 const blocks = useLiveQueryWithDeps(
-  [() => search.value, () => props.category],
-  async (db, [q, category]) => {
+  [() => search.value, () => props.category, () => statusFilter.value],
+  async (db, [q, category, status]) => {
     let rows = (await db.FormTemplate.where().exec()).filter(
       (t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') === category,
     )
+    if (status === 'LIVE') {
+      rows = rows.filter((t) => t.statusId !== 'ARCHIVED')
+    } else if (status && status !== 'ALL') {
+      rows = rows.filter((t) => t.statusId === status)
+    }
     if (q) {
       const needle = q.toLowerCase()
       rows = rows.filter((t) => t.title?.toLowerCase().includes(needle))
@@ -90,7 +119,11 @@ const createBlock = useLiveMutation(async (db, title) => {
     // (UNIQUE on (company_id, internal_name) WHERE NOT NULL) the moment a second
     // block exists; only promoted modules carry an internalName.
     internalName: null,
-    statusId: 'ACTIVE', // blocks skip the DRAFT ceremony — they hold no records
+    // Draft-first (user decision 2026-08-14): a new block is a work-in-progress
+    // — it only appears in embed pickers once explicitly Activated, and a
+    // never-activated draft can be deleted outright (misclicked creates
+    // shouldn't live forever as archived rows).
+    statusId: 'DRAFT',
     kind: 'BLOCK',
     blockCategory: props.category,
     config: {},
@@ -114,19 +147,106 @@ async function handleCreate() {
   }
 }
 
-// ── Design (form builder dialog — no detail page for blocks) ─────────────────
-const builderOpen = ref(false)
+// ── Clone ────────────────────────────────────────────────────────────────────
+const cloneBlockMutation = useLiveMutation(async (db, source) => {
+  const title = `${source.title} (Copy)`
+  const clone = db.FormTemplate.create({
+    title,
+    code: blockCode(title),
+    schema: JSON.parse(JSON.stringify(source.schema ?? [])),
+    documentTypeId: null,
+    // Never copy internalName — it's the system-block marker and unique.
+    internalName: null,
+    statusId: 'DRAFT', // clones start as drafts too — activate when ready
+    kind: 'BLOCK',
+    blockCategory: source.blockCategory ?? props.category,
+    config: JSON.parse(JSON.stringify(source.config ?? {})),
+  })
+  await clone.save()
+  return clone
+})
+
+async function handleClone(source) {
+  try {
+    const clone = await cloneBlockMutation(source)
+    toast.success(`Cloned as "${clone.title}" — a draft until you activate it`)
+    openDesign(clone)
+  } catch (e) {
+    toast.error(e?.message || 'Failed to clone block')
+  }
+}
+
+// ── Design — MiniFormBuilder in a dialog (user request 2026-08-14) ──────────
+// Blocks are small fragments; the full-screen builder threw people off. The
+// inline mini canvas covers the common case, with the full builder (AI,
+// preview, JSON, undo) one click away for heavy edits.
+const designDialogOpen = ref(false)
 const designBlock = ref(null)
+// Re-mounts the mini builder to re-seed after an EXTERNAL schema change
+// (full-builder save); its own edits must not re-mount it.
+const designSession = ref(0)
+
+// No versioning for blocks — but `version` is kept as a TRACE STAMP (user
+// decision 2026-08-14): editing an ACTIVE block's fields bumps it once per
+// design session, so "v3" tells an auditor the live block changed twice since
+// activation. Drafts stay at their current stamp until activated.
+let versionBumpedThisSession = false
 
 function openDesign(block) {
   designBlock.value = block
+  designSession.value++
+  versionBumpedThisSession = false
+  designDialogOpen.value = true
+}
+
+// Debounced autosave keyed to the block it belongs to — flushed immediately
+// on dialog close / full-builder open so a quick edit-then-close never loses
+// the last change (and a fast switch to ANOTHER block can't cross-save).
+let pendingSave = null
+async function flushSchemaSave() {
+  if (!pendingSave) return
+  const { block, schema } = pendingSave
+  pendingSave = null
+  try {
+    block.schema = JSON.parse(JSON.stringify(schema))
+    if (block.statusId === 'ACTIVE' && !versionBumpedThisSession) {
+      versionBumpedThisSession = true
+      block.version = (block.version ?? 1) + 1
+    }
+    await block.save()
+  } catch (e) {
+    toast.error(e?.message || 'Failed to save block')
+  }
+}
+const debouncedSchemaSave = useDebounceFn(flushSchemaSave, 800)
+
+function onSchemaChange(schema) {
+  if (!designBlock.value) return
+  pendingSave = { block: designBlock.value, schema }
+  debouncedSchemaSave()
+}
+
+watch(designDialogOpen, (open) => {
+  if (!open) flushSchemaSave()
+})
+
+// ── Full builder escape hatch (AI assistant / preview / JSON / undo) ─────────
+const builderOpen = ref(false)
+
+function openFullBuilder() {
+  flushSchemaSave() // seed the panel with the latest edits
   builderOpen.value = true
 }
 
 async function handleSchemaSave(schema) {
   if (!designBlock.value) return
   designBlock.value.schema = schema
+  if (designBlock.value.statusId === 'ACTIVE' && !versionBumpedThisSession) {
+    versionBumpedThisSession = true
+    designBlock.value.version = (designBlock.value.version ?? 1) + 1
+  }
   await designBlock.value.save()
+  designSession.value++
 }
 
 // ── Rename ──────────────────────────────────────────────────────────────────
@@ -151,6 +271,7 @@ async function handleRename() {
 const columns = computed(() => [
   { name: 'title', label: noun.value.toUpperCase(), field: 'title', align: 'left', sortable: true },
   { name: 'fields', label: 'FIELDS', field: 'fields', align: 'center', sortable: false },
+  { name: 'version', label: 'VERSION', field: 'version', align: 'center', sortable: true },
   { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
   { name: 'updatedAt', label: 'UPDATED', field: 'updatedAt', align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'actions', align: 'right' },
@@ -165,17 +286,56 @@ function isSystemBlock(row) {
   return !!row.internalName || row.code === 'TASK'
 }
 
+// Draft → Active is the explicit "publish" moment: the block starts appearing
+// in embed pickers (they filter on ACTIVE).
+async function handleActivate(row) {
+  try {
+    row.statusId = 'ACTIVE'
+    await row.save()
+    toast.success(`"${row.title}" is now active and available in pickers`)
+  } catch (e) {
+    toast.error(e?.message || 'Failed to activate block')
+  }
+}
+
+// Deleting is DRAFT-only (never-activated blocks hold no references — nothing
+// embeds a draft). Once activated, ARCHIVED is the lifecycle end; a DB trigger
+// enforces both rules server-side.
+async function handleDeleteDraft(row) {
+  const ok = await confirmDialog({
+    title: `Delete Draft ${noun.value}`,
+    message: `Delete "${row.title}"? Drafts were never activated, so nothing references them — this permanently removes the ${noun.value.toLowerCase()}.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await row.delete()
+  } catch (e) {
+    toast.error(e?.message || 'Failed to delete draft')
+  }
+}
+
 function rowMenuItems(row) {
   const items = []
+  if (canCreate.value) {
+    items.push({ name: 'Clone', icon: IconCopy, click: () => handleClone(row) })
+  }
   if (canUpdate.value) {
     items.push(
       { name: 'Design', icon: IconPencil, click: () => openDesign(row) },
       { name: 'Rename', icon: IconPencil, click: () => openRename(row) },
-      {
-        // Blocks are never deleted — ARCHIVED is the lifecycle end (a misclicked
-        // create included). Archived blocks disappear from pickers; everything
-        // already built from them keeps working (copy-on-use / status-blind
-        // lookups). A DB trigger enforces the no-delete rule server-side.
+    )
+    if (row.statusId === 'DRAFT') {
+      items.push({ name: 'Activate', icon: IconCircleCheck, click: () => handleActivate(row) })
+      if (!isSystemBlock(row)) {
+        items.push({ name: 'Delete', icon: IconTrash, click: () => handleDeleteDraft(row) })
+      }
+    } else {
+      items.push({
+        // Activated blocks are never deleted — ARCHIVED is the lifecycle end.
+        // Archived blocks disappear from pickers; everything already built
+        // from them keeps working (copy-on-use / status-blind lookups).
         name: row.statusId === 'ACTIVE' ? 'Archive' : 'Restore',
         icon: IconArchive,
         click: async () => {
@@ -186,8 +346,8 @@ function rowMenuItems(row) {
             toast.error(e?.message || 'Failed to update block status')
           }
         },
-      },
-    )
+      })
+    }
   }
   return items
 }
@@ -212,7 +372,19 @@ function rowMenuItems(row) {
       </BaseButton>
     </div>
 
-    <BaseFilterBar v-model:search="search" :searchPlaceholder="`Search ${nounPlural.toLowerCase()}…`" />
+    <BaseFilterBar v-model:search="search" :searchPlaceholder="`Search ${nounPlural.toLowerCase()}…`">
+      <template #filters>
+        <div class="tw:w-40">
+          <BaseSelect
+            v-model="statusFilter"
+            :options="STATUS_FILTER_OPTIONS"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
+        </div>
+      </template>
+    </BaseFilterBar>
 
     <DataTable
       v-model:pagination="pagination"
@@ -239,6 +411,11 @@ function rowMenuItems(row) {
       <template #body-cell-fields="{ row }">
         {{ row.schema?.length ?? 0 }}
       </template>
+      <template #body-cell-version="{ row }">
+        <!-- Trace stamp, not versioning: bumps when an ACTIVE block's fields
+             change so auditors can tell the live block was edited. -->
+        <span class="tw:text-sm tw:text-secondary">v{{ row.version ?? 1 }}</span>
+      </template>
       <template #body-cell-statusId="{ row }">
         <FormTemplateStatusBadgeById :statusId="row.statusId" />
       </template>
@@ -257,11 +434,13 @@ function rowMenuItems(row) {
           <template v-if="isLogForm">
             A log form is the set of fields a log book captures — e.g. a daily temperature check or
             a calibration entry. Create a log book from it and its fields are copied in. You'll
-            design its fields next.
+            design its fields next — it stays a draft (deletable, not yet usable) until you
+            Activate it.
           </template>
           <template v-else>
             A block is a reusable section — e.g. a containment checklist or sign-off — you can drop
-            into any workflow step's task form. You'll design its fields next.
+            into any workflow step's task form. You'll design its fields next — it stays a draft
+            (deletable, not yet pickable) until you Activate it.
           </template>
         </p>
         <BaseField v-slot="{ id: fieldId }" :label="`${noun} name`" required>
@@ -300,7 +479,39 @@ function rowMenuItems(row) {
       </template>
     </BaseDialog>
 
-    <!-- Design — form builder in a dialog; blocks have no detail page -->
+    <!-- Design — MiniFormBuilder dialog; blocks have no detail page.
+         persistent + explicit X so a stray Escape/backdrop click while the
+         add-field or field-settings sub-dialogs are up can't drop the dialog
+         (edits are flushed on close either way). -->
+    <BaseDialog
+      v-model="designDialogOpen"
+      :title="designBlock?.title || `Design ${noun}`"
+      size="4xl"
+      persistent
+      showClose
+    >
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:px-1 tw:pb-3">
+        <BaseCaption>
+          Add and arrange fields; drag to reorder, click a field to configure it. Changes save
+          automatically.
+        </BaseCaption>
+        <BaseButton variant="outline" size="sm" @click="openFullBuilder">
+          <template #icon><IconArrowsMaximize :size="14" /></template>
+          Full builder
+        </BaseButton>
+      </div>
+      <MiniFormBuilder
+        v-if="designBlock"
+        :key="`${designBlock.id}:${designSession}`"
+        :initialSchema="designBlock.schema ?? []"
+        @update:schema="onSchemaChange"
+      />
+      <template #footer="{ close }">
+        <BaseButton variant="primary" @click="close">Done</BaseButton>
+      </template>
+    </BaseDialog>
+
+    <!-- Full builder — heavy edits (AI assistant, preview, JSON, undo) -->
     <WorkflowStepFormBuilderPanel
       v-model="builderOpen"
       :initialSchema="designBlock?.schema ?? []"

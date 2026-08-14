@@ -20,7 +20,7 @@ day to day) and **Settings** (administration and configuration).
 
 | Area | What it covers |
 |------|----------------|
-| **Quality Management** | Nonconformances, CAPAs, Change Requests, Root Cause Analysis, Risk Assessments |
+| **Quality Management** | Nonconformances, CAPAs, Change Control, Root Cause Analysis, Risk Assessments |
 | **Document Control** | Controlled documents, versions, approvals, audit snapshots, and document templates |
 | **Inspections & Operations** | Inspections & logs, mobile logging, records, tasks, equipment |
 | **Training** | Training library, assignments, verification, and the training matrix |

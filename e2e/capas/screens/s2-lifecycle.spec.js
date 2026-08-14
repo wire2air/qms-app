@@ -1,5 +1,6 @@
 // CAPA screenshots · S2 — the record lifecycle.
-//   Create form (blank → filled → the "Assign Step Reviewers" dialog), the
+//   Create form (blank → filled; the workflow is auto-selected and reviewers
+//   are assigned on the detail page's draft plan since 2026-08-12), the
 //   DRAFT detail, the Open-CAPA confirm, the PENDING record (Details /
 //   Workflow / Effectiveness are anchor-nav sections, so one full-page capture
 //   carries them), the close-blocked action bar, the e-signed Close dialog, the
@@ -31,18 +32,12 @@ test.describe.serial('CAPA screenshots · create → open → close / cancel', (
     await expect(page.getByPlaceholder('Describe the CAPA…')).toBeVisible({ timeout: 20_000 })
     await shot(page, 'create')
 
-    // ── Filled form + the reviewer-assignment dialog ───────────────────────
+    // ── Filled form (workflow pre-selected — no reviewer dialog anymore) ───
     const title = uniqueTitle('S2-lifecycle')
     await createCapa(page, title, {
       priority: 'High',
       async beforeSubmit(p) {
         await shot(p, 'create-filled')
-      },
-      async onReviewerDialog(p) {
-        await expect(
-          p.getByText('Assign task to user for each workflow step before submitting.'),
-        ).toBeVisible()
-        await shot(p, 'create-assign-reviewers-dialog')
       },
     })
     const capa = findCapaByTitle(title)

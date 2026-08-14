@@ -7,7 +7,11 @@ const props = defineProps({
   // Full unfiltered set — setDefault clears the existing default across the
   // whole module, so it needs every workflow, not just the filtered view.
   allWorkflows: { type: Array, default: () => [] },
+  // Clone is handled by the parent (shared with the table view).
+  canClone: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['clone'])
 
 const router = useRouter()
 
@@ -46,6 +50,7 @@ async function setDefault(workflow) {
     toast.error(err?.message || 'Failed to update default workflow')
   }
 }
+
 </script>
 
 <template>
@@ -58,8 +63,10 @@ async function setDefault(workflow) {
       v-for="workflow in filteredWorkflows"
       :key="workflow.id"
       :workflow="workflow"
+      :canClone="canClone"
       @click="navigateToWorkflow(workflow)"
       @setDefault="setDefault"
+      @clone="(w) => emit('clone', w)"
     />
   </div>
 </template>
