@@ -21,7 +21,22 @@ export function uniqueTitle(tag) {
  */
 export async function createCr(page, title, { priority = null } = {}) {
   await page.goto('/change-requests/create')
-  await page.getByPlaceholder('Short summary of the change').fill(title)
+
+  // Workflow-first wizard (2026-08-14). With exactly ONE active
+  // CHANGE_CONTROL workflow screen 1 auto-skips straight to the details
+  // form; with several (other e2e projects can create CC templates in this
+  // shared tenant) the card gallery shows and we click ours. Wait for
+  // EITHER outcome.
+  const workflowCard = page.getByRole('button', {
+    name: `Select workflow ${FIXTURES.crWorkflowName}`,
+  })
+  const titleInput = page.getByPlaceholder('Short summary of the change')
+  await expect(workflowCard.or(titleInput).first()).toBeVisible({ timeout: 45_000 })
+  if (await workflowCard.isVisible().catch(() => false)) {
+    await workflowCard.click()
+  }
+
+  await titleInput.fill(title)
 
   await selectFirstOption(page, 'Change Type')
   await selectFirstOption(page, 'Site')
@@ -29,19 +44,6 @@ export async function createCr(page, title, { priority = null } = {}) {
   if (priority) {
     await selectOptionInSection(page, '#cr-classification', 'Priority', priority)
   }
-
-  // Workflow — the select is `required` and E2ELAB has exactly one ACTIVE
-  // CHANGE_CONTROL workflow, so BaseSelect auto-fills it. Assert rather than
-  // click: this both waits for the async IDB load to land and fails loudly if
-  // another CR workflow ever gets seeded ahead of ours.
-  //
-  // Scoped to the section, not the field label — "Workflow" also matches the
-  // FormProgressNav anchor link, which renders before every combobox on the
-  // page, so a label-anchored lookup walks to the first combobox in the form.
-  await expect(page.locator('#cr-workflow').getByRole('combobox').first()).toContainText(
-    `${FIXTURES.crWorkflowName} v1.0`,
-    { timeout: 20_000 },
-  )
 
   await page.getByRole('button', { name: 'Create Draft' }).click()
   await expect(page).toHaveURL(/\/change-requests\/(?!create)[0-9a-f-]{36}/, { timeout: 45_000 })

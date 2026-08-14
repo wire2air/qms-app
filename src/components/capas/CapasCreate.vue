@@ -5,6 +5,7 @@ import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md r
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
+import { useActiveWorkflowEntries } from '@/composables/useActiveWorkflowEntries.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
 import { required, requiredWhen } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
@@ -104,49 +105,41 @@ const form = ref({
   notifyUserIds: [],
 })
 
-// ── Workflow — default template auto-select (user decision 2026-08-12) ──────
-// Same flow as NC: the CAPA is created as a DRAFT and the workflow does NOT
-// start here — step reviewers are assigned on the CAPA page's draft plan and
-// the owner clicks Open CAPA there. No workflow gallery on this form either:
-// the module's default template wins (a single active workflow is the
-// implicit default, mirroring WorkflowVersionSelect); only when there is NO
-// default does the form surface a compact picker. Either way the choice
-// stays changeable from the CAPA page's Workflow rail card while DRAFT.
-// NOTE: must sit BELOW the `form` declaration — the watch writes into it.
-const capaWorkflows = useLiveQuery(
-  async (db) => db.Workflow.where('moduleId', CAPA_MODULE.workflowVersionModuleId).exec(),
-  { models: ['Workflow'], initial: [] },
+// ── Workflow — two-screen wizard, same as NC (user decision 2026-08-14) ─────
+// Screen 1 is ONLY the workflow choice (cards, default pre-selected); screen 2
+// is the CAPA details form with a context strip + Change button. With exactly
+// ONE active workflow, screen 1 is skipped entirely. The CAPA is still created
+// as a DRAFT — reviewers are assigned on the CAPA page's draft plan and the
+// workflow starts on Open CAPA; the choice stays changeable from the CAPA
+// page's Workflow rail card while DRAFT.
+const screen = ref('workflow')
+
+function goToDetails() {
+  if (!form.value.workflowVersionId) return
+  screen.value = 'details'
+}
+
+const { entries: activeWorkflowEntries } = useActiveWorkflowEntries(
+  CAPA_MODULE.workflowVersionModuleId,
 )
-const capaWorkflowVersions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), {
-  models: ['WorkflowVersion'],
-  initial: [],
-})
-const activeCapaWorkflows = computed(() =>
-  capaWorkflows.value
-    .filter((w) => w.statusId === 'ACTIVE')
-    .map((w) => {
-      const version = capaWorkflowVersions.value.find(
-        (v) => v.workflowId === w.id && v.statusId === 'PUBLISHED',
-      )
-      return version ? { workflow: w, version } : null
-    })
-    .filter(Boolean),
-)
-const defaultCapaWorkflow = computed(() => {
-  const entries = activeCapaWorkflows.value
-  return entries.find((e) => e.workflow.isDefault) || (entries.length === 1 ? entries[0] : null)
-})
+const singleWorkflow = computed(() => activeWorkflowEntries.value.length === 1)
+const workflowAutoSkipped = ref(false)
 watch(
-  defaultCapaWorkflow,
-  (def) => {
-    if (def && !form.value.workflowVersionId) form.value.workflowVersionId = def.version.id
+  activeWorkflowEntries,
+  (entries) => {
+    if (workflowAutoSkipped.value || screen.value !== 'workflow') return
+    if (entries.length !== 1) return
+    workflowAutoSkipped.value = true
+    form.value.workflowVersionId = entries[0].version.id
+    screen.value = 'details'
   },
   { immediate: true },
 )
-// Name + version for the pre-selected default's context strip (versions
-// don't carry the name — the parent Workflow row does).
+
+// Name + version for the details screen's context strip (versions don't
+// carry the name — the parent Workflow row does).
 const selectedWorkflowLabel = computed(() => {
-  const e = activeCapaWorkflows.value.find((x) => x.version.id === form.value.workflowVersionId)
+  const e = activeWorkflowEntries.value.find((x) => x.version.id === form.value.workflowVersionId)
   if (!e) return ''
   return `${e.workflow.name} · v${
     e.version.versionLabel || `${e.version.versionMajor ?? 1}.${e.version.versionMinor ?? 0}`
@@ -223,6 +216,8 @@ const classificationComplete = computed(
     !!form.value.initiatedAt &&
     !!form.value.ownerId,
 )
+// (No Workflow entry — the workflow is chosen on its own screen before
+// this form is reachable; the context strip above the form shows it.)
 const navSections = computed(() => [
   {
     id: 'capa-basic',
@@ -237,26 +232,16 @@ const navSections = computed(() => [
     status: classificationComplete.value ? 'complete' : null,
   },
   { id: 'capa-notify', label: 'Notify', icon: IconBell, status: null },
-  {
-    id: 'capa-workflow',
-    label: 'Workflow',
-    icon: IconSitemap,
-    status: form.value.workflowVersionId ? 'complete' : null,
-  },
 ])
 
-// Per-field rules live on each <BaseField :rules> (see validators.js). The only
-// form-level check left is the workflow version: it's a compact picker (or the
-// pre-selected default's strip), not a labeled BaseField, so it uses BaseForm's
-// validate() escape hatch and jumps to the section by id.
+// Per-field rules live on each <BaseField :rules> (see validators.js). The
+// workflow is picked on its own screen before this form is reachable, so this
+// check is a safety net only — it bounces the user back to the workflow screen.
 function validate() {
   if (!form.value.workflowVersionId) {
+    screen.value = 'workflow'
     return [
-      {
-        id: 'capa-workflow',
-        label: 'Workflow version',
-        message: 'Workflow version is required.',
-      },
+      { id: 'capa-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' },
     ]
   }
   return []
@@ -326,7 +311,7 @@ async function handleCreate() {
 </script>
 
 <template>
-  <BasePage width="standard" fullHeight>
+  <BasePage :width="screen === 'workflow' ? 'narrow' : 'standard'" fullHeight>
     <PageHeader>
       <template #title>
         <BaseBreadcrumbs
@@ -336,9 +321,55 @@ async function handleCreate() {
     </PageHeader>
 
     <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
+      <!-- Screen 1 — workflow choice only (same wizard as NC, 2026-08-14).
+           Skipped entirely when exactly one active workflow exists. -->
+      <div v-if="screen === 'workflow'" class="tw:py-6 tw:flex tw:flex-col tw:gap-5">
+        <div>
+          <BaseText as="h2" weight="bold" class="tw:text-lg">Select a workflow</BaseText>
+          <p class="tw:text-sm tw:text-secondary tw:mt-1">
+            Every CAPA follows an approval workflow. Pick the process this CAPA will follow —
+            you'll describe the corrective action on the next screen.
+          </p>
+        </div>
+        <WorkflowVersionSelect
+          v-model="form.workflowVersionId"
+          :moduleId="CAPA_MODULE.workflowVersionModuleId"
+          @pick="goToDetails"
+        />
+        <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-4 tw:border-t tw:border-divider">
+          <BaseButton variant="outline" @click="goBack">Cancel</BaseButton>
+          <BaseButton variant="primary" :disabled="!form.workflowVersionId" @click="goToDetails">
+            Continue
+          </BaseButton>
+        </div>
+      </div>
+
+      <!-- Screen 2 — the CAPA details form, with a context strip recalling
+           the chosen workflow (Change returns to screen 1, data intact). -->
+      <template v-else>
       <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
         <FormProgressNav :sections="navSections" />
       </div>
+
+      <div
+        class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
+      >
+        <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+        <div class="tw:min-w-0 tw:flex-1">
+          <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+            {{ selectedWorkflowLabel || 'Workflow selected' }}
+          </p>
+          <p class="tw:text-xs tw:text-secondary">
+            The CAPA is created as a draft — assign step reviewers and start the workflow with
+            Open CAPA on the CAPA page.
+          </p>
+        </div>
+        <!-- Hidden when only one workflow exists — nothing to change to. -->
+        <BaseButton v-if="!singleWorkflow" variant="outline" size="sm" @click="screen = 'workflow'">
+          Change
+        </BaseButton>
+      </div>
+
       <BaseForm
         class="tw:py-6"
         :validate="validate"
@@ -548,44 +579,13 @@ async function handleCreate() {
           />
         </FormSection>
 
-        <!-- Workflow — no gallery here (user decision 2026-08-12): the default
-             template is pre-selected; only without a default does a compact
-             picker appear. Changeable from the CAPA page's Workflow rail card
-             while DRAFT; step reviewers are assigned there before Open CAPA. -->
-        <FormSection id="capa-workflow" title="Workflow" :icon="IconSitemap">
-          <div
-            v-if="defaultCapaWorkflow && form.workflowVersionId === defaultCapaWorkflow.version.id"
-            class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
-          >
-            <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
-            <div class="tw:min-w-0 tw:flex-1">
-              <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-                {{ selectedWorkflowLabel || 'Workflow selected' }}
-              </p>
-              <p class="tw:text-xs tw:text-secondary">
-                Default workflow — you can change it and assign step reviewers on the CAPA page
-                while it's a draft.
-              </p>
-            </div>
-          </div>
-          <div v-else class="tw:flex tw:flex-col tw:gap-1.5">
-            <WorkflowVersionSelect
-              v-model="form.workflowVersionId"
-              :moduleId="CAPA_MODULE.workflowVersionModuleId"
-              compact
-            />
-            <BaseCaption>
-              No default workflow template is set for CAPAs — pick the workflow this CAPA will
-              follow. You can change it and assign step reviewers on the CAPA page while it's a
-              draft.
-            </BaseCaption>
-          </div>
-          <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary tw:mt-2">
-            Supplier-facing CAPAs default non-approval steps to the supplier's first portal user —
-            review the assignments on the CAPA page before opening.
-          </p>
-        </FormSection>
+        <!-- (Workflow lives on its own screen now — see screen 1 above.) -->
+        <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
+          Supplier-facing CAPAs default non-approval steps to the supplier's first portal user —
+          review the assignments on the CAPA page before opening.
+        </p>
       </BaseForm>
+      </template>
     </div>
   </BasePage>
 </template>

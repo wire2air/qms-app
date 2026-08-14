@@ -42,7 +42,18 @@ export async function createCapa(page, title, { priority = null, ...hooks } = {}
  *   screenshot specs can capture that state without duplicating this flow.
  */
 export async function fillCapaCreateForm(page, title, { priority = null, beforeSubmit } = {}) {
-  await page.getByPlaceholder('Describe the CAPA…').fill(title)
+  // Workflow-first wizard (2026-08-14). With exactly ONE active CAPA
+  // workflow screen 1 auto-skips straight to the details form; with several
+  // (other e2e projects can create CAPA templates in this shared tenant) the
+  // card gallery shows and we click ours. Wait for EITHER outcome.
+  const workflowCard = page.getByRole('button', { name: `Select workflow ${CAPA_WORKFLOW_NAME}` })
+  const titleInput = page.getByPlaceholder('Describe the CAPA…')
+  await expect(workflowCard.or(titleInput).first()).toBeVisible({ timeout: 45_000 })
+  if (await workflowCard.isVisible().catch(() => false)) {
+    await workflowCard.click()
+  }
+
+  await titleInput.fill(title)
 
   await selectFirstOption(page, 'Site')
   await selectFirstOption(page, 'Department')
@@ -53,13 +64,6 @@ export async function fillCapaCreateForm(page, title, { priority = null, beforeS
     // role="radio", not role="button".
     await page.getByRole('radio', { name: priority, exact: true }).click()
   }
-
-  // Workflow — auto-selected default (single ACTIVE workflow for CAPA in
-  // E2ELAB). Wait for the pre-selected strip so a slow IDB load doesn't
-  // leave it unset when Create CAPA fires.
-  await expect(page.getByText(CAPA_WORKFLOW_NAME, { exact: false }).first()).toBeVisible({
-    timeout: 15_000,
-  })
 
   if (beforeSubmit) await beforeSubmit(page)
 

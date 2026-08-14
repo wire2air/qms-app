@@ -32,18 +32,20 @@ export function uniqueTitle(tag) {
 export async function raiseNc(page, title, { severity = null, beforeSubmit, onReviewerDialog } = {}) {
   await page.goto('/nonconformances/create')
 
-  // Screen 1 of the workflow-first wizard (2026-08-10): only the workflow
-  // cards are visible — clicking one advances to the details form. A fresh
-  // profile's first IDB bootstrap can take well over 15s under test load, so
-  // wait generously for the card instead of falling back to Continue (which
-  // stays disabled until something is selected — E2ELAB has two NC workflows
-  // and no default, so nothing auto-selects).
+  // Workflow-first wizard. With exactly ONE active NC workflow screen 1
+  // auto-skips (2026-08-14) straight to the details form; with several
+  // (other e2e projects create NC workflow templates in this shared tenant)
+  // the card gallery shows and we click ours. Wait for EITHER outcome — a
+  // fresh profile's first IDB bootstrap can take well over 15s under load.
   const workflowCard = page.getByRole('button', { name: `Select workflow ${FIXTURES.ncrWorkflowName}` })
-  await expect(workflowCard).toBeVisible({ timeout: 45_000 })
-  await workflowCard.click()
+  const titleInput = page.getByPlaceholder('Describe the nonconformance…')
+  await expect(workflowCard.or(titleInput).first()).toBeVisible({ timeout: 45_000 })
+  if (await workflowCard.isVisible().catch(() => false)) {
+    await workflowCard.click()
+  }
 
   // Screen 2 — the NC details form.
-  await page.getByPlaceholder('Describe the nonconformance…').fill(title)
+  await titleInput.fill(title)
 
   // Description — REQUIRED (2026-08-14). First rich-text editor in the
   // section; an empty editor emits '<p></p>' and fails validation.
