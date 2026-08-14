@@ -551,9 +551,15 @@ function activityLabel(statusId) {
       class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
       <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
-        <span class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+        <!-- Step title reads as a SECTION heading (user request 2026-08-14):
+             it was `text-caption` uppercase secondary — the same weight as a
+             field caption — so a step didn't stand out from the fields it
+             contains. `subheading` is what FormSection/BaseSectionHeader give
+             "CAPA Details" / "Disposition", so a step now sits at the same
+             level as the page's other sections. -->
+        <BaseHeading :level="3" as="subheading" truncate class="tw:min-w-0">
           {{ displayNumber ?? instanceStep.stepNumber }}. {{ instanceStep.name || 'Step' }}
-        </span>
+        </BaseHeading>
         <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
