@@ -1,4 +1,4 @@
-import { IconSend, IconArchive, IconArchiveOff } from '@tabler/icons-vue'
+import { IconSend, IconArchive, IconArchiveOff, IconPencil } from '@tabler/icons-vue'
 
 /**
  * Banners, sections, and header actions for a Document Template detail page.
@@ -50,6 +50,21 @@ export function buildDocumentTemplateActions(gates = {}, handlers = {}) {
       priority: 100,
       visible: !!canUpdate && statusId === 'DRAFT',
       onSelect: handlers.publish,
+    },
+    {
+      // Document templates are NOT versioned (see the deferred form-artifact
+      // versioning decision) — a PUBLISHED one is immutable, and the only way
+      // back to editable used to be Archive → Unarchive. That is a trap:
+      // archiving pulls the template out of the document-create picker, so the
+      // detour silently takes it out of service. This does the same DRAFT
+      // transition directly, with the consequence stated up front.
+      id: 'revise',
+      label: 'Reopen for Editing',
+      icon: IconPencil,
+      variant: 'secondary',
+      priority: 90,
+      visible: !!canUpdate && statusId === 'PUBLISHED',
+      onSelect: handlers.revise,
     },
     {
       id: 'archive',

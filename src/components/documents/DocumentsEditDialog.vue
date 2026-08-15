@@ -31,7 +31,6 @@ const editForm = ref({
   departmentId: null,
   statusId: null,
   effectiveDate: null,
-  workflowVersionId: null,
   tags: [],
   relatedStandardId: null,
   periodicReviewMonths: 12,
@@ -49,7 +48,6 @@ watch(
         departmentId: props.document.departmentId,
         statusId: props.document.statusId,
         effectiveDate: props.currentVersion?.effectiveDate || null,
-        workflowVersionId: props.document.workflowVersionId || null,
         tags: props.document.tags || [],
         relatedStandardId: props.document.relatedStandardId || null,
         periodicReviewMonths: props.document.periodicReviewMonths ?? 12,
@@ -85,7 +83,6 @@ async function onSubmit() {
   try {
     props.document.departmentId = editForm.value.departmentId
     props.document.statusId = editForm.value.statusId
-    props.document.workflowVersionId = editForm.value.workflowVersionId
     props.document.relatedStandardId = editForm.value.relatedStandardId
     props.document.periodicReviewMonths = editForm.value.periodicReviewMonths
     props.document.autoEffectiveOnApproval = editForm.value.autoEffectiveOnApproval
@@ -209,11 +206,9 @@ async function onSubmit() {
           </div>
         </section>
 
-        <!-- Approval Workflow -->
-        <section class="tw:space-y-4">
-          <BaseText variant="overline">Approval Workflow</BaseText>
-          <WorkflowVersionSelect v-model="editForm.workflowVersionId" />
-        </section>
+        <!-- Approval workflow is inherited from the document's template
+             (2026-08-15) and is not editable per-document — change the
+             reviewer/approver roles on the template instead. -->
       </div>
     </BaseForm>
 

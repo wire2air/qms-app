@@ -6,12 +6,16 @@
  *
  *   1. What kind of step? Task (ACTION) · Approval · Schedule Task (a follow-up
  *      that activates later — e.g. an effectiveness check; DB value stays DELAY)
- *   2. Task only — pick the task form: a reusable form block, a QMS preset,
- *      or design one from scratch (blank schema — the step editor's Task Form
- *      tab opens the form builder on it).
- *   3. Who works on it? Role assignment. Templates are role-only — the actual
+ *   2. Who works on it? Role assignment. Templates are role-only — the actual
  *      person is picked by the submitter when the workflow is attached to a
  *      record, so roles here just constrain the candidate pool (optional).
+ *
+ * A Task step is seeded with the standard task form (rich text + attachments)
+ * — no form-picker screen. Asking "blank, a QMS preset, or a saved block?"
+ * before the step is even named made you decide the form's design at the point
+ * you had least context for it (user request 2026-08-15). Swapping in a block
+ * or editing the fields still lives in the step editor's Task Form tab, which
+ * is where you can see the step in context.
  *
  * The dialog only COLLECTS choices; the parent (WorkflowStepList) creates the
  * step + role rows on `submit`, so ordering/company-default logic stays where
@@ -21,11 +25,18 @@ import {
   IconListCheck,
   IconRubberStamp,
   IconClockPause,
-  IconCirclePlus,
   IconHelpCircle,
   IconSearch,
 } from '@tabler/icons-vue'
-import { QMS_BLOCKS } from '@/constants/formTemplates'
+import { standardTaskForm } from '@/constants/formTemplates'
+import { allowedStepTypes } from './workflowModule.js'
+
+const props = defineProps({
+  // workflow.moduleId — decides which step types this workflow may contain.
+  // Approval-only modules (Log Book, Audit, QC, Document Control) skip the
+  // type screen entirely: there's nothing to choose (2026-08-15).
+  moduleId: { type: String, default: null },
+})
 
 const emit = defineEmits(['submit'])
 const open = defineModel({ type: Boolean, default: false })
@@ -66,51 +77,39 @@ const STEP_TYPES = [
   },
 ]
 
+const availableTypes = computed(() => {
+  const allowed = allowedStepTypes(props.moduleId)
+  return STEP_TYPES.filter((t) => allowed.includes(t.id))
+})
+
+// Only one type available (approval flows) → nothing to pick, so the type
+// screen is skipped and that type is preselected.
+const skipTypeScreen = computed(() => availableTypes.value.length <= 1)
+
 // Task is the overwhelmingly common choice — preselect it so the wizard is one
 // click shorter (the type screen still allows switching).
 const stepType = ref('ACTION')
 const name = ref('')
-// Task-form choice — key identifies the picked card, schema is its payload.
-const formChoiceKey = ref(null)
-const formSchema = ref([])
 const roleIds = ref([])
 
-// Wizard screens: type → form (Task only — Approval is comment-only and a
-// Schedule Task step's evidence form can be added later in the editor) → assignees.
-const screens = computed(() => [
-  'type',
-  ...(stepType.value === 'ACTION' ? ['form'] : []),
-  'assignees',
-])
+// Wizard screens: type → assignees. A Task step's form is seeded, not chosen.
+const screens = computed(() => [...(skipTypeScreen.value ? [] : ['type']), 'assignees'])
 const screen = ref('type')
 const screenIndex = computed(() => screens.value.indexOf(screen.value))
 
-const SCREEN_LABELS = { type: 'Step type', form: 'Task form', assignees: 'Assignees' }
+const SCREEN_LABELS = { type: 'Step type', assignees: 'Assignees' }
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  stepType.value = 'ACTION'
+  stepType.value = availableTypes.value[0]?.id ?? 'ACTION'
   name.value = ''
-  formChoiceKey.value = null
-  formSchema.value = []
   roleIds.value = []
-  screen.value = 'type'
-  formSearch.value = ''
+  screen.value = screens.value[0]
   roleSearch.value = ''
-})
-
-// Picking a type that skips the form screen must drop a stale form choice
-// (pick Task → pick a block → back → switch to Approval).
-watch(stepType, (t) => {
-  if (t !== 'ACTION') {
-    formChoiceKey.value = null
-    formSchema.value = []
-  }
 })
 
 const canNext = computed(() => {
   if (screen.value === 'type') return !!stepType.value
-  if (screen.value === 'form') return formChoiceKey.value !== null
   return true
 })
 
@@ -132,43 +131,12 @@ function finish() {
   emit('submit', {
     stepType: stepType.value,
     name: name.value.trim() || typeMeta.defaultName,
-    formSchema:
-      stepType.value === 'ACTION' ? JSON.parse(JSON.stringify(formSchema.value ?? [])) : [],
+    // Approval steps are comment-only; a Schedule Task step's evidence form is
+    // added later in the editor if it needs one.
+    formSchema: stepType.value === 'ACTION' ? standardTaskForm() : [],
     roleIds: [...roleIds.value],
   })
   open.value = false
-}
-
-// ── Task-form gallery — same sources as WorkflowTaskFormTemplatePicker:
-// blank ("create one"), built-in QMS block presets, the tenant's saved
-// ACTIVE form blocks (standalone FORM templates excluded on purpose;
-// LOG_FORM blocks are exclusive to log books). ─────────────────────────
-const formSearch = ref('')
-
-const savedBlocks = useLiveQuery(
-  async (db) =>
-    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter(
-      (t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') !== 'LOG_FORM',
-    ),
-  { models: ['FormTemplate'], initial: [] },
-)
-
-const filteredSaved = computed(() => {
-  const withSchema = savedBlocks.value.filter((t) => (t.schema?.length ?? 0) > 0)
-  if (!formSearch.value.trim()) return withSchema
-  const q = formSearch.value.toLowerCase()
-  return withSchema.filter((t) => t.title?.toLowerCase().includes(q))
-})
-
-const filteredPresets = computed(() => {
-  if (!formSearch.value.trim()) return QMS_BLOCKS
-  const q = formSearch.value.toLowerCase()
-  return QMS_BLOCKS.filter((p) => p.title.toLowerCase().includes(q))
-})
-
-function pickForm(key, schema) {
-  formChoiceKey.value = key
-  formSchema.value = schema ?? []
 }
 
 // ── Assignee roles — collected locally (the step doesn't exist yet); the
@@ -235,7 +203,7 @@ function toggleRole(roleId) {
         </p>
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
           <BaseClickableRow
-            v-for="t in STEP_TYPES"
+            v-for="t in availableTypes"
             :key="t.id"
             class="tw:flex tw:flex-col tw:items-start tw:gap-2 tw:p-4 tw:border-2 tw:rounded-xl tw:transition-all"
             :class="
@@ -282,102 +250,14 @@ function toggleRole(roleId) {
         </BaseField>
       </div>
 
-      <!-- ── Screen 2 (Task only): task form gallery ────────────────── -->
-      <div v-else-if="screen === 'form'" class="tw:flex tw:flex-col tw:gap-4">
-        <p class="tw:text-sm tw:text-secondary">
-          Pick the form the assignee fills in to complete this task — a reusable
-          <strong>form block</strong> or your own design. Every field stays editable in the step
-          editor's Task Form tab.
-        </p>
-
-        <BaseTextInput v-model="formSearch" placeholder="Search blocks…">
-          <template #icon><IconSearch :size="18" class="tw:text-secondary" /></template>
-        </BaseTextInput>
-
-        <div
-          class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4 tw:overflow-auto tw:max-h-100 tw:p-1"
-        >
-          <!-- Create one from scratch -->
-          <BaseClickableRow
-            class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
-            :class="{ 'tw:border-primary tw:bg-main-hover': formChoiceKey === 'blank' }"
-            aria-label="Design a form from scratch"
-            @click="pickForm('blank', [])"
-          >
-            <IconCirclePlus :size="40" class="tw:text-secondary/40" />
-            <div class="tw:text-base tw:font-bold tw:mt-3 tw:text-on-main">Create your own</div>
-            <div class="tw:text-xs tw:text-secondary tw:text-center">
-              Start blank and design it in the form builder
-            </div>
-          </BaseClickableRow>
-
-          <!-- Built-in QMS block presets -->
-          <BaseClickableRow
-            v-for="preset in filteredPresets"
-            :key="`preset:${preset.code}`"
-            class="tw:flex tw:flex-col tw:p-4 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
-            :class="{
-              'tw:border-primary tw:bg-main-hover': formChoiceKey === `preset:${preset.code}`,
-            }"
-            :aria-label="`Use template ${preset.title}`"
-            @click="pickForm(`preset:${preset.code}`, preset.schema)"
-          >
-            <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-              <span class="tw:text-sm tw:font-bold tw:text-primary">{{ preset.title }}</span>
-              <span class="tw:text-micro tw:uppercase tw:tracking-wide tw:text-secondary">
-                Built-in
-              </span>
-            </div>
-            <div
-              class="tw:h-40 tw:overflow-hidden tw:relative tw:bg-main tw:border tw:border-divider tw:rounded-lg"
-            >
-              <div
-                class="tw:w-[200%] tw:scale-[0.5] tw:origin-top-left tw:p-4 tw:pointer-events-none"
-              >
-                <DynamicForm :fields="preset.schema" readonly :modelValue="{}" />
-              </div>
-            </div>
-          </BaseClickableRow>
-
-          <!-- The tenant's saved form blocks -->
-          <BaseClickableRow
-            v-for="tpl in filteredSaved"
-            :key="`saved:${tpl.id}`"
-            class="tw:flex tw:flex-col tw:p-4 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
-            :class="{ 'tw:border-primary tw:bg-main-hover': formChoiceKey === `saved:${tpl.id}` }"
-            :aria-label="`Use form block ${tpl.title}`"
-            @click="pickForm(`saved:${tpl.id}`, tpl.schema)"
-          >
-            <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-              <span class="tw:text-sm tw:font-bold tw:text-primary">{{ tpl.title }}</span>
-              <span class="tw:text-micro tw:uppercase tw:tracking-wide tw:text-secondary">
-                Your block
-              </span>
-            </div>
-            <div
-              class="tw:h-40 tw:overflow-hidden tw:relative tw:bg-main tw:border tw:border-divider tw:rounded-lg"
-            >
-              <div
-                class="tw:w-[200%] tw:scale-[0.5] tw:origin-top-left tw:p-4 tw:pointer-events-none"
-              >
-                <DynamicForm :fields="tpl.schema" readonly :modelValue="{}" />
-              </div>
-            </div>
-          </BaseClickableRow>
-        </div>
-      </div>
-
       <!-- ── Last screen: assignees (roles) ─────────────────────────── -->
       <div v-else-if="screen === 'assignees'" class="tw:flex tw:flex-col tw:gap-4">
         <p class="tw:text-sm tw:text-secondary">
-          Which roles can work on this step? The submitter picks the actual person from these
-          roles when the workflow starts. Leave empty to let them pick any active user.
+          Which roles can work on this step? The submitter picks the actual person from these roles
+          when the workflow starts. Leave empty to let them pick any active user.
         </p>
 
-        <BaseTextInput
-          v-model="roleSearch"
-          placeholder="Search roles (e.g. Quality Manager…)"
-        >
+        <BaseTextInput v-model="roleSearch" placeholder="Search roles (e.g. Quality Manager…)">
           <template #icon><IconSearch :size="18" class="tw:text-secondary" /></template>
         </BaseTextInput>
 

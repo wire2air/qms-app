@@ -183,6 +183,7 @@ declare global {
   const until: typeof import('@vueuse/core').until
   const uploadFile: typeof import('./src/composables/useFileUpload.js').uploadFile
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
+  const useActiveWorkflowEntries: typeof import('./src/composables/useActiveWorkflowEntries.js').useActiveWorkflowEntries
   const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage
   const useAnimate: typeof import('@vueuse/core').useAnimate
   const useArrayDifference: typeof import('@vueuse/core').useArrayDifference

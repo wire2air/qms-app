@@ -39,7 +39,9 @@ export async function resolveLogBookTrainingGaps(logBookId, userIds) {
 
   // ACTIVE trainings bound to those docs (auto-training + library links).
   const allTrainings = await db.Training.where().exec()
-  const activeById = new Map(allTrainings.filter((t) => t.status === 'ACTIVE').map((t) => [t.id, t]))
+  const activeById = new Map(
+    allTrainings.filter((t) => t.status === 'ACTIVE').map((t) => [t.id, t]),
+  )
   const docLinkRows = (await db.TrainingDocumentLink.where().exec()).filter((r) =>
     docIds.includes(r.documentId),
   )
@@ -69,7 +71,10 @@ export async function resolveLogBookTrainingGaps(logBookId, userIds) {
   const instanceIds = new Set(instances.map((i) => i.id))
 
   const assignees = (await db.TrainingAssignee.where().exec()).filter(
-    (a) => users.includes(a.userId) && instanceIds.has(a.trainingInstanceId) && TRAINED_STATUSES.has(a.status),
+    (a) =>
+      users.includes(a.userId) &&
+      instanceIds.has(a.trainingInstanceId) &&
+      TRAINED_STATUSES.has(a.status),
   )
   const trainedDocsByUser = new Map(users.map((u) => [u, new Set()]))
   for (const a of assignees) {
@@ -99,18 +104,26 @@ export async function findUntrainedLinkedDocs(logBookId, userId) {
 }
 
 /**
- * Resolve the actual user ids an assignment targets: explicit users, or the
- * members of a role. Used by the assign-time warning so a role assignment is
- * checked against its current members.
+ * Resolve the actual user ids an assignment targets: named users UNIONED with
+ * the members of every assigned role (2026-08-15 — an assignment may carry
+ * both). Used by the assign-time training warning, so it must see everyone who
+ * will actually be asked to fill the book; returning early on named users
+ * would skip the roles and under-report untrained people.
+ *
+ * Mirrors resolveAssignees() in the worker's assignment generator — the two
+ * must agree on who the audience is, or the warning describes a different set
+ * of people from the one that gets the task.
  */
-export async function resolveAssignmentAudience({ assignedUserIds, assignedRoleId }) {
-  const direct = Array.isArray(assignedUserIds) ? assignedUserIds.filter(Boolean) : []
-  if (direct.length) return [...new Set(direct)]
-  if (assignedRoleId) {
-    const rows = await db.RoleOnUser.where('roleId', assignedRoleId).exec()
-    return [...new Set(rows.map((r) => r.userId).filter(Boolean))]
+export async function resolveAssignmentAudience({ assignedUserIds, assignedRoleIds }) {
+  const out = new Set(Array.isArray(assignedUserIds) ? assignedUserIds.filter(Boolean) : [])
+
+  const roleIds = Array.isArray(assignedRoleIds) ? assignedRoleIds.filter(Boolean) : []
+  for (const roleId of roleIds) {
+    const rows = await db.RoleOnUser.where('roleId', roleId).exec()
+    for (const r of rows) if (r.userId) out.add(r.userId)
   }
-  return []
+
+  return [...out]
 }
 
 /**

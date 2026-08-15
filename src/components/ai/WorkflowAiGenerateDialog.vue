@@ -30,10 +30,31 @@ import {
 import { post } from '@/api'
 import { hydrateAiFields } from '@/utils/aiFormHydrate'
 import { currentCompany } from '@/utils/currentCompany.js'
+import {
+  isApprovalOnlyModule,
+  isSystemAuthoredModule,
+} from '@/components/workflow/workflowModule.js'
+
+const props = defineProps({
+  // Which list launched this: 'approval' (Approval Flows) or 'record'
+  // (Templates). Scopes the module picker to that list, so a generated
+  // workflow lands back on the page you started from.
+  kind: { type: String, default: 'all' },
+})
 
 const emit = defineEmits(['created'])
 
 const show = defineModel({ type: Boolean, default: false })
+
+function moduleFilter(m) {
+  // Never offer a module whose workflows the system mints: Document Control's
+  // flow is authored inside the Document Template, and Form Modules' workflows
+  // come from the module factory (2026-08-15).
+  if (isSystemAuthoredModule(m.id)) return false
+  if (props.kind === 'approval') return isApprovalOnlyModule(m.id)
+  if (props.kind === 'record') return !isApprovalOnlyModule(m.id)
+  return true
+}
 
 // Mirror of WORKFLOW_MODULES_WITH_STEP_CONFIG in WorkflowEditor.vue (and of
 // MODULES_WITH_STEP_FORMS in the backend task) — only these modules render
@@ -144,7 +165,7 @@ async function generate() {
     )
     const out = res?.result
     if (!out?.steps?.length) {
-      error.value = 'The AI didn\'t return any steps. Try describing the process in more detail.'
+      error.value = "The AI didn't return any steps. Try describing the process in more detail."
       return
     }
     preview.value = out
@@ -242,7 +263,12 @@ function ruleLabel(step) {
 </script>
 
 <template>
-  <BaseDialog :modelValue="show" title="Generate workflow with AI" maxWidth="2xl" @update:modelValue="close">
+  <BaseDialog
+    :modelValue="show"
+    title="Generate workflow with AI"
+    maxWidth="2xl"
+    @update:modelValue="close"
+  >
     <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
       <!-- Context strip -->
       <div
@@ -250,15 +276,20 @@ function ruleLabel(step) {
       >
         <IconSparkles :size="16" class="tw:shrink-0 tw:mt-0.5" />
         <span>
-          Describe the process and the AI drafts the whole workflow — steps, role
-          assignments from your roles, and step forms where the module supports
-          them. <strong>It is created as a draft:</strong> nothing runs until you
-          review it in the builder and publish it.
+          Describe the process and the AI drafts the whole workflow — steps, role assignments from
+          your roles, and step forms where the module supports them.
+          <strong>It is created as a draft:</strong> nothing runs until you review it in the builder
+          and publish it.
         </span>
       </div>
 
       <BaseField v-slot="{ id: fieldId }" label="Module">
-        <ModuleSelectMenu :id="fieldId" v-model="moduleId" :required="true" />
+        <ModuleSelectMenu
+          :id="fieldId"
+          v-model="moduleId"
+          :required="true"
+          :filter="moduleFilter"
+        />
       </BaseField>
 
       <BaseField v-slot="{ id: fieldId }" label="What process should the workflow implement?">
@@ -407,7 +438,9 @@ function ruleLabel(step) {
                 <IconMessage :size="13" /> Comments required
               </span>
               <span v-if="step.fieldCount" class="tw:flex tw:items-center tw:gap-1">
-                <IconForms :size="13" /> {{ step.fieldCount }} form field{{ step.fieldCount === 1 ? '' : 's' }}
+                <IconForms :size="13" /> {{ step.fieldCount }} form field{{
+                  step.fieldCount === 1 ? '' : 's'
+                }}
               </span>
             </div>
 
@@ -421,7 +454,13 @@ function ruleLabel(step) {
 
     <template #footer>
       <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-      <BaseButton v-if="preview" variant="primary" :loading="creating" :disabled="creating" @click="createAsDraft">
+      <BaseButton
+        v-if="preview"
+        variant="primary"
+        :loading="creating"
+        :disabled="creating"
+        @click="createAsDraft"
+      >
         <template #icon><IconSparkles :size="16" /></template>
         Create as Draft ({{ stepCount }} step{{ stepCount === 1 ? '' : 's' }})
       </BaseButton>

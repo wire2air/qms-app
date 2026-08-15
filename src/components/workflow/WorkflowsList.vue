@@ -9,6 +9,9 @@ const props = defineProps({
   allWorkflows: { type: Array, default: () => [] },
   // Clone is handled by the parent (shared with the table view).
   canClone: { type: Boolean, default: false },
+  // Where a card opens. Approval flows mount the same editor under
+  // /approval-flows/:id so the sidebar stays on Approval Flows.
+  basePath: { type: String, default: '/workflow-templates' },
 })
 
 const emit = defineEmits(['clone'])
@@ -18,8 +21,7 @@ const router = useRouter()
 const filteredWorkflows = computed(() => props.workflows)
 
 function navigateToWorkflow(workflow) {
-  const path = getCompanyPath(`/workflow-templates/${workflow.id}`)
-  router.push(path)
+  router.push(getCompanyPath(`${props.basePath}/${workflow.id}`))
 }
 
 // Toggle a module's default workflow. Clear the current default FIRST —
@@ -50,7 +52,6 @@ async function setDefault(workflow) {
     toast.error(err?.message || 'Failed to update default workflow')
   }
 }
-
 </script>
 
 <template>

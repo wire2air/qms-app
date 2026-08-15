@@ -85,11 +85,7 @@ async function removeUser(userId) {
   <div class="tw:space-y-4">
     <!-- Search -->
     <BaseField v-slot="{ id: fieldId }" label="Select Users">
-      <BaseTextInput
-        :id="fieldId"
-        v-model="search"
-        placeholder="Search users by name or email..."
-      >
+      <BaseTextInput :id="fieldId" v-model="search" placeholder="Search users by name or email...">
         <template #icon>
           <IconSearch :size="18" class="tw:text-secondary" />
         </template>

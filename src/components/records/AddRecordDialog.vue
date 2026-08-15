@@ -97,7 +97,7 @@ const assignedTemplateIds = useLiveQueryWithDeps(
     for (const row of rows) {
       if (row.active === false) continue
       const directHit = Array.isArray(row.assignedUserIds) && row.assignedUserIds.includes(uid)
-      const roleHit = row.assignedRoleId && roleSet.has(row.assignedRoleId)
+      const roleHit = (row.assignedRoleIds ?? []).some((rid) => roleSet.has(rid))
       if (directHit || roleHit) ids.add(row.logBookId)
     }
     return ids
@@ -671,7 +671,10 @@ const templateSchema = computed(() => {
                 <!-- Training block: linked controlling document(s) the current
                      user isn't trained on. Hard-stop — the form is replaced by
                      this notice and no submit is offered (backend enforces too). -->
-                <div v-if="isTrainingBlocked" class="tw:p-6 tw:flex tw:flex-col tw:items-center tw:gap-3 tw:text-center">
+                <div
+                  v-if="isTrainingBlocked"
+                  class="tw:p-6 tw:flex tw:flex-col tw:items-center tw:gap-3 tw:text-center"
+                >
                   <div
                     class="tw:w-12 tw:h-12 tw:rounded-full tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center"
                   >
@@ -680,15 +683,21 @@ const templateSchema = computed(() => {
                   <div class="tw:font-bold tw:text-on-main">Training required</div>
                   <div class="tw:text-sm tw:text-secondary tw:max-w-md">
                     You can't record entries in this log book yet. It's tied to
-                    {{ trainingBlockDocs.length === 1 ? 'a controlling document' : 'controlling documents' }}
+                    {{
+                      trainingBlockDocs.length === 1
+                        ? 'a controlling document'
+                        : 'controlling documents'
+                    }}
                     you haven't completed and had verified:
                   </div>
-                  <ul class="tw:text-sm tw:text-on-main tw:font-medium tw:flex tw:flex-col tw:gap-1">
+                  <ul
+                    class="tw:text-sm tw:text-on-main tw:font-medium tw:flex tw:flex-col tw:gap-1"
+                  >
                     <li v-for="d in trainingBlockDocs" :key="d.id">{{ d.title }}</li>
                   </ul>
                   <div class="tw:text-xs tw:text-secondary tw:max-w-md">
-                    Complete the training (and manager verification, where required), then come back.
-                    Reach out to your supervisor if you believe this is a mistake.
+                    Complete the training (and manager verification, where required), then come
+                    back. Reach out to your supervisor if you believe this is a mistake.
                   </div>
                   <button
                     class="tw:mt-2 tw:px-4 tw:py-2 tw:text-sm tw:font-medium tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:text-on-main"

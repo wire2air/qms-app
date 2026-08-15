@@ -8,6 +8,12 @@ import MiniFormBuilder from '@/components/form-builder/MiniFormBuilder.vue'
 const props = defineProps({
   stepId: { type: String, required: true },
   canUpdate: { type: Boolean, default: false },
+  // Hide the title row + blurb + the "Start from a block" / "Full builder"
+  // buttons (user request 2026-08-15). In the workflow builder the step panel
+  // shows nothing BUT this form, so the heading restated the obvious and the
+  // two entry points added noise. Kept behind a flag rather than deleted —
+  // the block picker and full builder are still wanted, just not here yet.
+  hideHeader: { type: Boolean, default: false },
 })
 
 const step = useLiveQueryWithDeps(
@@ -74,8 +80,8 @@ async function handleFullBuilderSave(schema) {
 
 <template>
   <div class="tw:space-y-4">
-    <!-- Section Header -->
-    <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
+    <!-- Section Header (hidden in the workflow builder — see hideHeader) -->
+    <div v-if="!hideHeader" class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
       <IconForms :size="22" />
       <h2 class="tw:text-lg tw:font-semibold tw:text-on-main">Task Form</h2>
       <HelpButton slug="KB/automation/task-forms-and-form-blocks" :size="16" />
@@ -90,7 +96,7 @@ async function handleFullBuilderSave(schema) {
         </BaseButton>
       </div>
     </div>
-    <p class="tw:text-xs tw:text-secondary">
+    <p v-if="!hideHeader" class="tw:text-xs tw:text-secondary">
       The form the assignee fills in to complete this step — what they did, found, or decided.
       <template v-if="canUpdate">
         Add and arrange fields right here; drag to reorder, click a field to configure it.

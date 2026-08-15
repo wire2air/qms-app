@@ -192,6 +192,7 @@ export default {
     "until": true,
     "uploadFile": true,
     "useActiveElement": true,
+    "useActiveWorkflowEntries": true,
     "useAiUsage": true,
     "useAnimate": true,
     "useArrayDifference": true,

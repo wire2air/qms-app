@@ -79,6 +79,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/approval-flows/[[id]]': RouteRecordInfo<
+      '/approval-flows/[[id]]',
+      '/approval-flows/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
     '/audit-logs': RouteRecordInfo<
       '/audit-logs',
       '/audit-logs',
@@ -795,6 +802,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/api-tokens.vue': {
       routes:
         | '/api-tokens'
+      views:
+        | never
+    }
+    'src/pages/approval-flows/[[id]].vue': {
+      routes:
+        | '/approval-flows/[[id]]'
       views:
         | never
     }

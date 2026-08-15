@@ -1,6 +1,7 @@
 <script setup>
 import { IconMinus, IconPlus, IconX } from '@tabler/icons-vue'
 import { required } from '@shared/components/form/validators.js'
+import { pickPublishedVersionId } from '@/components/documentTemplates/documentTemplateApprovalFlow.js'
 
 const form = defineModel({
   type: Object,
@@ -46,7 +47,41 @@ watch(resolvedTemplate, (template) => {
   form.value.relatedStandardId = template.relatedStandardId
   form.value.periodicReviewMonths = template.periodicReviewMonths
   form.value.autoEffectiveOnApproval = template.autoEffectiveOnApproval
+  // The approval flow comes from the template too (2026-08-15) — there is no
+  // workflow picker on this form any more. See documentTemplateApprovalFlow.js.
+  form.value.workflowVersionId = inheritedVersionId.value
 })
+
+// The template's companion approval workflow, resolved to the published
+// version a new document runs. Watched separately from the template itself
+// because it resolves a beat later (two live queries deep).
+const inheritedVersionId = useLiveQueryWithDeps(
+  [() => resolvedTemplate.value?.workflowId],
+  async (db, [workflowId]) => {
+    if (!workflowId) return null
+    const versions = await db.WorkflowVersion.where('workflowId', workflowId).exec()
+    // PUBLISHED only — the template's flow is edited in the workflow builder,
+    // so it routinely has a draft sitting beside the live version and a new
+    // document must never start running someone's work in progress.
+    return pickPublishedVersionId(versions)
+  },
+  { models: ['WorkflowVersion'], initial: null },
+)
+
+watch(inheritedVersionId, (id) => {
+  form.value.workflowVersionId = id
+})
+
+// Steps of the inherited flow, shown read-only so the author can see who will
+// be asked to sign before they create the document.
+const inheritedSteps = useLiveQueryWithDeps(
+  [() => inheritedVersionId.value],
+  async (db, [versionId]) => {
+    if (!versionId) return []
+    return db.WorkflowStep.where('workflowVersionId', versionId).orderBy('stepOrder').exec()
+  },
+  { models: ['WorkflowStep'], initial: [] },
+)
 
 // Prefix auto-uppercase
 const prefix = computed({
@@ -314,9 +349,48 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
       </div>
     </BaseField>
 
-    <!-- Workflow (full width) -->
-    <BaseField label="Workflow" class="tw:md:col-span-2">
-      <WorkflowVersionSelect v-model="form.workflowVersionId" moduleId="APPROVAL" />
+    <!-- Approval flow — inherited from the template, not picked here
+         (2026-08-15). Read-only on purpose: the template is the single source
+         of truth for how its documents get approved. -->
+    <BaseField
+      label="Approval Flow"
+      class="tw:md:col-span-2"
+      :value="form.workflowVersionId"
+      :rules="[
+        required(
+          'The selected template has no approval flow — add reviewer and approver roles to it first',
+        ),
+      ]"
+    >
+      <div
+        v-if="inheritedSteps.length"
+        class="tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:p-3"
+      >
+        <div
+          v-for="(step, i) in inheritedSteps"
+          :key="step.id"
+          class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+        >
+          <span
+            class="tw:flex tw:h-5 tw:w-5 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:bg-primary/10 tw:text-micro tw:font-semibold tw:text-primary"
+          >
+            {{ i + 1 }}
+          </span>
+          <span class="tw:font-medium tw:text-on-main">{{ step.name }}</span>
+          <WorkflowStepRoleBadges :stepId="step.id" />
+          <span v-if="step.slaDays" class="tw:text-xs tw:text-secondary">
+            · due in {{ step.slaDays }} days
+          </span>
+        </div>
+        <p class="tw:text-xs tw:text-secondary">
+          Defined by the “{{ selectedTemplate?.name }}” template.
+        </p>
+      </div>
+      <p v-else-if="form.documentTemplateId" class="tw:text-sm tw:text-red-600">
+        This template has no approval flow yet — add reviewer and approver roles to it before
+        creating documents from it.
+      </p>
+      <p v-else class="tw:text-sm tw:text-secondary">Pick a template to see its approval flow.</p>
     </BaseField>
   </div>
 </template>

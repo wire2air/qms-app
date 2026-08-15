@@ -47,9 +47,7 @@ const versions = useLiveQueryWithDeps(
 const latestVersion = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [documentId]) => {
-    return db.DocumentVersion.where('documentId', documentId)
-      .orderBy('createdAt', 'desc')
-      .first()
+    return db.DocumentVersion.where('documentId', documentId).orderBy('createdAt', 'desc').first()
   },
   { models: ['DocumentVersion'] },
 )
@@ -205,8 +203,7 @@ const openCollaboratorTasks = useLiveQueryWithDeps(
     const tasks = await db.TaskInstance.where('[entityType+entityId]', ['Document', id]).exec()
     return tasks.filter(
       (t) =>
-        t.sourceType === 'DocumentCollaborator' &&
-        ['ASSIGNED', 'IN_PROGRESS'].includes(t.statusId),
+        t.sourceType === 'DocumentCollaborator' && ['ASSIGNED', 'IN_PROGRESS'].includes(t.statusId),
     )
   },
   { models: ['TaskInstance'], initial: [] },
@@ -218,7 +215,9 @@ const trainingAudienceMissing = computed(() => {
   return !(tc.curriculumIds?.length || tc.userIds?.length)
 })
 const trainingAssessmentMissing = computed(
-  () => !!selectedVersion.value?.trainingConfig?.enabled && !selectedVersion.value?.trainingConfig?.assessment?.length,
+  () =>
+    !!selectedVersion.value?.trainingConfig?.enabled &&
+    !selectedVersion.value?.trainingConfig?.assessment?.length,
 )
 
 // ── Submit-for-review completeness gate ──────────────────────────────────
@@ -255,9 +254,7 @@ function sectionIsIncomplete(section) {
   return isBlankRichText(section.content)
 }
 
-const incompleteSections = computed(() =>
-  selectedVersionSections.value.filter(sectionIsIncomplete),
-)
+const incompleteSections = computed(() => selectedVersionSections.value.filter(sectionIsIncomplete))
 const showIncompleteDialog = ref(false)
 
 // ─── AI: section-aware drafting (view page) ───────────────────────────────
@@ -295,7 +292,9 @@ async function handleAiSectionsDraft({ sections }) {
   try {
     const applied = await applyAiSections(sections)
     toast.success(
-      applied ? `AI draft applied to ${applied} section${applied === 1 ? '' : 's'}.` : 'No changes to apply.',
+      applied
+        ? `AI draft applied to ${applied} section${applied === 1 ? '' : 's'}.`
+        : 'No changes to apply.',
     )
   } catch (e) {
     toast.error(e?.message || 'Failed to apply AI draft.')
@@ -685,95 +684,99 @@ const documentDetailConfig = computed(() =>
     <template #actions>
       <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:max-sm:justify-end">
         <button
-              v-if="canDraftWithAi && selectedVersion?.id"
-              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
-              title="Use AI to draft or improve this document's sections"
-              @click="showDraftSectionsDialog = true"
-            >
-              <IconSparkles :size="13" />
-              Draft with AI
-            </button>
-            <button
-              v-if="canUseAi && selectedVersion?.id"
-              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
-              title="AI-generated summary of this version"
-              @click="showAiSummary = true"
-            >
-              <IconSparkles :size="13" />
-              Summarize
-            </button>
-            <button
-              v-if="canUseAi && canShowAiDiff"
-              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
-              :title="`Explain what changed since v${versionLabelFor(aiDiffFromVersion)}`"
-              @click="showAiDiff = true"
-            >
-              <IconGitCompare :size="13" />
-              What changed
-            </button>
-            <TaskActionBar
-              v-if="selectedVersion?.id"
-              entityType="DocumentVersion"
-              :entityId="selectedVersion.id"
-            />
+          v-if="canDraftWithAi && selectedVersion?.id"
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+          title="Use AI to draft or improve this document's sections"
+          @click="showDraftSectionsDialog = true"
+        >
+          <IconSparkles :size="13" />
+          Draft with AI
+        </button>
+        <button
+          v-if="canUseAi && selectedVersion?.id"
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+          title="AI-generated summary of this version"
+          @click="showAiSummary = true"
+        >
+          <IconSparkles :size="13" />
+          Summarize
+        </button>
+        <button
+          v-if="canUseAi && canShowAiDiff"
+          class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:text-primary tw:hover:bg-primary/10 tw:transition-colors tw:font-medium tw:px-2.5 tw:py-1 tw:text-xs"
+          :title="`Explain what changed since v${versionLabelFor(aiDiffFromVersion)}`"
+          @click="showAiDiff = true"
+        >
+          <IconGitCompare :size="13" />
+          What changed
+        </button>
+        <TaskActionBar
+          v-if="selectedVersion?.id"
+          entityType="DocumentVersion"
+          :entityId="selectedVersion.id"
+        />
 
-            <!-- Version Selector -->
-            <div class="tw:relative">
-              <BasePopover placement="bottom-start">
-                <template #button>
-                  <BaseButton variant="outline">
-                    Version: {{ versionLabel }} ({{ selectedVersion?.statusId }})
-                    <IconChevronDown :size="16" class="tw:ml-1" />
-                  </BaseButton>
-                </template>
-                <template #content="{ close }">
-                  <div class="tw:flex tw:flex-col tw:py-1 tw:min-w-48">
-                    <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:px-3 tw:py-1">
-                      Document History
-                    </div>
-                    <button
-                      v-for="version in versions"
-                      :key="version.id"
-                      class="tw:flex tw:w-full tw:items-start tw:px-3 tw:py-2 tw:text-sm tw:hover:bg-main-hover"
-                      :class="
-                        version.id === selectedVersion?.id
-                          ? 'tw:text-primary tw:font-semibold'
-                          : 'tw:text-on-sidebar'
-                      "
-                      @click="
-                        () => {
-                          selectVersion(version)
-                          close()
-                        }
-                      "
-                    >
-                      Version
-                      {{
-                        version.versionLabel || `${version.versionMajor}.${version.versionMinor}`
-                      }}
-                      <span
-                        v-if="version.statusId === 'EFFECTIVE'"
-                        class="tw:text-primary tw:font-bold tw:ml-1"
-                      >
-                        (Current)
-                      </span>
-                      <span
-                        v-else-if="version.statusId === 'DRAFT'"
-                        class="tw:text-secondary tw:ml-1"
-                      >
-                        (Draft)
-                      </span>
-                    </button>
-                  </div>
-                </template>
-              </BasePopover>
-            </div>
+        <!-- Version Selector -->
+        <div class="tw:relative">
+          <BasePopover placement="bottom-start">
+            <template #button>
+              <BaseButton variant="outline">
+                Version: {{ versionLabel }} ({{ selectedVersion?.statusId }})
+                <IconChevronDown :size="16" class="tw:ml-1" />
+              </BaseButton>
+            </template>
+            <template #content="{ close }">
+              <div class="tw:flex tw:flex-col tw:py-1 tw:min-w-48">
+                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:px-3 tw:py-1">
+                  Document History
+                </div>
+                <button
+                  v-for="version in versions"
+                  :key="version.id"
+                  class="tw:flex tw:w-full tw:items-start tw:px-3 tw:py-2 tw:text-sm tw:hover:bg-main-hover"
+                  :class="
+                    version.id === selectedVersion?.id
+                      ? 'tw:text-primary tw:font-semibold'
+                      : 'tw:text-on-sidebar'
+                  "
+                  @click="
+                    () => {
+                      selectVersion(version)
+                      close()
+                    }
+                  "
+                >
+                  Version
+                  {{ version.versionLabel || `${version.versionMajor}.${version.versionMinor}` }}
+                  <span
+                    v-if="version.statusId === 'EFFECTIVE'"
+                    class="tw:text-primary tw:font-bold tw:ml-1"
+                  >
+                    (Current)
+                  </span>
+                  <span v-else-if="version.statusId === 'DRAFT'" class="tw:text-secondary tw:ml-1">
+                    (Draft)
+                  </span>
+                </button>
+              </div>
+            </template>
+          </BasePopover>
+        </div>
 
         <DetailActionBar :actions="documentActions" />
       </div>
     </template>
 
     <template v-if="document" #tab-content>
+      <!-- The route this document takes to Effective, left to right. Sits
+           above the body so "where is this and who's next" is answered before
+           you start reading (user request 2026-08-15). The rail's timeline is
+           the detailed, per-step view; this is the one-line summary. -->
+      <DocumentApprovalFlowStrip
+        :versionId="selectedVersion?.id"
+        :workflowVersionId="document.workflowVersionId"
+        class="tw:mb-4"
+      />
       <PrintTeleport>
         <DocumentsMainContentLeft
           :documentId="props.id"
@@ -812,206 +815,201 @@ const documentDetailConfig = computed(() =>
 
   <!-- Dialogs (siblings after </BaseDetailLayout>) -->
 
-      <DocumentWorkflowPreviewDialog
-        v-model="showPreviewDialog"
-        :documentId="props.id"
-        :versionId="selectedVersion?.id"
-      />
+  <DocumentWorkflowPreviewDialog
+    v-model="showPreviewDialog"
+    :documentId="props.id"
+    :versionId="selectedVersion?.id"
+  />
 
-      <!-- Incomplete-sections reminder before submitting for review. -->
-      <BaseDialog v-model="showIncompleteDialog" title="Finish all sections" maxWidth="md">
-        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-          <div
-            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
-          >
-            <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
-            <div class="tw:text-sm tw:text-amber-900">
-              <template v-if="!selectedVersionSections.length">
-                This document has no sections yet. Add and complete at least one section before
-                submitting it for review.
-              </template>
-              <template v-else>
-                Every section needs a title and content before this document can go for review.
-                The following {{ incompleteSections.length }}
-                {{ incompleteSections.length === 1 ? 'section is' : 'sections are' }} still
-                incomplete:
-              </template>
-            </div>
-          </div>
-          <ul
-            v-if="incompleteSections.length"
-            class="tw:flex tw:flex-col tw:gap-1 tw:text-sm tw:text-secondary tw:pl-1"
-          >
-            <li
-              v-for="s in incompleteSections"
-              :key="s.id"
-              class="tw:flex tw:items-center tw:gap-2"
-            >
-              <span class="tw:text-red-500">•</span>
-              <span>{{ s.title?.trim() || 'Untitled section' }}</span>
-            </li>
-          </ul>
-        </div>
-        <template #footer="{ close }">
-          <BaseButton variant="primary" @click="close">Got it</BaseButton>
-        </template>
-      </BaseDialog>
-
-      <!-- Training-not-set reminder before submitting for review. -->
-      <BaseDialog v-model="showTrainingReminder" title="Finish training setup" maxWidth="md">
-        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-          <div
-            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
-          >
-            <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
-            <div class="tw:text-sm tw:text-amber-900">
-              Training is enabled for this document but no
-              <strong>audience</strong> is selected — nothing would be assigned when it becomes
-              effective.
-              <span v-if="trainingAssessmentMissing">
-                No assessment has been added yet either (optional — leave it off for
-                read-and-acknowledge).
-              </span>
-            </div>
-          </div>
-          <p class="tw:text-sm tw:text-secondary">
-            Add a training audience (roles or users) on the Training tab, or disable training if this
-            document doesn't need it.
-          </p>
-        </div>
-        <template #footer="{ close }">
-          <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-          <BaseButton variant="outline" @click="disableTrainingAndSubmit">
-            Disable training &amp; submit
-          </BaseButton>
-          <BaseButton variant="primary" @click="goToTrainingSetup">Set up training</BaseButton>
-        </template>
-      </BaseDialog>
-
-      <!-- Collaborator completion reminder (attestation; owner can proceed) -->
-      <BaseDialog v-model="showCollaboratorReminder" title="Has the collaborator finished?" maxWidth="md">
-        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-          <div
-            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
-          >
-            <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
-            <div class="tw:text-sm tw:text-amber-900">
-              {{ openCollaboratorTasks.length }} collaborator{{
-                openCollaboratorTasks.length === 1 ? '' : 's'
-              }}
-              still {{ openCollaboratorTasks.length === 1 ? 'has' : 'have' }} an open task on this
-              document. Have they completed their contributions?
-            </div>
-          </div>
-          <div class="tw:flex tw:flex-wrap tw:gap-1.5">
-            <UserBadgeById
-              v-for="t in openCollaboratorTasks"
-              :key="t.id"
-              :userId="t.assignedTo"
-            />
-          </div>
-          <p class="tw:text-sm tw:text-secondary">
-            You can submit anyway — their task will stay assigned in their inbox.
-          </p>
-        </div>
-        <template #footer="{ close }">
-          <BaseButton variant="outline" @click="close">Not yet</BaseButton>
-          <BaseButton variant="primary" @click="confirmCollaboratorAndSubmit">
-            Submit for review
-          </BaseButton>
-        </template>
-      </BaseDialog>
-
-      <!-- Audit Log Dialog — covers the Document plus its Versions, Sections, and Links -->
-      <AuditLogDialog
-        v-model="showAuditLog"
-        :includeEntities="auditIncludeEntities"
-        :title="`Audit Log — ${document?.title ?? 'Document'}`"
-      />
-
-      <!-- Revision History — version-by-version change control + approval chain -->
-      <DocumentRevisionHistoryDialog
-        v-model="showRevisionHistory"
-        :documentId="props.id"
-        :documentTitle="document?.title ?? ''"
-      />
-
-      <!-- Obsoletion (archive with required reason) -->
-      <DocumentObsoletionDialog
-        v-model="showObsoletionDialog"
-        :document="document"
-        :documentTitle="document?.title ?? ''"
-        :documentNumber="document?.docNumber ?? ''"
-        @archived="handleArchived"
-      />
-
-      <!-- AI generation dialogs (Phase 4) -->
-      <DocumentSummaryDialog
-        v-model="showAiSummary"
-        :versionId="selectedVersion?.id"
-        :documentTitle="`${document?.title ?? 'Document'} v${versionLabelFor(selectedVersion)}`"
-      />
-      <DocumentDiffSummaryDialog
-        v-model="showAiDiff"
-        :fromVersionId="aiDiffFromVersion?.id"
-        :toVersionId="selectedVersion?.id"
-        :fromLabel="versionLabelFor(aiDiffFromVersion)"
-        :toLabel="versionLabelFor(selectedVersion)"
-      />
-      <!-- Section-aware AI drafting — fills / improves the current draft's
-           sections in place; highlights the sections it changed. -->
-      <DocumentDraftSectionsDialog
-        v-model="showDraftSectionsDialog"
-        :versionId="selectedVersion?.id"
-        @apply="handleAiSectionsDraft"
-      />
-
-      <!-- Draft deletion — capture a reason, then confirm with an e-sign PIN,
-           then hard-delete (see deleteDraftVersion). -->
-      <BaseDialog
-        v-model="showDeleteReasonDialog"
-        :title="deletingWholeDocument ? 'Delete draft document' : 'Delete draft version'"
-        maxWidth="md"
+  <!-- Incomplete-sections reminder before submitting for review. -->
+  <BaseDialog v-model="showIncompleteDialog" title="Finish all sections" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
       >
-        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-          <div
-            class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
-          >
-            <IconAlertTriangle :size="20" class="tw:text-red-600 tw:shrink-0 tw:mt-0.5" />
-            <div class="tw:text-sm tw:text-red-900">
-              This permanently deletes
-              <template v-if="deletingWholeDocument">
-                this draft document and all its content.
-              </template>
-              <template v-else>version {{ versionLabel }} and its content.</template>
-              It can't be undone. You'll confirm with your e-signature PIN.
-            </div>
-          </div>
-          <BaseField label="Reason for deletion" required>
-            <BaseTextarea
-              v-model="deleteReason"
-              :rows="3"
-              placeholder="Why is this draft being deleted? (recorded in the audit log)"
-            />
-          </BaseField>
+        <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+        <div class="tw:text-sm tw:text-amber-900">
+          <template v-if="!selectedVersionSections.length">
+            This document has no sections yet. Add and complete at least one section before
+            submitting it for review.
+          </template>
+          <template v-else>
+            Every section needs a title and content before this document can go for review. The
+            following {{ incompleteSections.length }}
+            {{ incompleteSections.length === 1 ? 'section is' : 'sections are' }} still incomplete:
+          </template>
         </div>
-        <template #footer="{ close }">
-          <BaseButton variant="outline" @click="close">Cancel</BaseButton>
-          <BaseButton variant="danger" :disabled="!deleteReason.trim()" @click="confirmDeleteReason">
-            Continue
-          </BaseButton>
-        </template>
-      </BaseDialog>
+      </div>
+      <ul
+        v-if="incompleteSections.length"
+        class="tw:flex tw:flex-col tw:gap-1 tw:text-sm tw:text-secondary tw:pl-1"
+      >
+        <li v-for="s in incompleteSections" :key="s.id" class="tw:flex tw:items-center tw:gap-2">
+          <span class="tw:text-red-500">•</span>
+          <span>{{ s.title?.trim() || 'Untitled section' }}</span>
+        </li>
+      </ul>
+    </div>
+    <template #footer="{ close }">
+      <BaseButton variant="primary" @click="close">Got it</BaseButton>
+    </template>
+  </BaseDialog>
 
-      <WorkflowInstanceEsignAuthDialog
-        v-model="showDeleteEsignDialog"
-        @verified="onDeleteEsignVerified"
-      />
-      <DocumentsNewVersionDialog
-        v-model="showNewVersionDialog"
-        :baselineSections="baselineSections"
-        :nextVersionLabel="nextVersionLabel"
-        :fromVersionLabel="fromVersionLabel"
-        @confirm="handleNewVersionConfirm"
-      />
+  <!-- Training-not-set reminder before submitting for review. -->
+  <BaseDialog v-model="showTrainingReminder" title="Finish training setup" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+      >
+        <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+        <div class="tw:text-sm tw:text-amber-900">
+          Training is enabled for this document but no
+          <strong>audience</strong> is selected — nothing would be assigned when it becomes
+          effective.
+          <span v-if="trainingAssessmentMissing">
+            No assessment has been added yet either (optional — leave it off for
+            read-and-acknowledge).
+          </span>
+        </div>
+      </div>
+      <p class="tw:text-sm tw:text-secondary">
+        Add a training audience (roles or users) on the Training tab, or disable training if this
+        document doesn't need it.
+      </p>
+    </div>
+    <template #footer="{ close }">
+      <BaseButton variant="outline" @click="close">Cancel</BaseButton>
+      <BaseButton variant="outline" @click="disableTrainingAndSubmit">
+        Disable training &amp; submit
+      </BaseButton>
+      <BaseButton variant="primary" @click="goToTrainingSetup">Set up training</BaseButton>
+    </template>
+  </BaseDialog>
+
+  <!-- Collaborator completion reminder (attestation; owner can proceed) -->
+  <BaseDialog
+    v-model="showCollaboratorReminder"
+    title="Has the collaborator finished?"
+    maxWidth="md"
+  >
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+      >
+        <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+        <div class="tw:text-sm tw:text-amber-900">
+          {{ openCollaboratorTasks.length }} collaborator{{
+            openCollaboratorTasks.length === 1 ? '' : 's'
+          }}
+          still {{ openCollaboratorTasks.length === 1 ? 'has' : 'have' }} an open task on this
+          document. Have they completed their contributions?
+        </div>
+      </div>
+      <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+        <UserBadgeById v-for="t in openCollaboratorTasks" :key="t.id" :userId="t.assignedTo" />
+      </div>
+      <p class="tw:text-sm tw:text-secondary">
+        You can submit anyway — their task will stay assigned in their inbox.
+      </p>
+    </div>
+    <template #footer="{ close }">
+      <BaseButton variant="outline" @click="close">Not yet</BaseButton>
+      <BaseButton variant="primary" @click="confirmCollaboratorAndSubmit">
+        Submit for review
+      </BaseButton>
+    </template>
+  </BaseDialog>
+
+  <!-- Audit Log Dialog — covers the Document plus its Versions, Sections, and Links -->
+  <AuditLogDialog
+    v-model="showAuditLog"
+    :includeEntities="auditIncludeEntities"
+    :title="`Audit Log — ${document?.title ?? 'Document'}`"
+  />
+
+  <!-- Revision History — version-by-version change control + approval chain -->
+  <DocumentRevisionHistoryDialog
+    v-model="showRevisionHistory"
+    :documentId="props.id"
+    :documentTitle="document?.title ?? ''"
+  />
+
+  <!-- Obsoletion (archive with required reason) -->
+  <DocumentObsoletionDialog
+    v-model="showObsoletionDialog"
+    :document="document"
+    :documentTitle="document?.title ?? ''"
+    :documentNumber="document?.docNumber ?? ''"
+    @archived="handleArchived"
+  />
+
+  <!-- AI generation dialogs (Phase 4) -->
+  <DocumentSummaryDialog
+    v-model="showAiSummary"
+    :versionId="selectedVersion?.id"
+    :documentTitle="`${document?.title ?? 'Document'} v${versionLabelFor(selectedVersion)}`"
+  />
+  <DocumentDiffSummaryDialog
+    v-model="showAiDiff"
+    :fromVersionId="aiDiffFromVersion?.id"
+    :toVersionId="selectedVersion?.id"
+    :fromLabel="versionLabelFor(aiDiffFromVersion)"
+    :toLabel="versionLabelFor(selectedVersion)"
+  />
+  <!-- Section-aware AI drafting — fills / improves the current draft's
+           sections in place; highlights the sections it changed. -->
+  <DocumentDraftSectionsDialog
+    v-model="showDraftSectionsDialog"
+    :versionId="selectedVersion?.id"
+    @apply="handleAiSectionsDraft"
+  />
+
+  <!-- Draft deletion — capture a reason, then confirm with an e-sign PIN,
+           then hard-delete (see deleteDraftVersion). -->
+  <BaseDialog
+    v-model="showDeleteReasonDialog"
+    :title="deletingWholeDocument ? 'Delete draft document' : 'Delete draft version'"
+    maxWidth="md"
+  >
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
+      >
+        <IconAlertTriangle :size="20" class="tw:text-red-600 tw:shrink-0 tw:mt-0.5" />
+        <div class="tw:text-sm tw:text-red-900">
+          This permanently deletes
+          <template v-if="deletingWholeDocument">
+            this draft document and all its content.
+          </template>
+          <template v-else>version {{ versionLabel }} and its content.</template>
+          It can't be undone. You'll confirm with your e-signature PIN.
+        </div>
+      </div>
+      <BaseField label="Reason for deletion" required>
+        <BaseTextarea
+          v-model="deleteReason"
+          :rows="3"
+          placeholder="Why is this draft being deleted? (recorded in the audit log)"
+        />
+      </BaseField>
+    </div>
+    <template #footer="{ close }">
+      <BaseButton variant="outline" @click="close">Cancel</BaseButton>
+      <BaseButton variant="danger" :disabled="!deleteReason.trim()" @click="confirmDeleteReason">
+        Continue
+      </BaseButton>
+    </template>
+  </BaseDialog>
+
+  <WorkflowInstanceEsignAuthDialog
+    v-model="showDeleteEsignDialog"
+    @verified="onDeleteEsignVerified"
+  />
+  <DocumentsNewVersionDialog
+    v-model="showNewVersionDialog"
+    :baselineSections="baselineSections"
+    :nextVersionLabel="nextVersionLabel"
+    :fromVersionLabel="fromVersionLabel"
+    @confirm="handleNewVersionConfirm"
+  />
 </template>

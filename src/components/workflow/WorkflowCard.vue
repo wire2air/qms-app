@@ -57,8 +57,14 @@ defineEmits(['setDefault', 'clone'])
              when users create a new entity. -->
         <button
           class="tw:p-1.5 tw:rounded tw:bg-transparent tw:border-0 tw:cursor-pointer tw:transition-colors"
-          :class="workflow.isDefault ? 'tw:text-amber-500' : 'tw:text-secondary tw:hover:text-amber-500'"
-          :title="workflow.isDefault ? 'Default workflow for this module' : 'Set as default for this module'"
+          :class="
+            workflow.isDefault ? 'tw:text-amber-500' : 'tw:text-secondary tw:hover:text-amber-500'
+          "
+          :title="
+            workflow.isDefault
+              ? 'Default workflow for this module'
+              : 'Set as default for this module'
+          "
           @click.stop="$emit('setDefault', workflow)"
         >
           <component :is="workflow.isDefault ? IconStarFilled : IconStar" :size="16" />

@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: {
     type: Boolean,
     default: false,
@@ -8,6 +8,13 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  // Optional predicate to narrow the offered modules — e.g. the workflow
+  // create wizard shows only the modules whose workflows belong on the list
+  // you launched it from. Receives the Module record, returns a boolean.
+  filter: {
+    type: Function,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -15,10 +22,14 @@ const modelValue = defineModel({
   default: null,
 })
 
-const modules = useLiveQuery((db) => db.Module.where().orderBy('displayOrder').exec(), {
+const allModules = useLiveQuery((db) => db.Module.where().orderBy('displayOrder').exec(), {
   models: ['Module'],
   initial: [],
 })
+
+const modules = computed(() =>
+  props.filter ? allModules.value.filter((m) => props.filter(m)) : allModules.value,
+)
 </script>
 
 <template>
