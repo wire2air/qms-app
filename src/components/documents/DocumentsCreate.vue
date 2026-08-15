@@ -6,8 +6,8 @@ import {
   IconSchool,
   IconSparkles,
   IconFileUpload,
+  IconPointFilled,
 } from '@tabler/icons-vue'
-import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession, canUseAi } from '@/utils/currentSession.js'
 import { db } from '@models/index'
@@ -73,11 +73,11 @@ const DEFAULT_FORM = {
 }
 
 // Form data — owner defaults to the creating user (the author can reassign it
-// in the Properties tab before saving); effective date defaults to today.
+// in the Properties tab before saving). No effective date: auto-release is on
+// by default, and the date field only appears when you turn it off.
 const form = ref({
   ...DEFAULT_FORM,
   ownerId: currentSession.value?.userId ?? null,
-  effectiveDate: DateTime.now(),
 })
 
 // Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
@@ -175,6 +175,42 @@ const createDocument = useLiveMutation(async (db, formData) => {
   return doc
 })
 
+/**
+ * Save as Draft (user request 2026-08-15).
+ *
+ * "Create Document" runs the full field validation, so a half-filled form —
+ * waiting on a department, a document type, a lookup someone still has to add
+ * — could not be saved at all, and the work typed so far was lost on navigate.
+ * The record it creates is identical (the version is DRAFT either way); this
+ * path just skips the validations that only matter once you're ready to submit
+ * for review, which is where the real gate belongs.
+ *
+ * Still required: a template and a title. Not a policy choice — the template
+ * supplies prefix, workflow version and review period, all of which the
+ * Document model requires, and title is NOT NULL at the database.
+ */
+const DRAFT_MINIMUM = [
+  { key: 'documentTemplateId', label: 'Document Template' },
+  { key: 'title', label: 'Document Title' },
+]
+
+const draftBlockers = computed(() =>
+  DRAFT_MINIMUM.filter(({ key }) => {
+    const v = form.value[key]
+    return typeof v === 'string' ? !v.trim() : !v
+  }).map(({ label }) => label),
+)
+
+async function onSaveDraft() {
+  if (saving.value) return
+  if (draftBlockers.value.length) {
+    activeTab.value = 'properties'
+    toast.warning(`Add ${draftBlockers.value.join(' and ')} before saving a draft`)
+    return
+  }
+  await persist({ draft: true })
+}
+
 async function onSubmit() {
   // CustomFieldsCreateSection surfaces its own inline errors on validate() = false.
   if ((await customFieldsRef.value?.validate()) === false) {
@@ -182,6 +218,11 @@ async function onSubmit() {
     return
   }
 
+  await persist({ draft: false })
+}
+
+// Shared by both save paths — they differ only in what was validated first.
+async function persist({ draft }) {
   saving.value = true
   try {
     const doc = await createDocument({ ...form.value })
@@ -195,14 +236,18 @@ async function onSubmit() {
             'Document saved, but custom fields could not be saved — add them on the document page',
         )
       }
-      toast.success('Document saved as draft')
+      toast.success(
+        draft
+          ? 'Draft saved — finish the remaining details on the document page'
+          : 'Document saved as draft',
+      )
       form.value = { ...DEFAULT_FORM }
       allowLeave() // saved — don't prompt on the redirect
       router.push(getCompanyPath(`/documents/${doc.id}`))
     }
   } catch (error) {
     console.error('Error saving document:', error)
-    toast.error('Failed to save document. Please try again.')
+    toast.error(error?.message || 'Failed to save document. Please try again.')
   } finally {
     saving.value = false
   }
@@ -325,6 +370,24 @@ const docTabs = [
         @submit="onSubmit"
         @cancel="cancel"
       >
+        <!-- Escape hatch from the full validation. Left of the primary action
+             so "Create Document" stays the obvious path. This slot replaces the
+             footer's own dirty marker, so it carries one too. -->
+        <template #footer-status>
+          <div class="tw:flex tw:items-center tw:gap-3">
+            <BaseButton variant="outline" :disabled="saving" @click="onSaveDraft">
+              Save as Draft
+            </BaseButton>
+            <span v-if="isDirty" class="tw:flex tw:items-center tw:gap-1.5 tw:text-secondary">
+              <IconPointFilled
+                :size="16"
+                class="tw:shrink-0 tw:text-amber-500"
+                aria-hidden="true"
+              />
+              Unsaved changes
+            </span>
+          </div>
+        </template>
         <BaseTabs v-model="activeTab" :tabs="docTabs" ariaLabel="Create document">
           <!-- keepAlive: panels stay mounted so form state survives tab switches -->
           <BaseTabPanel value="properties" keepAlive class="tw:pt-6">

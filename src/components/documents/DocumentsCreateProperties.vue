@@ -1,6 +1,8 @@
 <script setup>
 import { IconMinus, IconPlus, IconX } from '@tabler/icons-vue'
+import { DateTime } from 'luxon'
 import { required } from '@shared/components/form/validators.js'
+import { futureDateRule } from './documentEffectiveDate.js'
 import { pickPublishedVersionId } from '@/components/documentTemplates/documentTemplateApprovalFlow.js'
 
 const form = defineModel({
@@ -81,6 +83,16 @@ const inheritedSteps = useLiveQueryWithDeps(
     return db.WorkflowStep.where('workflowVersionId', versionId).orderBy('stepOrder').exec()
   },
   { models: ['WorkflowStep'], initial: [] },
+)
+
+// Auto-release means the effective date is decided by the final approval, so
+// a value carried over from the manual path would be dead data on the record.
+watch(
+  () => form.value.autoEffectiveOnApproval,
+  (auto) => {
+    if (auto) form.value.effectiveDate = null
+    else if (!form.value.effectiveDate) form.value.effectiveDate = DateTime.now().plus({ days: 1 })
+  },
 )
 
 // Prefix auto-uppercase
@@ -204,11 +216,6 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
       </template>
     </BaseField>
 
-    <!-- Effective Date -->
-    <BaseField label="Effective Date">
-      <BaseDateField v-model="form.effectiveDate" mode="date" />
-    </BaseField>
-
     <!-- Sites — where the document applies. One control: pick sites or go
          company-wide. The managing anchor (documents.siteId) is derived
          silently at save; ownership governs who can revise. -->
@@ -308,6 +315,21 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
       </div>
       <BaseSwitch v-model="form.autoEffectiveOnApproval" />
     </div>
+
+    <!-- Effective date belongs to the manual path only (user request
+         2026-08-15): with auto-release on, the date is whenever the last
+         approval lands, so offering a field there invites a value the system
+         will ignore. Sits directly under the toggle it depends on. -->
+    <BaseField
+      v-if="!form.autoEffectiveOnApproval"
+      label="Effective Date"
+      required
+      hint="When the approved document takes effect. Must be in the future — you're scheduling a release."
+      :value="form.effectiveDate"
+      :rules="[required('Effective date is required when auto-release is off'), futureDateRule()]"
+    >
+      <BaseDateField v-model="form.effectiveDate" mode="date" />
+    </BaseField>
 
     <!-- Enable training (moved here from the Training tab so it's visible up
          front; the audience + assessment are still configured on that tab). -->

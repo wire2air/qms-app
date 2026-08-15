@@ -538,6 +538,7 @@ declare module 'vue' {
     DocumentDiffSummaryDialog: typeof import('./src/components/documents/DocumentDiffSummaryDialog.vue')['default']
     DocumentDraftDialog: typeof import('./src/components/documents/DocumentDraftDialog.vue')['default']
     DocumentDraftSectionsDialog: typeof import('./src/components/documents/DocumentDraftSectionsDialog.vue')['default']
+    DocumentEffectiveDate: typeof import('./src/components/documents/documentEffectiveDate.js')['default']
     DocumentGenerateQuestionsDialog: typeof import('./src/components/documents/DocumentGenerateQuestionsDialog.vue')['default']
     DocumentImportPdfDialog: typeof import('./src/components/documents/DocumentImportPdfDialog.vue')['default']
     DocumentMention: typeof import('./src/components/editor/extensions/documentMention/documentMention.js')['default']
