@@ -30,6 +30,7 @@ import {
   IconBell,
   IconForms,
   IconArrowsShuffle,
+  IconTemplate,
   IconTool,
 } from '@tabler/icons-vue'
 
@@ -146,14 +147,29 @@ export const ROUTE_META = {
     parent: '/settings',
   },
   '/templates': { title: 'Form Templates', icon: IconForms, permission: 'forms_templates:read' },
+  // Serves the merged Templates list (workflow templates for record modules +
+  // document templates). The path stayed /workflow-templates so existing deep
+  // links and the :id editor below keep working.
   '/workflow-templates': {
-    title: 'Workflow Templates',
-    icon: IconArrowsShuffle,
+    title: 'Templates',
+    icon: IconTemplate,
     permission: 'workflows_templates:read',
   },
   '/workflow-templates/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Workflow',
     icon: IconArrowsShuffle,
     parent: '/workflow-templates',
+  },
+  '/approval-flows': {
+    title: 'Approval Flows',
+    icon: IconArrowsShuffle,
+    permission: 'workflows_templates:read',
+  },
+  // Same editor as /workflow-templates/:id, mounted here so the sidebar keeps
+  // Approval Flows highlighted while you're inside one.
+  '/approval-flows/:id': {
+    title: (_p, ctx) => ctx.recordTitle ?? 'Approval Flow',
+    icon: IconArrowsShuffle,
+    parent: '/approval-flows',
   },
 }

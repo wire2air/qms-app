@@ -56,7 +56,6 @@ const canEdit = computed(
 
 // State
 const activeSection = ref(null)
-const showWorkflowDialog = ref(false)
 
 const selectedWorkflowVersion = useLiveQueryWithDeps(
   [() => document.value?.workflowVersionId],
@@ -297,7 +296,6 @@ watch(
             </p>
           </div>
         </BaseDetailField>
-
       </div>
     </BaseRailCard>
 
@@ -336,24 +334,20 @@ watch(
           </div>
         </RouterLink>
 
-        <!-- Empty state -->
-        <button
+        <!-- Empty state. Not actionable: the flow is inherited from the
+             document's template (2026-08-15), so the fix is on the template,
+             not here. -->
+        <div
           v-else
-          class="tw:w-full tw:py-3 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:flex tw:items-center tw:justify-center tw:gap-2 tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all tw:text-sm"
-          :disabled="!canEdit"
-          @click="showWorkflowDialog = true"
+          class="tw:w-full tw:py-3 tw:px-3 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:flex tw:items-center tw:justify-center tw:gap-2 tw:text-secondary tw:text-sm"
         >
           <IconHierarchy :size="16" />
-          <span>Select a workflow</span>
-        </button>
+          <span>No approval flow on this document's template</span>
+        </div>
 
-        <button
-          v-if="canEdit && selectedWorkflow"
-          class="tw:self-start tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
-          @click="showWorkflowDialog = true"
-        >
-          Change workflow
-        </button>
+        <p class="tw:self-start tw:text-xs tw:text-secondary">
+          Inherited from the document template.
+        </p>
       </div>
     </BaseRailCard>
 
@@ -374,7 +368,7 @@ watch(
             activeSection === section.id
               ? 'tw:text-primary tw:bg-primary/5'
               : 'tw:text-secondary tw:hover:bg-sidebar-hover'
-         "
+          "
           @click.prevent="scrollToSection(section.id)"
         >
           <span
@@ -383,7 +377,7 @@ watch(
               activeSection === section.id
                 ? 'tw:text-primary/50'
                 : 'tw:text-secondary tw:group-hover:text-primary/50'
-           "
+            "
           >
             {{ index + 1 }}.
           </span>
@@ -399,14 +393,5 @@ watch(
         </div>
       </nav>
     </BaseRailCard>
-
-    <!-- Workflow Selection Dialog -->
-    <BaseDialog v-model="showWorkflowDialog" title="Select Workflow" maxWidth="lg">
-      <WorkflowVersionSelect
-        v-model="document.workflowVersionId"
-        moduleId="APPROVAL"
-        @update:modelValue="showWorkflowDialog = false"
-      />
-    </BaseDialog>
   </template>
 </template>

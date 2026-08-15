@@ -76,7 +76,13 @@ const columns = computed(() => [
     filterOptions: logBookOptions.value,
   },
   { name: 'schedule', label: 'Schedule', field: scheduleSummary, align: 'left' },
-  { name: 'assignees', label: 'Assignees', field: 'assignedRoleId', align: 'left', filterType: false },
+  {
+    name: 'assignees',
+    label: 'Assignees',
+    field: 'assignedRoleIds',
+    align: 'left',
+    filterType: false,
+  },
   { name: 'grace', label: 'Grace', field: 'graceMinutes', align: 'right', filterType: 'number' },
   {
     name: 'active',
@@ -117,7 +123,13 @@ function goEdit(id) {
         Plan who fills which log book, when (cron + timezone), and where (site). The scheduler
         materialises occurrences in a 24h look-ahead.
       </span>
-      <BaseButton v-if="canAssign" variant="primary" size="sm" class="tw:shrink-0" @click="goCreate">
+      <BaseButton
+        v-if="canAssign"
+        variant="primary"
+        size="sm"
+        class="tw:shrink-0"
+        @click="goCreate"
+      >
         <IconPlus :size="16" />
         New Assignment
       </BaseButton>
@@ -157,9 +169,13 @@ function goEdit(id) {
       </template>
 
       <template #body-cell-assignees="{ row }">
-        <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
-        <div v-else-if="row.assignedUserIds?.length" class="tw:flex tw:flex-wrap tw:gap-1">
-          <UserBadgeById v-for="uid in row.assignedUserIds" :key="uid" :userId="uid" />
+        <!-- Roles AND users, not either/or (2026-08-15). -->
+        <div
+          v-if="row.assignedRoleIds?.length || row.assignedUserIds?.length"
+          class="tw:flex tw:flex-wrap tw:gap-1"
+        >
+          <RoleBadgeById v-for="rid in row.assignedRoleIds ?? []" :key="rid" :roleId="rid" />
+          <UserBadgeById v-for="uid in row.assignedUserIds ?? []" :key="uid" :userId="uid" />
         </div>
         <span v-else class="tw:text-secondary">—</span>
       </template>
@@ -172,9 +188,7 @@ function goEdit(id) {
         <span
           class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:rounded tw:px-2 tw:py-0.5"
           :class="
-            row.active
-              ? 'tw:bg-green-100 tw:text-green-700'
-              : 'tw:bg-gray-100 tw:text-gray-700'
+            row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-100 tw:text-gray-700'
           "
         >
           <IconPower :size="12" />

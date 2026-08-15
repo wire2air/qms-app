@@ -1,7 +1,6 @@
 <script setup>
 import {
   IconForms,
-  IconStack2,
   IconTable,
   IconFileText,
   IconArrowsShuffle,
@@ -14,7 +13,6 @@ import {
   IconShieldCheck,
   IconSettings,
   IconAdjustments,
-  IconArticle,
   IconBuilding,
   IconBuildingCommunity,
   IconUsers,
@@ -62,6 +60,8 @@ import {
   IconMessageReport,
   IconSeeding,
   IconBook,
+  IconCalendar,
+  IconCalendarTime,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -113,6 +113,11 @@ function isNavItemVisible(item) {
   // every-of/entitlement gate.
   if (item.anyPermissions && !item.anyPermissions.some((p) => isAllowed([p]))) return false
   if (item.writeGate && !hasWriteOn(item.writeGate)) return false
+  // anyWriteGates: the write-gate equivalent of anyPermissions, for an entry
+  // that fronts two modules (Templates = workflow templates + document
+  // templates). A single `writeGate` would hide the entry from someone who
+  // authors document templates but not workflows.
+  if (item.anyWriteGates && !item.anyWriteGates.some((m) => hasWriteOn(m))) return false
   return true
 }
 
@@ -141,10 +146,14 @@ function isGroupExpanded(label) {
   return expandedGroups.value[label] ?? true
 }
 
-// Check if a route is active (including nested routes)
-function isActive(targetPath) {
+// Check if a route is active (including nested routes). `extraPaths` covers an
+// entry that fronts more than one path tree — the merged Templates list opens
+// document templates at /document-templates/:id, which would otherwise leave
+// the sidebar with nothing highlighted.
+function isActive(targetPath, extraPaths) {
   if (!targetPath) return false
   const currentPath = route.path
+  if (extraPaths?.some((p) => currentPath === p || currentPath.startsWith(p + '/'))) return true
 
   // Query-tab links (e.g. /qc-inspection?tab=specifications): active only when
   // BOTH the path and the tab match. A tab-less link to the same path is the
@@ -338,14 +347,49 @@ const navItems = computed(() => {
       to: getCompanyPath('/change-requests'),
     },
     {
+      // Submenu like QC Inspection / Inspections & Logs (user request
+      // 2026-08-15): the page's ?tab= sections become nav children so an
+      // auditor can reach Standards or the Audit Plan without first landing
+      // on Insights and hunting for a tab.
+      //
+      // audits:read gates the group; auditors assigned to an audit can still
+      // see it via row-level RLS even without this permission (see
+      // audit_instances_select_rls).
       label: 'Audits',
       icon: IconChecklist,
-      // audits:read gates the list itself; auditors assigned to an
-      // audit can still see it via the row-level RLS even without
-      // this permission (handled at the RLS layer, see
-      // audit_instances_select_rls).
       permissions: ['audit_management:read'],
-      to: getCompanyPath('/audits'),
+      children: [
+        {
+          label: 'Insights',
+          permissions: ['audit_management:read'],
+          icon: IconChartBar,
+          to: getCompanyPath('/audits?tab=insights'),
+        },
+        {
+          label: 'Audits',
+          permissions: ['audit_management:read'],
+          icon: IconChecklist,
+          to: getCompanyPath('/audits?tab=instances'),
+        },
+        {
+          label: 'Audit Plan',
+          permissions: ['audit_management:read'],
+          icon: IconCalendarTime,
+          to: getCompanyPath('/audits?tab=programs'),
+        },
+        {
+          label: 'Calendar',
+          permissions: ['audit_management:read'],
+          icon: IconCalendar,
+          to: getCompanyPath('/audits?tab=calendar'),
+        },
+        {
+          label: 'Standards',
+          permissions: ['audit_management:read'],
+          icon: IconBook,
+          to: getCompanyPath('/audits?tab=standards'),
+        },
+      ],
     },
     {
       // Submenu like QC Inspection (user request 2026-08-05): ?tab= children,
@@ -366,16 +410,16 @@ const navItems = computed(() => {
           icon: IconBook,
           to: getCompanyPath('/inspections-logs?tab=log-books'),
         },
-        {
-          // Log Forms = form BLOCKs categorised for log books (blockCategory
-          // LOG_FORM). A log book is built from one. Same authz as Form Blocks
-          // (tenant-public reads, write-gated nav) — it IS a form-block surface.
-          label: 'Log Forms',
-          permissions: ['form_blocks:read'],
-          writeGate: 'form_blocks',
-          icon: IconForms,
-          to: getCompanyPath('/inspections-logs/log-forms'),
-        },
+        // HIDDEN with Form Blocks (user request 2026-08-15) — Log Forms is the
+        // same form-block surface, filtered to blockCategory LOG_FORM. The
+        // page and the "start a log book from a log form" picker still work.
+        // {
+        //   label: 'Log Forms',
+        //   permissions: ['form_blocks:read'],
+        //   writeGate: 'form_blocks',
+        //   icon: IconForms,
+        //   to: getCompanyPath('/inspections-logs/log-forms'),
+        // },
         {
           label: 'Assignments',
           permissions: ['inspections:read'],
@@ -510,29 +554,54 @@ const navItems = computed(() => {
       icon: IconTemplate,
       children: [
         {
-          label: 'Workflow Templates',
+          // ONE merged list (user decision 2026-08-15): workflow templates for
+          // the record modules (NC / CAPA / Change Control / promoted modules)
+          // plus document templates, since both are "things an admin authors
+          // up front". Rows dispatch to the right editor — a document template
+          // still opens the Document Template editor. Approval-only flows are
+          // deliberately excluded; they're the sibling entry below.
+          label: 'Templates',
+          anyPermissions: ['workflows_templates:read', 'document_templates:read'],
+          anyWriteGates: ['workflows_templates', 'document_templates'],
+          icon: IconTemplate,
+          to: getCompanyPath('/workflow-templates'),
+          matchPaths: [getCompanyPath('/document-templates')],
+        },
+        {
+          // Sign-off flows for Log Book / Audit / QC / Document Control —
+          // approval steps only, no task forms, so they don't belong in the
+          // authoring list above.
+          label: 'Approval Flows',
           permissions: ['workflows_templates:read'],
           writeGate: 'workflows_templates',
           icon: IconArrowsShuffle,
-          to: getCompanyPath('/workflow-templates'),
+          to: getCompanyPath('/approval-flows'),
         },
-        {
-          // Reusable form fragments (kind='BLOCK') — first-class nav item with
-          // its OWN authz module (form_blocks:*). Standalone Form Templates
-          // moved into the App Builder workspace (Forms tab).
-          label: 'Form Blocks',
-          permissions: ['form_blocks:read'],
-          writeGate: 'form_blocks',
-          icon: IconStack2,
-          to: getCompanyPath('/form-blocks'),
-        },
-        {
-          label: 'Document Templates',
-          permissions: ['document_templates:read'],
-          writeGate: 'document_templates',
-          icon: IconArticle,
-          to: getCompanyPath('/document-templates'),
-        },
+        // HIDDEN (user request 2026-08-15) — not deleted. (Re-add the
+        // IconStack2 import when restoring.) Form Blocks are a
+        // reusable-fragment concept users didn't ask for and found confusing
+        // next to Forms; the /form-blocks page, its permissions and the
+        // block pickers inside the form builders all still work. Restore this
+        // entry (and the Log Forms one under Inspections & Logs) to bring the
+        // surface back.
+        // {
+        //   label: 'Form Blocks',
+        //   permissions: ['form_blocks:read'],
+        //   writeGate: 'form_blocks',
+        //   icon: IconStack2,
+        //   to: getCompanyPath('/form-blocks'),
+        // },
+        // MERGED into "Templates" above (user decision 2026-08-15) — the
+        // (re-add the IconArticle import when restoring this entry)
+        // /document-templates page still exists and rows there still open the
+        // Document Template editor; only the separate nav entry is gone.
+        // {
+        //   label: 'Document Templates',
+        //   permissions: ['document_templates:read'],
+        //   writeGate: 'document_templates',
+        //   icon: IconArticle,
+        //   to: getCompanyPath('/document-templates'),
+        // },
         {
           // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
           // Document / Training). Rendered as the "Additional information" card
@@ -857,7 +926,11 @@ const navItems = computed(() => {
                     :key="child.label"
                     :to="child.to"
                     class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
-                    :class="isActive(child.to) ? 'tw:bg-main-selected tw:text-primary' : ''"
+                    :class="
+                      isActive(child.to, child.matchPaths)
+                        ? 'tw:bg-main-selected tw:text-primary'
+                        : ''
+                    "
                     @click="resetTrail"
                   >
                     <component :is="child.icon" :size="20" />

@@ -46,10 +46,37 @@ describe('buildDocumentTemplateActions', () => {
     ])
   })
 
-  it('PUBLISHED → archive only (no publish, no unarchive)', () => {
-    expect(visibleIds({ canUpdate: true, canArchive: true, statusId: 'PUBLISHED' })).toEqual([
+  // Document templates are NOT versioned, so a PUBLISHED one is immutable and
+  // the only route back to editable used to be Archive → Unarchive — a detour
+  // that pulls the template out of the document-create picker, taking it out
+  // of service just to fix a heading. `revise` is the direct transition; if it
+  // stops appearing here, that trap is back.
+  it('PUBLISHED → revise + archive (no publish, no unarchive)', () => {
+    expect(visibleIds({ canUpdate: true, canArchive: true, statusId: 'PUBLISHED' }).sort()).toEqual(
+      ['archive', 'revise'],
+    )
+  })
+
+  it('revise needs canUpdate, and never shows off PUBLISHED', () => {
+    expect(visibleIds({ canUpdate: false, canArchive: true, statusId: 'PUBLISHED' })).toEqual([
       'archive',
     ])
+    expect(visibleIds({ canUpdate: true, canArchive: true, statusId: 'DRAFT' })).not.toContain(
+      'revise',
+    )
+    expect(visibleIds({ canUpdate: true, canArchive: true, statusId: 'ARCHIVED' })).not.toContain(
+      'revise',
+    )
+  })
+
+  it('ranks revise above archive so the safe action reads first', () => {
+    const actions = buildDocumentTemplateActions(
+      { canUpdate: true, canArchive: true, statusId: 'PUBLISHED' },
+      {},
+    )
+    expect(actions.find((a) => a.id === 'revise').priority).toBeGreaterThan(
+      actions.find((a) => a.id === 'archive').priority,
+    )
   })
 
   it('ARCHIVED → unarchive only', () => {
@@ -68,7 +95,7 @@ describe('buildDocumentTemplateActions', () => {
   })
 
   it('wires handlers to onSelect', () => {
-    const handlers = { publish: vi.fn(), archive: vi.fn(), unarchive: vi.fn() }
+    const handlers = { publish: vi.fn(), revise: vi.fn(), archive: vi.fn(), unarchive: vi.fn() }
     const a = buildDocumentTemplateActions({}, handlers)
     a.forEach((d) => d.onSelect())
     Object.values(handlers).forEach((fn) => expect(fn).toHaveBeenCalled())

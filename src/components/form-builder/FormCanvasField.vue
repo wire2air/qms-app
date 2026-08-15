@@ -1,7 +1,19 @@
 <script setup>
-import { IconCopy, IconTrash, IconGripVertical, IconCirclePlus, IconInfoCircle } from '@tabler/icons-vue'
+import {
+  IconCopy,
+  IconTrash,
+  IconGripHorizontal,
+  IconCirclePlus,
+  IconInfoCircle,
+  IconSettings,
+} from '@tabler/icons-vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
-import { FIELD_WIDTHS, FIELD_TYPES } from '@/constants/formBuilderConfig'
+import {
+  FIELD_WIDTHS,
+  FIELD_TYPES,
+  FIELD_KIND_OPTIONS,
+  fieldKindId,
+} from '@/constants/formBuilderConfig'
 import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
@@ -25,9 +37,29 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // SortableJS group name, threaded down from FormCanvas. Containers must
+  // share their canvas's group so a field can move between the canvas and a
+  // row/column inside it — and must NOT share it with a DIFFERENT canvas on
+  // the same page, or a field could be dragged from one form into another
+  // (possible since the workflow builder expands every step at once).
+  group: {
+    type: String,
+    default: 'form-fields',
+  },
 })
 
-const emit = defineEmits(['select', 'remove', 'duplicate', 'moveField', 'addField'])
+// `select` = highlight this field. `configure` = open its properties — a
+// SEPARATE intent (user request 2026-08-15): clicking a card or its label to
+// rename shouldn't throw the properties panel in the way.
+const emit = defineEmits([
+  'select',
+  'configure',
+  'changeKind',
+  'remove',
+  'duplicate',
+  'moveField',
+  'addField',
+])
 
 const childrenDropzoneRef = ref(null)
 
@@ -37,6 +69,8 @@ const childrenDropzoneRef = ref(null)
 const editingLabel = ref(false)
 // Click-to-edit for an Instructions block's rich-text content, in place.
 const editingInstructions = ref(false)
+// Click-to-edit for a leaf field's description (stored as field.hint).
+const editingHint = ref(false)
 // Click-to-edit for a Header field's heading + subheading, in place. The
 // size/align classes mirror DynamicForm's live header render.
 const editingHeading = ref(false)
@@ -119,8 +153,32 @@ const previewFields = computed(() => [
   { ...props.field, width: 'full', hidden: false, label: '' },
 ])
 
-// Leaf fields (not display-only separators) get an editable label on the card.
-const showEditableLabel = computed(() => props.field.type !== 'separator')
+// The shared question header (label + type picker + description). Rendered
+// for every card that represents a QUESTION — including Multiple Choice /
+// Checkboxes, which draw their own options card and so used to miss the type
+// picker entirely (bug 2026-08-15). Excluded: layout containers, the
+// display-only blocks, and the widgets that own a full custom card with its
+// own title (Checklist, Input Table).
+const HEADER_EXCLUDED_TYPES = new Set(['header', 'instructions', 'separator', 'checklist'])
+const showFieldHeader = computed(
+  () =>
+    !isLayoutField.value &&
+    !isInputTable.value &&
+    !HEADER_EXCLUDED_TYPES.has(props.field.type),
+)
+
+// Required applies to things a respondent answers — not to layout containers
+// or display-only blocks (heading, instructions, separator).
+const NON_INPUT_TYPES = new Set(['separator', 'header', 'instructions'])
+const supportsRequired = computed(
+  () => !isLayoutField.value && !NON_INPUT_TYPES.has(props.field.type),
+)
+
+// Field-type picker beside the label. `kindId` is null for types that don't
+// convert cleanly (checklist, input table, RCA, …) — those simply don't show
+// the picker rather than offering a lossy switch.
+const kindId = computed(() => fieldKindId(props.field))
+const kindOptions = FIELD_KIND_OPTIONS.map((k) => ({ id: k.id, name: k.label }))
 
 // Initialize sortable for nested children dropzone
 watch(
@@ -129,7 +187,7 @@ watch(
     if (el && isLayoutField.value) {
       useSortable(el, children.value, {
         group: {
-          name: 'form-fields',
+          name: props.group,
           pull: true,
           put: true,
         },
@@ -182,11 +240,13 @@ function onDuplicate() {
   emit('duplicate', props.path)
 }
 
-// Entering an inline editor also selects the field, so the properties panel
-// (size, alignment, width, …) opens alongside the in-place edit.
+// Entering an inline editor highlights the field but does NOT open its
+// properties — renaming in place is the common case and the panel used to
+// land on top of it (user report 2026-08-15). The gear opens properties.
 function beginEdit(which) {
   emit('select', props.path)
   if (which === 'label') editingLabel.value = true
+  else if (which === 'hint') editingHint.value = true
   else if (which === 'instructions') editingInstructions.value = true
   else if (which === 'heading') editingHeading.value = true
   else if (which === 'subheading') editingSubheading.value = true
@@ -206,65 +266,26 @@ function beginEdit(which) {
     :aria-label="`Select field ${field.label || field.name || field.type}`"
     @click.stop="onSelect"
   >
-    <!-- Floating controls — drag grip + duplicate + delete, plus the Hidden /
-         width badges. No per-field chrome wrapper: the field renders WYSIWYG and
-         these appear only on hover or when the field is selected. The grip is
-         the drag handle (SortableJS `handle: '.drag-handle'`). -->
-    <div
-      class="tw:absolute tw:top-2 tw:right-2 tw:flex tw:items-center tw:gap-1 tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:z-raised"
+    <!-- Drag grip — top-CENTRE, like Google Forms (user request 2026-08-15).
+         It was in the top-right cluster with the actions; giving it its own
+         spot means the row of icons at the bottom is all "do something to this
+         field" and the grip is unmistakably "move this field". SortableJS
+         binds to `.drag-handle`. -->
+    <button
+      class="drag-handle tw:absolute tw:top-0.5 tw:left-1/2 tw:-translate-x-1/2 tw:px-2 tw:rounded tw:text-secondary tw:hover:text-on-main tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:cursor-grab tw:active:cursor-grabbing tw:z-raised"
       :class="{ 'tw:opacity-100': isSelected }"
+      title="Drag to reorder"
+      @click.stop
     >
-      <span
-        v-if="field.hidden"
-        class="tw:text-xs tw:font-semibold tw:text-amber-700 tw:bg-amber-50 tw:rounded tw:px-1.5 tw:py-0.5"
-        title="Hidden on the live form"
-      >
-        Hidden
-      </span>
-      <span
-        v-if="widthLabel"
-        class="tw:text-xs tw:font-semibold tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5"
-        title="Field width on the form"
-      >
-        {{ widthLabel }}
-      </span>
-      <span v-if="fieldDescription" @click.stop @mousedown.stop>
-        <BaseTooltip :content="fieldDescription" placement="top">
-          <span
-            class="tw:p-1.5 tw:rounded-lg tw:bg-main tw:border tw:border-divider tw:shadow-sm tw:text-secondary tw:hover:bg-main-hover tw:cursor-help tw:inline-flex tw:transition-colors"
-          >
-            <IconInfoCircle :size="14" />
-          </span>
-        </BaseTooltip>
-      </span>
-      <button
-        class="drag-handle tw:p-1.5 tw:rounded-lg tw:bg-main tw:border tw:border-divider tw:shadow-sm tw:text-secondary tw:hover:bg-main-hover tw:cursor-grab tw:active:cursor-grabbing tw:transition-colors"
-        title="Drag to reorder"
-        @click.stop
-      >
-        <IconGripVertical :size="14" />
-      </button>
-      <button
-        class="tw:p-1.5 tw:rounded-lg tw:bg-main tw:border tw:border-divider tw:shadow-sm tw:text-secondary tw:hover:bg-main-hover tw:transition-colors"
-        title="Duplicate Field"
-        @click.stop="onDuplicate"
-      >
-        <IconCopy :size="14" />
-      </button>
-      <button
-        class="tw:p-1.5 tw:rounded-lg tw:bg-main tw:border tw:border-divider tw:shadow-sm tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors"
-        title="Remove Field"
-        @click.stop="onRemove"
-      >
-        <IconTrash :size="14" />
-      </button>
-    </div>
+      <IconGripHorizontal :size="16" />
+    </button>
+
 
     <!-- Layout containers keep a slim, editable title (it renders on the live
          form for sections) — no big icon box or type chrome. Leaf fields have
          no header at all; they render WYSIWYG below. Input Tables render their
          own label via the preview, so they skip this header. -->
-    <div v-if="isLayoutField && !isInputTable" class="tw:flex tw:items-center tw:gap-2 tw:pr-24">
+    <div v-if="isLayoutField && !isInputTable" class="tw:flex tw:items-center tw:gap-2">
       <BaseTextInput
         v-if="editingLabel"
         v-model="field.label"
@@ -289,6 +310,77 @@ function beginEdit(which) {
           {{ layoutTypeLabel }}
         </span>
       </template>
+    </div>
+
+    <!-- Label + type picker on one row, description beneath, preview below
+         — the Google Forms question layout (user request 2026-08-15). -->
+    <div v-if="showFieldHeader" class="tw:mb-1">
+      <div class="tw:flex tw:items-start tw:gap-2">
+        <div class="tw:flex-1 tw:min-w-0">
+          <BaseTextInput
+            v-if="editingLabel"
+            v-model="field.label"
+            size="sm"
+            placeholder="Field label"
+            @click.stop
+            @mousedown.stop
+            @keyup.enter="editingLabel = false"
+            @keyup.esc="editingLabel = false"
+            @blur="editingLabel = false"
+          />
+          <div
+            v-else
+            class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-sm tw:font-medium tw:text-secondary tw:cursor-text tw:hover:text-primary"
+            title="Click to rename"
+            @click.stop="beginEdit('label')"
+            @mousedown.stop
+          >
+            {{ field.label || 'Untitled field' }}
+            <span v-if="field.required" class="tw:text-bad">*</span>
+          </div>
+        </div>
+
+        <!-- Change the field's type in place. Only offered for kinds that
+             convert cleanly (see FIELD_KIND_OPTIONS) — a Checklist or Input
+             Table has structure nothing else can hold. -->
+        <div v-if="kindId" class="tw:w-40 tw:shrink-0" @click.stop @mousedown.stop>
+          <BaseSelect
+            :modelValue="kindId"
+            :options="kindOptions"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+            size="sm"
+            @update:modelValue="(id) => emit('changeKind', { path, kindId: id })"
+          />
+        </div>
+      </div>
+
+      <!-- Description (field.hint) — shown once set, or while the field is
+           selected so it can be added without opening properties. -->
+      <div v-if="field.hint || isSelected" class="tw:mt-0.5">
+        <BaseTextInput
+          v-if="editingHint"
+          v-model="field.hint"
+          size="sm"
+          placeholder="Description (optional)"
+          @click.stop
+          @mousedown.stop
+          @keyup.enter="editingHint = false"
+          @keyup.esc="editingHint = false"
+          @blur="editingHint = false"
+        />
+        <div
+          v-else
+          class="tw:text-xs tw:cursor-text tw:hover:text-primary"
+          :class="field.hint ? 'tw:text-secondary' : 'tw:text-placeholder tw:italic'"
+          title="Click to edit the description"
+          @click.stop="beginEdit('hint')"
+          @mousedown.stop
+        >
+          {{ field.hint || 'Add description' }}
+        </div>
+      </div>
     </div>
 
     <!-- Instructions — click the callout to edit its content in place with the
@@ -376,11 +468,13 @@ function beginEdit(which) {
     <!-- Input Table — column-based builder (renders like the preview, add/remove
          columns via dialog, no add-row; respondents add rows at fill time). -->
     <InputTableBuilderCard v-else-if="isInputTable" :field="field" />
-    <!-- Multiple Choice with CUSTOM options — inline builder (rename/delete/add
-         options + choice-type toggle on the canvas). Option-Set-bound fields
-         keep the read-only preview: the set is shared tenant config. -->
+    <!-- Choice fields with CUSTOM options — Multiple Choice, Checkboxes AND
+         Dropdown (2026-08-15) share one inline options builder: they're
+         authored identically, so "Add option" shouldn't be exclusive to two
+         of the three. Option-Set-bound fields keep the read-only preview —
+         the set is tenant config shared across every form that uses it. -->
     <OptionGroupBuilderCard
-      v-else-if="field.type === 'optionGroup' && !field.optionSetId"
+      v-else-if="['optionGroup', 'select'].includes(field.type) && !field.optionSetId"
       :field="field"
     />
     <!-- Leaf field — a click-to-edit label above the real component preview.
@@ -389,32 +483,10 @@ function beginEdit(which) {
          duplicate. pointer-events-none on the preview keeps clicks/drag flowing
          to the card for select + reorder. -->
     <div v-else-if="!isLayoutField" class="tw:mt-2">
-      <div v-if="showEditableLabel" class="tw:mb-1">
-        <BaseTextInput
-          v-if="editingLabel"
-          v-model="field.label"
-          size="sm"
-          placeholder="Field label"
-          @click.stop
-          @mousedown.stop
-          @keyup.enter="editingLabel = false"
-          @keyup.esc="editingLabel = false"
-          @blur="editingLabel = false"
-        />
-        <div
-          v-else
-          class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-sm tw:font-medium tw:text-secondary tw:cursor-text tw:hover:text-primary"
-          title="Click to rename"
-          @click.stop="beginEdit('label')"
-          @mousedown.stop
-        >
-          {{ field.label || '(no label)' }}
-          <span v-if="field.required" class="tw:text-bad">*</span>
-        </div>
-      </div>
       <div class="tw:pointer-events-none">
         <DynamicForm :fields="previewFields" :modelValue="{}" />
       </div>
+
     </div>
 
     <!-- Children for layout fields (Input Tables manage columns via their own
@@ -433,7 +505,10 @@ function beginEdit(which) {
           :isSelected="selectedPath === `${path}.${childrenKey}.${index}`"
           :selectedPath="selectedPath"
           :isDragging="isDragging"
+          :group="group"
           @select="$emit('select', $event)"
+          @configure="$emit('configure', $event)"
+          @changeKind="$emit('changeKind', $event)"
           @remove="$emit('remove', $event)"
           @duplicate="$emit('duplicate', $event)"
           @moveField="$emit('moveField', $event)"
@@ -449,6 +524,67 @@ function beginEdit(which) {
             Drop nested fields here
           </BaseText>
         </div>
+      </div>
+    </div>
+    <!-- Footer — every action for this field in one row, Google Forms style
+         (user request 2026-08-15): purpose tooltip + status badges on the
+         left, duplicate / delete / Required / properties on the right. The
+         top of the card is left to the label and its type picker. -->
+    <div
+      class="tw:mt-2 tw:pt-2 tw:border-t tw:border-divider tw:flex tw:items-center tw:gap-1 tw:flex-wrap"
+      @click.stop
+      @mousedown.stop
+    >
+      <BaseTooltip v-if="fieldDescription" :content="fieldDescription" placement="top">
+        <span class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-on-main tw:cursor-help tw:inline-flex">
+          <IconInfoCircle :size="15" />
+        </span>
+      </BaseTooltip>
+      <span
+        v-if="field.hidden"
+        class="tw:text-xs tw:font-semibold tw:text-amber-700 tw:bg-amber-50 tw:rounded tw:px-1.5 tw:py-0.5"
+        title="Hidden on the live form"
+      >
+        Hidden
+      </span>
+      <span
+        v-if="widthLabel"
+        class="tw:text-xs tw:font-semibold tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5"
+        title="Field width on the form"
+      >
+        {{ widthLabel }}
+      </span>
+
+      <div class="tw:ml-auto tw:flex tw:items-center tw:gap-1">
+        <button
+          class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main tw:transition-colors"
+          title="Duplicate field"
+          @click.stop="onDuplicate"
+        >
+          <IconCopy :size="16" />
+        </button>
+        <button
+          class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-500 tw:transition-colors"
+          title="Delete field"
+          @click.stop="onRemove"
+        >
+          <IconTrash :size="16" />
+        </button>
+
+        <template v-if="supportsRequired">
+          <div class="tw:w-px tw:h-5 tw:bg-divider tw:mx-1"></div>
+          <span class="tw:text-xs tw:font-medium tw:text-secondary">Required</span>
+          <BaseSwitch v-model="field.required" size="sm" />
+        </template>
+
+        <div class="tw:w-px tw:h-5 tw:bg-divider tw:mx-1"></div>
+        <button
+          class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main tw:transition-colors"
+          title="Field properties"
+          @click.stop="emit('configure', path)"
+        >
+          <IconSettings :size="16" />
+        </button>
       </div>
     </div>
   </BaseClickableRow>

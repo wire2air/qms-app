@@ -14,6 +14,12 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Where a row opens. Approval flows mount the same editor under
+  // /approval-flows/:id so the sidebar stays on Approval Flows.
+  basePath: {
+    type: String,
+    default: '/workflow-templates',
+  },
 })
 
 const emit = defineEmits(['clone'])
@@ -83,7 +89,7 @@ const workflowMetaMap = useLiveQueryWithDeps(
 )
 
 function navigateToWorkflow(row) {
-  router.push(getCompanyPath(`/workflow-templates/${row.id}`))
+  router.push(getCompanyPath(`${props.basePath}/${row.id}`))
 }
 
 // Archive / Restore / Delete live on the workflow detail page (header),

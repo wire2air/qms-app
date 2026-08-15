@@ -85,6 +85,36 @@ export function getDefaultFieldConfig(type) {
   )
 }
 
+/**
+ * Starting label for a newly added field.
+ *
+ * It used to be the TYPE's name ("Text Input", "Multiple Choice"), which read
+ * as if the field were already labeled — authors couldn't tell a real label
+ * from a leftover default, and the wording varied by type (user report
+ * 2026-08-15). "Untitled …" is unmistakably a placeholder (the Google Forms
+ * convention) and stays consistent across every type; it's still a real value,
+ * so a field the author never renames renders with a visible — obviously
+ * wrong — label rather than none at all.
+ *
+ * Structural types keep their own noun: a Section titled "Untitled field"
+ * would be worse than one titled "Untitled section", and Header /
+ * Instructions / Separator don't render `label` at all (their content lives in
+ * `text` / `html`), so it's only ever an identifier in the builder.
+ */
+const DEFAULT_LABELS_BY_TYPE = {
+  section: 'Untitled section',
+  row: 'Row',
+  column: 'Column',
+  repeater: 'Untitled group',
+  header: 'Heading',
+  instructions: 'Instructions',
+  separator: 'Separator',
+}
+
+export function defaultFieldLabel(type) {
+  return DEFAULT_LABELS_BY_TYPE[type] ?? 'Untitled field'
+}
+
 /** Does any field (recursively) already use this name? */
 export function fieldNameExists(fields, targetName) {
   for (const field of fields) {

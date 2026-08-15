@@ -115,7 +115,8 @@ export const FIELD_TYPES = Object.freeze({
     icon: IconListCheck,
     label: 'Multiple Choice',
     category: 'selection',
-    description: 'A set of choices shown as radio buttons or checkboxes.',
+    description:
+      'A set of choices. Pick whether the respondent may give one answer (radio) or several (checkboxes) — the control on the field.',
   },
   checklist: {
     icon: IconTable,
@@ -171,7 +172,7 @@ export const FIELD_TYPES = Object.freeze({
     icon: IconPalette,
     label: 'Color Picker',
     category: 'special',
-    description: 'Pick a colour value.',
+    description: 'Pick a color value.',
   },
   signature: {
     icon: IconSignature,
@@ -343,14 +344,19 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
     class: '',
     style: '',
   },
+  // Choice fields start with ONE option rather than an empty list (user
+  // request 2026-08-15, Google Forms parity): a brand-new choice field that
+  // renders nothing looks broken, and "Option 1" is the obvious thing to type
+  // over. Applies to Dropdown, Multiple Choice and Checkboxes — `radio` is an
+  // alias of `select`, so it inherits this too.
   select: {
-    options: [],
+    options: ['Option 1'],
   },
   get radio() {
     return this.select
   },
   optionGroup: {
-    options: [],
+    options: ['Option 1'],
     groupType: 'radio',
     inline: false,
   },
@@ -613,11 +619,76 @@ export const DATETIME_MODE_OPTIONS = [
   { label: 'Time Only', value: 'time' },
 ]
 
+// How a Multiple Choice field accepts answers. Named for what the respondent
+// can DO rather than for the widget, matching how Google Forms puts it —
+// "Radio / Checkbox" described the glyph and left authors guessing whether
+// they'd get one answer or several (user report 2026-08-15).
+//
+// 'toggle' was a third option here and is gone: a yes/no switch isn't a set of
+// choices, and Toggle already exists as its own field type. Legacy fields
+// stored with groupType 'toggle' still RENDER as a toggle (DynamicForm passes
+// the value straight through) — they just can't be created that way anymore.
 export const GROUP_TYPE_OPTIONS = [
-  { label: 'Radio', value: 'radio' },
-  { label: 'Checkbox', value: 'checkbox' },
-  { label: 'Toggle', value: 'toggle' },
+  { label: 'One answer (radio)', value: 'radio' },
+  { label: 'Multiple answers (checkboxes)', value: 'checkbox' },
 ]
+
+/**
+ * The field-type picker that sits next to a field's label on the canvas
+ * (user request 2026-08-15, Google Forms parity).
+ *
+ * These are KINDS, not raw types: "Multiple choice" and "Checkboxes" are the
+ * same `optionGroup` type with a different `groupType`, exactly how Google
+ * Forms lists them. That's what let the Multiple Choice card drop its own
+ * one-answer/multiple-answers dropdown — switching between them is now just
+ * switching kind, in the one place a field's type is chosen.
+ *
+ * Deliberately NOT everything in FIELD_TYPES: only leaf inputs whose config
+ * converts cleanly. Checklists, Input Tables, RCA, Risk Assessment and the
+ * layout containers carry structure (rows, columns, templates, children) that
+ * no other type can hold, so they don't offer the picker at all rather than
+ * silently dropping it.
+ */
+// Ordered by how often QMS forms actually use them, not alphabetically or by
+// palette category (user request 2026-08-15): narrative capture with evidence
+// attached — findings, investigations, containment write-ups — is the bread
+// and butter here, so the rich-text pair sits near the top rather than buried
+// under the plain inputs.
+export const FIELD_KIND_OPTIONS = [
+  { id: 'input', label: 'Short answer', type: 'input' },
+  { id: 'textarea', label: 'Paragraph', type: 'textarea' },
+  { id: 'textEditor', label: 'Rich text', type: 'textEditor' },
+  {
+    id: 'richTextAttachment',
+    label: 'Rich text + attachments',
+    type: 'richTextAttachment',
+  },
+  { id: 'optionGroup:radio', label: 'Multiple choice', type: 'optionGroup', groupType: 'radio' },
+  { id: 'optionGroup:checkbox', label: 'Checkboxes', type: 'optionGroup', groupType: 'checkbox' },
+  { id: 'select', label: 'Dropdown', type: 'select' },
+  { id: 'datetime', label: 'Date / time', type: 'datetime' },
+  { id: 'file', label: 'File upload', type: 'file' },
+  { id: 'lookup', label: 'Lookup (Item, Supplier, Site…)', type: 'lookup' },
+  { id: 'number', label: 'Number', type: 'number' },
+  { id: 'checkbox', label: 'Single checkbox', type: 'checkbox' },
+  { id: 'toggle', label: 'Toggle', type: 'toggle' },
+  { id: 'signature', label: 'Signature', type: 'signature' },
+  { id: 'photo', label: 'Photo', type: 'photo' },
+  { id: 'rating', label: 'Rating', type: 'rating' },
+  { id: 'slider', label: 'Slider', type: 'slider' },
+  { id: 'email', label: 'Email', type: 'email' },
+  { id: 'phone', label: 'Phone', type: 'phone' },
+  { id: 'colorPicker', label: 'Color picker', type: 'colorPicker' },
+]
+
+/** The kind id for a field as stored (optionGroup splits on groupType). */
+export function fieldKindId(field) {
+  if (!field) return null
+  if (field.type === 'optionGroup') {
+    return field.groupType === 'checkbox' ? 'optionGroup:checkbox' : 'optionGroup:radio'
+  }
+  return FIELD_KIND_OPTIONS.some((k) => k.id === field.type) ? field.type : null
+}
 
 export const COLUMN_INPUT_TYPES = [
   { label: 'Radio', value: 'radio' },

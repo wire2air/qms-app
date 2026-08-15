@@ -405,3 +405,30 @@ export const QMS_BLOCKS = [
     ],
   },
 ]
+
+/**
+ * The form every Task (ACTION) step starts with: describe what was done, and
+ * attach the evidence. Seeded automatically when a Task step is created —
+ * the Add-Step wizard used to ask "blank, a QMS preset, or a saved block?"
+ * before you could even name the step, which is a design decision nobody has
+ * the context for at that moment (user request 2026-08-15). The step editor's
+ * Task Form tab still swaps in a block or edits the fields afterwards.
+ *
+ * Mirrors TASK_ACTION_SCHEMA in bootstrapCompanyDefaults, so a hand-added step
+ * matches the seeded workflows' steps.
+ */
+export const STANDARD_TASK_FORM = [
+  {
+    name: 'description',
+    label: 'Description',
+    type: 'textEditor',
+    required: true,
+    placeholder: 'Describe what was done…',
+  },
+  { name: 'attachments', label: 'Attachments', type: 'file', required: false, multiple: true },
+]
+
+/** Fresh deep copy — callers persist this onto a step and then edit it. */
+export function standardTaskForm() {
+  return JSON.parse(JSON.stringify(STANDARD_TASK_FORM))
+}

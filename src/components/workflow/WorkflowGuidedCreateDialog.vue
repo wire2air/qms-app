@@ -12,8 +12,8 @@
  *   4. Review      — the resulting step list, then Create as Draft.
  *
  * Every working (ACTION) stage gets the STANDARD task form — description +
- * attachments — mirroring the seeded TASK_ACTION_SCHEMA, so users don't have
- * to design a form to get a working workflow. Power users can still refine
+ * attachments — the same standardTaskForm() the Add-Step wizard seeds, so a
+ * generated workflow and a hand-added step start from the same place. Power users can still refine
  * everything in the full builder afterwards (the wizard lands on the draft).
  */
 import {
@@ -25,40 +25,40 @@ import {
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
 import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
+import { standardTaskForm } from '@/constants/formTemplates'
+import {
+  isApprovalOnlyModule,
+  isSystemAuthoredModule,
+} from '@/components/workflow/workflowModule.js'
+
+const props = defineProps({
+  // Which list launched the wizard: 'approval' (Approval Flows) or 'record'
+  // (Templates). Narrows the module picker so you can't create a Log Book
+  // approval from the Templates list and have it vanish into the other page.
+  // 'all' keeps every module — the default for any older call site.
+  kind: { type: String, default: 'all' },
+})
 
 const emit = defineEmits(['created'])
 const show = defineModel({ type: Boolean, default: false })
 
-// Mirror of WORKFLOW_MODULES_WITH_STEP_CONFIG — only these modules render
-// per-step data-capture forms, so only they get the standard task form.
-const MODULES_WITH_STEP_FORMS = [
-  'NON_CONFORMANCE',
-  'CAPA',
-  'CHANGE_CONTROL',
-  'CUSTOMER_COMPLAINT',
-  'COMPLAINT',
-]
+// Runs against the Module reference records, so it also excludes any module
+// added to the shared `modules` table later without being classified.
+function moduleFilter(m) {
+  // Never offer a module whose workflows the system mints: Document Control's
+  // flow is authored inside the Document Template, and Form Modules' workflows
+  // come from the module factory (2026-08-15).
+  if (isSystemAuthoredModule(m.id)) return false
+  if (props.kind === 'approval') return isApprovalOnlyModule(m.id)
+  if (props.kind === 'record') return !isApprovalOnlyModule(m.id)
+  return true
+}
 
-// The standard task form seeded on every working stage — mirrors the backend
-// seed TASK_ACTION_SCHEMA (bootstrapCompanyDefaults): a rich-text "what was
-// done" plus attachments. Deliberately minimal; domain fields live on the
-// record itself, and specialized forms are edited later in the builder.
-const STANDARD_TASK_FORM = [
-  {
-    name: 'description',
-    label: 'Description',
-    type: 'textEditor',
-    required: true,
-    placeholder: 'Describe what was done…',
-  },
-  { name: 'attachments', label: 'Attachments', type: 'file', required: false, multiple: true },
-]
-
-const STEPS = [
-  { title: 'Basics', description: 'Name it' },
-  { title: 'Structure', description: 'Who does the work' },
-  { title: 'Reviews & checks', description: 'Sign-offs' },
-  { title: 'Review', description: 'Create draft' },
+const ALL_STEPS = [
+  { key: 'basics', title: 'Basics', description: 'Name it' },
+  { key: 'structure', title: 'Structure', description: 'Who does the work' },
+  { key: 'reviews', title: 'Reviews & checks', description: 'Sign-offs' },
+  { key: 'review', title: 'Review', description: 'Create draft' },
 ]
 
 const step = ref(0)
@@ -83,6 +83,32 @@ const approvalRoleIds = ref([])
 const needCheck = ref(false)
 const checkDays = ref(90)
 const checkRoleIds = ref([])
+
+// ── Which screens does THIS module need? ─────────────────────────────────────
+// Declared after the answer refs on purpose: `approvalOnly` reads `moduleId`,
+// and the watcher below evaluates STEPS eagerly at setup — placing this above
+// `const moduleId = ref(null)` throws "Cannot access 'moduleId' before
+// initialization" the moment the dialog mounts (same TDZ class as the
+// FieldRecordsList incident).
+//
+// Log Book / Audit / QC / Document Control workflows only gate a transition:
+// no task steps to structure, nothing to schedule (bug 2026-08-15 — this
+// wizard seeded a "Complete Task" ACTION step into every workflow, including
+// those). See allowedStepTypes() in workflowModule.js.
+const approvalOnly = computed(() => isApprovalOnlyModule(moduleId.value))
+
+// Approval-only flows drop Structure, so the template branches on the screen
+// KEY rather than a hard-coded index.
+const STEPS = computed(() =>
+  ALL_STEPS.filter((sc) => sc.key !== 'structure' || !approvalOnly.value),
+)
+const screenKey = computed(() => STEPS.value[step.value]?.key ?? 'basics')
+
+// Changing the module mid-wizard can shrink the screen list (picking a Log
+// Book on Basics drops Structure), which would leave `step` past the end.
+watch(STEPS, (list) => {
+  if (step.value > list.length - 1) step.value = list.length - 1
+})
 
 const creating = ref(false)
 const error = ref('')
@@ -114,8 +140,8 @@ function close() {
 
 // ── Navigation gates ─────────────────────────────────────────────────────────
 const canNext = computed(() => {
-  if (step.value === 0) return !!name.value.trim() && !!moduleId.value
-  if (step.value === 1) {
+  if (screenKey.value === 'basics') return !!name.value.trim() && !!moduleId.value
+  if (screenKey.value === 'structure') {
     if (structureMode.value === 'single') return true
     return stages.value.length > 0 && stages.value.every((s) => s.name.trim())
   }
@@ -124,7 +150,7 @@ const canNext = computed(() => {
 
 function next() {
   if (!canNext.value) return
-  step.value = Math.min(step.value + 1, STEPS.length - 1)
+  step.value = Math.min(step.value + 1, STEPS.value.length - 1)
 }
 function back() {
   step.value = Math.max(step.value - 1, 0)
@@ -138,10 +164,23 @@ function removeStage(i) {
 }
 
 // ── Resulting step plan (drives the review screen AND the create) ────────────
-const supportsStepForms = computed(() => MODULES_WITH_STEP_FORMS.includes(moduleId.value))
+const supportsStepForms = computed(() => !approvalOnly.value)
 
 const plannedSteps = computed(() => {
   const out = []
+  if (approvalOnly.value) {
+    out.push({
+      name: 'Approval',
+      stepType: 'APPROVAL',
+      roleIds: approvalRoleIds.value,
+      hasForm: false,
+      esign: approvalEsign.value,
+      note: approvalEsign.value
+        ? 'Sign-off with e-signature — comment only, no form.'
+        : 'Sign-off — comment only, no form.',
+    })
+    return out
+  }
   if (structureMode.value === 'single') {
     out.push({
       name: 'Complete Task',
@@ -222,7 +261,7 @@ const createDraft = useLiveMutation(async (db) => {
       maxDelayExtensions: p.stepType === 'DELAY' ? 1 : null,
       requireComments: settings.defaultWorkflowRequireComment ?? false,
       requireEsignature: p.esign ?? settings.defaultWorkflowRequireSignature ?? false,
-      formSchema: p.hasForm ? JSON.parse(JSON.stringify(STANDARD_TASK_FORM)) : [],
+      formSchema: p.hasForm ? standardTaskForm() : [],
     })
     await stepRecord.save()
 
@@ -269,7 +308,7 @@ function typeLabel(p) {
       <BaseStepper v-model="step" :steps="STEPS" ariaLabel="Workflow setup progress" />
 
       <!-- ── 1. Basics ─────────────────────────────────────────────────── -->
-      <template v-if="step === 0">
+      <template v-if="screenKey === 'basics'">
         <div class="tw:flex tw:flex-col tw:gap-4">
           <BaseField v-slot="{ id: fieldId }" label="Workflow name" required>
             <BaseTextInput
@@ -280,7 +319,7 @@ function typeLabel(p) {
             />
           </BaseField>
           <BaseField label="Module" required>
-            <ModuleSelectMenu v-model="moduleId" :required="true" />
+            <ModuleSelectMenu v-model="moduleId" :required="true" :filter="moduleFilter" />
           </BaseField>
           <BaseField v-slot="{ id: fieldId }" label="Description" optional>
             <BaseTextarea
@@ -294,7 +333,7 @@ function typeLabel(p) {
       </template>
 
       <!-- ── 2. Structure ──────────────────────────────────────────────── -->
-      <template v-else-if="step === 1">
+      <template v-else-if="screenKey === 'structure'">
         <div class="tw:flex tw:flex-col tw:gap-4">
           <p class="tw:text-sm tw:text-on-main">How is the work done?</p>
           <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
@@ -308,7 +347,7 @@ function typeLabel(p) {
             >
               <input v-model="structureMode" type="radio" value="single" class="tw:sr-only" />
               <span
-class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
+                class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
                 :class="structureMode === 'single' ? 'tw:text-primary' : 'tw:text-on-main'"
               >
                 <IconUser :size="16" /> One person does everything
@@ -328,14 +367,14 @@ class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
             >
               <input v-model="structureMode" type="radio" value="stages" class="tw:sr-only" />
               <span
-class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
+                class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
                 :class="structureMode === 'stages' ? 'tw:text-primary' : 'tw:text-on-main'"
               >
                 <IconListNumbers :size="16" /> Break it into stages
               </span>
               <span class="tw:text-micro tw:leading-snug tw:text-secondary">
-                Several working steps done in order, each possibly by different people
-                (e.g. Investigation → Action Plan → Implementation).
+                Several working steps done in order, each possibly by different people (e.g.
+                Investigation → Action Plan → Implementation).
               </span>
             </label>
           </div>
@@ -351,15 +390,13 @@ class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
           <!-- Stages: name each stage -->
           <div v-else class="tw:flex tw:flex-col tw:gap-2">
             <p class="tw:text-micro tw:text-secondary">
-              Name each stage in order. Roles are optional — the submitter can pick people at
-              run time.
+              Name each stage in order. Roles are optional — the submitter can pick people at run
+              time.
             </p>
-            <div
-              v-for="(s, i) in stages"
-              :key="i"
-              class="tw:flex tw:items-center tw:gap-2"
-            >
-              <span class="tw:shrink-0 tw:w-6 tw:h-6 tw:rounded-full tw:bg-main-hover tw:text-xs tw:font-semibold tw:flex tw:items-center tw:justify-center">
+            <div v-for="(s, i) in stages" :key="i" class="tw:flex tw:items-center tw:gap-2">
+              <span
+                class="tw:shrink-0 tw:w-6 tw:h-6 tw:rounded-full tw:bg-main-hover tw:text-xs tw:font-semibold tw:flex tw:items-center tw:justify-center"
+              >
                 {{ i + 1 }}
               </span>
               <BaseTextInput
@@ -384,19 +421,23 @@ class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
       </template>
 
       <!-- ── 3. Reviews & checks ───────────────────────────────────────── -->
-      <template v-else-if="step === 2">
+      <template v-else-if="screenKey === 'reviews'">
         <div class="tw:flex tw:flex-col tw:gap-4">
           <!-- Approval -->
-          <div class="tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3">
+          <div
+            class="tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3"
+          >
             <label class="tw:flex tw:items-center tw:justify-between tw:cursor-pointer">
-              <span class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:text-on-main">
+              <span
+                class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:text-on-main"
+              >
                 <IconSignature :size="16" /> Need a final approval?
               </span>
               <BaseSwitch v-model="needApproval" />
             </label>
             <p class="tw:text-micro tw:text-secondary">
-              Adds a sign-off step at the end — an approver reviews the completed work and
-              approves or rejects it. Recommended for most controlled processes.
+              Adds a sign-off step at the end — an approver reviews the completed work and approves
+              or rejects it. Recommended for most controlled processes.
             </p>
             <template v-if="needApproval">
               <BaseField label="Who approves?" optional>
@@ -411,18 +452,24 @@ class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
             </template>
           </div>
 
-          <!-- Effectiveness check -->
-          <div class="tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3">
+          <!-- Effectiveness check — record workflows only; an approval flow
+               has no task to follow up on (2026-08-15). -->
+          <div
+            v-if="!approvalOnly"
+            class="tw:rounded-xl tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3"
+          >
             <label class="tw:flex tw:items-center tw:justify-between tw:cursor-pointer">
-              <span class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:text-on-main">
+              <span
+                class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:text-on-main"
+              >
                 <IconClock :size="16" /> Want to add a follow-up Schedule Task?
               </span>
               <BaseSwitch v-model="needCheck" />
             </label>
             <p class="tw:text-micro tw:text-secondary">
-              Adds a scheduled step that waits a set time after the work completes, then assigns
-              its task — e.g. an Effectiveness check to verify the fix actually worked. The record
-              owner can reschedule or skip it on each record.
+              Adds a scheduled step that waits a set time after the work completes, then assigns its
+              task — e.g. an Effectiveness check to verify the fix actually worked. The record owner
+              can reschedule or skip it on each record.
             </p>
             <template v-if="needCheck">
               <BaseField label="Check after">
@@ -469,11 +516,15 @@ class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
             class="tw:rounded-lg tw:border tw:border-divider tw:p-3 tw:flex tw:flex-col tw:gap-1"
           >
             <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-              <span class="tw:shrink-0 tw:w-6 tw:h-6 tw:rounded-full tw:bg-main-hover tw:text-xs tw:font-semibold tw:flex tw:items-center tw:justify-center">
+              <span
+                class="tw:shrink-0 tw:w-6 tw:h-6 tw:rounded-full tw:bg-main-hover tw:text-xs tw:font-semibold tw:flex tw:items-center tw:justify-center"
+              >
                 {{ i + 1 }}
               </span>
               <span class="tw:font-medium tw:text-on-main tw:flex-1">{{ p.name }}</span>
-              <span class="tw:shrink-0 tw:text-micro tw:uppercase tw:tracking-wide tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5">
+              <span
+                class="tw:shrink-0 tw:text-micro tw:uppercase tw:tracking-wide tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5"
+              >
                 {{ typeLabel(p) }}
               </span>
             </div>
@@ -510,7 +561,12 @@ class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:mb-1"
       <BaseButton variant="outline" @click="close">Cancel</BaseButton>
       <div class="tw:flex-1"></div>
       <BaseButton v-if="step > 0" variant="outline" @click="back">Back</BaseButton>
-      <BaseButton v-if="step < STEPS.length - 1" variant="primary" :disabled="!canNext" @click="next">
+      <BaseButton
+        v-if="step < STEPS.length - 1"
+        variant="primary"
+        :disabled="!canNext"
+        @click="next"
+      >
         Next
       </BaseButton>
       <BaseButton

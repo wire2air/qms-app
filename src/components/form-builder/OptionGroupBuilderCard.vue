@@ -1,29 +1,30 @@
 <script setup>
 /**
- * Inline Multiple Choice (optionGroup) builder for the canvas (user request
- * 2026-08-10): renders like the live control — radio / checkbox glyphs per
- * row — while everything edits in place: rename an option, delete it,
- * "+ Add option", and flip the choice type (Radio / Checkbox / Toggle)
- * inline. Mutates the shared field object directly, mirroring
- * ChecklistBuilderCard.
+ * Inline options builder for the canvas (user request 2026-08-10), shared by
+ * every custom-options choice field: Multiple Choice, Checkboxes and — since
+ * 2026-08-15 — Dropdown. Renders like the live control (radio / checkbox
+ * glyph per row, a numbered list for a Dropdown) while everything edits in
+ * place: rename an option, delete it, "+ Add option". Mutates the shared
+ * field object directly, mirroring ChecklistBuilderCard.
+ *
+ * The choice-type switch that used to live here is gone — one answer vs
+ * several is now the field-type picker beside the label.
  *
  * Only mounted for CUSTOM-options fields (see FormCanvasField): a field
  * bound to an Option Set keeps the read-only preview — the set is tenant
  * config shared across forms, and editing it inline here would silently
  * change every form that uses it.
  */
-import { IconPlus, IconTrash } from '@tabler/icons-vue'
-import { GROUP_TYPE_OPTIONS } from '@/constants/formBuilderConfig'
+import { IconTrash } from '@tabler/icons-vue'
 
 const props = defineProps({
   field: { type: Object, required: true },
 })
 
-const editingLabel = ref(false)
-
-const groupTypeItems = computed(() =>
-  GROUP_TYPE_OPTIONS.map((o) => ({ id: o.value, name: o.label })),
-)
+// A Dropdown has no per-option glyph on the live control — its options are a
+// numbered list — so it gets an index instead of a radio/checkbox mark
+// (Dropdown reuses this card since 2026-08-15).
+const isSelect = computed(() => props.field.type === 'select')
 
 const glyphClass = computed(() =>
   props.field.groupType === 'checkbox'
@@ -45,36 +46,14 @@ function removeOption(i) {
 
 <template>
   <div class="tw:mt-2 tw:flex tw:flex-col tw:gap-2">
-    <!-- Click-to-edit label (same affordance as leaf fields) -->
-    <div>
-      <BaseTextInput
-        v-if="editingLabel"
-        v-model="field.label"
-        size="sm"
-        placeholder="Field label"
-        @click.stop
-        @mousedown.stop
-        @keyup.enter="editingLabel = false"
-        @keyup.esc="editingLabel = false"
-        @blur="editingLabel = false"
-      />
-      <div
-        v-else
-        class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-sm tw:font-medium tw:text-secondary tw:cursor-text tw:hover:text-primary"
-        title="Click to rename"
-        @click.stop="editingLabel = true"
-        @mousedown.stop
-      >
-        {{ field.label || '(no label)' }}
-        <span v-if="field.required" class="tw:text-bad">*</span>
-      </div>
-    </div>
+    <!-- (No label here — FormCanvasField renders the shared question header
+         above this card: label, field-type picker and description. This card
+         is just the option list. 2026-08-15) -->
 
-    <!-- Choice type — inline, next to where its effect shows -->
-    <div class="tw:flex tw:items-center tw:gap-2" @click.stop @mousedown.stop>
-      <span class="tw:text-xs tw:text-secondary">Type</span>
-      <BaseInlineSelect v-model="field.groupType" :items="groupTypeItems" :required="true" />
-    </div>
+    <!-- (No choice-type dropdown here — removed 2026-08-15. One answer vs
+         several is now picked in the field-type selector beside the label,
+         where "Multiple choice" and "Checkboxes" are separate entries. Two
+         type controls on one card was the confusing part.) -->
 
     <!-- Options — editable rows that read like the live control -->
     <div class="tw:flex tw:flex-col tw:gap-1.5" @click.stop @mousedown.stop>
@@ -84,6 +63,13 @@ function removeOption(i) {
         class="tw:group tw:flex tw:items-center tw:gap-2"
       >
         <span
+          v-if="isSelect"
+          class="tw:w-4 tw:shrink-0 tw:text-xs tw:text-secondary tw:text-right tw:tabular-nums"
+        >
+          {{ i + 1 }}.
+        </span>
+        <span
+          v-else
           class="tw:w-4 tw:h-4 tw:shrink-0 tw:border-2 tw:border-divider tw:bg-main"
           :class="glyphClass"
         />
@@ -103,17 +89,31 @@ function removeOption(i) {
         </button>
       </div>
 
-      <p v-if="!field.options?.length" class="tw:text-xs tw:text-placeholder tw:italic">
-        No options yet — add at least two choices.
-      </p>
-
+      <!-- "Add option" reads as the NEXT row in the list, not a link below it
+           (user request 2026-08-15, Google Forms parity): same glyph column,
+           same spacing, muted until hovered — so the list visibly continues
+           and clicking where the next option would go is what adds it. -->
       <button
         type="button"
-        class="tw:self-start tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:mt-0.5"
+        class="tw:group/add tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:py-1 tw:-my-0.5 tw:transition-colors"
         @click.stop="addOption"
       >
-        <IconPlus :size="14" />
-        Add option
+        <span
+          v-if="isSelect"
+          class="tw:w-4 tw:shrink-0 tw:text-xs tw:text-secondary/50 tw:text-right tw:tabular-nums"
+        >
+          {{ (field.options?.length ?? 0) + 1 }}.
+        </span>
+        <span
+          v-else
+          class="tw:w-4 tw:h-4 tw:shrink-0 tw:border-2 tw:border-dashed tw:border-divider tw:bg-main"
+          :class="glyphClass"
+        />
+        <span
+          class="tw:text-sm tw:text-secondary tw:group-hover/add:text-primary tw:transition-colors"
+        >
+          Add option
+        </span>
       </button>
     </div>
   </div>

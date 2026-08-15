@@ -60,6 +60,7 @@ const {
   selectField,
   clearSelection,
   duplicateField,
+  changeFieldKind,
   undo,
   redo,
   canUndo,
@@ -402,6 +403,8 @@ async function handleAiChatApply({ proposal, onApplied }) {
                 :isDragging="isDragging"
                 @addField="addField"
                 @selectField="handleSelectField"
+                @configureField="handleSelectField"
+                @changeFieldKind="changeFieldKind"
                 @removeField="removeField"
                 @duplicateField="duplicateField"
                 @moveField="moveField"

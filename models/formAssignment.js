@@ -27,7 +27,9 @@ export class FormAssignment extends BaseModel {
 
   // Exactly one of these is set — see backend CHECK constraint.
   @Property({ type: Array }) assignedUserIds = /** @type {Array<string>} */ ([])
-  @Property({ type: String }) assignedRoleId = ''
+  // Users and roles are UNIONED — an assignment may name individual users,
+  // roles, or both (2026-08-15). At least one is required (DB CHECK).
+  @Property({ type: Array }) assignedRoleIds = /** @type {Array<string>} */ ([])
 
   // { type, cron, timezone, occurrencesPerPeriod, startOffsetMinutes, windowMinutes }
   @Property({ type: Object }) schedule = {}

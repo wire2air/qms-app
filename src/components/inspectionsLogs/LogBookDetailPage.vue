@@ -655,7 +655,7 @@ const logBookDetailConfig = computed(() =>
           logBook.recordClassification === 'CONTROLLED_RECORD'
             ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
             : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
-       "
+        "
       >
         <IconShieldCheck v-if="logBook.recordClassification === 'CONTROLLED_RECORD'" :size="10" />
         {{ logBook.recordClassification?.replace('_', ' ') }}
@@ -679,7 +679,9 @@ const logBookDetailConfig = computed(() =>
         class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:px-4 tw:py-2.5 tw:mb-4"
       >
         <LogBookStatusBadge :statusId="bookStatus" />
-        <span class="tw:text-xs tw:font-semibold tw:text-secondary">V{{ logBook.generation ?? 1 }}</span>
+        <span class="tw:text-xs tw:font-semibold tw:text-secondary"
+          >V{{ logBook.generation ?? 1 }}</span
+        >
         <span v-if="logBook.effectiveAt" class="tw:text-xs tw:text-secondary">
           effective {{ logBook.effectiveAt.formatDate('date') }}
         </span>
@@ -698,10 +700,19 @@ const logBookDetailConfig = computed(() =>
           Replaced by {{ replacement.code }} ({{ replacement.statusId?.toLowerCase() }})
         </RouterLink>
         <span class="tw:text-xs tw:text-secondary tw:italic tw:ml-auto">
-          <template v-if="isEditableDraft">Draft — editable; submit for approval when ready.</template>
-          <template v-else-if="isUnderReview">Under review — locked until the approval completes.</template>
-          <template v-else-if="bookStatus === 'ACTIVE'">Approved — template, policy, equipment &amp; location are locked. Create a replacement to change them.</template>
-          <template v-else-if="bookStatus === 'OBSOLETE'">Obsolete{{ logBook.statusReason ? ` — ${logBook.statusReason}` : '' }}</template>
+          <template v-if="isEditableDraft"
+            >Draft — editable; submit for approval when ready.</template
+          >
+          <template v-else-if="isUnderReview"
+            >Under review — locked until the approval completes.</template
+          >
+          <template v-else-if="bookStatus === 'ACTIVE'"
+            >Approved — template, policy, equipment &amp; location are locked. Create a replacement
+            to change them.</template
+          >
+          <template v-else-if="bookStatus === 'OBSOLETE'"
+            >Obsolete{{ logBook.statusReason ? ` — ${logBook.statusReason}` : '' }}</template
+          >
           <template v-else-if="bookStatus === 'INACTIVE'">Paused — not accepting entries.</template>
         </span>
       </div>
@@ -731,7 +742,9 @@ const logBookDetailConfig = computed(() =>
                 >
                   <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
                     <span class="tw:text-sm tw:font-semibold tw:text-amber-900">
-                      Your approval is requested — {{ logBook.code }} (V{{ logBook.generation ?? 1 }})
+                      Your approval is requested — {{ logBook.code }} (V{{
+                        logBook.generation ?? 1
+                      }})
                     </span>
                     <TaskActionBar entityType="LogBook" :entityId="logBook.id" />
                   </div>
@@ -796,7 +809,9 @@ const logBookDetailConfig = computed(() =>
                   v-else-if="isUnderReview"
                   class="tw:bg-main-hover tw:rounded tw:p-3 tw:text-sm tw:text-secondary"
                 >
-                  Awaiting approval{{ logBook.changeSummary ? ` — "${logBook.changeSummary}"` : '' }}.
+                  Awaiting approval{{
+                    logBook.changeSummary ? ` — "${logBook.changeSummary}"` : ''
+                  }}.
                 </div>
 
                 <!-- C) Rejected — reviewer's reason + edit/resubmit hint. -->
@@ -856,7 +871,9 @@ const logBookDetailConfig = computed(() =>
                   >
                     <UserSelectMenu
                       v-model="draft.supervisorUserId"
-                      :disabled="!canEditDetails || !!(draft.equipmentId && selectedEquipment?.ownerUserId)"
+                      :disabled="
+                        !canEditDetails || !!(draft.equipmentId && selectedEquipment?.ownerUserId)
+                      "
                     />
                     <div
                       v-if="draft.equipmentId && selectedEquipment?.ownerUserId"
@@ -895,10 +912,7 @@ const logBookDetailConfig = computed(() =>
                     </select>
                   </BaseField>
                   <BaseField label="Department">
-                    <DepartmentSelectMenu
-                      v-model="draft.departmentId"
-                      :disabled="!canEditFrozen"
-                    />
+                    <DepartmentSelectMenu v-model="draft.departmentId" :disabled="!canEditFrozen" />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Feeds <span class="">{DEPTCODE}</span> in the Record Id prefix.
                     </p>
@@ -924,9 +938,8 @@ const logBookDetailConfig = computed(() =>
                     />
                     <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
                       Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from the
-                      Department code + the Log book type's prefix (Lookups → Log Book Types)
-                      on save. Current:
+                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from the Department
+                      code + the Log book type's prefix (Lookups → Log Book Types) on save. Current:
                       <span class="tw:text-on-main">{{ logBook.code }}</span>
                     </p>
                   </template>
@@ -1010,8 +1023,8 @@ const logBookDetailConfig = computed(() =>
                   <span class="tw:text-sm tw:text-on-main">
                     Update this instrument's calibration when an entry is logged
                     <span class="tw:block tw:text-caption tw:text-secondary">
-                      On approval (or submit, if no review), the instrument's last-calibrated date is
-                      set to the entry's submit time and next-due rolls forward by its interval.
+                      On approval (or submit, if no review), the instrument's last-calibrated date
+                      is set to the entry's submit time and next-due rolls forward by its interval.
                       Overrides are done from Equipment.
                     </span>
                   </span>
@@ -1083,8 +1096,8 @@ const logBookDetailConfig = computed(() =>
                       class="tw:mt-0.5"
                     />
                     <span>
-                      Equipment trigger — the linked instrument's calibration / PM due date
-                      creates the tasks
+                      Equipment trigger — the linked instrument's calibration / PM due date creates
+                      the tasks
                       <span class="tw:block tw:text-caption tw:text-secondary">
                         Tasks stay open until the entry is filed. Requires a linked instrument
                         (Equipment section).
@@ -1150,8 +1163,8 @@ const logBookDetailConfig = computed(() =>
                     <span>
                       Create tasks for assignees
                       <span class="tw:block tw:text-caption tw:text-secondary">
-                        Unchecked: assignees get a reminder notification per occurrence instead —
-                        no My Tasks entry, no missed-tracking.
+                        Unchecked: assignees get a reminder notification per occurrence instead — no
+                        My Tasks entry, no missed-tracking.
                       </span>
                     </span>
                   </label>
@@ -1162,8 +1175,8 @@ const logBookDetailConfig = computed(() =>
                     v-if="!draft.equipmentId"
                     class="tw:bg-amber-50 tw:text-amber-800 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:text-xs"
                   >
-                    Link an instrument in the <strong>Equipment</strong> section first — the trigger follows its
-                    due dates.
+                    Link an instrument in the <strong>Equipment</strong> section first — the trigger
+                    follows its due dates.
                   </div>
                   <BaseField v-slot="{ id: srcId }" label="Trigger on">
                     <select
@@ -1277,8 +1290,8 @@ const logBookDetailConfig = computed(() =>
                     <span>
                       Require reviewer approval before locking
                       <span class="tw:block tw:text-caption tw:text-secondary">
-                        Each entry is held for the <strong>Supervisor</strong> (in Basics) to approve
-                        or reject before it locks.
+                        Each entry is held for the <strong>Supervisor</strong> (in Basics) to
+                        approve or reject before it locks.
                       </span>
                     </span>
                   </label>
@@ -1311,10 +1324,7 @@ const logBookDetailConfig = computed(() =>
                 </div>
                 <!-- Additional reviewers (users/roles) — editable while ACTIVE.
                      Only relevant when reviewer approval is on. -->
-                <div
-                  v-if="draft.reviewRequired"
-                  class="tw:border-t tw:border-divider tw:pt-3"
-                >
+                <div v-if="draft.reviewRequired" class="tw:border-t tw:border-divider tw:pt-3">
                   <LogBookReviewersEditor
                     :logBookId="props.id"
                     :logBook="logBook"
@@ -1323,7 +1333,9 @@ const logBookDetailConfig = computed(() =>
                 </div>
                 <div class="tw:bg-main-hover tw:rounded tw:p-2 tw:text-xs">
                   This is a
-                  <strong>{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong>
+                  <strong
+                    >{{ derivedClassification.replace('_', ' ').toLowerCase() }} log book</strong
+                  >
                   based on the current settings.
                 </div>
               </section>
@@ -1338,12 +1350,12 @@ const logBookDetailConfig = computed(() =>
                   Log Book Approval
                 </BaseText>
                 <p class="tw:text-xs tw:text-secondary">
-                  Approves the <strong>log book itself</strong> — its fields and policy. The
-                  book routes through this workflow (review → sign-off) before it becomes
-                  <strong>Active</strong> and can accept entries; a replacement book goes through
-                  it again. This is <strong>not</strong> the approval for daily entries — those
-                  use the reviewer sign-off in <strong>Entry policy</strong> above. Design
-                  workflows under the <strong>Log Book</strong> module.
+                  Approves the <strong>log book itself</strong> — its fields and policy. The book
+                  routes through this workflow (review → sign-off) before it becomes
+                  <strong>Active</strong> and can accept entries; a replacement book goes through it
+                  again. This is <strong>not</strong> the approval for daily entries — those use the
+                  reviewer sign-off in <strong>Entry policy</strong> above. Design workflows under
+                  the <strong>Log Book</strong> module.
                 </p>
                 <WorkflowVersionSelect
                   v-if="canUpdate"
@@ -1385,7 +1397,11 @@ const logBookDetailConfig = computed(() =>
                       @click="openSchemaBuilder"
                     >
                       <IconDeviceFloppy :size="16" />
-                      {{ (logBook.schema?.length ?? 0) > 0 ? 'Edit log template' : 'Build log template' }}
+                      {{
+                        (logBook.schema?.length ?? 0) > 0
+                          ? 'Edit log template'
+                          : 'Build log template'
+                      }}
                     </BaseButton>
                     <BaseButton
                       v-else-if="canUpdate && bookStatus === 'ACTIVE'"
@@ -1405,7 +1421,11 @@ const logBookDetailConfig = computed(() =>
                   </span>
                   <span v-if="isEditableDraft" class="tw:italic">editable until submitted</span>
                   <span v-else class="tw:italic">
-                    read-only ({{ isUnderReview ? 'awaiting approval' : 'the approved template is frozen — create a replacement to change it' }})
+                    read-only ({{
+                      isUnderReview
+                        ? 'awaiting approval'
+                        : 'the approved template is frozen — create a replacement to change it'
+                    }})
                   </span>
                 </p>
                 <p v-if="logBook.changeSummary" class="tw:text-xs tw:text-secondary tw:mt-1">
@@ -1439,10 +1459,7 @@ const logBookDetailConfig = computed(() =>
               </div>
 
               <!-- READ-ONLY: an approved / in-review book's frozen template. -->
-              <section
-                v-else
-                class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4"
-              >
+              <section v-else class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
                 <FormSchemaReadonlyView
                   v-if="(logBook.schema?.length ?? 0) > 0"
                   :fields="logBook.schema"
@@ -1532,12 +1549,21 @@ const logBookDetailConfig = computed(() =>
                   </template>
 
                   <template #body-cell-assignees="{ row }">
-                    <RoleBadgeById v-if="row.assignedRoleId" :roleId="row.assignedRoleId" />
+                    <!-- Roles AND users, not either/or (2026-08-15). -->
                     <div
-                      v-else-if="row.assignedUserIds?.length"
+                      v-if="row.assignedRoleIds?.length || row.assignedUserIds?.length"
                       class="tw:flex tw:flex-wrap tw:gap-1"
                     >
-                      <UserBadgeById v-for="uid in row.assignedUserIds" :key="uid" :userId="uid" />
+                      <RoleBadgeById
+                        v-for="rid in row.assignedRoleIds ?? []"
+                        :key="rid"
+                        :roleId="rid"
+                      />
+                      <UserBadgeById
+                        v-for="uid in row.assignedUserIds ?? []"
+                        :key="uid"
+                        :userId="uid"
+                      />
                     </div>
                     <span v-else class="tw:text-secondary">—</span>
                   </template>
@@ -1549,7 +1575,7 @@ const logBookDetailConfig = computed(() =>
                         row.active
                           ? 'tw:bg-green-100 tw:text-green-700'
                           : 'tw:bg-gray-100 tw:text-gray-700'
-                     "
+                      "
                     >
                       {{ row.active ? 'Active' : 'Inactive' }}
                     </span>
@@ -1570,7 +1596,6 @@ const logBookDetailConfig = computed(() =>
               </section>
             </div>
           </BaseTabPanel>
-
         </div>
       </BaseTabs>
     </template>
@@ -1587,9 +1612,9 @@ const logBookDetailConfig = computed(() =>
   <BaseDialog v-model="showObsoleteDialog" title="Mark Log Book Obsolete" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <p class="tw:text-sm tw:text-secondary">
-        The log book stops accepting new entries and disappears from the logging surfaces, but
-        stays here as controlled history — existing records remain readable. The reason is
-        recorded in the audit trail.
+        The log book stops accepting new entries and disappears from the logging surfaces, but stays
+        here as controlled history — existing records remain readable. The reason is recorded in the
+        audit trail.
       </p>
       <BaseField v-slot="{ id: fieldId }" label="Reason" required>
         <BaseTextarea
@@ -1611,7 +1636,6 @@ const logBookDetailConfig = computed(() =>
       />
     </template>
   </BaseDialog>
-
 
   <!-- Full-screen FormBuilder overlay. Mirrors the workflow-step
          panel pattern: teleport to body, slide-up transition, internal
@@ -1641,9 +1665,7 @@ const logBookDetailConfig = computed(() =>
               <div class="tw:text-lg tw:font-medium tw:text-on-main">
                 {{ logBook?.title || 'Log template' }}
               </div>
-              <span class="tw:text-xs tw:text-secondary">
-                v{{ logBook?.schemaVersion ?? 1 }}
-              </span>
+              <span class="tw:text-xs tw:text-secondary"> v{{ logBook?.schemaVersion ?? 1 }} </span>
             </div>
             <div class="tw:flex-1" />
             <button

@@ -33,6 +33,13 @@ const props = defineProps({
 
 const emit = defineEmits(['update:schema'])
 
+// Per-instance drag group. Several mini builders can be mounted at once (the
+// workflow builder expands every step), and a shared SortableJS group would
+// let a field be dragged out of one step's form into another's — a move
+// neither schema array records. There's no palette here, so nothing needs to
+// drop in from outside this canvas.
+const dragGroup = `mini-form-${useId()}`
+
 // Deep-copy the seed — useFormBuilder mutates the array it's given, and the
 // host's copy (e.g. step.formSchema) must only change through update:schema.
 const {
@@ -46,6 +53,7 @@ const {
   selectField,
   clearSelection,
   duplicateField,
+  changeFieldKind,
 } = useFormBuilder(JSON.parse(JSON.stringify(props.initialSchema ?? [])))
 
 watch(
@@ -93,10 +101,16 @@ watch(showAddDialog, (open) => {
 })
 
 // ── Field settings dialog (same FormFieldConfig as the full builder) ─────────
-// Driven by an explicit flag, not selection — adds shouldn't pop it open.
+// Opened ONLY by the field card's gear (user request 2026-08-15). Clicking a
+// card — or its label, to rename in place — just highlights it; the dialog
+// used to land on top of exactly the edit the user was trying to make.
 const showSettingsDialog = ref(false)
 
 function handleSelectField(path) {
+  selectField(path)
+}
+
+function handleConfigureField(path) {
   selectField(path)
   showSettingsDialog.value = true
 }
@@ -112,9 +126,14 @@ watch(showSettingsDialog, (open) => {
       :fields="schema"
       :selectedPath="selectedFieldPath"
       :isDragging="isDragging"
+      :group="dragGroup"
+      :bordered="false"
+      emptyDescription="No fields yet — use “Add field” below."
       class="tw:min-h-40!"
       @addField="addField"
       @selectField="handleSelectField"
+      @configureField="handleConfigureField"
+      @changeFieldKind="changeFieldKind"
       @removeField="removeField"
       @duplicateField="duplicateField"
       @moveField="moveField"

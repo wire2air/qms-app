@@ -188,7 +188,13 @@ watch(
     }
     // Supplier-facing approval steps keep preferring the owner (CFR-21
     // attestation) ahead of any preferUserId — required step only, as before.
-    if (props.required && !supplierMode && props.isSupplierFacing && isApprovalStep.value && ownerId) {
+    if (
+      props.required &&
+      !supplierMode &&
+      props.isSupplierFacing &&
+      isApprovalStep.value &&
+      ownerId
+    ) {
       const ownerCandidate = internals.find((u) => u.id === ownerId)
       if (ownerCandidate) {
         autoSelectDone = true

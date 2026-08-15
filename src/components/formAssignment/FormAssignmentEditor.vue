@@ -14,7 +14,7 @@ import {
  * Uses the REST endpoints directly (POST/PATCH/DELETE
  * /v1/services/formAssignments) rather than SyncEngine save — the
  * controller validates the cron expression, the assignedUserIds /
- * assignedRoleId mutual exclusion, the schedule shape, etc. Going
+ * assignee union (roles + users), the schedule shape, etc. Going
  * through GraphQL would skip those checks.
  *
  * After a successful write, the SyncEngine eventually catches up via
@@ -65,9 +65,10 @@ const form = ref({
   startOffsetMinutes: 0,
   graceMinutes: 120, // 2h — matches the Daily default
   onWindowExpire: 'MISS', // MISS | KEEP_OPEN — what happens when the window+grace lapses unfilled
-  assigneeMode: 'USERS', // USERS | ROLE
+  // Users and roles are UNIONED (2026-08-15) — no mode toggle. "The QA team
+  // plus Priya" is an ordinary ask and the old either/or refused it.
   assignedUserIds: [],
-  assignedRoleId: '',
+  assignedRoleIds: [],
   active: true,
 })
 
@@ -171,9 +172,8 @@ watch(
       startOffsetMinutes: plan.schedule?.startOffsetMinutes ?? 0,
       graceMinutes: plan.graceMinutes ?? 60,
       onWindowExpire: plan.schedule?.onWindowExpire ?? 'MISS',
-      assigneeMode: plan.assignedRoleId ? 'ROLE' : 'USERS',
       assignedUserIds: plan.assignedUserIds ?? [],
-      assignedRoleId: plan.assignedRoleId ?? '',
+      assignedRoleIds: plan.assignedRoleIds ?? [],
       active: plan.active ?? true,
     }
   },
@@ -187,13 +187,10 @@ function validate() {
   if (form.value.scheduleType === 'RECURRING' && !form.value.cron?.trim()) {
     return 'RECURRING schedule requires a cron expression'
   }
-  if (form.value.assigneeMode === 'USERS') {
-    if (!form.value.assignedUserIds || form.value.assignedUserIds.length === 0) {
-      return 'At least one assignee is required (or pick a role instead)'
-    }
-  } else {
-    if (!form.value.assignedRoleId) return 'Pick a role (or assign users instead)'
-  }
+  // Mirrors the DB CHECK: target somebody, either way, or both.
+  const hasUsers = (form.value.assignedUserIds?.length ?? 0) > 0
+  const hasRoles = (form.value.assignedRoleIds?.length ?? 0) > 0
+  if (!hasUsers && !hasRoles) return 'Assign at least one user or role'
   return null
 }
 
@@ -201,8 +198,8 @@ function buildPayload() {
   // Audience only — scheduling lives on the log book (2026-08-06).
   return {
     logBookId: form.value.logBookId,
-    assignedUserIds: form.value.assigneeMode === 'USERS' ? form.value.assignedUserIds : null,
-    assignedRoleId: form.value.assigneeMode === 'ROLE' ? form.value.assignedRoleId : null,
+    assignedUserIds: form.value.assignedUserIds ?? [],
+    assignedRoleIds: form.value.assignedRoleIds ?? [],
     active: form.value.active,
   }
 }
@@ -218,21 +215,16 @@ function buildPayload() {
 async function confirmTrainingGaps() {
   try {
     const audience = await resolveAssignmentAudience({
-      assignedUserIds: form.value.assigneeMode === 'USERS' ? form.value.assignedUserIds : null,
-      assignedRoleId: form.value.assigneeMode === 'ROLE' ? form.value.assignedRoleId : null,
+      assignedUserIds: form.value.assignedUserIds,
+      assignedRoleIds: form.value.assignedRoleIds,
     })
     if (!audience.length) return true
     const { byUser } = await resolveLogBookTrainingGaps(form.value.logBookId, audience)
     const untrainedCount = [...byUser.values()].filter((docs) => docs.length).length
     if (!untrainedCount) return true
 
-    const docTitles = [
-      ...new Set([...byUser.values()].flat().map((d) => d.title)),
-    ].join(', ')
-    const who =
-      untrainedCount === 1
-        ? '1 assignee has not'
-        : `${untrainedCount} assignees have not`
+    const docTitles = [...new Set([...byUser.values()].flat().map((d) => d.title))].join(', ')
+    const who = untrainedCount === 1 ? '1 assignee has not' : `${untrainedCount} assignees have not`
     return await confirm({
       title: 'Training not complete',
       message:
@@ -398,32 +390,22 @@ function back() {
       <!-- Assignees -->
       <BaseCard class="tw:space-y-3">
         <BaseText as="h3" weight="semibold">Assignees</BaseText>
-        <div class="tw:flex tw:items-center tw:gap-4">
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.assigneeMode" type="radio" value="USERS" name="assigneeMode" />
-            <span class="tw:text-on-main">Specific users</span>
-          </label>
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.assigneeMode" type="radio" value="ROLE" name="assigneeMode" />
-            <span class="tw:text-on-main">All users in a role</span>
-          </label>
-        </div>
-        <div v-if="form.assigneeMode === 'USERS'">
-          <BaseField
-            label="Users"
-            hint="Click each user you want to assign — the menu stays open so you can pick multiple (e.g. one per shift). All selected users get an instance per occurrence."
-          >
-            <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
-          </BaseField>
-        </div>
-        <div v-else>
-          <BaseField
-            label="Role"
-            hint="Members are resolved at instance generation time. Adding a user to the role tomorrow gives them tomorrow's occurrences, not today's."
-          >
-            <RoleSelectMenu v-model="form.assignedRoleId" :required="true" />
-          </BaseField>
-        </div>
+        <p class="tw:text-sm tw:text-secondary">
+          Roles and users are combined — pick any mix. Everyone named here, plus every member of the
+          roles you pick, gets an instance per occurrence. Somebody who is both only gets one.
+        </p>
+        <BaseField
+          label="Roles"
+          hint="Members are resolved at instance generation time. Adding a user to the role tomorrow gives them tomorrow's occurrences, not today's."
+        >
+          <RoleSelectMenu v-model="form.assignedRoleIds" :multiple="true" />
+        </BaseField>
+        <BaseField
+          label="Users"
+          hint="Click each user you want to assign — the menu stays open so you can pick multiple (e.g. one per shift)."
+        >
+          <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
+        </BaseField>
       </BaseCard>
 
       <!-- Schedule moved to the LOG BOOK (Details → Schedule, 2026-08-06):
@@ -431,9 +413,9 @@ function back() {
       <BaseCard class="tw:space-y-2">
         <BaseText as="h3" weight="semibold">Schedule</BaseText>
         <p class="tw:text-sm tw:text-secondary">
-          When entries happen is configured on the log book itself (Details → Schedule): ad hoc,
-          a recurring cadence, or an equipment calibration/PM trigger. This assignment only
-          decides who is expected to log.
+          When entries happen is configured on the log book itself (Details → Schedule): ad hoc, a
+          recurring cadence, or an equipment calibration/PM trigger. This assignment only decides
+          who is expected to log.
         </p>
       </BaseCard>
 

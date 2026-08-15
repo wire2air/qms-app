@@ -7,11 +7,11 @@ import {
   IconRestore,
   IconTrash,
   IconAlertCircle,
-  IconPencil,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { copyVersionSteps } from './workflowVersionCopy.js'
+import { isApprovalOnlyModule } from './workflowModule.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -70,26 +70,21 @@ const workflow = useLiveQueryWithDeps(
   { models: ['Workflow'] },
 )
 
-// CC mirrors CAPA's authoring capabilities — full step config (outcomes,
-// send-back targets, form schema), opt-in child steps per root step, and
-// nested child-step rendering. Step type (ACTION / APPROVAL) is a
-// per-step toggle now, so we leave the approvalRule unforced for CC and
-// Document workflows and let the author pick ALL vs ANY on each APPROVAL
-// step. NC + CAPA keep their forced rule for backwards compat.
-const WORKFLOW_MODULES_WITH_STEP_CONFIG = [
-  'NON_CONFORMANCE',
-  'CAPA',
-  'CHANGE_CONTROL',
-  'CUSTOMER_COMPLAINT',
-  'COMPLAINT',
-]
+// Child steps (runtime sub-tasks) are a CAPA / Change Control capability.
+// (The per-step "Allowed Outcomes" picker that used to be gated here was
+// dead UI — permanently v-show="false" — and went away with the 2026-08-15
+// step-panel trim. The engine derives outcomes from the step type.)
 const MODULES_WITH_CHILD_STEPS = ['CAPA', 'CHANGE_CONTROL']
-const showAllowedOutcomes = computed(() =>
-  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
-)
-const showFormSchema = computed(() =>
-  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
-)
+// Task forms exist only in RECORD workflows. Approval flows (Document
+// Control, Log Book, Audit Standard, Audit Instance, QC) gate a transition —
+// reviewers approve or reject, there is nothing to fill in — so they can't
+// contain a Task step at all and never show the Task Form tab. See
+// allowedStepTypes() in workflowModule.js for the map and its rationale.
+//
+// (2026-08-14 briefly derived this from whether a module's runtime renders
+// <WorkflowStep>. That answered "can a form display?" when the real question
+// is "is this module about capturing work?" — hence the explicit map.)
+const showFormSchema = computed(() => !isApprovalOnlyModule(workflow.value?.moduleId))
 const showAllowChildSteps = computed(() =>
   MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
 )
@@ -138,44 +133,24 @@ const steps = useLiveQueryWithDeps(
   { models: ['WorkflowStep'], initial: [] },
 )
 
-// The selected step instance (pooled — mutations hit the same object the
-// editor autosaves) + in-place rename in the dialog header (user request
-// 2026-08-14; the Settings tab's duplicate name field is gone).
-const selectedStep = computed(
-  () => steps.value?.find((s) => s.id === selectedStepId.value) ?? null,
-)
-const selectedStepName = computed(() => selectedStep.value?.name ?? '')
+// (Step renaming lives on WorkflowStepCard now — the expanded panel has no
+// header to hang it off, and the card is where the name is shown.)
 
-const editingStepName = ref(false)
-let stepNameBeforeEdit = ''
+// ─── Secondary step config, opened from a step header ────────────────────────
+const settingsDialogOpen = ref(false)
+const settingsStepId = ref(null)
+const assigneesDialogOpen = ref(false)
+const assigneesStepId = ref(null)
 
-function startStepRename() {
-  if (!canUpdate.value || !selectedStep.value) return
-  stepNameBeforeEdit = selectedStep.value.name
-  editingStepName.value = true
+function openStepSettings(id) {
+  settingsStepId.value = id
+  settingsDialogOpen.value = true
 }
 
-async function finishStepRename() {
-  if (!editingStepName.value) return
-  editingStepName.value = false
-  const step = selectedStep.value
-  if (!step) return
-  // A blank name would render unnamed cards everywhere — restore instead.
-  if (!step.name?.trim()) {
-    step.name = stepNameBeforeEdit
-    return
-  }
-  if (step.name === stepNameBeforeEdit) return
-  try {
-    await step.save()
-  } catch (e) {
-    toast.error(e?.message || 'Failed to rename step')
-  }
+function openStepAssignees(id) {
+  assigneesStepId.value = id
+  assigneesDialogOpen.value = true
 }
-
-watch(selectedStepId, () => {
-  editingStepName.value = false
-})
 
 watch(
   versions,
@@ -211,10 +186,50 @@ const selectedVersion = computed(
 )
 
 // --- Computed ---
-const breadcrumbItems = computed(() => [
-  { label: 'Workflows', to: getCompanyPath('/workflow-templates') },
-  { label: workflow.value?.name || 'Edit Workflow' },
-])
+// The editor is mounted under BOTH /workflow-templates/:id (from the merged
+// Templates list) and /approval-flows/:id (from Approval Flows). Derive the
+// list to go back to from where we actually are, rather than hard-coding
+// /workflow-templates and dumping approval-flow authors on the other page.
+const listPath = computed(() =>
+  route.path.includes('/approval-flows') ? '/approval-flows' : '/workflow-templates',
+)
+const listLabel = computed(() =>
+  listPath.value === '/approval-flows' ? 'Approval Flows' : 'Templates',
+)
+
+// A document template's approval flow is an ordinary workflow edited here, but
+// you got here FROM the template — so go back there, not to a list this
+// workflow is deliberately hidden from (2026-08-15).
+const owningDocumentTemplate = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    const templates = await db.DocumentTemplate.where().exec()
+    return templates.find((t) => t.workflowId === id) ?? null
+  },
+  { models: ['DocumentTemplate'], initial: null },
+)
+
+// A template-owned flow is published/archived BY its template — the template's
+// status transitions drive the version lifecycle (2026-08-15). Showing Publish
+// / Create New Draft / Archive here would give the same flow two lifecycles to
+// operate and let it drift out of step with the template that owns it.
+const isTemplateOwned = computed(() => !!owningDocumentTemplate.value)
+
+const breadcrumbItems = computed(() => {
+  const owner = owningDocumentTemplate.value
+  if (owner) {
+    return [
+      { label: 'Templates', to: getCompanyPath('/workflow-templates') },
+      { label: owner.name, to: getCompanyPath(`/document-templates/${owner.id}`) },
+      { label: 'Approval Flow' },
+    ]
+  }
+  return [
+    { label: listLabel.value, to: getCompanyPath(listPath.value) },
+    { label: workflow.value?.name || 'Edit Workflow' },
+  ]
+})
 
 const versionLabel = computed(() => {
   const v = selectedVersion.value
@@ -287,7 +302,7 @@ async function handleDeleteDraft() {
       // Draft is the workflow's only version → remove the whole workflow.
       await workflow.value.delete()
       toast.success('Workflow deleted')
-      router.push(getCompanyPath('/workflow-templates'))
+      router.push(getCompanyPath(listPath.value))
       return
     }
     // Published version(s) exist → discard just this draft version. HARD-delete
@@ -433,9 +448,9 @@ useAutoSave(selectedVersion, { debounce: 1000 })
 useAutoSave(workflow, { debounce: 1000 })
 
 watch(steps, () => {
-  // Selection IS the settings dialog (its modelValue = !!selectedStepId), so never
-  // auto-select — falling back to the first step popped the dialog the moment a
-  // template was opened. A stale id (deleted step) simply clears.
+  // `selectedStepId` just tracks "the step being worked on" for hosts/telemetry
+  // — expansion state lives in WorkflowStepList (every step starts expanded).
+  // Never auto-select; a stale id (deleted step) simply clears.
   if (!steps.value.some((s) => s.id === selectedStepId.value)) {
     selectedStepId.value = null
   }
@@ -512,11 +527,14 @@ watch(steps, () => {
 
           <div class="tw:h-6 tw:w-px tw:bg-divider"></div>
 
-          <template v-if="canUpdate">
+          <span v-if="isTemplateOwned" class="tw:text-xs tw:text-secondary">
+            Published with its document template
+          </span>
+          <template v-else-if="canUpdate">
             <BaseButton :isLoading="publishing" @click="handlePublish"> Publish </BaseButton>
           </template>
           <BaseButton
-            v-if="canCreateDraft"
+            v-if="!isTemplateOwned && canCreateDraft"
             :isLoading="creatingDraft"
             @click="handleCreateDraft(false)"
           >
@@ -528,7 +546,7 @@ watch(steps, () => {
                a published version archives/restores the workflow (it may
                be attached to records). -->
           <BaseButton
-            v-if="isDraftVersion && canDeleteWorkflow"
+            v-if="!isTemplateOwned && isDraftVersion && canDeleteWorkflow"
             variant="ghost"
             class="tw:text-red-600"
             :isLoading="workflowStatusBusy"
@@ -538,7 +556,7 @@ watch(steps, () => {
             {{ isOnlyVersion ? 'Delete' : 'Discard Draft' }}
           </BaseButton>
           <BaseButton
-            v-else-if="isArchived && canArchiveWorkflow"
+            v-else-if="!isTemplateOwned && isArchived && canArchiveWorkflow"
             variant="ghost"
             :isLoading="workflowStatusBusy"
             @click="setWorkflowStatus('ACTIVE')"
@@ -547,7 +565,7 @@ watch(steps, () => {
             Restore
           </BaseButton>
           <BaseButton
-            v-else-if="canArchiveWorkflow"
+            v-else-if="!isTemplateOwned && canArchiveWorkflow"
             variant="ghost"
             :isLoading="workflowStatusBusy"
             @click="setWorkflowStatus('ARCHIVED')"
@@ -611,74 +629,57 @@ watch(steps, () => {
         </div>
       </div>
 
-      <!-- Workflow canvas — steps only, rendered as a top-to-bottom flow.
-           Clicking a step opens its configuration in a dialog (redesign
-           2026-08-13; was a two-pane list + inline editor). -->
+      <!-- Workflow canvas — steps as a top-to-bottom flow. Clicking a step
+           EXPANDS its configuration in place, under the card (user request
+           2026-08-14; was a dialog, and before that a two-pane split). The
+           flow stays visible above and below while you configure. -->
       <div v-if="selectedVersion" class="tw:flex-1 tw:overflow-y-auto tw:bg-main">
         <WorkflowStepList
           v-model:stepId="selectedStepId"
           :versionId="selectedVersionId"
           :canUpdate="canUpdate"
           :showChildSteps="showChildSteps"
-        />
+          :moduleId="workflow?.moduleId"
+          @openSettings="openStepSettings"
+          @openAssignees="openStepAssignees"
+        >
+          <!-- Expanded step configuration — no header (user request
+               2026-08-15): the card directly above already carries the step
+               number, name, type and the collapse chevron, so a second title
+               row was pure duplication. Renaming lives on the card's title.
+               Everything autosaves. -->
+          <template #stepEditor="{ stepId: expandedStepId }">
+            <!-- No border/rounding of its own — this renders inside the step
+                 card, below its header divider (one panel per step). -->
+            <div class="tw:bg-sidebar tw:p-4 tw:md:p-5">
+              <WorkflowStepEditor
+                :stepId="expandedStepId"
+                :canUpdate="canUpdate"
+                :showFormSchema="showFormSchema"
+                :selectedApprovalRule="selectedApprovalRule"
+                @openAssignees="openStepAssignees(expandedStepId)"
+              />
+            </div>
+          </template>
+        </WorkflowStepList>
       </div>
 
-      <!-- Step configuration dialog — autosaves as you edit; Done just closes.
-           persistent (+ explicit X): the form builder renders inside this
-           dialog's portal tree, so a stray Escape/backdrop click would close
-           the dialog and unmount the builder mid-edit. -->
-      <BaseDialog
-        :modelValue="!!selectedStepId"
-        :title="selectedStepName || 'Step Configuration'"
-        size="5xl"
-        persistent
-        showClose
-        @update:modelValue="(v) => !v && (selectedStepId = null)"
-      >
-        <!-- In-place editable step name (user request 2026-08-14) — click the
-             title (or its pencil) to rename; Enter/blur saves, blank restores. -->
-        <template #title>
-          <BaseTextInput
-            v-if="editingStepName && selectedStep"
-            v-model="selectedStep.name"
-            size="sm"
-            class="tw:w-80 tw:max-w-full"
-            placeholder="Step name"
-            autofocus
-            @keyup.enter="finishStepRename"
-            @blur="finishStepRename"
-          />
-          <button
-            v-else
-            type="button"
-            class="tw:group tw:inline-flex tw:items-center tw:gap-2 tw:min-w-0 tw:max-w-full tw:text-left"
-            :class="canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default'"
-            :aria-label="canUpdate ? 'Rename step' : undefined"
-            :disabled="!canUpdate"
-            @click="startStepRename"
-          >
-            <span class="tw:truncate">{{ selectedStepName || 'Step Configuration' }}</span>
-            <IconPencil
-              v-if="canUpdate"
-              :size="15"
-              class="tw:shrink-0 tw:text-secondary tw:opacity-0 tw:group-hover:opacity-100 tw:group-focus-visible:opacity-100 tw:transition-opacity"
-            />
-          </button>
-        </template>
-        <WorkflowStepEditor
-          v-if="selectedStepId"
-          :stepId="selectedStepId"
-          :canUpdate="canUpdate"
-          :showAllowedOutcomes="showAllowedOutcomes"
-          :showFormSchema="showFormSchema"
-          :showAllowChildSteps="showAllowChildSteps"
-          :stepApproversTab="stepApproversTab"
-          :selectedApprovalRule="selectedApprovalRule"
-        />
-        <template #footer="{ close }">
-          <BaseButton variant="primary" @click="close">Done</BaseButton>
-        </template>
-      </BaseDialog>
+      <!-- Secondary step config — one instance each, driven by the gear /
+           people buttons on any step's header. Work whether or not that step
+           is expanded, so each dialog owns its own load + autosave. -->
+      <WorkflowStepSettingsDialog
+        v-model="settingsDialogOpen"
+        :stepId="settingsStepId"
+        :canUpdate="canUpdate"
+        :showAllowChildSteps="showAllowChildSteps"
+      />
+      <WorkflowStepAssigneesDialog
+        v-if="assigneesStepId"
+        v-model="assigneesDialogOpen"
+        :stepId="assigneesStepId"
+        :canUpdate="canUpdate"
+        :stepApproversTab="stepApproversTab"
+      />
     </template>
 
     <!-- Publish readiness — checklist confirm instead of blind publish -->
@@ -729,12 +730,8 @@ watch(steps, () => {
           </ul>
         </div>
 
-        <p
-          v-if="publishReadiness.warnings.length"
-          class="tw:text-caption tw:text-secondary"
-        >
-          You can publish anyway, or go back and add task forms first (Task Form tab on each
-          step).
+        <p v-if="publishReadiness.warnings.length" class="tw:text-caption tw:text-secondary">
+          You can publish anyway, or go back and add task forms first (Task Form tab on each step).
         </p>
       </div>
       <template #footer="{ close }">

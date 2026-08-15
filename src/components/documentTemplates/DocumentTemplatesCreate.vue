@@ -1,10 +1,17 @@
 <script setup>
-import { IconInfoCircle, IconSettings, IconCircleCheck, IconCircleX } from '@tabler/icons-vue'
+import {
+  IconInfoCircle,
+  IconSettings,
+  IconCircleCheck,
+  IconCircleX,
+  IconSignature,
+} from '@tabler/icons-vue'
 import { required, minValue } from '@shared/components/form/validators.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { validateUUID } from '@/utils/validators.js'
 import { currentCompany } from '@/utils/currentCompany.js'
 import { get } from '@/api'
+import { ensureTemplateApprovalWorkflow } from './documentTemplateApprovalFlow.js'
 
 const props = defineProps({
   id: {
@@ -15,6 +22,12 @@ const props = defineProps({
 
 const router = useRouter()
 const toast = useToast()
+
+// Roles for the two STARTING gates. Deliberately not part of `form` and not
+// persisted on the template — they only seed the companion workflow at create,
+// and the workflow's steps own the assignment from then on.
+const seedReviewRoleIds = ref([])
+const seedApprovalRoleIds = ref([])
 
 const formRef = ref(null)
 const saving = ref(false)
@@ -85,6 +98,13 @@ function onPrefixInput(value) {
   // (backend format rule rejects it), yet it previously slipped past the
   // uniqueness-only availability check and only failed on submit.
   form.value.prefix = value.toUpperCase().replace(/\s+/g, '')
+}
+
+// A gate nobody can sign is a document that can never be approved, so both
+// role pickers are required — this is the one thing the template must answer
+// now that documents no longer pick a workflow themselves.
+function atLeastOneRole(message) {
+  return (value) => (Array.isArray(value) && value.length > 0) || message
 }
 
 // Prefix validation rules
@@ -176,7 +196,23 @@ watch(() => form.value.prefix, debouncedCheckPrefix)
 const createTemplate = useLiveMutation(async (db, data) => {
   const t = db.DocumentTemplate.create(data)
   await t.save()
+  // Seeds the companion workflow with the conventional two gates. From here on
+  // the workflow builder owns the step list — see documentTemplateApprovalFlow.
+  await ensureTemplateApprovalWorkflow(db, t, {
+    reviewRoleIds: seedReviewRoleIds.value,
+    approvalRoleIds: seedApprovalRoleIds.value,
+  })
   return t
+})
+
+// Edits never touch the step list: an author may have added a third approval
+// stage in the builder, and regenerating from the two role pickers would
+// silently throw it away. ensure() only backfills a workflow if one is missing.
+const updateTemplate = useLiveMutation(async (db, { template, data }) => {
+  Object.assign(template, data)
+  await template.save()
+  await ensureTemplateApprovalWorkflow(db, template)
+  return template
 })
 
 async function onSubmit() {
@@ -190,8 +226,7 @@ async function onSubmit() {
     if (isEditMode.value && existingTemplate.value) {
       const t = existingTemplate.value
       docId = t.id
-      Object.assign(t, form.value)
-      await t.save()
+      await updateTemplate({ template: t, data: form.value })
       toast.success('Document template updated successfully')
     } else {
       const t = await createTemplate(form.value)
@@ -390,6 +425,50 @@ function goBack() {
                     </label>
                   </BaseCheckbox>
                 </div>
+              </div>
+            </div>
+
+            <!-- Approval Flow — owned by the template (2026-08-15). Two gates,
+                 fixed; the SLA for each is the Review/Approval limit above. The
+                 companion workflow is generated on save, so authors never see
+                 the workflow builder for documents. -->
+            <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+              <div
+                class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:gap-2"
+              >
+                <IconSignature :size="22" class="tw:text-primary" />
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Approval Flow</h2>
+              </div>
+              <div class="tw:p-6 tw:flex tw:flex-col tw:gap-6">
+                <p v-if="isEditMode" class="tw:text-sm tw:text-secondary">
+                  This template's approval flow is edited in the workflow builder — open it from the
+                  template page, where the current stages are listed.
+                </p>
+                <template v-else>
+                  <p class="tw:text-sm tw:text-secondary">
+                    Start with the usual two stages. Both capture an e-signature, and their due
+                    dates come from the Review and Approval limits above. You can add further
+                    stages, or change these, in the workflow builder afterwards.
+                  </p>
+                  <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-x-12 tw:gap-y-6">
+                    <BaseField
+                      label="1. Technical Review — who reviews?"
+                      required
+                      :value="seedReviewRoleIds"
+                      :rules="[atLeastOneRole('Pick at least one reviewer role')]"
+                    >
+                      <RoleSelectMenu v-model="seedReviewRoleIds" :multiple="true" />
+                    </BaseField>
+                    <BaseField
+                      label="2. Approval — who signs off?"
+                      required
+                      :value="seedApprovalRoleIds"
+                      :rules="[atLeastOneRole('Pick at least one approver role')]"
+                    >
+                      <RoleSelectMenu v-model="seedApprovalRoleIds" :multiple="true" />
+                    </BaseField>
+                  </div>
+                </template>
               </div>
             </div>
 

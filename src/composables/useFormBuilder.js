@@ -2,11 +2,12 @@
  * Form Builder Composable
  * State management for the visual form builder
  */
-import { FIELD_TYPES, FIELD_WIDTHS } from '@/constants/formBuilderConfig'
+import { FIELD_TYPES, FIELD_WIDTHS, FIELD_KIND_OPTIONS } from '@/constants/formBuilderConfig'
 // Field factory + AI hydration live in aiFormHydrate so non-builder hosts
 // (e.g. the workflow AI generator building per-step formSchemas) share them.
 import {
   getDefaultFieldConfig,
+  defaultFieldLabel,
   fieldNameExists,
   generateFieldName,
   hydrateAiField,
@@ -181,7 +182,7 @@ export function useFormBuilder(initialSchema = []) {
 
     const config = getDefaultFieldConfig(type)
     config.name = generateFieldName(type, schema.value)
-    config.label = FIELD_TYPES[type]?.label || type
+    config.label = defaultFieldLabel(type)
 
     let newPath
     if (parentPath !== null) {
@@ -303,6 +304,49 @@ export function useFormBuilder(initialSchema = []) {
   }
 
   // Duplicate a field
+  /**
+   * Convert a field to another KIND (see FIELD_KIND_OPTIONS) in place — the
+   * type picker beside the label on the canvas.
+   *
+   * Keeps what belongs to the QUESTION (name, label, description, required,
+   * width, visibility) and swaps everything that belongs to the WIDGET for
+   * the new type's factory defaults. `name` in particular must survive: it's
+   * the answer key, so changing it would orphan every value already captured
+   * against this field.
+   *
+   * Options carry over between option-based kinds (Multiple choice ↔
+   * Checkboxes ↔ Dropdown), which is the common switch and the one where
+   * losing the list would hurt most.
+   */
+  const OPTION_BASED = new Set(['optionGroup', 'select'])
+
+  function changeFieldKind(path, kindId) {
+    const field = getFieldByPath(schema.value, path)
+    const kind = FIELD_KIND_OPTIONS.find((k) => k.id === kindId)
+    if (!field || !kind) return
+    if (kind.type === field.type && (kind.groupType ?? null) === (field.groupType ?? null)) return
+
+    saveToHistory()
+
+    const fresh = getDefaultFieldConfig(kind.type)
+    const next = {
+      ...fresh,
+      ...(kind.groupType ? { groupType: kind.groupType } : {}),
+      // Question-level identity, preserved across the conversion.
+      name: field.name,
+      label: field.label,
+      hint: field.hint ?? '',
+      required: field.required ?? false,
+      width: field.width ?? 'full',
+      hidden: field.hidden ?? false,
+    }
+    if (OPTION_BASED.has(kind.type) && OPTION_BASED.has(field.type) && field.options?.length) {
+      next.options = JSON.parse(JSON.stringify(field.options))
+    }
+
+    setFieldByPath(schema.value, path, next)
+  }
+
   function duplicateField(path) {
     saveToHistory()
 
@@ -429,6 +473,7 @@ export function useFormBuilder(initialSchema = []) {
     selectField,
     clearSelection,
     duplicateField,
+    changeFieldKind,
 
     // History
     undo,

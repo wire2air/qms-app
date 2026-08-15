@@ -108,7 +108,9 @@ function confirm() {
           <div
             class="tw:h-45 tw:overflow-hidden tw:relative tw:bg-main tw:border tw:border-divider tw:rounded-lg"
           >
-            <div class="tw:w-[200%] tw:scale-[0.5] tw:origin-top-left tw:p-4 tw:pointer-events-none">
+            <div
+              class="tw:w-[200%] tw:scale-[0.5] tw:origin-top-left tw:p-4 tw:pointer-events-none"
+            >
               <DynamicForm :fields="preset.schema" readonly :modelValue="{}" />
             </div>
           </div>
@@ -132,7 +134,9 @@ function confirm() {
           <div
             class="tw:h-45 tw:overflow-hidden tw:relative tw:bg-main tw:border tw:border-divider tw:rounded-lg"
           >
-            <div class="tw:w-[200%] tw:scale-[0.5] tw:origin-top-left tw:p-4 tw:pointer-events-none">
+            <div
+              class="tw:w-[200%] tw:scale-[0.5] tw:origin-top-left tw:p-4 tw:pointer-events-none"
+            >
               <DynamicForm :fields="tpl.schema" readonly :modelValue="{}" />
             </div>
           </div>

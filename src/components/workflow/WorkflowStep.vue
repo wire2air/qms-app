@@ -664,8 +664,10 @@ function activityLabel(statusId) {
       <div class="tw:text-sm tw:text-amber-900">
         <strong>Awaiting scheduling.</strong>
         This delay step won't activate until a date is set.
-        <span v-if="isOwner">Use <strong>Schedule</strong> to pick when its task is assigned, or
-          <strong>Skip</strong> if the check isn't needed.</span>
+        <span v-if="isOwner"
+          >Use <strong>Schedule</strong> to pick when its task is assigned, or
+          <strong>Skip</strong> if the check isn't needed.</span
+        >
         <span v-else>The record owner needs to schedule or skip it.</span>
       </div>
     </div>
@@ -784,8 +786,8 @@ function activityLabel(statusId) {
         >
           <IconCalendarTime :size="16" class="tw:text-indigo-600 tw:shrink-0 tw:mt-0.5" />
           <div class="tw:text-sm tw:text-indigo-900">
-            Choose when this step activates and assigns its task — a window from today or a
-            specific date. Nothing is assigned until then.
+            Choose when this step activates and assigns its task — a window from today or a specific
+            date. Nothing is assigned until then.
           </div>
         </div>
         <BaseField v-slot="{ id: fieldId }" label="Activate after">

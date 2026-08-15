@@ -16,16 +16,47 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // SortableJS group name. Defaults to the shared 'form-fields' group so the
+  // full builder's palette can drop into this canvas. Hosts that mount SEVERAL
+  // canvases on one page (the workflow builder expands every step at once)
+  // pass a UNIQUE name per canvas — otherwise a field could be dragged out of
+  // one step's form and into another's, which neither array would record.
+  group: {
+    type: String,
+    default: 'form-fields',
+  },
+  // The dashed frame reads as "drop zone here" in the full builder, where the
+  // canvas sits beside a palette. Embedded hosts that already have their own
+  // container (a workflow step's panel) turn it off — a box inside a box just
+  // adds a line (user request 2026-08-15).
+  bordered: {
+    type: Boolean,
+    default: true,
+  },
+  // Empty-state copy. The default names the palette, which only exists in the
+  // full builder — embedded hosts add fields their own way and say so.
+  emptyDescription: {
+    type: String,
+    default: 'Drag fields from the sidebar or click to add.',
+  },
 })
 
-const emit = defineEmits(['addField', 'selectField', 'removeField', 'duplicateField', 'moveField'])
+const emit = defineEmits([
+  'addField',
+  'selectField',
+  'configureField',
+  'changeFieldKind',
+  'removeField',
+  'duplicateField',
+  'moveField',
+])
 
 const canvasRef = ref(null)
 
 // Initialize sortable for the main canvas
 useSortable(canvasRef, props.fields, {
   group: {
-    name: 'form-fields',
+    name: props.group,
     pull: true,
     put: true,
   },
@@ -54,6 +85,14 @@ function onSelectField(path) {
   emit('selectField', path)
 }
 
+function onConfigureField(path) {
+  emit('configureField', path)
+}
+
+function onChangeKind(payload) {
+  emit('changeFieldKind', payload.path, payload.kindId)
+}
+
 function onRemoveField(path) {
   emit('removeField', path)
 }
@@ -74,9 +113,11 @@ function onAddField(payload) {
 <template>
   <div
     ref="canvasRef"
-    class="tw:flex-1 tw:min-h-100 tw:bg-sidebar tw:border-2 tw:border-dashed tw:border-divider tw:rounded-2xl tw:p-5 tw:transition-all tw:duration-200 tw:overflow-y-auto tw:flex tw:flex-wrap tw:content-start tw:gap-4"
+    class="tw:flex-1 tw:min-h-100 tw:transition-all tw:duration-200 tw:overflow-y-auto tw:flex tw:flex-wrap tw:content-start tw:gap-4"
     :class="{
-      'tw:border-primary tw:bg-primary/50': isDragging,
+      'tw:bg-sidebar tw:border-2 tw:border-dashed tw:border-divider tw:rounded-2xl tw:p-5':
+        bordered,
+      'tw:border-primary tw:bg-primary/50': bordered && isDragging,
       'tw:items-center tw:justify-center': fields.length === 0,
     }"
   >
@@ -84,7 +125,7 @@ function onAddField(payload) {
       v-if="fields.length === 0"
       :icon="IconCirclePlus"
       title="Start Building"
-      description="Drag fields from the sidebar or click to add."
+      :description="emptyDescription"
       :dense="true"
       data-no-sortable="true"
     />
@@ -97,7 +138,10 @@ function onAddField(payload) {
       :isSelected="selectedPath === String(index)"
       :selectedPath="selectedPath"
       :isDragging="isDragging"
+      :group="group"
       @select="onSelectField"
+      @configure="onConfigureField"
+      @changeKind="onChangeKind"
       @remove="onRemoveField"
       @duplicate="onDuplicateField"
       @moveField="onMoveField"
