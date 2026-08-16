@@ -1,5 +1,5 @@
 <script setup>
-import { IconPlus } from '@tabler/icons-vue'
+import { IconPlus, IconChevronsUp, IconChevronsDown } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
 import { useSortable, moveArrayElement } from '@vueuse/integrations/useSortable'
 import { persistStepOrder, movedIdOrder } from './workflowStepOrder.js'
@@ -87,6 +87,28 @@ const collapsedIds = ref(new Set())
 
 function isExpanded(step) {
   return !collapsedIds.value.has(step.id)
+}
+
+// Collapse/expand all (user request 2026-08-16). Every step renders expanded
+// by default, so a five-step workflow is a long scroll when you only want to
+// see the shape of it.
+//
+// Reads "Expand all" only when EVERY step is collapsed — with a mix, the
+// useful action is to collapse the rest, so that is what a single click does.
+const allStepIds = computed(() => (steps.value ?? []).map((s) => s.id).filter(Boolean))
+const allCollapsed = computed(
+  () => allStepIds.value.length > 0 && allStepIds.value.every((id) => collapsedIds.value.has(id)),
+)
+
+function toggleAll() {
+  if (allCollapsed.value) {
+    collapsedIds.value = new Set()
+    return
+  }
+  // Includes child steps: collapsing only the roots would leave children
+  // expanded inside a folded parent and re-expand it visually.
+  collapsedIds.value = new Set(allStepIds.value)
+  stepId.value = null
 }
 
 function selectStep(step) {
@@ -299,11 +321,24 @@ defineExpose({ addStep })
       <BaseText as="h2" variant="overline" color="inherit" class="tw:text-on-main">
         Workflow Sequence
       </BaseText>
-      <span
-        class="tw:text-xs tw:font-medium tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
-      >
-        {{ steps?.length ?? 0 }} Step{{ (steps?.length ?? 0) !== 1 ? 's' : '' }}
-      </span>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <!-- Hidden for a single step, where there is nothing to collapse
+             relative to. -->
+        <button
+          v-if="allStepIds.length > 1"
+          type="button"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-secondary tw:hover:text-primary tw:transition-colors"
+          @click="toggleAll"
+        >
+          <component :is="allCollapsed ? IconChevronsDown : IconChevronsUp" :size="14" />
+          {{ allCollapsed ? 'Expand all' : 'Collapse all' }}
+        </button>
+        <span
+          class="tw:text-xs tw:font-medium tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
+        >
+          {{ steps?.length ?? 0 }} Step{{ (steps?.length ?? 0) !== 1 ? 's' : '' }}
+        </span>
+      </div>
     </div>
 
     <!-- Nested mode -->
