@@ -127,7 +127,14 @@ const navSections = computed(() => [
   { id: 'qc-classification', label: 'Classification', icon: IconCategory, status: null },
   { id: 'qc-customer', label: 'Customer', icon: IconUser, status: null },
   ...(hasCustomFields.value
-    ? [{ id: 'qc-additional', label: 'Additional information', icon: IconListDetails, status: null }]
+    ? [
+        {
+          id: 'qc-additional',
+          label: 'Additional information',
+          icon: IconListDetails,
+          status: null,
+        },
+      ]
     : []),
   {
     id: 'qc-attachments',
@@ -217,7 +224,8 @@ async function onSubmit() {
       } catch (e) {
         toast.notify({
           type: 'warning',
-          message: e.message || 'Complaint created, but the additional information could not be saved.',
+          message:
+            e.message || 'Complaint created, but the additional information could not be saved.',
         })
       }
     }
@@ -274,7 +282,7 @@ async function onSubmit() {
                 />
               </template>
             </BaseField>
-            <BaseField label="Description">
+            <BaseField label="Description" required :value="form.description" :rules="[required()]">
               <RichTextAttachments
                 v-model="form.description"
                 placeholder="Describe the complaint in the customer's words — attach photos/evidence as needed…"
@@ -299,7 +307,11 @@ async function onSubmit() {
               <!-- Region/Country are GLOBAL lookups (no per-tenant list, no
                    inline add) — countries filtered by the picked region. -->
               <BaseField label="Region">
-                <ComplaintLookupSelectMenu v-model="form.regionId" model="Region" :allowCreate="false" />
+                <ComplaintLookupSelectMenu
+                  v-model="form.regionId"
+                  model="Region"
+                  :allowCreate="false"
+                />
               </BaseField>
               <BaseField label="Country">
                 <ComplaintLookupSelectMenu
@@ -320,20 +332,45 @@ async function onSubmit() {
           </div>
         </FormSection>
 
-        <!-- Product specifics -->
-        <FormSection id="qc-product" title="Product specifics" :icon="IconPackage" optional>
+        <!-- Product Information (renamed from "Product specifics" 2026-08-16).
+             No longer `optional`: product and lot are required — a complaint
+             you cannot trace to an article and a batch cannot be investigated
+             or trended. -->
+        <FormSection id="qc-product" title="Product Information" :icon="IconPackage">
           <div class="tw:flex tw:flex-col tw:gap-3">
             <BaseFieldRow :columns="2">
-              <BaseField label="Product / Service involved">
-                <ProductSelectMenu v-model="form.productId" :required="false" nullLabel="— Select —" />
+              <BaseField
+                label="Product / Service involved"
+                required
+                :value="form.productId"
+                :rules="[required()]"
+              >
+                <ProductSelectMenu
+                  v-model="form.productId"
+                  :required="false"
+                  nullLabel="— Select —"
+                />
               </BaseField>
               <BaseField label="Supplier">
-                <SupplierSelectMenu v-model="form.supplierId" :required="false" nullLabel="— Select —" />
+                <SupplierSelectMenu
+                  v-model="form.supplierId"
+                  :required="false"
+                  nullLabel="— Select —"
+                />
               </BaseField>
             </BaseFieldRow>
-            <BaseCheckbox v-model="form.sampleReceived" label="Complaint sample received" />
+            <!-- Yes/No rather than a checkbox: unticked used to mean both "no"
+                 and "not yet triaged", which are different answers. -->
+            <BaseField label="Samples received">
+              <YesNoToggle v-model="form.sampleReceived" />
+            </BaseField>
             <BaseFieldRow :columns="3">
-              <BaseField label="Batch / Lot / Serial">
+              <BaseField
+                label="Batch / Lot / Serial"
+                required
+                :value="form.batchLotSerial"
+                :rules="[required()]"
+              >
                 <BaseTextInput v-model="form.batchLotSerial" placeholder="e.g. LOT-2026-014" />
               </BaseField>
               <BaseField label="Quantity affected">
@@ -383,26 +420,46 @@ async function onSubmit() {
           <BaseFieldRow :columns="2">
             <BaseField label="Name">
               <template #default="field">
-                <BaseTextInput v-bind="field" v-model="form.customerName" placeholder="Customer contact name" />
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerName"
+                  placeholder="Customer contact name"
+                />
               </template>
             </BaseField>
             <BaseField label="Email">
               <template #default="field">
-                <BaseTextInput v-bind="field" v-model="form.customerEmail" type="email" placeholder="customer@example.com" />
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerEmail"
+                  type="email"
+                  placeholder="customer@example.com"
+                />
               </template>
             </BaseField>
             <BaseField label="Company">
               <template #default="field">
-                <BaseTextInput v-bind="field" v-model="form.customerCompany" placeholder="Customer company" />
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerCompany"
+                  placeholder="Customer company"
+                />
               </template>
             </BaseField>
             <BaseField label="Phone">
               <template #default="field">
-                <BaseTextInput v-bind="field" v-model="form.customerPhone" placeholder="Phone number" />
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.customerPhone"
+                  placeholder="Phone number"
+                />
               </template>
             </BaseField>
             <BaseField label="Customer type">
-              <ComplaintLookupSelectMenu v-model="form.customerTypeId" model="ComplaintCustomerType" />
+              <ComplaintLookupSelectMenu
+                v-model="form.customerTypeId"
+                model="ComplaintCustomerType"
+              />
             </BaseField>
           </BaseFieldRow>
         </FormSection>
@@ -431,7 +488,13 @@ async function onSubmit() {
               <IconPaperclip :size="16" class="tw:mr-1" />
               {{ uploading ? 'Uploading…' : 'Add files' }}
             </BaseButton>
-            <input ref="fileInputRef" type="file" multiple class="tw:hidden" @change="onFilesSelected" />
+            <input
+              ref="fileInputRef"
+              type="file"
+              multiple
+              class="tw:hidden"
+              @change="onFilesSelected"
+            />
           </template>
           <div v-if="pendingAssets.length" class="tw:flex tw:flex-col tw:gap-2">
             <div
@@ -442,7 +505,10 @@ async function onSubmit() {
               <span class="tw:text-sm tw:font-medium tw:truncate">
                 {{ asset.originalFilename || asset.filename }}
               </span>
-              <button class="tw:text-secondary tw:hover:text-red-600" @click="removePendingAsset(asset.id)">
+              <button
+                class="tw:text-secondary tw:hover:text-red-600"
+                @click="removePendingAsset(asset.id)"
+              >
                 <IconX :size="16" />
               </button>
             </div>

@@ -1253,5 +1253,6 @@ declare module 'vue' {
     WorkflowVersionSelect: typeof import('./src/components/documents/WorkflowVersionSelect.vue')['default']
     WorkflowVersionStatusBadgeById: typeof import('./src/components/badges/WorkflowVersionStatusBadgeById.vue')['default']
     WorkspacePicker: typeof import('./src/components/auth/WorkspacePicker.vue')['default']
+    YesNoToggle: typeof import('./src/components/shared/YesNoToggle.vue')['default']
   }
 }

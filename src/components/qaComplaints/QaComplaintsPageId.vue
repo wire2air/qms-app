@@ -45,9 +45,7 @@ const breadcrumbs = computed(() => [
 ])
 
 const canUpdate = computed(() => isAllowed(['complaints:update']))
-const canConvert = computed(
-  () => isAllowed(['complaints:update']) && isAllowed(['ncr:create']),
-)
+const canConvert = computed(() => isAllowed(['complaints:update']) && isAllowed(['ncr:create']))
 
 const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId))
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
@@ -60,10 +58,14 @@ const isManualSource = computed(() => MANUAL_SOURCES.includes(complaint.value?.s
 const descriptionEditable = computed(() => isEditable.value && isManualSource.value)
 
 // Quality-Event-style tabs.
-const activeTab = ref('details')
+// QA Review leads (user request 2026-08-16): a complaint that has just been
+// created is a queue item waiting on QA, so the review surface is the work and
+// the intake fields are reference. Matches how NC/CAPA open on the workflow
+// rather than on the record's own metadata.
+const activeTab = ref('review')
 const tabs = [
-  { value: 'details', label: 'Complaint details' },
   { value: 'review', label: 'QA Review' },
+  { value: 'details', label: 'Complaint details' },
   { value: 'escalations', label: 'Escalations' },
 ]
 
@@ -123,7 +125,9 @@ const myApprovalTask = useLiveQueryWithDeps(
   async (db, [wiId, uid]) => {
     if (!wiId || !uid) return null
     const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
-    const approvalStep = steps.find((s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS')
+    const approvalStep = steps.find(
+      (s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS',
+    )
     if (!approvalStep) return null
     const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
       'WorkflowInstanceStep',
@@ -154,7 +158,10 @@ const ncLinks = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [complaintId]) => {
     if (!complaintId) return []
-    return db.NcSourceLink.where('[sourceType+sourceId]', ['CUSTOMER_COMPLAINT', complaintId]).exec()
+    return db.NcSourceLink.where('[sourceType+sourceId]', [
+      'CUSTOMER_COMPLAINT',
+      complaintId,
+    ]).exec()
   },
   { models: ['NcSourceLink'], initial: [] },
 )
@@ -381,7 +388,9 @@ const complaintDetailConfig = computed(() =>
       <template v-if="complaint.sourceId">
         · <ComplaintLookupBadge :id="complaint.sourceId" model="ComplaintSourceType" />
       </template>
-      <template v-if="complaint.createdAt"> · {{ complaint.createdAt.formatDate('date') }} </template>
+      <template v-if="complaint.createdAt">
+        · {{ complaint.createdAt.formatDate('date') }}
+      </template>
     </template>
 
     <template #actions>
@@ -422,7 +431,9 @@ const complaintDetailConfig = computed(() =>
             </FormSection>
 
             <BaseRailCard title="Product & origin">
-              <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:md:grid-cols-3 tw:gap-x-4 tw:gap-y-3">
+              <div
+                class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:md:grid-cols-3 tw:gap-x-4 tw:gap-y-3"
+              >
                 <BaseDetailField label="Product / Service">
                   <ProductSelectMenu
                     v-if="isEditable"
@@ -430,7 +441,10 @@ const complaintDetailConfig = computed(() =>
                     :required="false"
                     nullLabel="— Select —"
                   />
-                  <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
+                  <ProductBadgeById
+                    v-else-if="complaint.productId"
+                    :productId="complaint.productId"
+                  />
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Supplier">
@@ -440,27 +454,56 @@ const complaintDetailConfig = computed(() =>
                     :required="false"
                     nullLabel="— Select —"
                   />
-                  <SupplierBadgeById v-else-if="complaint.supplierId" :supplierId="complaint.supplierId" />
+                  <SupplierBadgeById
+                    v-else-if="complaint.supplierId"
+                    :supplierId="complaint.supplierId"
+                  />
                   <BaseText v-else color="secondary">—</BaseText>
                 </BaseDetailField>
-                <BaseDetailField label="Sample received">
-                  <BaseCheckbox v-if="isEditable" v-model="complaint.sampleReceived" label="Received" />
-                  <BaseText v-else color="secondary">{{ complaint.sampleReceived ? 'Yes' : complaint.sampleReceived === false ? 'No' : '—' }}</BaseText>
+                <BaseDetailField label="Samples received">
+                  <YesNoToggle v-if="isEditable" v-model="complaint.sampleReceived" />
+                  <BaseText v-else color="secondary">{{
+                    complaint.sampleReceived === true
+                      ? 'Yes'
+                      : complaint.sampleReceived === false
+                        ? 'No'
+                        : '—'
+                  }}</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Batch / Lot / Serial">
                   <BaseTextInput v-if="isEditable" v-model="complaint.batchLotSerial" size="sm" />
-                  <BaseText v-else color="secondary">{{ complaint.batchLotSerial || '—' }}</BaseText>
+                  <BaseText v-else color="secondary">{{
+                    complaint.batchLotSerial || '—'
+                  }}</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Quantity affected">
-                  <BaseTextInput v-if="isEditable" v-model.number="complaint.quantityAffected" type="number" size="sm" />
-                  <BaseText v-else color="secondary">{{ complaint.quantityAffected ?? '—' }}</BaseText>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model.number="complaint.quantityAffected"
+                    type="number"
+                    size="sm"
+                  />
+                  <BaseText v-else color="secondary">{{
+                    complaint.quantityAffected ?? '—'
+                  }}</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Order / Invoice #">
-                  <BaseTextInput v-if="isEditable" v-model="complaint.orderInvoiceNumber" size="sm" />
-                  <BaseText v-else color="secondary">{{ complaint.orderInvoiceNumber || '—' }}</BaseText>
+                  <BaseTextInput
+                    v-if="isEditable"
+                    v-model="complaint.orderInvoiceNumber"
+                    size="sm"
+                  />
+                  <BaseText v-else color="secondary">{{
+                    complaint.orderInvoiceNumber || '—'
+                  }}</BaseText>
                 </BaseDetailField>
                 <BaseDetailField label="Region">
-                  <ComplaintLookupSelectMenu v-if="isEditable" v-model="complaint.regionId" model="Region" :allowCreate="false" />
+                  <ComplaintLookupSelectMenu
+                    v-if="isEditable"
+                    v-model="complaint.regionId"
+                    model="Region"
+                    :allowCreate="false"
+                  />
                   <ComplaintLookupBadge v-else :id="complaint.regionId" model="Region" />
                 </BaseDetailField>
                 <BaseDetailField label="Country">
@@ -493,7 +536,11 @@ const complaintDetailConfig = computed(() =>
                   v-model="complaint.complaintSourceId"
                   model="ComplaintSourceType"
                 />
-                <ComplaintLookupBadge v-else :id="complaint.complaintSourceId" model="ComplaintSourceType" />
+                <ComplaintLookupBadge
+                  v-else
+                  :id="complaint.complaintSourceId"
+                  model="ComplaintSourceType"
+                />
               </BaseDetailField>
               <BaseDetailField label="Category">
                 <ComplaintLookupSelectMenu
@@ -511,7 +558,11 @@ const complaintDetailConfig = computed(() =>
                   parentField="categoryId"
                   :parentId="complaint.categoryId"
                 />
-                <ComplaintLookupBadge v-else :id="complaint.subCategoryId" model="ComplaintSubCategory" />
+                <ComplaintLookupBadge
+                  v-else
+                  :id="complaint.subCategoryId"
+                  model="ComplaintSubCategory"
+                />
               </BaseDetailField>
               <BaseDetailField label="Severity">
                 <ComplaintLookupSelectMenu
@@ -540,23 +591,52 @@ const complaintDetailConfig = computed(() =>
                     v-model="complaint.riskLevelId"
                     model="ComplaintRiskLevel"
                   />
-                  <ComplaintLookupBadge v-else :id="complaint.riskLevelId" model="ComplaintRiskLevel" />
+                  <ComplaintLookupBadge
+                    v-else
+                    :id="complaint.riskLevelId"
+                    model="ComplaintRiskLevel"
+                  />
                 </BaseDetailField>
                 <div v-if="isEditable" class="tw:flex tw:flex-wrap tw:gap-x-6 tw:gap-y-2">
-                  <BaseCheckbox v-model="complaint.regulatoryReportable" label="Regulatory reportable" />
+                  <BaseCheckbox
+                    v-model="complaint.regulatoryReportable"
+                    label="Regulatory reportable"
+                  />
                   <BaseCheckbox v-model="complaint.safetyIssue" label="Safety issue" />
                   <BaseCheckbox v-model="complaint.complianceRelated" label="Compliance related" />
                   <BaseCheckbox v-model="complaint.potentialRecall" label="Potential recall" />
                   <BaseCheckbox v-model="complaint.repeatIssue" label="Repeat / recurring issue" />
                 </div>
                 <div v-else class="tw:flex tw:flex-wrap tw:gap-2">
-                  <BaseBadge v-if="complaint.regulatoryReportable" class="tw:bg-amber-100 tw:text-amber-700">Regulatory reportable</BaseBadge>
-                  <BaseBadge v-if="complaint.safetyIssue" class="tw:bg-red-100 tw:text-red-700">Safety issue</BaseBadge>
-                  <BaseBadge v-if="complaint.complianceRelated" class="tw:bg-amber-100 tw:text-amber-700">Compliance related</BaseBadge>
-                  <BaseBadge v-if="complaint.potentialRecall" class="tw:bg-red-100 tw:text-red-700">Potential recall</BaseBadge>
-                  <BaseBadge v-if="complaint.repeatIssue" class="tw:bg-purple-100 tw:text-purple-700">Repeat issue</BaseBadge>
+                  <BaseBadge
+                    v-if="complaint.regulatoryReportable"
+                    class="tw:bg-amber-100 tw:text-amber-700"
+                    >Regulatory reportable</BaseBadge
+                  >
+                  <BaseBadge v-if="complaint.safetyIssue" class="tw:bg-red-100 tw:text-red-700"
+                    >Safety issue</BaseBadge
+                  >
+                  <BaseBadge
+                    v-if="complaint.complianceRelated"
+                    class="tw:bg-amber-100 tw:text-amber-700"
+                    >Compliance related</BaseBadge
+                  >
+                  <BaseBadge v-if="complaint.potentialRecall" class="tw:bg-red-100 tw:text-red-700"
+                    >Potential recall</BaseBadge
+                  >
+                  <BaseBadge
+                    v-if="complaint.repeatIssue"
+                    class="tw:bg-purple-100 tw:text-purple-700"
+                    >Repeat issue</BaseBadge
+                  >
                   <span
-                    v-if="!complaint.regulatoryReportable && !complaint.safetyIssue && !complaint.complianceRelated && !complaint.potentialRecall && !complaint.repeatIssue"
+                    v-if="
+                      !complaint.regulatoryReportable &&
+                      !complaint.safetyIssue &&
+                      !complaint.complianceRelated &&
+                      !complaint.potentialRecall &&
+                      !complaint.repeatIssue
+                    "
                     class="tw:text-sm tw:text-secondary"
                   >
                     No flags set.
@@ -586,7 +666,10 @@ const complaintDetailConfig = computed(() =>
             </div>
 
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              >
                 Linked NC
               </BaseText>
               <div v-if="linkedNcs.length" class="tw:flex tw:flex-col tw:gap-2">
@@ -609,7 +692,9 @@ const complaintDetailConfig = computed(() =>
             </div>
 
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+              <div
+                class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              >
                 <BaseText variant="overline">Similar complaints</BaseText>
                 <span
                   v-if="relatedComplaints.length"
@@ -639,7 +724,10 @@ const complaintDetailConfig = computed(() =>
 
             <!-- Manually-linked similar complaints (for a recurring issue) -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              >
                 Similar complaints (linked)
               </BaseText>
               <div v-if="linkedSimilar.length" class="tw:flex tw:flex-col tw:gap-2 tw:mb-3">
@@ -719,7 +807,11 @@ const complaintDetailConfig = computed(() =>
             v-model="complaint.customerTypeId"
             model="ComplaintCustomerType"
           />
-          <ComplaintLookupBadge v-else :id="complaint.customerTypeId" model="ComplaintCustomerType" />
+          <ComplaintLookupBadge
+            v-else
+            :id="complaint.customerTypeId"
+            model="ComplaintCustomerType"
+          />
         </BaseDetailField>
       </BaseRailCard>
 
@@ -739,16 +831,15 @@ const complaintDetailConfig = computed(() =>
             v-if="complaint.resolutionTargetAt"
             variant="body"
             weight="medium"
-            :class="!isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''"
+            :class="
+              !isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''
+            "
           >
             {{ complaint.resolutionTargetAt.formatDate('date') }}
           </BaseText>
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
-        <BaseDetailField
-          v-if="complaint.closureApprovedBy"
-          label="Closure approved by"
-        >
+        <BaseDetailField v-if="complaint.closureApprovedBy" label="Closure approved by">
           <UserBadgeById :userId="complaint.closureApprovedBy" />
         </BaseDetailField>
       </BaseRailCard>
