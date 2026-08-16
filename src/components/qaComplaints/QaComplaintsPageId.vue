@@ -51,11 +51,35 @@ const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complai
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
 
 // The complaint narrative is only editable for manually-entered complaints —
-// imported / external-source (email, web form, integrations) descriptions are
-// the original captured content and stay read-only.
-const MANUAL_SOURCES = ['WEB', 'PHONE', 'OTHER']
-const isManualSource = computed(() => MANUAL_SOURCES.includes(complaint.value?.sourceId))
-const descriptionEditable = computed(() => isEditable.value && isManualSource.value)
+// Imported descriptions are the original captured content and stay read-only.
+//
+// This compared complaint.sourceId — a UUID FK into complaint_source_types —
+// against the CODES ['WEB','PHONE','OTHER'] (bug 2026-08-16). A uuid is never
+// equal to 'PHONE', so isManualSource was false for every complaint ever
+// created: the description was read-only everywhere, and every record carried
+// the "Imported / external-source" note including ones typed by hand. 'WEB'
+// was not a real code either — the seeded value is 'WEBSITE'.
+//
+// Inverted as well as fixed. Of the twelve seeded sources only EMAIL arrives
+// already written, by machine; enumerating the eleven manual ones would lock
+// the description again the moment a tenant adds a source of their own. A
+// complaint copied from a customer complaint (sourceComplaintId) is likewise
+// not ours to rewrite. Anything else — including a source not yet chosen — was
+// typed by a person and stays editable.
+const IMPORTED_SOURCE_CODES = new Set(['EMAIL'])
+
+const sourceCode = useLiveQueryWithDeps(
+  [() => complaint.value?.sourceId],
+  async (db, [id]) => (id ? ((await db.ComplaintSourceType.findByPk(id))?.code ?? null) : null),
+  { models: ['ComplaintSourceType'], initial: null },
+)
+
+const isImportedSource = computed(
+  () =>
+    !!complaint.value?.sourceComplaintId ||
+    (!!sourceCode.value && IMPORTED_SOURCE_CODES.has(sourceCode.value)),
+)
+const descriptionEditable = computed(() => isEditable.value && !isImportedSource.value)
 
 // Quality-Event-style tabs.
 // QA Review leads (user request 2026-08-16): a complaint that has just been
@@ -340,6 +364,16 @@ const complaintActions = computed(() => {
       onSelect: () => runAction('reopen'),
     },
     {
+      // Centralised print: /<companyCode>/print?module=Complaint&id=...
+      // Dispatched via components/print/modules/index.js → ComplaintPrint.vue.
+      id: 'print',
+      label: 'Print',
+      variant: 'ghost',
+      priority: 15,
+      visible: !!complaint.value?.id,
+      onSelect: openPrintView,
+    },
+    {
       id: 'audit',
       label: 'Audit log',
       variant: 'ghost',
@@ -349,6 +383,12 @@ const complaintActions = computed(() => {
     },
   ]
 })
+
+function openPrintView() {
+  if (!complaint.value?.id) return
+  const params = new URLSearchParams({ module: 'Complaint', id: complaint.value.id })
+  window.open(getCompanyPath(`/print?${params.toString()}`), '_blank', 'noopener,noreferrer')
+}
 
 const complaintDetailConfig = computed(() =>
   defineDetailConfig({
@@ -418,17 +458,20 @@ const complaintDetailConfig = computed(() =>
            rail (user request 2026-08-16), matching NC/CAPA — there the
            record's narrative is the page and General/People/Workflow are
            rail cards. That emptied the 'Complaint details' tab, so it is gone.
-           -->
-      <FormSection title="Complaint">
+
+           No section heading: the page header directly above already names the
+           complaint, and a "Complaint" title under it said the same thing
+           twice. -->
+      <div class="tw:mb-4">
         <RichTextAttachments
           v-model="complaint.description"
           :readonly="!descriptionEditable"
           placeholder="Describe the complaint — attach photos/evidence as needed…"
         />
-        <p v-if="!isManualSource" class="tw:text-xs tw:text-secondary tw:mt-2">
+        <p v-if="isImportedSource" class="tw:text-xs tw:text-secondary tw:mt-2">
           Imported / external-source complaint — the original description is read-only.
         </p>
-      </FormSection>
+      </div>
 
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Complaint detail">
         <!-- ══ QA Review ══ -->
