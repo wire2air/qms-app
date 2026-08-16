@@ -259,6 +259,9 @@ const documentTemplateDetailConfig = computed(() =>
             />
             <span v-else class="tw:font-bold tw:text-on-main">{{ template.prefix }}</span>
           </BaseDetailField>
+          <!-- Department HIDDEN (user decision 2026-08-16) — not deleted.
+               See DocumentTemplatesCreate for why. -->
+          <!--
           <BaseDetailField label="Department">
             <DepartmentSelectMenu v-if="canEdit" v-model="template.departmentId" />
             <template v-else>
@@ -269,6 +272,7 @@ const documentTemplateDetailConfig = computed(() =>
               <span v-else class="tw:text-sm tw:text-secondary">—</span>
             </template>
           </BaseDetailField>
+          -->
           <BaseDetailField label="Related Standard">
             <RelatedStandardSelectMenu v-if="canEdit" v-model="template.relatedStandardId" />
             <template v-else>
@@ -305,7 +309,7 @@ const documentTemplateDetailConfig = computed(() =>
           </div>
           <div class="tw:p-6 tw:grid tw:grid-cols-2 tw:md:grid-cols-3 tw:gap-6">
             <div>
-              <p class="tw:text-secondary tw:mb-1">Training Available</p>
+              <p class="tw:text-secondary tw:mb-1">Training Required</p>
               <BaseSwitch v-model="template.trainingAvailable" :disabled="!canEdit" />
             </div>
             <div>
@@ -349,9 +353,10 @@ const documentTemplateDetailConfig = computed(() =>
                   v-if="approvalWorkflowId"
                   type="button"
                   class="tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
+                  title="Add stages, reorder, or edit task forms"
                   @click="openApprovalBuilder"
                 >
-                  {{ canEdit ? 'Edit approval flow' : 'View approval flow' }}
+                  {{ canEdit ? 'Advanced…' : 'View full flow' }}
                 </button>
               </div>
               <div

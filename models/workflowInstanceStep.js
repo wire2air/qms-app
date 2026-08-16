@@ -41,6 +41,11 @@ export class WorkflowInstanceStep extends BaseModel {
   @Property({ type: Array }) formSchema = /** @type {Array} */ ([])
   // 'ACTION' (default), 'APPROVAL', or 'DELAY'. Denormalized from the template
   // step at activation time so runtime renderers don't need to join.
+  // Snapshotted from the template step at submit, or overridden by the
+  // submitter's ALL/ANY choice in the reviewer dialog (2026-08-16). The engine
+  // prefers this over the template's so an in-flight approval keeps the rule
+  // it started under.
+  @Property({ type: String }) approvalRule = null
   @Property({ type: String, required: true }) stepType = 'ACTION'
   // Nullable per-instance overrides — populated for ad-hoc child steps
   // (no stepId). Reads should fall back to `step.requireComments` /

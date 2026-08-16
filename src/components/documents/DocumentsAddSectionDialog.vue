@@ -1,6 +1,6 @@
 <script setup>
 import { required } from '@shared/components/form/validators.js'
-import { IconHeading, IconNotes, IconPaperclip } from '@tabler/icons-vue'
+import { IconHeading, IconNotes, IconPaperclip, IconFileText } from '@tabler/icons-vue'
 
 const props = defineProps({
   documentVersionId: {
@@ -47,8 +47,10 @@ const createSection = useLiveMutation(async (db) => {
     documentId: props.documentId,
     title: newSection.value.title,
     sectionType: newSection.value.sectionType,
-    content: newSection.value.sectionType === 'text' ? '' : null,
-    attachments: newSection.value.sectionType === 'attachment' ? [] : null,
+    // 'textAttachment' needs BOTH initialised — a null half renders as an
+    // empty branch the author can't fill.
+    content: newSection.value.sectionType === 'attachment' ? null : '',
+    attachments: newSection.value.sectionType === 'text' ? null : [],
     order: props.currentSectionCount,
     isAddOn: true,
   })
@@ -123,6 +125,19 @@ async function onSubmit() {
           >
             <IconPaperclip :size="16" />
             Attachments
+          </button>
+          <button
+            type="button"
+            class="tw:flex tw:items-center tw:gap-2 tw:flex-1 tw:rounded-lg tw:border tw:px-4 tw:py-3 tw:text-sm tw:font-medium tw:transition-colors"
+            :class="
+              newSection.sectionType === 'textAttachment'
+                ? 'tw:border-primary tw:bg-primary/10 tw:text-primary'
+                : 'tw:border-divider tw:text-secondary tw:hover:border-primary/50'
+            "
+            @click="newSection.sectionType = 'textAttachment'"
+          >
+            <IconFileText :size="16" />
+            Text + Attachment
           </button>
         </div>
       </BaseField>

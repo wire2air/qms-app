@@ -52,21 +52,46 @@ export function companionWorkflowName(templateName) {
  *   assembled by the caller, not read off a persisted template row.
  */
 export function plannedApprovalSteps(seed) {
+  const gate = (i) => seed?.gates?.[i] ?? {}
   return [
     {
       name: REVIEW_STEP_NAME,
       description:
         'Subject-matter expert reviews the document for technical accuracy and completeness.',
       stepOrder: 1,
-      roleIds: [...(seed?.reviewRoleIds ?? [])],
-      slaDays: seed?.reviewLimitDays ?? null,
+      // Roles are optional — an empty list means "anyone", which the submit
+      // dialog already honours by offering every active internal user.
+      roleIds: [...(gate(0).roleIds ?? seed?.reviewRoleIds ?? [])],
+      slaDays: gate(0).slaDays ?? seed?.reviewLimitDays ?? null,
+      approvalRule: gate(0).approvalRule ?? 'ALL',
+      requireEsignature: gate(0).requireEsignature ?? true,
     },
     {
       name: APPROVAL_STEP_NAME,
       description: 'Final sign-off for release.',
       stepOrder: 2,
-      roleIds: [...(seed?.approvalRoleIds ?? [])],
-      slaDays: seed?.approvalLimitDays ?? null,
+      roleIds: [...(gate(1).roleIds ?? seed?.approvalRoleIds ?? [])],
+      slaDays: gate(1).slaDays ?? seed?.approvalLimitDays ?? null,
+      approvalRule: gate(1).approvalRule ?? 'ALL',
+      requireEsignature: gate(1).requireEsignature ?? true,
+    },
+  ]
+}
+
+/** The default per-gate config a new template's form starts from. */
+export function defaultApprovalGates(template = {}) {
+  return [
+    {
+      roleIds: [],
+      approvalRule: 'ALL',
+      requireEsignature: true,
+      slaDays: template.reviewLimitDays ?? null,
+    },
+    {
+      roleIds: [],
+      approvalRule: 'ALL',
+      requireEsignature: true,
+      slaDays: template.approvalLimitDays ?? null,
     },
   ]
 }
@@ -140,6 +165,7 @@ export async function ensureTemplateApprovalWorkflow(db, template, opts = {}) {
   const outcomes = await db.WorkflowStepOutcome.where().exec()
 
   const seed = {
+    gates: opts.gates,
     reviewRoleIds: opts.reviewRoleIds ?? [],
     approvalRoleIds: opts.approvalRoleIds ?? [],
     reviewLimitDays: template.reviewLimitDays,
@@ -153,10 +179,10 @@ export async function ensureTemplateApprovalWorkflow(db, template, opts = {}) {
       description: plan.description,
       stepOrder: plan.stepOrder,
       stepType: 'APPROVAL',
-      approvalRule,
+      approvalRule: plan.approvalRule ?? approvalRule,
       slaDays: plan.slaDays,
       requireComments: true,
-      requireEsignature,
+      requireEsignature: plan.requireEsignature ?? requireEsignature,
       formSchema: [],
     })
     await step.save()

@@ -9,6 +9,7 @@ import {
   IconPointFilled,
 } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { ensureAdHocApprovalVersionId } from './documentAdHocApproval.js'
 import { currentSession, canUseAi } from '@/utils/currentSession.js'
 import { db } from '@models/index'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
@@ -102,6 +103,14 @@ function deriveAnchorSiteId(formData, mySite) {
 
 const createDocument = useLiveMutation(async (db, formData) => {
   const me = await db.User.findByPk(currentSession.value?.userId ?? currentSession.value?.id)
+
+  // No template → the ad-hoc approval flow, created on first use. Resolved
+  // here rather than in the form because a company that onboarded before the
+  // flow existed has none yet, and the form must not block on that: the
+  // document is perfectly creatable, the flow just has to exist by save time.
+  const workflowVersionId = formData.documentTemplateId
+    ? formData.workflowVersionId
+    : (formData.workflowVersionId ?? (await ensureAdHocApprovalVersionId(db)))
   // The document number is NOT minted here. It's assigned by the backend when
   // the draft is first submitted for review (submitForReview controller), so a
   // draft that's deleted before submission never burns a sequence number that
@@ -119,7 +128,7 @@ const createDocument = useLiveMutation(async (db, formData) => {
     relatedStandardId: formData.relatedStandardId,
     periodicReviewMonths: formData.periodicReviewMonths,
     autoEffectiveOnApproval: formData.autoEffectiveOnApproval,
-    workflowVersionId: formData.workflowVersionId,
+    workflowVersionId,
     statusId: 'ACTIVE',
     docNumber: null,
     appliesAllSites: !!formData.appliesAllSites,
@@ -189,10 +198,12 @@ const createDocument = useLiveMutation(async (db, formData) => {
  * supplies prefix, workflow version and review period, all of which the
  * Document model requires, and title is NOT NULL at the database.
  */
-const DRAFT_MINIMUM = [
-  { key: 'documentTemplateId', label: 'Document Template' },
-  { key: 'title', label: 'Document Title' },
-]
+// Title only. "Create Document" requires a template again (2026-08-16), but a
+// DRAFT deliberately does not — that is the point of the escape hatch, and a
+// template-less draft is coherent: it takes its prefix from the form default
+// and its workflow from the ad-hoc flow, both of which still exist. You pick
+// the template on the document page before submitting.
+const DRAFT_MINIMUM = [{ key: 'title', label: 'Document Title' }]
 
 const draftBlockers = computed(() =>
   DRAFT_MINIMUM.filter(({ key }) => {
@@ -332,7 +343,7 @@ function handlePdfImport(draft) {
 const docTabs = [
   { value: 'properties', label: 'Properties', icon: IconInfoCircle },
   { value: 'content', label: 'Content', icon: IconArticle },
-  { value: 'training', label: 'Training Assessment', icon: IconSchool },
+  { value: 'training', label: 'Training', icon: IconSchool },
 ]
 </script>
 

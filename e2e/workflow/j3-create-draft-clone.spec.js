@@ -64,7 +64,7 @@ const name = `${NAME_PREFIX} Source`
  * lists ACTIVE workflows that have a PUBLISHED version, so an ACTIVE source here
  * would appear as a second CAPA candidate in the record-create picker and break
  * the `capas` suite. Archived keeps it out of every picker while leaving the
- * editor — and therefore Create New Draft — fully functional.
+ * editor — and therefore Reopen for Editing — fully functional.
  */
 function seedSource() {
   purgeWorkflowsNamed(NAME_PREFIX)
@@ -170,12 +170,12 @@ test.describe('PW-J3 · create-draft clones the full step definition', () => {
     await page.goto(`/workflow-templates/${WF}`)
     await expect(page.getByText('4 Steps')).toBeVisible({ timeout: 60_000 })
     // The published-version lock banner: this is the state a real revision
-    // starts from, and it is why Create New Draft exists at all.
+    // starts from, and it is why Reopen for Editing exists at all.
     await expect(
-      page.getByText('This version is published and locked. Create a new draft to make changes.'),
+      page.getByText('This version is published and locked. Reopen it for editing to make changes.'),
     ).toBeVisible({ timeout: 20_000 })
 
-    await page.getByRole('button', { name: 'Create New Draft' }).click()
+    await page.getByRole('button', { name: 'Reopen for Editing' }).click()
 
     // Barrier on the CLONE'S STEPS, not just the new version row: the mutation
     // creates the version first and then saves each step in turn, so reading
@@ -331,7 +331,7 @@ test.describe('PW-J3 · create-draft clones the full step definition', () => {
     await expect(page.getByText('4 Steps')).toBeVisible({ timeout: 60_000 })
     await expect(page.getByRole('button', { name: 'Publish' })).toBeVisible({ timeout: 20_000 })
     await expect(
-      page.getByText('This version is published and locked. Create a new draft to make changes.'),
+      page.getByText('This version is published and locked. Reopen it for editing to make changes.'),
     ).toBeHidden()
 
     // Editing the clone's APPROVAL step writes; the source's does not move.

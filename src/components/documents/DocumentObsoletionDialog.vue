@@ -87,7 +87,10 @@ function cancel() {
         </div>
         <div>
           <div class="tw:text-lg tw:font-bold tw:text-on-main">Archive Document</div>
-          <div v-if="documentTitle || documentNumber" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+          <div
+            v-if="documentTitle || documentNumber"
+            class="tw:text-xs tw:text-secondary tw:mt-0.5"
+          >
             {{ documentNumber }} — {{ documentTitle }}
           </div>
         </div>

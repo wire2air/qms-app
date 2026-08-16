@@ -259,15 +259,29 @@ function selectOption(normOption) {
   validate()
 }
 
+// `required` means the field cannot end up empty, so removing the LAST value
+// is refused. The refusal is silent, which is fine for the built-in chips
+// because `canRemoveValue` hides their clear affordance — but a consumer
+// rendering its own chips in the #selected slot has no way to know the rule.
+// It is exposed to that slot as `canRemove` for exactly that reason: a dead
+// "×" that does nothing when clicked reads as a broken control, which is how
+// it was reported (2026-08-16).
 function removeValue(normOption) {
-  if (props.readonly) return
+  if (!canRemoveValue(normOption)) return
   const current = Array.isArray(model.value) ? [...model.value] : []
   const idx = current.findIndex((e) => valueEquals(e, normOption))
   if (idx < 0) return
-  if (props.required && current.length === 1) return
   current.splice(idx, 1)
   model.value = current
   validate()
+}
+
+/** Would removeValue() actually remove this one? Drives the slot's affordance. */
+function canRemoveValue(normOption) {
+  if (props.readonly) return false
+  const current = Array.isArray(model.value) ? model.value : []
+  if (current.findIndex((e) => valueEquals(e, normOption)) < 0) return false
+  return !(props.required && current.length === 1)
 }
 
 function selectAll() {
@@ -505,6 +519,7 @@ defineExpose({
             :value="model"
             :options="selectedOptions"
             :remove="removeValue"
+            :canRemove="canRemoveValue"
             :clear="clearSelection"
           >
             <!-- Chips (multiple + useChips) -->

@@ -192,8 +192,10 @@ const debouncedSaveComment = useDebounceFn(async () => {
 
     <!-- Section Content -->
     <div class="section-content">
+      <!-- 'textAttachment' carries both; independent v-ifs so it falls into
+           each branch rather than duplicating them. -->
       <BaseRichTextEditor
-        v-if="section.sectionType === 'text'"
+        v-if="section.sectionType === 'text' || section.sectionType === 'textAttachment'"
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         v-model="section.content"
         :editable="canUpdateSection"
@@ -206,7 +208,7 @@ const debouncedSaveComment = useDebounceFn(async () => {
       </BaseRichTextEditor>
 
       <BaseUploader
-        v-if="section.sectionType === 'attachment'"
+        v-if="section.sectionType === 'attachment' || section.sectionType === 'textAttachment'"
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         :modelValue="section.attachments"
         :readonly="!canUpdateSection"
@@ -250,6 +252,5 @@ const debouncedSaveComment = useDebounceFn(async () => {
         {{ reviewerComment.body }}
       </p>
     </div>
-
   </div>
 </template>

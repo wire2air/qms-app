@@ -74,7 +74,10 @@ const columns = computed(() => {
     { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
     { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
     { name: 'prefix', label: 'PREFIX', field: 'prefix', align: 'left', sortable: true },
-    { name: 'department', label: 'DEPARTMENT', field: 'department', align: 'left', sortable: true },
+    // DEPARTMENT column hidden (user request 2026-08-16) — the field itself is
+    // hidden on the template editor, so a column for it lists nothing anyone
+    // can set. The body-cell slot below is left in place for the restore.
+    // { name: 'department', label: 'DEPARTMENT', field: 'department', align: 'left', sortable: true },
     {
       name: 'training',
       label: 'TRAINING',

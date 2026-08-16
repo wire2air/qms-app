@@ -84,7 +84,9 @@ describe('buildDocumentActions', () => {
 
   it('Delete Version needs canDelete AND a DRAFT selected version', () => {
     expect(visibleIds({ canDelete: true, selectedStatus: 'DRAFT' })).toContain('deleteVersion')
-    expect(visibleIds({ canDelete: true, selectedStatus: 'EFFECTIVE' })).not.toContain('deleteVersion')
+    expect(visibleIds({ canDelete: true, selectedStatus: 'EFFECTIVE' })).not.toContain(
+      'deleteVersion',
+    )
     expect(visibleIds({ selectedStatus: 'DRAFT' })).not.toContain('deleteVersion')
   })
 

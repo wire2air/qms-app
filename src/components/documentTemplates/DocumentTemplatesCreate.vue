@@ -11,7 +11,10 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { validateUUID } from '@/utils/validators.js'
 import { currentCompany } from '@/utils/currentCompany.js'
 import { get } from '@/api'
-import { ensureTemplateApprovalWorkflow } from './documentTemplateApprovalFlow.js'
+import {
+  ensureTemplateApprovalWorkflow,
+  defaultApprovalGates,
+} from './documentTemplateApprovalFlow.js'
 
 const props = defineProps({
   id: {
@@ -23,11 +26,12 @@ const props = defineProps({
 const router = useRouter()
 const toast = useToast()
 
-// Roles for the two STARTING gates. Deliberately not part of `form` and not
-// persisted on the template — they only seed the companion workflow at create,
-// and the workflow's steps own the assignment from then on.
-const seedReviewRoleIds = ref([])
-const seedApprovalRoleIds = ref([])
+// Config for the two STARTING gates: who signs, ALL/ANY, e-signature, SLA.
+// Deliberately not part of `form` and not persisted on the template — it only
+// seeds the companion workflow at create, and the workflow's steps own all of
+// it from then on. Edited in place here (2026-08-16) because the full builder
+// cannot exist yet: there is no companion workflow until the template saves.
+const approvalGates = ref(defaultApprovalGates())
 
 const formRef = ref(null)
 const saving = ref(false)
@@ -48,6 +52,14 @@ const existingTemplate = useLiveQueryWithDeps(
 )
 
 const loading = computed(() => isEditMode.value && existingTemplate.value === undefined)
+
+watch(
+  [() => form.value.reviewLimitDays, () => form.value.approvalLimitDays],
+  ([review, approval]) => {
+    if (approvalGates.value[0]?.slaDays == null) approvalGates.value[0].slaDays = review
+    if (approvalGates.value[1]?.slaDays == null) approvalGates.value[1].slaDays = approval
+  },
+)
 
 const form = ref({
   name: '',
@@ -98,13 +110,6 @@ function onPrefixInput(value) {
   // (backend format rule rejects it), yet it previously slipped past the
   // uniqueness-only availability check and only failed on submit.
   form.value.prefix = value.toUpperCase().replace(/\s+/g, '')
-}
-
-// A gate nobody can sign is a document that can never be approved, so both
-// role pickers are required — this is the one thing the template must answer
-// now that documents no longer pick a workflow themselves.
-function atLeastOneRole(message) {
-  return (value) => (Array.isArray(value) && value.length > 0) || message
 }
 
 // Prefix validation rules
@@ -198,10 +203,7 @@ const createTemplate = useLiveMutation(async (db, data) => {
   await t.save()
   // Seeds the companion workflow with the conventional two gates. From here on
   // the workflow builder owns the step list — see documentTemplateApprovalFlow.
-  await ensureTemplateApprovalWorkflow(db, t, {
-    reviewRoleIds: seedReviewRoleIds.value,
-    approvalRoleIds: seedApprovalRoleIds.value,
-  })
+  await ensureTemplateApprovalWorkflow(db, t, { gates: approvalGates.value })
   return t
 })
 
@@ -328,9 +330,17 @@ function goBack() {
                   </template>
                 </BaseField>
 
+                <!-- Department HIDDEN (user decision 2026-08-16) — not
+                     deleted. A document template carries no site, and
+                     departments are site-scoped, so the field has nothing
+                     meaningful to point at; documents pick their own
+                     department, where it is required. Column, data and badge
+                     all remain — un-comment to restore. -->
+                <!--
                 <BaseField label="Department">
                   <DepartmentSelectMenu v-model="form.departmentId" />
                 </BaseField>
+                -->
                 <BaseField label="Related Standard">
                   <RelatedStandardSelectMenu v-model="form.relatedStandardId" />
                 </BaseField>
@@ -349,7 +359,7 @@ function goBack() {
                 <div>
                   <BaseCheckbox v-model="form.trainingAvailable" label="Yes">
                     <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-                      Training Available?
+                      Training Required
                     </label>
                   </BaseCheckbox>
                 </div>
@@ -446,27 +456,16 @@ function goBack() {
                 </p>
                 <template v-else>
                   <p class="tw:text-sm tw:text-secondary">
-                    Start with the usual two stages. Both capture an e-signature, and their due
-                    dates come from the Review and Approval limits above. You can add further
-                    stages, or change these, in the workflow builder afterwards.
+                    Two stages to start with. Everything here is editable later, and the full
+                    workflow builder — for a third stage, reordering, or task forms — opens from the
+                    template page once this is saved.
                   </p>
-                  <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-x-12 tw:gap-y-6">
-                    <BaseField
-                      label="1. Technical Review — who reviews?"
-                      required
-                      :value="seedReviewRoleIds"
-                      :rules="[atLeastOneRole('Pick at least one reviewer role')]"
-                    >
-                      <RoleSelectMenu v-model="seedReviewRoleIds" :multiple="true" />
-                    </BaseField>
-                    <BaseField
-                      label="2. Approval — who signs off?"
-                      required
-                      :value="seedApprovalRoleIds"
-                      :rules="[atLeastOneRole('Pick at least one approver role')]"
-                    >
-                      <RoleSelectMenu v-model="seedApprovalRoleIds" :multiple="true" />
-                    </BaseField>
+                  <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
+                    <DocumentApprovalStepFields
+                      v-model="approvalGates[0]"
+                      label="1. Technical Review"
+                    />
+                    <DocumentApprovalStepFields v-model="approvalGates[1]" label="2. Approval" />
                   </div>
                 </template>
               </div>

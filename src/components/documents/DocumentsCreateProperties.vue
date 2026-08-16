@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import { required } from '@shared/components/form/validators.js'
 import { futureDateRule } from './documentEffectiveDate.js'
 import { pickPublishedVersionId } from '@/components/documentTemplates/documentTemplateApprovalFlow.js'
+import { findAdHocApprovalVersionId } from './documentAdHocApproval.js'
 
 const form = defineModel({
   type: Object,
@@ -58,16 +59,19 @@ watch(resolvedTemplate, (template) => {
 // version a new document runs. Watched separately from the template itself
 // because it resolves a beat later (two live queries deep).
 const inheritedVersionId = useLiveQueryWithDeps(
-  [() => resolvedTemplate.value?.workflowId],
-  async (db, [workflowId]) => {
+  [() => resolvedTemplate.value?.workflowId, () => form.value.documentTemplateId],
+  async (db, [workflowId, templateId]) => {
+    // No template → the company's ad-hoc flow, whose two steps carry no roles
+    // so the submit dialog asks who should review and approve.
+    if (!templateId) return findAdHocApprovalVersionId(db)
     if (!workflowId) return null
-    const versions = await db.WorkflowVersion.where('workflowId', workflowId).exec()
     // PUBLISHED only — the template's flow is edited in the workflow builder,
     // so it routinely has a draft sitting beside the live version and a new
     // document must never start running someone's work in progress.
+    const versions = await db.WorkflowVersion.where('workflowId', workflowId).exec()
     return pickPublishedVersionId(versions)
   },
-  { models: ['WorkflowVersion'], initial: null },
+  { models: ['WorkflowVersion', 'Workflow'], initial: null },
 )
 
 watch(inheritedVersionId, (id) => {
@@ -93,6 +97,17 @@ watch(
     if (auto) form.value.effectiveDate = null
     else if (!form.value.effectiveDate) form.value.effectiveDate = DateTime.now().plus({ days: 1 })
   },
+)
+
+// Without a template there is nothing to supply a prefix, and it is required
+// (document numbers are minted from it). Seed a sensible default the author
+// can overwrite rather than presenting an empty required field.
+watch(
+  () => form.value.documentTemplateId,
+  (templateId) => {
+    if (!templateId && !form.value.prefix) form.value.prefix = 'DOC'
+  },
+  { immediate: true },
 )
 
 // Prefix auto-uppercase
@@ -171,22 +186,6 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
   <div
     class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-8 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6"
   >
-    <!-- Document Template -->
-    <BaseField
-      label="Document Template"
-      required
-      :value="form.documentTemplateId"
-      :rules="[required()]"
-    >
-      <template #default="field">
-        <DocumentTemplateSelectMenu
-          v-bind="field"
-          v-model="form.documentTemplateId"
-          :required="true"
-        />
-      </template>
-    </BaseField>
-
     <!-- Document Title -->
     <BaseField label="Document Title" required :value="form.title" :rules="[required()]">
       <template #default="field">
@@ -194,6 +193,32 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
           v-bind="field"
           v-model="form.title"
           placeholder="e.g. Clean Room Sterilization Protocol"
+        />
+      </template>
+    </BaseField>
+
+    <!-- Document Template — REQUIRED (user decision 2026-08-16). It was
+         briefly made optional, backed by an ad-hoc approval flow for
+         template-less documents; that decision is deferred, so the field is
+         required again.
+         The ad-hoc path is intact and still reachable, not deleted:
+         documentAdHocApproval.js, its seed in bootstrapCompanyDefaults, and
+         the fallback in DocumentsCreate's createDocument all remain, and Save
+         as Draft still permits a template-less draft. Dropping `required`
+         here (and restoring `optional` + the hint) is the whole of what it
+         takes to re-enable it. -->
+    <BaseField
+      label="Document Template"
+      required
+      :value="form.documentTemplateId"
+      :rules="[required()]"
+      hint="Gives the document its sections, numbering prefix and approval flow."
+    >
+      <template #default="field">
+        <DocumentTemplateSelectMenu
+          v-bind="field"
+          v-model="form.documentTemplateId"
+          :required="true"
         />
       </template>
     </BaseField>
@@ -378,11 +403,15 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
       label="Approval Flow"
       class="tw:md:col-span-2"
       :value="form.workflowVersionId"
-      :rules="[
-        required(
-          'The selected template has no approval flow — add reviewer and approver roles to it first',
-        ),
-      ]"
+      :rules="
+        form.documentTemplateId
+          ? [
+              required(
+                'The selected template has no approval flow — add reviewer and approver roles to it first',
+              ),
+            ]
+          : []
+      "
     >
       <div
         v-if="inheritedSteps.length"
@@ -404,15 +433,39 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
             · due in {{ step.slaDays }} days
           </span>
         </div>
-        <p class="tw:text-xs tw:text-secondary">
-          Defined by the “{{ selectedTemplate?.name }}” template.
-        </p>
       </div>
       <p v-else-if="form.documentTemplateId" class="tw:text-sm tw:text-red-600">
         This template has no approval flow yet — add reviewer and approver roles to it before
         creating documents from it.
       </p>
-      <p v-else class="tw:text-sm tw:text-secondary">Pick a template to see its approval flow.</p>
+      <!-- No template → the ad-hoc flow. Its two steps carry no roles, which
+           is exactly why the submit dialog asks who should review and approve
+           rather than expanding a role. -->
+      <div
+        v-else
+        class="tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:p-3"
+      >
+        <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
+          <span
+            class="tw:flex tw:h-5 tw:w-5 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:bg-primary/10 tw:text-micro tw:font-semibold tw:text-primary"
+          >
+            1
+          </span>
+          <span class="tw:font-medium tw:text-on-main">Review</span>
+        </div>
+        <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
+          <span
+            class="tw:flex tw:h-5 tw:w-5 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:bg-primary/10 tw:text-micro tw:font-semibold tw:text-primary"
+          >
+            2
+          </span>
+          <span class="tw:font-medium tw:text-on-main">Approval</span>
+        </div>
+        <p class="tw:text-xs tw:text-secondary">
+          You'll choose who reviews and who approves when you submit this document. Pick a template
+          instead to use a pre-defined flow.
+        </p>
+      </div>
     </BaseField>
   </div>
 </template>

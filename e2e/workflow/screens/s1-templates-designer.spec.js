@@ -201,7 +201,7 @@ test.describe('Workflow screenshots · templates, wizard, designer', () => {
     await page.goto(`/workflow-templates/${workflow.id}`)
     await expect(page.getByText('3 Steps')).toBeVisible({ timeout: 60_000 })
     await expect(
-      page.getByText('This version is published and locked. Create a new draft to make changes.'),
+      page.getByText('This version is published and locked. Reopen it for editing to make changes.'),
     ).toBeVisible({ timeout: 20_000 })
     await shot(page, 'designer-published-locked')
   })

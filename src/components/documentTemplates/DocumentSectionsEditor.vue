@@ -28,6 +28,7 @@ function isReadonly(section) {
 const SECTION_TYPE_MAP = {
   text: { label: 'TEXT', class: 'tw:bg-blue-100 tw:text-blue-700' },
   attachment: { label: 'ATTACHMENT', class: 'tw:bg-purple-100 tw:text-purple-700' },
+  textAttachment: { label: 'TEXT + ATTACHMENT', class: 'tw:bg-teal-100 tw:text-teal-700' },
   form: { label: 'FORM', class: 'tw:bg-green-100 tw:text-green-700' },
   table: { label: 'TABLE', class: 'tw:bg-orange-100 tw:text-orange-700' },
 }
@@ -45,7 +46,6 @@ function addSection() {
       // Author-facing guidance carried from the template onto every document
       // made from it. Rich text so it can link to other documents.
       instructions: '',
-      instructionAttachments: [],
       isAddOn: true,
     },
   ]
@@ -135,52 +135,51 @@ useSortable(listRef, sections, {
                 >
                   <option value="text">Text</option>
                   <option value="attachment">Attachment</option>
+                  <option value="textAttachment">Text + Attachment</option>
                   <!-- <option value="form">Form</option>
                   <option value="table">Table</option> -->
                 </select>
               </div>
-              <!-- Instructions. On the TEMPLATE these are authored; on a
-                   document made from it they render as read-only guidance
-                   (below) rather than another thing to fill in. -->
-              <div v-if="instructionsEditable" class="tw:flex tw:flex-col tw:gap-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">
-                  Instructions for the author
-                  <span class="tw:font-normal">— shown on every document using this template</span>
-                </label>
-                <BaseRichTextEditor
-                  v-model="section.instructions"
-                  placeholder="What should the author put here? Link related documents, cite the clause, give an example…"
-                />
-                <BaseUploader
-                  v-model="section.instructionAttachments"
-                  :hideHeader="true"
-                  label="Instruction attachments"
-                />
-              </div>
-              <SectionInstructions
-                v-else
-                :instructions="section.instructions"
-                :attachments="section.instructionAttachments"
-              />
-
-              <div v-if="section.sectionType === 'text'">
+              <!-- 'textAttachment' renders BOTH — one section that carries a
+                   written body and its supporting files, rather than forcing
+                   the author to split them across two sections. -->
+              <div
+                v-if="section.sectionType === 'text' || section.sectionType === 'textAttachment'"
+              >
                 <BaseRichTextEditor v-model="section.content" :sectionNumber="sectionIndex + 1">
                   <template #toolbar-extra="{ editor }">
                     <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
                   </template>
                 </BaseRichTextEditor>
               </div>
-              <div v-else-if="section.sectionType === 'attachment'">
+              <div
+                v-if="
+                  section.sectionType === 'attachment' || section.sectionType === 'textAttachment'
+                "
+              >
                 <BaseUploader v-model="section.attachments" :hideHeader="true" />
               </div>
               <div
-                v-else
+                v-else-if="section.sectionType !== 'text'"
                 class="tw:border tw:border-divider tw:rounded-lg tw:h-16 tw:flex tw:items-center tw:justify-center tw:bg-main-hover"
               >
                 <p class="tw:text-sm tw:text-secondary tw:italic">
                   {{ section.sectionType }} configuration coming soon...
                 </p>
               </div>
+
+              <!-- Instructions LAST (user request 2026-08-16): they are a note
+                   about the section, so they belong under it rather than
+                   pushing the actual body down the page. One line — the
+                   earlier rich-text-plus-attachments version was more
+                   apparatus than a hint needs. -->
+              <BaseTextInput
+                v-if="instructionsEditable"
+                v-model="section.instructions"
+                size="sm"
+                placeholder="Instructions for the author (optional) — shown on documents using this template"
+              />
+              <SectionInstructions v-else :instructions="section.instructions" />
             </div>
             <div class="tw:flex tw:items-center tw:gap-1 tw:shrink-0 tw:mt-1">
               <button
@@ -210,11 +209,7 @@ useSortable(listRef, sections, {
           <template v-else>
             <div class="tw:flex-1">
               <div class="tw:font-bold tw:text-on-sidebar">{{ section.title }}</div>
-              <SectionInstructions
-                :instructions="section.instructions"
-                :attachments="section.instructionAttachments"
-                class="tw:mt-2"
-              />
+              <SectionInstructions :instructions="section.instructions" class="tw:mt-2" />
               <div v-if="section.defaultContent" class="tw:text-xs tw:text-secondary tw:mt-1">
                 {{ section.defaultContent.substring(0, 100)
                 }}{{ section.defaultContent.length > 100 ? '...' : '' }}

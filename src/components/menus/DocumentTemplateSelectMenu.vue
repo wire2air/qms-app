@@ -8,6 +8,14 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  // "— None —" rather than "— All templates —": the only caller is the
+  // document CREATE form, where the null option means "don't use a template"
+  // (2026-08-16), not "any of them". A filter mounting this should pass the
+  // all-of-them phrasing explicitly.
+  nullLabel: {
+    type: String,
+    default: '— None —',
+  },
 })
 
 const modelValue = defineModel({
@@ -30,7 +38,7 @@ const templates = useLiveQuery(
     :options="templates"
     optionLabel="name"
     optionValue="id"
-    nullLabel="— All templates —"
+    :nullLabel="nullLabel"
     :required="required"
     :multiple="multiple"
     :clearable="!required"

@@ -14,8 +14,11 @@ export function useDocuments() {
   // role expansion); ALL/ANY policy still applies at runtime. Omit /
   // pass null for automated callers — the backend falls back to
   // expanding step roles, the legacy behaviour.
-  async function submitForReview(documentId, versionId, reviewers = null) {
-    const body = reviewers ? { reviewers } : {}
+  async function submitForReview(documentId, versionId, reviewers = null, approvalRules = null) {
+    const body = {
+      ...(reviewers ? { reviewers } : {}),
+      ...(approvalRules ? { approvalRules } : {}),
+    }
     const data = await post(
       `/v1/services/documents/${documentId}/versions/${versionId}/submitForReview`,
       body,
@@ -36,10 +39,11 @@ export function useDocuments() {
   // audit log. When it's the document's only version, the whole (draft)
   // document is deleted — `deletedDocument` says which happened.
   async function deleteDraftVersion(documentId, versionId, { method, token, reason }) {
-    const data = await post(
-      `/v1/services/documents/${documentId}/versions/${versionId}/delete`,
-      { method, token, reason },
-    )
+    const data = await post(`/v1/services/documents/${documentId}/versions/${versionId}/delete`, {
+      method,
+      token,
+      reason,
+    })
     return { deletedDocument: !!data.deletedDocument }
   }
 

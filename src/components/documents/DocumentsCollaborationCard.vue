@@ -115,7 +115,10 @@ function scrollToBottom() {
     if (el) el.scrollTop = el.scrollHeight
   })
 }
-watch(() => messages.value?.length, () => scrollToBottom())
+watch(
+  () => messages.value?.length,
+  () => scrollToBottom(),
+)
 
 async function handleSend() {
   const body = newMessage.value.trim()
@@ -172,7 +175,9 @@ async function handleDelete(msg) {
               :key="user.id"
               class="tw:w-full tw:flex tw:items-center tw:gap-3 tw:px-3 tw:py-2 tw:rounded-lg tw:transition-colors tw:text-left"
               :class="
-                collaboratorUserIds.includes(user.id) ? 'tw:bg-primary/10' : 'tw:hover:bg-sidebar-hover'
+                collaboratorUserIds.includes(user.id)
+                  ? 'tw:bg-primary/10'
+                  : 'tw:hover:bg-sidebar-hover'
               "
               @click.stop="toggleCollaborator(user.id)"
             >
@@ -273,7 +278,12 @@ async function handleDelete(msg) {
           style="max-height: 120px"
           @keydown.enter.exact.prevent="handleSend"
         />
-        <BaseButton variant="primary" :disabled="!newMessage.trim()" class="tw:p-2" @click="handleSend">
+        <BaseButton
+          variant="primary"
+          :disabled="!newMessage.trim()"
+          class="tw:p-2"
+          @click="handleSend"
+        >
           <IconSend :size="18" />
         </BaseButton>
       </div>
