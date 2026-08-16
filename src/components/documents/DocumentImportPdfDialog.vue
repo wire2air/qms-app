@@ -137,7 +137,10 @@ function pickFile() {
 // a 60-page manual are rarely what anyone keeps. Well under the parser's own
 // hard caps (20 MB / 300 pages), which are about what it CAN do rather than
 // what is worth doing.
-const AI_FULL_IMPORT_MAX_PAGES = 30
+// Raised 30 → 50 on 2026-08-16: 30 was below the size of an ordinary SOP. A
+// 34-page procedure was being diverted to summarise-and-attach without the
+// structured import ever being attempted, which read as "the AI didn't try".
+const AI_FULL_IMPORT_MAX_PAGES = 50
 const AI_FULL_IMPORT_MAX_BYTES = 8 * 1024 * 1024
 
 /**
@@ -158,6 +161,14 @@ async function runImport() {
   error.value = null
   fallbackNotice.value = ''
 
+  // Show the spinner BEFORE the first await, not after (bug 2026-08-16).
+  // readHeader() opens the document with pdfjs, which on a large file takes
+  // seconds — and every path below can await again before reaching a phase
+  // that renders progress. Pressing Import used to grey the button and then
+  // do nothing visible for the whole of that.
+  phase.value = 'parsing'
+  progress.value = { current: 0, total: 0, message: 'Reading PDF…' }
+
   // Cheap and local: gives a title and, crucially, the page count used to
   // decide the path — without parsing the whole document.
   await readHeader()
@@ -171,6 +182,7 @@ async function runImport() {
     fallbackNotice.value =
       `This PDF is ${header.value?.pageCount || 'many'} pages — summarising the first few ` +
       'and attaching the file, rather than restructuring the whole document.'
+    progress.value = { current: 0, total: 0, message: 'Summarising the first pages…' }
     await summariseHeader()
     return goToAttachment()
   }
