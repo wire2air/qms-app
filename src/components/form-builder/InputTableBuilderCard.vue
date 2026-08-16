@@ -89,9 +89,7 @@ function openColDialog() {
 }
 // Option-bearing column types get their options right in this dialog — an
 // Option Group is meaningless without them (user feedback 2026-07-27).
-const draftNeedsOptions = computed(() =>
-  ['optionGroup', 'select'].includes(colDraft.value.type),
-)
+const draftNeedsOptions = computed(() => ['optionGroup', 'select'].includes(colDraft.value.type))
 const draftCleanOptions = computed(() =>
   (colDraft.value.options || []).map((o) => String(o).trim()).filter(Boolean),
 )
@@ -225,9 +223,8 @@ const addRowLabel = computed(() => props.field.addLabel || 'Add row')
             <IconPlus :size="13" /> Add option
           </button>
           <p v-if="colDraft.type === 'optionGroup'" class="tw:text-xs tw:text-secondary">
-            An Option Group needs at least two choices (mutually-exclusive radio buttons,
-            horizontal in the table). Flavor/orientation can be changed later in the
-            column's field settings.
+            An Option Group needs at least two choices (mutually-exclusive radio buttons, horizontal
+            in the table). Flavor/orientation can be changed later in the column's field settings.
           </p>
         </div>
       </div>

@@ -187,8 +187,8 @@ watch(showSettingsDialog, (open) => {
             @update:modelValue="pickType"
           />
           <BaseCaption class="tw:mt-1.5 tw:block">
-            Selection lists, checklists, tables, layout elements and widgets — everything the
-            full form builder offers.
+            Selection lists, checklists, tables, layout elements and widgets — everything the full
+            form builder offers.
           </BaseCaption>
         </div>
       </div>

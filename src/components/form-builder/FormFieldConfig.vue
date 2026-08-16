@@ -60,9 +60,7 @@ const SCORABLE_TYPES = new Set([
   'textEditor',
   'file',
 ])
-const isScorable = computed(
-  () => props.showScoring && SCORABLE_TYPES.has(field.value?.type),
-)
+const isScorable = computed(() => props.showScoring && SCORABLE_TYPES.has(field.value?.type))
 
 // Heading field settings — segmented-control options.
 const HEADING_SIZES = [
@@ -222,10 +220,7 @@ function updateRowColClass(value) {
       <ConfigState v-model:field="field" />
 
       <div v-if="hasTypeSettings" class="tw:mb-4 tw:last:mb-0">
-        <BaseText
-          variant="overline"
-          class="tw:block tw:mb-3 tw:pb-2 tw:border-b tw:border-divider"
-        >
+        <BaseText variant="overline" class="tw:block tw:mb-3 tw:pb-2 tw:border-b tw:border-divider">
           {{ field.type }} Settings
         </BaseText>
 
@@ -383,7 +378,8 @@ function updateRowColClass(value) {
 
           <div class="tw:mt-3 tw:flex tw:flex-col tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
             <BaseCheckbox v-model="field.defaultToday">
-              Default new entries to {{ field.mode === 'time' ? 'the current time' : "today's date" }}
+              Default new entries to
+              {{ field.mode === 'time' ? 'the current time' : "today's date" }}
             </BaseCheckbox>
             <template v-if="field.mode !== 'time'">
               <BaseCheckbox v-model="field.noPastDates">Don't allow past dates</BaseCheckbox>
@@ -422,7 +418,10 @@ function updateRowColClass(value) {
             label="Risk Assessment Template"
             hint="The template defines the likelihood/severity matrix and risk level colors."
           >
-            <RiskAssessmentTemplateSelectMenu v-model="field.riskAssessmentTemplateId" :required="true" />
+            <RiskAssessmentTemplateSelectMenu
+              v-model="field.riskAssessmentTemplateId"
+              :required="true"
+            />
           </BaseField>
         </template>
 

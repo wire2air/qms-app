@@ -8,7 +8,7 @@
  * Mutates the shared field object (field.rows / field.columns) directly.
  */
 import { IconPlus, IconTrash, IconX, IconSparkles } from '@tabler/icons-vue'
-import { COLUMN_INPUT_TYPES } from '@/constants/formBuilderConfig'
+import { COLUMN_INPUT_TYPES, columnInputTypeLabel } from '@/constants/formBuilderConfig'
 import { canUseAi } from '@/utils/currentSession'
 import { hydrateChecklistColumns, hydrateChecklistRows } from '@/utils/aiFormHydrate'
 import { tableStyleClasses, cx } from '@/utils/tableStyle'
@@ -20,7 +20,7 @@ const props = defineProps({
 const columnTypeItems = computed(() =>
   COLUMN_INPUT_TYPES.map((o) => ({ id: o.value, name: o.label })),
 )
-const columnTypeLabel = (v) => COLUMN_INPUT_TYPES.find((o) => o.value === v)?.label || 'Text'
+const columnTypeLabel = (v) => columnInputTypeLabel(v)
 
 function toCamelCase(str) {
   return str
@@ -49,9 +49,10 @@ function removeRow(i) {
 
 // ── Columns ───────────────────────────────────────────────────────────────────
 const showColDialog = ref(false)
-const colDraft = ref({ label: '', inputType: 'radio', options: [] })
+// Defaults to the safe multi-option column; 'radio' is no longer offered.
+const colDraft = ref({ label: '', inputType: 'optionGroup', options: [] })
 function openColDialog() {
-  colDraft.value = { label: '', inputType: 'radio', options: [] }
+  colDraft.value = { label: '', inputType: 'optionGroup', options: [] }
   showColDialog.value = true
 }
 // Option-bearing column types get their options right in this dialog — an
@@ -163,7 +164,11 @@ function applyAiChecklist(result) {
               </div>
             </th>
             <!-- Add column (next to the last column) -->
-            <th :class="cx('tw:py-2 tw:px-3 tw:align-middle tw:border-b tw:border-divider', ts.headerClass)">
+            <th
+              :class="
+                cx('tw:py-2 tw:px-3 tw:align-middle tw:border-b tw:border-divider', ts.headerClass)
+              "
+            >
               <button
                 type="button"
                 class="tw:inline-flex tw:items-center tw:gap-1 tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-2 tw:py-1 tw:text-xs tw:font-medium tw:bg-transparent tw:border-0 tw:cursor-pointer tw:whitespace-nowrap"
@@ -175,8 +180,16 @@ function applyAiChecklist(result) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, ri) in rows" :key="'r-' + ri" :class="cx('tw:hover:bg-gray-50 tw:group', ts.rowClass)">
-            <td :class="cx('tw:text-on-main tw:border-b tw:border-divider tw:py-2 tw:px-3', ts.cellClass)">
+          <tr
+            v-for="(row, ri) in rows"
+            :key="'r-' + ri"
+            :class="cx('tw:hover:bg-gray-50 tw:group', ts.rowClass)"
+          >
+            <td
+              :class="
+                cx('tw:text-on-main tw:border-b tw:border-divider tw:py-2 tw:px-3', ts.cellClass)
+              "
+            >
               <span class="tw:inline-flex tw:items-center tw:gap-1">
                 {{ row || 'Row' }}
                 <button
@@ -192,7 +205,9 @@ function applyAiChecklist(result) {
             <td
               v-for="(col, ci) in columns"
               :key="'c-' + ri + '-' + ci"
-              :class="cx('tw:text-center tw:border-b tw:border-divider tw:py-2 tw:px-3', ts.cellClass)"
+              :class="
+                cx('tw:text-center tw:border-b tw:border-divider tw:py-2 tw:px-3', ts.cellClass)
+              "
             >
               <!-- Non-interactive cell preview, matching BaseChecklist's look. -->
               <div
@@ -210,7 +225,7 @@ function applyAiChecklist(result) {
                 "
               >
                 <span
-                  v-for="(opt, oi) in (col.options?.length ? col.options : ['Option 1', 'Option 2'])"
+                  v-for="(opt, oi) in col.options?.length ? col.options : ['Option 1', 'Option 2']"
                   :key="oi"
                   class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary"
                 >
@@ -280,7 +295,12 @@ function applyAiChecklist(result) {
         />
       </div>
       <template #footer="{ close }">
-        <BaseDialogFooter submitLabel="Add row" :disabled="!rowDraft.trim()" @cancel="close" @submit="saveRow" />
+        <BaseDialogFooter
+          submitLabel="Add row"
+          :disabled="!rowDraft.trim()"
+          @cancel="close"
+          @submit="saveRow"
+        />
       </template>
     </BaseDialog>
 
@@ -289,7 +309,11 @@ function applyAiChecklist(result) {
       <div class="tw:flex tw:flex-col tw:gap-4">
         <div class="tw:flex tw:flex-col tw:gap-2">
           <BaseText as="div" variant="overline">Column title</BaseText>
-          <BaseTextInput v-model="colDraft.label" placeholder="e.g. Yes / No / N/A" @keyup.enter="saveColumn" />
+          <BaseTextInput
+            v-model="colDraft.label"
+            placeholder="e.g. Yes / No / N/A"
+            @keyup.enter="saveColumn"
+          />
         </div>
         <div class="tw:flex tw:flex-col tw:gap-2">
           <BaseText as="div" variant="overline">Component</BaseText>
@@ -333,14 +357,19 @@ function applyAiChecklist(result) {
             <IconPlus :size="13" /> Add option
           </button>
           <p v-if="colDraft.inputType === 'optionGroup'" class="tw:text-xs tw:text-secondary">
-            An Option Group needs at least two choices (shown as mutually-exclusive radio
-            buttons, horizontal by default). Radio/checkbox flavor and orientation can be
-            changed later in field settings.
+            An Option Group needs at least two choices (shown as mutually-exclusive radio buttons,
+            horizontal by default). Radio/checkbox flavor and orientation can be changed later in
+            field settings.
           </p>
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseDialogFooter submitLabel="Add column" :disabled="!canSaveColumn" @cancel="close" @submit="saveColumn" />
+        <BaseDialogFooter
+          submitLabel="Add column"
+          :disabled="!canSaveColumn"
+          @cancel="close"
+          @submit="saveColumn"
+        />
       </template>
     </BaseDialog>
 

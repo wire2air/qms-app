@@ -152,12 +152,7 @@ function onFieldClick(fieldType) {
               <div class="tw:flex-1 tw:text-sm tw:font-medium tw:text-on-sidebar">
                 {{ fieldMeta.label }}
               </div>
-              <span
-                v-if="fieldMeta.description"
-                class="tw:shrink-0"
-                @click.stop
-                @mousedown.stop
-              >
+              <span v-if="fieldMeta.description" class="tw:shrink-0" @click.stop @mousedown.stop>
                 <BaseTooltip :content="fieldMeta.description" placement="left">
                   <IconInfoCircle
                     :size="16"

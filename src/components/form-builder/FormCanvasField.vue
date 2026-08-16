@@ -149,9 +149,7 @@ const cardWidthStyle = computed(() => {
 // label:'' so DynamicForm doesn't render the field's own label — the card
 // renders a click-to-edit label above it instead (see the leaf-field branch),
 // giving every field the same in-place label editing as the special ones.
-const previewFields = computed(() => [
-  { ...props.field, width: 'full', hidden: false, label: '' },
-])
+const previewFields = computed(() => [{ ...props.field, width: 'full', hidden: false, label: '' }])
 
 // The shared question header (label + type picker + description). Rendered
 // for every card that represents a QUESTION — including Multiple Choice /
@@ -161,10 +159,7 @@ const previewFields = computed(() => [
 // own title (Checklist, Input Table).
 const HEADER_EXCLUDED_TYPES = new Set(['header', 'instructions', 'separator', 'checklist'])
 const showFieldHeader = computed(
-  () =>
-    !isLayoutField.value &&
-    !isInputTable.value &&
-    !HEADER_EXCLUDED_TYPES.has(props.field.type),
+  () => !isLayoutField.value && !isInputTable.value && !HEADER_EXCLUDED_TYPES.has(props.field.type),
 )
 
 // Required applies to things a respondent answers — not to layout containers
@@ -279,7 +274,6 @@ function beginEdit(which) {
     >
       <IconGripHorizontal :size="16" />
     </button>
-
 
     <!-- Layout containers keep a slim, editable title (it renders on the live
          form for sections) — no big icon box or type chrome. Leaf fields have
@@ -410,7 +404,10 @@ function beginEdit(which) {
         title="Click to edit"
         @click.stop="beginEdit('instructions')"
         @mousedown.stop
-        v-html="field.html || '<em class=\'tw:text-secondary\'>Empty instructions — click to add content.</em>'"
+        v-html="
+          field.html ||
+          '<em class=\'tw:text-secondary\'>Empty instructions — click to add content.</em>'
+        "
       />
     </template>
     <!-- Header — heading + subheading edit in place, matching the live render's
@@ -486,7 +483,6 @@ function beginEdit(which) {
       <div class="tw:pointer-events-none">
         <DynamicForm :fields="previewFields" :modelValue="{}" />
       </div>
-
     </div>
 
     <!-- Children for layout fields (Input Tables manage columns via their own
@@ -536,7 +532,9 @@ function beginEdit(which) {
       @mousedown.stop
     >
       <BaseTooltip v-if="fieldDescription" :content="fieldDescription" placement="top">
-        <span class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-on-main tw:cursor-help tw:inline-flex">
+        <span
+          class="tw:p-1 tw:rounded tw:text-secondary tw:hover:text-on-main tw:cursor-help tw:inline-flex"
+        >
           <IconInfoCircle :size="15" />
         </span>
       </BaseTooltip>

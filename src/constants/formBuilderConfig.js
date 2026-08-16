@@ -702,19 +702,54 @@ export function fieldKindId(field) {
   return FIELD_KIND_OPTIONS.some((k) => k.id === field.type) ? field.type : null
 }
 
+// Column types offered when building a table / checklist. Labels match the
+// field-type dropdown — the same control should not be called two things
+// depending on where you add it (user request 2026-08-16).
+//
+// 'radio' is deliberately ABSENT. As a column it means "one exclusive choice
+// spread across several columns", which requires authoring three columns that
+// secretly behave as one, and whose stale keys break read-back. 'Multiple
+// choice' (an optionGroup column) expresses the same Yes/No/N-A grid as ONE
+// column and reads back correctly.
+//
+// The renderer still handles 'radio' and always will: BaseChecklist treats it
+// as the default when inputType is absent, and existing checklists — including
+// ones the AI matrix generator produced — rely on it. Removing it here stops
+// new ones being authored; it does not break old ones.
 export const COLUMN_INPUT_TYPES = [
-  { label: 'Radio', value: 'radio' },
-  { label: 'Checkbox', value: 'checkbox' },
-  // ONE column holding a mutually-exclusive radio set (or checkbox set with
-  // groupType 'checkbox'), options inline, horizontal or vertical. The safe
-  // alternative to separate Radio columns (whose stale keys break read-back).
-  { label: 'Option Group', value: 'optionGroup' },
+  // ONE column holding a mutually-exclusive set (or a multi-select set with
+  // groupType 'checkbox'), options inline, horizontal or vertical.
+  { label: 'Multiple choice', value: 'optionGroup' },
+  { label: 'Single checkbox', value: 'checkbox' },
   { label: 'Text', value: 'text' },
   { label: 'Number', value: 'number' },
   { label: 'Dropdown', value: 'select' },
   { label: 'Date', value: 'date' },
   { label: 'Time', value: 'time' },
 ]
+
+/**
+ * Types that exist in saved schemas but are no longer offered. Kept so an
+ * existing column still NAMES itself correctly and can be changed away from —
+ * dropping them from the list entirely made a radio column render as "Text",
+ * which is simply wrong, and left its select with nothing highlighted.
+ */
+export const LEGACY_COLUMN_INPUT_TYPES = [{ label: 'Radio (legacy)', value: 'radio' }]
+
+/** Offered types, plus the current value when that value is legacy. */
+export function columnInputTypesFor(currentValue) {
+  const legacy = LEGACY_COLUMN_INPUT_TYPES.find((o) => o.value === currentValue)
+  return legacy ? [...COLUMN_INPUT_TYPES, legacy] : COLUMN_INPUT_TYPES
+}
+
+/** Label for any column type, offered or legacy. */
+export function columnInputTypeLabel(value) {
+  return (
+    [...COLUMN_INPUT_TYPES, ...LEGACY_COLUMN_INPUT_TYPES].find((o) => o.value === value)?.label ??
+    value ??
+    'Text'
+  )
+}
 
 export const COL_CLASS_OPTIONS = [
   { label: 'Auto (default)', value: 'tw:flex-1' },

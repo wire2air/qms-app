@@ -1,16 +1,18 @@
 <script setup>
 import { IconTrash, IconPlus } from '@tabler/icons-vue'
 import { computed } from 'vue'
-import { COLUMN_INPUT_TYPES } from '@/constants/formBuilderConfig'
+import { columnInputTypesFor } from '@/constants/formBuilderConfig'
 
 const field = defineModel('field', {
   type: Object,
   required: true,
 })
 
-const columnInputTypeItems = computed(() =>
-  COLUMN_INPUT_TYPES.map((opt) => ({ id: opt.value, name: opt.label })),
-)
+// Per column, so a legacy 'radio' column keeps a correct label and can be
+// switched to a current type — without offering radio on the others.
+function columnInputTypeItems(col) {
+  return columnInputTypesFor(col?.inputType).map((opt) => ({ id: opt.value, name: opt.label }))
+}
 
 function addRow() {
   if (!field.value.rows) {
@@ -28,7 +30,8 @@ function addColumn() {
     field.value.columns = []
   }
   const newIndex = field.value.columns.length
-  field.value.columns.push({ label: '', value: '', inputType: 'radio' })
+  // 'optionGroup' rather than 'radio' — see COLUMN_INPUT_TYPES.
+  field.value.columns.push({ label: '', value: '', inputType: 'optionGroup', groupType: 'radio' })
   updateColumnValue(newIndex)
 }
 
@@ -95,9 +98,11 @@ function onColumnTypeChange(index) {
   }
 }
 
+// Describes the ANSWER, not the widget — matching how the field-type dropdown
+// now names these ("Multiple choice" / "Checkboxes") rather than by control.
 const GROUP_TYPE_ITEMS = [
-  { id: 'radio', name: 'Radio buttons (single choice)' },
-  { id: 'checkbox', name: 'Checkboxes (multiple choice)' },
+  { id: 'radio', name: 'One answer' },
+  { id: 'checkbox', name: 'Several answers' },
 ]
 const ORIENTATION_ITEMS = [
   { id: 'horizontal', name: 'Horizontal' },
@@ -182,7 +187,7 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
           </div>
           <BaseSelect
             v-model="col.inputType"
-            :options="columnInputTypeItems"
+            :options="columnInputTypeItems(col)"
             optionLabel="name"
             optionValue="id"
             :required="true"
