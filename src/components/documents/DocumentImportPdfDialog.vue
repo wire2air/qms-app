@@ -137,10 +137,10 @@ function pickFile() {
 // a 60-page manual are rarely what anyone keeps. Well under the parser's own
 // hard caps (20 MB / 300 pages), which are about what it CAN do rather than
 // what is worth doing.
-// Raised 30 → 50 on 2026-08-16: 30 was below the size of an ordinary SOP. A
-// 34-page procedure was being diverted to summarise-and-attach without the
-// structured import ever being attempted, which read as "the AI didn't try".
-const AI_FULL_IMPORT_MAX_PAGES = 50
+// Held at 30 (confirmed 2026-08-16 after briefly trying 50). Anything longer
+// takes the summarise-and-attach path — so a 34-page procedure is NOT
+// structured, by choice. Raise this if that turns out to be too tight.
+const AI_FULL_IMPORT_MAX_PAGES = 30
 const AI_FULL_IMPORT_MAX_BYTES = 8 * 1024 * 1024
 
 /**
