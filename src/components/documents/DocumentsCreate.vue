@@ -323,52 +323,67 @@ function handleAiDraft(draft) {
 // emits one 'text' summary section plus one 'attachment' section
 // carrying the uploaded original PDF in `attachments`. Honour both.
 const showImportDialog = ref(false)
+
+// Set once an import has supplied this document's sections. From then on the
+// template must not re-seed them: for an imported document the template's job
+// is the approval flow, not the shape (user decision 2026-08-16). Without this
+// flag, picking a template AFTER importing silently threw the import away.
+const sectionsFromImport = ref(false)
+
+// Matches the dialog's own label for the same section, so the fallback path
+// and the structured path file the original PDF under one name.
+const SOURCE_SECTION_TITLE = 'Source Document'
+
+// The summary is model output being spliced into a rich-text section as HTML.
+// A stray "<" would swallow the rest of the paragraph, so escape before
+// wrapping — this is a content field, not a place to accept markup.
+function escapeHtml(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 function handlePdfImport(draft) {
   form.value.title = draft.title
+  // From here on the template no longer supplies this document's shape — the
+  // imported file does. See the preserveSections prop on DocumentsCreateContent.
+  sectionsFromImport.value = true
 
-  // Attachment mode: the template supplies the structure, so set it and let
-  // the existing template watcher seed the sections, then file the PDF into
-  // the first attachment-capable section. Appends one if the chosen template
-  // has none — better than dropping an upload the user just made.
+  // Fallback: the model could not structure the PDF. Summary plus the original
+  // file, and deliberately NOT the template's sections — an empty controlled
+  // shape nobody filled in is worse than an honest two-section record of what
+  // was actually imported (user decision 2026-08-16).
   if (draft.attachment) {
     form.value.documentTemplateId = draft.documentTemplateId
     nextTick(() => {
-      const sections = form.value.sections ?? []
-      // Summary into the first text-bearing section — that is what an
-      // "imported document" template's Summary section is for.
-      if (draft.summary) {
-        const textSection = sections.find(
-          (s) => s.sectionType === 'text' || s.sectionType === 'textAttachment',
-        )
-        if (textSection) textSection.content = `<p>${draft.summary}</p>`
-      }
-
-      const target = sections.find(
-        (s) => s.sectionType === 'attachment' || s.sectionType === 'textAttachment',
-      )
-      if (target) {
-        target.attachments = [...(target.attachments ?? []), draft.attachment]
-      } else {
-        sections.push({
+      form.value.sections = [
+        {
           id: crypto.randomUUID(),
-          title: 'Attachment',
+          title: 'Summary',
+          sectionType: 'text',
+          content: draft.summary ? `<p>${escapeHtml(draft.summary)}</p>` : null,
+          attachments: null,
+          order: 1,
+          isAddOn: true,
+        },
+        {
+          id: crypto.randomUUID(),
+          title: SOURCE_SECTION_TITLE,
           sectionType: 'attachment',
           content: null,
           attachments: [draft.attachment],
-          order: sections.length + 1,
+          order: 2,
           isAddOn: true,
-        })
-        form.value.sections = sections
-      }
+        },
+      ]
       activeTab.value = 'content'
       toast.success('PDF attached — review the document before saving.')
     })
     return
   }
 
-  // AI picks the document type from the seeded list. Site + Department
-  // defaults stay whatever the user already had — only the type changes
-  // when the dialog tells us its best match.
+  // Structured import. The document's OWN headings are the structure; the
+  // selected template is not consulted for shape, only for the approval flow
+  // (user decision 2026-08-16). The dialog has already appended the source PDF
+  // as a final attachment section.
   if (draft.documentTypeId) form.value.documentTypeId = draft.documentTypeId
   form.value.sections = draft.sections.map((s, idx) => ({
     id: crypto.randomUUID(),
@@ -380,7 +395,13 @@ function handlePdfImport(draft) {
     isAddOn: true,
   }))
   activeTab.value = 'content'
-  toast.success('PDF imported — review each section before saving.')
+  if (draft.sourceAttachmentFailed) {
+    toast.warning(
+      "PDF imported, but the original file couldn't be attached — add it by hand if you need it.",
+    )
+  } else {
+    toast.success('PDF imported — review each section before saving.')
+  }
 }
 
 // Change Control is omitted on create — a brand-new document is always v1.0
@@ -465,7 +486,11 @@ const docTabs = [
             </div>
           </BaseTabPanel>
           <BaseTabPanel value="content" keepAlive class="tw:pt-6">
-            <DocumentsCreateContent :form="form" :selectedTemplate="selectedTemplate" />
+            <DocumentsCreateContent
+              :form="form"
+              :selectedTemplate="selectedTemplate"
+              :preserveSections="sectionsFromImport"
+            />
           </BaseTabPanel>
           <BaseTabPanel value="training" keepAlive class="tw:pt-6">
             <DocumentsCreateTraining v-model="form.trainingConfig" />
@@ -483,6 +508,11 @@ const docTabs = [
     />
 
     <!-- PDF import dialog — extract text + images and structure with AI -->
-    <DocumentImportPdfDialog v-model="showImportDialog" @apply="handlePdfImport" />
+    <DocumentImportPdfDialog
+      v-model="showImportDialog"
+      :templateId="form.documentTemplateId"
+      :existingSectionCount="form.sections?.length ?? 0"
+      @apply="handlePdfImport"
+    />
   </BasePage>
 </template>

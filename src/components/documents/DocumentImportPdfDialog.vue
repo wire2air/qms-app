@@ -17,6 +17,17 @@ import {
 import { uploadFile } from '@/composables/useFileUpload.js'
 import { canUseAi } from '@/utils/currentSession.js'
 
+const props = defineProps({
+  // The template already chosen on the create form, if any. Pre-selects the
+  // attachment-mode picker so someone who has already said "this is an SOP"
+  // is not asked again on the way out of a failed structured import.
+  templateId: { type: String, default: null },
+  // How many sections the create form is currently holding — normally the ones
+  // the selected template seeded. Importing replaces them, so a non-zero count
+  // is worth confirming before we throw the author's starting structure away.
+  existingSectionCount: { type: Number, default: 0 },
+})
+
 /**
  * Import PDF dialog. Pipeline:
  *   1. User picks a PDF
@@ -33,26 +44,37 @@ import { canUseAi } from '@/utils/currentSession.js'
  * Image upload failures inside the parser are silently skipped per-image —
  * one broken xobject must not abort a full SOP import.
  *
- * ATTACHMENT MODE (2026-08-16) is the second path, and the only one available
- * without AI. It skips parsing and structuring entirely: pick the PDF, pick a
- * document template, and the file is attached to a document built from that
- * template's sections. The template is asked for because it supplies the
- * structure the AI would otherwise have produced — typically a small
- * "imported document" template of a summary plus an attachment.
+ * THE TEMPLATE DOES NOT SUPPLY THE SHAPE (user decision 2026-08-16). An
+ * imported document is structured from its OWN headings — that is the whole
+ * point of reading it — and the selected template's job is the approval flow.
+ * Forcing a real document into a template's section list produced worse
+ * results than just reading the document, so the template is no longer
+ * consulted for structure on either path. The original PDF is attached as a
+ * "Source Document" section either way, which is what makes the conversion
+ * auditable.
  *
- * Nothing marks such a template as import-only, deliberately: a flag on
- * document_templates would be a second source of truth for something the
- * author already expresses by choosing it here (user decision 2026-08-16 —
- * accepted as a training matter rather than a schema one).
+ * Because the import REPLACES whatever sections the form is holding, Apply
+ * confirms first when there are any (existingSectionCount).
  *
- * It doubles as the fallback when the AI path fails — a PDF too large to
- * parse, or one the model can't structure, is still worth filing as an
- * attachment rather than losing the upload.
+ * ATTACHMENT MODE is the second path, and the only one available without AI.
+ * It skips parsing and structuring entirely, and is also the fallback when the
+ * AI path fails — a PDF too large to parse, or one the model can't structure,
+ * is still worth filing. It produces a Summary section plus the Source
+ * Document, not the template's sections: an empty controlled shape nobody
+ * filled in is worse than an honest record of what was imported.
  */
 
 const emit = defineEmits(['apply'])
 
 const show = defineModel({ type: Boolean, default: false })
+
+const { confirm: confirmDialog } = useConfirm()
+
+// Where the original PDF lands once the document has been restructured. Named,
+// not "Attachment", so it reads as provenance rather than as content.
+const SOURCE_SECTION_TITLE = 'Source Document'
+
+const applyingDraft = ref(false)
 
 const ENDPOINT = '/api/v1/services/ai/tasks/document.import_from_pdf/run'
 
@@ -85,7 +107,8 @@ watch(show, (open) => {
     error.value = null
     progress.value = { current: 0, total: 0, message: '' }
     selectedFile.value = null
-    attachmentTemplateId.value = null
+    // Inherit the form's choice so the picker starts where the user left it.
+    attachmentTemplateId.value = props.templateId ?? null
     attaching.value = false
     header.value = null
     headerBusy.value = false
@@ -226,8 +249,9 @@ async function structuringFailed(reason) {
   // nothing to the person importing and reads as a crash.
   if (reason) console.warn('[import] AI structuring failed:', reason)
   fallbackNotice.value =
-    "AI couldn't structure this document, so it's being imported as an attachment instead. " +
-    'Add a summary below if you want one.'
+    "We couldn't read this PDF into the shape your template defines, so it will be imported " +
+    'as an attachment with a summary instead. Nothing is lost — the original file is kept, ' +
+    'and you can fill the sections in yourself.'
   await summariseHeader()
   return goToAttachment()
 }
@@ -284,19 +308,82 @@ function renderSectionMd(md) {
   return markdownToHtml(md, { allowImages: true })
 }
 
-function applyDraft() {
-  if (!result.value) return
-  emit('apply', {
-    title: result.value.title,
-    description: result.value.description,
-    sections: result.value.sections.map((s, idx) => ({
+/**
+ * Hand the parent the AI's structure, plus the original PDF.
+ *
+ * The imported document's own headings are the structure (user decision
+ * 2026-08-16) — the selected template is NOT consulted for shape. Its job is
+ * the approval flow. Trying to force a real document into a template's section
+ * list produced worse results than just reading the document.
+ *
+ * The source PDF rides along as a final attachment section. A converted
+ * document is a derived artifact; keeping the file it came from is what makes
+ * the conversion auditable, and it costs one section.
+ */
+async function applyDraft() {
+  if (!result.value || applyingDraft.value) return
+
+  // The template's sections are already on the form; the import replaces them.
+  // Ask first — this is the author's starting structure being discarded, and
+  // it is not obvious from the preview that anything is being overwritten.
+  if (props.existingSectionCount > 0) {
+    const n = props.existingSectionCount
+    const m = result.value.sections.length
+    const ok = await confirmDialog({
+      title: 'Replace the current sections?',
+      message:
+        `This document currently has ${n} section${n !== 1 ? 's' : ''} from the selected ` +
+        `template. Importing replaces ${n !== 1 ? 'them' : 'it'} with the ${m} section${m !== 1 ? 's' : ''} ` +
+        `read from the PDF, and attaches the original file for reference. ` +
+        `The template still supplies the approval flow.`,
+      okLabel: 'Yes, import',
+    })
+    if (!ok) return
+  }
+
+  applyingDraft.value = true
+  error.value = null
+  try {
+    const sections = result.value.sections.map((s, idx) => ({
       title: s.title,
       content: renderSectionMd(s.content),
       sectionType: 'text',
       order: idx + 1,
-    })),
-  })
-  show.value = false
+    }))
+
+    // Best-effort: a failed upload must not throw away a structure the user
+    // has already reviewed and accepted. They keep the sections and can
+    // attach the file by hand.
+    let sourceAttachment = null
+    if (selectedFile.value) {
+      try {
+        const { success, asset } = await uploadFile(selectedFile.value, 'ASSET')
+        if (success && asset) sourceAttachment = asset
+      } catch (e) {
+        console.warn('[import] source PDF upload failed:', e?.message)
+      }
+    }
+
+    if (sourceAttachment) {
+      sections.push({
+        title: SOURCE_SECTION_TITLE,
+        content: null,
+        sectionType: 'attachment',
+        attachments: [sourceAttachment],
+        order: sections.length + 1,
+      })
+    }
+
+    emit('apply', {
+      title: result.value.title,
+      description: result.value.description,
+      sections,
+      sourceAttachmentFailed: !!selectedFile.value && !sourceAttachment,
+    })
+    show.value = false
+  } finally {
+    applyingDraft.value = false
+  }
 }
 
 function discard() {
@@ -490,14 +577,14 @@ const parseProgressPct = computed(() => {
         <div class="tw:text-sm tw:text-secondary tw:leading-relaxed">
           <template v-if="canUseAi">
             Upload an SOP, work instruction, or policy PDF. We'll structure it into editable
-            sections where we can, and attach it with a summary where we can't — long, scanned or
-            image-heavy files take the second path automatically. You review before saving either
-            way; nothing is created on its own.
+            sections from the document's own headings, and attach the original for reference. Long,
+            scanned or image-heavy files get a summary plus the attachment instead. You review
+            before saving either way; nothing is created on its own.
           </template>
           <template v-else>
             Upload an SOP, work instruction, or policy PDF and pick a document template. The PDF is
-            filed as an attachment against that template's sections — nothing is created
-            automatically.
+            attached with a summary, and the template supplies the approval flow — nothing is
+            created automatically.
           </template>
         </div>
 
@@ -559,7 +646,7 @@ const parseProgressPct = computed(() => {
         <BaseField
           label="Document Template"
           required
-          hint="Supplies the document's sections. The PDF is attached to it — most teams keep a small template for imported documents (a summary plus an attachment)."
+          hint="Supplies the approval flow. The imported document's own content becomes its sections — the template's are not used."
         >
           <DocumentTemplateSelectMenu v-model="attachmentTemplateId" :required="true" />
         </BaseField>
@@ -758,7 +845,8 @@ const parseProgressPct = computed(() => {
           Re-structure
         </BaseButton>
         <BaseButton variant="outline" @click="discard">Discard</BaseButton>
-        <BaseButton @click="applyDraft">
+        <!-- Applying now uploads the source PDF, so it is no longer instant. -->
+        <BaseButton :isLoading="applyingDraft" :disabled="applyingDraft" @click="applyDraft">
           <IconCheck :size="14" class="tw:mr-1" />
           Apply to Form
         </BaseButton>
