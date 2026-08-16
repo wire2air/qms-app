@@ -16,9 +16,10 @@ import {
   IconCircleCheck,
   IconTrash,
   IconArrowsMaximize,
+  IconSparkles,
 } from '@tabler/icons-vue'
 import { useDebounceFn } from '@vueuse/core'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, canUseAi } from '@/utils/currentSession.js'
 import WorkflowStepFormBuilderPanel from '@/components/workflow/WorkflowStepFormBuilderPanel.vue'
 import MiniFormBuilder from '@/components/form-builder/MiniFormBuilder.vue'
 
@@ -94,6 +95,19 @@ const showCreateDialog = ref(false)
 const newTitle = ref('')
 const creating = ref(false)
 
+// "Build with AI" is the same create, landing somewhere else: instead of the
+// mini canvas it opens the full builder with the assistant docked, where the
+// user can attach the paper form (PDF / spreadsheet) they're replacing and
+// converse until the fields are right. Only the destination differs, so it
+// reuses this dialog rather than forking the create path.
+const createWithAi = ref(false)
+
+function startCreate({ withAi = false } = {}) {
+  createWithAi.value = withAi
+  newTitle.value = ''
+  showCreateDialog.value = true
+}
+
 // Blocks never show their code, but form_templates.code is NOT NULL + unique
 // per company — derive a hidden, collision-safe one from the title.
 function blockCode(title) {
@@ -140,6 +154,15 @@ async function handleCreate() {
     showCreateDialog.value = false
     newTitle.value = ''
     openDesign(block)
+    // The design dialog stays mounted underneath, exactly as the "Full builder"
+    // escape hatch leaves it — closing the builder returns to the mini canvas.
+    // Deferred a tick so the design dialog's portal node lands FIRST: stacking
+    // among equal z-modal layers is DOM order, and opening both in one flush
+    // leaves which portal is appended last up to render order.
+    if (createWithAi.value) {
+      await nextTick()
+      openFullBuilder({ withAi: true })
+    }
   } catch (e) {
     toast.error(e?.message || 'Failed to create block')
   } finally {
@@ -232,9 +255,11 @@ watch(designDialogOpen, (open) => {
 
 // ── Full builder escape hatch (AI assistant / preview / JSON / undo) ─────────
 const builderOpen = ref(false)
+const builderStartWithAi = ref(false)
 
-function openFullBuilder() {
+function openFullBuilder({ withAi = false } = {}) {
   flushSchemaSave() // seed the panel with the latest edits
+  builderStartWithAi.value = withAi
   builderOpen.value = true
 }
 
@@ -366,10 +391,22 @@ function rowMenuItems(row) {
           {{ blurb }}
         </span>
       </div>
-      <BaseButton v-if="canCreate" variant="primary" size="sm" @click="showCreateDialog = true">
-        <template #icon><IconPlus :size="16" /></template>
-        Create {{ noun }}
-      </BaseButton>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton
+          v-if="canCreate && canUseAi"
+          variant="outline"
+          size="sm"
+          title="Describe the form, or attach the PDF / spreadsheet you're replacing, and let AI draft the fields"
+          @click="startCreate({ withAi: true })"
+        >
+          <template #icon><IconSparkles :size="16" /></template>
+          AI builder
+        </BaseButton>
+        <BaseButton v-if="canCreate" variant="primary" size="sm" @click="startCreate()">
+          <template #icon><IconPlus :size="16" /></template>
+          Create {{ noun }}
+        </BaseButton>
+      </div>
     </div>
 
     <BaseFilterBar v-model:search="search" :searchPlaceholder="`Search ${nounPlural.toLowerCase()}…`">
@@ -428,8 +465,23 @@ function rowMenuItems(row) {
     </DataTable>
 
     <!-- Create -->
-    <BaseDialog v-model="showCreateDialog" :title="`Create ${noun}`" maxWidth="md">
+    <BaseDialog
+      v-model="showCreateDialog"
+      :title="createWithAi ? `Create ${noun} with AI` : `Create ${noun}`"
+      maxWidth="md"
+    >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <p
+          v-if="createWithAi"
+          class="tw:flex tw:items-start tw:gap-1.5 tw:text-xs tw:text-secondary"
+        >
+          <IconSparkles :size="14" class="tw:text-primary tw:shrink-0 tw:mt-0.5" />
+          <span>
+            Name it, then the AI assistant opens alongside the canvas. Attach the PDF or spreadsheet
+            you're replacing — it's read in your browser — or just describe the form, and keep
+            asking for changes until the fields are right.
+          </span>
+        </p>
         <p class="tw:text-xs tw:text-secondary">
           <template v-if="isLogForm">
             A log form is the set of fields a log book captures — e.g. a daily temperature check or
@@ -455,7 +507,7 @@ function rowMenuItems(row) {
       </div>
       <template #footer="{ close }">
         <BaseDialogFooter
-          submitLabel="Create & Design"
+          :submitLabel="createWithAi ? 'Create & Build with AI' : 'Create & Design'"
           :loading="creating"
           :disabled="creating || !newTitle.trim()"
           @cancel="close"
@@ -495,10 +547,22 @@ function rowMenuItems(row) {
           Add and arrange fields; drag to reorder, click a field to configure it. Changes save
           automatically.
         </BaseCaption>
-        <BaseButton variant="outline" size="sm" @click="openFullBuilder">
-          <template #icon><IconArrowsMaximize :size="14" /></template>
-          Full builder
-        </BaseButton>
+        <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+          <BaseButton
+            v-if="canUseAi"
+            variant="outline"
+            size="sm"
+            title="Attach the PDF / spreadsheet you're replacing, or describe the changes, and let AI draft the fields"
+            @click="openFullBuilder({ withAi: true })"
+          >
+            <template #icon><IconSparkles :size="14" /></template>
+            AI builder
+          </BaseButton>
+          <BaseButton variant="outline" size="sm" @click="openFullBuilder()">
+            <template #icon><IconArrowsMaximize :size="14" /></template>
+            Full builder
+          </BaseButton>
+        </div>
       </div>
       <MiniFormBuilder
         v-if="designBlock"
@@ -516,6 +580,7 @@ function rowMenuItems(row) {
       v-model="builderOpen"
       :initialSchema="designBlock?.schema ?? []"
       :builderTitle="noun"
+      :startWithAi="builderStartWithAi"
       @save="handleSchemaSave"
     />
   </div>

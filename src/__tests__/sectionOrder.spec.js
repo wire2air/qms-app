@@ -1,14 +1,20 @@
 /**
  * Document-template section ordering.
  *
- * `order` is stored on each section, so it is the thing that can drift. The
- * arrows always renumbered; drag-and-drop (added 2026-08-15) is a second path
- * to the same state and must renumber identically — a drag that moves the DOM
- * but leaves `order` alone gives you badges reading 1,2,3 over sections that
- * save as 3,1,2.
+ * `order` is stored on each section, so it is the thing that can drift. Every
+ * path that changes the list must renumber identically — one that reorders the
+ * array but leaves `order` alone gives you badges reading 1,2,3 over sections
+ * that save as 3,1,2.
+ *
+ * The paths are the arrows (moveSection), delete, and insert-at-a-gap
+ * (insertSectionAt, 2026-08-16, which replaced drag-and-drop).
  */
 import { describe, it, expect } from 'vitest'
-import { renumber, moveSection } from '../components/documentTemplates/sectionOrder.js'
+import {
+  renumber,
+  moveSection,
+  insertSectionAt,
+} from '../components/documentTemplates/sectionOrder.js'
 
 const secs = (...titles) => titles.map((t, i) => ({ id: t, title: t, order: i + 1 }))
 const orderOf = (arr) => arr.map((s) => s.order)
@@ -79,5 +85,60 @@ describe('moveSection', () => {
       { id: 'b', order: 7 },
     ]
     expect(orderOf(moveSection(stale, 0, 0))).toEqual([1, 2])
+  })
+})
+
+describe('insertSectionAt', () => {
+  const NEW = { id: 'new', title: 'New', order: 0 }
+
+  it('inserts in the middle and renumbers everything after it', () => {
+    const out = insertSectionAt(secs('A', 'B', 'C'), 1, NEW)
+    expect(titlesOf(out)).toEqual(['A', 'New', 'B', 'C'])
+    expect(orderOf(out)).toEqual([1, 2, 3, 4])
+  })
+
+  it('index 0 prepends', () => {
+    const out = insertSectionAt(secs('A', 'B'), 0, NEW)
+    expect(titlesOf(out)).toEqual(['New', 'A', 'B'])
+    expect(orderOf(out)).toEqual([1, 2, 3])
+  })
+
+  it('index === length appends — the bottom Add Section button', () => {
+    const out = insertSectionAt(secs('A', 'B'), 2, NEW)
+    expect(titlesOf(out)).toEqual(['A', 'B', 'New'])
+    expect(orderOf(out)).toEqual([1, 2, 3])
+  })
+
+  it('overwrites the incoming order rather than trusting it', () => {
+    // blankSection() ships order: 0; the badge must never show it.
+    const out = insertSectionAt(secs('A', 'B'), 1, { id: 'n', order: 99 })
+    expect(orderOf(out)).toEqual([1, 2, 3])
+  })
+
+  it('clamps out-of-range indices instead of dropping the section', () => {
+    expect(titlesOf(insertSectionAt(secs('A', 'B'), 9, NEW))).toEqual(['A', 'B', 'New'])
+    expect(titlesOf(insertSectionAt(secs('A', 'B'), -3, NEW))).toEqual(['New', 'A', 'B'])
+    expect(titlesOf(insertSectionAt(secs('A', 'B'), undefined, NEW))).toEqual(['A', 'B', 'New'])
+  })
+
+  it('handles the empty list — the first section of a blank template', () => {
+    const out = insertSectionAt([], 0, NEW)
+    expect(titlesOf(out)).toEqual(['New'])
+    expect(orderOf(out)).toEqual([1])
+  })
+
+  it('does not mutate the input array', () => {
+    const input = secs('A', 'B')
+    insertSectionAt(input, 1, NEW)
+    expect(input).toHaveLength(2)
+  })
+
+  it('leaves order contiguous and unique after repeated inserts', () => {
+    let list = secs('A', 'B', 'C')
+    list = insertSectionAt(list, 0, { id: 'x' })
+    list = insertSectionAt(list, 2, { id: 'y' })
+    list = insertSectionAt(list, 5, { id: 'z' })
+    expect(orderOf(list)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(new Set(orderOf(list)).size).toBe(6)
   })
 })

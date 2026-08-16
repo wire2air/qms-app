@@ -190,6 +190,14 @@ const debouncedSaveComment = useDebounceFn(async () => {
       <span>{{ section.title }}</span>
     </h2>
 
+    <!-- Guidance from the template, above the body it describes. Screen only:
+         it tells the author what to write, so it is not part of the controlled
+         document and must not print. -->
+    <SectionInstructions
+      :instructions="section.instructions"
+      class="tw:-mt-2 tw:mb-3 tw:print:hidden"
+    />
+
     <!-- Section Content -->
     <div class="section-content">
       <!-- 'textAttachment' carries both; independent v-ifs so it falls into

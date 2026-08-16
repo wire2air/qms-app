@@ -1000,6 +1000,7 @@ declare module 'vue' {
     SamplingPlansList: typeof import('./src/components/qcInspection/SamplingPlansList.vue')['default']
     SamplingPlanViewDialog: typeof import('./src/components/qcInspection/SamplingPlanViewDialog.vue')['default']
     ScoringSummaryCard: typeof import('./src/components/modules/ScoringSummaryCard.vue')['default']
+    SectionInsertPoint: typeof import('./src/components/documentTemplates/SectionInsertPoint.vue')['default']
     SectionInstructions: typeof import('./src/components/documentTemplates/SectionInstructions.vue')['default']
     SectionOrder: typeof import('./src/components/documentTemplates/sectionOrder.js')['default']
     SecurityDashboard: typeof import('./src/components/security/SecurityDashboard.vue')['default']

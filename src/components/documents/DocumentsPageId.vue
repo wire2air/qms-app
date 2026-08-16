@@ -583,8 +583,16 @@ async function handleNewVersionConfirm(changeControl) {
           sectionType: section.sectionType,
           title: section.title,
           content: section.content,
+          // Carried forward so a new version keeps the author guidance the
+          // previous one was written against.
+          instructions: section.instructions,
           attachments: section.attachments,
           order: section.order,
+          // Same class of bug as `instructions`: omitted here, so it fell back
+          // to the model default of false and every section the AUTHOR added
+          // came back locked on the next version — title frozen, delete button
+          // gone — because both gate on isAddOn === true.
+          isAddOn: section.isAddOn ?? false,
         }).save(),
       ),
     )
