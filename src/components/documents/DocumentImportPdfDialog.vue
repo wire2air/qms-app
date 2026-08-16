@@ -9,7 +9,11 @@ import {
   IconFile,
 } from '@tabler/icons-vue'
 import { markdownToHtml } from '@/utils/markdown.js'
-import { parsePdfAndExtractImages, PdfImportLimitError } from '@/composables/usePdfImport.js'
+import {
+  parsePdfAndExtractImages,
+  extractPdfHeader,
+  PdfImportLimitError,
+} from '@/composables/usePdfImport.js'
 import { uploadFile } from '@/composables/useFileUpload.js'
 import { canUseAi } from '@/utils/currentSession.js'
 
@@ -62,6 +66,12 @@ const selectedFile = ref(null)
 // Attachment mode
 const attachmentTemplateId = ref(null)
 const attaching = ref(false)
+// Front matter read LOCALLY — title always, plus the first pages' text so the
+// summary-only path has something small to send. No AI involved in reading it.
+const header = ref(null)
+const headerBusy = ref(false)
+const summary = ref('')
+const summarising = ref(false)
 const extracted = ref(null) // { text, pageCount, imageCount, filename }
 const result = ref(null) // { title, description, sections: [...] }
 const usage = ref(null)
@@ -74,6 +84,10 @@ watch(show, (open) => {
     selectedFile.value = null
     attachmentTemplateId.value = null
     attaching.value = false
+    header.value = null
+    headerBusy.value = false
+    summary.value = ''
+    summarising.value = false
     extracted.value = null
     result.value = null
     usage.value = null
@@ -243,18 +257,88 @@ function discard() {
 // The whole path without AI, and the fallback when AI can't do it. Uploads the
 // PDF and hands the parent a template id plus the stored asset; the parent
 // seeds sections from that template and files the attachment into it.
-function goToAttachment() {
+async function goToAttachment() {
   error.value = null
   phase.value = 'attachment'
+  await readHeader()
+}
+
+/**
+ * Read the first pages locally for a title. Offline, cheap, and it works on
+ * the very files the full importer rejects — it only opens the front of the
+ * document, so it never meets the size or page caps.
+ */
+async function readHeader() {
+  if (header.value || !selectedFile.value || headerBusy.value) return
+  headerBusy.value = true
+  try {
+    header.value = await extractPdfHeader(selectedFile.value, { maxPages: 3 })
+  } catch {
+    // A title is a convenience; a PDF we can't crack still imports as an
+    // attachment under its filename.
+    header.value = { title: '', text: '', pageCount: 0 }
+  } finally {
+    headerBusy.value = false
+  }
+}
+
+/**
+ * Summary-only import: send just the first pages to the model instead of the
+ * whole document. For a file that is too large, too long, or mostly scans, a
+ * full structured import either fails outright or spends a lot to produce
+ * sections nobody wants — while a title, a paragraph and the PDF attached is
+ * genuinely useful (user request 2026-08-16).
+ *
+ * Reuses document.import_from_pdf with a smaller payload and keeps only the
+ * title and description: the sections it would return for three pages are a
+ * misleading fragment of the real document.
+ */
+async function summariseHeader() {
+  await readHeader()
+  if (!header.value?.text || summarising.value) return
+  summarising.value = true
+  error.value = null
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        extractedText: header.value.text,
+        filenameHint: selectedFile.value?.name,
+      }),
+    })
+    const json = await res.json().catch(() => null)
+    if (!res.ok) {
+      error.value = {
+        stage: 'summarising',
+        message: json?.error?.message ?? `Request failed (${res.status}).`,
+      }
+      return
+    }
+    const out = json?.result ?? {}
+    // Title only if the model found a better one than the PDF gave us.
+    if (out.title) header.value = { ...header.value, title: out.title }
+    summary.value = out.description ?? ''
+  } catch (e) {
+    error.value = { stage: 'summarising', message: e?.message || 'Could not summarise the PDF' }
+  } finally {
+    summarising.value = false
+  }
 }
 
 // Title from the filename: it is almost always the document's real name, and
 // re-typing it is the kind of small tax that makes people avoid the importer.
-const suggestedTitle = computed(() =>
-  (selectedFile.value?.name ?? '')
-    .replace(/\.pdf$/i, '')
-    .replace(/[_-]+/g, ' ')
-    .trim(),
+// The PDF's own title beats the filename, and neither needs AI. Filename is
+// the fallback — usually right, and re-typing it is the kind of small tax that
+// makes people avoid the importer.
+const suggestedTitle = computed(
+  () =>
+    header.value?.title ||
+    (selectedFile.value?.name ?? '')
+      .replace(/\.pdf$/i, '')
+      .replace(/[_-]+/g, ' ')
+      .trim(),
 )
 
 async function applyAttachment() {
@@ -268,6 +352,7 @@ async function applyAttachment() {
       title: suggestedTitle.value || selectedFile.value.name,
       documentTemplateId: attachmentTemplateId.value,
       attachment: asset,
+      summary: summary.value || '',
     })
     show.value = false
   } catch (e) {
@@ -402,6 +487,16 @@ const parseProgressPct = computed(() => {
           <span class="tw:text-xs tw:text-secondary tw:shrink-0">{{ fileSizeLabel }}</span>
         </div>
 
+        <div class="tw:text-xs tw:text-secondary">
+          <template v-if="headerBusy">Reading the PDF…</template>
+          <template v-else-if="header?.title">
+            Title read from the PDF: <strong class="tw:text-on-main">{{ header.title }}</strong>
+          </template>
+          <template v-else>
+            Title will be taken from the filename — the PDF doesn't carry one.
+          </template>
+        </div>
+
         <BaseField
           label="Document Template"
           required
@@ -409,6 +504,34 @@ const parseProgressPct = computed(() => {
         >
           <DocumentTemplateSelectMenu v-model="attachmentTemplateId" :required="true" />
         </BaseField>
+
+        <!-- Optional, AI-only: a paragraph from the first pages. The full
+             structured import is a different, far larger request; this is for
+             files where that isn't worth it or won't work. -->
+        <div v-if="canUseAi" class="tw:flex tw:flex-col tw:gap-2">
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <BaseButton
+              variant="outline"
+              size="sm"
+              :disabled="summarising || headerBusy || !header?.text"
+              :isLoading="summarising"
+              @click="summariseHeader"
+            >
+              <IconSparkles :size="14" class="tw:mr-1" />
+              {{ summary ? 'Regenerate summary' : 'Summarise first pages' }}
+            </BaseButton>
+            <span class="tw:text-xs tw:text-secondary">
+              Uses the first 3 pages only — optional
+            </span>
+          </div>
+          <BaseTextarea
+            v-if="summary"
+            v-model="summary"
+            :rows="4"
+            label="Summary"
+            hint="Goes into the template's first text section."
+          />
+        </div>
 
         <div
           v-if="error"

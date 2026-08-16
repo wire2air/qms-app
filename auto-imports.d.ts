@@ -48,6 +48,7 @@ declare global {
   const encodeSort: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').encodeSort
   const eventToChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').eventToChord
   const extendRef: typeof import('@vueuse/core').extendRef
+  const extractPdfHeader: typeof import('./src/composables/usePdfImport.js').extractPdfHeader
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
   const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery

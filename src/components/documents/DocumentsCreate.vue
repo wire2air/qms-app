@@ -330,6 +330,15 @@ function handlePdfImport(draft) {
     form.value.documentTemplateId = draft.documentTemplateId
     nextTick(() => {
       const sections = form.value.sections ?? []
+      // Summary into the first text-bearing section — that is what an
+      // "imported document" template's Summary section is for.
+      if (draft.summary) {
+        const textSection = sections.find(
+          (s) => s.sectionType === 'text' || s.sectionType === 'textAttachment',
+        )
+        if (textSection) textSection.content = `<p>${draft.summary}</p>`
+      }
+
       const target = sections.find(
         (s) => s.sectionType === 'attachment' || s.sectionType === 'textAttachment',
       )
