@@ -65,6 +65,7 @@ export function plannedApprovalSteps(seed) {
       slaDays: gate(0).slaDays ?? seed?.reviewLimitDays ?? null,
       approvalRule: gate(0).approvalRule ?? 'ALL',
       requireEsignature: gate(0).requireEsignature ?? true,
+      requireComments: gate(0).requireComments ?? true,
     },
     {
       name: APPROVAL_STEP_NAME,
@@ -74,6 +75,7 @@ export function plannedApprovalSteps(seed) {
       slaDays: gate(1).slaDays ?? seed?.approvalLimitDays ?? null,
       approvalRule: gate(1).approvalRule ?? 'ALL',
       requireEsignature: gate(1).requireEsignature ?? true,
+      requireComments: gate(1).requireComments ?? true,
     },
   ]
 }
@@ -85,31 +87,44 @@ export function plannedApprovalSteps(seed) {
  *   SLA   — the template's own Review/Approval Limit, else the company's
  *           Approval Workflow default SLA, else blank.
  *   rule  — the company's default approval rule.
- *   esign — the company's default signature requirement, else on (a document
- *           approval is a regulated decision; 21 CFR 820.40 / Part 11).
+ *   esign — ALWAYS on. See below.
+ *   comments — always on; an approval decision with no rationale is not much
+ *           of a record, and the reviewer can still type one word.
  *
  * Reading the company defaults matters: an admin who set "Default SLA 7" under
  * Approval Workflow Defaults expects a new gate to start at 7, not blank
  * (reported 2026-08-16).
+ *
+ * E-signature deliberately does NOT read settings.defaultWorkflowRequireSignature
+ * (changed 2026-08-16). That setting is the default for ORDINARY workflows —
+ * inspections, audits, QC — where an unsigned step is a reasonable choice. A
+ * document approval is not that: it is a regulated decision under 21 CFR 820.40
+ * / Part 11 §11.50, and documentAdHocApproval already hardcodes it on for the
+ * template-less path for exactly this reason. Honouring the generic setting
+ * here meant a tenant with it off silently got unsigned document approvals,
+ * while the ad-hoc flow beside it signed them — the inconsistency was reported
+ * as a bug. Still per-gate editable on the template surface, so a tenant who
+ * genuinely wants it off can turn it off where they can see it.
  *
  * @param {object} template  the template form state (its own limits win)
  * @param {object} settings  currentCompany.settings
  */
 export function defaultApprovalGates(template = {}, settings = {}) {
   const rule = settings.defaultWorkflowApprovalRule ?? 'ALL'
-  const esign = settings.defaultWorkflowRequireSignature ?? true
   const fallbackSla = settings.defaultSla ?? null
   return [
     {
       roleIds: [],
       approvalRule: rule,
-      requireEsignature: esign,
+      requireEsignature: true,
+      requireComments: true,
       slaDays: template.reviewLimitDays ?? fallbackSla,
     },
     {
       roleIds: [],
       approvalRule: rule,
-      requireEsignature: esign,
+      requireEsignature: true,
+      requireComments: true,
       slaDays: template.approvalLimitDays ?? fallbackSla,
     },
   ]
@@ -200,7 +215,7 @@ export async function ensureTemplateApprovalWorkflow(db, template, opts = {}) {
       stepType: 'APPROVAL',
       approvalRule: plan.approvalRule ?? approvalRule,
       slaDays: plan.slaDays,
-      requireComments: true,
+      requireComments: plan.requireComments ?? true,
       requireEsignature: plan.requireEsignature ?? requireEsignature,
       formSchema: [],
     })

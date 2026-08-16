@@ -38,6 +38,7 @@ const model = computed({
       roleIds: stepRoles.value.map((r) => r.roleId),
       approvalRule: step.value?.approvalRule ?? 'ALL',
       requireEsignature: step.value?.requireEsignature ?? true,
+      requireComments: step.value?.requireComments ?? true,
       slaDays: step.value?.slaDays ?? null,
     }
   },
@@ -55,6 +56,7 @@ const persist = useLiveMutation(async (db, next) => {
   if (!row) return
   row.approvalRule = next.approvalRule ?? 'ALL'
   row.requireEsignature = next.requireEsignature ?? true
+  row.requireComments = next.requireComments ?? true
   row.slaDays = next.slaDays ?? null
   await row.save()
 

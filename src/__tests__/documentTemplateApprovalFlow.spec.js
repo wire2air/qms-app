@@ -194,13 +194,27 @@ describe('defaultApprovalGates', () => {
     expect(approval.slaDays).toBe(7)
   })
 
-  it('honours the company default approval rule and e-signature', () => {
-    const [gate] = defaultApprovalGates(
-      {},
-      { defaultWorkflowApprovalRule: 'ANY', defaultWorkflowRequireSignature: false },
-    )
+  it('honours the company default approval rule', () => {
+    const [gate] = defaultApprovalGates({}, { defaultWorkflowApprovalRule: 'ANY' })
     expect(gate.approvalRule).toBe('ANY')
-    expect(gate.requireEsignature).toBe(false)
+  })
+
+  it('keeps e-signature ON even when the company default says otherwise', () => {
+    // Changed 2026-08-16. defaultWorkflowRequireSignature is the default for
+    // ORDINARY workflows, where unsigned is a reasonable choice. A document
+    // approval is a regulated decision (21 CFR 820.40 / Part 11 §11.50), and
+    // documentAdHocApproval already hardcodes it on for the template-less
+    // path — a tenant with the generic setting off was silently getting
+    // unsigned document approvals from templates while the ad-hoc flow beside
+    // it signed them. Still editable per gate on the template surface.
+    const [review, approval] = defaultApprovalGates(
+      {},
+      { defaultWorkflowRequireSignature: false, defaultWorkflowApprovalRule: 'ANY' },
+    )
+    expect(review.requireEsignature).toBe(true)
+    expect(approval.requireEsignature).toBe(true)
+    // The rule is still the company's to set.
+    expect(review.approvalRule).toBe('ANY')
   })
 
   it('defaults e-signature ON when the company has said nothing', () => {
@@ -209,6 +223,10 @@ describe('defaultApprovalGates', () => {
     expect(gate.requireEsignature).toBe(true)
     expect(gate.approvalRule).toBe('ALL')
     expect(gate.slaDays).toBeNull()
+  })
+
+  it('defaults comments ON — an approval with no rationale is a poor record', () => {
+    expect(defaultApprovalGates().every((g) => g.requireComments === true)).toBe(true)
   })
 
   it('starts with no roles — empty means anyone', () => {
