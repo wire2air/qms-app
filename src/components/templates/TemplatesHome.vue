@@ -18,7 +18,19 @@
  * different editor, which is why one merged TABLE (rather than one merged
  * editor) is the thing that unifies them.
  */
-import { IconTemplate, IconArrowsShuffle, IconArticle, IconPlus } from '@tabler/icons-vue'
+import {
+  IconTemplate,
+  IconArrowsShuffle,
+  IconArticle,
+  IconPlus,
+  IconPencil,
+  IconCopy,
+} from '@tabler/icons-vue'
+import { copyVersionSteps, newestVersionOf } from '@/components/workflow/workflowVersionCopy.js'
+import {
+  ensureTemplateApprovalWorkflow,
+  pickAuthoringVersion,
+} from '@/components/documentTemplates/documentTemplateApprovalFlow.js'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession.js'
 import { isApprovalOnlyModule } from '@/components/workflow/workflowModule.js'
@@ -160,6 +172,7 @@ const columns = [
   { name: 'detail', label: 'CONTENTS', field: 'detail', align: 'left' },
   { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
   { name: 'updatedAt', label: 'UPDATED', field: 'updatedAt', align: 'left', sortable: true },
+  { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'updatedAt', desc: true }])
@@ -191,6 +204,109 @@ const createItems = computed(() => {
 
 function handleWorkflowCreated(workflow) {
   router.push(getCompanyPath(`/workflow-templates/${workflow.id}`))
+}
+
+// ── Clone ────────────────────────────────────────────────────────────────────
+// Clone existed on the old Workflows list and was lost when this merged list
+// replaced it; document templates never had one at all (user request
+// 2026-08-16). Both land on a DRAFT copy in its own editor — never the
+// default, never published — so the author reviews before it can be used.
+const toast = useToast()
+const cloning = ref(false)
+
+const cloneWorkflow = useLiveMutation(async (db, source) => {
+  const workflow = db.Workflow.create({
+    name: `${source.name} (Copy)`,
+    description: source.description ?? '',
+    moduleId: source.moduleId,
+    statusId: 'ACTIVE',
+    isDefault: false,
+  })
+  await workflow.save()
+
+  const version = db.WorkflowVersion.create({
+    workflowId: workflow.id,
+    versionMajor: 1,
+    versionMinor: 0,
+    statusId: 'DRAFT',
+  })
+  await version.save()
+
+  const sourceVersion = await newestVersionOf(db, source.id)
+  await copyVersionSteps(db, sourceVersion?.id, version.id)
+  return { to: getCompanyPath(`/workflow-templates/${workflow.id}`), name: workflow.name }
+})
+
+const cloneDocumentTemplate = useLiveMutation(async (db, sourceId) => {
+  const source = await db.DocumentTemplate.findByPk(sourceId)
+  if (!source) throw new Error('Template not found')
+
+  // DRAFT, and with a distinct prefix placeholder: prefix is unique-ish per
+  // company and drives document numbering, so silently reusing the source's
+  // would have two templates minting the same series.
+  const copy = db.DocumentTemplate.create({
+    name: `${source.name} (Copy)`,
+    prefix: `${source.prefix}-COPY`,
+    departmentId: source.departmentId,
+    relatedStandardId: source.relatedStandardId,
+    trainingAvailable: source.trainingAvailable,
+    retrainingOnVersion: source.retrainingOnVersion,
+    periodicReviewMonths: source.periodicReviewMonths,
+    reviewLimitDays: source.reviewLimitDays,
+    approvalLimitDays: source.approvalLimitDays,
+    autoEffectiveOnApproval: source.autoEffectiveOnApproval,
+    showSectionTitles: source.showSectionTitles,
+    // Fresh section ids — they key the editor's v-for and its remove/reorder.
+    sections: (source.sections ?? []).map((sec) => ({ ...sec, id: crypto.randomUUID() })),
+    statusId: 'DRAFT',
+  })
+  await copy.save()
+
+  // Its own approval flow, carrying the source's steps rather than a default
+  // pair — a clone that silently loses the reviewers isn't a clone.
+  const workflow = await ensureTemplateApprovalWorkflow(db, copy)
+  const sourceVersion = source.workflowId ? await newestVersionOf(db, source.workflowId) : null
+  if (sourceVersion) {
+    const versions = await db.WorkflowVersion.where('workflowId', workflow.id).exec()
+    const target = pickAuthoringVersion(versions)
+    if (target) {
+      for (const stale of await db.WorkflowStep.where('workflowVersionId', target.id).exec()) {
+        await stale.delete()
+      }
+      await copyVersionSteps(db, sourceVersion.id, target.id)
+    }
+  }
+  return { to: getCompanyPath(`/document-templates/${copy.id}`), name: copy.name }
+})
+
+async function handleClone(row) {
+  if (cloning.value) return
+  cloning.value = true
+  try {
+    const result =
+      row.kind === 'WORKFLOW'
+        ? await cloneWorkflow(rawWorkflow(row.id))
+        : await cloneDocumentTemplate(row.id)
+    toast.success(`Cloned as "${result.name}" — opening the draft`)
+    router.push(result.to)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to clone')
+  } finally {
+    cloning.value = false
+  }
+}
+
+function rawWorkflow(id) {
+  return workflows.value.find((w) => w.id === id)
+}
+
+function rowMenuItems(row) {
+  const items = [{ name: 'Edit', icon: IconPencil, click: () => openRow(row) }]
+  const canClone = row.kind === 'WORKFLOW' ? canCreateWorkflow.value : canCreateDocTemplate.value
+  if (canClone) {
+    items.push({ name: 'Clone', icon: IconCopy, click: () => handleClone(row) })
+  }
+  return items
 }
 </script>
 
@@ -286,6 +402,10 @@ function handleWorkflowCreated(workflow) {
 
       <template #body-cell-updatedAt="{ row }">
         <span class="tw:text-sm tw:text-secondary">{{ row.updatedAt?.formatDate('date') }}</span>
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <BaseMenu :items="rowMenuItems(row)" />
       </template>
     </DataTable>
   </BaseListLayout>

@@ -246,9 +246,13 @@ function isBlankRichText(html) {
 
 function sectionIsIncomplete(section) {
   if (!section.title || !section.title.trim()) return true
-  if (section.sectionType === 'attachment') {
-    const files = section.attachments
-    return !(Array.isArray(files) ? files.length > 0 : !!files)
+  const files = section.attachments
+  const hasFiles = Array.isArray(files) ? files.length > 0 : !!files
+  if (section.sectionType === 'attachment') return !hasFiles
+  // 'textAttachment' carries both, so both are required — a section that
+  // declares it needs supporting files is not complete without them.
+  if (section.sectionType === 'textAttachment') {
+    return isBlankRichText(section.content) || !hasFiles
   }
   // text (default) — needs non-blank content
   return isBlankRichText(section.content)

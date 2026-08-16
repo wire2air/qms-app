@@ -111,7 +111,13 @@ describe('BaseSelect', () => {
 
   it('clears the selection via the clear control', async () => {
     wrapper = mount(BaseSelect, {
-      props: { options: OPTIONS, optionLabel: 'name', optionValue: 'id', modelValue: 'a', clearable: true },
+      props: {
+        options: OPTIONS,
+        optionLabel: 'name',
+        optionValue: 'id',
+        modelValue: 'a',
+        clearable: true,
+      },
       attachTo: document.body,
     })
     await nextTick()
@@ -240,5 +246,72 @@ describe('BaseSelect', () => {
     document.body.querySelector('[data-remove="a"]').click()
     await nextTick()
     expect(wrapper.emitted()['update:modelValue'].at(-1)).toEqual([['b']])
+  })
+
+  // `required` refuses to remove the last value. That refusal is silent, so a
+  // consumer rendering its own chips in #selected had no way to know its "×"
+  // would do nothing — which is how it shipped and was reported (2026-08-16).
+  // `canRemove` is the slot's way to ask before drawing the affordance.
+  describe('canRemove (the #selected slot contract)', () => {
+    function mountWithSlot(props) {
+      return mount(BaseSelect, {
+        props: {
+          options: OPTIONS,
+          optionLabel: 'name',
+          optionValue: 'id',
+          multiple: true,
+          ...props,
+        },
+        slots: {
+          selected: `
+            <template #default="{ options, canRemove, remove }">
+              <button
+                v-for="o in options"
+                :key="o.value"
+                :data-can="canRemove(o)"
+                :data-opt="o.value"
+                @click="remove(o)"
+              >x</button>
+            </template>`,
+        },
+        attachTo: document.body,
+      })
+    }
+
+    it('refuses the last value when required, and says so', async () => {
+      wrapper = mountWithSlot({ required: true, modelValue: ['a'] })
+      await nextTick()
+      const chip = wrapper.get('[data-opt="a"]')
+      expect(chip.attributes('data-can')).toBe('false')
+
+      await chip.trigger('click')
+      // No update emitted — the value is still there.
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    })
+
+    it('allows removal when required but more than one remains', async () => {
+      wrapper = mountWithSlot({ required: true, modelValue: ['a', 'b'] })
+      await nextTick()
+      const chip = wrapper.get('[data-opt="a"]')
+      expect(chip.attributes('data-can')).toBe('true')
+
+      await chip.trigger('click')
+      expect(wrapper.emitted('update:modelValue')[0][0]).toEqual(['b'])
+    })
+
+    it('allows removing the last value when NOT required', async () => {
+      wrapper = mountWithSlot({ modelValue: ['a'] })
+      await nextTick()
+      expect(wrapper.get('[data-opt="a"]').attributes('data-can')).toBe('true')
+
+      await wrapper.get('[data-opt="a"]').trigger('click')
+      expect(wrapper.emitted('update:modelValue')[0][0]).toEqual([])
+    })
+
+    it('refuses everything while readonly', async () => {
+      wrapper = mountWithSlot({ readonly: true, modelValue: ['a', 'b'] })
+      await nextTick()
+      expect(wrapper.get('[data-opt="a"]').attributes('data-can')).toBe('false')
+    })
   })
 })

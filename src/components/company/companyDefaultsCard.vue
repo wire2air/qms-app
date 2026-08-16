@@ -143,7 +143,7 @@ const approvalRuleOptions = [
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
               <div class="tw:text-sm tw:font-medium tw:text-on-sidebar">
-                Training Available by Default
+                Training Required by Default
               </div>
               <div class="tw:text-xs tw:text-secondary">
                 New document templates include training

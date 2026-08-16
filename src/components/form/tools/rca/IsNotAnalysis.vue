@@ -26,13 +26,19 @@ function updateProbableCauses(val) {
       <table class="tw:w-full tw:text-sm">
         <thead>
           <tr>
-            <th class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:w-28">
+            <th
+              class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:w-28"
+            >
               Dimension
             </th>
-            <th class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:px-2 tw:text-green-700">
+            <th
+              class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:px-2 tw:text-green-700"
+            >
               IS
             </th>
-            <th class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:px-2 tw:text-red-600">
+            <th
+              class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:px-2 tw:text-red-600"
+            >
               IS NOT
             </th>
           </tr>

@@ -130,11 +130,19 @@ const steps = computed(() => {
 // Reset every time the dialog opens so a previous cancelled draft
 // doesn't pre-fill the next attempt.
 const selections = reactive({})
+// Per-step ALL/ANY override. Seeded lazily from the step's own rule by
+// ruleFor(), so an untouched step submits nothing and keeps the template's.
+const approvalRules = reactive({})
 watch(show, (isOpen) => {
   if (isOpen) {
     Object.keys(selections).forEach((key) => delete selections[key])
+    Object.keys(approvalRules).forEach((key) => delete approvalRules[key])
   }
 })
+
+function ruleFor(step) {
+  return approvalRules[step.id] ?? step.approvalRule ?? 'ALL'
+}
 
 // A step with no candidates is NOT satisfied — see workflowSubmitReadiness.
 // There is no backend fallback for it; activateInstanceStep throws, and it
@@ -155,7 +163,10 @@ async function confirm() {
   }
   submitting.value = true
   try {
-    await submitForReview(props.documentId, props.versionId, reviewers)
+    // Only steps the submitter actually touched — an untouched step keeps the
+    // template's rule rather than us echoing it back as an "override".
+    const rules = Object.keys(approvalRules).length ? { ...approvalRules } : null
+    await submitForReview(props.documentId, props.versionId, reviewers, rules)
     toast.success('Document submitted for review')
     emit('confirm')
     show.value = false
@@ -207,17 +218,40 @@ async function confirm() {
                 </h3>
                 <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
                   {{
-                    step.approvalRule === 'ANY'
+                    ruleFor(step) === 'ANY'
                       ? 'ANY — first approval advances the step'
                       : 'ALL — every picked reviewer must approve to advance'
                   }}
                 </p>
               </div>
-              <span
-                class="tw:shrink-0 tw:px-2 tw:py-0.5 tw:rounded-full tw:text-xs tw:font-bold tw:bg-primary/10 tw:text-primary"
-              >
-                {{ step.approvalRule }}
-              </span>
+              <!-- ALL/ANY is chosen HERE, not only on the template (user
+                   request 2026-08-16). The rule only means something once you
+                   know who was picked — with a single reviewer the two are
+                   identical — so the person choosing the people chooses this
+                   too. It lands on the instance step; the template keeps its
+                   own default for every future record. -->
+              <div class="tw:shrink-0 tw:flex tw:rounded-full tw:bg-main-hover tw:p-0.5">
+                <button
+                  v-for="rule in ['ALL', 'ANY']"
+                  :key="rule"
+                  type="button"
+                  :aria-pressed="ruleFor(step) === rule"
+                  :title="
+                    rule === 'ALL'
+                      ? 'Every picked reviewer must approve'
+                      : 'The first approval advances the step'
+                  "
+                  class="tw:px-2 tw:py-0.5 tw:rounded-full tw:text-xs tw:font-bold tw:transition-colors tw:cursor-pointer"
+                  :class="
+                    ruleFor(step) === rule
+                      ? 'tw:bg-primary tw:text-white'
+                      : 'tw:text-secondary tw:hover:text-primary'
+                  "
+                  @click="approvalRules[step.id] = rule"
+                >
+                  {{ rule }}
+                </button>
+              </div>
             </div>
 
             <div
@@ -248,10 +282,17 @@ async function confirm() {
               optionLabel="name"
               optionValue="id"
               :multiple="true"
-              :required="true"
               placeholder="Select reviewer(s)…"
             >
-              <template #selected="{ options, remove }">
+              <!-- NOT `:required` — BaseSelect refuses to remove the last
+                   value when it is set, so the chip's "×" silently did
+                   nothing and the only way to change a single reviewer was
+                   the dropdown (reported 2026-08-16). "At least one per step"
+                   is already enforced where it belongs: submitReadiness gates
+                   the Submit button and names the step that is missing one.
+                   `canRemove` still guards the affordance in case that
+                   changes. -->
+              <template #selected="{ options, remove, canRemove }">
                 <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
                   <span
                     v-for="opt in options"
@@ -260,6 +301,9 @@ async function confirm() {
                   >
                     {{ opt.label }}
                     <button
+                      v-if="canRemove(opt)"
+                      type="button"
+                      :aria-label="`Remove ${opt.label}`"
                       class="tw:text-primary/70 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:text-xs tw:leading-none"
                       @click.stop="remove(opt)"
                     >

@@ -4,6 +4,7 @@ import {
   IconClock,
   IconArrowUp,
   IconArrowDown,
+  IconGripVertical,
   IconTrash,
   IconDots,
   IconListCheck,
@@ -187,6 +188,18 @@ const menuItems = computed(() => {
        mis-click folded the step away. -->
     <div class="tw:group tw:relative" :class="isChild ? 'tw:p-3' : 'tw:p-4'">
       <div class="tw:flex tw:items-start tw:gap-3">
+        <!-- Drag handle (user request 2026-08-16). Handle-based rather than
+             whole-card, so a drag can't start from the header controls. The
+             Move Up / Move Down menu items stay — a drag is not keyboard
+             operable. -->
+        <span
+          v-if="canUpdate"
+          class="step-drag-handle tw:mt-1 tw:shrink-0 tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary tw:transition-colors"
+          :aria-label="`Drag to reorder step ${index + 1}`"
+        >
+          <IconGripVertical :size="16" />
+        </span>
+
         <!-- Step Number -->
         <div
           class="tw:mt-0.5 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:font-bold tw:shrink-0"

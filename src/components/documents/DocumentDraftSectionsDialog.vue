@@ -84,9 +84,7 @@ async function generate() {
   }
 }
 
-const changedCount = computed(
-  () => result.value?.sections?.filter((s) => s.changed).length ?? 0,
-)
+const changedCount = computed(() => result.value?.sections?.filter((s) => s.changed).length ?? 0)
 
 function applyDraft() {
   if (!result.value) return
@@ -137,9 +135,9 @@ function regenerate() {
     <template v-if="!result && !loading">
       <div class="tw:flex tw:flex-col tw:gap-4">
         <div class="tw:text-sm tw:text-secondary tw:leading-relaxed">
-          Describe what this document should cover. The AI drafts the body of each existing section —
-          filling empty sections and improving ones that already have content. It won't add or remove
-          sections. You review before anything is saved.
+          Describe what this document should cover. The AI drafts the body of each existing section
+          — filling empty sections and improving ones that already have content. It won't add or
+          remove sections. You review before anything is saved.
         </div>
 
         <BaseField

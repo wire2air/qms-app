@@ -74,8 +74,12 @@ function userOpts(list) {
 }
 // DC-L-03: id-column search must match the *name* the user sees, not the raw
 // UUID/field value. These maps back the department/owner `searchValue` accessors.
-const deptNameById = computed(() => Object.fromEntries(departments.value.map((d) => [d.id, d.name])))
-const userNameById = computed(() => Object.fromEntries(users.value.map((u) => [u.id, userLabel(u)])))
+const deptNameById = computed(() =>
+  Object.fromEntries(departments.value.map((d) => [d.id, d.name])),
+)
+const userNameById = computed(() =>
+  Object.fromEntries(users.value.map((u) => [u.id, userLabel(u)])),
+)
 
 const columns = computed(() => {
   const filterCfg = {
@@ -138,7 +142,14 @@ const columns = computed(() => {
       searchValue: (row) => userNameById.value[row.userId] ?? '',
     },
     { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-    { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', hideable: false, searchable: false },
+    {
+      name: 'actions',
+      label: 'ACTIONS',
+      field: 'actions',
+      align: 'right',
+      hideable: false,
+      searchable: false,
+    },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
 

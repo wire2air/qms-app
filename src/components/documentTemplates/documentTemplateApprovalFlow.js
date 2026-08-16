@@ -52,21 +52,65 @@ export function companionWorkflowName(templateName) {
  *   assembled by the caller, not read off a persisted template row.
  */
 export function plannedApprovalSteps(seed) {
+  const gate = (i) => seed?.gates?.[i] ?? {}
   return [
     {
       name: REVIEW_STEP_NAME,
       description:
         'Subject-matter expert reviews the document for technical accuracy and completeness.',
       stepOrder: 1,
-      roleIds: [...(seed?.reviewRoleIds ?? [])],
-      slaDays: seed?.reviewLimitDays ?? null,
+      // Roles are optional — an empty list means "anyone", which the submit
+      // dialog already honours by offering every active internal user.
+      roleIds: [...(gate(0).roleIds ?? seed?.reviewRoleIds ?? [])],
+      slaDays: gate(0).slaDays ?? seed?.reviewLimitDays ?? null,
+      approvalRule: gate(0).approvalRule ?? 'ALL',
+      requireEsignature: gate(0).requireEsignature ?? true,
     },
     {
       name: APPROVAL_STEP_NAME,
       description: 'Final sign-off for release.',
       stepOrder: 2,
-      roleIds: [...(seed?.approvalRoleIds ?? [])],
-      slaDays: seed?.approvalLimitDays ?? null,
+      roleIds: [...(gate(1).roleIds ?? seed?.approvalRoleIds ?? [])],
+      slaDays: gate(1).slaDays ?? seed?.approvalLimitDays ?? null,
+      approvalRule: gate(1).approvalRule ?? 'ALL',
+      requireEsignature: gate(1).requireEsignature ?? true,
+    },
+  ]
+}
+
+/**
+ * The default per-gate config a new template's form starts from.
+ *
+ * Resolution order for each field is specific → general:
+ *   SLA   — the template's own Review/Approval Limit, else the company's
+ *           Approval Workflow default SLA, else blank.
+ *   rule  — the company's default approval rule.
+ *   esign — the company's default signature requirement, else on (a document
+ *           approval is a regulated decision; 21 CFR 820.40 / Part 11).
+ *
+ * Reading the company defaults matters: an admin who set "Default SLA 7" under
+ * Approval Workflow Defaults expects a new gate to start at 7, not blank
+ * (reported 2026-08-16).
+ *
+ * @param {object} template  the template form state (its own limits win)
+ * @param {object} settings  currentCompany.settings
+ */
+export function defaultApprovalGates(template = {}, settings = {}) {
+  const rule = settings.defaultWorkflowApprovalRule ?? 'ALL'
+  const esign = settings.defaultWorkflowRequireSignature ?? true
+  const fallbackSla = settings.defaultSla ?? null
+  return [
+    {
+      roleIds: [],
+      approvalRule: rule,
+      requireEsignature: esign,
+      slaDays: template.reviewLimitDays ?? fallbackSla,
+    },
+    {
+      roleIds: [],
+      approvalRule: rule,
+      requireEsignature: esign,
+      slaDays: template.approvalLimitDays ?? fallbackSla,
     },
   ]
 }
@@ -140,6 +184,7 @@ export async function ensureTemplateApprovalWorkflow(db, template, opts = {}) {
   const outcomes = await db.WorkflowStepOutcome.where().exec()
 
   const seed = {
+    gates: opts.gates,
     reviewRoleIds: opts.reviewRoleIds ?? [],
     approvalRoleIds: opts.approvalRoleIds ?? [],
     reviewLimitDays: template.reviewLimitDays,
@@ -153,10 +198,10 @@ export async function ensureTemplateApprovalWorkflow(db, template, opts = {}) {
       description: plan.description,
       stepOrder: plan.stepOrder,
       stepType: 'APPROVAL',
-      approvalRule,
+      approvalRule: plan.approvalRule ?? approvalRule,
       slaDays: plan.slaDays,
       requireComments: true,
-      requireEsignature,
+      requireEsignature: plan.requireEsignature ?? requireEsignature,
       formSchema: [],
     })
     await step.save()

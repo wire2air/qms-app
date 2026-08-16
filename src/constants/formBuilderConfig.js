@@ -70,7 +70,8 @@ export const FIELD_TYPES = Object.freeze({
     icon: IconFileText,
     label: 'Rich Text + Attachments',
     category: 'input',
-    description: 'A rich-text editor with inline images and file attachments in one field (replaces a Rich Text + File Upload pair).',
+    description:
+      'A rich-text editor with inline images and file attachments in one field (replaces a Rich Text + File Upload pair).',
   },
   number: {
     icon: IconHash,
@@ -122,13 +123,15 @@ export const FIELD_TYPES = Object.freeze({
     icon: IconTable,
     label: 'Checklist',
     category: 'widget',
-    description: 'A rows×columns grid — items down the side, a fixed answer set (e.g. Yes/No/N/A) across the top.',
+    description:
+      'A rows×columns grid — items down the side, a fixed answer set (e.g. Yes/No/N/A) across the top.',
   },
   lookup: {
     icon: IconDatabaseSearch,
     label: 'Lookup (entity)',
     category: 'selection',
-    description: 'A dropdown whose options load live from a company list — Item, Supplier, Site, Department, User, Equipment, or one of your Option Sets.',
+    description:
+      'A dropdown whose options load live from a company list — Item, Supplier, Site, Department, User, Equipment, or one of your Option Sets.',
   },
 
   // Special Types
@@ -230,7 +233,8 @@ export const FIELD_TYPES = Object.freeze({
     icon: IconGrid3x3,
     label: 'Input Table',
     category: 'widget',
-    description: 'A table of fields (columns) respondents fill in row by row — e.g. a line-item or product list.',
+    description:
+      'A table of fields (columns) respondents fill in row by row — e.g. a line-item or product list.',
   },
 
   // tools
@@ -663,6 +667,14 @@ export const FIELD_KIND_OPTIONS = [
     label: 'Rich text + attachments',
     type: 'richTextAttachment',
   },
+  // The two QMS tools. They were fully defined field types — icon, label,
+  // defaults, readonly/disabled handling, and a submit gate that deep-checks
+  // their emptiness — but were never listed here, so the field-type dropdown
+  // introduced on 2026-08-15 simply had no way to add one (reported
+  // 2026-08-16). Placed high because an NC or CAPA step form is the main thing
+  // this builder is used for.
+  { id: 'rca', label: 'Root Cause Analysis', type: 'rca' },
+  { id: 'riskAssessment', label: 'Risk Assessment', type: 'riskAssessment' },
   { id: 'optionGroup:radio', label: 'Multiple choice', type: 'optionGroup', groupType: 'radio' },
   { id: 'optionGroup:checkbox', label: 'Checkboxes', type: 'optionGroup', groupType: 'checkbox' },
   { id: 'select', label: 'Dropdown', type: 'select' },

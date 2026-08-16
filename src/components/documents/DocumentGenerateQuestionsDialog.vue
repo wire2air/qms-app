@@ -315,7 +315,9 @@ const TYPE_LABEL = {
                     class="tw:text-emerald-600 tw:shrink-0"
                   />
                   <IconCircleX v-else :size="14" class="tw:text-secondary tw:shrink-0" />
-                  <span :class="o.isCorrect ? 'tw:text-on-main tw:font-medium' : 'tw:text-secondary'">
+                  <span
+                    :class="o.isCorrect ? 'tw:text-on-main tw:font-medium' : 'tw:text-secondary'"
+                  >
                     {{ o.text }}
                   </span>
                 </li>

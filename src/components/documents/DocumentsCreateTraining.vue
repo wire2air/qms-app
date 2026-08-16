@@ -141,14 +141,22 @@ const hasAssessment = computed({
             <BaseText as="h4" weight="bold" class="tw:mb-3">Who needs this training</BaseText>
             <div class="tw:space-y-4">
               <div>
-                <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Curriculum</p>
+                <p
+                  class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+                >
+                  Curriculum
+                </p>
                 <CurriculumSelectMenu v-model="config.curriculumIds" :multiple="true" />
                 <p class="tw:text-caption tw:text-secondary tw:mt-1">
                   Everyone whose role is mapped to the selected curriculum(s) gets this training.
                 </p>
               </div>
               <div>
-                <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Specific Users</p>
+                <p
+                  class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+                >
+                  Specific Users
+                </p>
                 <UserSelectMenu v-model="config.userIds" :multiple="true" />
               </div>
             </div>
@@ -160,7 +168,8 @@ const hasAssessment = computed({
               <div>
                 <BaseText as="h4" weight="bold">Assessment</BaseText>
                 <p class="tw:text-xs tw:text-secondary tw:mt-1">
-                  Quiz the trainee on the document content. Leave disabled for read-and-acknowledge only.
+                  Quiz the trainee on the document content. Leave disabled for read-and-acknowledge
+                  only.
                 </p>
               </div>
               <BaseSwitch v-model="hasAssessment" />
@@ -171,12 +180,20 @@ const hasAssessment = computed({
                 v-for="(q, qIdx) in config.assessment"
                 :key="q.id"
                 class="tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-3 tw:border"
-                :class="questionError(q) ? 'tw:border-red-300 tw:bg-red-50/30' : 'tw:border-divider'"
+                :class="
+                  questionError(q) ? 'tw:border-red-300 tw:bg-red-50/30' : 'tw:border-divider'
+                "
               >
                 <div class="tw:flex tw:items-start tw:gap-2">
-                  <span class="tw:w-6 tw:h-6 tw:rounded-full tw:bg-gray-100 tw:text-gray-600 tw:text-xs tw:font-bold tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:mt-1">{{ qIdx + 1 }}</span>
+                  <span
+                    class="tw:w-6 tw:h-6 tw:rounded-full tw:bg-gray-100 tw:text-gray-600 tw:text-xs tw:font-bold tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:mt-1"
+                    >{{ qIdx + 1 }}</span
+                  >
                   <BaseTextInput v-model="q.text" placeholder="Question text" class="tw:flex-1" />
-                  <button class="tw:p-1 tw:text-secondary tw:hover:text-red-600" @click="removeQuestion(qIdx)">
+                  <button
+                    class="tw:p-1 tw:text-secondary tw:hover:text-red-600"
+                    @click="removeQuestion(qIdx)"
+                  >
                     <IconTrash :size="16" />
                   </button>
                 </div>
@@ -190,31 +207,60 @@ const hasAssessment = computed({
                 <div class="tw:flex tw:items-center tw:gap-2 tw:ml-8">
                   <button
                     class="tw:px-2 tw:py-1 tw:text-xs tw:rounded tw:transition-colors"
-                    :class="q.type === 'single' ? 'tw:bg-primary tw:text-white' : 'tw:bg-gray-100 tw:text-secondary'"
+                    :class="
+                      q.type === 'single'
+                        ? 'tw:bg-primary tw:text-white'
+                        : 'tw:bg-gray-100 tw:text-secondary'
+                    "
                     @click="q.type = 'single'"
-                  >Single Choice</button>
+                  >
+                    Single Choice
+                  </button>
                   <button
                     class="tw:px-2 tw:py-1 tw:text-xs tw:rounded tw:transition-colors"
-                    :class="q.type === 'multiple' ? 'tw:bg-primary tw:text-white' : 'tw:bg-gray-100 tw:text-secondary'"
+                    :class="
+                      q.type === 'multiple'
+                        ? 'tw:bg-primary tw:text-white'
+                        : 'tw:bg-gray-100 tw:text-secondary'
+                    "
                     @click="q.type = 'multiple'"
-                  >Multiple Choice</button>
+                  >
+                    Multiple Choice
+                  </button>
                   <span class="tw:text-xs tw:text-secondary tw:ml-2">
-                    {{ q.type === 'single' ? 'Select the one correct answer.' : 'Select all correct answers.' }}
+                    {{
+                      q.type === 'single'
+                        ? 'Select the one correct answer.'
+                        : 'Select all correct answers.'
+                    }}
                   </span>
                 </div>
                 <div class="tw:ml-8 tw:flex tw:flex-col tw:gap-2">
-                  <div v-for="opt in q.options" :key="opt.id" class="tw:flex tw:items-center tw:gap-2">
+                  <div
+                    v-for="opt in q.options"
+                    :key="opt.id"
+                    class="tw:flex tw:items-center tw:gap-2"
+                  >
                     <input
                       :type="q.type === 'single' ? 'radio' : 'checkbox'"
                       :checked="opt.isCorrect"
                       @change="setCorrect(q, opt.id)"
                     />
                     <BaseTextInput v-model="opt.text" placeholder="Option text" class="tw:flex-1" />
-                    <button v-if="q.options.length > 2" class="tw:p-1 tw:text-secondary tw:hover:text-red-600" @click="removeOption(q, opt.id)">
+                    <button
+                      v-if="q.options.length > 2"
+                      class="tw:p-1 tw:text-secondary tw:hover:text-red-600"
+                      @click="removeOption(q, opt.id)"
+                    >
                       <IconTrash :size="14" />
                     </button>
                   </div>
-                  <button class="tw:text-xs tw:text-primary tw:hover:underline tw:self-start" @click="addOption(q)">+ Add option</button>
+                  <button
+                    class="tw:text-xs tw:text-primary tw:hover:underline tw:self-start"
+                    @click="addOption(q)"
+                  >
+                    + Add option
+                  </button>
                 </div>
               </div>
 
@@ -233,14 +279,20 @@ const hasAssessment = computed({
         <aside class="tw:flex tw:flex-col tw:gap-5">
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
             <div>
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
                 Training Manager
                 <span class="tw:text-red-600 tw:font-normal">*</span>
               </p>
               <UserSelectMenu v-model="config.managerId" nullLabel="Select a manager" />
               <p
                 class="tw:text-caption tw:mt-1"
-                :class="config.enabled && !config.managerId ? 'tw:text-red-600 tw:font-medium' : 'tw:text-secondary'"
+                :class="
+                  config.enabled && !config.managerId
+                    ? 'tw:text-red-600 tw:font-medium'
+                    : 'tw:text-secondary'
+                "
               >
                 <template v-if="config.enabled && !config.managerId">
                   Required — receives completion notifications and verifies competency.
@@ -251,15 +303,27 @@ const hasAssessment = computed({
               </p>
             </div>
             <div>
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Due (days after effective)</p>
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Due (days after effective)
+              </p>
               <BaseTextInput v-model.number="config.completionDueDays" type="number" min="1" />
             </div>
             <div v-if="hasAssessment">
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Passing Score (%)</p>
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Passing Score (%)
+              </p>
               <BaseTextInput v-model.number="config.passingScore" type="number" min="0" max="100" />
             </div>
             <div v-if="hasAssessment">
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Max Attempts</p>
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Max Attempts
+              </p>
               <BaseTextInput v-model.number="config.maxAttempts" type="number" min="1" max="10" />
             </div>
           </div>
@@ -271,24 +335,33 @@ const hasAssessment = computed({
                   Manager Verification Required
                   <span class="tw:text-xs tw:font-normal tw:text-secondary">(For compliance)</span>
                 </label>
-                <p class="tw:text-caption tw:text-secondary">If off, the training closes automatically on completion.</p>
+                <p class="tw:text-caption tw:text-secondary">
+                  If off, the training closes automatically on completion.
+                </p>
               </div>
               <BaseSwitch v-model="config.requireManagerVerification" />
             </div>
             <div class="tw:flex tw:items-start tw:justify-between">
               <div>
-                <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Auto-launch on Effective</label>
-                <p class="tw:text-caption tw:text-secondary">Launch the training when this document becomes effective.</p>
+                <label class="tw:text-sm tw:font-medium tw:text-on-sidebar"
+                  >Auto-launch on Effective</label
+                >
+                <p class="tw:text-caption tw:text-secondary">
+                  Launch the training when this document becomes effective.
+                </p>
               </div>
               <BaseSwitch v-model="config.autoLaunch" />
             </div>
           </div>
 
-          <div class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800">
+          <div
+            class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-xs tw:text-blue-800"
+          >
             <IconAlertCircle :size="16" class="tw:shrink-0 tw:mt-0.5" />
             <p>
-              A new training instance is launched for the selected employees every time this document
-              becomes effective (each revision). The instance is pinned to that specific effective version.
+              A new training instance is launched for the selected employees every time this
+              document becomes effective (each revision). The instance is pinned to that specific
+              effective version.
             </p>
           </div>
         </aside>

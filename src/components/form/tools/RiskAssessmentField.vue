@@ -10,8 +10,29 @@ const emit = defineEmits(['update:modelValue'])
 
 // Prefer embedded snapshot; fall back to FK lookup. See RcaField for
 // the rationale.
+// Every template the tenant has, so a field the author never bound can still
+// resolve one (user report 2026-08-16: adding the field said "no template
+// linked" even with exactly one template configured).
+const availableTemplates = useLiveQuery((db) => db.RiskAssessmentTemplate.where().exec(), {
+  models: ['RiskAssessmentTemplate'],
+  initial: [],
+})
+
+// Resolution order, most specific first:
+//   1. the id on THIS answer — the responder's own pick, see setTemplate
+//   2. the id the form author bound to the field
+//   3. the only template there is
+// With several templates and no binding we resolve nothing on purpose:
+// picking one arbitrarily would silently score the risk on the wrong matrix.
+const effectiveTemplateId = computed(() => {
+  const chosen = props.modelValue?._templateId
+  if (chosen) return chosen
+  if (props.field.riskAssessmentTemplateId) return props.field.riskAssessmentTemplateId
+  return availableTemplates.value.length === 1 ? availableTemplates.value[0].id : null
+})
+
 const template = useLiveQueryWithDeps(
-  [() => props.field.riskAssessmentTemplate, () => props.field.riskAssessmentTemplateId],
+  [() => props.field.riskAssessmentTemplate, () => effectiveTemplateId.value],
 
   async (db, [embedded, id]) => {
     if (embedded?.config) return embedded
@@ -19,6 +40,18 @@ const template = useLiveQueryWithDeps(
     return db.RiskAssessmentTemplate.findByPk(id)
   },
   { models: ['RiskAssessmentTemplate'] },
+)
+
+// Switching matrix invalidates any score already picked — likelihood/severity
+// ids belong to the template they came from — so the whole answer is reset
+// rather than left half-mapped onto the new one.
+function setTemplate(id) {
+  if (props.readonly || props.disabled || !id) return
+  emit('update:modelValue', { _templateId: id })
+}
+
+const canPickTemplate = computed(
+  () => !props.readonly && !props.disabled && availableTemplates.value.length > 1,
 )
 
 const likelihood = computed(() => template.value?.config?.likelihood ?? [])
@@ -234,12 +267,35 @@ onBeforeUnmount(() => {
       Loading...
     </div>
 
+    <!-- Change the matrix. Only when there is a choice to make. -->
+    <div v-if="canPickTemplate && template" class="tw:mt-3 tw:flex tw:items-center tw:gap-2">
+      <span class="tw:text-xs tw:text-secondary tw:shrink-0">Matrix</span>
+      <RiskAssessmentTemplateSelectMenu
+        :modelValue="template.id"
+        :required="true"
+        class="tw:min-w-56"
+        @update:modelValue="setTemplate"
+      />
+    </div>
+
     <!-- No template -->
     <div
       v-else-if="!template"
       class="tw:text-sm tw:text-secondary tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:text-center"
     >
-      No risk assessment template linked to this field. Contact your administrator.
+      <template v-if="availableTemplates.length">
+        Pick the risk matrix to assess against.
+        <RiskAssessmentTemplateSelectMenu
+          v-if="!readonly && !disabled"
+          :modelValue="null"
+          :required="true"
+          class="tw:mt-2 tw:min-w-56"
+          @update:modelValue="setTemplate"
+        />
+      </template>
+      <template v-else>
+        No risk assessment template exists yet. Ask an administrator to create one.
+      </template>
     </div>
 
     <template v-else>
@@ -394,8 +450,7 @@ onBeforeUnmount(() => {
       <div v-if="enableDetectability" class="tw:flex tw:flex-col tw:gap-2">
         <div class="tw:flex tw:items-center tw:gap-2">
           <label class="tw:text-xs tw:font-medium tw:text-secondary">Detectability</label>
-          <span
-            class="tw:text-micro tw:text-secondary tw:bg-divider tw:rounded tw:px-1.5 tw:py-0.5"
+          <span class="tw:text-micro tw:text-secondary tw:bg-divider tw:rounded tw:px-1.5 tw:py-0.5"
             >FMEA</span
           >
         </div>

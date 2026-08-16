@@ -82,8 +82,11 @@ const documentSections = computed(() => props.version.sections || [])
           </h3>
 
           <!-- Section Content -->
+          <!-- 'textAttachment' shows both; each branch is an independent
+               v-if so the combined type falls into both rather than needing
+               its own copy of either. -->
           <BaseRichTextEditor
-            v-if="section.sectionType === 'text'"
+            v-if="section.sectionType === 'text' || section.sectionType === 'textAttachment'"
             :key="section.id"
             :modelValue="section.content"
             :editable="false"
@@ -91,7 +94,7 @@ const documentSections = computed(() => props.version.sections || [])
           />
 
           <BaseUploader
-            v-if="section.sectionType === 'attachment'"
+            v-if="section.sectionType === 'attachment' || section.sectionType === 'textAttachment'"
             :modelValue="section.attachments"
             :readonly="true"
             hideHeader

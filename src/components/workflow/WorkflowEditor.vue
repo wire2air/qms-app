@@ -212,7 +212,7 @@ const owningDocumentTemplate = useLiveQueryWithDeps(
 
 // A template-owned flow is published/archived BY its template — the template's
 // status transitions drive the version lifecycle (2026-08-15). Showing Publish
-// / Create New Draft / Archive here would give the same flow two lifecycles to
+// / Reopen for Editing / Archive here would give the same flow two lifecycles to
 // operate and let it drift out of step with the template that owns it.
 const isTemplateOwned = computed(() => !!owningDocumentTemplate.value)
 
@@ -533,12 +533,17 @@ watch(steps, () => {
           <template v-else-if="canUpdate">
             <BaseButton :isLoading="publishing" @click="handlePublish"> Publish </BaseButton>
           </template>
+          <!-- "Reopen for Editing" rather than "Create New Draft" (user
+               request 2026-08-16): from a published version the intent is to
+               make this editable again, which is what the reader is looking
+               for. That a new draft version is how it happens is mechanism.
+               Matches the same action on a published Document Template. -->
           <BaseButton
             v-if="!isTemplateOwned && canCreateDraft"
             :isLoading="creatingDraft"
             @click="handleCreateDraft(false)"
           >
-            Create New Draft
+            Reopen for Editing
           </BaseButton>
 
           <!-- Lifecycle keyed off the selected version: a DRAFT is
@@ -596,7 +601,7 @@ watch(steps, () => {
       >
         <IconLock :size="20" class="tw:text-amber-600" />
         <span class="tw:text-sm tw:text-amber-800 tw:font-medium">
-          This version is published and locked. Create a new draft to make changes.
+          This version is published and locked. Reopen it for editing to make changes.
         </span>
       </div>
 

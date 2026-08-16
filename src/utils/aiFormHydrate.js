@@ -109,6 +109,10 @@ const DEFAULT_LABELS_BY_TYPE = {
   header: 'Heading',
   instructions: 'Instructions',
   separator: 'Separator',
+  // The QMS tools name themselves — "Untitled field" above a fishbone widget
+  // reads as unfinished rather than as a heading the author chose.
+  rca: 'Root Cause Analysis',
+  riskAssessment: 'Risk Assessment',
 }
 
 export function defaultFieldLabel(type) {
@@ -204,7 +208,8 @@ export function hydrateAiFields(fields, { buildField = hydrateAiField } = {}) {
 
   const reservedNames = new Set()
   for (const node of fields || []) {
-    if (node && typeof node.name === 'string' && node.name.trim()) reservedNames.add(node.name.trim())
+    if (node && typeof node.name === 'string' && node.name.trim())
+      reservedNames.add(node.name.trim())
   }
 
   for (const node of fields || []) {

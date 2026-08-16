@@ -132,7 +132,9 @@ function navigateToDetail(row) {
     subtitle="Manage controlled documents, versions, and approvals."
     :state="list.state.value"
     :emptyIcon="IconFileDescription"
-    :emptyTitle="list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'
+    "
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-1.5">
