@@ -1,14 +1,17 @@
 <script setup>
-import { IconLayoutGrid, IconFileSettings, IconAlertTriangle } from '@tabler/icons-vue'
+import { IconLayoutGrid, IconFileSettings } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
-// Tabs — "Templates" hosts the original CRUD; "Hazard Categories" hosts
-// the per-tenant hazard_categories lookup admin (new with the RA
-// reportability spike). Deep-linkable via ?tab=hazards.
-const tabs = [
-  { value: 'templates', label: 'Templates', icon: IconFileSettings },
-  { value: 'hazards', label: 'Hazard Categories', icon: IconAlertTriangle },
-]
+// Tabs — "Templates" hosts the CRUD on risk_assessment_templates.
+//
+// "Hazard Categories" is HIDDEN (user request 2026-08-15) — not deleted. Its
+// only consumer was the Hazard category picker on RiskAssessmentField, which
+// is hidden too, so the tab now administers a lookup nothing reads. The
+// hazard_categories table, its controller and the panel below all still work;
+// restore this entry to bring the tab back (and un-comment the field in
+// RiskAssessmentField.vue). A ?tab=hazards deep link falls back to Templates
+// because the id is no longer in validTabIds.
+const tabs = [{ value: 'templates', label: 'Templates', icon: IconFileSettings }]
 const route = useRoute()
 const router = useRouter()
 const validTabIds = new Set(tabs.map((t) => t.value))
@@ -66,7 +69,7 @@ function onDialogClose() {
     <PageHeader
       :icon="IconLayoutGrid"
       title="Risk Assessment Templates"
-      subtitle="Configure risk matrices and the hazard categories used when finalising an assessment."
+      subtitle="Configure the risk matrices used when finalising an assessment."
     >
       <!-- "New Template" header-action only on the Templates tab; the
            Hazard Categories tab has its own "Add Category" affordance. -->

@@ -1,4 +1,5 @@
 <script setup>
+import { submitReadiness } from './workflowSubmitReadiness.js'
 import { IconPlus } from '@tabler/icons-vue'
 import { useDocuments } from '@/composables/useDocuments.js'
 
@@ -135,15 +136,11 @@ watch(show, (isOpen) => {
   }
 })
 
-// Every step that has at least one candidate must have at least one
-// pick. Steps with no candidates (e.g. unrole'd system steps) don't
-// need a pick — the backend's fallback handles them.
-const allStepsPicked = computed(() => {
-  return steps.value.every((s) => {
-    if (s.candidates.length === 0) return true
-    return Array.isArray(selections[s.id]) && selections[s.id].length > 0
-  })
-})
+// A step with no candidates is NOT satisfied — see workflowSubmitReadiness.
+// There is no backend fallback for it; activateInstanceStep throws, and it
+// throws when the PREVIOUS step is approved, not now.
+const readiness = computed(() => submitReadiness(steps.value, selections))
+const allStepsPicked = computed(() => readiness.value.ok)
 
 const loading = computed(() => document.value === undefined)
 
@@ -280,16 +277,19 @@ async function confirm() {
               </template>
             </BaseSelect>
 
+            <!-- Blocking, not advisory: this step cannot be started at all,
+                 and the error would otherwise surface when the step before it
+                 is approved. -->
             <p
               v-else-if="step.roleNames.length"
-              class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
+              class="tw:text-xs tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded tw:p-2"
             >
-              No active users hold the role(s) configured for this step. Assign someone to the role
-              before submitting, or pick a different workflow.
+              No active users hold the role(s) configured for this step, so it can't be started.
+              Assign someone to the role before submitting, or pick a different workflow.
             </p>
             <p
               v-else
-              class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
+              class="tw:text-xs tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded tw:p-2"
             >
               No active internal users in your company yet — invite someone before submitting.
             </p>
@@ -303,9 +303,7 @@ async function confirm() {
         submitLabel="Submit for Review"
         :loading="submitting"
         :disabled="!allStepsPicked"
-        :submitTitle="
-          !allStepsPicked ? 'Pick at least one reviewer for each step before submitting.' : undefined
-        "
+        :submitTitle="readiness.reason ?? undefined"
         @cancel="show = false"
         @submit="confirm"
       />
