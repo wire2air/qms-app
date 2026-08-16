@@ -128,23 +128,32 @@ function moveSectionDown(index) {
                   <option value="table">Table</option> -->
                   </select>
                 </div>
-                <!-- 'textAttachment' renders BOTH — one section that carries a
-                   written body and its supporting files, rather than forcing
-                   the author to split them across two sections. -->
-                <div
-                  v-if="section.sectionType === 'text' || section.sectionType === 'textAttachment'"
-                >
+                <!-- 'textAttachment' is ONE control (user request 2026-08-16).
+                   RichTextAttachments already combines a body and its files;
+                   stacking an editor on an uploader was two widgets for what
+                   the author thinks of as one section. separateAttachments
+                   keeps content and attachments in their own fields, which is
+                   what the rest of the system reads. -->
+                <div v-if="section.sectionType === 'textAttachment'">
+                  <RichTextAttachments
+                    v-model="section.content"
+                    v-model:attachments="section.attachments"
+                    :separateAttachments="true"
+                    :sectionNumber="sectionIndex + 1"
+                  >
+                    <template #toolbar-extra="{ editor }">
+                      <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+                    </template>
+                  </RichTextAttachments>
+                </div>
+                <div v-else-if="section.sectionType === 'text'">
                   <BaseRichTextEditor v-model="section.content" :sectionNumber="sectionIndex + 1">
                     <template #toolbar-extra="{ editor }">
                       <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
                     </template>
                   </BaseRichTextEditor>
                 </div>
-                <div
-                  v-if="
-                    section.sectionType === 'attachment' || section.sectionType === 'textAttachment'
-                  "
-                >
+                <div v-else-if="section.sectionType === 'attachment'">
                   <BaseUploader v-model="section.attachments" :hideHeader="true" />
                 </div>
                 <div

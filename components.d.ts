@@ -409,6 +409,7 @@ declare module 'vue' {
     ComplaintLookupBadge: typeof import('./src/components/complaints/ComplaintLookupBadge.vue')['default']
     ComplaintLookupCard: typeof import('./src/components/complaints/ComplaintLookupCard.vue')['default']
     ComplaintLookupSelectMenu: typeof import('./src/components/complaints/ComplaintLookupSelectMenu.vue')['default']
+    ComplaintPrint: typeof import('./src/components/print/modules/ComplaintPrint.vue')['default']
     ComplaintSettingsCard: typeof import('./src/components/qaComplaints/ComplaintSettingsCard.vue')['default']
     ComplaintSettingsHome: typeof import('./src/components/customerComplaints/complaintSettingsHome.vue')['default']
     ComplaintSlaSettings: typeof import('./src/components/customerComplaints/ComplaintSlaSettings.vue')['default']
@@ -1253,5 +1254,6 @@ declare module 'vue' {
     WorkflowVersionSelect: typeof import('./src/components/documents/WorkflowVersionSelect.vue')['default']
     WorkflowVersionStatusBadgeById: typeof import('./src/components/badges/WorkflowVersionStatusBadgeById.vue')['default']
     WorkspacePicker: typeof import('./src/components/auth/WorkspacePicker.vue')['default']
+    YesNoToggle: typeof import('./src/components/shared/YesNoToggle.vue')['default']
   }
 }

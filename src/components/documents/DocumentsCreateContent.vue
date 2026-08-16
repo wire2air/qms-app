@@ -4,6 +4,14 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  // True once a PDF import has supplied the sections. The template then stops
+  // being the source of structure for this document — it still supplies the
+  // approval flow (user decision 2026-08-16). Without this, choosing a template
+  // after importing re-seeded the sections and discarded the import.
+  preserveSections: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const form = defineModel('form', {
@@ -20,6 +28,7 @@ function isReadonly(section) {
 watch(
   () => props.selectedTemplate,
   (template) => {
+    if (props.preserveSections) return
     if (template) {
       form.value.sections = template.sections.map((section) => ({
         ...section,

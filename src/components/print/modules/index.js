@@ -34,6 +34,9 @@ export const printModules = {
   //   RetainSampleRegister — inventory report, ?state= filtered
   RetainSampleLabel: () => import('./RetainSampleLabelPrint.vue'),
   RetainSampleRegister: () => import('./RetainSampleRegisterPrint.vue'),
+  // Quality complaint — header + narrative + product/classification/customer +
+  // QA assessment. Mirrors the detail page's post-rail-restructure order.
+  Complaint: () => import('./ComplaintPrint.vue'),
   // Future:
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }

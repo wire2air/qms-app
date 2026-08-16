@@ -45,24 +45,49 @@ const breadcrumbs = computed(() => [
 ])
 
 const canUpdate = computed(() => isAllowed(['complaints:update']))
-const canConvert = computed(
-  () => isAllowed(['complaints:update']) && isAllowed(['ncr:create']),
-)
+const canConvert = computed(() => isAllowed(['complaints:update']) && isAllowed(['ncr:create']))
 
 const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId))
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
 
 // The complaint narrative is only editable for manually-entered complaints —
-// imported / external-source (email, web form, integrations) descriptions are
-// the original captured content and stay read-only.
-const MANUAL_SOURCES = ['WEB', 'PHONE', 'OTHER']
-const isManualSource = computed(() => MANUAL_SOURCES.includes(complaint.value?.sourceId))
-const descriptionEditable = computed(() => isEditable.value && isManualSource.value)
+// Imported descriptions are the original captured content and stay read-only.
+//
+// This compared complaint.sourceId — a UUID FK into complaint_source_types —
+// against the CODES ['WEB','PHONE','OTHER'] (bug 2026-08-16). A uuid is never
+// equal to 'PHONE', so isManualSource was false for every complaint ever
+// created: the description was read-only everywhere, and every record carried
+// the "Imported / external-source" note including ones typed by hand. 'WEB'
+// was not a real code either — the seeded value is 'WEBSITE'.
+//
+// Inverted as well as fixed. Of the twelve seeded sources only EMAIL arrives
+// already written, by machine; enumerating the eleven manual ones would lock
+// the description again the moment a tenant adds a source of their own. A
+// complaint copied from a customer complaint (sourceComplaintId) is likewise
+// not ours to rewrite. Anything else — including a source not yet chosen — was
+// typed by a person and stays editable.
+const IMPORTED_SOURCE_CODES = new Set(['EMAIL'])
+
+const sourceCode = useLiveQueryWithDeps(
+  [() => complaint.value?.sourceId],
+  async (db, [id]) => (id ? ((await db.ComplaintSourceType.findByPk(id))?.code ?? null) : null),
+  { models: ['ComplaintSourceType'], initial: null },
+)
+
+const isImportedSource = computed(
+  () =>
+    !!complaint.value?.sourceComplaintId ||
+    (!!sourceCode.value && IMPORTED_SOURCE_CODES.has(sourceCode.value)),
+)
+const descriptionEditable = computed(() => isEditable.value && !isImportedSource.value)
 
 // Quality-Event-style tabs.
-const activeTab = ref('details')
+// QA Review leads (user request 2026-08-16): a complaint that has just been
+// created is a queue item waiting on QA, so the review surface is the work and
+// the intake fields are reference. Matches how NC/CAPA open on the workflow
+// rather than on the record's own metadata.
+const activeTab = ref('review')
 const tabs = [
-  { value: 'details', label: 'Complaint details' },
   { value: 'review', label: 'QA Review' },
   { value: 'escalations', label: 'Escalations' },
 ]
@@ -123,7 +148,9 @@ const myApprovalTask = useLiveQueryWithDeps(
   async (db, [wiId, uid]) => {
     if (!wiId || !uid) return null
     const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
-    const approvalStep = steps.find((s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS')
+    const approvalStep = steps.find(
+      (s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS',
+    )
     if (!approvalStep) return null
     const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
       'WorkflowInstanceStep',
@@ -154,7 +181,10 @@ const ncLinks = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [complaintId]) => {
     if (!complaintId) return []
-    return db.NcSourceLink.where('[sourceType+sourceId]', ['CUSTOMER_COMPLAINT', complaintId]).exec()
+    return db.NcSourceLink.where('[sourceType+sourceId]', [
+      'CUSTOMER_COMPLAINT',
+      complaintId,
+    ]).exec()
   },
   { models: ['NcSourceLink'], initial: [] },
 )
@@ -334,6 +364,16 @@ const complaintActions = computed(() => {
       onSelect: () => runAction('reopen'),
     },
     {
+      // Centralised print: /<companyCode>/print?module=Complaint&id=...
+      // Dispatched via components/print/modules/index.js → ComplaintPrint.vue.
+      id: 'print',
+      label: 'Print',
+      variant: 'ghost',
+      priority: 15,
+      visible: !!complaint.value?.id,
+      onSelect: openPrintView,
+    },
+    {
       id: 'audit',
       label: 'Audit log',
       variant: 'ghost',
@@ -343,6 +383,12 @@ const complaintActions = computed(() => {
     },
   ]
 })
+
+function openPrintView() {
+  if (!complaint.value?.id) return
+  const params = new URLSearchParams({ module: 'Complaint', id: complaint.value.id })
+  window.open(getCompanyPath(`/print?${params.toString()}`), '_blank', 'noopener,noreferrer')
+}
 
 const complaintDetailConfig = computed(() =>
   defineDetailConfig({
@@ -381,7 +427,9 @@ const complaintDetailConfig = computed(() =>
       <template v-if="complaint.sourceId">
         · <ComplaintLookupBadge :id="complaint.sourceId" model="ComplaintSourceType" />
       </template>
-      <template v-if="complaint.createdAt"> · {{ complaint.createdAt.formatDate('date') }} </template>
+      <template v-if="complaint.createdAt">
+        · {{ complaint.createdAt.formatDate('date') }}
+      </template>
     </template>
 
     <template #actions>
@@ -406,128 +454,26 @@ const complaintDetailConfig = computed(() =>
         {{ saveError }}
       </div>
 
+      <!-- The complaint itself stays in the body; its metadata moved to the
+           rail (user request 2026-08-16), matching NC/CAPA — there the
+           record's narrative is the page and General/People/Workflow are
+           rail cards. That emptied the 'Complaint details' tab, so it is gone.
+
+           No section heading: the page header directly above already names the
+           complaint, and a "Complaint" title under it said the same thing
+           twice. -->
+      <div class="tw:mb-4">
+        <RichTextAttachments
+          v-model="complaint.description"
+          :readonly="!descriptionEditable"
+          placeholder="Describe the complaint — attach photos/evidence as needed…"
+        />
+        <p v-if="isImportedSource" class="tw:text-xs tw:text-secondary tw:mt-2">
+          Imported / external-source complaint — the original description is read-only.
+        </p>
+      </div>
+
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Complaint detail">
-        <!-- ══ Complaint details ══ -->
-        <BaseTabPanel value="details">
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <FormSection title="Complaint">
-              <RichTextAttachments
-                v-model="complaint.description"
-                :readonly="!descriptionEditable"
-                placeholder="Describe the complaint — attach photos/evidence as needed…"
-              />
-              <p v-if="!isManualSource" class="tw:text-xs tw:text-secondary tw:mt-2">
-                Imported / external-source complaint — the original description is read-only.
-              </p>
-            </FormSection>
-
-            <BaseRailCard title="Product & origin">
-              <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:md:grid-cols-3 tw:gap-x-4 tw:gap-y-3">
-                <BaseDetailField label="Product / Service">
-                  <ProductSelectMenu
-                    v-if="isEditable"
-                    v-model="complaint.productId"
-                    :required="false"
-                    nullLabel="— Select —"
-                  />
-                  <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Supplier">
-                  <SupplierSelectMenu
-                    v-if="isEditable"
-                    v-model="complaint.supplierId"
-                    :required="false"
-                    nullLabel="— Select —"
-                  />
-                  <SupplierBadgeById v-else-if="complaint.supplierId" :supplierId="complaint.supplierId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Sample received">
-                  <BaseCheckbox v-if="isEditable" v-model="complaint.sampleReceived" label="Received" />
-                  <BaseText v-else color="secondary">{{ complaint.sampleReceived ? 'Yes' : complaint.sampleReceived === false ? 'No' : '—' }}</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Batch / Lot / Serial">
-                  <BaseTextInput v-if="isEditable" v-model="complaint.batchLotSerial" size="sm" />
-                  <BaseText v-else color="secondary">{{ complaint.batchLotSerial || '—' }}</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Quantity affected">
-                  <BaseTextInput v-if="isEditable" v-model.number="complaint.quantityAffected" type="number" size="sm" />
-                  <BaseText v-else color="secondary">{{ complaint.quantityAffected ?? '—' }}</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Order / Invoice #">
-                  <BaseTextInput v-if="isEditable" v-model="complaint.orderInvoiceNumber" size="sm" />
-                  <BaseText v-else color="secondary">{{ complaint.orderInvoiceNumber || '—' }}</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Region">
-                  <ComplaintLookupSelectMenu v-if="isEditable" v-model="complaint.regionId" model="Region" :allowCreate="false" />
-                  <ComplaintLookupBadge v-else :id="complaint.regionId" model="Region" />
-                </BaseDetailField>
-                <BaseDetailField label="Country">
-                  <ComplaintLookupSelectMenu
-                    v-if="isEditable"
-                    v-model="complaint.countryId"
-                    model="Country"
-                    parentField="regionId"
-                    :parentId="complaint.regionId"
-                    :allowCreate="false"
-                  />
-                  <ComplaintLookupBadge v-else :id="complaint.countryId" model="Country" />
-                </BaseDetailField>
-                <BaseDetailField label="State / Province">
-                  <BaseTextInput v-if="isEditable" v-model="complaint.stateProvince" size="sm" />
-                  <BaseText v-else color="secondary">{{ complaint.stateProvince || '—' }}</BaseText>
-                </BaseDetailField>
-                <BaseDetailField label="Site / Branch">
-                  <SiteSelectMenu v-if="isEditable" v-model="complaint.siteId" :required="false" />
-                  <SiteBadgeById v-else-if="complaint.siteId" :siteId="complaint.siteId" />
-                  <BaseText v-else color="secondary">—</BaseText>
-                </BaseDetailField>
-              </div>
-            </BaseRailCard>
-
-            <BaseRailCard title="Classification" grid>
-              <BaseDetailField label="Complaint source">
-                <ComplaintLookupSelectMenu
-                  v-if="isEditable"
-                  v-model="complaint.complaintSourceId"
-                  model="ComplaintSourceType"
-                />
-                <ComplaintLookupBadge v-else :id="complaint.complaintSourceId" model="ComplaintSourceType" />
-              </BaseDetailField>
-              <BaseDetailField label="Category">
-                <ComplaintLookupSelectMenu
-                  v-if="isEditable"
-                  v-model="complaint.categoryId"
-                  model="ComplaintCategory"
-                />
-                <ComplaintLookupBadge v-else :id="complaint.categoryId" model="ComplaintCategory" />
-              </BaseDetailField>
-              <BaseDetailField label="Sub-category">
-                <ComplaintLookupSelectMenu
-                  v-if="isEditable"
-                  v-model="complaint.subCategoryId"
-                  model="ComplaintSubCategory"
-                  parentField="categoryId"
-                  :parentId="complaint.categoryId"
-                />
-                <ComplaintLookupBadge v-else :id="complaint.subCategoryId" model="ComplaintSubCategory" />
-              </BaseDetailField>
-              <BaseDetailField label="Severity">
-                <ComplaintLookupSelectMenu
-                  v-if="isEditable"
-                  v-model="complaint.severityId"
-                  model="ComplaintSeverity"
-                />
-                <ComplaintLookupBadge v-else :id="complaint.severityId" model="ComplaintSeverity" />
-              </BaseDetailField>
-            </BaseRailCard>
-
-            <!-- Additional information — custom fields (Zendesk/import extras). -->
-            <CustomFieldsCard entityType="Complaint" :entityId="id" :editable="isEditable" />
-          </div>
-        </BaseTabPanel>
-
         <!-- ══ QA Review ══ -->
         <BaseTabPanel value="review">
           <div class="tw:flex tw:flex-col tw:gap-4">
@@ -540,23 +486,52 @@ const complaintDetailConfig = computed(() =>
                     v-model="complaint.riskLevelId"
                     model="ComplaintRiskLevel"
                   />
-                  <ComplaintLookupBadge v-else :id="complaint.riskLevelId" model="ComplaintRiskLevel" />
+                  <ComplaintLookupBadge
+                    v-else
+                    :id="complaint.riskLevelId"
+                    model="ComplaintRiskLevel"
+                  />
                 </BaseDetailField>
                 <div v-if="isEditable" class="tw:flex tw:flex-wrap tw:gap-x-6 tw:gap-y-2">
-                  <BaseCheckbox v-model="complaint.regulatoryReportable" label="Regulatory reportable" />
+                  <BaseCheckbox
+                    v-model="complaint.regulatoryReportable"
+                    label="Regulatory reportable"
+                  />
                   <BaseCheckbox v-model="complaint.safetyIssue" label="Safety issue" />
                   <BaseCheckbox v-model="complaint.complianceRelated" label="Compliance related" />
                   <BaseCheckbox v-model="complaint.potentialRecall" label="Potential recall" />
                   <BaseCheckbox v-model="complaint.repeatIssue" label="Repeat / recurring issue" />
                 </div>
                 <div v-else class="tw:flex tw:flex-wrap tw:gap-2">
-                  <BaseBadge v-if="complaint.regulatoryReportable" class="tw:bg-amber-100 tw:text-amber-700">Regulatory reportable</BaseBadge>
-                  <BaseBadge v-if="complaint.safetyIssue" class="tw:bg-red-100 tw:text-red-700">Safety issue</BaseBadge>
-                  <BaseBadge v-if="complaint.complianceRelated" class="tw:bg-amber-100 tw:text-amber-700">Compliance related</BaseBadge>
-                  <BaseBadge v-if="complaint.potentialRecall" class="tw:bg-red-100 tw:text-red-700">Potential recall</BaseBadge>
-                  <BaseBadge v-if="complaint.repeatIssue" class="tw:bg-purple-100 tw:text-purple-700">Repeat issue</BaseBadge>
+                  <BaseBadge
+                    v-if="complaint.regulatoryReportable"
+                    class="tw:bg-amber-100 tw:text-amber-700"
+                    >Regulatory reportable</BaseBadge
+                  >
+                  <BaseBadge v-if="complaint.safetyIssue" class="tw:bg-red-100 tw:text-red-700"
+                    >Safety issue</BaseBadge
+                  >
+                  <BaseBadge
+                    v-if="complaint.complianceRelated"
+                    class="tw:bg-amber-100 tw:text-amber-700"
+                    >Compliance related</BaseBadge
+                  >
+                  <BaseBadge v-if="complaint.potentialRecall" class="tw:bg-red-100 tw:text-red-700"
+                    >Potential recall</BaseBadge
+                  >
+                  <BaseBadge
+                    v-if="complaint.repeatIssue"
+                    class="tw:bg-purple-100 tw:text-purple-700"
+                    >Repeat issue</BaseBadge
+                  >
                   <span
-                    v-if="!complaint.regulatoryReportable && !complaint.safetyIssue && !complaint.complianceRelated && !complaint.potentialRecall && !complaint.repeatIssue"
+                    v-if="
+                      !complaint.regulatoryReportable &&
+                      !complaint.safetyIssue &&
+                      !complaint.complianceRelated &&
+                      !complaint.potentialRecall &&
+                      !complaint.repeatIssue
+                    "
                     class="tw:text-sm tw:text-secondary"
                   >
                     No flags set.
@@ -586,7 +561,10 @@ const complaintDetailConfig = computed(() =>
             </div>
 
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              >
                 Linked NC
               </BaseText>
               <div v-if="linkedNcs.length" class="tw:flex tw:flex-col tw:gap-2">
@@ -609,7 +587,9 @@ const complaintDetailConfig = computed(() =>
             </div>
 
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+              <div
+                class="tw:flex tw:items-center tw:justify-between tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              >
                 <BaseText variant="overline">Similar complaints</BaseText>
                 <span
                   v-if="relatedComplaints.length"
@@ -639,7 +619,10 @@ const complaintDetailConfig = computed(() =>
 
             <!-- Manually-linked similar complaints (for a recurring issue) -->
             <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+              <BaseText
+                variant="overline"
+                class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
+              >
                 Similar complaints (linked)
               </BaseText>
               <div v-if="linkedSimilar.length" class="tw:flex tw:flex-col tw:gap-2 tw:mb-3">
@@ -686,7 +669,9 @@ const complaintDetailConfig = computed(() =>
     </template>
 
     <template v-if="complaint" #rail>
-      <!-- Glanceable summary; detailed fields live in the tabs. -->
+      <!-- Identity first, then what the complaint is about, then who and
+           when. Same ranking as the NC rail: the reader is orienting before
+           they are investigating. -->
       <BaseRailCard title="Complaint" grid>
         <BaseDetailField label="Complaint number">
           <BaseText variant="body" weight="medium" class="tw:break-words">
@@ -708,6 +693,137 @@ const complaintDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- Customer information -->
+
+      <BaseRailCard title="Product & origin">
+        <!-- Two per row, not three. This card was written for the full-width
+             tab it used to live in; in the rail a third column left every
+             value truncated. -->
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-x-4 tw:gap-y-3">
+          <BaseDetailField label="Product / Service">
+            <ProductSelectMenu
+              v-if="isEditable"
+              v-model="complaint.productId"
+              :required="false"
+              nullLabel="— Select —"
+            />
+            <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Supplier">
+            <SupplierSelectMenu
+              v-if="isEditable"
+              v-model="complaint.supplierId"
+              :required="false"
+              nullLabel="— Select —"
+            />
+            <SupplierBadgeById
+              v-else-if="complaint.supplierId"
+              :supplierId="complaint.supplierId"
+            />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Samples received">
+            <YesNoToggle v-if="isEditable" v-model="complaint.sampleReceived" />
+            <BaseText v-else color="secondary">{{
+              complaint.sampleReceived === true
+                ? 'Yes'
+                : complaint.sampleReceived === false
+                  ? 'No'
+                  : '—'
+            }}</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Batch / Lot / Serial">
+            <BaseTextInput v-if="isEditable" v-model="complaint.batchLotSerial" size="sm" />
+            <BaseText v-else color="secondary">{{ complaint.batchLotSerial || '—' }}</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Quantity affected">
+            <BaseTextInput
+              v-if="isEditable"
+              v-model.number="complaint.quantityAffected"
+              type="number"
+              size="sm"
+            />
+            <BaseText v-else color="secondary">{{ complaint.quantityAffected ?? '—' }}</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Order / Invoice #">
+            <BaseTextInput v-if="isEditable" v-model="complaint.orderInvoiceNumber" size="sm" />
+            <BaseText v-else color="secondary">{{ complaint.orderInvoiceNumber || '—' }}</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Region">
+            <ComplaintLookupSelectMenu
+              v-if="isEditable"
+              v-model="complaint.regionId"
+              model="Region"
+              :allowCreate="false"
+            />
+            <ComplaintLookupBadge v-else :id="complaint.regionId" model="Region" />
+          </BaseDetailField>
+          <BaseDetailField label="Country">
+            <ComplaintLookupSelectMenu
+              v-if="isEditable"
+              v-model="complaint.countryId"
+              model="Country"
+              parentField="regionId"
+              :parentId="complaint.regionId"
+              :allowCreate="false"
+            />
+            <ComplaintLookupBadge v-else :id="complaint.countryId" model="Country" />
+          </BaseDetailField>
+          <BaseDetailField label="State / Province">
+            <BaseTextInput v-if="isEditable" v-model="complaint.stateProvince" size="sm" />
+            <BaseText v-else color="secondary">{{ complaint.stateProvince || '—' }}</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Site / Branch">
+            <SiteSelectMenu v-if="isEditable" v-model="complaint.siteId" :required="false" />
+            <SiteBadgeById v-else-if="complaint.siteId" :siteId="complaint.siteId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+        </div>
+      </BaseRailCard>
+
+      <BaseRailCard title="Classification" grid>
+        <BaseDetailField label="Complaint source">
+          <ComplaintLookupSelectMenu
+            v-if="isEditable"
+            v-model="complaint.complaintSourceId"
+            model="ComplaintSourceType"
+          />
+          <ComplaintLookupBadge
+            v-else
+            :id="complaint.complaintSourceId"
+            model="ComplaintSourceType"
+          />
+        </BaseDetailField>
+        <BaseDetailField label="Category">
+          <ComplaintLookupSelectMenu
+            v-if="isEditable"
+            v-model="complaint.categoryId"
+            model="ComplaintCategory"
+          />
+          <ComplaintLookupBadge v-else :id="complaint.categoryId" model="ComplaintCategory" />
+        </BaseDetailField>
+        <BaseDetailField label="Sub-category">
+          <ComplaintLookupSelectMenu
+            v-if="isEditable"
+            v-model="complaint.subCategoryId"
+            model="ComplaintSubCategory"
+            parentField="categoryId"
+            :parentId="complaint.categoryId"
+          />
+          <ComplaintLookupBadge v-else :id="complaint.subCategoryId" model="ComplaintSubCategory" />
+        </BaseDetailField>
+        <BaseDetailField label="Severity">
+          <ComplaintLookupSelectMenu
+            v-if="isEditable"
+            v-model="complaint.severityId"
+            model="ComplaintSeverity"
+          />
+          <ComplaintLookupBadge v-else :id="complaint.severityId" model="ComplaintSeverity" />
+        </BaseDetailField>
+      </BaseRailCard>
+
+      <!-- Additional information — custom fields (Zendesk/import extras). -->
+
       <BaseRailCard title="Customer information" grid>
         <BaseDetailField label="Name" :value="complaint.customerName || '—'" />
         <BaseDetailField label="Company" :value="complaint.customerCompany || '—'" />
@@ -719,11 +835,16 @@ const complaintDetailConfig = computed(() =>
             v-model="complaint.customerTypeId"
             model="ComplaintCustomerType"
           />
-          <ComplaintLookupBadge v-else :id="complaint.customerTypeId" model="ComplaintCustomerType" />
+          <ComplaintLookupBadge
+            v-else
+            :id="complaint.customerTypeId"
+            model="ComplaintCustomerType"
+          />
         </BaseDetailField>
       </BaseRailCard>
 
       <!-- Ownership, assignment & SLA -->
+
       <BaseRailCard title="Ownership & SLA" grid>
         <BaseDetailField label="Owner">
           <UserBadgeById v-if="complaint.ownerId" :userId="complaint.ownerId" />
@@ -739,19 +860,21 @@ const complaintDetailConfig = computed(() =>
             v-if="complaint.resolutionTargetAt"
             variant="body"
             weight="medium"
-            :class="!isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''"
+            :class="
+              !isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''
+            "
           >
             {{ complaint.resolutionTargetAt.formatDate('date') }}
           </BaseText>
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
-        <BaseDetailField
-          v-if="complaint.closureApprovedBy"
-          label="Closure approved by"
-        >
+        <BaseDetailField v-if="complaint.closureApprovedBy" label="Closure approved by">
           <UserBadgeById :userId="complaint.closureApprovedBy" />
         </BaseDetailField>
       </BaseRailCard>
+
+      <CustomFieldsCard entityType="Complaint" :entityId="id" :editable="isEditable" />
+      <!-- Glanceable summary; detailed fields live in the tabs. -->
     </template>
   </BaseDetailLayout>
 

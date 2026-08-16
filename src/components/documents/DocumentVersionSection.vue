@@ -98,6 +98,18 @@ async function handleAttachmentsChange(next) {
   }
 }
 
+// RichTextAttachments owns attachments as its own model. Bridge it to the same
+// synchronous persist the uploader uses, so a file added inside the combined
+// control saves exactly like one added to an attachment-only section — a
+// writable computed rather than a v-model on the raw field, because that path
+// must not be swallowed by the debounced content save.
+const attachmentsProxy = computed({
+  get: () => section.value?.attachments ?? [],
+  set: (next) => {
+    handleAttachmentsChange(next)
+  },
+})
+
 // ── Reviewer comments ───────────────────────────────────────────
 const rejectedTask = useLiveQueryWithDeps(
   [() => props.documentVersionId],
@@ -200,10 +212,28 @@ const debouncedSaveComment = useDebounceFn(async () => {
 
     <!-- Section Content -->
     <div class="section-content">
-      <!-- 'textAttachment' carries both; independent v-ifs so it falls into
-           each branch rather than duplicating them. -->
+      <!-- 'textAttachment' is ONE control, not an editor stacked on an
+           uploader (user request 2026-08-16) — RichTextAttachments already is
+           that control. It runs in separateAttachments mode so body and files
+           stay in their own columns: document_sections.attachments is read by
+           sectionIsIncomplete() and printed by snapshotPrint, and folding them
+           into `content` would break both. -->
+      <RichTextAttachments
+        v-if="section.sectionType === 'textAttachment'"
+        :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
+        v-model="section.content"
+        v-model:attachments="attachmentsProxy"
+        :separateAttachments="true"
+        :sectionNumber="index + 1"
+        :readonly="!canUpdateSection"
+      >
+        <template #toolbar-extra="{ editor }">
+          <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+        </template>
+      </RichTextAttachments>
+
       <BaseRichTextEditor
-        v-if="section.sectionType === 'text' || section.sectionType === 'textAttachment'"
+        v-else-if="section.sectionType === 'text'"
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         v-model="section.content"
         :editable="canUpdateSection"
@@ -216,7 +246,7 @@ const debouncedSaveComment = useDebounceFn(async () => {
       </BaseRichTextEditor>
 
       <BaseUploader
-        v-if="section.sectionType === 'attachment' || section.sectionType === 'textAttachment'"
+        v-else-if="section.sectionType === 'attachment'"
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         :modelValue="section.attachments"
         :readonly="!canUpdateSection"

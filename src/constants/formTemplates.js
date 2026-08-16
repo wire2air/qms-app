@@ -163,10 +163,22 @@ export const QMS_TEMPLATES = [
               'Is the workspace clean and organized?',
               'Are records signed and dated according to GDP?',
             ],
+            // ONE mutually-exclusive Option Group ("Multiple choice"), not
+            // three standalone radio columns (fixed 2026-08-16). Separate radio
+            // COLUMNS are the pattern the Line Clearance seed warns about:
+            // radio has no sibling-clear across columns, so re-answering a row
+            // leaves the previous column's key behind and the row reads as two
+            // contradictory answers. An optionGroup stores one value under one
+            // key. `inline` lays the choices out horizontally, as they were.
             columns: [
-              { label: 'Compliant', value: 'compliant', inputType: 'radio' },
-              { label: 'Non-Compliant', value: 'nonCompliant', inputType: 'radio' },
-              { label: 'N/A', value: 'na', inputType: 'radio' },
+              {
+                label: 'Result',
+                value: 'result',
+                inputType: 'optionGroup',
+                groupType: 'radio',
+                inline: true,
+                options: ['Compliant', 'Non-Compliant', 'N/A'],
+              },
             ],
           },
           {
@@ -343,7 +355,12 @@ export const QMS_BLOCKS = [
           'Follow-up actions identified',
         ],
         columns: [
-          { label: 'Verdict', value: 'verdict', inputType: 'select', options: ['Yes', 'No', 'N/A'] },
+          {
+            label: 'Verdict',
+            value: 'verdict',
+            inputType: 'select',
+            options: ['Yes', 'No', 'N/A'],
+          },
           { label: 'Comments', value: 'comments', inputType: 'text' },
         ],
       },
