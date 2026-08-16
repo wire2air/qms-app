@@ -1238,6 +1238,7 @@ declare module 'vue' {
     WorkflowStepFormBuilderPanel: typeof import('./src/components/workflow/WorkflowStepFormBuilderPanel.vue')['default']
     WorkflowStepFormSchema: typeof import('./src/components/workflow/WorkflowStepFormSchema.vue')['default']
     WorkflowStepList: typeof import('./src/components/workflow/WorkflowStepList.vue')['default']
+    WorkflowStepOrder: typeof import('./src/components/workflow/workflowStepOrder.js')['default']
     WorkflowStepReviewerSelect: typeof import('./src/components/workflow/WorkflowStepReviewerSelect.vue')['default']
     WorkflowStepRoleBadges: typeof import('./src/components/workflow/WorkflowStepRoleBadges.vue')['default']
     WorkflowStepRoleList: typeof import('./src/components/workflow/WorkflowStepRoleList.vue')['default']

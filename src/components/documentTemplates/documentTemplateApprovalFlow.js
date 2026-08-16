@@ -78,20 +78,39 @@ export function plannedApprovalSteps(seed) {
   ]
 }
 
-/** The default per-gate config a new template's form starts from. */
-export function defaultApprovalGates(template = {}) {
+/**
+ * The default per-gate config a new template's form starts from.
+ *
+ * Resolution order for each field is specific → general:
+ *   SLA   — the template's own Review/Approval Limit, else the company's
+ *           Approval Workflow default SLA, else blank.
+ *   rule  — the company's default approval rule.
+ *   esign — the company's default signature requirement, else on (a document
+ *           approval is a regulated decision; 21 CFR 820.40 / Part 11).
+ *
+ * Reading the company defaults matters: an admin who set "Default SLA 7" under
+ * Approval Workflow Defaults expects a new gate to start at 7, not blank
+ * (reported 2026-08-16).
+ *
+ * @param {object} template  the template form state (its own limits win)
+ * @param {object} settings  currentCompany.settings
+ */
+export function defaultApprovalGates(template = {}, settings = {}) {
+  const rule = settings.defaultWorkflowApprovalRule ?? 'ALL'
+  const esign = settings.defaultWorkflowRequireSignature ?? true
+  const fallbackSla = settings.defaultSla ?? null
   return [
     {
       roleIds: [],
-      approvalRule: 'ALL',
-      requireEsignature: true,
-      slaDays: template.reviewLimitDays ?? null,
+      approvalRule: rule,
+      requireEsignature: esign,
+      slaDays: template.reviewLimitDays ?? fallbackSla,
     },
     {
       roleIds: [],
-      approvalRule: 'ALL',
-      requireEsignature: true,
-      slaDays: template.approvalLimitDays ?? null,
+      approvalRule: rule,
+      requireEsignature: esign,
+      slaDays: template.approvalLimitDays ?? fallbackSla,
     },
   ]
 }

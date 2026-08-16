@@ -24,6 +24,7 @@ import {
   companionWorkflowName,
   pickPublishedVersionId,
   pickAuthoringVersion,
+  defaultApprovalGates,
   REVIEW_STEP_NAME,
   APPROVAL_STEP_NAME,
 } from '../components/documentTemplates/documentTemplateApprovalFlow.js'
@@ -173,5 +174,44 @@ describe('authoring view vs running view', () => {
   it('handles an empty or missing version list', () => {
     expect(pickAuthoringVersion([])).toBeNull()
     expect(pickAuthoringVersion(undefined)).toBeNull()
+  })
+})
+
+describe('defaultApprovalGates', () => {
+  it('takes SLA from the template limits when it has them', () => {
+    const [review, approval] = defaultApprovalGates(
+      { reviewLimitDays: 14, approvalLimitDays: 7 },
+      { defaultSla: 30 },
+    )
+    expect(review.slaDays).toBe(14)
+    expect(approval.slaDays).toBe(7)
+  })
+
+  it("falls back to the company's Approval Workflow default SLA", () => {
+    // The reported bug: gates rendered blank while Settings said 7.
+    const [review, approval] = defaultApprovalGates({}, { defaultSla: 7 })
+    expect(review.slaDays).toBe(7)
+    expect(approval.slaDays).toBe(7)
+  })
+
+  it('honours the company default approval rule and e-signature', () => {
+    const [gate] = defaultApprovalGates(
+      {},
+      { defaultWorkflowApprovalRule: 'ANY', defaultWorkflowRequireSignature: false },
+    )
+    expect(gate.approvalRule).toBe('ANY')
+    expect(gate.requireEsignature).toBe(false)
+  })
+
+  it('defaults e-signature ON when the company has said nothing', () => {
+    // A document approval is a regulated decision; silence must not relax it.
+    const [gate] = defaultApprovalGates()
+    expect(gate.requireEsignature).toBe(true)
+    expect(gate.approvalRule).toBe('ALL')
+    expect(gate.slaDays).toBeNull()
+  })
+
+  it('starts with no roles — empty means anyone', () => {
+    expect(defaultApprovalGates().every((g) => g.roleIds.length === 0)).toBe(true)
   })
 })

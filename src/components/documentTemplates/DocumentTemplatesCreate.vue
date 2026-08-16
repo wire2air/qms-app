@@ -31,7 +31,7 @@ const toast = useToast()
 // seeds the companion workflow at create, and the workflow's steps own all of
 // it from then on. Edited in place here (2026-08-16) because the full builder
 // cannot exist yet: there is no companion workflow until the template saves.
-const approvalGates = ref(defaultApprovalGates())
+const approvalGates = ref(defaultApprovalGates({}, currentCompany.value?.settings ?? {}))
 
 const formRef = ref(null)
 const saving = ref(false)
@@ -79,10 +79,16 @@ const form = ref({
 //
 // Keeps each gate's SLA tracking the template's own Review/Approval limit
 // until someone edits that gate, after which the explicit value stands.
-watch([() => form.value.reviewLimitDays, () => form.value.approvalLimitDays], ([r, a]) => {
-  if (approvalGates.value[0]?.slaDays == null) approvalGates.value[0].slaDays = r
-  if (approvalGates.value[1]?.slaDays == null) approvalGates.value[1].slaDays = a
-})
+watch(
+  [() => form.value.reviewLimitDays, () => form.value.approvalLimitDays],
+  ([r, a]) => {
+    if (approvalGates.value[0]?.slaDays == null) approvalGates.value[0].slaDays = r
+    if (approvalGates.value[1]?.slaDays == null) approvalGates.value[1].slaDays = a
+  },
+  // immediate: without it the gates render blank until one of the limit
+  // fields is touched, which is how they shipped (reported 2026-08-16).
+  { immediate: true },
+)
 
 watch(
   existingTemplate,
