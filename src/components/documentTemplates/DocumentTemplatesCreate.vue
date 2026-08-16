@@ -53,14 +53,6 @@ const existingTemplate = useLiveQueryWithDeps(
 
 const loading = computed(() => isEditMode.value && existingTemplate.value === undefined)
 
-watch(
-  [() => form.value.reviewLimitDays, () => form.value.approvalLimitDays],
-  ([review, approval]) => {
-    if (approvalGates.value[0]?.slaDays == null) approvalGates.value[0].slaDays = review
-    if (approvalGates.value[1]?.slaDays == null) approvalGates.value[1].slaDays = approval
-  },
-)
-
 const form = ref({
   name: '',
   prefix: '',
@@ -78,6 +70,18 @@ const form = ref({
     currentCompany.value?.settings?.defaultDocumentTemplateAutoEffectiveOnApproval ?? true,
   showSectionTitles: true,
   sections: [{ id: crypto.randomUUID(), order: 1, title: 'Purpose', sectionType: 'text' }],
+})
+
+// Declared AFTER `form` on purpose: watch() evaluates its getter sources
+// immediately at setup, so sitting above the `const form = ref(...)` this
+// throws "Cannot access 'form' before initialization" the moment the page
+// mounts — the same TDZ trap as WorkflowGuidedCreateDialog (2026-08-15).
+//
+// Keeps each gate's SLA tracking the template's own Review/Approval limit
+// until someone edits that gate, after which the explicit value stands.
+watch([() => form.value.reviewLimitDays, () => form.value.approvalLimitDays], ([r, a]) => {
+  if (approvalGates.value[0]?.slaDays == null) approvalGates.value[0].slaDays = r
+  if (approvalGates.value[1]?.slaDays == null) approvalGates.value[1].slaDays = a
 })
 
 watch(
