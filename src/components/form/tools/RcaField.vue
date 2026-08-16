@@ -26,8 +26,27 @@ const METHODS = [
 // version at workflow-creation time. Fall back to the FK lookup for
 // any not-yet-migrated rows. See bootstrapCompanyDefaults.js
 // rcaStepSchema for the embedded shape.
+// Every template the tenant has, so a field the author never bound can still
+// resolve one (user report 2026-08-16: adding the field said "no template
+// linked" even with exactly one template configured).
+const availableTemplates = useLiveQuery((db) => db.RcaTemplate.where().exec(), {
+  models: ['RcaTemplate'],
+  initial: [],
+})
+
+// Most specific first: the id already on this answer, then the one the form
+// author bound, then the only template there is. With several and no binding
+// we resolve nothing — the template decides which methods are offered, so
+// guessing would change what the analyst is asked to do.
+const effectiveTemplateId = computed(() => {
+  const chosen = props.modelValue?._templateId
+  if (chosen) return chosen
+  if (props.field.rcaTemplateId) return props.field.rcaTemplateId
+  return availableTemplates.value.length === 1 ? availableTemplates.value[0].id : null
+})
+
 const template = useLiveQueryWithDeps(
-  [() => props.field.rcaTemplate, () => props.field.rcaTemplateId],
+  [() => props.field.rcaTemplate, () => effectiveTemplateId.value],
 
   async (db, [embedded, id]) => {
     if (embedded?.config) return embedded
@@ -36,6 +55,19 @@ const template = useLiveQueryWithDeps(
   },
   { models: ['RcaTemplate'] },
 )
+
+// Only offered BEFORE a method is chosen. Templates differ in which methods
+// they enable, so swapping mid-analysis would strand the captured fishbone or
+// 5-Whys against a template that may not offer it.
+const canPickTemplate = computed(
+  () =>
+    !props.readonly && !props.disabled && !hasChosen.value && availableTemplates.value.length > 1,
+)
+
+function setTemplate(id) {
+  if (!id || hasChosen.value) return
+  emit('update:modelValue', { ...(props.modelValue ?? {}), _templateId: id })
+}
 
 const hasChosen = computed(() => !!props.modelValue?._method)
 const chosenMethod = computed(() => props.modelValue?._method ?? null)
@@ -299,14 +331,33 @@ onBeforeUnmount(() => {
       v-else-if="!template"
       class="tw:text-sm tw:text-secondary tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:text-center"
     >
-      No RCA template linked to this field. Contact your administrator.
+      <template v-if="availableTemplates.length">
+        Pick the RCA template to analyse with.
+        <RcaTemplateSelectMenu
+          v-if="!readonly && !disabled"
+          :modelValue="null"
+          :required="true"
+          class="tw:mt-2 tw:min-w-56"
+          @update:modelValue="setTemplate"
+        />
+      </template>
+      <template v-else> No RCA template exists yet. Ask an administrator to create one. </template>
     </div>
 
     <template v-else>
       <!-- Method picker -->
       <template v-if="!hasChosen">
-        <div class="tw:text-sm tw:font-medium tw:text-on-main">
-          {{ template.name }} — Select Analysis Method
+        <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+          <div class="tw:text-sm tw:font-medium tw:text-on-main">
+            {{ template.name }} — Select Analysis Method
+          </div>
+          <RcaTemplateSelectMenu
+            v-if="canPickTemplate"
+            :modelValue="template.id"
+            :required="true"
+            class="tw:min-w-48"
+            @update:modelValue="setTemplate"
+          />
         </div>
         <p class="tw:text-xs tw:text-secondary tw:-mt-2">
           Choose the root cause analysis approach for this investigation.

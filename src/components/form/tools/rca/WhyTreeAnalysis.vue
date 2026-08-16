@@ -78,14 +78,15 @@ function toggleRootCause(nodeId) {
   )
   emit('update:modelValue', { ...props.modelValue, nodes: updated })
 }
-
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
     <!-- Problem statement -->
     <div class="tw:flex tw:flex-col tw:gap-1">
-      <label class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+      <label
+        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+      >
         {{ config.problemPrompt || 'Problem Statement' }}
       </label>
       <BaseTextarea
@@ -93,7 +94,9 @@ function toggleRootCause(nodeId) {
         placeholder="Describe what happened..."
         :rows="2"
         :readonly="readonly || !!problem"
-        @update:modelValue="(v) => !problem && emit('update:modelValue', { ...modelValue, problem: v })"
+        @update:modelValue="
+          (v) => !problem && emit('update:modelValue', { ...modelValue, problem: v })
+        "
       />
       <div v-if="problem" class="tw:text-xs tw:text-secondary tw:italic">Linked from form</div>
     </div>

@@ -52,7 +52,7 @@ const layout = computed(() => {
   const maxTop = Math.max(...topBranches.map((b) => b.causes.length), 0)
   const maxBot = Math.max(...botBranches.map((b) => b.causes.length), 0)
 
-  const addH = (props.readonly || props.branchesOnly) ? 0 : ADD_ROW_H + 4
+  const addH = props.readonly || props.branchesOnly ? 0 : ADD_ROW_H + 4
 
   // TOP: causes stack upward, label fixed just above spine → symmetric with bottom
   // topAddY: where the "add cause" input sits for all top branches (bottom of cause area)
@@ -79,7 +79,7 @@ const layout = computed(() => {
     const nTopCauses = topBranch?.causes.length ?? 0
     const topCauseBaseY = topAddY - nTopCauses * CARD_TOTAL
     const topDiagStartX = cardCenterX
-    const topDiagStartY = topLabelY + LABEL_H / 2  // label center, symmetric with bottom
+    const topDiagStartY = topLabelY + LABEL_H / 2 // label center, symmetric with bottom
 
     // BOTTOM
     const botLabelY = spineY + SPINE_GAP
@@ -89,10 +89,20 @@ const layout = computed(() => {
     const botAddY = botCausesY + (botBranch?.causes.length ?? 0) * CARD_TOTAL
 
     return {
-      topBranch, botBranch,
-      cardLeft, junctionX,
-      topLabelY, topCauseBaseY, topAddY, topDiagStartX, topDiagStartY,
-      botLabelY, botCausesY, botDiagEndX, botDiagEndY, botAddY,
+      topBranch,
+      botBranch,
+      cardLeft,
+      junctionX,
+      topLabelY,
+      topCauseBaseY,
+      topAddY,
+      topDiagStartX,
+      topDiagStartY,
+      botLabelY,
+      botCausesY,
+      botDiagEndX,
+      botDiagEndY,
+      botAddY,
     }
   })
 
@@ -182,9 +192,7 @@ function removeCause(branchId, causeId) {
   if (props.readonly) return
   if (editingCause.value?.causeId === causeId) editingCause.value = null
   const updated = branches.value.map((b) =>
-    b.id === branchId
-      ? { ...b, causes: b.causes.filter((c) => c.id !== causeId) }
-      : b,
+    b.id === branchId ? { ...b, causes: b.causes.filter((c) => c.id !== causeId) } : b,
   )
   emit('update:modelValue', { ...props.modelValue, branches: updated })
 }
@@ -193,7 +201,12 @@ function addBranch() {
   if (props.readonly) return
   const updated = [
     ...branches.value,
-    { id: crypto.randomUUID(), label: `Branch ${branches.value.length + 1}`, causes: [], userAdded: true },
+    {
+      id: crypto.randomUUID(),
+      label: `Branch ${branches.value.length + 1}`,
+      causes: [],
+      userAdded: true,
+    },
   ]
   emit('update:modelValue', { ...props.modelValue, branches: updated })
 }
@@ -217,15 +230,16 @@ function onProblemInput(e) {
   emit('update:modelValue', { ...props.modelValue, problem: e.target.value })
 }
 
-const selectedCount = computed(
-  () => branches.value.reduce((acc, b) => acc + b.causes.filter((c) => c.selected).length, 0),
+const selectedCount = computed(() =>
+  branches.value.reduce((acc, b) => acc + b.causes.filter((c) => c.selected).length, 0),
 )
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-2">
     <div class="tw:text-xs tw:text-secondary">
-      Add causes to each branch. Click a cause to select it, <strong>★</strong> to mark as root cause.
+      Add causes to each branch. Click a cause to select it, <strong>★</strong> to mark as root
+      cause.
     </div>
 
     <!-- Diagram -->
@@ -242,7 +256,12 @@ const selectedCount = computed(
           :height="layout.totalH"
         >
           <defs>
-            <pattern :id="`fbgrid-${diagramId}`" width="18" height="18" patternUnits="userSpaceOnUse">
+            <pattern
+              :id="`fbgrid-${diagramId}`"
+              width="18"
+              height="18"
+              patternUnits="userSpaceOnUse"
+            >
               <circle cx="1" cy="1" r="0.8" fill="#d1d5db" />
             </pattern>
           </defs>
@@ -251,9 +270,13 @@ const selectedCount = computed(
 
           <!-- Spine -->
           <line
-            x1="0" :y1="layout.spineY"
-            :x2="layout.spineEndX" :y2="layout.spineY"
-            stroke="#64748b" stroke-width="2.5" stroke-linecap="round"
+            x1="0"
+            :y1="layout.spineY"
+            :x2="layout.spineEndX"
+            :y2="layout.spineY"
+            stroke="#64748b"
+            stroke-width="2.5"
+            stroke-linecap="round"
           />
           <polygon
             :points="`${layout.spineEndX},${layout.spineY - 7} ${layout.spineEndX + 16},${layout.spineY} ${layout.spineEndX},${layout.spineY + 7}`"
@@ -262,14 +285,20 @@ const selectedCount = computed(
 
           <g v-for="(col, i) in layout.cols" :key="i">
             <line
-              :x1="col.topDiagStartX" :y1="col.topDiagStartY"
-              :x2="col.junctionX" :y2="layout.spineY"
-              stroke="#94a3b8" stroke-width="1.5"
+              :x1="col.topDiagStartX"
+              :y1="col.topDiagStartY"
+              :x2="col.junctionX"
+              :y2="layout.spineY"
+              stroke="#94a3b8"
+              stroke-width="1.5"
             />
             <line
-              :x1="col.junctionX" :y1="layout.spineY"
-              :x2="col.botDiagEndX" :y2="col.botDiagEndY"
-              stroke="#94a3b8" stroke-width="1.5"
+              :x1="col.junctionX"
+              :y1="layout.spineY"
+              :x2="col.botDiagEndX"
+              :y2="col.botDiagEndY"
+              stroke="#94a3b8"
+              stroke-width="1.5"
             />
             <circle :cx="col.junctionX" :cy="layout.spineY" r="4" fill="#64748b" />
           </g>
@@ -278,7 +307,6 @@ const selectedCount = computed(
         <!-- HTML layer: interactive elements -->
         <div class="tw:absolute tw:inset-0">
           <div v-for="(col, i) in layout.cols" :key="i" class="tw:contents">
-
             <!-- TOP cause cards (stack above label) -->
             <div
               v-for="(cause, ci) in col.topBranch?.causes ?? []"
@@ -316,15 +344,22 @@ const selectedCount = computed(
                 :disabled="readonly"
                 @click="toggleSelected(col.topBranch.id, cause.id)"
               >
-                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-caption">{{ cause.text }}</span>
+                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-caption">{{
+                  cause.text
+                }}</span>
                 <template v-if="!readonly">
                   <span
                     v-if="cause.selected"
                     class="tw:text-base tw:leading-none tw:shrink-0 tw:transition-colors tw:group-hover:opacity-0"
-                    :class="cause.isRootCause ? 'tw:text-amber-500' : 'tw:text-gray-300 tw:hover:text-amber-400'"
+                    :class="
+                      cause.isRootCause
+                        ? 'tw:text-amber-500'
+                        : 'tw:text-gray-300 tw:hover:text-amber-400'
+                    "
                     :title="cause.isRootCause ? 'Unmark root cause' : 'Mark as root cause'"
                     @click.stop="toggleRootCause(col.topBranch.id, cause.id)"
-                  >★</span>
+                    >★</span
+                  >
                   <span
                     class="tw:flex tw:items-center tw:gap-0.5 tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:shrink-0"
                     @click.stop
@@ -333,12 +368,14 @@ const selectedCount = computed(
                       class="tw:text-gray-400 tw:hover:text-blue-500 tw:leading-none tw:cursor-pointer"
                       title="Edit cause"
                       @click="startEditCause(col.topBranch.id, cause)"
-                    ><IconPencil :size="11" /></span>
+                      ><IconPencil :size="11"
+                    /></span>
                     <span
                       class="tw:text-gray-400 tw:hover:text-red-500 tw:leading-none tw:cursor-pointer"
                       title="Remove cause"
                       @click="removeCause(col.topBranch.id, cause.id)"
-                    ><IconX :size="11" /></span>
+                      ><IconX :size="11"
+                    /></span>
                   </span>
                 </template>
               </button>
@@ -359,7 +396,9 @@ const selectedCount = computed(
                 class="tw:flex-1 tw:min-w-0 tw:h-full tw:px-2 tw:text-xs tw:border tw:border-dashed tw:border-gray-300 tw:rounded-md tw:bg-white tw:placeholder-gray-400 tw:outline-none tw:focus:border-blue-400"
                 placeholder="Type a cause + Enter"
                 :value="newCauseText[col.topBranch.id] ?? ''"
-                @input="(e) => (newCauseText = { ...newCauseText, [col.topBranch.id]: e.target.value })"
+                @input="
+                  (e) => (newCauseText = { ...newCauseText, [col.topBranch.id]: e.target.value })
+                "
                 @keyup.enter="confirmAddCause(col.topBranch.id)"
                 @blur="confirmAddCause(col.topBranch.id)"
               />
@@ -375,7 +414,11 @@ const selectedCount = computed(
             <div
               v-if="col.topBranch"
               class="tw:absolute tw:flex tw:items-center tw:gap-1"
-              :style="{ left: col.cardLeft + 'px', top: col.topLabelY + 'px', width: CARD_W + 'px' }"
+              :style="{
+                left: col.cardLeft + 'px',
+                top: col.topLabelY + 'px',
+                width: CARD_W + 'px',
+              }"
             >
               <input
                 class="tw:flex-1 tw:min-w-0 tw:px-2 tw:py-0.5 tw:rounded-full tw:text-xs tw:font-semibold tw:border tw:bg-transparent tw:outline-none"
@@ -402,7 +445,11 @@ const selectedCount = computed(
             <div
               v-if="col.botBranch"
               class="tw:absolute tw:flex tw:items-center tw:gap-1"
-              :style="{ left: col.cardLeft + 'px', top: col.botLabelY + 'px', width: CARD_W + 'px' }"
+              :style="{
+                left: col.cardLeft + 'px',
+                top: col.botLabelY + 'px',
+                width: CARD_W + 'px',
+              }"
             >
               <input
                 class="tw:flex-1 tw:min-w-0 tw:px-2 tw:py-0.5 tw:rounded-full tw:text-xs tw:font-semibold tw:border tw:bg-transparent tw:outline-none"
@@ -462,15 +509,22 @@ const selectedCount = computed(
                 :disabled="readonly"
                 @click="toggleSelected(col.botBranch.id, cause.id)"
               >
-                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-caption">{{ cause.text }}</span>
+                <span class="tw:flex-1 tw:truncate tw:font-medium tw:text-caption">{{
+                  cause.text
+                }}</span>
                 <template v-if="!readonly">
                   <span
                     v-if="cause.selected"
                     class="tw:text-base tw:leading-none tw:shrink-0 tw:transition-colors tw:group-hover:opacity-0"
-                    :class="cause.isRootCause ? 'tw:text-amber-500' : 'tw:text-gray-300 tw:hover:text-amber-400'"
+                    :class="
+                      cause.isRootCause
+                        ? 'tw:text-amber-500'
+                        : 'tw:text-gray-300 tw:hover:text-amber-400'
+                    "
                     :title="cause.isRootCause ? 'Unmark root cause' : 'Mark as root cause'"
                     @click.stop="toggleRootCause(col.botBranch.id, cause.id)"
-                  >★</span>
+                    >★</span
+                  >
                   <span
                     class="tw:flex tw:items-center tw:gap-0.5 tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:shrink-0"
                     @click.stop
@@ -479,12 +533,14 @@ const selectedCount = computed(
                       class="tw:text-gray-400 tw:hover:text-blue-500 tw:leading-none tw:cursor-pointer"
                       title="Edit cause"
                       @click="startEditCause(col.botBranch.id, cause)"
-                    ><IconPencil :size="11" /></span>
+                      ><IconPencil :size="11"
+                    /></span>
                     <span
                       class="tw:text-gray-400 tw:hover:text-red-500 tw:leading-none tw:cursor-pointer"
                       title="Remove cause"
                       @click="removeCause(col.botBranch.id, cause.id)"
-                    ><IconX :size="11" /></span>
+                      ><IconX :size="11"
+                    /></span>
                   </span>
                 </template>
               </button>
@@ -505,7 +561,9 @@ const selectedCount = computed(
                 class="tw:flex-1 tw:min-w-0 tw:h-full tw:px-2 tw:text-xs tw:border tw:border-dashed tw:border-gray-300 tw:rounded-md tw:bg-white tw:placeholder-gray-400 tw:outline-none tw:focus:border-blue-400"
                 placeholder="Type a cause + Enter"
                 :value="newCauseText[col.botBranch.id] ?? ''"
-                @input="(e) => (newCauseText = { ...newCauseText, [col.botBranch.id]: e.target.value })"
+                @input="
+                  (e) => (newCauseText = { ...newCauseText, [col.botBranch.id]: e.target.value })
+                "
                 @keyup.enter="confirmAddCause(col.botBranch.id)"
                 @blur="confirmAddCause(col.botBranch.id)"
               />
@@ -528,7 +586,9 @@ const selectedCount = computed(
               height: PROBLEM_H + 'px',
             }"
           >
-            <div class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wider tw:text-red-500 tw:mb-1 tw:shrink-0">
+            <div
+              class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wider tw:text-red-500 tw:mb-1 tw:shrink-0"
+            >
               Problem
             </div>
             <textarea

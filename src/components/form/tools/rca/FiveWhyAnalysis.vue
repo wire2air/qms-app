@@ -15,9 +15,7 @@ function updateProblem(val) {
 }
 
 function updateAnswer(whyId, answer) {
-  const whys = (props.modelValue.whys ?? []).map((w) =>
-    w.id === whyId ? { ...w, answer } : w,
-  )
+  const whys = (props.modelValue.whys ?? []).map((w) => (w.id === whyId ? { ...w, answer } : w))
   emit('update:modelValue', { ...props.modelValue, whys })
 }
 
@@ -41,7 +39,9 @@ const whys = computed(() => props.modelValue.whys ?? [])
   <div class="tw:flex tw:flex-col tw:gap-4">
     <!-- Problem statement -->
     <div class="tw:flex tw:flex-col tw:gap-1">
-      <label class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+      <label
+        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+      >
         {{ config.problemPrompt || 'Problem Statement' }}
       </label>
       <BaseTextarea
@@ -54,11 +54,7 @@ const whys = computed(() => props.modelValue.whys ?? [])
     </div>
 
     <!-- Why chain -->
-    <div
-      v-for="(why, idx) in whys"
-      :key="why.id"
-      class="tw:flex tw:gap-3 tw:group"
-    >
+    <div v-for="(why, idx) in whys" :key="why.id" class="tw:flex tw:gap-3 tw:group">
       <div class="tw:flex tw:flex-col tw:items-center tw:gap-1 tw:shrink-0">
         <div
           class="tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary tw:text-white tw:flex tw:items-center tw:justify-center tw:text-xs tw:font-bold"
