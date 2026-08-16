@@ -10,6 +10,8 @@ import {
 } from '@tabler/icons-vue'
 import { markdownToHtml } from '@/utils/markdown.js'
 import { parsePdfAndExtractImages, PdfImportLimitError } from '@/composables/usePdfImport.js'
+import { uploadFile } from '@/composables/useFileUpload.js'
+import { canUseAi } from '@/utils/currentSession.js'
 
 /**
  * Import PDF dialog. Pipeline:
@@ -26,6 +28,22 @@ import { parsePdfAndExtractImages, PdfImportLimitError } from '@/composables/use
  * Errors at any stage surface as a dismissable banner with the stage name.
  * Image upload failures inside the parser are silently skipped per-image —
  * one broken xobject must not abort a full SOP import.
+ *
+ * ATTACHMENT MODE (2026-08-16) is the second path, and the only one available
+ * without AI. It skips parsing and structuring entirely: pick the PDF, pick a
+ * document template, and the file is attached to a document built from that
+ * template's sections. The template is asked for because it supplies the
+ * structure the AI would otherwise have produced — typically a small
+ * "imported document" template of a summary plus an attachment.
+ *
+ * Nothing marks such a template as import-only, deliberately: a flag on
+ * document_templates would be a second source of truth for something the
+ * author already expresses by choosing it here (user decision 2026-08-16 —
+ * accepted as a training matter rather than a schema one).
+ *
+ * It doubles as the fallback when the AI path fails — a PDF too large to
+ * parse, or one the model can't structure, is still worth filing as an
+ * attachment rather than losing the upload.
  */
 
 const emit = defineEmits(['apply'])
@@ -35,11 +53,15 @@ const show = defineModel({ type: Boolean, default: false })
 const ENDPOINT = '/api/v1/services/ai/tasks/document.import_from_pdf/run'
 
 // Phases: pick → parsing → structuring → result → error
+//          pick → attachment (no AI, or chosen as a fallback)
 const phase = ref('pick')
 const error = ref(null)
 const progress = ref({ current: 0, total: 0, message: '' })
 
 const selectedFile = ref(null)
+// Attachment mode
+const attachmentTemplateId = ref(null)
+const attaching = ref(false)
 const extracted = ref(null) // { text, pageCount, imageCount, filename }
 const result = ref(null) // { title, description, sections: [...] }
 const usage = ref(null)
@@ -50,6 +72,8 @@ watch(show, (open) => {
     error.value = null
     progress.value = { current: 0, total: 0, message: '' }
     selectedFile.value = null
+    attachmentTemplateId.value = null
+    attaching.value = false
     extracted.value = null
     result.value = null
     usage.value = null
@@ -215,6 +239,44 @@ function discard() {
   show.value = false
 }
 
+// ── Attachment mode ─────────────────────────────────────────────────────────
+// The whole path without AI, and the fallback when AI can't do it. Uploads the
+// PDF and hands the parent a template id plus the stored asset; the parent
+// seeds sections from that template and files the attachment into it.
+function goToAttachment() {
+  error.value = null
+  phase.value = 'attachment'
+}
+
+// Title from the filename: it is almost always the document's real name, and
+// re-typing it is the kind of small tax that makes people avoid the importer.
+const suggestedTitle = computed(() =>
+  (selectedFile.value?.name ?? '')
+    .replace(/\.pdf$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim(),
+)
+
+async function applyAttachment() {
+  if (!selectedFile.value || !attachmentTemplateId.value || attaching.value) return
+  attaching.value = true
+  error.value = null
+  try {
+    const { success, asset, error: uploadError } = await uploadFile(selectedFile.value, 'ASSET')
+    if (!success || !asset) throw new Error(uploadError || 'Upload failed')
+    emit('apply', {
+      title: suggestedTitle.value || selectedFile.value.name,
+      documentTemplateId: attachmentTemplateId.value,
+      attachment: asset,
+    })
+    show.value = false
+  } catch (e) {
+    error.value = { stage: 'upload', message: e?.message || 'Could not upload the file' }
+  } finally {
+    attaching.value = false
+  }
+}
+
 const fileSizeLabel = computed(() => {
   if (!selectedFile.value) return ''
   const kb = selectedFile.value.size / 1024
@@ -291,9 +353,16 @@ const parseProgressPct = computed(() => {
     <template v-if="phase === 'pick'">
       <div class="tw:flex tw:flex-col tw:gap-4">
         <div class="tw:text-sm tw:text-secondary tw:leading-relaxed">
-          Upload an SOP, work instruction, or policy PDF. We'll extract text + images, then use AI
-          to structure it into editable sections. You'll review before saving — nothing is created
-          automatically.
+          <template v-if="canUseAi">
+            Upload an SOP, work instruction, or policy PDF. We'll extract text + images, then use AI
+            to structure it into editable sections. You'll review before saving — nothing is created
+            automatically.
+          </template>
+          <template v-else>
+            Upload an SOP, work instruction, or policy PDF and pick a document template. The PDF is
+            filed as an attachment against that template's sections — nothing is created
+            automatically.
+          </template>
         </div>
 
         <div
@@ -313,6 +382,33 @@ const parseProgressPct = computed(() => {
             </div>
           </div>
         </div>
+
+        <div
+          v-if="error"
+          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-800 tw:text-sm"
+        >
+          <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
+          <div>{{ error.message }}</div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Phase: attachment (no AI, or chosen after AI failed) -->
+    <template v-else-if="phase === 'attachment'">
+      <div class="tw:flex tw:flex-col tw:gap-4">
+        <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
+          <IconFile :size="18" class="tw:text-secondary tw:shrink-0" />
+          <span class="tw:font-medium tw:truncate">{{ selectedFile?.name }}</span>
+          <span class="tw:text-xs tw:text-secondary tw:shrink-0">{{ fileSizeLabel }}</span>
+        </div>
+
+        <BaseField
+          label="Document Template"
+          required
+          hint="Supplies the document's sections. The PDF is attached to it — most teams keep a small template for imported documents (a summary plus an attachment)."
+        >
+          <DocumentTemplateSelectMenu v-model="attachmentTemplateId" :required="true" />
+        </BaseField>
 
         <div
           v-if="error"
@@ -437,9 +533,31 @@ const parseProgressPct = computed(() => {
     <template #footer>
       <template v-if="phase === 'pick'">
         <BaseButton variant="outline" @click="discard">Cancel</BaseButton>
-        <BaseButton :disabled="!selectedFile" @click="runImport">
-          <IconSparkles :size="14" class="tw:mr-1" />
-          Import
+        <!-- Without AI this is the only path, so it is the primary action. -->
+        <BaseButton v-if="!canUseAi" :disabled="!selectedFile" @click="goToAttachment">
+          Continue
+        </BaseButton>
+        <template v-else>
+          <BaseButton variant="outline" :disabled="!selectedFile" @click="goToAttachment">
+            Attach without AI
+          </BaseButton>
+          <BaseButton :disabled="!selectedFile" @click="runImport">
+            <IconSparkles :size="14" class="tw:mr-1" />
+            Import
+          </BaseButton>
+        </template>
+      </template>
+      <template v-else-if="phase === 'attachment'">
+        <BaseButton variant="outline" :disabled="attaching" @click="phase = 'pick'"
+          >Back</BaseButton
+        >
+        <BaseButton
+          :disabled="!attachmentTemplateId || attaching"
+          :isLoading="attaching"
+          @click="applyAttachment"
+        >
+          <IconCheck :size="14" class="tw:mr-1" />
+          Attach to Document
         </BaseButton>
       </template>
       <template v-else-if="phase === 'parsing' || phase === 'structuring'">
@@ -448,6 +566,12 @@ const parseProgressPct = computed(() => {
       </template>
       <template v-else-if="phase === 'error'">
         <BaseButton variant="outline" @click="discard">Close</BaseButton>
+        <!-- The reported regression: a PDF too large to parse, or one the
+             model can't structure, is still worth filing rather than losing
+             the upload. -->
+        <BaseButton v-if="selectedFile" variant="outline" @click="goToAttachment">
+          Import as attachment
+        </BaseButton>
         <BaseButton @click="phase = 'pick'">
           <IconRefresh :size="14" class="tw:mr-1" />
           Try again
