@@ -38,13 +38,48 @@ describe('BaseTooltip', () => {
     expect(w.find('span').attributes('aria-describedby')).toBeUndefined()
   })
 
-  it('shows on focusin and hides on focusout (keyboard users)', async () => {
+  // Focus opens the tooltip only for KEYBOARD focus. A dialog moves focus to
+  // its first focusable element on open; where that is a help icon, a plain
+  // focusin handler popped the tooltip over content the user hadn't read yet
+  // (reported 2026-08-16 on the step Settings dialog). :focus-visible is the
+  // browser's own distinction between keyboard traversal and programmatic or
+  // pointer focus.
+  it('shows on keyboard focus and hides on focusout', async () => {
     const w = mountTip()
-    await w.find('span').trigger('focusin')
+    const span = w.find('span')
+    // jsdom won't set :focus-visible for a synthetic event, so assert the
+    // guard's contract directly.
+    span.element.matches = (sel) => sel === ':focus-visible'
+
+    await span.trigger('focusin')
     await nextTick()
     expect(w.find('[role="tooltip"]').exists()).toBe(true)
-    await w.find('span').trigger('focusout')
+    await span.trigger('focusout')
     expect(w.find('[role="tooltip"]').exists()).toBe(false)
+  })
+
+  it('does NOT show when focus arrives programmatically', async () => {
+    // The reported bug: opening a dialog must not pop a tooltip.
+    const w = mountTip()
+    const span = w.find('span')
+    span.element.matches = () => false
+
+    await span.trigger('focusin')
+    await nextTick()
+    expect(w.find('[role="tooltip"]').exists()).toBe(false)
+  })
+
+  it('still shows on hover regardless of focus', async () => {
+    // Pointer users are unaffected by the focus guard. NB: capture the wrapper
+    // BEFORE stubbing matches — find() uses element.matches to test selectors,
+    // so a stub that always returns false makes the element unfindable.
+    const w = mountTip()
+    const span = w.find('span')
+    span.element.matches = () => false
+
+    await span.trigger('mouseenter')
+    await nextTick()
+    expect(w.find('[role="tooltip"]').exists()).toBe(true)
   })
 
   it('hides on Escape', async () => {

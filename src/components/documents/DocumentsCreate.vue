@@ -321,6 +321,47 @@ function handleAiDraft(draft) {
 const showImportDialog = ref(false)
 function handlePdfImport(draft) {
   form.value.title = draft.title
+
+  // Attachment mode: the template supplies the structure, so set it and let
+  // the existing template watcher seed the sections, then file the PDF into
+  // the first attachment-capable section. Appends one if the chosen template
+  // has none — better than dropping an upload the user just made.
+  if (draft.attachment) {
+    form.value.documentTemplateId = draft.documentTemplateId
+    nextTick(() => {
+      const sections = form.value.sections ?? []
+      // Summary into the first text-bearing section — that is what an
+      // "imported document" template's Summary section is for.
+      if (draft.summary) {
+        const textSection = sections.find(
+          (s) => s.sectionType === 'text' || s.sectionType === 'textAttachment',
+        )
+        if (textSection) textSection.content = `<p>${draft.summary}</p>`
+      }
+
+      const target = sections.find(
+        (s) => s.sectionType === 'attachment' || s.sectionType === 'textAttachment',
+      )
+      if (target) {
+        target.attachments = [...(target.attachments ?? []), draft.attachment]
+      } else {
+        sections.push({
+          id: crypto.randomUUID(),
+          title: 'Attachment',
+          sectionType: 'attachment',
+          content: null,
+          attachments: [draft.attachment],
+          order: sections.length + 1,
+          isAddOn: true,
+        })
+        form.value.sections = sections
+      }
+      activeTab.value = 'content'
+      toast.success('PDF attached — review the document before saving.')
+    })
+    return
+  }
+
   // AI picks the document type from the seeded list. Site + Department
   // defaults stay whatever the user already had — only the type changes
   // when the dialog tells us its best match.
@@ -351,10 +392,17 @@ const docTabs = [
   <BasePage width="standard" fullHeight class="tw:relative">
     <PageHeader :icon="IconFileText" title="Create Document">
       <template #actions>
+        <!-- No longer AI-gated (user request 2026-08-16): without AI the
+             dialog files the PDF as an attachment against a chosen template,
+             which is useful on its own and is also the fallback when AI can't
+             structure a file. -->
         <button
-          v-if="canUseAi"
           class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-divider tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-sidebar tw:transition-colors tw:font-medium tw:px-3 tw:py-1.5 tw:text-sm"
-          title="Import an existing PDF (SOP, work instruction, etc.) — extracts text + images and structures the content"
+          :title="
+            canUseAi
+              ? 'Import an existing PDF — extracts text + images and structures the content, or attaches it as-is'
+              : 'Import an existing PDF and attach it to a document template'
+          "
           @click="showImportDialog = true"
         >
           <IconFileUpload :size="15" />

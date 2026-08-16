@@ -88,9 +88,7 @@ function optionScore(opt) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3 tw:pt-3 tw:mt-3 tw:border-t tw:border-divider">
-    <BaseCheckbox v-model="enabled">
-      Include this field in the score
-    </BaseCheckbox>
+    <BaseCheckbox v-model="enabled"> Include this field in the score </BaseCheckbox>
 
     <template v-if="enabled">
       <BaseField

@@ -27,10 +27,7 @@ const hasHint = computed(() => !NO_HINT_TYPES.has(field.value.type))
 
 <template>
   <div class="tw:mb-4 tw:last:mb-0">
-    <BaseText
-      variant="overline"
-      class="tw:block tw:mb-3 tw:pb-2 tw:border-b tw:border-divider"
-    >
+    <BaseText variant="overline" class="tw:block tw:mb-3 tw:pb-2 tw:border-b tw:border-divider">
       Basic Settings
     </BaseText>
 

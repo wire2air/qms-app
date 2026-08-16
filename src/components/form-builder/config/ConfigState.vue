@@ -12,10 +12,7 @@ const hasState = computed(() => !NO_STATE_TYPES.has(field.value.type))
 
 <template>
   <div v-if="hasState" class="tw:mb-4 tw:last:mb-0">
-    <BaseText
-      variant="overline"
-      class="tw:block tw:mb-2 tw:pb-2 tw:border-b tw:border-divider"
-    >
+    <BaseText variant="overline" class="tw:block tw:mb-2 tw:pb-2 tw:border-b tw:border-divider">
       State
     </BaseText>
 

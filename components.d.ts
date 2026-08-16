@@ -1190,6 +1190,7 @@ declare module 'vue' {
     WhyTreeAnalysis: typeof import('./src/components/form/tools/rca/WhyTreeAnalysis.vue')['default']
     WorkflowAiGenerateDialog: typeof import('./src/components/ai/WorkflowAiGenerateDialog.vue')['default']
     WorkflowCard: typeof import('./src/components/workflow/WorkflowCard.vue')['default']
+    WorkflowDefault: typeof import('./src/components/workflow/workflowDefault.js')['default']
     WorkflowEditor: typeof import('./src/components/workflow/WorkflowEditor.vue')['default']
     WorkflowGuidedCreateDialog: typeof import('./src/components/workflow/WorkflowGuidedCreateDialog.vue')['default']
     WorkflowInstanceApproverAction: typeof import('./src/components/workflowInstance/workflowInstanceApproverAction.vue')['default']

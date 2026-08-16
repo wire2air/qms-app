@@ -32,6 +32,7 @@ import {
   IconClock,
   IconCalendarTime,
   IconCalendarX,
+  IconInfoCircle,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
@@ -165,6 +166,11 @@ const completeDisabled = computed(() => childrenBlock.value)
 const completeDisabledReason = computed(() =>
   childrenBlock.value ? 'All sub-tasks must be completed before advancing' : '',
 )
+
+// Instructions the template author wrote for this step. Plain text: the field
+// is a single-line input in the builder, and rendering it as HTML would let
+// authored content inject markup for no benefit.
+const stepInstructions = computed(() => (instanceStep.value?.description ?? '').trim())
 
 // ─── Mark Complete (Complete & Advance) ──────────────────────────────────────
 const requireEsignature = computed(
@@ -721,6 +727,24 @@ function activityLabel(statusId) {
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
 
+    <!-- The step's instructions, authored on the template. Snapshotted onto
+         the instance at submit, and until now never rendered here — only the
+         CAPA child step showed them, so instructions written for an NC or
+         Change Control task were invisible to the person doing the work
+         (reported 2026-08-16).
+
+         Reads from the INSTANCE, not the live template: the snapshot is
+         deliberate (F-05), so a step already in flight keeps the guidance it
+         started under. A template edited today therefore shows on new
+         submissions, not on runs already open. -->
+    <div
+      v-if="stepInstructions"
+      class="tw:flex tw:items-start tw:gap-2 tw:rounded-lg tw:border tw:border-primary/20 tw:bg-primary/5 tw:p-3"
+    >
+      <IconInfoCircle :size="16" class="tw:text-primary tw:shrink-0 tw:mt-0.5" />
+      <div class="tw:text-sm tw:text-on-main tw:min-w-0">{{ stepInstructions }}</div>
+    </div>
+
     <slot name="beforeForm" />
 
     <WorkflowStepForm
@@ -731,6 +755,32 @@ function activityLabel(statusId) {
       :autoApprove="true"
       :hideSubmit="true"
     />
+
+    <!-- Second Complete/Approve, below the form (user request 2026-08-16).
+         The header one stays — it is where you look to see whether the step is
+         actionable at all — but after filling a long form the action is off
+         screen, and scrolling back up to finish reads as a dead end. Same
+         handler, same disabled state and reason, so the two can never disagree
+         about whether the step can be completed. -->
+    <div v-if="canActOnStep" class="tw:flex tw:justify-end tw:pt-1">
+      <BaseButton
+        :disabled="completeDisabled || completing"
+        :isLoading="completing"
+        :title="completeDisabledReason || undefined"
+        @click="onCompleteAndAdvanceClick"
+      >
+        <template #icon><IconCheck :size="16" /></template>
+        {{
+          completing
+            ? isApprovalStep
+              ? 'Approving…'
+              : 'Completing…'
+            : isApprovalStep
+              ? 'Approve'
+              : 'Mark Complete'
+        }}
+      </BaseButton>
+    </div>
 
     <!-- Scoped slot exposes everything the per-module child-step component
          needs so the call site doesn't have to re-fetch the step / definition. -->

@@ -25,8 +25,11 @@ import {
   IconPlus,
   IconPencil,
   IconCopy,
+  IconStarFilled,
+  IconStar,
 } from '@tabler/icons-vue'
 import { copyVersionSteps, newestVersionOf } from '@/components/workflow/workflowVersionCopy.js'
+import { toggleWorkflowDefault } from '@/components/workflow/workflowDefault.js'
 import {
   ensureTemplateApprovalWorkflow,
   pickAuthoringVersion,
@@ -300,11 +303,31 @@ function rawWorkflow(id) {
   return workflows.value.find((w) => w.id === id)
 }
 
+// At most one default per (company, module) is enforced by a partial unique
+// index, so the previous one must be cleared first — toggleWorkflowDefault
+// owns that ordering.
+async function handleToggleDefault(row) {
+  try {
+    toast.success(await toggleWorkflowDefault(rawWorkflow(row.id), workflows.value))
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update the default workflow')
+  }
+}
+
 function rowMenuItems(row) {
   const items = [{ name: 'Edit', icon: IconPencil, click: () => openRow(row) }]
   const canClone = row.kind === 'WORKFLOW' ? canCreateWorkflow.value : canCreateDocTemplate.value
   if (canClone) {
     items.push({ name: 'Clone', icon: IconCopy, click: () => handleClone(row) })
+  }
+  // Only workflows carry a default — a document template has no module to be
+  // the default for.
+  if (row.kind === 'WORKFLOW' && canCreateWorkflow.value) {
+    items.push({
+      name: row.isDefault ? 'Remove default' : 'Set as default',
+      icon: row.isDefault ? IconStar : IconStarFilled,
+      click: () => handleToggleDefault(row),
+    })
   }
   return items
 }
@@ -369,12 +392,18 @@ function rowMenuItems(row) {
         >
           <span class="tw:truncate tw:font-bold tw:text-on-main">
             {{ row.name }}
-            <span
+            <!-- Star rather than the word (user request 2026-08-16): it sits
+                 inline with the name and reads at a glance down a long list. -->
+            <BaseTooltip
               v-if="row.isDefault"
-              class="tw:ml-1 tw:text-micro tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:align-middle"
+              content="Default — auto-selected for new records in this module"
             >
-              Default
-            </span>
+              <IconStarFilled
+                :size="13"
+                class="tw:ml-1 tw:inline tw:align-middle tw:text-amber-500"
+                aria-label="Default"
+              />
+            </BaseTooltip>
           </span>
           <span v-if="row.description" class="tw:text-xs tw:text-secondary tw:line-clamp-1">
             {{ row.description }}

@@ -251,6 +251,74 @@ export async function parsePdfAndExtractImages(
   }
 }
 
+/**
+ * Read just the front of a PDF — locally, with no AI (user question
+ * 2026-08-16: "can we use that to get document title or does that require
+ * AI?").
+ *
+ * No model is needed for a title. PDFs carry one in their metadata, and where
+ * that is absent or junk the first substantial line of page 1 is nearly always
+ * it. What a model buys you is a SUMMARY, which is why the AI path exists —
+ * but it can be fed these few pages instead of the whole document.
+ *
+ * Deliberately unbounded by MAX_FILE_BYTES / MAX_PAGES: it touches only the
+ * first `maxPages` and extracts no images, so the very documents the full
+ * importer rejects are exactly the ones this has to work on.
+ *
+ * @returns {Promise<{title: string, text: string, pageCount: number}>}
+ */
+export async function extractPdfHeader(file, { maxPages = 3 } = {}) {
+  if (!file) throw new Error('No file provided')
+  const pdfjs = await loadPdfJs()
+  const buf = await file.arrayBuffer()
+  const doc = await pdfjs.getDocument({ data: buf }).promise
+
+  const meta = await doc.getMetadata().catch(() => null)
+  const lines = []
+  const pages = Math.min(doc.numPages, Math.max(1, maxPages))
+  for (let p = 1; p <= pages; p++) {
+    const page = await doc.getPage(p)
+    lines.push(...(await extractLines(page)))
+  }
+
+  return {
+    title: cleanPdfTitle(meta?.info?.Title) || titleFromLines(lines) || '',
+    text: lines.join('\n').trim(),
+    pageCount: doc.numPages,
+  }
+}
+
+/**
+ * PDF `info.Title` is unreliable — authoring tools stuff it with the source
+ * filename ("Microsoft Word - SOP-001.docx") or leave a template's name behind.
+ * Strip the tell-tale prefixes and extensions; reject what's left if it looks
+ * like a filename rather than a title.
+ */
+function cleanPdfTitle(raw) {
+  let t = (raw ?? '').trim()
+  if (!t) return ''
+  t = t.replace(/^Microsoft\s+(Word|PowerPoint|Excel)\s*-\s*/i, '')
+  t = t.replace(/\.(docx?|pptx?|xlsx?|pdf)$/i, '').trim()
+  if (!t || t.length < 3) return ''
+  // "untitled", "document1" and friends are worse than nothing.
+  if (/^(untitled|document\s*\d*|presentation\s*\d*)$/i.test(t)) return ''
+  return t
+}
+
+/** First line that reads like a heading rather than a header/footer. */
+function titleFromLines(lines) {
+  for (const raw of lines.slice(0, 40)) {
+    const line = raw.replace(/\s+/g, ' ').trim()
+    if (line.length < 4 || line.length > 120) continue
+    // Page numbers, dates, doc-control furniture.
+    if (/^(page\s*)?\d+(\s*of\s*\d+)?$/i.test(line)) continue
+    if (/^(rev(ision)?|version|effective|date|doc(ument)?\s*(no|#|id))\b/i.test(line)) continue
+    if (!/[a-z]/i.test(line)) continue
+    return line
+  }
+  return ''
+}
+
 // ─── Page extraction helpers ────────────────────────────────────────────
 
 async function extractLines(page) {

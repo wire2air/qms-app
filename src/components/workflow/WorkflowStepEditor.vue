@@ -157,6 +157,19 @@ const showApprovalRule = computed(() => isApproval.value && props.selectedApprov
 
     <!-- ── Task / Schedule Task: the form the assignee fills in ──────────── -->
     <template v-else-if="showTaskForm">
+      <!-- Instructions for whoever gets the task. Same field the Settings
+           dialog edits (step.description) — surfaced here because on a Task
+           step it is part of authoring the task, not a setting you go looking
+           for (user request 2026-08-16).
+           Single line, unlabelled: the placeholder says what it is, and a
+           heading above a one-line box is more chrome than content. -->
+      <BaseTextInput
+        v-model="step.description"
+        size="sm"
+        :disabled="!canUpdate"
+        placeholder="Instructions for the assignee (optional) — what do they need to do?"
+      />
+
       <div
         v-if="missingTaskForm"
         class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-warning/10 tw:border tw:border-warning/30"

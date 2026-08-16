@@ -48,6 +48,7 @@ declare global {
   const encodeSort: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').encodeSort
   const eventToChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').eventToChord
   const extendRef: typeof import('@vueuse/core').extendRef
+  const extractPdfHeader: typeof import('./src/composables/usePdfImport.js').extractPdfHeader
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
   const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery
@@ -289,6 +290,7 @@ declare global {
   const useLastChanged: typeof import('@vueuse/core').useLastChanged
   const useLink: typeof import('vue-router').useLink
   const useListLayout: typeof import('./resource/js/shared/composables/useListLayout.js').useListLayout
+  const useListReorder: typeof import('./src/composables/useListReorder.js').useListReorder
   const useLiveMutation: typeof import('./src/composables/useLiveQuery.js').useLiveMutation
   const useLiveQuery: typeof import('./src/composables/useLiveQuery.js').useLiveQuery
   const useLiveQueryWithDeps: typeof import('./src/composables/useLiveQuery.js').useLiveQueryWithDeps

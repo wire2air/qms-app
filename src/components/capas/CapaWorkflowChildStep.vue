@@ -478,6 +478,17 @@ async function performComplete(esign = null) {
       >
         No form on this task — clicking "Complete &amp; Advance" closes it.
       </div>
+
+      <!-- Second Mark Complete below the form (user request 2026-08-16) —
+           same reason as the parent step: after filling it in, the header
+           action is off screen. Only when there IS a form to scroll past.
+           Same handler and disabled state as the header button. -->
+      <div v-if="isAssignee && hasForm" class="tw:flex tw:justify-end tw:pt-1">
+        <BaseButton :disabled="submitting" :isLoading="submitting" @click.stop="onCompleteClick">
+          <template #icon><IconCheck :size="16" /></template>
+          {{ submitting ? 'Completing…' : 'Mark Complete' }}
+        </BaseButton>
+      </div>
     </div>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />

@@ -62,6 +62,7 @@ import {
   IconBook,
   IconCalendar,
   IconCalendarTime,
+  IconStack2,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -577,20 +578,20 @@ const navItems = computed(() => {
           icon: IconArrowsShuffle,
           to: getCompanyPath('/approval-flows'),
         },
-        // HIDDEN (user request 2026-08-15) — not deleted. (Re-add the
-        // IconStack2 import when restoring.) Form Blocks are a
-        // reusable-fragment concept users didn't ask for and found confusing
-        // next to Forms; the /form-blocks page, its permissions and the
-        // block pickers inside the form builders all still work. Restore this
-        // entry (and the Log Forms one under Inspections & Logs) to bring the
-        // surface back.
-        // {
-        //   label: 'Form Blocks',
-        //   permissions: ['form_blocks:read'],
-        //   writeGate: 'form_blocks',
-        //   icon: IconStack2,
-        //   to: getCompanyPath('/form-blocks'),
-        // },
+        {
+          // Restored 2026-08-16. Hidden the day before as a concept users
+          // hadn't asked for, but it is the one place a form block can be
+          // edited on its own — which is how you change an embedded fragment
+          // everywhere it appears, and how you inspect what the mini form
+          // designer produced. It stays write-gated, so a read-only role
+          // never sees it; narrow it further with the form_blocks permission
+          // if it turns out to confuse authors again.
+          label: 'Form Blocks',
+          permissions: ['form_blocks:read'],
+          writeGate: 'form_blocks',
+          icon: IconStack2,
+          to: getCompanyPath('/form-blocks'),
+        },
         // MERGED into "Templates" above (user decision 2026-08-15) — the
         // (re-add the IconArticle import when restoring this entry)
         // /document-templates page still exists and rows there still open the

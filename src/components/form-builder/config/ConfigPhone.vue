@@ -14,7 +14,10 @@ const countryOptions = COUNTRIES.map((c) => ({ value: c.code, label: `${c.dial} 
     <BaseField label="Default country">
       <BaseSelect v-model="field.defaultCountry" :options="countryOptions" :required="true" />
     </BaseField>
-    <BaseField label="Format mask" hint="Use # for a digit. Example: ###-###-#### or (###) ###-####">
+    <BaseField
+      label="Format mask"
+      hint="Use # for a digit. Example: ###-###-#### or (###) ###-####"
+    >
       <BaseTextInput v-model="field.mask" placeholder="###-###-####" />
     </BaseField>
     <BaseField

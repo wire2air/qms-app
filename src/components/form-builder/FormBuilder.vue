@@ -315,7 +315,7 @@ async function handleAiChatApply({ proposal, onApplied }) {
                   canUndo
                     ? 'tw:text-secondary tw:hover:bg-main-hover'
                     : 'tw:text-secondary/30 tw:cursor-not-allowed'
-               "
+                "
                 :disabled="!canUndo"
                 title="Undo"
                 @click="undo"
@@ -328,7 +328,7 @@ async function handleAiChatApply({ proposal, onApplied }) {
                   canRedo
                     ? 'tw:text-secondary tw:hover:bg-main-hover'
                     : 'tw:text-secondary/30 tw:cursor-not-allowed'
-               "
+                "
                 :disabled="!canRedo"
                 title="Redo"
                 @click="redo"
@@ -346,7 +346,7 @@ async function handleAiChatApply({ proposal, onApplied }) {
                   showPreview
                     ? 'tw:text-primary tw:bg-primary/10'
                     : 'tw:text-secondary tw:hover:bg-main-hover'
-               "
+                "
                 :title="showPreview ? 'Edit Mode' : 'Preview'"
                 @click="togglePreview"
               >

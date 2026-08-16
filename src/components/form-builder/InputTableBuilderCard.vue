@@ -17,8 +17,13 @@
  * Product Name / Product Category columns do.
  */
 import { IconPlus, IconX, IconTrash } from '@tabler/icons-vue'
-import { FIELD_TYPES_CONFIG } from '@/constants/formBuilderConfig'
+import {
+  FIELD_TYPES_CONFIG,
+  INPUT_TABLE_COLUMN_TYPES,
+  fieldTypeLabel,
+} from '@/constants/formBuilderConfig'
 import DynamicForm from '@/components/form/DynamicForm.js'
+import { useListReorder } from '@/composables/useListReorder.js'
 
 const props = defineProps({
   field: { type: Object, required: true },
@@ -26,19 +31,13 @@ const props = defineProps({
 
 // The component types a column can be. Mirrors the checklist Add-column dialog
 // (title + component) but the values are real form field types.
-const COLUMN_FIELD_TYPES = [
-  { label: 'Text', type: 'input' },
-  { label: 'Number', type: 'number' },
-  { label: 'Email', type: 'email' },
-  { label: 'Phone', type: 'phone' },
-  { label: 'Dropdown', type: 'select' },
-  { label: 'Option Group', type: 'optionGroup' },
-  { label: 'Date', type: 'datetime' },
-  { label: 'Checkbox', type: 'checkbox' },
-  { label: 'Yes / No', type: 'toggle' },
-]
-const columnTypeItems = COLUMN_FIELD_TYPES.map((o) => ({ id: o.type, name: o.label }))
-const typeLabel = (t) => COLUMN_FIELD_TYPES.find((o) => o.type === t)?.label || t
+// Names come from the shared map so a type is called the same thing here, in
+// the field-type dropdown and in the checklist column picker (user request
+// 2026-08-16 — this list had been renamed everywhere except here). The SET
+// stays specific to input tables: its columns are real form fields, unlike a
+// checklist's cells.
+const columnTypeItems = INPUT_TABLE_COLUMN_TYPES.map((o) => ({ id: o.type, name: o.label }))
+const typeLabel = (t) => fieldTypeLabel(t)
 
 const previewData = ref({})
 const previewFields = computed(() => [{ ...props.field, width: 'full', hidden: false }])
@@ -89,9 +88,7 @@ function openColDialog() {
 }
 // Option-bearing column types get their options right in this dialog — an
 // Option Group is meaningless without them (user feedback 2026-07-27).
-const draftNeedsOptions = computed(() =>
-  ['optionGroup', 'select'].includes(colDraft.value.type),
-)
+const draftNeedsOptions = computed(() => ['optionGroup', 'select'].includes(colDraft.value.type))
 const draftCleanOptions = computed(() =>
   (colDraft.value.options || []).map((o) => String(o).trim()).filter(Boolean),
 )
@@ -118,6 +115,12 @@ function saveColumn() {
   columnsHost().children.push(col)
   showColDialog.value = false
 }
+// Drag-to-reorder columns (user request 2026-08-16). Rows aren't reorderable
+// here because respondents add them at fill time — the builder only defines
+// the columns.
+const columnsRef = ref(null)
+useListReorder(columnsRef, () => props.field?.columns, { filter: 'button' })
+
 function removeColumn(i) {
   columnsHost().children.splice(i, 1)
 }
@@ -146,11 +149,12 @@ const addRowLabel = computed(() => props.field.addLabel || 'Add row')
           <IconPlus :size="14" /> Add column
         </button>
       </div>
-      <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+      <div ref="columnsRef" class="tw:flex tw:flex-wrap tw:gap-1.5">
         <span
           v-for="(col, i) in columns"
           :key="col.name || i"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-xs tw:text-on-main"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-xs tw:text-on-main tw:cursor-grab tw:active:cursor-grabbing"
+          title="Drag to reorder"
         >
           {{ col.label || 'Column' }}
           <span class="tw:text-micro tw:text-secondary">({{ typeLabel(col.type) }})</span>
@@ -225,9 +229,8 @@ const addRowLabel = computed(() => props.field.addLabel || 'Add row')
             <IconPlus :size="13" /> Add option
           </button>
           <p v-if="colDraft.type === 'optionGroup'" class="tw:text-xs tw:text-secondary">
-            An Option Group needs at least two choices (mutually-exclusive radio buttons,
-            horizontal in the table). Flavor/orientation can be changed later in the
-            column's field settings.
+            An Option Group needs at least two choices (mutually-exclusive radio buttons, horizontal
+            in the table). Flavor/orientation can be changed later in the column's field settings.
           </p>
         </div>
       </div>
