@@ -43,6 +43,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Opens the AI assistant docked and ready on mount, for hosts whose entry
+  // point IS "build this with AI" (the Form Blocks AI builder). The toggle
+  // still works normally afterwards — this only picks the starting state.
+  startWithAi: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['save', 'update:schema'])
@@ -236,7 +243,7 @@ function copyJson() {
 }
 
 // ── AI form assistant (chat docked beside the canvas) ────────────────────────
-const showAiChat = ref(false)
+const showAiChat = ref(props.startWithAi && canUseAi.value)
 async function handleAiApply(result) {
   const count = Array.isArray(result?.fields) ? result.fields.length : 0
   if (!count) return false

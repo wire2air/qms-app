@@ -10,6 +10,9 @@ const props = defineProps({
   // Title shown inside the FormBuilder canvas — the panel is generic
   // (workflow steps + complaint forms both embed schemas through it).
   builderTitle: { type: String, default: 'Step Form Schema' },
+  // Dock the AI assistant open on arrival — for hosts that launch the panel
+  // from an explicit "build with AI" action rather than a plain edit.
+  startWithAi: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'save'])
@@ -213,6 +216,7 @@ const showBackButton = computed(() => {
             <FormBuilder
               :initialSchema="buildSchema"
               :title="builderTitle"
+              :startWithAi="startWithAi"
               @save="handleBuilderSave"
             />
           </div>
