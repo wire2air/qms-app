@@ -374,7 +374,13 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
       {
         label: 'Column 1',
         value: 'column1',
-        inputType: 'radio',
+        // optionGroup, not radio: radio is no longer offered in the column
+        // picker, so seeding it meant every NEW checklist opened with a column
+        // labelled "Radio (legacy)" — a type the author couldn't have chosen
+        // (reported 2026-08-16). See COLUMN_INPUT_TYPES.
+        inputType: 'optionGroup',
+        groupType: 'radio',
+        options: [],
       },
     ],
     options: [],

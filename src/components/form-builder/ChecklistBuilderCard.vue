@@ -12,6 +12,7 @@ import { COLUMN_INPUT_TYPES, columnInputTypeLabel } from '@/constants/formBuilde
 import { canUseAi } from '@/utils/currentSession'
 import { hydrateChecklistColumns, hydrateChecklistRows } from '@/utils/aiFormHydrate'
 import { tableStyleClasses, cx } from '@/utils/tableStyle'
+import { useListReorder } from '@/composables/useListReorder.js'
 
 const props = defineProps({
   field: { type: Object, required: true },
@@ -43,6 +44,28 @@ function saveRow() {
   props.field.rows.push(label)
   showRowDialog.value = false
 }
+// Drag-to-reorder, on the CANVAS card — the properties panel got this first,
+// but this is the surface the mini form builder shows, so it was invisible
+// where it mattered (reported 2026-08-16).
+//
+// Sortable on the <tr> for columns and the <tbody> for rows: in a table the
+// draggable units are the header cells and the body rows themselves, so those
+// are the containers, not a wrapper div (a wrapper would break the table).
+const headerRowRef = ref(null)
+const bodyRef = ref(null)
+useListReorder(headerRowRef, () => props.field?.columns, {
+  filter: 'button',
+  // The first <th> is the row-label corner, not a column.
+  draggable: 'th[data-col]',
+})
+useListReorder(bodyRef, () => props.field?.rows, {
+  // The row cells hold the preview's radios and checkboxes; without this a
+  // drag starts instead of the click landing on the control.
+  filter: 'button, input, label, select, textarea',
+  // Excludes the "no rows yet" placeholder row, which is not an item.
+  draggable: 'tr[data-row]',
+})
+
 function removeRow(i) {
   props.field.rows.splice(i, 1)
 }
@@ -125,7 +148,7 @@ function applyAiChecklist(result) {
     <div class="tw:overflow-x-auto">
       <table :class="cx('tw:w-full tw:border-collapse tw:text-sm', ts.tableClass)">
         <thead>
-          <tr>
+          <tr ref="headerRowRef">
             <th
               :class="
                 cx(
@@ -138,9 +161,11 @@ function applyAiChecklist(result) {
             <th
               v-for="(col, ci) in columns"
               :key="'h-' + ci"
+              data-col
+              title="Drag to reorder column"
               :class="
                 cx(
-                  'tw:text-center tw:font-medium tw:border-b tw:border-divider tw:py-2 tw:px-3 tw:group',
+                  'tw:text-center tw:font-medium tw:border-b tw:border-divider tw:py-2 tw:px-3 tw:group tw:cursor-grab tw:active:cursor-grabbing',
                   ts.headerClass,
                   ts.headerCellClass,
                 )
@@ -179,11 +204,18 @@ function applyAiChecklist(result) {
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody ref="bodyRef">
           <tr
             v-for="(row, ri) in rows"
             :key="'r-' + ri"
-            :class="cx('tw:hover:bg-gray-50 tw:group', ts.rowClass)"
+            data-row
+            title="Drag to reorder row"
+            :class="
+              cx(
+                'tw:hover:bg-gray-50 tw:group tw:cursor-grab tw:active:cursor-grabbing',
+                ts.rowClass,
+              )
+            "
           >
             <td
               :class="

@@ -15,18 +15,21 @@ import { useSortable } from '@vueuse/integrations/useSortable'
  *
  * @param {import('vue').Ref<HTMLElement|null>} containerRef
  * @param {() => any[]} getList  returns the live array to mutate in place
- * @param {{handle?: string, filter?: string}} [opts]
+ * @param {{handle?: string, filter?: string, draggable?: string}} [opts]
  *   handle — grip selector. Required where items contain text inputs, so a
  *   drag doesn't swallow click-to-place-cursor; omit for chips, which are
  *   draggable whole.
  *   filter — selector for elements a drag must NOT start from (a chip's
  *   remove button).
+ *   draggable — selector limiting WHICH children are draggable, for a
+ *   container holding non-items too (a header row's row-label corner cell).
  */
 export function useListReorder(containerRef, getList, opts = {}) {
-  const { handle, filter } = typeof opts === 'string' ? { handle: opts } : opts
+  const { handle, filter, draggable } = typeof opts === 'string' ? { handle: opts } : opts
   useSortable(containerRef, [], {
     ...(handle ? { handle } : {}),
     ...(filter ? { filter, preventOnFilter: false } : {}),
+    ...(draggable ? { draggable } : {}),
     animation: 150,
     onUpdate(e) {
       const list = getList()
