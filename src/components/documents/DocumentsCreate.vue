@@ -173,6 +173,10 @@ const createDocument = useLiveMutation(async (db, formData) => {
         title: section.title,
         sectionType: section.sectionType || 'text',
         content: section.content || null,
+        // Snapshot the template's guidance onto the row. Without this the
+        // instruction dies here — the template keeps it, the document never
+        // sees it, which is exactly the bug it was reported as.
+        instructions: section.instructions || null,
         attachments: section.attachments || null,
         order: section.order ?? index,
         isAddOn: section.isAddOn ?? false,
