@@ -732,6 +732,32 @@ function activityLabel(statusId) {
       :hideSubmit="true"
     />
 
+    <!-- Second Complete/Approve, below the form (user request 2026-08-16).
+         The header one stays — it is where you look to see whether the step is
+         actionable at all — but after filling a long form the action is off
+         screen, and scrolling back up to finish reads as a dead end. Same
+         handler, same disabled state and reason, so the two can never disagree
+         about whether the step can be completed. -->
+    <div v-if="canActOnStep" class="tw:flex tw:justify-end tw:pt-1">
+      <BaseButton
+        :disabled="completeDisabled || completing"
+        :isLoading="completing"
+        :title="completeDisabledReason || undefined"
+        @click="onCompleteAndAdvanceClick"
+      >
+        <template #icon><IconCheck :size="16" /></template>
+        {{
+          completing
+            ? isApprovalStep
+              ? 'Approving…'
+              : 'Completing…'
+            : isApprovalStep
+              ? 'Approve'
+              : 'Mark Complete'
+        }}
+      </BaseButton>
+    </div>
+
     <!-- Scoped slot exposes everything the per-module child-step component
          needs so the call site doesn't have to re-fetch the step / definition. -->
     <slot
