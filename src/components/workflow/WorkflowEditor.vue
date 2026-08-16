@@ -7,11 +7,14 @@ import {
   IconRestore,
   IconTrash,
   IconAlertCircle,
+  IconStar,
+  IconStarFilled,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { copyVersionSteps } from './workflowVersionCopy.js'
 import { isApprovalOnlyModule } from './workflowModule.js'
+import { toggleWorkflowDefault } from './workflowDefault.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -215,6 +218,28 @@ const owningDocumentTemplate = useLiveQueryWithDeps(
 // / Reopen for Editing / Archive here would give the same flow two lifecycles to
 // operate and let it drift out of step with the template that owns it.
 const isTemplateOwned = computed(() => !!owningDocumentTemplate.value)
+
+// Default-for-module toggle. Needs every sibling workflow, because the
+// previous default has to be cleared before this one is set — see
+// workflowDefault.js.
+const siblingWorkflows = useLiveQuery((db) => db.Workflow.where().exec(), {
+  models: ['Workflow'],
+  initial: [],
+})
+const canToggleDefault = computed(() => isAllowed(['workflows_templates:update']))
+const defaultBusy = ref(false)
+
+async function handleToggleDefault() {
+  if (!workflow.value || defaultBusy.value) return
+  defaultBusy.value = true
+  try {
+    toast.success(await toggleWorkflowDefault(workflow.value, siblingWorkflows.value))
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update the default workflow')
+  } finally {
+    defaultBusy.value = false
+  }
+}
 
 const breadcrumbItems = computed(() => {
   const owner = owningDocumentTemplate.value
@@ -526,6 +551,40 @@ watch(steps, () => {
           </BasePopover>
 
           <div class="tw:h-6 tw:w-px tw:bg-divider"></div>
+
+          <!-- Default for the module (user request 2026-08-16). Hidden for a
+               template-owned flow: those are Document Control workflows, where
+               isDefault already marks the ad-hoc flow used by template-less
+               documents. Letting this toggle move that marker would quietly
+               repoint every such document. -->
+          <BaseTooltip
+            v-if="!isTemplateOwned && workflow"
+            :content="
+              workflow.isDefault
+                ? 'Auto-selected for new records in this module'
+                : 'Make this the workflow auto-selected for new records in this module'
+            "
+          >
+            <button
+              type="button"
+              :disabled="!canToggleDefault || defaultBusy"
+              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:px-2.5 tw:py-1.5 tw:text-xs tw:font-medium tw:transition-colors tw:disabled:opacity-50"
+              :class="
+                workflow.isDefault
+                  ? 'tw:border-amber-300 tw:bg-amber-50 tw:text-amber-700'
+                  : 'tw:border-divider tw:text-secondary tw:hover:text-primary tw:hover:border-primary/50'
+              "
+              :aria-pressed="!!workflow.isDefault"
+              @click="handleToggleDefault"
+            >
+              <component
+                :is="workflow.isDefault ? IconStarFilled : IconStar"
+                :size="14"
+                :class="workflow.isDefault ? 'tw:text-amber-500' : ''"
+              />
+              Default
+            </button>
+          </BaseTooltip>
 
           <span v-if="isTemplateOwned" class="tw:text-xs tw:text-secondary">
             Published with its document template

@@ -1,5 +1,6 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { toggleWorkflowDefault } from './workflowDefault.js'
 
 const props = defineProps({
   // Filtered rows to render; resolved by the parent (WorkflowsHome).
@@ -30,24 +31,7 @@ function navigateToWorkflow(workflow) {
 const toast = useToast()
 async function setDefault(workflow) {
   try {
-    if (workflow.isDefault) {
-      workflow.isDefault = false
-      await workflow.save()
-      toast.success(`${workflow.name} is no longer the default`)
-      return
-    }
-    const current = (props.allWorkflows || []).find(
-      (w) => w.moduleId === workflow.moduleId && w.isDefault && w.id !== workflow.id,
-    )
-    if (current) {
-      current.isDefault = false
-      await current.save()
-    }
-    workflow.isDefault = true
-    await workflow.save()
-    toast.success(
-      `${workflow.name} is now the default for new ${workflow.moduleId.toLowerCase().replaceAll('_', ' ')} entities`,
-    )
+    toast.success(await toggleWorkflowDefault(workflow, props.allWorkflows ?? []))
   } catch (err) {
     toast.error(err?.message || 'Failed to update default workflow')
   }
