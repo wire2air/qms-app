@@ -72,6 +72,9 @@ const header = ref(null)
 const headerBusy = ref(false)
 const summary = ref('')
 const summarising = ref(false)
+// Why we ended up attaching rather than structuring. Shown as information on
+// the attachment screen — it is an outcome, not a failure.
+const fallbackNotice = ref('')
 const extracted = ref(null) // { text, pageCount, imageCount, filename }
 const result = ref(null) // { title, description, sections: [...] }
 const usage = ref(null)
@@ -88,6 +91,7 @@ watch(show, (open) => {
     headerBusy.value = false
     summary.value = ''
     summarising.value = false
+    fallbackNotice.value = ''
     extracted.value = null
     result.value = null
     usage.value = null
@@ -105,10 +109,54 @@ function pickFile() {
   input.click()
 }
 
+// Beyond these, a full structured import is not worth attempting: the parse is
+// slow, the model call is large and expensive, and the sections it returns for
+// a 60-page manual are rarely what anyone keeps. Well under the parser's own
+// hard caps (20 MB / 300 pages), which are about what it CAN do rather than
+// what is worth doing.
+const AI_FULL_IMPORT_MAX_PAGES = 30
+const AI_FULL_IMPORT_MAX_BYTES = 8 * 1024 * 1024
+
+/**
+ * One button. The dialog picks the path (user request 2026-08-16 — "make that
+ * decision ourselves, less clicks"):
+ *
+ *   no AI                        → attach, with a locally-read title
+ *   large / long PDF             → summarise the first pages, then attach
+ *   otherwise                    → full parse + structure
+ *   anything above fails         → fall back to attach, no dead end
+ *
+ * A failure here is never terminal. The user picked a file they want in the
+ * system; refusing it because the model couldn't structure it wastes the
+ * upload and leaves them with an error and no next step.
+ */
 async function runImport() {
   if (!selectedFile.value) return
   error.value = null
+  fallbackNotice.value = ''
 
+  // Cheap and local: gives a title and, crucially, the page count used to
+  // decide the path — without parsing the whole document.
+  await readHeader()
+
+  if (!canUseAi.value) return goToAttachment()
+
+  const tooBig =
+    (header.value?.pageCount ?? 0) > AI_FULL_IMPORT_MAX_PAGES ||
+    selectedFile.value.size > AI_FULL_IMPORT_MAX_BYTES
+  if (tooBig) {
+    fallbackNotice.value =
+      `This PDF is ${header.value?.pageCount || 'many'} pages — summarising the first few ` +
+      'and attaching the file, rather than restructuring the whole document.'
+    await summariseHeader()
+    return goToAttachment()
+  }
+
+  await runFullImport()
+}
+
+/** Structured import. Any failure hands off to the attachment path. */
+async function runFullImport() {
   // ── Stage 1: parse + image upload ───────────────────────────────────
   phase.value = 'parsing'
   try {
@@ -120,36 +168,26 @@ async function runImport() {
       }
     })
   } catch (e) {
-    if (e instanceof PdfImportLimitError) {
-      // Hard-cap rejection — surface the limit clearly. The composable's
-      // message already contains the actual size / page count and the cap.
-      error.value = {
-        stage: 'parsing',
-        code: e.code,
-        message: e.message,
-      }
-    } else {
-      error.value = {
-        stage: 'parsing',
-        message:
-          e?.message || 'Failed to parse PDF. The file may be corrupted or password-protected.',
-      }
-    }
-    phase.value = 'error'
-    return
+    // Not a dead end. A hard-cap rejection or a corrupt/protected file still
+    // leaves a document worth filing, so summarise what we can read and attach.
+    fallbackNotice.value =
+      e instanceof PdfImportLimitError
+        ? `${e.message} Attaching the file instead.`
+        : "Couldn't read this PDF's contents — attaching the file instead."
+    await summariseHeader()
+    return goToAttachment()
   }
 
   // Sanity: if extraction produced almost no text, it's likely a scanned
   // PDF without an OCR layer. Surface a clear error so the user knows
   // what's happening rather than letting the AI guess at empty input.
   if (!extracted.value?.text || extracted.value.text.length < 50) {
-    error.value = {
-      stage: 'parsing',
-      message:
-        'Extracted very little text from the PDF. This is usually a scanned document without an OCR text layer. Run it through an OCR tool first and try again.',
-    }
-    phase.value = 'error'
-    return
+    // Almost certainly a scan with no OCR layer. There is nothing to structure,
+    // but the file itself is still the document — attach it.
+    fallbackNotice.value =
+      'This looks like a scanned PDF with no text layer, so there is nothing to structure. ' +
+      'Attaching the file instead.'
+    return goToAttachment()
   }
 
   // ── Stage 2: AI structuring ─────────────────────────────────────────
@@ -167,21 +205,31 @@ async function runImport() {
     })
     const json = await res.json().catch(() => null)
     if (!res.ok) {
-      error.value = {
-        stage: 'structuring',
-        message: json?.error?.message ?? `Request failed (${res.status}).`,
-        code: json?.error?.code ?? `HTTP_${res.status}`,
-      }
-      phase.value = 'error'
-      return
+      return structuringFailed(json?.error?.message)
     }
     result.value = json.result
     usage.value = json.usage
     phase.value = 'result'
   } catch (e) {
-    error.value = { stage: 'structuring', message: e?.message ?? 'Network error.' }
-    phase.value = 'error'
+    return structuringFailed(e?.message)
   }
+}
+
+/**
+ * The model couldn't structure it. Attaching is a genuinely useful outcome, so
+ * we take it rather than showing an error with no way forward — the reason is
+ * carried as a notice on the attachment screen, not as a failure.
+ */
+async function structuringFailed(reason) {
+  // Deliberately NOT surfaced to the user: the reported failure returns a raw
+  // zod validation blob ("expected array to have >=2 items"), which explains
+  // nothing to the person importing and reads as a crash.
+  if (reason) console.warn('[import] AI structuring failed:', reason)
+  fallbackNotice.value =
+    "AI couldn't structure this document, so it's being imported as an attachment instead. " +
+    'Add a summary below if you want one.'
+  await summariseHeader()
+  return goToAttachment()
 }
 
 function regenerate() {
@@ -209,6 +257,8 @@ function regenerate() {
       })
       const json = await res.json().catch(() => null)
       if (!res.ok) {
+        // Explicit retry from the preview — report it rather than switching
+        // modes underneath someone who asked for this specific thing.
         error.value = {
           stage: 'structuring',
           message: json?.error?.message ?? `Request failed (${res.status}).`,
@@ -439,9 +489,10 @@ const parseProgressPct = computed(() => {
       <div class="tw:flex tw:flex-col tw:gap-4">
         <div class="tw:text-sm tw:text-secondary tw:leading-relaxed">
           <template v-if="canUseAi">
-            Upload an SOP, work instruction, or policy PDF. We'll extract text + images, then use AI
-            to structure it into editable sections. You'll review before saving — nothing is created
-            automatically.
+            Upload an SOP, work instruction, or policy PDF. We'll structure it into editable
+            sections where we can, and attach it with a summary where we can't — long, scanned or
+            image-heavy files take the second path automatically. You review before saving either
+            way; nothing is created on its own.
           </template>
           <template v-else>
             Upload an SOP, work instruction, or policy PDF and pick a document template. The PDF is
@@ -485,6 +536,14 @@ const parseProgressPct = computed(() => {
           <IconFile :size="18" class="tw:text-secondary tw:shrink-0" />
           <span class="tw:font-medium tw:truncate">{{ selectedFile?.name }}</span>
           <span class="tw:text-xs tw:text-secondary tw:shrink-0">{{ fileSizeLabel }}</span>
+        </div>
+
+        <div
+          v-if="fallbackNotice"
+          class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm tw:text-secondary"
+        >
+          <IconFileUpload :size="16" class="tw:mt-0.5 tw:flex-none tw:text-primary" />
+          <div>{{ fallbackNotice }}</div>
         </div>
 
         <div class="tw:text-xs tw:text-secondary">
@@ -656,19 +715,12 @@ const parseProgressPct = computed(() => {
     <template #footer>
       <template v-if="phase === 'pick'">
         <BaseButton variant="outline" @click="discard">Cancel</BaseButton>
-        <!-- Without AI this is the only path, so it is the primary action. -->
-        <BaseButton v-if="!canUseAi" :disabled="!selectedFile" @click="goToAttachment">
-          Continue
+        <!-- One action. runImport picks the path — structure it, summarise
+             the first pages, or just attach — and falls back on its own. -->
+        <BaseButton :disabled="!selectedFile || headerBusy" @click="runImport">
+          <IconSparkles v-if="canUseAi" :size="14" class="tw:mr-1" />
+          Import
         </BaseButton>
-        <template v-else>
-          <BaseButton variant="outline" :disabled="!selectedFile" @click="goToAttachment">
-            Attach without AI
-          </BaseButton>
-          <BaseButton :disabled="!selectedFile" @click="runImport">
-            <IconSparkles :size="14" class="tw:mr-1" />
-            Import
-          </BaseButton>
-        </template>
       </template>
       <template v-else-if="phase === 'attachment'">
         <BaseButton variant="outline" :disabled="attaching" @click="phase = 'pick'"
