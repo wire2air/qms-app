@@ -22,5 +22,8 @@ const stepRoles = useLiveQueryWithDeps(
   <span v-if="stepRoles.length" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
     <RoleBadgeById v-for="sr in stepRoles" :key="sr.id" :roleId="sr.roleId" />
   </span>
-  <span v-else class="tw:text-xs tw:text-amber-600">No role assigned</span>
+  <!-- "Unassigned", neutral — matching WorkflowStepCard. A step with no roles
+       is not broken: the submitter picks anyone at submit time. Amber read as
+       a warning about a state the product deliberately supports. -->
+  <span v-else class="tw:text-xs tw:text-secondary">Unassigned</span>
 </template>

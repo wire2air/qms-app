@@ -359,26 +359,25 @@ const documentTemplateDetailConfig = computed(() =>
                   {{ canEdit ? 'Advanced…' : 'View full flow' }}
                 </button>
               </div>
+              <!-- Editable in place when the template allows it (2026-08-16).
+                   These stages previously rendered as a name plus "due in N
+                   days", so who signs, whether it is e-signed and whether a
+                   rationale is captured were all invisible unless you opened
+                   the full workflow builder — and DocumentApprovalStepLive,
+                   built for exactly this, was never mounted anywhere. -->
               <div
                 v-if="approvalSteps.length"
-                class="tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:p-3"
+                class="tw:flex tw:flex-col tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:p-3"
               >
-                <div
-                  v-for="(step, i) in approvalSteps"
-                  :key="step.id"
-                  class="tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:text-sm"
-                >
-                  <span
-                    class="tw:flex tw:h-5 tw:w-5 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:bg-primary/10 tw:text-micro tw:font-semibold tw:text-primary"
-                  >
-                    {{ i + 1 }}
-                  </span>
-                  <span class="tw:font-medium tw:text-on-sidebar">{{ step.name }}</span>
-                  <WorkflowStepRoleBadges :stepId="step.id" />
-                  <span v-if="step.slaDays" class="tw:text-xs tw:text-secondary">
-                    · due in {{ step.slaDays }} days
-                  </span>
-                </div>
+                <template v-for="(step, i) in approvalSteps" :key="step.id">
+                  <DocumentApprovalStepLive
+                    v-if="canEdit"
+                    :stepId="step.id"
+                    :label="`${i + 1}. ${step.name}`"
+                    :canEdit="canEdit"
+                  />
+                  <DocumentApprovalStepSummary v-else :step="step" :index="i" />
+                </template>
                 <p v-if="showingUnpublishedDraft" class="tw:text-xs tw:text-amber-600">
                   These stages are a draft. Documents keep using the last published version until
                   this template is published.

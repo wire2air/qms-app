@@ -48,6 +48,11 @@ function set(patch) {
         :disabled="disabled"
         @update:modelValue="(v) => set({ roleIds: v })"
       />
+      <!-- Same word the workflow step card uses for the same state, and
+           deliberately neutral: no roles is a supported choice, not an error. -->
+      <p v-if="!(step.roleIds ?? []).length" class="tw:mt-1 tw:text-xs tw:text-secondary">
+        Unassigned — the submitter picks who reviews.
+      </p>
     </BaseField>
 
     <div class="tw:flex tw:flex-wrap tw:items-end tw:gap-4">
@@ -90,12 +95,25 @@ function set(patch) {
         />
       </div>
 
+      <!-- E-signature and Comment sit together as the step's compliance flags,
+           the same pair (and the same order) the workflow step card shows, so
+           the two surfaces read alike. Both default ON for a document approval
+           — see defaultApprovalGates. -->
       <div class="tw:space-y-1">
         <p class="tw:text-xs tw:font-medium tw:text-secondary">E-signature</p>
         <BaseSwitch
           :modelValue="step.requireEsignature ?? true"
           :disabled="disabled"
           @update:modelValue="(v) => set({ requireEsignature: v })"
+        />
+      </div>
+
+      <div class="tw:space-y-1">
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Comment</p>
+        <BaseSwitch
+          :modelValue="step.requireComments ?? true"
+          :disabled="disabled"
+          @update:modelValue="(v) => set({ requireComments: v })"
         />
       </div>
     </div>

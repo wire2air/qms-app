@@ -532,6 +532,7 @@ declare module 'vue' {
     DocumentApprovalRoute: typeof import('./src/components/documents/documentApprovalRoute.js')['default']
     DocumentApprovalStepFields: typeof import('./src/components/documentTemplates/DocumentApprovalStepFields.vue')['default']
     DocumentApprovalStepLive: typeof import('./src/components/documentTemplates/DocumentApprovalStepLive.vue')['default']
+    DocumentApprovalStepSummary: typeof import('./src/components/documentTemplates/DocumentApprovalStepSummary.vue')['default']
     DocumentBadge: typeof import('./src/components/badges/DocumentBadge.vue')['default']
     DocumentBadgeById: typeof import('./src/components/badges/DocumentBadgeById.vue')['default']
     DocumentCollaboratorTaskCard: typeof import('./src/components/documents/DocumentCollaboratorTaskCard.vue')['default']
