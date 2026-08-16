@@ -702,6 +702,48 @@ export function fieldKindId(field) {
   return FIELD_KIND_OPTIONS.some((k) => k.id === field.type) ? field.type : null
 }
 
+/**
+ * ONE name per field type, wherever it is offered (user request 2026-08-16:
+ * the checklist column popup was renamed but the input table's wasn't).
+ *
+ * The two column pickers cannot share a LIST — a checklist cell renders
+ * 'text'/'date'/'time' via BaseChecklist, while an input table column is a
+ * real form field ('input'/'datetime'/'toggle') rendered by DynamicForm.
+ * Offering either set on the other surface would produce columns that don't
+ * render. What they can share, and what was actually inconsistent, is what
+ * each type is CALLED.
+ *
+ * Names follow the field-type dropdown (FIELD_KIND_OPTIONS) so the same
+ * control is never called two things depending on where you add it.
+ */
+export const FIELD_TYPE_LABELS = Object.freeze({
+  input: 'Short answer',
+  text: 'Text',
+  textarea: 'Paragraph',
+  number: 'Number',
+  email: 'Email',
+  phone: 'Phone',
+  select: 'Dropdown',
+  optionGroup: 'Multiple choice',
+  checkbox: 'Single checkbox',
+  toggle: 'Toggle',
+  datetime: 'Date / time',
+  date: 'Date',
+  time: 'Time',
+  // Offered nowhere; named so existing columns don't display as something else.
+  radio: 'Radio (legacy)',
+})
+
+/** Canonical label for a type; falls back to the raw value. */
+export function fieldTypeLabel(type) {
+  return FIELD_TYPE_LABELS[type] ?? type
+}
+
+/** Build a {label, value} list from bare type values, named canonically. */
+export function typeOptions(values, key = 'value') {
+  return values.map((v) => ({ label: fieldTypeLabel(v), [key]: v }))
+}
+
 // Column types offered when building a table / checklist. Labels match the
 // field-type dropdown — the same control should not be called two things
 // depending on where you add it (user request 2026-08-16).
@@ -716,17 +758,32 @@ export function fieldKindId(field) {
 // as the default when inputType is absent, and existing checklists — including
 // ones the AI matrix generator produced — rely on it. Removing it here stops
 // new ones being authored; it does not break old ones.
-export const COLUMN_INPUT_TYPES = [
-  // ONE column holding a mutually-exclusive set (or a multi-select set with
-  // groupType 'checkbox'), options inline, horizontal or vertical.
-  { label: 'Multiple choice', value: 'optionGroup' },
-  { label: 'Single checkbox', value: 'checkbox' },
-  { label: 'Text', value: 'text' },
-  { label: 'Number', value: 'number' },
-  { label: 'Dropdown', value: 'select' },
-  { label: 'Date', value: 'date' },
-  { label: 'Time', value: 'time' },
+// 'optionGroup' first: ONE column holding a mutually-exclusive set (or a
+// multi-select set with groupType 'checkbox'), options inline.
+export const CHECKLIST_COLUMN_TYPE_VALUES = [
+  'optionGroup',
+  'checkbox',
+  'text',
+  'number',
+  'select',
+  'date',
+  'time',
 ]
+export const COLUMN_INPUT_TYPES = typeOptions(CHECKLIST_COLUMN_TYPE_VALUES)
+
+/** Input table columns are real form fields, so a different set — same names. */
+export const INPUT_TABLE_COLUMN_TYPE_VALUES = [
+  'input',
+  'number',
+  'email',
+  'phone',
+  'select',
+  'optionGroup',
+  'datetime',
+  'checkbox',
+  'toggle',
+]
+export const INPUT_TABLE_COLUMN_TYPES = typeOptions(INPUT_TABLE_COLUMN_TYPE_VALUES, 'type')
 
 /**
  * Types that exist in saved schemas but are no longer offered. Kept so an
@@ -734,7 +791,7 @@ export const COLUMN_INPUT_TYPES = [
  * dropping them from the list entirely made a radio column render as "Text",
  * which is simply wrong, and left its select with nothing highlighted.
  */
-export const LEGACY_COLUMN_INPUT_TYPES = [{ label: 'Radio (legacy)', value: 'radio' }]
+export const LEGACY_COLUMN_INPUT_TYPES = [{ label: fieldTypeLabel('radio'), value: 'radio' }]
 
 /** Offered types, plus the current value when that value is legacy. */
 export function columnInputTypesFor(currentValue) {
@@ -744,11 +801,7 @@ export function columnInputTypesFor(currentValue) {
 
 /** Label for any column type, offered or legacy. */
 export function columnInputTypeLabel(value) {
-  return (
-    [...COLUMN_INPUT_TYPES, ...LEGACY_COLUMN_INPUT_TYPES].find((o) => o.value === value)?.label ??
-    value ??
-    'Text'
-  )
+  return fieldTypeLabel(value)
 }
 
 export const COL_CLASS_OPTIONS = [

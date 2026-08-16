@@ -63,6 +63,27 @@ function show() {
   })
 }
 
+/**
+ * Focus opens the tooltip only for KEYBOARD focus.
+ *
+ * A dialog moves focus to its first focusable element when it opens. Where
+ * that element is a help icon, a plain `focusin` handler popped the tooltip
+ * the instant the dialog appeared, over content the user hadn't read yet
+ * (reported 2026-08-16 on the step Settings dialog). :focus-visible is exactly
+ * this distinction — the browser sets it for keyboard traversal and withholds
+ * it for programmatic and pointer focus — so a keyboard user still gets the
+ * tooltip and nobody else gets it uninvited.
+ */
+function onFocusIn(e) {
+  const el = e.target
+  try {
+    if (el instanceof Element && !el.matches(':focus-visible')) return
+  } catch {
+    // Selector unsupported: fall through and behave as before.
+  }
+  show()
+}
+
 function hide() {
   visible.value = false
   cleanup?.()
@@ -83,7 +104,7 @@ onBeforeUnmount(() => cleanup?.())
     :aria-describedby="visible ? tipId : undefined"
     @mouseenter="show"
     @mouseleave="hide"
-    @focusin="show"
+    @focusin="onFocusIn"
     @focusout="hide"
     @keydown="onKeydown"
   >

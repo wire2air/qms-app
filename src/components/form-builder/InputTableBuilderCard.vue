@@ -17,7 +17,11 @@
  * Product Name / Product Category columns do.
  */
 import { IconPlus, IconX, IconTrash } from '@tabler/icons-vue'
-import { FIELD_TYPES_CONFIG } from '@/constants/formBuilderConfig'
+import {
+  FIELD_TYPES_CONFIG,
+  INPUT_TABLE_COLUMN_TYPES,
+  fieldTypeLabel,
+} from '@/constants/formBuilderConfig'
 import DynamicForm from '@/components/form/DynamicForm.js'
 
 const props = defineProps({
@@ -26,19 +30,13 @@ const props = defineProps({
 
 // The component types a column can be. Mirrors the checklist Add-column dialog
 // (title + component) but the values are real form field types.
-const COLUMN_FIELD_TYPES = [
-  { label: 'Text', type: 'input' },
-  { label: 'Number', type: 'number' },
-  { label: 'Email', type: 'email' },
-  { label: 'Phone', type: 'phone' },
-  { label: 'Dropdown', type: 'select' },
-  { label: 'Option Group', type: 'optionGroup' },
-  { label: 'Date', type: 'datetime' },
-  { label: 'Checkbox', type: 'checkbox' },
-  { label: 'Yes / No', type: 'toggle' },
-]
-const columnTypeItems = COLUMN_FIELD_TYPES.map((o) => ({ id: o.type, name: o.label }))
-const typeLabel = (t) => COLUMN_FIELD_TYPES.find((o) => o.type === t)?.label || t
+// Names come from the shared map so a type is called the same thing here, in
+// the field-type dropdown and in the checklist column picker (user request
+// 2026-08-16 — this list had been renamed everywhere except here). The SET
+// stays specific to input tables: its columns are real form fields, unlike a
+// checklist's cells.
+const columnTypeItems = INPUT_TABLE_COLUMN_TYPES.map((o) => ({ id: o.type, name: o.label }))
+const typeLabel = (t) => fieldTypeLabel(t)
 
 const previewData = ref({})
 const previewFields = computed(() => [{ ...props.field, width: 'full', hidden: false }])

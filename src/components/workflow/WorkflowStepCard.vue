@@ -115,9 +115,10 @@ const showsFormMeta = computed(
   () => props.step?.stepType !== 'APPROVAL' && formFieldCount.value > 0,
 )
 
-// Step-type chip — user-facing names ("Task" / "Approval" / "Schedule Task");
-// the type is immutable after creation, so the card is where you read it at
-// a glance without opening the step's configuration dialog.
+// Step-type chip — user-facing names ("Task" / "Approval" / "Schedule Task").
+// The type is immutable after creation, so the card is where you read it at a
+// glance; since 2026-08-16 that is the icon plus a tooltip rather than the
+// word, which was repeating what the icon already conveyed.
 const TYPE_META = {
   ACTION: { label: 'Task', icon: IconListCheck },
   APPROVAL: { label: 'Approval', icon: IconRubberStamp },
@@ -259,10 +260,17 @@ const menuItems = computed(() => {
              can be switched ON, dimmed when off. Read-only viewers see only
              what's actually required. -->
           <div class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary tw:flex-wrap">
-            <span class="tw:flex tw:items-center tw:gap-1 tw:font-medium tw:text-primary">
-              <component :is="typeMeta.icon" :size="16" />
-              {{ typeMeta.label }}
-            </span>
+            <!-- Icon only (user request 2026-08-16): the word "Task" or
+                 "Approval" on every card cost a chip's width to repeat what
+                 the icon already says, and the chip row is where the useful
+                 facts — assignees, e-sign, SLA — compete for space. The name
+                 stays as the tooltip, so the type is still readable when the
+                 icon alone isn't obvious. -->
+            <BaseTooltip :content="typeMeta.label">
+              <span class="tw:flex tw:items-center tw:text-primary" :aria-label="typeMeta.label">
+                <component :is="typeMeta.icon" :size="16" />
+              </span>
+            </BaseTooltip>
 
             <button
               v-if="canUpdate"
