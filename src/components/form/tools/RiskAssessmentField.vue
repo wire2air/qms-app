@@ -140,9 +140,13 @@ function patchFinalized(patch) {
   })
 }
 
-function setHazardCategory(id) {
+// Kept for the commented-out Hazard category field — prefixed so lint accepts
+// an intentionally-unused setter rather than us deleting the pair and having
+// to rewrite both to restore the field.
+function _setHazardCategory(id) {
   patchFinalized({ hazardCategoryId: id })
 }
+void _setHazardCategory
 
 function setAssessmentType(t) {
   patchFinalized({ assessmentType: t })
@@ -193,12 +197,14 @@ function onFinalizeAssessment() {
   })
 }
 
+// Hazard category is HIDDEN (user request 2026-08-15) and therefore no longer
+// gates finalisation — leaving it in canFinalize with no field to satisfy it
+// would make the Finalize button permanently dead. The value is still written
+// to `finalized` when present so historical assessments keep theirs, and
+// rcaRaDerivationService keeps denormalising the label/colour it already
+// stored. Restore the field block below to bring it back.
 const canFinalize = computed(
-  () =>
-    !!selectedLikelihoodId.value &&
-    !!selectedSeverityId.value &&
-    !!hazardCategoryId.value &&
-    !!assessmentType.value,
+  () => !!selectedLikelihoodId.value && !!selectedSeverityId.value && !!assessmentType.value,
 )
 
 // Auto-finalize hook for the workflow step form. Mirrors RcaField's
@@ -237,13 +243,19 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
-      <!-- Hazard category + assessment type (INITIAL / RESIDUAL). These
-           sit above the matrix because they affect interpretation of
-           the selected risk band — "Quality risk, residual" reads
-           differently than "Safety risk, initial". -->
+      <!-- Assessment type (INITIAL / RESIDUAL). Sits above the matrix
+           because it affects interpretation of the selected risk band —
+           a residual score reads differently from an initial one.
+           (Hazard category used to sit here too; see below.) -->
       <div
         class="tw:flex tw:flex-col tw:gap-3 tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30"
       >
+        <!-- HIDDEN (user request 2026-08-15) — not deleted. Existing
+             assessments keep their hazardCategoryId/Label/Color, the
+             hazard_categories lookup is untouched, and setHazardCategory /
+             the finalize payload still carry the value. Un-comment to
+             restore, and put hazardCategoryId back in canFinalize above. -->
+        <!--
         <BaseField label="Hazard category" required size="sm">
           <HazardCategorySelectMenu
             :modelValue="hazardCategoryId"
@@ -251,6 +263,7 @@ onBeforeUnmount(() => {
             @update:modelValue="setHazardCategory"
           />
         </BaseField>
+        -->
         <BaseField label="Assessment type" required size="sm">
           <div class="tw:flex tw:gap-2">
             <button

@@ -396,7 +396,11 @@ const documentTemplateDetailConfig = computed(() =>
         </div>
 
         <!-- Sections Card -->
-        <DocumentSectionsEditor v-model="template.sections" :readonly="!canEdit" />
+        <DocumentSectionsEditor
+          v-model="template.sections"
+          :readonly="!canEdit"
+          :instructionsEditable="canEdit"
+        />
       </div>
     </template>
   </BaseDetailLayout>

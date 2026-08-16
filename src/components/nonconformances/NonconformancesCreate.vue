@@ -248,16 +248,16 @@ const navSections = computed(() => [
         : null,
   },
   {
-    id: 'nc-classification',
-    label: 'Classification',
-    icon: IconCategory,
-    status: classificationComplete.value ? 'complete' : null,
-  },
-  {
     id: 'nc-product',
     label: 'Product',
     icon: IconPackage,
     status: form.value.productId ? 'complete' : null,
+  },
+  {
+    id: 'nc-classification',
+    label: 'Classification',
+    icon: IconCategory,
+    status: classificationComplete.value ? 'complete' : null,
   },
   { id: 'nc-notify', label: 'Notify', icon: IconBell, status: null },
 ])
@@ -461,9 +461,12 @@ async function handleReviewersConfirmed(reviewers) {
             on Submit — you can reassign any step afterwards.
           </p>
         </div>
-        <!-- Hidden when only one workflow exists — nothing to change to. -->
-        <BaseButton v-if="!singleWorkflow" variant="outline" size="sm" @click="screen = 'workflow'">
-          Change
+        <!-- Always offered (user request 2026-08-15). It used to hide when the
+             company had exactly one active workflow, which also hid WHICH
+             workflow was about to run and left no way back once the wizard
+             auto-skipped that screen. -->
+        <BaseButton variant="outline" size="sm" @click="screen = 'workflow'">
+          {{ singleWorkflow ? 'View workflow' : 'Change' }}
         </BaseButton>
         <!-- Submit-time per-step reviewer dialog — select suppressed, the
              workflow was chosen on screen 1. -->
@@ -560,6 +563,114 @@ async function handleReviewersConfirmed(reviewers) {
         />
 
         <!-- Classification -->
+        <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
+          <BaseFieldRow :columns="2">
+            <!-- Labeled "Item" per the Item-Master UI convention (DB stays
+                 products) — also keeps the label distinct from the progress
+                 nav's "Product" chip. -->
+            <BaseField
+              id="nc-product-item"
+              label="Item"
+              required
+              :value="form.productId"
+              :rules="[required()]"
+            >
+              <template #default="field">
+                <ProductSelectMenu
+                  v-bind="field"
+                  v-model="form.productId"
+                  :required="false"
+                  nullLabel="— Select item —"
+                />
+              </template>
+            </BaseField>
+            <BaseField
+              id="nc-supplier"
+              label="Supplier"
+              :required="form.isSupplierFacing"
+              :value="form.supplierId"
+              :rules="[
+                requiredWhen(
+                  () => form.isSupplierFacing,
+                  'Pick a supplier before marking this NC as supplier-facing.',
+                ),
+              ]"
+            >
+              <template #default="field">
+                <SupplierSelectMenu
+                  v-bind="field"
+                  v-model="form.supplierId"
+                  :required="form.isSupplierFacing"
+                />
+                <label
+                  class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+                >
+                  <BaseCheckbox v-model="form.isSupplierFacing" />
+                  <div>
+                    <BaseText>Supplier-facing NC</BaseText>
+                    <BaseCaption class="tw:block">
+                      Workflow steps will be reviewed by users from the selected supplier (you'll
+                      pick the specific reviewer per step when you open the NC). Lockable once
+                      opened.
+                    </BaseCaption>
+                  </div>
+                </label>
+              </template>
+            </BaseField>
+            <BaseField label="Qty affected">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.qtyAffected"
+                  type="number"
+                  placeholder="0"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Unit of measure">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.unitOfMeasure"
+                  placeholder="e.g. sheets, units…"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="PO #">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.poNumber"
+                  placeholder="Purchase order number"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Order #">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.orderNumber"
+                  placeholder="Customer / sales order"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Lot #">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.lotNumber"
+                  placeholder="Material / production lot"
+                />
+              </template>
+            </BaseField>
+          </BaseFieldRow>
+        </FormSection>
+
+        <!-- Product & material — default EXPANDED with a required Item
+             (client decision 2026-08-10). The menu itself stays
+             required=false: the required convention would auto-fill the
+             FIRST item, and a silently-wrong item is worse than an empty
+             field — the BaseField rule enforces the pick instead. -->
         <FormSection id="nc-classification" title="Classification" :icon="IconCategory">
           <BaseFieldRow :columns="2">
             <BaseField
@@ -663,114 +774,6 @@ async function handleReviewersConfirmed(reviewers) {
             >
               <template #default="field">
                 <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
-              </template>
-            </BaseField>
-          </BaseFieldRow>
-        </FormSection>
-
-        <!-- Product & material — default EXPANDED with a required Item
-             (client decision 2026-08-10). The menu itself stays
-             required=false: the required convention would auto-fill the
-             FIRST item, and a silently-wrong item is worse than an empty
-             field — the BaseField rule enforces the pick instead. -->
-        <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
-          <BaseFieldRow :columns="2">
-            <!-- Labeled "Item" per the Item-Master UI convention (DB stays
-                 products) — also keeps the label distinct from the progress
-                 nav's "Product" chip. -->
-            <BaseField
-              id="nc-product-item"
-              label="Item"
-              required
-              :value="form.productId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <ProductSelectMenu
-                  v-bind="field"
-                  v-model="form.productId"
-                  :required="false"
-                  nullLabel="— Select item —"
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="nc-supplier"
-              label="Supplier"
-              :required="form.isSupplierFacing"
-              :value="form.supplierId"
-              :rules="[
-                requiredWhen(
-                  () => form.isSupplierFacing,
-                  'Pick a supplier before marking this NC as supplier-facing.',
-                ),
-              ]"
-            >
-              <template #default="field">
-                <SupplierSelectMenu
-                  v-bind="field"
-                  v-model="form.supplierId"
-                  :required="form.isSupplierFacing"
-                />
-                <label
-                  class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
-                >
-                  <BaseCheckbox v-model="form.isSupplierFacing" />
-                  <div>
-                    <BaseText>Supplier-facing NC</BaseText>
-                    <BaseCaption class="tw:block">
-                      Workflow steps will be reviewed by users from the selected supplier (you'll
-                      pick the specific reviewer per step when you open the NC). Lockable once
-                      opened.
-                    </BaseCaption>
-                  </div>
-                </label>
-              </template>
-            </BaseField>
-            <BaseField label="Qty affected">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.qtyAffected"
-                  type="number"
-                  placeholder="0"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Unit of measure">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.unitOfMeasure"
-                  placeholder="e.g. sheets, units…"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="PO #">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.poNumber"
-                  placeholder="Purchase order number"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Order #">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.orderNumber"
-                  placeholder="Customer / sales order"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Lot #">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.lotNumber"
-                  placeholder="Material / production lot"
-                />
               </template>
             </BaseField>
           </BaseFieldRow>

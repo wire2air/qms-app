@@ -1,9 +1,22 @@
 <script setup>
-import { IconLayoutList, IconArrowUp, IconArrowDown, IconTrash, IconPlus } from '@tabler/icons-vue'
+import {
+  IconLayoutList,
+  IconArrowUp,
+  IconArrowDown,
+  IconTrash,
+  IconPlus,
+  IconGripVertical,
+} from '@tabler/icons-vue'
+import { useSortable, moveArrayElement } from '@vueuse/integrations/useSortable'
 import { canUseAi } from '@/utils/currentSession.js'
+import { renumber } from './sectionOrder.js'
 
 const props = defineProps({
   readonly: { type: [Boolean, Function], default: false },
+  // Authoring the TEMPLATE (instructions are editable) vs authoring a DOCUMENT
+  // from it (instructions render as read-only guidance above the body). The
+  // same editor serves both, so the distinction has to be explicit.
+  instructionsEditable: { type: Boolean, default: false },
 })
 
 const sections = defineModel({ type: Array, required: true })
@@ -29,30 +42,52 @@ function addSection() {
       title: '',
       sectionType: 'text',
       content: '',
+      // Author-facing guidance carried from the template onto every document
+      // made from it. Rich text so it can link to other documents.
+      instructions: '',
+      instructionAttachments: [],
       isAddOn: true,
     },
   ]
 }
 
 function removeSection(sectionId) {
-  sections.value = sections.value
-    .filter((s) => s.id !== sectionId)
-    .map((s, i) => ({ ...s, order: i + 1 }))
+  sections.value = renumber(sections.value.filter((s) => s.id !== sectionId))
 }
 
 function moveSectionUp(index) {
   if (index === 0) return
   const arr = [...sections.value]
   ;[arr[index], arr[index - 1]] = [arr[index - 1], arr[index]]
-  sections.value = arr.map((s, i) => ({ ...s, order: i + 1 }))
+  sections.value = renumber(arr)
 }
 
 function moveSectionDown(index) {
   if (index >= sections.value.length - 1) return
   const arr = [...sections.value]
   ;[arr[index], arr[index + 1]] = [arr[index + 1], arr[index]]
-  sections.value = arr.map((s, i) => ({ ...s, order: i + 1 }))
+  sections.value = renumber(arr)
 }
+
+// Drag-to-reorder (user request 2026-08-15), alongside the arrows rather than
+// replacing them: the arrows stay reachable by keyboard, which a drag is not.
+// The handle only renders in edit mode, so a missing handle is what disables
+// dragging in read-only mode.
+const listRef = ref(null)
+useSortable(listRef, sections, {
+  handle: '.section-drag-handle',
+  animation: 150,
+  ghostClass: 'tw:opacity-40',
+  onUpdate(e) {
+    // moveArrayElement resets the DOM SortableJS just mutated and updates the
+    // array on the NEXT tick — so renumber after it lands, not before, or the
+    // orders are written against the pre-move positions.
+    moveArrayElement(sections, e.oldIndex, e.newIndex, e)
+    nextTick(() => {
+      sections.value = renumber(sections.value)
+    })
+  },
+})
 </script>
 
 <template>
@@ -66,17 +101,27 @@ function moveSectionDown(index) {
       </h2>
     </div>
     <div class="tw:p-6">
-      <div v-if="sections?.length" class="tw:space-y-3">
+      <div v-if="sections?.length" ref="listRef" class="tw:space-y-3">
         <div
           v-for="(section, sectionIndex) in sections"
           :key="section.id"
           class="tw:flex tw:items-start tw:gap-4 tw:p-4 tw:bg-main-hover tw:rounded-lg"
         >
-          <!-- Order badge -->
-          <div
-            class="tw:flex tw:items-center tw:justify-center tw:w-8 tw:h-8 tw:shrink-0 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:font-bold tw:text-sm tw:mt-1"
-          >
-            {{ section.order }}
+          <!-- Grip + order badge. The badge shows `order`, which every
+               reorder path rewrites — see renumber(). -->
+          <div class="tw:flex tw:items-center tw:gap-1 tw:shrink-0 tw:mt-1">
+            <span
+              v-if="!isReadonly(section)"
+              class="section-drag-handle tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary tw:transition-colors"
+              :aria-label="`Drag to reorder section ${section.order}`"
+            >
+              <IconGripVertical :size="16" />
+            </span>
+            <div
+              class="tw:flex tw:items-center tw:justify-center tw:w-8 tw:h-8 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:font-bold tw:text-sm"
+            >
+              {{ section.order }}
+            </div>
           </div>
 
           <!-- Edit mode -->
@@ -94,6 +139,30 @@ function moveSectionDown(index) {
                   <option value="table">Table</option> -->
                 </select>
               </div>
+              <!-- Instructions. On the TEMPLATE these are authored; on a
+                   document made from it they render as read-only guidance
+                   (below) rather than another thing to fill in. -->
+              <div v-if="instructionsEditable" class="tw:flex tw:flex-col tw:gap-1">
+                <label class="tw:text-xs tw:font-medium tw:text-secondary">
+                  Instructions for the author
+                  <span class="tw:font-normal">— shown on every document using this template</span>
+                </label>
+                <BaseRichTextEditor
+                  v-model="section.instructions"
+                  placeholder="What should the author put here? Link related documents, cite the clause, give an example…"
+                />
+                <BaseUploader
+                  v-model="section.instructionAttachments"
+                  :hideHeader="true"
+                  label="Instruction attachments"
+                />
+              </div>
+              <SectionInstructions
+                v-else
+                :instructions="section.instructions"
+                :attachments="section.instructionAttachments"
+              />
+
               <div v-if="section.sectionType === 'text'">
                 <BaseRichTextEditor v-model="section.content" :sectionNumber="sectionIndex + 1">
                   <template #toolbar-extra="{ editor }">
@@ -141,6 +210,11 @@ function moveSectionDown(index) {
           <template v-else>
             <div class="tw:flex-1">
               <div class="tw:font-bold tw:text-on-sidebar">{{ section.title }}</div>
+              <SectionInstructions
+                :instructions="section.instructions"
+                :attachments="section.instructionAttachments"
+                class="tw:mt-2"
+              />
               <div v-if="section.defaultContent" class="tw:text-xs tw:text-secondary tw:mt-1">
                 {{ section.defaultContent.substring(0, 100)
                 }}{{ section.defaultContent.length > 100 ? '...' : '' }}

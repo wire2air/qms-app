@@ -474,7 +474,7 @@ function goBack() {
 
             <!-- Sections Builder -->
             <BaseField :value="form.sections" :rules="[sectionsMinLength, sectionsHaveValidTitles]">
-              <DocumentSectionsEditor v-model="form.sections" />
+              <DocumentSectionsEditor v-model="form.sections" :instructionsEditable="true" />
             </BaseField>
           </div>
         </BaseForm>
