@@ -23,6 +23,7 @@ import {
   fieldTypeLabel,
 } from '@/constants/formBuilderConfig'
 import DynamicForm from '@/components/form/DynamicForm.js'
+import { useListReorder } from '@/composables/useListReorder.js'
 
 const props = defineProps({
   field: { type: Object, required: true },
@@ -114,6 +115,12 @@ function saveColumn() {
   columnsHost().children.push(col)
   showColDialog.value = false
 }
+// Drag-to-reorder columns (user request 2026-08-16). Rows aren't reorderable
+// here because respondents add them at fill time — the builder only defines
+// the columns.
+const columnsRef = ref(null)
+useListReorder(columnsRef, () => props.field?.columns, { filter: 'button' })
+
 function removeColumn(i) {
   columnsHost().children.splice(i, 1)
 }
@@ -142,11 +149,12 @@ const addRowLabel = computed(() => props.field.addLabel || 'Add row')
           <IconPlus :size="14" /> Add column
         </button>
       </div>
-      <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+      <div ref="columnsRef" class="tw:flex tw:flex-wrap tw:gap-1.5">
         <span
           v-for="(col, i) in columns"
           :key="col.name || i"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-xs tw:text-on-main"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-xs tw:text-on-main tw:cursor-grab tw:active:cursor-grabbing"
+          title="Drag to reorder"
         >
           {{ col.label || 'Column' }}
           <span class="tw:text-micro tw:text-secondary">({{ typeLabel(col.type) }})</span>

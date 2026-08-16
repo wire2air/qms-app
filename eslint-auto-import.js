@@ -299,6 +299,7 @@ export default {
     "useLastChanged": true,
     "useLink": true,
     "useListLayout": true,
+    "useListReorder": true,
     "useLiveMutation": true,
     "useLiveQuery": true,
     "useLiveQueryWithDeps": true,

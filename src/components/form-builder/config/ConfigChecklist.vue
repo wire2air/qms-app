@@ -1,7 +1,8 @@
 <script setup>
-import { IconTrash, IconPlus } from '@tabler/icons-vue'
+import { IconTrash, IconPlus, IconGripVertical } from '@tabler/icons-vue'
 import { computed } from 'vue'
 import { columnInputTypesFor } from '@/constants/formBuilderConfig'
+import { useListReorder } from '@/composables/useListReorder.js'
 
 const field = defineModel('field', {
   type: Object,
@@ -13,6 +14,14 @@ const field = defineModel('field', {
 function columnInputTypeItems(col) {
   return columnInputTypesFor(col?.inputType).map((opt) => ({ id: opt.value, name: opt.label }))
 }
+
+// Drag-to-reorder rows and columns (user request 2026-08-16). Without it a
+// mis-ordered checklist had to be deleted and retyped from the first wrong
+// row onwards.
+const rowsRef = ref(null)
+const columnsRef = ref(null)
+useListReorder(rowsRef, () => field.value?.rows, '.checklist-row-handle')
+useListReorder(columnsRef, () => field.value?.columns, '.checklist-col-handle')
 
 function addRow() {
   if (!field.value.rows) {
@@ -135,21 +144,29 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
   <div class="tw:flex tw:flex-col tw:gap-4">
     <div class="tw:flex tw:flex-col tw:gap-3">
       <BaseText as="div" variant="overline">Rows</BaseText>
-      <div
-        v-for="(row, index) in field.rows"
-        :key="'row-' + index"
-        class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
-      >
-        <div class="tw:flex tw:gap-2 tw:items-center">
-          <div class="tw:flex-1">
-            <BaseTextInput v-model="field.rows[index]" placeholder="Row Label" size="sm" />
+      <div ref="rowsRef" class="tw:contents">
+        <div
+          v-for="(row, index) in field.rows"
+          :key="'row-' + index"
+          class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
+        >
+          <div class="tw:flex tw:gap-2 tw:items-center">
+            <span
+              class="checklist-row-handle tw:shrink-0 tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary"
+              :aria-label="`Drag to reorder row ${index + 1}`"
+            >
+              <IconGripVertical :size="15" />
+            </span>
+            <div class="tw:flex-1">
+              <BaseTextInput v-model="field.rows[index]" placeholder="Row Label" size="sm" />
+            </div>
+            <button
+              class="tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors"
+              @click="removeRow(index)"
+            >
+              <IconTrash :size="16" />
+            </button>
           </div>
-          <button
-            class="tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors"
-            @click="removeRow(index)"
-          >
-            <IconTrash :size="16" />
-          </button>
         </div>
       </div>
       <button
@@ -163,55 +180,63 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
 
     <div class="tw:flex tw:flex-col tw:gap-3">
       <BaseText as="div" variant="overline">Columns</BaseText>
-      <div
-        v-for="(col, index) in field.columns"
-        :key="'col-' + index"
-        class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
-      >
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <div class="tw:flex tw:gap-2 tw:items-center">
-            <div class="tw:flex-1">
-              <BaseTextInput
-                v-model="col.label"
-                placeholder="Header Label"
-                size="sm"
-                @update:modelValue="updateColumnValue(index)"
-              />
+      <div ref="columnsRef" class="tw:contents">
+        <div
+          v-for="(col, index) in field.columns"
+          :key="'col-' + index"
+          class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
+        >
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div class="tw:flex tw:gap-2 tw:items-center">
+              <span
+                class="checklist-col-handle tw:shrink-0 tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary"
+                :aria-label="`Drag to reorder column ${index + 1}`"
+              >
+                <IconGripVertical :size="15" />
+              </span>
+              <div class="tw:flex-1">
+                <BaseTextInput
+                  v-model="col.label"
+                  placeholder="Header Label"
+                  size="sm"
+                  @update:modelValue="updateColumnValue(index)"
+                />
+              </div>
+              <button
+                class="tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors"
+                @click="removeColumn(index)"
+              >
+                <IconTrash :size="16" />
+              </button>
             </div>
-            <button
-              class="tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors"
-              @click="removeColumn(index)"
-            >
-              <IconTrash :size="16" />
-            </button>
+            <BaseSelect
+              v-model="col.inputType"
+              :options="columnInputTypeItems(col)"
+              optionLabel="name"
+              optionValue="id"
+              :required="true"
+              placeholder="Select Type"
+              @update:modelValue="onColumnTypeChange(index)"
+            />
+            <template v-if="col.inputType === 'optionGroup'">
+              <BaseSelect
+                :modelValue="col.groupType || 'radio'"
+                :options="GROUP_TYPE_ITEMS"
+                optionLabel="name"
+                optionValue="id"
+                :required="true"
+                @update:modelValue="(v) => (col.groupType = v)"
+              />
+              <BaseSelect
+                :modelValue="col.inline === false ? 'vertical' : 'horizontal'"
+                :options="ORIENTATION_ITEMS"
+                optionLabel="name"
+                optionValue="id"
+                :required="true"
+                @update:modelValue="(v) => (col.inline = v !== 'vertical')"
+              />
+            </template>
           </div>
-          <BaseSelect
-            v-model="col.inputType"
-            :options="columnInputTypeItems(col)"
-            optionLabel="name"
-            optionValue="id"
-            :required="true"
-            placeholder="Select Type"
-            @update:modelValue="onColumnTypeChange(index)"
-          />
-          <template v-if="col.inputType === 'optionGroup'">
-            <BaseSelect
-              :modelValue="col.groupType || 'radio'"
-              :options="GROUP_TYPE_ITEMS"
-              optionLabel="name"
-              optionValue="id"
-              :required="true"
-              @update:modelValue="(v) => (col.groupType = v)"
-            />
-            <BaseSelect
-              :modelValue="col.inline === false ? 'vertical' : 'horizontal'"
-              :options="ORIENTATION_ITEMS"
-              optionLabel="name"
-              optionValue="id"
-              :required="true"
-              @update:modelValue="(v) => (col.inline = v !== 'vertical')"
-            />
-          </template>
         </div>
       </div>
       <button

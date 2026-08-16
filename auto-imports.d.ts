@@ -290,6 +290,7 @@ declare global {
   const useLastChanged: typeof import('@vueuse/core').useLastChanged
   const useLink: typeof import('vue-router').useLink
   const useListLayout: typeof import('./resource/js/shared/composables/useListLayout.js').useListLayout
+  const useListReorder: typeof import('./src/composables/useListReorder.js').useListReorder
   const useLiveMutation: typeof import('./src/composables/useLiveQuery.js').useLiveMutation
   const useLiveQuery: typeof import('./src/composables/useLiveQuery.js').useLiveQuery
   const useLiveQueryWithDeps: typeof import('./src/composables/useLiveQuery.js').useLiveQueryWithDeps
