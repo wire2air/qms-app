@@ -37,6 +37,10 @@ export const printModules = {
   // Quality complaint — header + narrative + product/classification/customer +
   // QA assessment. Mirrors the detail page's post-rail-restructure order.
   Complaint: () => import('./ComplaintPrint.vue'),
+  // Validation package — one qualification protocol / framework document, for
+  // the customer to execute on paper and sign. Takes ?slug=, not ?id=: the
+  // content ships with the app rather than living in the customer's data.
+  ValidationProtocol: () => import('./ValidationProtocolPrint.vue'),
   // Future:
   // Nonconformance: () => import('./NonconformancePrint.vue'),
 }
