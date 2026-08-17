@@ -390,6 +390,11 @@ async function applyDraft() {
       title: result.value.title,
       description: result.value.description,
       sections,
+      // The source system's own identity, captured so a migrated document is
+      // still findable by the number people already know. The parent decides
+      // what to do with them — tag and department match.
+      sourceDocumentNumber: result.value.sourceDocumentNumber || null,
+      departmentName: result.value.departmentName || null,
       sourceAttachmentFailed: !!selectedFile.value && !sourceAttachment,
     })
     show.value = false

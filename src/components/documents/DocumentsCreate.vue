@@ -128,6 +128,19 @@ function deriveAnchorSiteId(formData, mySite) {
   return mySite && ids.includes(mySite) ? mySite : ids[0] || null
 }
 
+/** Trim, drop blanks, de-dupe — order preserved so the source id stays first. */
+function normaliseTags(tags) {
+  const seen = new Set()
+  const out = []
+  for (const raw of Array.isArray(tags) ? tags : []) {
+    const t = String(raw ?? '').trim()
+    if (!t || seen.has(t)) continue
+    seen.add(t)
+    out.push(t)
+  }
+  return out
+}
+
 const createDocument = useLiveMutation(async (db, formData) => {
   const me = await db.User.findByPk(currentSession.value?.userId ?? currentSession.value?.id)
 
@@ -159,6 +172,9 @@ const createDocument = useLiveMutation(async (db, formData) => {
     statusId: 'ACTIVE',
     docNumber: null,
     appliesAllSites: !!formData.appliesAllSites,
+    // form.tags existed but was dropped here — there was no column until
+    // 20260816000300. Normalised: trimmed, de-duped, empties removed.
+    tags: normaliseTags(formData.tags),
   })
   await doc.save()
 
@@ -349,6 +365,37 @@ function handleAiDraft(draft) {
 // the structured path emits all 'text' sections; the summarise path
 // emits one 'text' summary section plus one 'attachment' section
 // carrying the uploaded original PDF in `attachments`. Honour both.
+const departments = useLiveQuery((db) => db.Department.where().exec(), {
+  models: ['Department'],
+  initial: [],
+})
+
+/**
+ * Apply what the importer read off the document's own header.
+ *
+ * Tag: the source system's identifier, verbatim. People migrating search for
+ * the number they already know, not the one we are about to mint — and
+ * search_reindex now folds tags into the FTS `structured` field so that works.
+ *
+ * Department: EXACT match, case-insensitive, per the decision on 2026-08-16.
+ * Nothing fuzzier — "QA" resolving to "Quality Assurance" is a guess, and
+ * silently filing a controlled document under the wrong department is worse
+ * than leaving the author's own default in place. No match, no change.
+ */
+function applyImportedIdentity(draft) {
+  const number = String(draft.sourceDocumentNumber ?? '').trim()
+  if (number) {
+    form.value.tags = normaliseTags([...(form.value.tags ?? []), number])
+  }
+
+  const name = String(draft.departmentName ?? '')
+    .trim()
+    .toLowerCase()
+  if (!name) return
+  const hit = (departments.value ?? []).find((d) => (d.name ?? '').trim().toLowerCase() === name)
+  if (hit) form.value.departmentId = hit.id
+}
+
 const showImportDialog = ref(false)
 
 // Set once an import has supplied this document's sections. From then on the
@@ -370,6 +417,7 @@ function escapeHtml(text) {
 
 function handlePdfImport(draft) {
   form.value.title = draft.title
+  applyImportedIdentity(draft)
   // From here on the template no longer supplies this document's shape — the
   // imported file does. See the preserveSections prop on DocumentsCreateContent.
   sectionsFromImport.value = true
