@@ -110,7 +110,7 @@ const form = ref({
 // is the CAPA details form with a context strip + Change button. With exactly
 // ONE active workflow, screen 1 is skipped entirely. The CAPA is still created
 // as a DRAFT — reviewers are assigned on the CAPA page's draft plan and the
-// workflow starts on Open CAPA; the choice stays changeable from the CAPA
+// workflow starts on Start CAPA; the choice stays changeable from the CAPA
 // page's Workflow rail card while DRAFT.
 const screen = ref('workflow')
 
@@ -250,7 +250,7 @@ function validate() {
 // Fires only after validate() passes. Runs the async custom-fields check
 // (which surfaces its own inline errors), then creates the DRAFT — no
 // reviewer picker here anymore: step assignments happen on the CAPA page's
-// draft plan, and the workflow starts when the owner clicks Open CAPA there.
+// draft plan, and the workflow starts when the owner clicks Start CAPA there.
 async function onSubmit() {
   if ((await customFieldsRef.value?.validate()) === false) return
 
@@ -298,7 +298,7 @@ async function handleCreate() {
     }
     toast.notify({
       type: 'positive',
-      message: 'CAPA created as a draft — assign step reviewers, then Open CAPA to start the workflow.',
+      message: 'CAPA created as a draft — assign step reviewers, then Start CAPA to start the workflow.',
     })
     allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/capas/${response.capa.id}`))
@@ -361,7 +361,7 @@ async function handleCreate() {
           </p>
           <p class="tw:text-xs tw:text-secondary">
             The CAPA is created as a draft — assign step reviewers and start the workflow with
-            Open CAPA on the CAPA page.
+            Start CAPA on the CAPA page.
           </p>
         </div>
         <!-- Hidden when only one workflow exists — nothing to change to. -->
@@ -413,11 +413,14 @@ async function handleCreate() {
                 />
               </template>
             </BaseField>
-            <BaseField label="Description">
+            <!-- "Problem Statement", not "Description" (2026-08-17): this
+                 field is what the CAPA is answering, and naming it plainly
+                 gets a better-written one. -->
+            <BaseField label="Problem Statement">
               <div class="create-capa-editor">
                 <BaseRichTextEditor
                   v-model="form.description"
-                  placeholder="Provide context for the CAPA…"
+                  placeholder="What is the problem this CAPA addresses?…"
                 />
               </div>
             </BaseField>

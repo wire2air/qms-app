@@ -669,6 +669,15 @@ const complaintDetailConfig = computed(() =>
     </template>
 
     <template v-if="complaint" #rail>
+      <!-- Workflow. Complaints showed NOTHING here before (2026-08-17). -->
+      <WorkflowRailCard
+        :record="complaint"
+        moduleId="COMPLAINT"
+        resourceType="Complaint"
+        :canChange="complaint.statusId === 'NEW' && isEditable"
+        changeHint="You can switch workflows before the QA review starts — step assignments reset on change."
+      />
+
       <!-- Identity first, then what the complaint is about, then who and
            when. Same ranking as the NC rail: the reader is orienting before
            they are investigating. -->

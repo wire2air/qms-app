@@ -42,7 +42,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
   return [
     {
       id: 'open',
-      label: 'Open CAPA',
+      label: 'Start CAPA',
       variant: 'primary',
       priority: 100,
       visible: !!isOwner && statusId === 'DRAFT',

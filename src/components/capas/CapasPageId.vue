@@ -287,7 +287,7 @@ async function onEsignVerified({ method, provider, token }) {
   }
 }
 
-// ─── Open CAPA (DRAFT → workflow active) ─────────────────────────────────────
+// ─── Start CAPA (DRAFT → workflow active) ─────────────────────────────────────
 // Confirmation dialog before the Draft → Active transition. Once opened,
 // the CAPA becomes a permanent audit record — actions / effectiveness
 // checks all hang off this row.
@@ -348,52 +348,6 @@ const workflowInstance = useLiveQueryWithDeps(
   },
   { models: ['WorkflowInstance'] },
 )
-
-// Resolve the WorkflowVersion (for label + workflowId link target). Prefer the
-// instance's version; fall back to the CAPA's directly-assigned version if no
-// instance exists yet (DRAFT CAPAs).
-const workflowVersion = useLiveQueryWithDeps(
-  [() => workflowInstance.value?.workflowVersionId ?? capa.value?.workflowVersionId],
-
-  async (db, [versionId]) => {
-    if (!versionId) return null
-    return db.WorkflowVersion.findByPk(versionId)
-  },
-  { models: ['WorkflowVersion'] },
-)
-
-const workflow = useLiveQueryWithDeps(
-  [() => workflowVersion.value?.workflowId],
-
-  async (db, [workflowId]) => {
-    if (!workflowId) return null
-    return db.Workflow.findByPk(workflowId)
-  },
-  { models: ['Workflow'] },
-)
-
-function workflowVersionLabel(v) {
-  if (!v) return ''
-  return v.versionLabel || `${v.versionMajor ?? 1}.${v.versionMinor ?? 0}`
-}
-
-// Workflow selection lives in the rail (same model as NC, 2026-08-12): the
-// default template is auto-picked at create; the owner can switch it here
-// while DRAFT. Changing it resets the per-step assignee plan — the old picks
-// are keyed by step ids that no longer apply.
-const selectedWorkflowVersionId = computed({
-  get: () => capa.value?.workflowVersionId ?? null,
-  set: async (versionId) => {
-    if (!capa.value || versionId === capa.value.workflowVersionId) return
-    capa.value.workflowVersionId = versionId
-    capa.value.pendingReviewers = {}
-    try {
-      await capa.value.save()
-    } catch (e) {
-      toast.error(e?.message || 'Failed to set workflow')
-    }
-  },
-})
 
 const editingTitle = ref(false)
 
@@ -544,12 +498,13 @@ const capaDetailConfig = computed(() =>
           </span>
         </template>
 
+        <!-- Same field the create form labels "Problem Statement". -->
         <BaseRichTextField
           v-model="capa.description"
           :editable="isEditable"
           clickToEdit
-          clickToEditLabel="Add a description…"
-          placeholder="Add a description…"
+          clickToEditLabel="Add the problem statement…"
+          placeholder="What is the problem this CAPA addresses?…"
         />
       </FormSection>
 
@@ -654,66 +609,20 @@ const capaDetailConfig = computed(() =>
            While DRAFT the owner picks / switches the workflow here (the
            default template is auto-picked at create); once opened it shows
            the running instance's status + links. -->
-      <BaseRailCard title="Workflow">
-        <template v-if="workflowInstance">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <BaseText v-if="workflow" variant="body" weight="medium">
-              {{ workflow.name }}
-            </BaseText>
-            <div>
-              <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
-            </div>
-            <RouterLink
-              class="tw:mt-2 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-              :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
-            >
-              View workflow details →
-            </RouterLink>
-            <RouterLink
-              v-if="workflow && workflowVersion"
-              class="tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-              :to="
-                getCompanyPath(
-                  `/workflow-templates/${workflow.id}?version=${encodeURIComponent(
-                    workflowVersionLabel(workflowVersion),
-                  )}`,
-                )
-              "
-            >
-              View workflow template →
-            </RouterLink>
-          </div>
-        </template>
-        <template v-else-if="capa.statusId === 'DRAFT' && isOwner">
-          <div class="tw:flex tw:flex-col tw:gap-1.5">
-            <WorkflowVersionSelect v-model="selectedWorkflowVersionId" moduleId="CAPA" dense />
-            <BaseCaption>
-              {{
-                capa.workflowVersionId
-                  ? 'You can switch workflows while in draft — step assignments reset on change.'
-                  : 'Pick the approval workflow this CAPA will follow when you click Open CAPA.'
-              }}
-            </BaseCaption>
-          </div>
-        </template>
-        <template v-else-if="capa.workflowVersionId">
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <BaseText v-if="workflow" variant="body" weight="medium">
-              {{ workflow.name }}
-            </BaseText>
-            <BaseText color="secondary" class="tw:text-sm">
-              {{
-                capa.statusId === 'DRAFT'
-                  ? 'Starts when the owner opens the CAPA.'
-                  : 'Workflow assigned but not yet submitted.'
-              }}
-            </BaseText>
-          </div>
-        </template>
-        <BaseText v-else color="secondary" class="tw:text-sm tw:italic">
-          No workflow selected yet — the CAPA owner picks one before opening.
-        </BaseText>
-      </BaseRailCard>
+      <!-- Shared with NC / Change Control / Complaint (2026-08-17). Was a
+           local copy rendering the picker as a card grid, which filled the
+           rail; the shared card uses a dropdown. -->
+      <WorkflowRailCard
+        :record="capa"
+        moduleId="CAPA"
+        resourceType="Capa"
+        :canChange="capa.statusId === 'DRAFT' && isOwner"
+        :changeHint="
+          capa.workflowVersionId
+            ? 'You can switch workflows while in draft — step assignments reset on change.'
+            : 'Pick the approval workflow this CAPA will follow when you click Start CAPA.'
+        "
+      />
 
       <!-- 4. Schedule — due, verified, closed -->
       <BaseRailCard title="Schedule">
@@ -920,8 +829,8 @@ const capaDetailConfig = computed(() =>
     </template>
   </BaseDialog>
 
-  <!-- Open CAPA confirmation — Draft → Active transition. -->
-  <BaseDialog v-model="showOpenDialog" title="Open CAPA" maxWidth="md">
+  <!-- Start CAPA confirmation — Draft → Active transition. -->
+  <BaseDialog v-model="showOpenDialog" title="Start CAPA" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <p class="tw:text-sm tw:text-on-main">
         Opening this CAPA starts the assigned workflow and makes it a
@@ -941,7 +850,7 @@ const capaDetailConfig = computed(() =>
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter
-        submitLabel="Open CAPA"
+        submitLabel="Start CAPA"
         :loading="saving"
         @cancel="close"
         @submit="handleSubmitForReview"
