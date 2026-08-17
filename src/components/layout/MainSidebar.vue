@@ -878,8 +878,8 @@ const navItems = computed(() => {
  * Settings replaces the nav instead of unrolling inside it.
  *
  * Two dozen entries expanded in place pushes every other module off-screen, so
- * the group swaps the rail for its own list with a way back — the pattern a
- * phone settings app uses, for the same reason.
+ * the group swaps the rail for its own list with a Main Menu link back — the
+ * pattern a phone settings app uses, for the same reason.
  */
 const settingsOpen = ref(false)
 
@@ -1056,7 +1056,9 @@ const quickCreateItems = computed(() => {
               @click="settingsOpen = false"
             >
               <IconChevronLeft :size="18" />
-              <span class="tw:flex-1">Back</span>
+              <!-- "Main Menu", not "Back": Back reads as browser-back, and this
+                   does not navigate — it swaps the rail. -->
+              <span class="tw:flex-1">Main Menu</span>
             </button>
 
             <div class="tw:flex tw:items-center tw:gap-3 tw:px-3 tw:pt-1 tw:pb-2">
