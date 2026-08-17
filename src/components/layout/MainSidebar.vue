@@ -1,6 +1,8 @@
 <script setup>
 import {
   IconFileImport,
+  IconCirclePlus,
+  IconMessageCircle,
   IconForms,
   IconTable,
   IconFileText,
@@ -86,6 +88,7 @@ const { reset: resetTrail } = useRecordTrail()
 
 const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
+const router = useRouter()
 
 // Entitlement (commercial) gate for a nav item, in addition to its RBAC
 // permission. A module nav item carries `permissions: ['<module_id>:read']`, so
@@ -864,6 +867,70 @@ const navItems = computed(() => {
       return isNavItemVisible(item)
     })
 })
+
+// ─── Quick create ────────────────────────────────────────────────────────────
+// Collapsed by default: the six entries would otherwise push the whole nav
+// down on every page load for a menu most visits do not use.
+const createOpen = ref(false)
+
+function runQuickCreate(item) {
+  createOpen.value = false
+  closeMobile()
+  item.click()
+}
+
+/**
+ * The records people raise day to day, one click from anywhere.
+ *
+ * Deliberately NOT every module: this sits at the top of the nav, and a list of
+ * twenty makes the common four harder to reach, not easier. Admin objects
+ * (templates, sites, users) are set up once and belong on their own pages.
+ *
+ * Each entry is gated on CREATE, so the menu offers only what this user can
+ * actually raise — offering "New CAPA" to someone who will be refused at the
+ * form is worse than not offering it.
+ *
+ * Empty for supplier users, whose portal is documents and tasks assigned to
+ * them; they raise nothing themselves.
+ */
+const quickCreateItems = computed(() => {
+  if (isSupplier.value) return []
+  const go = (path) => () => router.push(getCompanyPath(path))
+  return [
+    {
+      name: 'Document',
+      permission: 'document_control:create',
+      icon: IconFileText,
+      click: go('/documents/create'),
+    },
+    {
+      name: 'Nonconformance',
+      permission: 'ncr:create',
+      icon: IconAlertCircle,
+      click: go('/nonconformances/create'),
+    },
+    { name: 'CAPA', permission: 'capa:create', icon: IconShield, click: go('/capas/create') },
+    {
+      name: 'Change Request',
+      permission: 'change_control:create',
+      icon: IconArrowsShuffle,
+      click: go('/change-requests/create'),
+    },
+    {
+      name: 'Quality Event',
+      permission: 'quality_events:create',
+      icon: IconEye,
+      // No create ROUTE — the list page owns the dialog, so ?create=1 opens it.
+      click: go('/qualityEvents?create=1'),
+    },
+    {
+      name: 'Complaint',
+      permission: 'complaints:create',
+      icon: IconMessageCircle,
+      click: go('/complaints/create'),
+    },
+  ].filter((i) => isAllowed([i.permission]))
+})
 </script>
 
 <template>
@@ -906,6 +973,41 @@ const navItems = computed(() => {
               </div>
             </div>
           </RouterLink>
+
+          <!-- Quick create. Sits above the nav because raising a record is the
+               most frequent thing anyone does here, and it otherwise means
+               finding the module first, then its Create button. Renders
+               nothing when the user can create nothing, rather than a menu
+               that opens empty. -->
+          <div v-if="quickCreateItems.length" class="tw:flex tw:flex-col tw:gap-1">
+            <!-- Expands in place rather than in a popover: BasePopover is
+                 w-fit, so a full-width trigger cannot span the rail, and the
+                 sidebar already expands its groups inline — this reads as part
+                 of the same furniture. -->
+            <button
+              type="button"
+              class="tw:flex tw:w-full tw:items-center tw:justify-center tw:gap-2 tw:rounded-lg tw:border-0 tw:bg-primary tw:px-3 tw:py-2 tw:text-sm tw:font-semibold tw:text-white tw:transition-colors tw:hover:bg-primary/90 tw:cursor-pointer"
+              :aria-expanded="createOpen"
+              @click="createOpen = !createOpen"
+            >
+              <IconCirclePlus :size="18" />
+              Create
+              <component :is="createOpen ? IconChevronDown : IconChevronRight" :size="14" />
+            </button>
+
+            <div v-if="createOpen" class="tw:flex tw:flex-col tw:gap-0.5 tw:pl-1">
+              <button
+                v-for="item in quickCreateItems"
+                :key="item.name"
+                type="button"
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:rounded-lg tw:border-0 tw:bg-transparent tw:px-3 tw:py-1.5 tw:text-left tw:text-sm tw:text-secondary tw:transition-colors tw:hover:bg-sidebar-hover tw:hover:text-on-sidebar tw:cursor-pointer tw:[font:inherit]"
+                @click="runQuickCreate(item)"
+              >
+                <component :is="item.icon" :size="18" />
+                <span>{{ item.name }}</span>
+              </button>
+            </div>
+          </div>
 
           <!-- Nav Links -->
           <nav class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
