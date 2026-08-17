@@ -20,7 +20,7 @@
  * wait" is not an acceptable answer.
  */
 import { IconUpload, IconX, IconFileText, IconAlertTriangle } from '@tabler/icons-vue'
-import { extractPdfHeader } from '@/composables/usePdfImport.js'
+import { IMPORT_ACCEPT, isSupportedImportFile, readImportHeader } from '@/utils/importFileHeader.js'
 import { uploadFile } from '@/composables/useFileUpload.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -82,24 +82,24 @@ watch(me, (u) => {
 function pickFiles() {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = 'application/pdf,.pdf'
+  input.accept = IMPORT_ACCEPT
   input.multiple = true
   input.onchange = (e) => {
     const picked = Array.from(e.target.files ?? [])
 
     // The accept attribute is a HINT — "All Files" in the OS picker walks
     // straight past it, and someone selecting a whole migration folder gets
-    // .avif images and invoices along with the SOPs (seen 2026-08-17). Filter
-    // for real, and say what was dropped rather than silently importing a
-    // payment receipt as a controlled document.
-    const pdfs = picked.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name))
-    const skipped = picked.length - pdfs.length
+    // .avif images along with the SOPs (seen 2026-08-17). Filter for real, and
+    // say what was dropped rather than silently filing an image as a
+    // controlled document.
+    const supported = picked.filter(isSupportedImportFile)
+    const skipped = picked.length - supported.length
 
     // De-dupe by name+size: re-picking the same folder is the obvious mistake,
     // and it would import everything twice.
     const seen = new Set(files.value.map((f) => `${f.name}:${f.size}`))
     let added = 0
-    for (const f of pdfs) {
+    for (const f of supported) {
       const key = `${f.name}:${f.size}`
       if (!seen.has(key)) {
         seen.add(key)
@@ -110,7 +110,7 @@ function pickFiles() {
 
     if (skipped) {
       toast.warning(
-        `${skipped} file${skipped !== 1 ? 's were' : ' was'} not a PDF and ${skipped !== 1 ? 'were' : 'was'} skipped.`,
+        `${skipped} unsupported file${skipped !== 1 ? 's' : ''} skipped — PDF, Word and Excel only.`,
       )
     }
     if (!added && !skipped && picked.length) {
@@ -169,14 +169,10 @@ async function submit() {
       progress.value = { current: i + 1, total: files.value.length, message: file.name }
       try {
         // Local, free, deterministic — and the reason the worker needs no
-        // parser. Header failures are not fatal: the file still imports, just
-        // titled from its filename.
-        let head = null
-        try {
-          head = await extractPdfHeader(file, { maxPages: 3 })
-        } catch {
-          head = null
-        }
+        // parser. Format-aware: PDFs give up their header block, spreadsheets
+        // their cover-sheet pairs, Word only its filename. Never throws — an
+        // unreadable header still imports under the filename.
+        const head = await readImportHeader(file)
 
         const { success, asset, error: uploadError } = await uploadFile(file, 'ASSET')
         if (!success || !asset) throw new Error(uploadError || 'Upload failed')
@@ -185,9 +181,9 @@ async function submit() {
           batchId: batch.id,
           assetId: asset.id,
           fileName: file.name,
-          title: head?.title || file.name.replace(/\.pdf$/i, ''),
-          sourceDocumentNumber: head?.documentNumber ?? null,
-          departmentName: head?.department ?? null,
+          title: head.title || file.name,
+          sourceDocumentNumber: head.documentNumber,
+          departmentName: head.department,
           statusId: 'PENDING',
         })
         queued += 1
@@ -285,7 +281,7 @@ async function submit() {
             </p>
             <BaseButton variant="outline" size="sm" :disabled="busy" @click="pickFiles">
               <template #icon><IconUpload :size="14" /></template>
-              Add PDFs
+              Add files
             </BaseButton>
           </div>
 
@@ -315,8 +311,9 @@ async function submit() {
             </div>
           </div>
           <p v-else class="tw:text-xs tw:text-secondary">
-            No files chosen yet. Select as many PDFs as you like — they are read locally, then
-            uploaded one at a time.
+            No files chosen yet. PDF, Word or Excel — read locally, then uploaded one at a time.
+            Only PDFs and spreadsheets give up a document number automatically; Word files import
+            under their filename.
           </p>
         </div>
 
