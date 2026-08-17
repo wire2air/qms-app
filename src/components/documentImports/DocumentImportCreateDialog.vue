@@ -32,11 +32,17 @@ const toast = useToast()
 // `form` is the DATA; `formRef` is the BaseForm COMPONENT. They must be
 // separate refs — `ref="form"` would overwrite the data with the instance.
 const formRef = ref(null)
-function blankForm() {
+function blankForm(user = null) {
   return {
     name: `Import ${new Date().toISOString().slice(0, 10)}`,
-    siteId: null,
-    departmentId: null,
+    // Seeded from the author here rather than by a watcher. A one-shot
+    // `watch(me)` fires when the user record resolves — usually at page load,
+    // long before the dialog opens — and the reset below then wiped it, so the
+    // SECOND time you opened the dialog Site was silently blank (bug
+    // 2026-08-17: a 152-file batch failed every single item on
+    // "Document.siteId cannot be null").
+    siteId: user?.siteId ?? null,
+    departmentId: user?.departmentId ?? null,
     documentTemplateId: null,
     prefix: null,
   }
@@ -50,7 +56,7 @@ const failures = ref([])
 
 watch(show, (open) => {
   if (!open) return
-  form.value = blankForm()
+  form.value = blankForm(me.value)
   files.value = []
   busy.value = false
   progress.value = { current: 0, total: 0, message: '' }
@@ -65,6 +71,8 @@ const me = useLiveQuery(
   },
   { models: ['User'], initial: null },
 )
+// Only covers the race where the dialog is opened before the user record has
+// loaded. Never overwrites a choice already made.
 watch(me, (u) => {
   if (!u || !form.value) return
   if (!form.value.siteId && u.siteId) form.value.siteId = u.siteId
@@ -78,15 +86,35 @@ function pickFiles() {
   input.multiple = true
   input.onchange = (e) => {
     const picked = Array.from(e.target.files ?? [])
+
+    // The accept attribute is a HINT — "All Files" in the OS picker walks
+    // straight past it, and someone selecting a whole migration folder gets
+    // .avif images and invoices along with the SOPs (seen 2026-08-17). Filter
+    // for real, and say what was dropped rather than silently importing a
+    // payment receipt as a controlled document.
+    const pdfs = picked.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name))
+    const skipped = picked.length - pdfs.length
+
     // De-dupe by name+size: re-picking the same folder is the obvious mistake,
     // and it would import everything twice.
     const seen = new Set(files.value.map((f) => `${f.name}:${f.size}`))
-    for (const f of picked) {
+    let added = 0
+    for (const f of pdfs) {
       const key = `${f.name}:${f.size}`
       if (!seen.has(key)) {
         seen.add(key)
         files.value.push(f)
+        added += 1
       }
+    }
+
+    if (skipped) {
+      toast.warning(
+        `${skipped} file${skipped !== 1 ? 's were' : ' was'} not a PDF and ${skipped !== 1 ? 'were' : 'was'} skipped.`,
+      )
+    }
+    if (!added && !skipped && picked.length) {
+      toast.info('Those files are already in this batch.')
     }
   }
   input.click()
@@ -108,8 +136,14 @@ const createItem = useLiveMutation(async (db, payload) => {
   return item
 })
 
+// Site and template are both hard requirements of the document that gets
+// created, so block here rather than let the worker fail once per file.
 const canSubmit = computed(
-  () => !busy.value && files.value.length > 0 && !!form.value?.documentTemplateId,
+  () =>
+    !busy.value &&
+    files.value.length > 0 &&
+    !!form.value?.documentTemplateId &&
+    !!form.value?.siteId,
 )
 
 async function submit() {
@@ -205,7 +239,13 @@ async function submit() {
         </BaseField>
 
         <BaseFieldRow :columns="2">
-          <BaseField label="Site">
+          <BaseField
+            label="Site"
+            required
+            :value="form.siteId"
+            :rules="[required()]"
+            hint="Every imported document is filed against this site."
+          >
             <SiteSelectMenu v-model="form.siteId" :required="false" :disabled="busy" />
           </BaseField>
           <BaseField
