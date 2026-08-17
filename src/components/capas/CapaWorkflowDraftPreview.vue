@@ -2,7 +2,7 @@
 /**
  * Draft-mode workflow preview. While the CAPA is in DRAFT (no workflow
  * instance exists yet) the owner needs to see the steps that will fire
- * once they click Open CAPA, and pre-assign a user to each step. Choices
+ * once they click Start CAPA, and pre-assign a user to each step. Choices
  * are saved to `capa.pendingReviewers` ({ workflowStepId: [userId, …] })
  * on the row; `submitCapaForReview` consumes that map to seed the
  * UserOnWorkflowInstanceStep rows when the workflow finally launches.
@@ -267,7 +267,7 @@ watch(
           </BaseText>
           <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
             Assign a user to each step. The workflow launches with these assignments when you click
-            <strong>Open CAPA</strong>.
+            <strong>Start CAPA</strong>.
           </p>
         </div>
         <span v-if="saving" class="tw:text-xs tw:text-secondary">Saving…</span>
