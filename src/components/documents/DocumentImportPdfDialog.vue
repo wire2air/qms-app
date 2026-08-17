@@ -401,8 +401,9 @@ async function applyDraft() {
       // The source system's own identity, captured so a migrated document is
       // still findable by the number people already know. The parent decides
       // what to do with them — tag and department match.
-      sourceDocumentNumber: result.value.sourceDocumentNumber || sourceDocumentNumber.value,
-      departmentName: result.value.departmentName || departmentName.value,
+      // Local read wins; the model fills the gap when the labels were unusual.
+      sourceDocumentNumber: sourceDocumentNumber.value || result.value.sourceDocumentNumber || null,
+      departmentName: departmentName.value || result.value.departmentName || null,
       sourceAttachmentFailed: !!selectedFile.value && !sourceAttachment,
     })
     show.value = false
@@ -435,6 +436,11 @@ async function readHeader() {
   headerBusy.value = true
   try {
     header.value = await extractPdfHeader(selectedFile.value, { maxPages: 3 })
+    // Local, free, deterministic, and it runs on EVERY path — including with
+    // AI switched off. The model is only a fallback for header blocks whose
+    // labels we do not recognise (see summariseHeader / applyDraft).
+    sourceDocumentNumber.value = header.value.documentNumber ?? null
+    departmentName.value = header.value.department ?? null
   } catch {
     // A title is a convenience; a PDF we can't crack still imports as an
     // attachment under its filename.
@@ -485,8 +491,9 @@ async function summariseHeader() {
     // These were being discarded here (bug 2026-08-16): a 34-page SOP goes
     // down this path, so its "Document Number: SOP-QA-006" was read and then
     // thrown away before the form ever saw it.
-    sourceDocumentNumber.value = out.sourceDocumentNumber || null
-    departmentName.value = out.departmentName || null
+    // Fallback only: never overwrite what we read off the page ourselves.
+    sourceDocumentNumber.value = sourceDocumentNumber.value || out.sourceDocumentNumber || null
+    departmentName.value = departmentName.value || out.departmentName || null
   } catch (e) {
     error.value = { stage: 'summarising', message: e?.message || 'Could not summarise the PDF' }
   } finally {

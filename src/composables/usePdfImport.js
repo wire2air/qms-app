@@ -285,6 +285,9 @@ export async function extractPdfHeader(file, { maxPages = 3 } = {}) {
     title: cleanPdfTitle(meta?.info?.Title) || titleFromLines(lines) || '',
     text: lines.join('\n').trim(),
     pageCount: doc.numPages,
+    // Read off the same lines, locally. Free, deterministic, and available on
+    // every path including with AI disabled.
+    ...extractHeaderFields(lines),
   }
 }
 
@@ -306,6 +309,65 @@ function cleanPdfTitle(raw) {
 }
 
 /** First line that reads like a heading rather than a header/footer. */
+/**
+ * Read the page-one header block LOCALLY — no AI, no network, no cost.
+ *
+ * A controlled document prints its own identity in a key/value block at the
+ * top of page one: "Document Number: SOP-QA-006", "Department: Quality
+ * Assurance". We already have those lines — extractPdfHeader reads the first
+ * three pages on EVERY import path, including when AI is switched off
+ * entirely — so asking a model for them was both a needless round trip and
+ * less reliable, since on a long document the number is one line in thirty
+ * pages of noise.
+ *
+ * Labels vary by company, which is the whole difficulty; the alternatives
+ * below cover the forms seen in practice. A match must look like an
+ * identifier (letters/digits with separators, no spaces in the middle) so a
+ * sentence following the word "Reference" is not mistaken for a number.
+ *
+ * Returns { documentNumber, department }, each null when not printed. Never
+ * guesses: the caller falls back to the model, and then to its own default.
+ */
+const NUMBER_LABELS =
+  /^(?:document|doc|sop|wi|form|record|procedure)?\s*(?:number|no\.?|num|id|ident(?:ifier)?|ref(?:erence)?|#)\s*$/i
+const DEPARTMENT_LABELS = /^(?:department|dept\.?|function|owning\s+department)\s*$/i
+
+// An identifier, not prose: no interior whitespace runs, at least one digit or
+// two capitals, and short. "SOP-QA-006", "QMS/WI/14", "F024" pass;
+// "the applicable procedure" does not.
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._\-/]{1,48}$/
+
+function splitLabelled(line) {
+  const m = /^\s*([^:]{1,40}?)\s*[:\u2013\u2014-]\s*(.+?)\s*$/.exec(line)
+  return m ? { label: m[1], value: m[2] } : null
+}
+
+export function extractHeaderFields(lines) {
+  let documentNumber = null
+  let department = null
+
+  // Header blocks live at the very top. Scanning the whole 3 pages would start
+  // matching body prose such as "Reference: see section 4".
+  for (const raw of (lines ?? []).slice(0, 40)) {
+    const line = String(raw ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!line) continue
+    const hit = splitLabelled(line)
+    if (!hit) continue
+
+    if (!documentNumber && NUMBER_LABELS.test(hit.label) && IDENTIFIER.test(hit.value)) {
+      documentNumber = hit.value
+    }
+    if (!department && DEPARTMENT_LABELS.test(hit.label) && hit.value.length <= 100) {
+      department = hit.value
+    }
+    if (documentNumber && department) break
+  }
+
+  return { documentNumber, department }
+}
+
 function titleFromLines(lines) {
   for (const raw of lines.slice(0, 40)) {
     const line = raw.replace(/\s+/g, ' ').trim()

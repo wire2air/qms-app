@@ -59,6 +59,7 @@ export default {
     "encodeSort": true,
     "eventToChord": true,
     "extendRef": true,
+    "extractHeaderFields": true,
     "extractPdfHeader": true,
     "fillPattern": true,
     "filterCommands": true,
