@@ -138,7 +138,9 @@ async function retryFailed(batch) {
       </DataTable>
     </PageSection>
 
-    <DocumentImportCreateDialog v-model="showCreate" />
+    <!-- Creating an empty container and leaving the user on the list would be
+         a dead end, so the new batch opens straight away for files. -->
+    <DocumentImportCreateDialog v-model="showCreate" @created="(id) => (openBatchId = id)" />
     <DocumentImportBatchDialog v-model="openBatchId" />
   </BasePage>
 </template>
