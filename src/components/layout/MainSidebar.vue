@@ -1018,12 +1018,11 @@ const quickCreateItems = computed(() => {
             <div v-if="logoUrl">
               <img :src="logoUrl" alt="Company Logo" class="tw:w-10 tw:h-10 tw:rounded" />
             </div>
-            <div
-              v-else
-              class="tw:bg-primary tw:flex tw:items-center tw:justify-center tw:rounded-lg tw:size-10 tw:text-white"
-            >
-              <IconChartBar :size="24" />
-            </div>
+            <!-- No customer logo uploaded yet: show the Qability mark rather
+                 than a generic chart glyph. `tone="auto"` because the sidebar
+                 follows the app theme, unlike the auth pages' always-dark
+                 branding panel. -->
+            <BrandLogo v-else variant="mark" class="tw:size-10" />
             <div class="tw:flex tw:flex-col">
               <div class="tw:text-on-sidebar tw:text-base tw:font-bold tw:leading-tight">
                 {{ isSupplier ? 'Supplier Portal' : 'QMS Admin' }}

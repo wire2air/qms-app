@@ -320,6 +320,7 @@ declare module 'vue' {
     'BaseTooltip.stories': typeof import('./resource/js/shared/components/BaseTooltip.stories.js')['default']
     BaseUploader: typeof import('./src/components/common/BaseUploader.vue')['default']
     BaseVoiceButton: typeof import('./resource/js/shared/components/BaseVoiceButton.vue')['default']
+    BrandLogo: typeof import('./src/components/brand/BrandLogo.vue')['default']
     CameraCaptureDialog: typeof import('./src/components/CameraCaptureDialog.vue')['default']
     CannedResponsesHome: typeof import('./src/components/customerComplaints/CannedResponsesHome.vue')['default']
     CapaAddChildStepDialog: typeof import('./src/components/capas/CapaAddChildStepDialog.vue')['default']
