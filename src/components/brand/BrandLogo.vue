@@ -24,7 +24,11 @@
  * app does not load — it would have rendered in a fallback face. These assets
  * are the wordmark only, so there is no font dependency.
  */
-import { useDark } from '@vueuse/core'
+// The app's own theme manager — NOT vueuse's useDark(). useDark() is a second
+// source of truth: it reads a different localStorage key ('vueuse-color-scheme'
+// vs the app's 'theme'), so it reported the wrong theme, and it WRITES the
+// `.dark` class too, competing with theme.js over the same class.
+import { isDark } from '@/utils/theme.js'
 
 import wordmarkDark from '@/assets/brand/qability-logo.svg'
 import wordmarkLight from '@/assets/brand/qability-logo-light.svg'
@@ -45,8 +49,6 @@ const props = defineProps({
     validator: (v) => ['auto', 'light', 'mono', 'dark'].includes(v),
   },
 })
-
-const isDark = useDark()
 
 const resolvedTone = computed(() => {
   if (props.tone !== 'auto') return props.tone
