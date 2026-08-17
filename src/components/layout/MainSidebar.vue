@@ -2,6 +2,7 @@
 import {
   IconFileImport,
   IconCirclePlus,
+  IconChevronLeft,
   IconMessageCircle,
   IconForms,
   IconTable,
@@ -696,6 +697,10 @@ const navItems = computed(() => {
     {
       label: 'Settings',
       icon: IconSettings,
+      // Drills IN rather than expanding: two dozen settings pages unrolled
+      // inside the main nav buries everything below them (user request
+      // 2026-08-17). See settingsOpen.
+      drillIn: true,
       children: [
         {
           label: 'General',
@@ -868,6 +873,40 @@ const navItems = computed(() => {
     })
 })
 
+// ─── Settings drill-in ───────────────────────────────────────────────────────
+/**
+ * Settings replaces the nav instead of unrolling inside it.
+ *
+ * Two dozen entries expanded in place pushes every other module off-screen, so
+ * the group swaps the rail for its own list with a way back — the pattern a
+ * phone settings app uses, for the same reason.
+ */
+const settingsOpen = ref(false)
+
+const settingsGroup = computed(() => navItems.value.find((i) => i.drillIn))
+const settingsChildren = computed(() => settingsGroup.value?.children ?? [])
+
+/**
+ * The rail follows the page: arriving at a settings page opens it, going
+ * anywhere else closes it. So a deep link lands with the right context, and
+ * using Create from inside settings does not leave you on a Documents page
+ * staring at a settings rail.
+ *
+ * Keyed on the path CHANGING, deliberately. Recomputing continuously would
+ * make Back useless — it would re-open the instant it closed, since closing
+ * the rail does not navigate away from the settings page you are on.
+ */
+watch(
+  () => route.path,
+  (path) => {
+    settingsOpen.value = settingsChildren.value.some((c) => c.to && path.startsWith(c.to))
+  },
+  { immediate: true },
+)
+
+// Everything except Settings — it is rendered on its own, pinned at the end.
+const mainNavItems = computed(() => navItems.value.filter((i) => !i.drillIn))
+
 // ─── Quick create ────────────────────────────────────────────────────────────
 // Collapsed by default: the six entries would otherwise push the whole nav
 // down on every page load for a menu most visits do not use.
@@ -1009,9 +1048,40 @@ const quickCreateItems = computed(() => {
             </div>
           </div>
 
+          <!-- ══ Settings rail ══ Replaces the nav entirely; Back returns. -->
+          <nav v-if="settingsOpen" class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
+            <button
+              type="button"
+              class="tw:flex tw:w-full tw:items-center tw:gap-2 tw:rounded-lg tw:border-0 tw:bg-transparent tw:px-3 tw:py-2 tw:text-left tw:text-sm tw:font-semibold tw:text-on-sidebar tw:transition-colors tw:hover:bg-sidebar-hover tw:cursor-pointer tw:[font:inherit]"
+              @click="settingsOpen = false"
+            >
+              <IconChevronLeft :size="18" />
+              <span class="tw:flex-1">Back</span>
+            </button>
+
+            <div class="tw:flex tw:items-center tw:gap-3 tw:px-3 tw:pt-1 tw:pb-2">
+              <IconSettings :size="20" class="tw:text-primary" />
+              <span class="tw:text-base tw:font-bold tw:text-on-sidebar">Settings</span>
+            </div>
+
+            <RouterLink
+              v-for="child in settingsChildren"
+              :key="child.label"
+              :to="child.to"
+              class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
+              :class="
+                isActive(child.to, child.matchPaths) ? 'tw:bg-main-selected tw:text-primary' : ''
+              "
+              @click="resetTrail"
+            >
+              <component :is="child.icon" :size="20" />
+              <span class="tw:text-sm tw:font-medium">{{ child.label }}</span>
+            </RouterLink>
+          </nav>
+
           <!-- Nav Links -->
-          <nav class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
-            <template v-for="item in navItems">
+          <nav v-else class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
+            <template v-for="item in mainNavItems">
               <!-- Parent item with children -->
               <template v-if="item.children">
                 <button
@@ -1068,6 +1138,22 @@ const quickCreateItems = computed(() => {
 
               <!-- Divider -->
               <hr v-else :key="item.label" class="tw:border-t tw:border-divider tw:my-2" />
+            </template>
+
+            <!-- Settings — opens its own rail rather than unrolling here.
+                 Pinned last: it is the least-visited group and the one that
+                 would otherwise dominate the list. -->
+            <template v-if="settingsGroup">
+              <hr class="tw:border-t tw:border-divider tw:my-2" />
+              <button
+                type="button"
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:rounded-lg tw:border-0 tw:bg-transparent tw:px-3 tw:py-2 tw:text-left tw:text-secondary tw:transition-colors tw:hover:bg-sidebar-hover tw:cursor-pointer tw:appearance-none tw:[font:inherit]"
+                @click="settingsOpen = true"
+              >
+                <IconSettings :size="24" />
+                <span class="tw:flex-1 tw:text-sm tw:font-medium">Settings</span>
+                <IconChevronRight :size="16" />
+              </button>
             </template>
           </nav>
         </div>
