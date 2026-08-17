@@ -67,7 +67,14 @@ describe('buildCapaActions', () => {
 
   it('shows open (primary) for DRAFT owner; close and cancel not visible', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'DRAFT', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false },
+      {
+        isOwner: true,
+        statusId: 'DRAFT',
+        canClose: true,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+      },
       handlers,
     )
     const visible = a.filter((x) => x.visible).map((x) => x.id)
@@ -78,7 +85,14 @@ describe('buildCapaActions', () => {
 
   it('shows delete for DRAFT owner', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'DRAFT', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false },
+      {
+        isOwner: true,
+        statusId: 'DRAFT',
+        canClose: true,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+      },
       handlers,
     )
     expect(a.find((x) => x.id === 'delete').visible).toBe(true)
@@ -86,7 +100,14 @@ describe('buildCapaActions', () => {
 
   it('shows close (primary) and cancel for PENDING owner; open not visible', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'PENDING', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false },
+      {
+        isOwner: true,
+        statusId: 'PENDING',
+        canClose: true,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+      },
       handlers,
     )
     const visible = a.filter((x) => x.visible).map((x) => x.id)
@@ -97,7 +118,14 @@ describe('buildCapaActions', () => {
 
   it('close is disabled with tooltip when canClose=false', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'PENDING', canClose: false, closeDisabledReason: '2 steps still open.', canCreateChangeRequest: false, saving: false },
+      {
+        isOwner: true,
+        statusId: 'PENDING',
+        canClose: false,
+        closeDisabledReason: '2 steps still open.',
+        canCreateChangeRequest: false,
+        saving: false,
+      },
       handlers,
     )
     const close = a.find((x) => x.id === 'close')
@@ -108,7 +136,14 @@ describe('buildCapaActions', () => {
 
   it('close has no title when canClose=true and no closeDisabledReason', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'PENDING', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false },
+      {
+        isOwner: true,
+        statusId: 'PENDING',
+        canClose: true,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+      },
       handlers,
     )
     const close = a.find((x) => x.id === 'close')
@@ -118,7 +153,14 @@ describe('buildCapaActions', () => {
 
   it('hides owner-only actions for a non-owner', () => {
     const a = buildCapaActions(
-      { isOwner: false, statusId: 'DRAFT', canClose: false, closeDisabledReason: '', canCreateChangeRequest: false, saving: false },
+      {
+        isOwner: false,
+        statusId: 'DRAFT',
+        canClose: false,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+      },
       handlers,
     )
     expect(a.find((x) => x.id === 'open').visible).toBe(false)
@@ -129,7 +171,14 @@ describe('buildCapaActions', () => {
 
   it('open has loading=true and disabled=true while saving', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'DRAFT', canClose: false, closeDisabledReason: '', canCreateChangeRequest: false, saving: true },
+      {
+        isOwner: true,
+        statusId: 'DRAFT',
+        canClose: false,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: true,
+      },
       handlers,
     )
     const open = a.find((x) => x.id === 'open')
@@ -140,8 +189,20 @@ describe('buildCapaActions', () => {
   it('wires onSelect to the provided handlers', () => {
     let opened = false
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'DRAFT', canClose: false, closeDisabledReason: '', canCreateChangeRequest: false, saving: false },
-      { ...handlers, openOpen() { opened = true } },
+      {
+        isOwner: true,
+        statusId: 'DRAFT',
+        canClose: false,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+      },
+      {
+        ...handlers,
+        openOpen() {
+          opened = true
+        },
+      },
     )
     a.find((x) => x.id === 'open').onSelect()
     expect(opened).toBe(true)
@@ -149,7 +210,14 @@ describe('buildCapaActions', () => {
 
   it('createCr visible when canCreateChangeRequest and status is not DRAFT', () => {
     const a = buildCapaActions(
-      { isOwner: false, statusId: 'PENDING', canClose: false, closeDisabledReason: '', canCreateChangeRequest: true, saving: false },
+      {
+        isOwner: false,
+        statusId: 'PENDING',
+        canClose: false,
+        closeDisabledReason: '',
+        canCreateChangeRequest: true,
+        saving: false,
+      },
       handlers,
     )
     expect(a.find((x) => x.id === 'createCr').visible).toBe(true)
@@ -157,7 +225,14 @@ describe('buildCapaActions', () => {
 
   it('createCr NOT visible on DRAFT even when permission granted', () => {
     const a = buildCapaActions(
-      { isOwner: false, statusId: 'DRAFT', canClose: false, closeDisabledReason: '', canCreateChangeRequest: true, saving: false },
+      {
+        isOwner: false,
+        statusId: 'DRAFT',
+        canClose: false,
+        closeDisabledReason: '',
+        canCreateChangeRequest: true,
+        saving: false,
+      },
       handlers,
     )
     expect(a.find((x) => x.id === 'createCr').visible).toBe(false)
@@ -165,7 +240,15 @@ describe('buildCapaActions', () => {
 
   it('close action is disabled and loading while closing is true', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'PENDING', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false, closing: true },
+      {
+        isOwner: true,
+        statusId: 'PENDING',
+        canClose: true,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+        closing: true,
+      },
       handlers,
     )
     const close = a.find((x) => x.id === 'close')
@@ -175,7 +258,15 @@ describe('buildCapaActions', () => {
 
   it('cancel action is disabled and loading while cancelling is true', () => {
     const a = buildCapaActions(
-      { isOwner: true, statusId: 'PENDING', canClose: true, closeDisabledReason: '', canCreateChangeRequest: false, saving: false, cancelling: true },
+      {
+        isOwner: true,
+        statusId: 'PENDING',
+        canClose: true,
+        closeDisabledReason: '',
+        canCreateChangeRequest: false,
+        saving: false,
+        cancelling: true,
+      },
       handlers,
     )
     const cancel = a.find((x) => x.id === 'cancel')

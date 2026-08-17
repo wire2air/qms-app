@@ -162,12 +162,9 @@ const autoDefaultDone = ref(false)
 // switches workflows there, the step list is new and the one-shot default
 // must re-run for the new steps. Same when the audience flips (internal ↔
 // supplier-facing): the defaults for the OTHER pool must get their one shot.
-watch(
-  [() => capa.value?.workflowVersionId, () => capa.value?.isSupplierFacing],
-  () => {
-    autoDefaultDone.value = false
-  },
-)
+watch([() => capa.value?.workflowVersionId, () => capa.value?.isSupplierFacing], () => {
+  autoDefaultDone.value = false
+})
 
 watch(
   [
@@ -181,7 +178,17 @@ watch(
     () => capa.value?.createdBy,
     () => props.isOwner,
   ],
-  ([users, steps, rolesMap, initiatorRoles, isSupplierFacing, statusId, ownerId, createdBy, isOwner]) => {
+  ([
+    users,
+    steps,
+    rolesMap,
+    initiatorRoles,
+    isSupplierFacing,
+    statusId,
+    ownerId,
+    createdBy,
+    isOwner,
+  ]) => {
     if (autoDefaultDone.value) return
     // The plan belongs to the owner/initiator — never write defaults from a
     // bystander's browser (the pickers are owner-only for the same reason).
@@ -284,103 +291,102 @@ watch(
           class="tw:flex tw:flex-col tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30"
         >
           <div class="tw:flex tw:flex-col tw:gap-3 tw:@2xl:flex-row tw:@2xl:items-center">
-          <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-3">
-          <span
-            class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
-          >
-            {{ idx + 1 }}
-          </span>
-          <div class="tw:flex-1 tw:min-w-0">
-            <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-              <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-                {{ step.name }}
+            <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-3">
+              <span
+                class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
+              >
+                {{ idx + 1 }}
               </span>
-              <!-- Step-type chip — APPROVAL surfaces in amber, ACTION in
+              <div class="tw:flex-1 tw:min-w-0">
+                <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+                  <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+                    {{ step.name }}
+                  </span>
+                  <!-- Step-type chip — APPROVAL surfaces in amber, ACTION in
                  a quieter slate. Sits next to the picker-pool chip so
                  you can read each row in one glance. -->
-              <span
-                v-if="isApprovalStep(step)"
-                class="tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:uppercase"
-              >
-                Approval
-              </span>
-              <span
-                v-else
-                class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-gray-600 tw:px-1.5 tw:py-0.5 tw:uppercase"
-              >
-                {{ step.stepType || 'Action' }}
-              </span>
-              <!-- Which pool does THIS step's picker draw from? Makes the
+                  <span
+                    v-if="isApprovalStep(step)"
+                    class="tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:uppercase"
+                  >
+                    Approval
+                  </span>
+                  <span
+                    v-else
+                    class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-gray-600 tw:px-1.5 tw:py-0.5 tw:uppercase"
+                  >
+                    {{ step.stepType || 'Action' }}
+                  </span>
+                  <!-- Which pool does THIS step's picker draw from? Makes the
                  supplier-facing-CAPA-with-an-internal-picker case visible. -->
-              <span
-                v-if="usesSupplierPickerFor(step)"
-                class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
-                title="This step's picker is filtered to supplier users for this CAPA's supplier."
-              >
-                Supplier picker
-              </span>
-              <span
-                v-else
-                class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5"
-                :title="
-                  capa.isSupplierFacing
-                    ? 'Approval steps stay internal even on supplier-facing records.'
-                    : 'CAPA is not supplier-facing; assignees come from the template’s role pool.'
-                "
-              >
-                Internal picker
-              </span>
+                  <span
+                    v-if="usesSupplierPickerFor(step)"
+                    class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
+                    title="This step's picker is filtered to supplier users for this CAPA's supplier."
+                  >
+                    Supplier picker
+                  </span>
+                  <span
+                    v-else
+                    class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5"
+                    :title="
+                      capa.isSupplierFacing
+                        ? 'Approval steps stay internal even on supplier-facing records.'
+                        : 'CAPA is not supplier-facing; assignees come from the template’s role pool.'
+                    "
+                  >
+                    Internal picker
+                  </span>
+                </div>
+                <div
+                  v-if="step.description"
+                  class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:line-clamp-2"
+                >
+                  {{ step.description }}
+                </div>
+              </div>
             </div>
-            <div
-              v-if="step.description"
-              class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:line-clamp-2"
-            >
-              {{ step.description }}
-            </div>
-          </div>
-          </div>
-          <div class="tw:w-full tw:shrink-0 tw:@2xl:w-72">
-            <!-- Supplier-facing CAPA: picker swaps to supplier users for the
+            <div class="tw:w-full tw:shrink-0 tw:@2xl:w-72">
+              <!-- Supplier-facing CAPA: picker swaps to supplier users for the
                CAPA's supplier, ignores the template's role pool — EXCEPT
                for APPROVAL steps, which stay on the internal role pool
                (final approval can't be delegated to the supplier).
                Backend refuses submit otherwise (see submitCapaForReview). -->
-            <!-- :required="true" — reviewer picker should never expose
+              <!-- :required="true" — reviewer picker should never expose
                the "All" null option. The user can still clear the
                selection via the badge's × affordance; once cleared,
                the one-shot autoDefaultDone flag in this component
                prevents the watcher from re-filling. -->
-            <UserSelectMenu
-              v-if="isOwner && usesSupplierPickerFor(step)"
-              :modelValue="currentAssignee(step.id)"
-              kind="EXTERNAL_SUPPLIER"
-              :supplierId="capa.supplierId"
-              :required="true"
-              @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
-            />
-            <UserSelectMenu
-              v-else-if="isOwner"
-              :modelValue="currentAssignee(step.id)"
-              :roleIdsFilter="rolesForStep(step.id)"
-              :required="true"
-              @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
-            />
-            <div v-else class="tw:flex tw:items-center tw:gap-2">
-              <UserBadgeById v-if="currentAssignee(step.id)" :userId="currentAssignee(step.id)" />
-              <span v-else class="tw:text-xs tw:text-secondary tw:italic">Unassigned</span>
+              <UserSelectMenu
+                v-if="isOwner && usesSupplierPickerFor(step)"
+                :modelValue="currentAssignee(step.id)"
+                kind="EXTERNAL_SUPPLIER"
+                :supplierId="capa.supplierId"
+                :required="true"
+                @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
+              />
+              <UserSelectMenu
+                v-else-if="isOwner"
+                :modelValue="currentAssignee(step.id)"
+                :roleIdsFilter="rolesForStep(step.id)"
+                :required="true"
+                @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
+              />
+              <div v-else class="tw:flex tw:items-center tw:gap-2">
+                <UserBadgeById v-if="currentAssignee(step.id)" :userId="currentAssignee(step.id)" />
+                <span v-else class="tw:text-xs tw:text-secondary tw:italic">Unassigned</span>
+              </div>
             </div>
-          </div>
           </div>
 
           <!-- Step form, read-only: the whole form is visible before the
              CAPA is opened. Same empty-preview mode WorkflowStepForm uses
              for steps nobody has started yet; filling happens once the
              workflow launches and the step's assignee gets their task. -->
-          <div
-            v-if="stepFormSchema(step).length"
-            class="tw:border-t tw:border-divider tw:pt-3"
-          >
-            <p class="tw:text-micro tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2">
+          <div v-if="stepFormSchema(step).length" class="tw:border-t tw:border-divider tw:pt-3">
+            <p
+              class="tw:text-micro tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-2"
+            >
               Step form — preview (fillable once the CAPA is opened)
             </p>
             <DynamicForm :fields="stepFormSchema(step)" :readonly="true" disabled :values="{}" />

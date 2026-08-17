@@ -1,4 +1,10 @@
-import { IconPrinter, IconTrash, IconHistory, IconArrowsExchange } from '@tabler/icons-vue'
+import {
+  IconLink,
+  IconPrinter,
+  IconTrash,
+  IconHistory,
+  IconArrowsExchange,
+} from '@tabler/icons-vue'
 
 /** Contextual banners for a CAPA (SP-6). Pure — caller resolves capa + gate flags.
  *  No QC-origin banner — CAPA uses RecordLineagePanel for source context instead.
@@ -38,7 +44,17 @@ export function buildCapaSections(_capa) {
 
 /** Header action descriptors (SP-6). gates = resolved booleans/strings; handlers = callbacks. */
 export function buildCapaActions(gates = {}, handlers = {}) {
-  const { isOwner, statusId, canClose, closeDisabledReason, canCreateChangeRequest, saving, closing, cancelling } = gates
+  const {
+    isOwner,
+    statusId,
+    canClose,
+    closeDisabledReason,
+    canCreateChangeRequest,
+    canUpdate,
+    saving,
+    closing,
+    cancelling,
+  } = gates
   return [
     {
       id: 'open',
@@ -88,6 +104,19 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       priority: 20,
       visible: !!canCreateChangeRequest && statusId !== 'DRAFT',
       onSelect: handlers.createCr,
+    },
+    {
+      // Many NCs to one CAPA: several nonconformances sharing a root cause are
+      // corrected by a single CAPA. Previously the link could only be made by
+      // raising the CAPA *from* an NC, so a CAPA opened first — or a second NC
+      // found later — had no way to say so (2026-08-17).
+      id: 'linkNc',
+      label: 'Link Nonconformance',
+      icon: IconLink,
+      variant: 'secondary',
+      priority: 18,
+      visible: !!canUpdate,
+      onSelect: handlers.linkNc,
     },
     {
       id: 'audit',
