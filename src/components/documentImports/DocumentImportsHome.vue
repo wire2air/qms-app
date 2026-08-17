@@ -10,7 +10,7 @@
  * template → approval flow, prefix). Each file is an item with its own status,
  * so a run of 200 where 3 fail says which 3 and why, and retries just those.
  */
-import { IconFileImport, IconPlus, IconRefresh } from '@tabler/icons-vue'
+import { IconFileImport, IconPlus, IconRefresh, IconFileTypePdf } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 
@@ -76,12 +76,69 @@ async function retryFailed(batch) {
         Import a folder of existing PDFs as draft documents — one batch, one set of settings.
       </template>
       <template #actions>
+        <HelpButton slug="KB/documents/bulk-document-import" label="Help" :size="16" />
         <BaseButton v-if="canImport" variant="primary" size="sm" @click="showCreate = true">
           <template #icon><IconPlus :size="16" /></template>
           New import
         </BaseButton>
       </template>
     </PageHeader>
+
+    <!-- What to expect, before the first batch. Onboarding is the only time
+         most people use this page, so the guidance has to be on it rather than
+         only behind the Help link. -->
+    <div
+      class="tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:p-4 tw:flex tw:flex-col tw:gap-3"
+    >
+      <div class="tw:flex tw:items-start tw:gap-2">
+        <IconFileTypePdf :size="18" class="tw:mt-0.5 tw:shrink-0 tw:text-primary" />
+        <div class="tw:flex tw:flex-col tw:gap-1">
+          <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar">
+            One file in, one draft document out
+          </p>
+          <p class="tw:text-sm tw:text-secondary">
+            Each file becomes a <strong>draft</strong> with the original attached, tagged
+            <code class="tw:rounded tw:bg-main-hover tw:px-1">import</code> plus the document's own
+            number where it prints one. Nothing is approved, numbered or made effective — you review
+            and submit at your own pace.
+          </p>
+        </div>
+      </div>
+
+      <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3 tw:text-sm">
+        <div>
+          <p class="tw:text-xs tw:font-medium tw:text-secondary">Formats</p>
+          <p class="tw:text-on-sidebar">PDF, Word (.docx), Excel</p>
+          <p class="tw:text-xs tw:text-secondary">
+            .doc imports under its filename — this old format can't be read.
+          </p>
+        </div>
+        <div>
+          <p class="tw:text-xs tw:font-medium tw:text-secondary">Read from page one</p>
+          <p class="tw:text-on-sidebar">Document number &amp; department</p>
+          <p class="tw:text-xs tw:text-secondary">
+            Never guessed — a document with no number simply has none.
+          </p>
+        </div>
+        <div>
+          <p class="tw:text-xs tw:font-medium tw:text-secondary">Set once per batch</p>
+          <p class="tw:text-on-sidebar">Site, department, template, prefix</p>
+          <p class="tw:text-xs tw:text-secondary">
+            The template supplies the approval flow, so it must be published.
+          </p>
+        </div>
+      </div>
+
+      <p class="tw:text-xs tw:text-secondary">
+        Try three or four real documents first and check what was read before importing hundreds —
+        every file shows its extraction in the batch, before you press Start.
+        <HelpButton
+          slug="KB/documents/bulk-document-import"
+          label="Read the full guide"
+          :size="13"
+        />
+      </p>
+    </div>
 
     <PageSection title="Batches" :icon="IconFileImport">
       <BaseEmptyState
