@@ -349,6 +349,7 @@ const workflowInstance = useLiveQueryWithDeps(
   { models: ['WorkflowInstance'] },
 )
 
+const showLinkNcDialog = ref(false)
 const editingTitle = ref(false)
 
 // Cross-module shortcut: spawn a Change Request seeded from this CAPA.
@@ -370,6 +371,7 @@ const capaActions = computed(() =>
       canClose: canClose.value,
       closeDisabledReason: closeDisabledReason.value,
       canCreateChangeRequest: canCreateChangeRequest.value,
+      canUpdate: canUpdate.value,
       saving: saving.value,
       closing: closing.value,
       cancelling: cancelling.value,
@@ -380,6 +382,9 @@ const capaActions = computed(() =>
       openCancel: openCancelDialog,
       print: openPrintView,
       createCr: onCreateLinkedChangeRequest,
+      linkNc() {
+        showLinkNcDialog.value = true
+      },
       openAudit() {
         showAuditLog.value = true
       },
@@ -665,6 +670,8 @@ const capaDetailConfig = computed(() =>
   </BaseDetailLayout>
 
   <!-- ─── Dialogs (siblings after </BaseDetailLayout>) ──────────────── -->
+
+  <CapaLinkNcDialog v-model="showLinkNcDialog" :capaId="id" />
 
   <BaseDialog v-model="showCloseDialog" title="Close CAPA" maxWidth="lg">
     <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">

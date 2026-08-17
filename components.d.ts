@@ -331,6 +331,7 @@ declare module 'vue' {
     CapaEffectivenessCheckScheduleDialog: typeof import('./src/components/capas/CapaEffectivenessCheckScheduleDialog.vue')['default']
     CapaEffectivenessCheckStatusBadge: typeof import('./src/components/badges/CapaEffectivenessCheckStatusBadge.vue')['default']
     CapaEffectivenessCheckStatusBadgeById: typeof import('./src/components/badges/CapaEffectivenessCheckStatusBadgeById.vue')['default']
+    CapaLinkNcDialog: typeof import('./src/components/capas/CapaLinkNcDialog.vue')['default']
     CapaPrint: typeof import('./src/components/print/modules/CapaPrint.vue')['default']
     CapaPriorityBadge: typeof import('./src/components/badges/CapaPriorityBadge.vue')['default']
     CapaPriorityBadgeById: typeof import('./src/components/badges/CapaPriorityBadgeById.vue')['default']
