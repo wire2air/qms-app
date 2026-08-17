@@ -15,6 +15,13 @@ import {
   PdfImportLimitError,
 } from '@/composables/usePdfImport.js'
 import { uploadFile } from '@/composables/useFileUpload.js'
+import {
+  IMPORT_ACCEPT,
+  isDocx,
+  isSupportedImportFile,
+  readDocxText,
+  readImportHeader,
+} from '@/utils/importFileHeader.js'
 import { canUseAi } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -132,10 +139,16 @@ watch(show, (open) => {
 function pickFile() {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = 'application/pdf,.pdf'
+  input.accept = IMPORT_ACCEPT
   input.onchange = (e) => {
     const file = e.target.files?.[0]
-    if (file) selectedFile.value = file
+    if (!file) return
+    // The accept attribute is only a hint; "All Files" walks past it.
+    if (!isSupportedImportFile(file)) {
+      error.value = { stage: 'pick', message: 'Choose a PDF, Word or Excel file.' }
+      return
+    }
+    selectedFile.value = file
   }
   input.click()
 }
@@ -183,6 +196,11 @@ async function runImport() {
 
   if (!canUseAi.value) return goToAttachment()
 
+  // Word goes straight to structuring. The AI task takes `extractedText`, not
+  // a PDF, so a .docx only ever needed a way to produce text — there is no
+  // page count to cap on and no images to extract.
+  if (isDocx(selectedFile.value)) return runDocxImport()
+
   const tooBig =
     (header.value?.pageCount ?? 0) > AI_FULL_IMPORT_MAX_PAGES ||
     selectedFile.value.size > AI_FULL_IMPORT_MAX_BYTES
@@ -196,6 +214,34 @@ async function runImport() {
   }
 
   await runFullImport()
+}
+
+/**
+ * Structured import of a Word document: read the text locally, hand it to the
+ * same AI task the PDF path uses. No image extraction — .docx images live in
+ * the zip and carrying them through is a separate job; the original file is
+ * attached, so nothing is lost.
+ */
+async function runDocxImport() {
+  phase.value = 'parsing'
+  progress.value = { current: 0, total: 0, message: 'Reading document…' }
+
+  let text = ''
+  try {
+    text = await readDocxText(selectedFile.value)
+  } catch {
+    text = ''
+  }
+
+  if (text.length < 50) {
+    fallbackNotice.value =
+      "There is not enough readable text in this document to restructure it, so it's being " +
+      'imported as an attachment instead.'
+    return goToAttachment()
+  }
+
+  extracted.value = { text, pageCount: 0, imageCount: 0, filename: selectedFile.value.name }
+  return structureExtractedText()
 }
 
 /** Structured import. Any failure hands off to the attachment path. */
@@ -234,6 +280,14 @@ async function runFullImport() {
   }
 
   // ── Stage 2: AI structuring ─────────────────────────────────────────
+  return structureExtractedText()
+}
+
+/**
+ * Hand `extracted.text` to the model. Shared by the PDF and Word paths — the
+ * task only ever wanted text, so the two differ solely in how they produce it.
+ */
+async function structureExtractedText() {
   phase.value = 'structuring'
   progress.value = { current: 0, total: 0, message: 'Structuring with AI…' }
   try {
@@ -435,12 +489,22 @@ async function readHeader() {
   if (header.value || !selectedFile.value || headerBusy.value) return
   headerBusy.value = true
   try {
-    header.value = await extractPdfHeader(selectedFile.value, { maxPages: 3 })
-    // Local, free, deterministic, and it runs on EVERY path — including with
-    // AI switched off. The model is only a fallback for header blocks whose
-    // labels we do not recognise (see summariseHeader / applyDraft).
-    sourceDocumentNumber.value = header.value.documentNumber ?? null
-    departmentName.value = header.value.department ?? null
+    // Format-aware: PDFs give up a title, page count and header block;
+    // .docx gives up its header block (paragraphs and table rows); .doc and
+    // spreadsheets fall back to the filename.
+    if (isDocx(selectedFile.value)) {
+      const head = await readImportHeader(selectedFile.value)
+      header.value = { title: head.title, text: '', pageCount: 0 }
+      sourceDocumentNumber.value = head.documentNumber
+      departmentName.value = head.department
+    } else {
+      header.value = await extractPdfHeader(selectedFile.value, { maxPages: 3 })
+      // Local, free, deterministic, and it runs on EVERY path — including with
+      // AI switched off. The model is only a fallback for header blocks whose
+      // labels we do not recognise (see summariseHeader / applyDraft).
+      sourceDocumentNumber.value = header.value.documentNumber ?? null
+      departmentName.value = header.value.department ?? null
+    }
   } catch {
     // A title is a convenience; a PDF we can't crack still imports as an
     // attachment under its filename.
@@ -562,7 +626,7 @@ const parseProgressPct = computed(() => {
         </div>
         <div>
           <div class="tw:text-lg tw:font-bold tw:text-on-main">
-            {{ phase === 'result' ? 'PDF Import Ready' : 'Import Document from PDF' }}
+            {{ phase === 'result' ? 'Import Ready' : 'Import Document' }}
           </div>
           <div v-if="extracted" class="tw:text-xs tw:text-secondary tw:mt-0.5">
             {{ extracted.filename }} · {{ extracted.pageCount }} page{{
@@ -615,13 +679,13 @@ const parseProgressPct = computed(() => {
       <div class="tw:flex tw:flex-col tw:gap-4">
         <div class="tw:text-sm tw:text-secondary tw:leading-relaxed">
           <template v-if="canUseAi">
-            Upload an SOP, work instruction, or policy PDF. We'll structure it into editable
-            sections from the document's own headings, and attach the original for reference. Long,
-            scanned or image-heavy files get a summary plus the attachment instead. You review
-            before saving either way; nothing is created on its own.
+            Upload an SOP, work instruction or policy — PDF or Word. We'll structure it into
+            editable sections from the document's own headings, and attach the original for
+            reference. Long, scanned or image-heavy files get a summary plus the attachment instead.
+            You review before saving either way; nothing is created on its own.
           </template>
           <template v-else>
-            Upload an SOP, work instruction, or policy PDF and pick a document template. The PDF is
+            Upload an SOP, work instruction or policy and pick a document template. The file is
             attached with a summary, and the template supplies the approval flow — nothing is
             created automatically.
           </template>
