@@ -1078,7 +1078,7 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
 
         <!-- Customer complaints this NC was converted from — resolves
-             via nc_source_links, self-hides when there are none. -->
+             via record_links, self-hides when there are none. -->
         <NcLinkedComplaintsPanel :ncId="id" />
 
         <!-- (NC workflow panel moved to the dedicated Workflow rail card

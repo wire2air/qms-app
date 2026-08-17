@@ -99,21 +99,25 @@ function onConverted(ncId) {
   router.push(getCompanyPath(`/nonconformances/${ncId}`))
 }
 
-// ─── Linked NC (via the generic nc_source_links table) ───────────────────────
+// ─── Linked NCs (record_links: CustomerComplaint → Nonconformance) ────────────
+// Was nc_source_links — a duplicate of record_links that the convert action
+// wrote in the same loop. Dropped 2026-08-17; record_links is the one table
+// that carries lineage for every module.
 const ncLinks = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [complaintId]) => {
     if (!complaintId) return []
-    return db.NcSourceLink.where('[sourceType+sourceId]', [
-      'CUSTOMER_COMPLAINT',
+    const rows = await db.RecordLink.where('[fromType+fromId]', [
+      'CustomerComplaint',
       complaintId,
     ]).exec()
+    return rows.filter((l) => l.toType === 'Nonconformance')
   },
 
-  { models: ['NcSourceLink'], initial: [] },
+  { models: ['RecordLink'], initial: [] },
 )
 
-const linkedNcIdList = computed(() => ncLinks.value.map((l) => l.ncId).join(','))
+const linkedNcIdList = computed(() => ncLinks.value.map((l) => l.toId).join(','))
 const linkedNcs = useLiveQueryWithDeps(
   [() => linkedNcIdList.value],
   async (db, [idsStr]) => {
