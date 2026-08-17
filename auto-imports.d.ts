@@ -399,6 +399,7 @@ declare global {
   const useVModel: typeof import('@vueuse/core').useVModel
   const useVModels: typeof import('@vueuse/core').useVModels
   const useValidation: typeof import('./resource/js/shared/composables/validator.js').useValidation
+  const useValidationContent: typeof import('./src/composables/useValidationContent.js').useValidationContent
   const useValidator: typeof import('./resource/js/shared/composables/validator.js').useValidator
   const useVibrate: typeof import('@vueuse/core').useVibrate
   const useVirtualList: typeof import('@vueuse/core').useVirtualList
