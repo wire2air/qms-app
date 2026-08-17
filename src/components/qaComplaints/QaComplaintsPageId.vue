@@ -176,19 +176,21 @@ function onConverted(ncId) {
   router.push(getCompanyPath(`/nonconformances/${ncId}`))
 }
 
-// ─── Linked NC (via the generic nc_source_links table) ───────────────────────
+// ─── Linked NCs (record_links: Complaint → Nonconformance) ────────────────────
+// Was nc_source_links — a duplicate of record_links that the convert action
+// wrote in the same loop. Dropped 2026-08-17. That table typed every complaint
+// as 'CUSTOMER_COMPLAINT' regardless of which table it came from; record_links
+// distinguishes the QMS Complaint from the support CustomerComplaint.
 const ncLinks = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [complaintId]) => {
     if (!complaintId) return []
-    return db.NcSourceLink.where('[sourceType+sourceId]', [
-      'CUSTOMER_COMPLAINT',
-      complaintId,
-    ]).exec()
+    const rows = await db.RecordLink.where('[fromType+fromId]', ['Complaint', complaintId]).exec()
+    return rows.filter((l) => l.toType === 'Nonconformance')
   },
-  { models: ['NcSourceLink'], initial: [] },
+  { models: ['RecordLink'], initial: [] },
 )
-const linkedNcIdList = computed(() => ncLinks.value.map((l) => l.ncId).join(','))
+const linkedNcIdList = computed(() => ncLinks.value.map((l) => l.toId).join(','))
 const linkedNcs = useLiveQueryWithDeps(
   [() => linkedNcIdList.value],
   async (db, [idsStr]) => {
@@ -669,6 +671,15 @@ const complaintDetailConfig = computed(() =>
     </template>
 
     <template v-if="complaint" #rail>
+      <!-- Workflow. Complaints showed NOTHING here before (2026-08-17). -->
+      <WorkflowRailCard
+        :record="complaint"
+        moduleId="COMPLAINT"
+        resourceType="Complaint"
+        :canChange="complaint.statusId === 'NEW' && isEditable"
+        changeHint="You can switch workflows before the QA review starts — step assignments reset on change."
+      />
+
       <!-- Identity first, then what the complaint is about, then who and
            when. Same ranking as the NC rail: the reader is orienting before
            they are investigating. -->

@@ -130,7 +130,6 @@ import { ComplaintReportScheme } from './complaintReportScheme'
 import { Complaint } from './complaint'
 import { ComplaintRecord } from './complaintRecord'
 import { ComplaintStatus } from './complaintStatus'
-import { NcSourceLink } from './ncSourceLink'
 import { ComplaintCannedResponse } from './complaintCannedResponse'
 import { Customer } from './customer'
 import { CustomerOrganization } from './customerOrganization'
@@ -354,7 +353,6 @@ export const db = {
   Complaint,
   ComplaintRecord,
   ComplaintStatus,
-  NcSourceLink,
   ComplaintCannedResponse,
   Customer,
   CustomerOrganization,

@@ -26,10 +26,13 @@ const capaStatuses = useLiveQuery((db) => db.CapaStatus.where().orderBy('display
   models: ['CapaStatus'],
   initial: [],
 })
-const capaPriorities = useLiveQuery((db) => db.CapaPriority.where().orderBy('displayOrder').exec(), {
-  models: ['CapaPriority'],
-  initial: [],
-})
+const capaPriorities = useLiveQuery(
+  (db) => db.CapaPriority.where().orderBy('displayOrder').exec(),
+  {
+    models: ['CapaPriority'],
+    initial: [],
+  },
+)
 const capaTypes = useLiveQuery((db) => db.CapaType.where().orderBy('displayOrder').exec(), {
   models: ['CapaType'],
   initial: [],
@@ -119,7 +122,9 @@ function clearAll() {
 
     <!-- Row 3 — applied filters as removable tokens -->
     <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
-      <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+      <span
+        class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+      >
         Filters
       </span>
       <CapaStatusBadgeById

@@ -1,6 +1,9 @@
 <script setup>
 import {
   IconFileImport,
+  IconCirclePlus,
+  IconChevronLeft,
+  IconMessageCircle,
   IconForms,
   IconTable,
   IconFileText,
@@ -86,6 +89,7 @@ const { reset: resetTrail } = useRecordTrail()
 
 const { visible, isDesktop, closeMobile } = useSidebar()
 const route = useRoute()
+const router = useRouter()
 
 // Entitlement (commercial) gate for a nav item, in addition to its RBAC
 // permission. A module nav item carries `permissions: ['<module_id>:read']`, so
@@ -693,6 +697,10 @@ const navItems = computed(() => {
     {
       label: 'Settings',
       icon: IconSettings,
+      // Drills IN rather than expanding: two dozen settings pages unrolled
+      // inside the main nav buries everything below them (user request
+      // 2026-08-17). See settingsOpen.
+      drillIn: true,
       children: [
         {
           label: 'General',
@@ -864,6 +872,104 @@ const navItems = computed(() => {
       return isNavItemVisible(item)
     })
 })
+
+// ─── Settings drill-in ───────────────────────────────────────────────────────
+/**
+ * Settings replaces the nav instead of unrolling inside it.
+ *
+ * Two dozen entries expanded in place pushes every other module off-screen, so
+ * the group swaps the rail for its own list with a Main Menu link back — the
+ * pattern a phone settings app uses, for the same reason.
+ */
+const settingsOpen = ref(false)
+
+const settingsGroup = computed(() => navItems.value.find((i) => i.drillIn))
+const settingsChildren = computed(() => settingsGroup.value?.children ?? [])
+
+/**
+ * The rail follows the page: arriving at a settings page opens it, going
+ * anywhere else closes it. So a deep link lands with the right context, and
+ * using Create from inside settings does not leave you on a Documents page
+ * staring at a settings rail.
+ *
+ * Keyed on the path CHANGING, deliberately. Recomputing continuously would
+ * make Back useless — it would re-open the instant it closed, since closing
+ * the rail does not navigate away from the settings page you are on.
+ */
+watch(
+  () => route.path,
+  (path) => {
+    settingsOpen.value = settingsChildren.value.some((c) => c.to && path.startsWith(c.to))
+  },
+  { immediate: true },
+)
+
+// Everything except Settings — it is rendered on its own, pinned at the end.
+const mainNavItems = computed(() => navItems.value.filter((i) => !i.drillIn))
+
+// ─── Quick create ────────────────────────────────────────────────────────────
+// Collapsed by default: the six entries would otherwise push the whole nav
+// down on every page load for a menu most visits do not use.
+const createOpen = ref(false)
+
+function runQuickCreate(item) {
+  createOpen.value = false
+  closeMobile()
+  item.click()
+}
+
+/**
+ * The records people raise day to day, one click from anywhere.
+ *
+ * Deliberately NOT every module: this sits at the top of the nav, and a list of
+ * twenty makes the common four harder to reach, not easier. Admin objects
+ * (templates, sites, users) are set up once and belong on their own pages.
+ *
+ * Each entry is gated on CREATE, so the menu offers only what this user can
+ * actually raise — offering "New CAPA" to someone who will be refused at the
+ * form is worse than not offering it.
+ *
+ * Empty for supplier users, whose portal is documents and tasks assigned to
+ * them; they raise nothing themselves.
+ */
+const quickCreateItems = computed(() => {
+  if (isSupplier.value) return []
+  const go = (path) => () => router.push(getCompanyPath(path))
+  return [
+    {
+      name: 'Document',
+      permission: 'document_control:create',
+      icon: IconFileText,
+      click: go('/documents/create'),
+    },
+    {
+      name: 'Nonconformance',
+      permission: 'ncr:create',
+      icon: IconAlertCircle,
+      click: go('/nonconformances/create'),
+    },
+    { name: 'CAPA', permission: 'capa:create', icon: IconShield, click: go('/capas/create') },
+    {
+      name: 'Change Request',
+      permission: 'change_control:create',
+      icon: IconArrowsShuffle,
+      click: go('/change-requests/create'),
+    },
+    {
+      name: 'Quality Event',
+      permission: 'quality_events:create',
+      icon: IconEye,
+      // No create ROUTE — the list page owns the dialog, so ?create=1 opens it.
+      click: go('/qualityEvents?create=1'),
+    },
+    {
+      name: 'Complaint',
+      permission: 'complaints:create',
+      icon: IconMessageCircle,
+      click: go('/complaints/create'),
+    },
+  ].filter((i) => isAllowed([i.permission]))
+})
 </script>
 
 <template>
@@ -907,9 +1013,77 @@ const navItems = computed(() => {
             </div>
           </RouterLink>
 
+          <!-- Quick create. Sits above the nav because raising a record is the
+               most frequent thing anyone does here, and it otherwise means
+               finding the module first, then its Create button. Renders
+               nothing when the user can create nothing, rather than a menu
+               that opens empty. -->
+          <div v-if="quickCreateItems.length" class="tw:flex tw:flex-col tw:gap-1">
+            <!-- Expands in place rather than in a popover: BasePopover is
+                 w-fit, so a full-width trigger cannot span the rail, and the
+                 sidebar already expands its groups inline — this reads as part
+                 of the same furniture. -->
+            <button
+              type="button"
+              class="tw:flex tw:w-full tw:items-center tw:justify-center tw:gap-2 tw:rounded-lg tw:border-0 tw:bg-primary tw:px-3 tw:py-2 tw:text-sm tw:font-semibold tw:text-white tw:transition-colors tw:hover:bg-primary/90 tw:cursor-pointer"
+              :aria-expanded="createOpen"
+              @click="createOpen = !createOpen"
+            >
+              <IconCirclePlus :size="18" />
+              Create
+              <component :is="createOpen ? IconChevronDown : IconChevronRight" :size="14" />
+            </button>
+
+            <div v-if="createOpen" class="tw:flex tw:flex-col tw:gap-0.5 tw:pl-1">
+              <button
+                v-for="item in quickCreateItems"
+                :key="item.name"
+                type="button"
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:rounded-lg tw:border-0 tw:bg-transparent tw:px-3 tw:py-1.5 tw:text-left tw:text-sm tw:text-secondary tw:transition-colors tw:hover:bg-sidebar-hover tw:hover:text-on-sidebar tw:cursor-pointer tw:[font:inherit]"
+                @click="runQuickCreate(item)"
+              >
+                <component :is="item.icon" :size="18" />
+                <span>{{ item.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ══ Settings rail ══ Replaces the nav entirely; Back returns. -->
+          <nav v-if="settingsOpen" class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
+            <button
+              type="button"
+              class="tw:flex tw:w-full tw:items-center tw:gap-2 tw:rounded-lg tw:border-0 tw:bg-transparent tw:px-3 tw:py-2 tw:text-left tw:text-sm tw:font-semibold tw:text-on-sidebar tw:transition-colors tw:hover:bg-sidebar-hover tw:cursor-pointer tw:[font:inherit]"
+              @click="settingsOpen = false"
+            >
+              <IconChevronLeft :size="18" />
+              <!-- "Main Menu", not "Back": Back reads as browser-back, and this
+                   does not navigate — it swaps the rail. -->
+              <span class="tw:flex-1">Main Menu</span>
+            </button>
+
+            <div class="tw:flex tw:items-center tw:gap-3 tw:px-3 tw:pt-1 tw:pb-2">
+              <IconSettings :size="20" class="tw:text-primary" />
+              <span class="tw:text-base tw:font-bold tw:text-on-sidebar">Settings</span>
+            </div>
+
+            <RouterLink
+              v-for="child in settingsChildren"
+              :key="child.label"
+              :to="child.to"
+              class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary tw:hover:bg-sidebar-hover tw:transition-colors tw:no-underline"
+              :class="
+                isActive(child.to, child.matchPaths) ? 'tw:bg-main-selected tw:text-primary' : ''
+              "
+              @click="resetTrail"
+            >
+              <component :is="child.icon" :size="20" />
+              <span class="tw:text-sm tw:font-medium">{{ child.label }}</span>
+            </RouterLink>
+          </nav>
+
           <!-- Nav Links -->
-          <nav class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
-            <template v-for="item in navItems">
+          <nav v-else class="tw:flex tw:flex-col tw:gap-1 tw:flex-1 tw:overflow-auto">
+            <template v-for="item in mainNavItems">
               <!-- Parent item with children -->
               <template v-if="item.children">
                 <button
@@ -966,6 +1140,22 @@ const navItems = computed(() => {
 
               <!-- Divider -->
               <hr v-else :key="item.label" class="tw:border-t tw:border-divider tw:my-2" />
+            </template>
+
+            <!-- Settings — opens its own rail rather than unrolling here.
+                 Pinned last: it is the least-visited group and the one that
+                 would otherwise dominate the list. -->
+            <template v-if="settingsGroup">
+              <hr class="tw:border-t tw:border-divider tw:my-2" />
+              <button
+                type="button"
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:rounded-lg tw:border-0 tw:bg-transparent tw:px-3 tw:py-2 tw:text-left tw:text-secondary tw:transition-colors tw:hover:bg-sidebar-hover tw:cursor-pointer tw:appearance-none tw:[font:inherit]"
+                @click="settingsOpen = true"
+              >
+                <IconSettings :size="24" />
+                <span class="tw:flex-1 tw:text-sm tw:font-medium">Settings</span>
+                <IconChevronRight :size="16" />
+              </button>
             </template>
           </nav>
         </div>

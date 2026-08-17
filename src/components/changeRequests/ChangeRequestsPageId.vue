@@ -434,6 +434,16 @@ const changeRequestDetailConfig = computed(() =>
     </template>
 
     <template v-if="cr" #rail>
+      <!-- Workflow. Change Control showed NOTHING here before (2026-08-17), so
+           a draft's workflow could not be seen or switched from the record. -->
+      <WorkflowRailCard
+        :record="cr"
+        moduleId="CHANGE_CONTROL"
+        resourceType="ChangeRequest"
+        :canChange="cr.statusId === 'DRAFT' && isOwner"
+        changeHint="You can switch workflows while in draft — step assignments reset on change."
+      />
+
       <!-- 1. General — CR number, status, change type, classification, priority, initiated.
            Responsive grid: pairs up two-per-row when the rail is wide enough,
            collapses to one-per-row when narrow. -->

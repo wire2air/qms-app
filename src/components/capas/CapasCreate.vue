@@ -110,7 +110,7 @@ const form = ref({
 // is the CAPA details form with a context strip + Change button. With exactly
 // ONE active workflow, screen 1 is skipped entirely. The CAPA is still created
 // as a DRAFT — reviewers are assigned on the CAPA page's draft plan and the
-// workflow starts on Open CAPA; the choice stays changeable from the CAPA
+// workflow starts on Start CAPA; the choice stays changeable from the CAPA
 // page's Workflow rail card while DRAFT.
 const screen = ref('workflow')
 
@@ -250,7 +250,7 @@ function validate() {
 // Fires only after validate() passes. Runs the async custom-fields check
 // (which surfaces its own inline errors), then creates the DRAFT — no
 // reviewer picker here anymore: step assignments happen on the CAPA page's
-// draft plan, and the workflow starts when the owner clicks Open CAPA there.
+// draft plan, and the workflow starts when the owner clicks Start CAPA there.
 async function onSubmit() {
   if ((await customFieldsRef.value?.validate()) === false) return
 
@@ -298,7 +298,8 @@ async function handleCreate() {
     }
     toast.notify({
       type: 'positive',
-      message: 'CAPA created as a draft — assign step reviewers, then Open CAPA to start the workflow.',
+      message:
+        'CAPA created as a draft — assign step reviewers, then Start CAPA to start the workflow.',
     })
     allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/capas/${response.capa.id}`))
@@ -327,8 +328,8 @@ async function handleCreate() {
         <div>
           <BaseText as="h2" weight="bold" class="tw:text-lg">Select a workflow</BaseText>
           <p class="tw:text-sm tw:text-secondary tw:mt-1">
-            Every CAPA follows an approval workflow. Pick the process this CAPA will follow —
-            you'll describe the corrective action on the next screen.
+            Every CAPA follows an approval workflow. Pick the process this CAPA will follow — you'll
+            describe the corrective action on the next screen.
           </p>
         </div>
         <WorkflowVersionSelect
@@ -347,244 +348,252 @@ async function handleCreate() {
       <!-- Screen 2 — the CAPA details form, with a context strip recalling
            the chosen workflow (Change returns to screen 1, data intact). -->
       <template v-else>
-      <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
-        <FormProgressNav :sections="navSections" />
-      </div>
-
-      <div
-        class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
-      >
-        <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
-        <div class="tw:min-w-0 tw:flex-1">
-          <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-            {{ selectedWorkflowLabel || 'Workflow selected' }}
-          </p>
-          <p class="tw:text-xs tw:text-secondary">
-            The CAPA is created as a draft — assign step reviewers and start the workflow with
-            Open CAPA on the CAPA page.
-          </p>
+        <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
+          <FormProgressNav :sections="navSections" />
         </div>
-        <!-- Hidden when only one workflow exists — nothing to change to. -->
-        <BaseButton v-if="!singleWorkflow" variant="outline" size="sm" @click="screen = 'workflow'">
-          Change
-        </BaseButton>
-      </div>
 
-      <BaseForm
-        class="tw:py-6"
-        :validate="validate"
-        :dirty="isDirty"
-        :loading="saving"
-        :submitError="submitError"
-        submitLabel="Create CAPA"
-        @submit="onSubmit"
-        @cancel="goBack"
-      >
-        <!-- Source NC chip -->
         <div
-          v-if="sourceNc"
-          class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm"
+          class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
         >
-          Linked to Nonconformance
-          <RouterLink
-            :to="getCompanyPath(`/nonconformances/${sourceNc.id}`)"
-            class="tw:font-semibold tw:underline tw:ml-1"
+          <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+          <div class="tw:min-w-0 tw:flex-1">
+            <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ selectedWorkflowLabel || 'Workflow selected' }}
+            </p>
+            <p class="tw:text-xs tw:text-secondary">
+              The CAPA is created as a draft — assign step reviewers and start the workflow with
+              Start CAPA on the CAPA page.
+            </p>
+          </div>
+          <!-- Hidden when only one workflow exists — nothing to change to. -->
+          <BaseButton
+            v-if="!singleWorkflow"
+            variant="outline"
+            size="sm"
+            @click="screen = 'workflow'"
           >
-            {{ sourceNc.ncNumber }}
-          </RouterLink>
-          — {{ sourceNc.title }}
+            Change
+          </BaseButton>
         </div>
 
-        <!-- Basic information -->
-        <FormSection id="capa-basic" title="Basic information" :icon="IconInfoCircle">
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <BaseField
-              id="capa-title"
-              label="Title"
-              required
-              :value="form.title"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.title"
-                  placeholder="Describe the CAPA…"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Description">
-              <div class="create-capa-editor">
-                <BaseRichTextEditor
-                  v-model="form.description"
-                  placeholder="Provide context for the CAPA…"
-                />
-              </div>
-            </BaseField>
-            <SimilarRecordsPanel
-              entityType="Capa"
-              :searchInTypes="['Capa']"
-              :getText="() => `${form.title} ${form.description || ''} ${form.rootCause || ''}`"
-            />
-          </div>
-        </FormSection>
-
-        <!-- Admin-defined custom fields. Self-hides when none configured. -->
-        <CustomFieldsCreateSection
-          ref="customFieldsRef"
-          v-model="customFieldsData"
-          entityType="Capa"
-        />
-
-        <!-- Classification -->
-        <FormSection id="capa-classification" title="Classification" :icon="IconCategory">
-          <BaseFieldRow :columns="2">
-            <BaseField
-              id="capa-site"
-              label="Site"
-              required
-              :value="form.siteId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="capa-department"
-              label="Department"
-              required
-              :value="form.departmentId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <DepartmentSelectMenu
-                  v-bind="field"
-                  v-model="form.departmentId"
-                  :siteId="form.siteId"
-                  required
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="capa-type"
-              label="CAPA Type"
-              required
-              :value="form.typeId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <CapaTypeSelectMenu v-bind="field" v-model="form.typeId" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="capa-source"
-              label="Source"
-              required
-              :value="form.sourceType"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <CapaSourceSelectMenu v-bind="field" v-model="form.sourceType" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="capa-priority"
-              label="Priority"
-              required
-              :value="form.priorityId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <SegmentedControl
-                  v-bind="field"
-                  v-model="form.priorityId"
-                  :options="PRIORITY_OPTIONS"
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="capa-initiated"
-              label="Initiated date"
-              required
-              :value="form.initiatedAt"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseDateField v-bind="field" v-model="form.initiatedAt" mode="date" />
-              </template>
-            </BaseField>
-            <BaseField label="Due date" optional>
-              <BaseDateField v-model="form.dueDate" mode="date" />
-            </BaseField>
-            <BaseField
-              id="capa-owner"
-              label="Responsible party"
-              required
-              hint="Drives the CAPA to closure & effectiveness. You remain the initiator."
-              :value="form.ownerId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="capa-supplier"
-              label="Supplier"
-              :required="form.isSupplierFacing"
-              :value="form.supplierId"
-              :rules="[
-                requiredWhen(
-                  () => form.isSupplierFacing,
-                  'Pick a supplier before marking this CAPA as supplier-facing.',
-                ),
-              ]"
-            >
-              <template #default="field">
-                <SupplierSelectMenu
-                  v-bind="field"
-                  v-model="form.supplierId"
-                  :required="form.isSupplierFacing"
-                />
-                <label
-                  class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
-                >
-                  <BaseCheckbox v-model="form.isSupplierFacing" />
-                  <div>
-                    <BaseText>Supplier-facing CAPA</BaseText>
-                    <BaseCaption class="tw:block">
-                      Workflow steps will be reviewed by users from the selected supplier (you'll
-                      pick the specific reviewer per step at submit). Lockable once submitted.
-                    </BaseCaption>
-                  </div>
-                </label>
-              </template>
-            </BaseField>
-          </BaseFieldRow>
-        </FormSection>
-
-        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
-        <FormSection
-          id="capa-notify"
-          title="Notify (cc)"
-          :icon="IconBell"
-          optional
-          collapsible
-          :defaultOpen="false"
+        <BaseForm
+          class="tw:py-6"
+          :validate="validate"
+          :dirty="isDirty"
+          :loading="saving"
+          :submitError="submitError"
+          submitLabel="Create CAPA"
+          @submit="onSubmit"
+          @cancel="goBack"
         >
-          <NotificationCcField
-            v-model:groupIds="form.notifyGroupIds"
-            v-model:userIds="form.notifyUserIds"
-          />
-        </FormSection>
+          <!-- Source NC chip -->
+          <div
+            v-if="sourceNc"
+            class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm"
+          >
+            Linked to Nonconformance
+            <RouterLink
+              :to="getCompanyPath(`/nonconformances/${sourceNc.id}`)"
+              class="tw:font-semibold tw:underline tw:ml-1"
+            >
+              {{ sourceNc.ncNumber }}
+            </RouterLink>
+            — {{ sourceNc.title }}
+          </div>
 
-        <!-- (Workflow lives on its own screen now — see screen 1 above.) -->
-        <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
-          Supplier-facing CAPAs default non-approval steps to the supplier's first portal user —
-          review the assignments on the CAPA page before opening.
-        </p>
-      </BaseForm>
+          <!-- Basic information -->
+          <FormSection id="capa-basic" title="Basic information" :icon="IconInfoCircle">
+            <div class="tw:flex tw:flex-col tw:gap-3">
+              <BaseField
+                id="capa-title"
+                label="Title"
+                required
+                :value="form.title"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.title"
+                    placeholder="Describe the CAPA…"
+                  />
+                </template>
+              </BaseField>
+              <!-- "Problem Statement", not "Description" (2026-08-17): this
+                 field is what the CAPA is answering, and naming it plainly
+                 gets a better-written one. -->
+              <BaseField label="Problem Statement">
+                <div class="create-capa-editor">
+                  <BaseRichTextEditor
+                    v-model="form.description"
+                    placeholder="What is the problem this CAPA addresses?…"
+                  />
+                </div>
+              </BaseField>
+              <SimilarRecordsPanel
+                entityType="Capa"
+                :searchInTypes="['Capa']"
+                :getText="() => `${form.title} ${form.description || ''} ${form.rootCause || ''}`"
+              />
+            </div>
+          </FormSection>
+
+          <!-- Admin-defined custom fields. Self-hides when none configured. -->
+          <CustomFieldsCreateSection
+            ref="customFieldsRef"
+            v-model="customFieldsData"
+            entityType="Capa"
+          />
+
+          <!-- Classification -->
+          <FormSection id="capa-classification" title="Classification" :icon="IconCategory">
+            <BaseFieldRow :columns="2">
+              <BaseField
+                id="capa-site"
+                label="Site"
+                required
+                :value="form.siteId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="capa-department"
+                label="Department"
+                required
+                :value="form.departmentId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <DepartmentSelectMenu
+                    v-bind="field"
+                    v-model="form.departmentId"
+                    :siteId="form.siteId"
+                    required
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="capa-type"
+                label="CAPA Type"
+                required
+                :value="form.typeId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <CapaTypeSelectMenu v-bind="field" v-model="form.typeId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="capa-source"
+                label="Source"
+                required
+                :value="form.sourceType"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <CapaSourceSelectMenu v-bind="field" v-model="form.sourceType" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="capa-priority"
+                label="Priority"
+                required
+                :value="form.priorityId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <SegmentedControl
+                    v-bind="field"
+                    v-model="form.priorityId"
+                    :options="PRIORITY_OPTIONS"
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="capa-initiated"
+                label="Initiated date"
+                required
+                :value="form.initiatedAt"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseDateField v-bind="field" v-model="form.initiatedAt" mode="date" />
+                </template>
+              </BaseField>
+              <BaseField label="Due date" optional>
+                <BaseDateField v-model="form.dueDate" mode="date" />
+              </BaseField>
+              <BaseField
+                id="capa-owner"
+                label="Responsible party"
+                required
+                hint="Drives the CAPA to closure & effectiveness. You remain the initiator."
+                :value="form.ownerId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="capa-supplier"
+                label="Supplier"
+                :required="form.isSupplierFacing"
+                :value="form.supplierId"
+                :rules="[
+                  requiredWhen(
+                    () => form.isSupplierFacing,
+                    'Pick a supplier before marking this CAPA as supplier-facing.',
+                  ),
+                ]"
+              >
+                <template #default="field">
+                  <SupplierSelectMenu
+                    v-bind="field"
+                    v-model="form.supplierId"
+                    :required="form.isSupplierFacing"
+                  />
+                  <label
+                    class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+                  >
+                    <BaseCheckbox v-model="form.isSupplierFacing" />
+                    <div>
+                      <BaseText>Supplier-facing CAPA</BaseText>
+                      <BaseCaption class="tw:block">
+                        Workflow steps will be reviewed by users from the selected supplier (you'll
+                        pick the specific reviewer per step at submit). Lockable once submitted.
+                      </BaseCaption>
+                    </div>
+                  </label>
+                </template>
+              </BaseField>
+            </BaseFieldRow>
+          </FormSection>
+
+          <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+          <FormSection
+            id="capa-notify"
+            title="Notify (cc)"
+            :icon="IconBell"
+            optional
+            collapsible
+            :defaultOpen="false"
+          >
+            <NotificationCcField
+              v-model:groupIds="form.notifyGroupIds"
+              v-model:userIds="form.notifyUserIds"
+            />
+          </FormSection>
+
+          <!-- (Workflow lives on its own screen now — see screen 1 above.) -->
+          <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
+            Supplier-facing CAPAs default non-approval steps to the supplier's first portal user —
+            review the assignments on the CAPA page before opening.
+          </p>
+        </BaseForm>
       </template>
     </div>
   </BasePage>
