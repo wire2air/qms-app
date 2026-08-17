@@ -128,7 +128,12 @@ async function retryFailed(batch) {
         </template>
 
         <template #body-cell-created="{ row }">
-          <span class="tw:text-sm tw:text-secondary">{{ dt.formatDate(row.createdAt) }}</span>
+          <!-- formatDate is a method ON the Luxon instance, not a `dt.` helper —
+               and the value can be absent for a row that has just been written
+               locally and not yet round-tripped. -->
+          <span class="tw:text-sm tw:text-secondary">
+            {{ row.createdAt ? row.createdAt.formatDate('date') : '—' }}
+          </span>
         </template>
       </DataTable>
     </PageSection>
