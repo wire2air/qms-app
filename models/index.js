@@ -46,6 +46,8 @@ import { DocumentCounter } from './documentCounter'
 import { DocumentLink } from './documentLink'
 import { DocumentSection } from './documentSection'
 import { DocumentStatus } from './documentStatus'
+import { DocumentImportBatch } from './documentImportBatch'
+import { DocumentImportItem } from './documentImportItem'
 import { DocumentTemplate } from './documentTemplate'
 import { DocumentTemplateStatus } from './documentTemplateStatus'
 import { DocumentType } from './documentType'
@@ -271,6 +273,8 @@ export const db = {
   DocumentLink,
   DocumentSection,
   DocumentStatus,
+  DocumentImportBatch,
+  DocumentImportItem,
   DocumentTemplate,
   DocumentTemplateStatus,
   DocumentType,

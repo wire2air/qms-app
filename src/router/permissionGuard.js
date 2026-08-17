@@ -62,6 +62,9 @@ const RECORD_LIST_PERMISSIONS = {
   documents: 'document_control:read',
   nonconformances: 'ncr:read',
   qualityEvents: 'quality_events:read',
+  // Bulk import creates documents, so it is gated on create — a reader
+  // reaching the URL directly would only be able to watch it fail.
+  'document-imports': 'document_control:create',
   'customer-complaints': 'complaint_management:read',
   // Standalone QMS quality complaints (the `complaints` table) — a separate
   // module from Customer Complaints above; mirrors the sidebar's `complaints:read`

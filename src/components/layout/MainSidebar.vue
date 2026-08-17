@@ -1,5 +1,6 @@
 <script setup>
 import {
+  IconFileImport,
   IconForms,
   IconTable,
   IconFileText,
@@ -310,6 +311,16 @@ const navItems = computed(() => {
       permissions: ['document_control:read'],
       icon: IconFileText,
       to: getCompanyPath('/documents'),
+    },
+    {
+      // Migration aid, used heavily during onboarding and rarely after. Gated
+      // on CREATE rather than read so it stays out of the nav for everyone who
+      // only consumes documents — a bulk importer is not something most users
+      // should be invited to discover.
+      label: 'Bulk Import',
+      permissions: ['document_control:create'],
+      icon: IconFileImport,
+      to: getCompanyPath('/document-imports'),
     },
     {
       label: 'Nonconformances',
