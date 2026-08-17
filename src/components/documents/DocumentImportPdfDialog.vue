@@ -97,6 +97,12 @@ const summarising = ref(false)
 // Why we ended up attaching rather than structuring. Shown as information on
 // the attachment screen — it is an outcome, not a failure.
 const fallbackNotice = ref('')
+// The source document's own identity, read off its page-one header block.
+// Captured on BOTH paths: the summarise path only sends the first 3 pages, but
+// that is precisely where the header block lives, so extraction is if anything
+// MORE reliable there than in a full-document pass.
+const sourceDocumentNumber = ref(null)
+const departmentName = ref(null)
 const extracted = ref(null) // { text, pageCount, imageCount, filename }
 const result = ref(null) // { title, description, sections: [...] }
 const usage = ref(null)
@@ -115,6 +121,8 @@ watch(show, (open) => {
     summary.value = ''
     summarising.value = false
     fallbackNotice.value = ''
+    sourceDocumentNumber.value = null
+    departmentName.value = null
     extracted.value = null
     result.value = null
     usage.value = null
@@ -393,8 +401,8 @@ async function applyDraft() {
       // The source system's own identity, captured so a migrated document is
       // still findable by the number people already know. The parent decides
       // what to do with them — tag and department match.
-      sourceDocumentNumber: result.value.sourceDocumentNumber || null,
-      departmentName: result.value.departmentName || null,
+      sourceDocumentNumber: result.value.sourceDocumentNumber || sourceDocumentNumber.value,
+      departmentName: result.value.departmentName || departmentName.value,
       sourceAttachmentFailed: !!selectedFile.value && !sourceAttachment,
     })
     show.value = false
@@ -474,6 +482,11 @@ async function summariseHeader() {
     // Title only if the model found a better one than the PDF gave us.
     if (out.title) header.value = { ...header.value, title: out.title }
     summary.value = out.description ?? ''
+    // These were being discarded here (bug 2026-08-16): a 34-page SOP goes
+    // down this path, so its "Document Number: SOP-QA-006" was read and then
+    // thrown away before the form ever saw it.
+    sourceDocumentNumber.value = out.sourceDocumentNumber || null
+    departmentName.value = out.departmentName || null
   } catch (e) {
     error.value = { stage: 'summarising', message: e?.message || 'Could not summarise the PDF' }
   } finally {
@@ -507,6 +520,8 @@ async function applyAttachment() {
       documentTemplateId: attachmentTemplateId.value,
       attachment: asset,
       summary: summary.value || '',
+      sourceDocumentNumber: sourceDocumentNumber.value,
+      departmentName: departmentName.value,
     })
     show.value = false
   } catch (e) {
