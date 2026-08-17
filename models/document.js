@@ -51,6 +51,8 @@ export class Document extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) workflowVersionId = ''
   @Property({ type: String, required: true }) prefix = ''
+  // Free-form labels; import writes the source doc's own id + 'import'.
+  @Property({ type: Array }) tags = /** @type {string[]} */ ([])
   // Nullable UUID FK to the RelatedStandard lookup — default null (not '').
   @Property({ type: String }) relatedStandardId = null
   @Property({ type: Number, required: true }) periodicReviewMonths = 12

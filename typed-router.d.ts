@@ -212,6 +212,13 @@ declare module 'vue-router/auto-routes' {
       { slug: ParamValue<false> },
       | never
     >,
+    '/document-imports': RouteRecordInfo<
+      '/document-imports',
+      '/document-imports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/document-templates/[[id]]': RouteRecordInfo<
       '/document-templates/[[id]]',
       '/document-templates/:id?',
@@ -916,6 +923,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/docs/[...slug].vue': {
       routes:
         | '/docs/[...slug]'
+      views:
+        | never
+    }
+    'src/pages/document-imports.vue': {
+      routes:
+        | '/document-imports'
       views:
         | never
     }
