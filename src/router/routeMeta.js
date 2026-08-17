@@ -32,6 +32,7 @@ import {
   IconArrowsShuffle,
   IconTemplate,
   IconTool,
+  IconChartBar,
 } from '@tabler/icons-vue'
 
 /** @type {Record<string, import('@shared/composables/routeMetaHelpers.js').RouteMetaEntry>} */
@@ -81,6 +82,13 @@ export const ROUTE_META = {
   },
   '/audits': { title: 'Audits', icon: IconClipboardCheck, permission: 'audit_management:read' },
   '/records': { title: 'Records', icon: IconTable, permission: 'records:read' },
+
+  // ── Analytics ────────────────────────────────────────────────────
+  '/analytics': {
+    title: 'Analytics',
+    icon: IconChartBar,
+    permission: 'reports_dashboards:read',
+  },
 
   // ── Operations ───────────────────────────────────────────────────
   '/equipment': { title: 'Equipment', icon: IconTool },

@@ -49,6 +49,15 @@ const ADMIN_PERMISSIONS = {
   'organization-security': 'security:manage',
   'admin-security': 'security:manage',
   'vendor-access-log': 'security:manage',
+  // Analytics (the seeded `reports_dashboards` module — read / export / manage).
+  // Guarded across the WHOLE subtree, not list-only: unlike a record module
+  // there is no row-level RLS exception that legitimately shows one aggregate
+  // to someone without the module read, and the metric functions themselves
+  // return nothing without it. Suppliers are blocked by the ADMIN branch below.
+  // NB there is no `create` action on this module, so if a future authoring
+  // route lands at /analytics/create, map it explicitly rather than letting
+  // createPermissionFrom() derive a `reports_dashboards:create` nobody holds.
+  analytics: 'reports_dashboards:read',
   'api-keys': 'api_integrations:read',
   // ai:read is implied by ANY ai grant — run/manage/audit all pass.
   'api-tokens': 'ai:read',

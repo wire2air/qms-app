@@ -65,6 +65,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/analytics': RouteRecordInfo<
+      '/analytics',
+      '/analytics',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/api-keys': RouteRecordInfo<
       '/api-keys',
       '/api-keys',
@@ -790,6 +797,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/ai-usage.vue': {
       routes:
         | '/ai-usage'
+      views:
+        | never
+    }
+    'src/pages/analytics.vue': {
+      routes:
+        | '/analytics'
       views:
         | never
     }

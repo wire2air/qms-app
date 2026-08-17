@@ -303,6 +303,21 @@ const navItems = computed(() => {
       icon: IconCheckbox,
       to: getCompanyPath('/task-instances'),
     },
+    {
+      // Cross-module reporting (the seeded `reports_dashboards` module). Sits
+      // above the record modules because it is the surface people land on to
+      // decide which record module to open, not another record list.
+      //
+      // `permissions` also drives the COMMERCIAL gate: isNavItemEntitled()
+      // takes the module id from the first permission, so an un-entitled
+      // tenant loses the entry. Per-module analytics pages become children of
+      // this group in Phase 4; today the group has one destination, so it is a
+      // plain entry rather than a collapsible with a single row.
+      label: 'Analytics',
+      permissions: ['reports_dashboards:read'],
+      icon: IconChartBar,
+      to: getCompanyPath('/analytics'),
+    },
     // Admin-defined modules (data-driven).
     ...moduleNavItems.value,
     {

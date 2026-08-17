@@ -186,6 +186,7 @@ declare global {
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
   const useActiveWorkflowEntries: typeof import('./src/composables/useActiveWorkflowEntries.js').useActiveWorkflowEntries
   const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage
+  const useAnalyticsEntitlement: typeof import('./src/composables/useAnalytics.js').useAnalyticsEntitlement
   const useAnimate: typeof import('@vueuse/core').useAnimate
   const useArrayDifference: typeof import('@vueuse/core').useArrayDifference
   const useArrayEvery: typeof import('@vueuse/core').useArrayEvery
@@ -274,6 +275,7 @@ declare global {
   const useFullscreen: typeof import('@vueuse/core').useFullscreen
   const useGamepad: typeof import('@vueuse/core').useGamepad
   const useGeolocation: typeof import('@vueuse/core').useGeolocation
+  const useGraphQLQuery: typeof import('./src/composables/useServerQuery.js').useGraphQLQuery
   const useHelpContent: typeof import('./src/composables/useHelpContent.js').useHelpContent
   const useHotkeyRegistry: typeof import('./resource/js/shared/composables/useHotkeys.js').useHotkeyRegistry
   const useHotkeys: typeof import('./resource/js/shared/composables/useHotkeys.js').useHotkeys
@@ -302,6 +304,10 @@ declare global {
   const useMediaQuery: typeof import('@vueuse/core').useMediaQuery
   const useMemoize: typeof import('@vueuse/core').useMemoize
   const useMemory: typeof import('@vueuse/core').useMemory
+  const useMetricBreakdown: typeof import('./src/composables/useAnalytics.js').useMetricBreakdown
+  const useMetricCatalog: typeof import('./src/composables/useAnalytics.js').useMetricCatalog
+  const useMetricSeries: typeof import('./src/composables/useAnalytics.js').useMetricSeries
+  const useMetricValue: typeof import('./src/composables/useAnalytics.js').useMetricValue
   const useModel: typeof import('vue').useModel
   const useModuleScoring: typeof import('./src/composables/useModuleScoring.js').useModuleScoring
   const useMounted: typeof import('@vueuse/core').useMounted
@@ -351,6 +357,8 @@ declare global {
   const useSelectFilter: typeof import('./resource/js/shared/composables/useSelectFilter.js').useSelectFilter
   const useSelectKeyboard: typeof import('./resource/js/shared/composables/useSelectKeyboard.js').useSelectKeyboard
   const useSelectOptions: typeof import('./resource/js/shared/composables/useSelectOptions.js').useSelectOptions
+  const useServerQuery: typeof import('./src/composables/useServerQuery.js').useServerQuery
+  const useServerQueryWithDeps: typeof import('./src/composables/useServerQuery.js').useServerQueryWithDeps
   const useSessionStorage: typeof import('@vueuse/core').useSessionStorage
   const useShare: typeof import('@vueuse/core').useShare
   const useSidebar: typeof import('./src/composables/useSidebar.js').useSidebar
