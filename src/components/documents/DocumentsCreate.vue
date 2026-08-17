@@ -81,9 +81,36 @@ const form = ref({
   ownerId: currentSession.value?.userId ?? null,
 })
 
+// Site and Department default to the author's own (user request 2026-08-16).
+// Most documents are written for the place the author works, and making them
+// re-pick it every time was pure friction. Applied ONCE, and only to fields the
+// author has not already touched, so a deliberate choice — or a template that
+// filled something in — is never overwritten by a late-arriving user record.
+const me = useLiveQuery(
+  async (db) => {
+    const id = currentSession.value?.userId ?? currentSession.value?.id
+    return id ? db.User.findByPk(id) : null
+  },
+  { models: ['User'], initial: null },
+)
+
 // Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
 const isDirty = ref(false)
 watch(form, () => (isDirty.value = true), { deep: true })
+
+let defaultsApplied = false
+watch(
+  me,
+  (u) => {
+    if (!u || defaultsApplied) return
+    defaultsApplied = true
+    if (!form.value.siteIds?.length && u.siteId) form.value.siteIds = [u.siteId]
+    if (!form.value.departmentId && u.departmentId) form.value.departmentId = u.departmentId
+    // Seeding a default is not the author making a change.
+    nextTick(() => (isDirty.value = false))
+  },
+  { immediate: true },
+)
 
 // Confirm before abandoning a half-filled document via in-app navigation
 // (Cancel, back, sidebar). allowLeave() is called before the post-save
