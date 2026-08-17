@@ -816,6 +816,21 @@ const navItems = computed(() => {
           icon: IconShieldCheck,
           to: getCompanyPath('/audit-logs'),
         },
+        {
+          // Qualification protocols customers execute to validate the system in
+          // a regulated environment. Moved here from the profile menu
+          // (2026-08-17, user decision): validation is an administrative and
+          // compliance activity, not a personal-account one, so a QA lead looks
+          // for it under Settings rather than under their own avatar.
+          // Ungated, like Help — reference material every user may read. But
+          // `requiresSibling` keeps it from being the only reason Settings
+          // appears: a user with no settings permissions still reaches it from
+          // the Help Center, without gaining a one-item Settings menu.
+          label: 'Validation Package',
+          icon: IconCertificate,
+          requiresSibling: true,
+          to: getCompanyPath('/validation'),
+        },
       ].filter(isNavItemVisible),
     },
     // Platform Console — cross-tenant control plane. Gated on the platform-admin
@@ -868,7 +883,13 @@ const navItems = computed(() => {
     .filter((item) => {
       // Drop a group whose children were all permission-filtered away, so a user
       // with none of the child permissions never sees an empty expandable header.
-      if (item.children && item.children.length === 0) return false
+      //
+      // `requiresSibling` children don't count towards "not empty". Every other
+      // Settings child is permission-gated, so a single UNGATED entry would
+      // otherwise summon the whole Settings group for a shop-floor user who can
+      // reach nothing else inside it. Such an entry still renders whenever the
+      // group is shown for some other reason — it just can't conjure it alone.
+      if (item.children && !item.children.some((c) => !c.requiresSibling)) return false
       return isNavItemVisible(item)
     })
 })
@@ -1250,21 +1271,6 @@ const quickCreateItems = computed(() => {
                 >
                   <IconHelpCircle :size="16" class="tw:text-secondary" />
                   Help Center
-                </RouterLink>
-
-                <!-- Qualification protocols for customers validating the system
-                     in a regulated environment. Sits next to Help because it is
-                     reference material rather than a module, but it is kept a
-                     separate destination: these are executed and signed, not
-                     read, and mixing them into product help misrepresents what
-                     they are. -->
-                <RouterLink
-                  :to="getCompanyPath('/validation')"
-                  class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
-                  @click="close()"
-                >
-                  <IconCertificate :size="16" class="tw:text-secondary" />
-                  Validation Package
                 </RouterLink>
 
                 <div
