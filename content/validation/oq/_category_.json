@@ -1,0 +1,9 @@
+{
+  "label": "Operational Qualification — Module Protocols",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "title": "Operational Qualification",
+    "description": "One executable test protocol per functional module. Execute against your own configured tenant and retain the signed records."
+  }
+}

@@ -1252,6 +1252,21 @@ const quickCreateItems = computed(() => {
                   Help Center
                 </RouterLink>
 
+                <!-- Qualification protocols for customers validating the system
+                     in a regulated environment. Sits next to Help because it is
+                     reference material rather than a module, but it is kept a
+                     separate destination: these are executed and signed, not
+                     read, and mixing them into product help misrepresents what
+                     they are. -->
+                <RouterLink
+                  :to="getCompanyPath('/validation')"
+                  class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:no-underline tw:transition-colors tw:hover:bg-main-hover"
+                  @click="close()"
+                >
+                  <IconCertificate :size="16" class="tw:text-secondary" />
+                  Validation Package
+                </RouterLink>
+
                 <div
                   class="tw:flex tw:items-center tw:justify-between tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar"
                 >

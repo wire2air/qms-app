@@ -730,6 +730,20 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/validation/': RouteRecordInfo<
+      '/validation/',
+      '/validation',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/validation/[...slug]': RouteRecordInfo<
+      '/validation/[...slug]',
+      '/validation/:slug(.*)',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
     '/vendor-access-log': RouteRecordInfo<
       '/vendor-access-log',
       '/vendor-access-log',
@@ -1367,6 +1381,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/users/[[id]].vue': {
       routes:
         | '/users/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/validation/index.vue': {
+      routes:
+        | '/validation/'
+      views:
+        | never
+    }
+    'src/pages/validation/[...slug].vue': {
+      routes:
+        | '/validation/[...slug]'
       views:
         | never
     }

@@ -405,6 +405,7 @@ export default {
     "useVModel": true,
     "useVModels": true,
     "useValidation": true,
+    "useValidationContent": true,
     "useValidator": true,
     "useVibrate": true,
     "useVirtualList": true,
