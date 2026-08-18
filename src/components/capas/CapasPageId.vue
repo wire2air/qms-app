@@ -81,26 +81,10 @@ const showEsignDialog = ref(false)
 const pendingEsignAction = ref(null)
 
 // ─── Close-CAPA additional state ─────────────────────────────────────────────
-// Industry-standard effectiveness-check presets (days from close). 90 is the
-// default per ISO 13485 / 21 CFR 820.100 practice — long enough to observe
-// the corrective action's effect, short enough to keep cycle time reasonable.
-const EC_PRESETS = [
-  { label: '30 days', days: 30 },
-  { label: '60 days', days: 60 },
-  { label: '90 days', days: 90 },
-  { label: '180 days', days: 180 },
-  { label: '365 days', days: 365 },
-]
-const closeEcPresetDays = ref(90)
-const closeEcCustomDate = ref(null) // DateTime | null — when set, overrides the preset
+// The effectiveness-check presets and date picker lived here until 2026-08-18.
+// Closing no longer schedules a check — the workflow's DELAY step owns it — so
+// only the closure comments remain.
 const closeComments = ref('')
-
-// Effective EC date: custom calendar pick if set, else "today + preset days".
-const closeEffectivenessDate = computed(() => {
-  if (closeEcCustomDate.value) return closeEcCustomDate.value
-  if (closeEcPresetDays.value == null) return null
-  return DateTime.now().plus({ days: closeEcPresetDays.value }).startOf('day')
-})
 
 // `incompleteStepCount`, the close gates and their reasons are defined
 // further down after `allWorkflowInstanceStepIds` is declared (TDZ).
@@ -180,7 +164,6 @@ const canOpenClose = computed(() =>
 
 const closeGateState = computed(() => ({
   incompleteStepCount: incompleteStepCount.value,
-  effectivenessDate: closeEffectivenessDate.value,
   comments: closeComments.value,
 }))
 
@@ -213,12 +196,6 @@ const isOwner = computed(() => {
 
 function openCloseDialog() {
   saveError.value = null
-  // Seed the EC preset from the CAPA's planning preference (default 90).
-  // If the saved interval is one of the standard chips we pre-select that
-  // chip; otherwise we leave it on the preference value (the chip row
-  // won't highlight, but the resulting date still computes correctly).
-  closeEcPresetDays.value = capa.value?.ecIntervalDays ?? 90
-  closeEcCustomDate.value = null
   closeComments.value = ''
   showCloseDialog.value = true
 }
@@ -264,7 +241,6 @@ async function onEsignVerified({ method, provider, token }) {
     saveError.value = null
     try {
       await post(`/v1/services/capas/${props.id}/close`, {
-        effectivenessCheckAt: closeEffectivenessDate.value.toISO(),
         comments: closeComments.value.trim() || null,
         method,
         provider: provider || null,
@@ -557,18 +533,7 @@ const capaDetailConfig = computed(() =>
       />
     </template>
 
-    <template v-if="capa" #section-effectiveness>
-      <!-- Effectiveness Check (post-closure follow-up) -->
-      <CapaEffectivenessCheckCard :capaId="id" :isOwner="isOwner" />
 
-      <!-- External access — read-only panel populated by workflow-
-           step assignment (autoShareSupplierUsers). The product
-           decision (2026-05-29) is that supplier visibility on CAPA
-           is workflow-driven, not manual. See SharedWithPanel.vue.
-           Only relevant on supplier-facing CAPAs — external access is
-           only ever granted on those, so hide the section otherwise. -->
-      <SharedWithPanel v-if="capa?.isSupplierFacing" entityType="Capa" :entityId="id" />
-    </template>
 
     <template v-if="capa" #rail>
       <!-- 1. General — number, status, priority, type, source, initiated.
@@ -735,42 +700,11 @@ const capaDetailConfig = computed(() =>
         </div>
       </div>
 
-      <!-- Gate 2: effectiveness check date -->
-      <BaseField label="Effectiveness Check Date" required>
-        <p class="tw:text-xs tw:text-secondary tw:mb-2">
-          When should the corrective action's effectiveness be verified? Industry standard is 90
-          days from close.
-        </p>
-        <div class="tw:flex tw:flex-wrap tw:gap-2 tw:mb-3">
-          <button
-            v-for="preset in EC_PRESETS"
-            :key="preset.days"
-            type="button"
-            class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
-            :class="
-              !closeEcCustomDate && closeEcPresetDays === preset.days
-                ? 'tw:bg-primary tw:text-white tw:border-primary'
-                : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
-            "
-            @click="
-              () => {
-                closeEcPresetDays = preset.days
-                closeEcCustomDate = null
-              }
-            "
-          >
-            {{ preset.label }}
-          </button>
-        </div>
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <span class="tw:text-xs tw:text-secondary">Or pick a specific date:</span>
-          <BaseDateField v-model="closeEcCustomDate" mode="date" />
-        </div>
-        <p v-if="closeEffectivenessDate" class="tw:text-xs tw:text-secondary tw:mt-2">
-          Will schedule for: <strong>{{ closeEffectivenessDate.formatDate('date') }}</strong>
-        </p>
-      </BaseField>
-
+      <!-- The effectiveness-check date is gone from this dialog (2026-08-18).
+           Closing no longer schedules a check: the workflow's DELAY step owns
+           that, and it must already be scheduled or skipped before the record
+           can close (stepBlocksClose), so asking again here was a second answer
+           to a question already settled. -->
       <!-- Optional closure comments -->
       <BaseField v-slot="{ id: fieldId }" label="Closure Comments" required>
         <BaseTextarea

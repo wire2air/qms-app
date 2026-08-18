@@ -19,7 +19,7 @@ import {
 } from './capaCloseGates.js'
 
 /** A CAPA with every step finished and an untouched close dialog. */
-const readyToClose = { incompleteStepCount: 0, effectivenessDate: null, comments: '' }
+const readyToClose = { incompleteStepCount: 0, comments: '' }
 
 describe('canOpenClose', () => {
   it('opens the dialog on a fully-approved CAPA even though the dialog is empty', () => {
@@ -34,7 +34,7 @@ describe('canOpenClose', () => {
   })
 
   it('ignores the dialog fields entirely', () => {
-    const withFields = { incompleteStepCount: 0, effectivenessDate: {}, comments: 'done' }
+    const withFields = { incompleteStepCount: 0, comments: 'done' }
     expect(canOpenClose(withFields)).toBe(canOpenClose(readyToClose))
   })
 
@@ -51,27 +51,17 @@ describe('canSubmitClose', () => {
   })
 
   it('refuses comments that are only whitespace', () => {
-    expect(
-      canSubmitClose({ incompleteStepCount: 0, effectivenessDate: {}, comments: '   \n\t ' }),
-    ).toBe(false)
+    expect(canSubmitClose({ incompleteStepCount: 0, comments: '   \n\t ' })).toBe(false)
   })
 
-  it('refuses a missing effectiveness date', () => {
-    expect(
-      canSubmitClose({ incompleteStepCount: 0, effectivenessDate: null, comments: 'Verified.' }),
-    ).toBe(false)
-  })
-
+  // The effectiveness-check date left this dialog on 2026-08-18 — the workflow's
+  // DELAY step owns it — so comments are now the only field it gates on.
   it('accepts a complete dialog on a finished workflow', () => {
-    expect(
-      canSubmitClose({ incompleteStepCount: 0, effectivenessDate: {}, comments: 'Verified.' }),
-    ).toBe(true)
+    expect(canSubmitClose({ incompleteStepCount: 0, comments: 'Verified.' })).toBe(true)
   })
 
   it('still refuses when a step is open, however complete the dialog', () => {
-    expect(
-      canSubmitClose({ incompleteStepCount: 2, effectivenessDate: {}, comments: 'Verified.' }),
-    ).toBe(false)
+    expect(canSubmitClose({ incompleteStepCount: 2, comments: 'Verified.' })).toBe(false)
   })
 })
 
@@ -87,21 +77,18 @@ describe('the reasons stay on their own side', () => {
     expect(closeBlockedReason({ incompleteStepCount: 4 })).toMatch(/^4 workflow steps still open/)
   })
 
-  it('the submit reason asks for the date, then the comments', () => {
-    expect(closeSubmitBlockedReason(readyToClose)).toBe('Pick an effectiveness check date.')
-    expect(
-      closeSubmitBlockedReason({ incompleteStepCount: 0, effectivenessDate: {}, comments: '' }),
-    ).toBe('Add closure comments.')
+  it('the submit reason asks for the comments', () => {
+    expect(closeSubmitBlockedReason(readyToClose)).toBe('Add closure comments.')
   })
 
   it('the submit reason leads with the workflow when steps are open', () => {
-    expect(
-      closeSubmitBlockedReason({ incompleteStepCount: 2, effectivenessDate: null, comments: '' }),
-    ).toMatch(/2 workflow steps still open/)
+    expect(closeSubmitBlockedReason({ incompleteStepCount: 2, comments: '' })).toMatch(
+      /2 workflow steps still open/,
+    )
   })
 
   it('is empty exactly when the matching gate is open', () => {
-    const complete = { incompleteStepCount: 0, effectivenessDate: {}, comments: 'Verified.' }
+    const complete = { incompleteStepCount: 0, comments: 'Verified.' }
     expect(closeSubmitBlockedReason(complete)).toBe('')
     expect(canSubmitClose(complete)).toBe(true)
   })

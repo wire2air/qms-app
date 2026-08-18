@@ -3,13 +3,19 @@
  * exist to prevent is not visible from either side on its own.
  *
  * Closing a CAPA is two steps: press "Close CAPA" in the header, which opens a
- * dialog; fill in the effectiveness-check date and closure comments; press
+ * dialog; write the closure comments; press
  * "Sign & Close". Each step has its own precondition, and conflating them is
  * what broke it:
  *
  *   canOpenClose   — may this CAPA be closed at all? Only asks whether the
  *                    workflow is finished.
  *   canSubmitClose — is the dialog filled in? canOpenClose PLUS its own fields.
+ *
+ * The effectiveness-check date left this dialog on 2026-08-18. Closing no
+ * longer schedules a check — the workflow's DELAY step owns that, and it must
+ * be scheduled or skipped before the record can close, so the dialog was asking
+ * a second time about something already settled. Closure comments remain: they
+ * are the signed statement of what was done, and nothing else captures that.
  *
  * On 2026-08-18 a CAPA with all three steps approved showed a permanently
  * greyed-out Close button. One `canClose` served both buttons and included
@@ -39,18 +45,11 @@ export function canOpenClose({ incompleteStepCount = 0 } = {}) {
  *
  * @param {object} state
  * @param {number} state.incompleteStepCount
- * @param {object|null} state.effectivenessDate resolved EC date (DateTime|null)
  * @param {string} state.comments closure comments as typed
  * @returns {boolean}
  */
-export function canSubmitClose({
-  incompleteStepCount = 0,
-  effectivenessDate = null,
-  comments = '',
-} = {}) {
-  return (
-    canOpenClose({ incompleteStepCount }) && !!effectivenessDate && !!String(comments).trim()
-  )
+export function canSubmitClose({ incompleteStepCount = 0, comments = '' } = {}) {
+  return canOpenClose({ incompleteStepCount }) && !!String(comments).trim()
 }
 
 /**
@@ -74,14 +73,9 @@ export function closeBlockedReason({ incompleteStepCount = 0 } = {}) {
  *
  * @returns {string} empty when not blocked
  */
-export function closeSubmitBlockedReason({
-  incompleteStepCount = 0,
-  effectivenessDate = null,
-  comments = '',
-} = {}) {
+export function closeSubmitBlockedReason({ incompleteStepCount = 0, comments = '' } = {}) {
   const blocked = closeBlockedReason({ incompleteStepCount })
   if (blocked) return blocked
-  if (!effectivenessDate) return 'Pick an effectiveness check date.'
   // Closure is a signed, regulated act — the record should say what was done,
   // not just that someone pressed the button.
   if (!String(comments).trim()) return 'Add closure comments.'
