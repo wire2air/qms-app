@@ -27,7 +27,24 @@ const emit = defineEmits(['reassign'])
 const toast = useToast()
 const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
-const canAddChild = computed(() => props.isOwner && props.allowChildSteps)
+// A finished parent takes no new work. Adding a task under a CANCELLED (or
+// approved / skipped / rejected) step let the owner queue work onto a stage
+// that will never run — reported 2026-08-18, where a cancelled implementation
+// step still offered the button.
+const PARENT_CLOSED_STATUSES = ['APPROVED', 'CANCELLED', 'SKIPPED', 'REJECTED']
+
+const parentStep = useLiveQueryWithDeps(
+  [() => props.parentInstanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'], initial: null },
+)
+
+const canAddChild = computed(
+  () =>
+    props.isOwner &&
+    props.allowChildSteps &&
+    !PARENT_CLOSED_STATUSES.includes(parentStep.value?.statusId),
+)
 
 const selectedChildId = ref(null)
 const dialogOpen = ref(false)
@@ -311,9 +328,9 @@ function getRowClass(child) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-2">
     <div v-if="canAddChild" class="tw:flex tw:justify-end">
-      <BaseButton variant="outline" size="sm" @click="openAddDialog">
-        <template #icon><IconPlus :size="14" /></template>
-        Add child step
+      <BaseButton variant="outline" @click="openAddDialog">
+        <template #icon><IconPlus :size="16" /></template>
+        Add Tasks
       </BaseButton>
     </div>
 
