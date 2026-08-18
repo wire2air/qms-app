@@ -150,6 +150,54 @@ describe('buildStepGroups', () => {
   })
 })
 
+describe('reassigning re-forms the group without ungrouping', () => {
+  // The behaviour asked for 2026-08-18: rather than ungrouping by hand, hand a
+  // step to someone else and let the run recompute. Assignments are read
+  // through a live query, so these are the shapes that fall out of it.
+
+  it('drops the head when it is reassigned away, leaving nothing actionable yet', () => {
+    // Steps 2 and 3 are still both mine, but they are PENDING — there is no
+    // step I can act on, so offering a Complete button would be a lie.
+    const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3)]
+    const groups = buildStepGroups(
+      steps,
+      ctx({ assigneesFor: (id) => (id === 's1' ? [OTHER] : [ME]) }),
+    )
+    expect(groups.size).toBe(0)
+  })
+
+  it('regroups the remaining steps once the next one becomes active', () => {
+    // Same board after step 1 completes: 2 activates and 2+3 group by
+    // themselves, no user action required.
+    const steps = [step(1, { statusId: 'APPROVED' }), step(2, { statusId: 'IN_PROGRESS' }), step(3)]
+    const groups = buildStepGroups(
+      steps,
+      ctx({ assigneesFor: (id) => (id === 's1' ? [OTHER] : [ME]) }),
+    )
+    expect(groups.get('s2').map((s) => s.id)).toEqual(['s2', 's3'])
+  })
+
+  it('takes a single middle step out and keeps the rest of the run', () => {
+    // Reassign step 3 of four: the run truncates at it, and 4 does not rejoin
+    // across the gap.
+    const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3), step(4)]
+    const groups = buildStepGroups(
+      steps,
+      ctx({ assigneesFor: (id) => (id === 's3' ? [OTHER] : [ME]) }),
+    )
+    expect(groups.get('s1').map((s) => s.id)).toEqual(['s1', 's2'])
+  })
+
+  it('stops grouping entirely when only one step is left to me', () => {
+    const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3)]
+    const groups = buildStepGroups(
+      steps,
+      ctx({ assigneesFor: (id) => (id === 's1' ? [ME] : [OTHER]) }),
+    )
+    expect(groups.size).toBe(0)
+  })
+})
+
 describe('collapsedStepIds', () => {
   it('hides the tail of each run but never its head', () => {
     const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3)]

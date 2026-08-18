@@ -17,12 +17,23 @@
  * failure anywhere rolls the whole thing back, rather than leaving someone
  * halfway through what we presented as a single action.
  *
- * ── Ungroup ──────────────────────────────────────────────────────────────────
- * Local and non-destructive: it just stops rendering the group, so the steps
- * fall back to their individual cards and the ordinary per-step path. Nothing
- * is written, so there is nothing to undo.
+ * ── Leaving the group ────────────────────────────────────────────────────────
+ * Two ways, and reassigning is usually the one you want:
+ *
+ *   Reassign  give a step to someone else. The run is recomputed from a LIVE
+ *             query of the assignments, so the group re-forms by itself — the
+ *             reassigned step drops out and any remaining consecutive steps
+ *             still held by one person stay grouped. Nothing needs ungrouping
+ *             first, and the engine accepts reassignment of a step that has not
+ *             activated yet (PENDING | IN_PROGRESS | SENT_BACK).
+ *
+ *   Ungroup   keep the assignments, just stop collapsing them. Local and
+ *             non-destructive: the steps fall back to individual cards and the
+ *             ordinary per-step path. Nothing is written, nothing to undo.
+ *             Useful when the steps really are all yours but you want to
+ *             complete them one at a time, or add a sub-task to one.
  */
-import { IconLayersSubtract, IconDots, IconSignature } from '@tabler/icons-vue'
+import { IconLayersSubtract, IconDots, IconSignature, IconUserShare } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 
@@ -36,7 +47,7 @@ const props = defineProps({
   canAct: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['ungroup'])
+const emit = defineEmits(['ungroup', 'reassign'])
 
 const toast = useToast()
 
@@ -184,6 +195,18 @@ async function submitGroup(esign = null) {
             class="tw:text-secondary"
             title="Requires an electronic signature"
           />
+          <!-- Hand a single step to someone else without breaking the rest of
+               the run apart: the group recomputes from the live assignments. -->
+          <BaseTooltip content="Reassign this step to someone else">
+            <button
+              type="button"
+              class="tw:ml-auto tw:shrink-0 tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
+              :aria-label="`Reassign ${step.name || 'step ' + step.stepNumber}`"
+              @click="emit('reassign', step.id)"
+            >
+              <IconUserShare :size="16" />
+            </button>
+          </BaseTooltip>
         </div>
 
         <p v-if="step.description" class="tw:mb-3 tw:text-sm tw:text-secondary">

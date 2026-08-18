@@ -141,6 +141,7 @@ function onUngroup(headId) {
       :headTaskId="myTaskByStep[step.id]"
       canAct
       @ungroup="onUngroup(step.id)"
+      @reassign="(id) => emit('reassign', id)"
     />
 
     <!-- Swallowed by the run above; its card is inside the group. -->
