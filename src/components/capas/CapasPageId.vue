@@ -6,6 +6,12 @@ import { post } from '@/api'
 import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
+import {
+  canOpenClose as gateCanOpenClose,
+  canSubmitClose as gateCanSubmitClose,
+  closeBlockedReason as gateCloseBlockedReason,
+  closeSubmitBlockedReason as gateCloseSubmitBlockedReason,
+} from './capaCloseGates.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -96,7 +102,7 @@ const closeEffectivenessDate = computed(() => {
   return DateTime.now().plus({ days: closeEcPresetDays.value }).startOf('day')
 })
 
-// `incompleteStepCount`, `canClose`, `closeDisabledReason` are defined
+// `incompleteStepCount`, the close gates and their reasons are defined
 // further down after `allWorkflowInstanceStepIds` is declared (TDZ).
 
 // Build a flat list of related entity ids so the audit dialog covers the
@@ -165,27 +171,28 @@ const incompleteStepCount = useLiveQueryWithDeps(
 
   { models: ['WorkflowInstanceStep'], initial: 0 },
 )
-const canClose = computed(
-  () =>
-    incompleteStepCount.value === 0 &&
-    !!closeEffectivenessDate.value &&
-    !!closeComments.value.trim(),
+// The two close gates, kept pure + tested in capaCloseGates.js — see that file
+// for why they must stay separate (a control that opens a form must not be
+// gated on that form's contents).
+const canOpenClose = computed(() =>
+  gateCanOpenClose({ incompleteStepCount: incompleteStepCount.value }),
 )
 
-// Why the "Sign & Close" action is blocked — surfaced as the submit button's
-// native tooltip via BaseDialogFooter's `submitTitle`.
-const closeDisabledReason = computed(() => {
-  if (incompleteStepCount.value > 0) {
-    return `${incompleteStepCount.value} workflow step${
-      incompleteStepCount.value === 1 ? '' : 's'
-    } still open. Complete or skip them first.`
-  }
-  if (!closeEffectivenessDate.value) return 'Pick an effectiveness check date.'
-  // Closure is a signed, regulated act — the record should say what was done,
-  // not just that someone pressed the button.
-  if (!closeComments.value.trim()) return 'Add closure comments.'
-  return ''
-})
+const closeGateState = computed(() => ({
+  incompleteStepCount: incompleteStepCount.value,
+  effectivenessDate: closeEffectivenessDate.value,
+  comments: closeComments.value,
+}))
+
+const canSubmitClose = computed(() => gateCanSubmitClose(closeGateState.value))
+
+/** Header "Close CAPA" tooltip — workflow only. */
+const closeBlockedReason = computed(() =>
+  gateCloseBlockedReason({ incompleteStepCount: incompleteStepCount.value }),
+)
+
+/** "Sign & Close" tooltip — surfaced via BaseDialogFooter's `submitTitle`. */
+const closeDisabledReason = computed(() => gateCloseSubmitBlockedReason(closeGateState.value))
 
 function openPrintView() {
   if (!capa.value?.id) return
@@ -223,7 +230,7 @@ function openCloseDialog() {
 // input into the PIN field (verified in a real browser, not a test-only
 // artifact).
 function handleCloseCapa() {
-  if (!canClose.value) return
+  if (!canSubmitClose.value) return
   saveError.value = null
   showCloseDialog.value = false
   pendingEsignAction.value = 'close'
@@ -376,8 +383,8 @@ const capaActions = computed(() =>
     {
       isOwner: isOwner.value,
       statusId: capa.value?.statusId,
-      canClose: canClose.value,
-      closeDisabledReason: closeDisabledReason.value,
+      canClose: canOpenClose.value,
+      closeDisabledReason: closeBlockedReason.value,
       canCreateChangeRequest: canCreateChangeRequest.value,
       canUpdate: canUpdate.value,
       saving: saving.value,
@@ -427,12 +434,19 @@ const capaDetailConfig = computed(() =>
     notFoundDescription="This CAPA could not be found."
   >
     <template #title>
+      <!-- The editor matches the rendered title's width and weight (2026-08-18):
+           at the default input size a long CAPA title scrolled inside a box a
+           third the width of the text it replaced, so you edited blind. Enter
+           commits, Escape reverts to the read-only row. -->
       <BaseTextInput
         v-if="editingTitle && isEditable"
         v-model="capa.title"
         placeholder="CAPA title"
         autofocus
-        class="tw:mb-2"
+        class="tw:mb-2 tw:w-full"
+        inputClass="tw:text-base tw:font-semibold"
+        @keyup.enter="editingTitle = false"
+        @keyup.escape="editingTitle = false"
         @blur="editingTitle = false"
       />
       <BaseClickableRow
@@ -580,6 +594,13 @@ const capaDetailConfig = computed(() =>
           </BaseDetailField>
           <BaseDetailField label="Source">
             <CapaSourceBadgeById v-if="capa.sourceType" :sourceId="capa.sourceType" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <!-- Shared quality classification — same taxonomy as Quality Events
+               and NCs, inherited from whichever record this CAPA came from. -->
+          <BaseDetailField label="Category">
+            <EventCategorySelectMenu v-if="isEditable" v-model="capa.categoryId" />
+            <EventCategoryBadgeById v-else-if="capa.categoryId" :categoryId="capa.categoryId" />
             <BaseText v-else color="secondary">—</BaseText>
           </BaseDetailField>
           <BaseDetailField
@@ -778,8 +799,8 @@ const capaDetailConfig = computed(() =>
         submitLabel="Sign & Close CAPA"
         submitVariant="danger"
         :loading="closing"
-        :disabled="!canClose"
-        :submitTitle="canClose ? undefined : closeDisabledReason"
+        :disabled="!canSubmitClose"
+        :submitTitle="canSubmitClose ? undefined : closeDisabledReason"
         @cancel="close"
         @submit="handleCloseCapa"
       />
