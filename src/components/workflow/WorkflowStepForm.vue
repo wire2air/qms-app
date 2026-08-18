@@ -12,7 +12,8 @@
  * everyone else sees FormSchemaReadonlyView grouped per-submitter.
  *
  * Two contracts the parent step card relies on:
- *   - `defineExpose({ submit, saving })` — lets the step card drive
+ *   - `defineExpose({ submit, saveDraft, canSaveDraft, saving })` — lets the
+ *     step card, or a group card, drive
  *     save + submit + approve in one shot when it renders its own
  *     Complete & Advance button (paired with `hideSubmit`).
  *   - `autoApprove` — when true, a successful submit also POSTs the
@@ -382,13 +383,13 @@ defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
         :fields="formSchema"
         @update:modelValue="missingFieldsError = ''"
       />
-      <div v-if="currentUserTask" class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
-        <!-- Save draft needs a task to hang the record on. In a group the HEAD
-             step has one, so it keeps the button — hiding it there lost a
-             user's work (reported 2026-08-18). Steps 2..N are still PENDING
-             with no task and genuinely have nowhere to persist to; the card
-             warns about that rather than pretending otherwise. Outside a group
-             isEditable already implies a task, so this is unchanged there. -->
+      <div v-if="currentUserTask && !collectOnly" class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
+        <!-- Save draft needs a task to hang the record on, so it is hidden
+             where there is none. It is hidden in a group too: the group card
+             carries ONE Save draft beside Complete and drives each step
+             through the exposed saveDraft(), so per-step buttons would just be
+             noise — the same reasoning as Mark Complete. Outside a group
+             isEditable already implies a task, so nothing changes there. -->
         <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
           <template #icon><IconDeviceFloppy :size="16" /></template>
           {{ saving ? 'Saving…' : 'Save draft' }}
