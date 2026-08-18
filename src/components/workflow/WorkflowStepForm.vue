@@ -376,10 +376,13 @@ defineExpose({ submit: submitForm, saving })
         :fields="formSchema"
         @update:modelValue="missingFieldsError = ''"
       />
-      <div v-if="!collectOnly" class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
-        <!-- No Save draft in a group: steps 2..N have no task yet, so there is
-             nothing to attach a draft record to. The group's single Complete
-             submits them all. -->
+      <div v-if="currentUserTask" class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
+        <!-- Save draft needs a task to hang the record on. In a group the HEAD
+             step has one, so it keeps the button — hiding it there lost a
+             user's work (reported 2026-08-18). Steps 2..N are still PENDING
+             with no task and genuinely have nowhere to persist to; the card
+             warns about that rather than pretending otherwise. Outside a group
+             isEditable already implies a task, so this is unchanged there. -->
         <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
           <template #icon><IconDeviceFloppy :size="16" /></template>
           {{ saving ? 'Saving…' : 'Save draft' }}

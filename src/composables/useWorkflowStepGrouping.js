@@ -36,25 +36,34 @@ const MIN_GROUP_SIZE = 2
  * a DELAY parks until its due date so it cannot complete inline.
  *
  * @param {object} step         instance step (needs stepType, statusId)
- * @param {string} userId
+ * @param {string} ownerId      the run's owner — the person the run belongs to,
+ *                              not necessarily the viewer
  * @param {string[]} assignees  user ids assigned to the step
  * @param {number} openChildren blocking sub-tasks
  */
-export function isGroupableStep(step, userId, assignees, openChildren = 0) {
+export function isGroupableStep(step, ownerId, assignees, openChildren = 0) {
   if (!step) return false
   if (step.stepType !== 'ACTION') return false
   if (openChildren > 0) return false
   if (!Array.isArray(assignees) || assignees.length !== 1) return false
-  return assignees[0] === userId
+  return assignees[0] === ownerId
 }
+
+/** A step past this point is finished; it keeps its own card and its history. */
+const TERMINAL_STATUSES = ['APPROVED', 'REJECTED', 'SKIPPED', 'CANCELLED']
 
 /**
  * Build the runs for one ordered list of root steps.
  *
- * A run starts at the step that is IN_PROGRESS (the one the user can act on)
- * and extends forward over PENDING steps while they stay groupable. Only that
- * head can start a run: grouping a set of steps none of which is active yet
- * would offer a Complete button that cannot fire.
+ * Grouping is a DISPLAY fact, not an entitlement: any consecutive stretch of
+ * ACTION steps held by one person groups, whoever that person is and whether or
+ * not it is actionable yet. Two steps both belonging to Steve read as "Steve
+ * does these together" long before Steve can start them, and that is what the
+ * reader wants to see (reported 2026-08-18: reassigning step 1 away split the
+ * remaining two apart, when they were still one person's work).
+ *
+ * Whether the viewer gets a Complete button is decided separately, by
+ * WorkflowStepRun, from whether they hold an actionable task on the head.
  *
  * @param {object[]} steps  root instance steps, ordered by stepNumber
  * @param {object}   ctx
@@ -64,32 +73,40 @@ export function isGroupableStep(step, userId, assignees, openChildren = 0) {
  * @param {boolean}  [ctx.enabled]
  * @returns {Map<string, object[]>} head step id → the run (head included)
  */
-export function buildStepGroups(steps, { userId, assigneesFor, openChildrenFor, enabled } = {}) {
+export function buildStepGroups(steps, { assigneesFor, openChildrenFor, enabled } = {}) {
   const groups = new Map()
   const on = enabled ?? STEP_GROUPING_ENABLED
-  if (!on || !userId || !Array.isArray(steps) || steps.length < MIN_GROUP_SIZE) return groups
+  if (!on || !Array.isArray(steps) || steps.length < MIN_GROUP_SIZE) return groups
 
   const ordered = steps.slice().sort((a, b) => (a.stepNumber ?? 0) - (b.stepNumber ?? 0))
 
-  for (let i = 0; i < ordered.length; i += 1) {
+  let i = 0
+  while (i < ordered.length) {
     const head = ordered[i]
-    if (head.statusId !== 'IN_PROGRESS') continue
-    if (!isGroupableStep(head, userId, assigneesFor(head.id), openChildrenFor(head.id))) continue
+    const owner = (assigneesFor(head.id) ?? [])[0]
+    // A run needs one identifiable owner and a step that is still to be done.
+    if (
+      !owner ||
+      TERMINAL_STATUSES.includes(head.statusId) ||
+      !isGroupableStep(head, owner, assigneesFor(head.id), openChildrenFor(head.id))
+    ) {
+      i += 1
+      continue
+    }
 
     const run = [head]
     for (let j = i + 1; j < ordered.length; j += 1) {
       const next = ordered[j]
-      // Only a not-yet-started step may be pulled forward; anything already in
-      // flight, sent back or finished keeps its own lifecycle.
-      if (next.statusId !== 'PENDING') break
-      if (!isGroupableStep(next, userId, assigneesFor(next.id), openChildrenFor(next.id))) break
+      if (TERMINAL_STATUSES.includes(next.statusId)) break
+      if (!isGroupableStep(next, owner, assigneesFor(next.id), openChildrenFor(next.id))) break
       run.push(next)
     }
 
     if (run.length >= MIN_GROUP_SIZE) {
       groups.set(head.id, run)
-      // A step belongs to at most one run.
-      i += run.length - 1
+      i += run.length
+    } else {
+      i += 1
     }
   }
 

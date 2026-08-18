@@ -104,13 +104,33 @@ describe('buildStepGroups', () => {
     expect(buildStepGroups(steps, ctx()).size).toBe(0)
   })
 
-  it('needs an IN_PROGRESS head — a run of PENDING steps has nothing to click', () => {
+  it('groups a not-yet-active run — it still describes whose work it is', () => {
+    // Display-based since 2026-08-18: two PENDING steps held by one person read
+    // as "they do these together" before either can be started. Whether the
+    // viewer gets a Complete button is decided by WorkflowStepRun, not here.
     const steps = [step(1), step(2), step(3)]
-    expect(buildStepGroups(steps, ctx()).size).toBe(0)
+    expect(
+      buildStepGroups(steps, ctx())
+        .get('s1')
+        .map((s) => s.id),
+    ).toEqual(['s1', 's2', 's3'])
   })
 
-  it('will not pull in a step that is already in flight or terminal', () => {
-    for (const status of ['IN_PROGRESS', 'SENT_BACK', 'APPROVED', 'SKIPPED', 'CHANGES_REQUESTED']) {
+  it("groups another person's run too", () => {
+    const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3)]
+    const groups = buildStepGroups(steps, ctx({ assigneesFor: () => [OTHER] }))
+    expect(groups.get('s1').map((s) => s.id)).toEqual(['s1', 's2', 's3'])
+  })
+
+  it('never groups a finished step into a run', () => {
+    const steps = [step(1, { statusId: 'APPROVED' }), step(2, { statusId: 'IN_PROGRESS' }), step(3)]
+    const groups = buildStepGroups(steps, ctx())
+    expect(groups.has('s1')).toBe(false)
+    expect(groups.get('s2').map((s) => s.id)).toEqual(['s2', 's3'])
+  })
+
+  it('breaks the run at a finished step', () => {
+    for (const status of ['APPROVED', 'SKIPPED', 'CANCELLED', 'REJECTED']) {
       const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2, { statusId: status })]
       expect(buildStepGroups(steps, ctx()).size, status).toBe(0)
     }
@@ -126,11 +146,7 @@ describe('buildStepGroups', () => {
   })
 
   it('assigns a step to at most one run', () => {
-    const steps = [
-      step(1, { statusId: 'IN_PROGRESS' }),
-      step(2),
-      step(3, { statusId: 'IN_PROGRESS' }),
-    ]
+    const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3), step(4)]
     const groups = buildStepGroups(steps, ctx())
     const all = [...groups.values()].flat().map((s) => s.id)
     expect(new Set(all).size).toBe(all.length)
@@ -141,9 +157,8 @@ describe('buildStepGroups', () => {
     expect(buildStepGroups(steps, ctx({ enabled: false })).size).toBe(0)
   })
 
-  it('is inert without a user, and on empty or single-step lists', () => {
-    const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2)]
-    expect(buildStepGroups(steps, ctx({ userId: null })).size).toBe(0)
+  it('is inert on empty or single-step lists, and with no assignee', () => {
+    expect(buildStepGroups([step(1), step(2)], ctx({ assigneesFor: () => [] })).size).toBe(0)
     expect(buildStepGroups([], ctx()).size).toBe(0)
     expect(buildStepGroups([step(1, { statusId: 'IN_PROGRESS' })], ctx()).size).toBe(0)
     expect(buildStepGroups(undefined, ctx()).size).toBe(0)
@@ -155,15 +170,17 @@ describe('reassigning re-forms the group without ungrouping', () => {
   // step to someone else and let the run recompute. Assignments are read
   // through a live query, so these are the shapes that fall out of it.
 
-  it('drops the head when it is reassigned away, leaving nothing actionable yet', () => {
-    // Steps 2 and 3 are still both mine, but they are PENDING — there is no
-    // step I can act on, so offering a Complete button would be a lie.
+  it('keeps the remaining steps grouped when the head is reassigned away', () => {
+    // The reported case: step 1 goes to someone else, steps 2 and 3 are still
+    // one person's work and must stay collapsed rather than splitting into
+    // three separate cards.
     const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3)]
     const groups = buildStepGroups(
       steps,
       ctx({ assigneesFor: (id) => (id === 's1' ? [OTHER] : [ME]) }),
     )
-    expect(groups.size).toBe(0)
+    expect(groups.has('s1')).toBe(false)
+    expect(groups.get('s2').map((s) => s.id)).toEqual(['s2', 's3'])
   })
 
   it('regroups the remaining steps once the next one becomes active', () => {
@@ -188,13 +205,16 @@ describe('reassigning re-forms the group without ungrouping', () => {
     expect(groups.get('s1').map((s) => s.id)).toEqual(['s1', 's2'])
   })
 
-  it('stops grouping entirely when only one step is left to me', () => {
+  it("leaves my single step alone and groups the other person's pair", () => {
+    // Display-based: my lone step is below the minimum so it renders on its
+    // own, while steps 2 and 3 group under their shared owner.
     const steps = [step(1, { statusId: 'IN_PROGRESS' }), step(2), step(3)]
     const groups = buildStepGroups(
       steps,
       ctx({ assigneesFor: (id) => (id === 's1' ? [ME] : [OTHER]) }),
     )
-    expect(groups.size).toBe(0)
+    expect(groups.has('s1')).toBe(false)
+    expect(groups.get('s2').map((s) => s.id)).toEqual(['s2', 's3'])
   })
 })
 

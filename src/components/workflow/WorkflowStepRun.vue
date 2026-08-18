@@ -52,19 +52,42 @@ const ungrouped = ref(new Set())
 
 const stepIdKey = computed(() => props.steps.map((s) => s.id).join(','))
 
-// Assignees per step — grouping needs "exactly one assignee, and it's me".
+// Task statuses that mean "this task is no longer the assignment" — a
+// reassigned or cancelled task must not count towards who owns the step.
+const DEAD_TASK_STATUSES = ['REASSIGNED', 'CANCELLED']
+
+/**
+ * Who owns each step.
+ *
+ * The LIVE task wins where one exists. Reassignment moves the task but leaves
+ * the old row in users_on_workflow_instance_steps, so a reassigned step reads
+ * as two assignees there and stops grouping entirely (reported 2026-08-18).
+ * The task is what WorkflowStep itself trusts, so grouping trusts it too.
+ *
+ * Steps that have not activated have no task, and there the planned reviewer
+ * set is the only signal there is.
+ */
 const assigneesByStep = useLiveQueryWithDeps(
   [() => stepIdKey.value],
   async (db, [key]) => {
     if (!key) return {}
     const out = {}
     for (const id of key.split(',')) {
+      const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
+        'WorkflowInstanceStep',
+        id,
+      ]).exec()
+      const live = tasks.filter((t) => t.assignedTo && !DEAD_TASK_STATUSES.includes(t.statusId))
+      if (live.length) {
+        out[id] = [...new Set(live.map((t) => t.assignedTo))]
+        continue
+      }
       const rows = await db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
       out[id] = [...new Set(rows.map((r) => r.userId).filter(Boolean))]
     }
     return out
   },
-  { models: ['UserOnWorkflowInstanceStep'], initial: {} },
+  { models: ['UserOnWorkflowInstanceStep', 'TaskInstance'], initial: {} },
 )
 
 // Open sub-tasks block a step from joining a run — completing the parent would
@@ -111,19 +134,45 @@ const myTaskByStep = useLiveQueryWithDeps(
 
 const groups = computed(() => {
   const all = buildStepGroups(props.steps, {
-    userId: currentUserId.value,
     assigneesFor: (id) => assigneesByStep.value[id] ?? [],
     openChildrenFor: (id) => openChildrenByStep.value[id] ?? 0,
   })
-  // Drop runs the user split apart, and any whose head has no actionable task
-  // for them (the Complete button would have nothing to post against).
+  // A run is shown to everyone — it describes whose work it is. Only runs the
+  // viewer split apart are dropped; whether they get a Complete button is
+  // `canAct` below, from whether they hold an actionable task on the head.
   for (const headId of [...all.keys()]) {
-    if (ungrouped.value.has(headId) || !myTaskByStep.value[headId]) all.delete(headId)
+    if (ungrouped.value.has(headId)) all.delete(headId)
   }
   return all
 })
 
 const collapsed = computed(() => collapsedStepIds(groups.value))
+
+/** Owner display names, so a run that is not yours says whose it is. */
+const ownerIdKey = computed(() =>
+  [...groups.value.keys()]
+    .map((h) => (assigneesByStep.value[h] ?? [])[0])
+    .filter(Boolean)
+    .join(','),
+)
+const ownerNames = useLiveQueryWithDeps(
+  [() => ownerIdKey.value, () => currentUserId.value],
+  async (db, [key, me]) => {
+    if (!key) return {}
+    const out = {}
+    for (const id of [...new Set(key.split(','))]) {
+      if (id === me) continue // blank reads as "you"
+      const u = await db.User.findByPk(id)
+      if (u) out[id] = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+    }
+    return out
+  },
+  { models: ['User'], initial: {} },
+)
+
+function ownerNameFor(headId) {
+  return ownerNames.value[(assigneesByStep.value[headId] ?? [])[0]] ?? ''
+}
 
 function onUngroup(headId) {
   ungrouped.value = new Set([...ungrouped.value, headId])
@@ -138,8 +187,9 @@ function onUngroup(headId) {
       :steps="groups.get(step.id)"
       :module="module"
       :resourceId="resourceId"
-      :headTaskId="myTaskByStep[step.id]"
-      canAct
+      :headTaskId="myTaskByStep[step.id] ?? null"
+      :canAct="!!myTaskByStep[step.id]"
+      :ownerName="ownerNameFor(step.id)"
       @ungroup="onUngroup(step.id)"
       @reassign="(id) => emit('reassign', id)"
     />

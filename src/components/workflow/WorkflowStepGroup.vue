@@ -42,9 +42,12 @@ const props = defineProps({
   steps: { type: Array, required: true },
   module: { type: Object, required: true },
   resourceId: { type: String, required: true },
-  /** Task instance on the head step, belonging to the current user. */
-  headTaskId: { type: String, required: true },
+  /** Task on the head step belonging to the current user — null when the run
+   *  is somebody else's, in which case the card is descriptive only. */
+  headTaskId: { type: String, default: null },
   canAct: { type: Boolean, default: false },
+  /** Whose run this is, for the header. Empty means "you". */
+  ownerName: { type: String, default: '' },
 })
 
 const emit = defineEmits(['ungroup', 'reassign'])
@@ -213,6 +216,17 @@ async function submitGroup(esign = null) {
           {{ step.description }}
         </p>
 
+        <!-- Steps after the first cannot be saved as drafts — they have no task
+             to attach a record to until they activate. Say so next to the form
+             rather than letting someone type for ten minutes and lose it. -->
+        <p
+          v-if="hasForm(step) && i > 0"
+          class="tw:mb-2 tw:rounded-md tw:bg-amber-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-amber-800 tw:dark:bg-amber-950/30 tw:dark:text-amber-200"
+        >
+          Not saved until you complete the group — this step has not started yet, so there is
+          nothing to hold a draft.
+        </p>
+
         <!-- collectOnly: validate and hand back the payload. Steps 2..N have no
              task instance yet, so their records are written server-side. -->
         <WorkflowStepForm
@@ -230,11 +244,17 @@ async function submitGroup(esign = null) {
     <div
       class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:border-t tw:border-divider tw:px-4 tw:py-3"
     >
-      <BaseCaption v-if="requiresEsignature">
+      <BaseCaption v-if="canAct && requiresEsignature">
         You'll sign once; a signature is recorded against each step.
       </BaseCaption>
+      <BaseCaption v-else-if="!canAct"> Waiting on {{ ownerName || 'the assignee' }}. </BaseCaption>
       <span v-else />
-      <BaseButton :disabled="!canAct || submitting" :loading="submitting" @click="onCompleteClick">
+      <BaseButton
+        v-if="canAct"
+        :disabled="submitting"
+        :loading="submitting"
+        @click="onCompleteClick"
+      >
         Complete {{ steps.length }} steps
       </BaseButton>
     </div>
