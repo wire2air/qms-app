@@ -113,6 +113,13 @@ const cancelTarget = ref(null)
 const cancelReason = ref('')
 const cancelling = ref(false)
 
+// Mirrors WorkflowStep's canReassign: the OWNER may hand a step to someone
+// else while it is PENDING, IN_PROGRESS or SENT_BACK — including one already
+// assigned to another person, which is the whole point of the control.
+function canReassign(step) {
+  return props.isOwner && CANCELLABLE_STATUSES.includes(step.statusId)
+}
+
 function canCancel(step) {
   return props.isOwner && step.stepType !== 'DELAY' && CANCELLABLE_STATUSES.includes(step.statusId)
 }
@@ -289,7 +296,35 @@ async function submitGroup(esign = null) {
                are meaningless on them, and the engine would refuse. Reassign is
                the exception the engine does allow on a PENDING step, and it is
                how you take one step out of the run. -->
-          <div class="tw:ml-auto tw:shrink-0">
+          <!-- Reassign and Cancel are the OWNER's inline controls on every
+               step, head included. WorkflowStepActionsMenu deliberately hides
+               REASSIGN / CANCEL / REQUEST_INFO (ALWAYS_HIDDEN_OUTCOMES), so
+               giving the head only the menu left it with no way to reassign —
+               something a standalone step has always allowed, even when the
+               step belongs to someone else (reported 2026-08-18). -->
+          <div class="tw:ml-auto tw:flex tw:shrink-0 tw:items-center tw:gap-1">
+            <BaseTooltip v-if="canReassign(step)" content="Reassign this step to someone else">
+              <button
+                type="button"
+                class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
+                :aria-label="`Reassign ${step.name || 'step ' + step.stepNumber}`"
+                @click="emit('reassign', step.id)"
+              >
+                <IconUserShare :size="16" />
+              </button>
+            </BaseTooltip>
+            <BaseTooltip v-if="canCancel(step)" content="Cancel this step">
+              <button
+                type="button"
+                class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-bad"
+                :aria-label="`Cancel ${step.name || 'step ' + step.stepNumber}`"
+                @click="openCancel(step)"
+              >
+                <IconBan :size="16" />
+              </button>
+            </BaseTooltip>
+            <!-- Outcome actions (send back, etc.) apply only to the active
+                 head; later steps have no task to act on. -->
             <WorkflowStepActionsMenu
               v-if="i === 0"
               :module="module"
@@ -299,28 +334,6 @@ async function submitGroup(esign = null) {
               :requireEsignature="!!step.requireEsignature"
               :hideOutcomes="['COMPLETE_AND_ADVANCE']"
             />
-            <template v-else>
-              <BaseTooltip content="Reassign this step to someone else">
-                <button
-                  type="button"
-                  class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
-                  :aria-label="`Reassign ${step.name || 'step ' + step.stepNumber}`"
-                  @click="emit('reassign', step.id)"
-                >
-                  <IconUserShare :size="16" />
-                </button>
-              </BaseTooltip>
-              <BaseTooltip v-if="canCancel(step)" content="Cancel this step">
-                <button
-                  type="button"
-                  class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-bad"
-                  :aria-label="`Cancel ${step.name || 'step ' + step.stepNumber}`"
-                  @click="openCancel(step)"
-                >
-                  <IconBan :size="16" />
-                </button>
-              </BaseTooltip>
-            </template>
           </div>
         </div>
 
