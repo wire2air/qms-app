@@ -174,6 +174,9 @@ const { allowLeave } = useUnsavedChangesGuard(isDirty)
 watch(sourceFinding, (f) => {
   if (!f) return
   if (!form.value.title) {
+    // Findings genuinely have no title — only findingNumber + description
+    // (models/auditFinding.js) — so unlike the NC path below there is no own
+    // title to prefer, and the number stays the default.
     form.value.title = `CAPA for Finding ${f.findingNumber || ''}`.trim()
   }
   if (!form.value.description) form.value.description = f.description ?? ''
@@ -201,7 +204,12 @@ const ncSeeded = ref(false)
 watch(sourceNc, (nc) => {
   if (!nc || ncSeeded.value) return
   ncSeeded.value = true
-  if (!form.value.title) form.value.title = `CAPA for ${nc.ncNumber || nc.title}`
+  // The NC's OWN title, not "CAPA for NC-001". The CAPA has its own number and
+  // already shows a "Linked to Nonconformance NC-001" chip plus a real FK, so
+  // restating the NC number in the title added nothing and cost the one thing a
+  // title is for — saying what the problem IS. A register of "CAPA for NC-001,
+  // CAPA for NC-002…" is unreadable (reported 2026-08-18).
+  if (!form.value.title) form.value.title = nc.title || `CAPA for ${nc.ncNumber}`
   // The NC's description IS the problem statement the CAPA answers.
   if (richTextIsEmpty(form.value.description) && nc.description) {
     form.value.description = nc.description
