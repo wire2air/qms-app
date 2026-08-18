@@ -1,5 +1,5 @@
 <script setup>
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -50,14 +50,11 @@ function openReassignDialog(instanceStepId) {
 <template>
   <div class="tw:contents">
     <template v-if="workflowInstanceSteps.length">
-      <WorkflowStep
-        v-for="(step, idx) in workflowInstanceSteps"
-        :key="step.id"
+      <WorkflowStepRun
+        :steps="workflowInstanceSteps"
         :module="CAPA_MODULE"
-        :instanceStepId="step.id"
         :resourceId="capaId"
         :isOwner="isOwner"
-        :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
       >
         <!-- CAPA stages can have nested sub-tasks under each parent. The
@@ -82,7 +79,7 @@ function openReassignDialog(instanceStepId) {
             @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
           />
         </template>
-      </WorkflowStep>
+      </WorkflowStepRun>
     </template>
 
     <WorkflowReassignDialog ref="reassignDialogRef" :module="CAPA_MODULE" :resourceId="capaId" />

@@ -10,7 +10,7 @@
  * Reassign is owned by the shared WorkflowReassignDialog — this section
  * just forwards the instance-step id to it via the ref.
  */
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { CR_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -57,14 +57,11 @@ function openReassignDialog(instanceStepId) {
 <template>
   <div class="tw:contents">
     <template v-if="steps.length">
-      <WorkflowStep
-        v-for="(step, idx) in steps"
-        :key="step.id"
+      <WorkflowStepRun
+        :steps="steps"
         :module="CR_MODULE"
-        :instanceStepId="step.id"
         :resourceId="crId"
         :isOwner="isOwner"
-        :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
       >
         <template
@@ -86,7 +83,7 @@ function openReassignDialog(instanceStepId) {
             @reassign="(childId) => openReassignDialog(childId)"
           />
         </template>
-      </WorkflowStep>
+      </WorkflowStepRun>
     </template>
     <BaseCard v-else-if="workflowInstanceId" class="tw:text-sm tw:text-secondary tw:italic">
       No workflow steps to show yet.
