@@ -1,4 +1,11 @@
 <script setup>
+// `embedded` lets a host page (ChangeRequestsHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import {
   IconAlertCircle,
   IconClock,
@@ -140,6 +147,7 @@ function onCreate() {
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="Change Control"
     subtitle="Plan, approve, implement, and verify the effectiveness of controlled changes."
     :state="list.state.value"
