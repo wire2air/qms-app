@@ -350,10 +350,22 @@ export async function syncApprovalWorkflowLifecycle(db, template) {
   }
   if (!newestDraft(versions)) {
     const source = highestVersion(versions)
+    // Number from EVERY version, discarded ones included. The unique index on
+    // (workflow_id, version_major, version_minor) has no deleted_at clause, so
+    // a soft-deleted 1.1 keeps that slot and reusing it fails with 23505. Same
+    // fix as WorkflowEditor's Create New Draft — see the note there.
+    const allVersions = await db.WorkflowVersion.where('workflowId', workflow.id, {
+      force: true,
+    }).exec()
+    const highestAny = allVersions.sort((a, b) =>
+      a.versionMajor !== b.versionMajor
+        ? b.versionMajor - a.versionMajor
+        : b.versionMinor - a.versionMinor,
+    )[0]
     const draft = db.WorkflowVersion.create({
       workflowId: workflow.id,
-      versionMajor: source?.versionMajor ?? 1,
-      versionMinor: source ? source.versionMinor + 1 : 0,
+      versionMajor: highestAny?.versionMajor ?? source?.versionMajor ?? 1,
+      versionMinor: highestAny ? highestAny.versionMinor + 1 : 0,
       statusId: 'DRAFT',
     })
     await draft.save()
