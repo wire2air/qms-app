@@ -157,9 +157,11 @@ async function runExport(format) {
               Filter
             </BaseButton>
           </template>
-          <div class="tw:flex tw:min-w-56 tw:flex-col tw:gap-3 tw:p-3">
-            <slot name="filters" />
-          </div>
+          <template #content>
+            <div class="tw:flex tw:min-w-56 tw:flex-col tw:gap-3 tw:p-3">
+              <slot name="filters" />
+            </div>
+          </template>
         </BasePopover>
 
         <BaseMenu v-if="canExport" :items="exportItems">

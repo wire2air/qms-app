@@ -165,13 +165,15 @@ async function save() {
       </div>
     </div>
 
-    <template #footer>
-      <BaseDialogFooter>
-        <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>
-        <BaseButton :disabled="!canSave" :loading="saving" @click="save">
-          {{ widget ? 'Save changes' : 'Add widget' }}
-        </BaseButton>
-      </BaseDialogFooter>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        :loading="saving"
+        :disabled="!canSave"
+        :submitLabel="widget ? 'Save changes' : 'Add widget'"
+        :submitTitle="canSave ? undefined : 'Pick a metric first.'"
+        @cancel="close"
+        @submit="save"
+      />
     </template>
   </BaseDialog>
 </template>

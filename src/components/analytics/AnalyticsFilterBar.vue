@@ -62,7 +62,9 @@ const periodLabel = computed(() => {
             {{ periodLabel }}
           </BaseButton>
         </template>
-        <BaseDateFilter v-model="period" />
+        <template #content>
+          <BaseDateFilter v-model="period" />
+        </template>
       </BasePopover>
 
       <div class="tw:min-w-44">

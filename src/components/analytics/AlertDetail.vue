@@ -228,9 +228,11 @@ function sliceOf(event) {
       title="Alert not found"
       description="It may have been deleted, or you may not have access to it."
     >
-      <BaseButton size="sm" variant="outline" @click="router.push('/analytics/alerts')">
-        Back to alerts
-      </BaseButton>
+      <template #action>
+        <BaseButton size="sm" variant="outline" @click="router.push('/analytics/alerts')">
+          Back to alerts
+        </BaseButton>
+      </template>
     </BaseEmptyState>
 
     <template v-else-if="alert">

@@ -128,7 +128,7 @@ async function save() {
           <BaseButton
             class="tw:mt-2 tw:w-full"
             :disabled="!normalised.metricKey || !targetDashboard || saving"
-            :loading="saving"
+            :isLoading="saving"
             @click="save"
           >
             <IconDeviceFloppy :size="14" aria-hidden="true" />

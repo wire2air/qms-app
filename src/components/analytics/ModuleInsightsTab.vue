@@ -104,7 +104,9 @@ const catalogEmpty = computed(
         title="Could not load metrics"
         description="The metric catalog did not load."
       >
-        <BaseButton size="sm" variant="outline" @click="retryCatalog">Try again</BaseButton>
+        <template #action>
+          <BaseButton size="sm" variant="outline" @click="retryCatalog">Try again</BaseButton>
+        </template>
       </BaseEmptyState>
 
       <!-- A module with no metrics is a real, expected state — not a failure. -->

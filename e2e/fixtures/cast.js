@@ -562,3 +562,49 @@ export const QC = {
   // E2E seed — PW-J6 clones one of these.
   globalStandards: ['Z1.4-2008', 'ISO_2859-1'],
 }
+
+// Analytics / QMS Intelligence fixtures (e2e-seed.sql §31).
+//
+// FACT_MONTH is the whole reason exact figures are assertable here. `ncr.raised`
+// buckets on `created_at`, and every other suite in this repo creates
+// nonconformances *now*, so any assertion against the current month depends on
+// run order. §31 back-dates six rows into one month no other journey writes to,
+// which is what turns "greater than zero" into "exactly 6".
+//
+// TENANT_VALUE and SITE_VALUE are not two guesses at the same number — they are
+// two CORRECT answers to the same question, which is the module's central claim.
+// `author` holds ncr:read at tenant scope and sees all six; `siteRoamer` holds it
+// at site scope from Primary Site and sees the four that live there. Measured
+// against the live stack on 2026-08-18 via metric_value() under app_user.
+export const ANALYTICS = {
+  FACT_MONTH: { start: '2026-02-01', end: '2026-02-28' },
+  METRIC: 'ncr.raised',
+  // What every picker in the module actually displays. The key is never shown.
+  METRIC_LABEL: 'NCs Raised',
+  DIMENSION_LABEL: 'Severity',
+  TENANT_VALUE: 6, // author / auditor  — ncr:read at tenant
+  SITE_VALUE: 4, // siteRoamer        — ncr:read at site (Primary)
+  // The severity mix, so a breakdown assertion does not have to re-derive it.
+  SEVERITY_BREAKDOWN: { MINOR: 2, MAJOR: 2, CRITICAL: 2 },
+  sharedDashboard: {
+    id: 'e2ea2000-0000-4000-8000-000000000001',
+    name: 'E2E Shared NC Board',
+  },
+  privateDashboard: {
+    id: 'e2ea2000-0000-4000-8000-000000000002',
+    name: 'E2E Private Board',
+  },
+  sharedWidget: { id: 'e2ea3000-0000-4000-8000-000000000001', title: 'NCs raised' },
+  sharedReport: {
+    id: 'e2ea4000-0000-4000-8000-000000000001',
+    name: 'E2E Shared NC Report',
+  },
+  privateReport: {
+    id: 'e2ea4000-0000-4000-8000-000000000002',
+    name: 'E2E Private NC Report',
+  },
+  // A dashboard/report id that is syntactically valid and belongs to nobody —
+  // the premise for "not found" states, which must be distinguishable from a
+  // crash and from a private record leaking its existence.
+  ABSENT_ID: 'e2eaffff-0000-4000-8000-0000000000ff',
+}

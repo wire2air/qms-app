@@ -146,6 +146,13 @@ const canSave = computed(
   () => !!form.value.name.trim() && definitionHasContent(form.value.definition) && !saving.value,
 )
 
+const saveBlockedReason = computed(() => {
+  if (!form.value.name.trim()) return 'Give the report a name.'
+  if (!definitionHasContent(form.value.definition))
+    return 'At least one section needs a metric or a breakdown.'
+  return undefined
+})
+
 const saveReport = useLiveMutation(async (db, payload) => {
   if (payload.id) {
     const existing = await db.AnalyticsReport.findByPk(payload.id)
@@ -297,13 +304,15 @@ async function save() {
       </div>
     </div>
 
-    <template #footer>
-      <BaseDialogFooter>
-        <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>
-        <BaseButton :disabled="!canSave" :loading="saving" @click="save">
-          {{ report ? 'Save changes' : 'Create report' }}
-        </BaseButton>
-      </BaseDialogFooter>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        :loading="saving"
+        :disabled="!canSave"
+        :submitLabel="report ? 'Save changes' : 'Create report'"
+        :submitTitle="saveBlockedReason"
+        @cancel="close"
+        @submit="save"
+      />
     </template>
   </BaseDialog>
 </template>

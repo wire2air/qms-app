@@ -163,9 +163,11 @@ function questionOf(w) {
       title="Dashboard not found"
       description="It may have been deleted, or it may be private to someone else."
     >
-      <BaseButton size="sm" variant="outline" @click="router.push('/analytics/dashboards')">
-        Back to dashboards
-      </BaseButton>
+      <template #action>
+        <BaseButton size="sm" variant="outline" @click="router.push('/analytics/dashboards')">
+          Back to dashboards
+        </BaseButton>
+      </template>
     </BaseEmptyState>
 
     <template v-else>
@@ -178,10 +180,12 @@ function questionOf(w) {
             : 'The owner has not added any tiles to this dashboard.'
         "
       >
-        <BaseButton v-if="canEdit" size="sm" @click="addWidget">
-          <IconPlus :size="14" aria-hidden="true" />
-          Add widget
-        </BaseButton>
+        <template #action>
+          <BaseButton v-if="canEdit" size="sm" @click="addWidget">
+            <IconPlus :size="14" aria-hidden="true" />
+            Add widget
+          </BaseButton>
+        </template>
       </BaseEmptyState>
 
       <ContentGrid v-else ref="gridRef" min="22rem">

@@ -118,7 +118,7 @@ async function remove(d) {
             class="tw:flex-1"
             @keyup.enter="create"
           />
-          <BaseButton :disabled="!newName.trim() || creating" :loading="creating" @click="create">
+          <BaseButton :disabled="!newName.trim() || creating" :isLoading="creating" @click="create">
             <IconPlus :size="14" aria-hidden="true" />
             Create
           </BaseButton>

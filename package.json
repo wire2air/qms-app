@@ -42,6 +42,8 @@
     "test:e2e:sites:headed": "playwright test --project=sites --headed",
     "test:e2e:depts": "playwright test --project=departments",
     "test:e2e:depts:headed": "playwright test --project=departments --headed",
+    "test:e2e:analytics": "playwright test --project=analytics",
+    "test:e2e:analytics:headed": "playwright test --project=analytics --headed",
     "test:e2e:audits": "playwright test --project=audits",
     "test:e2e:audits:headed": "playwright test --project=audits --headed",
     "test:e2e:auth": "playwright test --project=authentication",

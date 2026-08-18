@@ -296,9 +296,11 @@ async function requestExport(format) {
       title="Report not found"
       description="It may have been deleted, or it may be private to someone else."
     >
-      <BaseButton size="sm" variant="outline" @click="router.push('/analytics/reports')">
-        Back to reports
-      </BaseButton>
+      <template #action>
+        <BaseButton size="sm" variant="outline" @click="router.push('/analytics/reports')">
+          Back to reports
+        </BaseButton>
+      </template>
     </BaseEmptyState>
 
     <template v-else>

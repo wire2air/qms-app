@@ -69,11 +69,52 @@ npm run test:e2e:capas        # CAPAs
 npm run test:e2e:sites        # sites
 npm run test:e2e:depts        # departments
 npm run test:e2e:audits       # audits (standards, programs, instances, findings)
+npm run test:e2e:analytics    # analytics / QMS Intelligence
 npm run test:e2e:sites:headed # watch it drive a real browser
 
 npm run test:e2e:ui           # Playwright UI mode (pick/replay/inspect)
 npm run test:e2e:report       # open the HTML report from the last run
 ```
+
+### The `analytics` suite is shaped differently
+
+Two things separate it from every other project here, and both are premises
+rather than preferences.
+
+**It needs a worker round-trip before it can assert anything.** `metric_catalog()`
+ends with `AND EXISTS (SELECT 1 FROM analytics_rollup r WHERE r.metric_key = m.id)`,
+and `analytics_rollup` is itself RLS'd. Until the rollup holds rows *this reader*
+may see, every picker in the module is empty and every journey fails identically
+whether the cause is a missing grant, a missing refresh or a broken executor.
+`fixtures/analytics.js` exports `ensureRollup()`, which enqueues the real
+`refresh_analytics_rollup` task and waits. Seeding rollup rows by hand would let
+every downstream assertion pass while the refresh path was broken — which is
+exactly the defect class Phase 0 found.
+
+**Half of it is deliberately not UI steps.** The module's central claim is that one
+stored question yields a *different correct answer per reader*. A screen can only
+ever show one reader's answer at a time, so the comparison happens below the UI
+via `metric_value()` under `app_user`, and the UI tests assert that a tile renders
+the figure it was handed. `multiSite` and `suppliers` are shaped the same way for
+the same reason.
+
+**The fixture month is load-bearing.** `ncr.raised` buckets on `created_at`, and
+every other suite in this repo creates nonconformances *now*, so anything asserted
+against the current month is a hostage to run order. §31 back-dates six rows into
+**2026-02** — inside `last_12_months` so the default period still shows them, and
+a month nothing else writes to. That is what turns "greater than zero" into
+exactly 6 at tenant scope and exactly 4 at site scope. **Nothing else in the suite
+may write to 2026-02.**
+
+`ANL-A1`, `A2` and `A3` are regression tests for a defect class nothing else in
+the toolchain can see. Vue discards children handed to a slot that does not exist
+— silently, with no build warning and no runtime error. On 2026-08-18 that shipped
+a New-report dialog whose Save button was dead, five invisible empty-state
+actions, and two popovers that opened empty, all of which passed eslint, the
+production build, the layout guard and the design-system ratchet. `A1` locates the
+submit control by the label the dialog *declares* (`Create report`), so a
+regression to the broken form finds no button and fails here instead of in front
+of a user.
 
 ### Module screenshots
 
