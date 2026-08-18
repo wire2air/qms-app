@@ -1,4 +1,5 @@
 <script setup>
+import { humanizeFilter } from '@/composables/useListPrint.js'
 import { IconAlertCircle, IconClock, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -63,6 +64,9 @@ function applyFilters(results, statusIds, priorityIds, typeIds) {
 function applyActiveFilter(results, af) {
   const now = DateTime.now()
   const userId = currentSession.value?.userId
+  // Explicit rather than relying on the fallthrough below: 'all' is a real
+  // choice (the whole register, closed included), not an unrecognised value.
+  if (af === 'all') return results
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
@@ -193,6 +197,12 @@ async function onDeleteCapa(row) {
     </template>
 
     <template #actions>
+      <ListPrintButton
+        entity="Capa"
+        title="CAPA Register"
+        :rows="capas"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
     </template>
 
