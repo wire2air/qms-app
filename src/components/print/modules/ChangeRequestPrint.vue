@@ -3,34 +3,27 @@ import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue
 import '../recordPrint.css'
 
 /**
- * CAPA print module.
+ * Change Request print module.
  *
- * Self-contained: fetches the CAPA + its workflow instance + steps + per-
- * step form records via SyncEngine, passes audit entities to PrintLayout,
- * renders title block + meta table + step-by-step body + effectiveness
- * check appendix.
+ * Same defect as the NC one: ChangeRequestsPageId linked to
+ * `?module=ChangeRequest` against a registry that never had it, so the button
+ * opened "Unknown print module". Found by printModuleRegistry.spec.js while
+ * fixing NC (2026-08-18), not by anyone clicking it.
  *
- * Form payloads are rendered via FormSchemaReadonlyView (the same
- * readonly renderer used by NcWorkflowStep / WorkflowStepForm
- * readonly mode / DocumentVersionSection). It pulls labels from the
- * schema, renders rich-text fields with v-html, resolves option-set
- * labels — keeping the print view consistent with the in-app view.
- *
- * Auto-fires window.print() ~600ms after the layout has the data it needs
- * (mirrors DocumentPrint).
+ * Layout follows NonconformancePrint / CapaPrint via recordPrint.css. The one
+ * CR-specific part is the change-assessment block — classification, nature,
+ * duration, regulatory impact, customer notification — which is what a reviewer
+ * actually signs off on and has no analogue in the other modules.
  */
 
 const props = defineProps({
   id: { type: String, default: null },
 })
 
-const capa = useLiveQueryWithDeps(
+const cr = useLiveQueryWithDeps(
   [() => props.id],
-  async (db, [id]) => {
-    if (!id) return null
-    return db.Capa.findByPk(id)
-  },
-  { models: ['Capa'] },
+  async (db, [id]) => (id ? db.ChangeRequest.findByPk(id) : null),
+  { models: ['ChangeRequest'] },
 )
 
 const workflowInstance = useLiveQueryWithDeps(
@@ -38,10 +31,9 @@ const workflowInstance = useLiveQueryWithDeps(
   async (db, [id]) => {
     if (!id) return null
     const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
-      'Capa',
+      'ChangeRequest',
       id,
     ]).exec()
-    // Pick the most recent for the audit/print purposes
     return (
       results.sort(
         (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
@@ -52,26 +44,17 @@ const workflowInstance = useLiveQueryWithDeps(
 )
 
 const workflowVersion = useLiveQueryWithDeps(
-  [() => workflowInstance.value?.workflowVersionId ?? capa.value?.workflowVersionId],
-
-  async (db, [versionId]) => {
-    if (!versionId) return null
-    return db.WorkflowVersion.findByPk(versionId)
-  },
+  [() => workflowInstance.value?.workflowVersionId ?? cr.value?.workflowVersionId],
+  async (db, [versionId]) => (versionId ? db.WorkflowVersion.findByPk(versionId) : null),
   { models: ['WorkflowVersion'] },
 )
 
 const workflow = useLiveQueryWithDeps(
   [() => workflowVersion.value?.workflowId],
-
-  async (db, [workflowId]) => {
-    if (!workflowId) return null
-    return db.Workflow.findByPk(workflowId)
-  },
+  async (db, [workflowId]) => (workflowId ? db.Workflow.findByPk(workflowId) : null),
   { models: ['Workflow'] },
 )
 
-// All steps under this CAPA's workflow instance (roots + children).
 const allSteps = useLiveQueryWithDeps(
   [() => workflowInstance.value?.id],
   async (db, [instanceId]) => {
@@ -80,7 +63,6 @@ const allSteps = useLiveQueryWithDeps(
       .orderBy('stepNumber', 'asc')
       .exec()
   },
-
   { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
@@ -93,18 +75,17 @@ function childrenOf(parentId) {
 
 const allStepIds = computed(() => allSteps.value.map((s) => s.id))
 
-// Per-step assignment rows so each step prints its reviewer.
 const allAssignments = useLiveQueryWithDeps(
   [() => allStepIds.value.join(',')],
   async (db, [idsStr]) => {
     if (!idsStr) return []
-    const ids = idsStr.split(',')
     const fetched = await Promise.all(
-      ids.map((id) => db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()),
+      idsStr
+        .split(',')
+        .map((id) => db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()),
     )
     return fetched.flat()
   },
-
   { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
@@ -119,27 +100,24 @@ function assigneeIdFor(stepId) {
   return row?.userId ?? null
 }
 
-// Submitted CapaRecord per step (the assignee's form answers).
 const allRecords = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
     if (!id) return []
-    const all = await db.CapaRecord.where('capaId', id).exec()
+    const all = await db.CrRecord.where('changeRequestId', id).exec()
     return all.filter((r) => r.submittedAt)
   },
-
-  { models: ['CapaRecord'], initial: [] },
+  { models: ['CrRecord'], initial: [] },
 )
 
 function recordsForStep(stepId) {
   return allRecords.value.filter((r) => r.workflowInstanceStepId === stepId)
 }
 
-// Resolve user display names — owner, assignees, capa creator.
 const userIds = computed(() => {
   const set = new Set()
-  if (capa.value?.ownerId) set.add(capa.value.ownerId)
-  if (capa.value?.createdBy) set.add(capa.value.createdBy)
+  if (cr.value?.ownerId) set.add(cr.value.ownerId)
+  if (cr.value?.createdBy) set.add(cr.value.createdBy)
   for (const a of allAssignments.value) if (a.userId) set.add(a.userId)
   for (const r of allRecords.value) if (r.userId) set.add(r.userId)
   return [...set]
@@ -157,7 +135,6 @@ const userMap = useLiveQueryWithDeps(
     }
     return map
   },
-
   { models: ['User'], initial: {} },
 )
 
@@ -165,51 +142,39 @@ function userName(id) {
   return id ? (userMap.value[id] ?? id) : '—'
 }
 
-// Resolve type / priority / site / department / source labels via their
-// respective stores. Each is a quick findByPk live query.
-const capaType = useLiveQueryWithDeps(
-  [() => capa.value?.typeId],
-  async (db, [id]) => (id ? db.CapaType.findByPk(id) : null),
-  { models: ['CapaType'] },
+const changeType = useLiveQueryWithDeps(
+  [() => cr.value?.changeTypeId],
+  async (db, [id]) => (id ? db.ChangeType.findByPk(id) : null),
+  { models: ['ChangeType'] },
 )
-const capaPriority = useLiveQueryWithDeps(
-  [() => capa.value?.priorityId],
-  async (db, [id]) => (id ? db.CapaPriority.findByPk(id) : null),
-  { models: ['CapaPriority'] },
-)
-const capaSite = useLiveQueryWithDeps(
-  [() => capa.value?.siteId],
+const crSite = useLiveQueryWithDeps(
+  [() => cr.value?.siteId],
   async (db, [id]) => (id ? db.Site.findByPk(id) : null),
   { models: ['Site'] },
 )
-const capaDepartment = useLiveQueryWithDeps(
-  [() => capa.value?.departmentId],
+const crDepartment = useLiveQueryWithDeps(
+  [() => cr.value?.departmentId],
   async (db, [id]) => (id ? db.Department.findByPk(id) : null),
   { models: ['Department'] },
 )
-const capaStatus = useLiveQueryWithDeps(
-  [() => capa.value?.statusId],
-  async (db, [id]) => (id ? db.CapaStatus.findByPk(id) : null),
-  { models: ['CapaStatus'] },
+
+const identifier = computed(() => cr.value?.crNumber ?? '')
+
+// Only print the assessment block when the reviewer actually filled something
+// in — an all-dashes table reads as "assessed and found to be nothing".
+const hasAssessment = computed(() =>
+  [
+    cr.value?.classification,
+    cr.value?.changeNature,
+    cr.value?.changeDuration,
+    cr.value?.regulatoryImpact,
+    cr.value?.customerNotificationRequired,
+  ].some(Boolean),
 )
-
-// Effectiveness checks for the appendix.
-const effectivenessChecks = useLiveQueryWithDeps(
-  [() => props.id],
-  async (db, [id]) => {
-    if (!id) return []
-    const all = await db.CapaEffectivenessCheck.where('capaId', id).exec()
-    return all.sort((a, b) => (a.dueAt?.toMillis?.() ?? 0) - (b.dueAt?.toMillis?.() ?? 0))
-  },
-
-  { models: ['CapaEffectivenessCheck'], initial: [] },
-)
-
-const identifier = computed(() => capa.value?.capaNumber ?? '')
 
 const auditEntities = computed(() => {
   const out = []
-  if (capa.value?.id) out.push({ entityType: 'Capas', entityId: capa.value.id })
+  if (cr.value?.id) out.push({ entityType: 'ChangeRequests', entityId: cr.value.id })
   if (workflowInstance.value?.id) {
     out.push({ entityType: 'WorkflowInstances', entityId: workflowInstance.value.id })
   }
@@ -231,7 +196,7 @@ function fmtDateTime(d) {
   return new Date(d).toLocaleString()
 }
 
-const ready = computed(() => !!capa.value)
+const ready = computed(() => !!cr.value)
 
 onMounted(() => {
   const tryPrint = (attempts = 0) => {
@@ -246,47 +211,47 @@ onMounted(() => {
 </script>
 
 <template>
-  <PrintLayout :status="capa?.statusId" :identifier="identifier" :auditEntities="auditEntities">
+  <PrintLayout :status="cr?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="qp-num">{{ capa?.capaNumber }}</div>
-      <h1 class="qp-title">{{ capa?.title }}</h1>
+      <div class="qp-num">{{ cr?.crNumber }}</div>
+      <h1 class="qp-title">{{ cr?.title }}</h1>
       <table class="qp-meta">
         <tbody>
           <tr>
-            <th>CAPA Number</th>
-            <td>{{ capa?.capaNumber || '—' }}</td>
+            <th>CR Number</th>
+            <td>{{ cr?.crNumber || '—' }}</td>
             <th>Status</th>
-            <td>{{ capaStatus?.name || capa?.statusId || '—' }}</td>
+            <td>{{ cr?.statusId || '—' }}</td>
           </tr>
           <tr>
-            <th>Type</th>
-            <td>{{ capaType?.name || capa?.typeId || '—' }}</td>
+            <th>Change Type</th>
+            <td>{{ changeType?.name || cr?.changeTypeId || '—' }}</td>
             <th>Priority</th>
-            <td>{{ capaPriority?.name || capa?.priorityId || '—' }}</td>
+            <td>{{ cr?.priorityId || '—' }}</td>
           </tr>
           <tr>
             <th>Site</th>
-            <td>{{ capaSite?.name || '—' }}</td>
+            <td>{{ crSite?.name || '—' }}</td>
             <th>Department</th>
-            <td>{{ capaDepartment?.name || '—' }}</td>
+            <td>{{ crDepartment?.name || '—' }}</td>
           </tr>
           <tr>
             <th>Owner</th>
-            <td>{{ userName(capa?.ownerId) }}</td>
-            <th>Initiated By</th>
-            <td>{{ userName(capa?.createdBy) }}</td>
+            <td>{{ userName(cr?.ownerId) }}</td>
+            <th>Raised By</th>
+            <td>{{ userName(cr?.createdBy) }}</td>
           </tr>
           <tr>
             <th>Initiated</th>
-            <td>{{ fmtDate(capa?.initiatedAt) }}</td>
-            <th>Due Date</th>
-            <td>{{ fmtDate(capa?.dueDate) }}</td>
+            <td>{{ fmtDate(cr?.initiatedAt) }}</td>
+            <th>Target Implementation</th>
+            <td>{{ fmtDate(cr?.targetImplementationDate) }}</td>
           </tr>
-          <tr v-if="capa?.cancelledAt || capa?.closedAt || capa?.verifiedAt">
-            <th>Verified</th>
-            <td>{{ fmtDateTime(capa?.verifiedAt) }}</td>
-            <th>{{ capa?.cancelledAt ? 'Cancelled' : 'Closed' }}</th>
-            <td>{{ fmtDateTime(capa?.cancelledAt || capa?.closedAt) }}</td>
+          <tr v-if="cr?.approvedAt || cr?.closedAt || cr?.cancelledAt">
+            <th>Approved</th>
+            <td>{{ fmtDateTime(cr?.approvedAt) }}</td>
+            <th>{{ cr?.cancelledAt ? 'Cancelled' : 'Closed' }}</th>
+            <td>{{ fmtDateTime(cr?.cancelledAt || cr?.closedAt) }}</td>
           </tr>
         </tbody>
       </table>
@@ -301,20 +266,52 @@ onMounted(() => {
       </div>
     </template>
 
-    <div v-if="!ready" class="tw:py-10 tw:text-secondary tw:text-center">Loading CAPA…</div>
+    <div v-if="!ready" class="tw:py-10 tw:text-secondary tw:text-center">
+      Loading change request…
+    </div>
     <div v-else class="qp-body">
-      <!-- Problem description -->
-      <section v-if="capa?.description" class="qp-section">
-        <h2>1. Problem Description</h2>
-        <p class="qp-paragraph">{{ capa.description }}</p>
+      <section v-if="cr?.description || cr?.reasonForChange" class="qp-section">
+        <h2>1. Change Description &amp; Rationale</h2>
+        <div v-if="cr?.description" class="qp-paragraph" v-html="cr.description" />
+        <template v-if="cr?.reasonForChange">
+          <div class="qp-step-label">Reason for Change</div>
+          <div class="qp-paragraph" v-html="cr.reasonForChange" />
+        </template>
+        <template v-if="cr?.businessJustification">
+          <div class="qp-step-label">Business Justification</div>
+          <div class="qp-paragraph" v-html="cr.businessJustification" />
+        </template>
       </section>
 
-      <!-- Workflow steps (root level) -->
+      <section v-if="hasAssessment" class="qp-section">
+        <h2>2. Change Assessment</h2>
+        <table class="qp-meta">
+          <tbody>
+            <tr>
+              <th>Classification</th>
+              <td>{{ cr?.classification || '—' }}</td>
+              <th>Nature</th>
+              <td>{{ cr?.changeNature || '—' }}</td>
+            </tr>
+            <tr>
+              <th>Duration</th>
+              <td>{{ cr?.changeDuration || '—' }}</td>
+              <th>Regulatory Impact</th>
+              <td>{{ cr?.regulatoryImpact || '—' }}</td>
+            </tr>
+            <tr>
+              <th>Customer Notification</th>
+              <td colspan="3">{{ cr?.customerNotificationRequired || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       <section v-if="rootSteps.length" class="qp-section">
-        <h2>2. Action Plan &amp; Execution</h2>
+        <h2>3. Review &amp; Approval</h2>
         <p class="qp-paragraph qp-note">
           The {{ rootSteps.length }} step{{ rootSteps.length === 1 ? '' : 's' }} executed for this
-          CAPA, including sub-tasks, assignees, completion, and any form data captured.
+          change request, including assignees, completion, and any form data captured.
         </p>
         <div v-for="(step, idx) in rootSteps" :key="step.id" class="qp-step">
           <div class="qp-step-head">
@@ -334,7 +331,6 @@ onMounted(() => {
             <span class="qp-step-label">Instructions:</span>
             <span v-html="step.description" />
           </div>
-          <!-- Submitted form records -->
           <div v-for="record in recordsForStep(step.id)" :key="record.id" class="qp-record">
             <div class="qp-record-head">
               <strong>{{ userName(record.userId) }}</strong>
@@ -346,7 +342,6 @@ onMounted(() => {
               :values="record.payload"
             />
           </div>
-          <!-- Children -->
           <div v-if="childrenOf(step.id).length" class="qp-children">
             <div class="qp-children-label">Sub-tasks</div>
             <div v-for="(child, ci) in childrenOf(step.id)" :key="child.id" class="qp-child">
@@ -357,10 +352,6 @@ onMounted(() => {
                 <template v-if="child.completedAt">
                   · Completed {{ fmtDateTime(child.completedAt) }}
                 </template>
-              </div>
-              <div v-if="child.description" class="qp-step-instructions">
-                <span class="qp-step-label">Instructions:</span>
-                <span v-html="child.description" />
               </div>
               <div v-for="record in recordsForStep(child.id)" :key="record.id" class="qp-record">
                 <div class="qp-record-head">
@@ -378,33 +369,9 @@ onMounted(() => {
         </div>
       </section>
 
-      <!-- Effectiveness checks appendix -->
-      <section v-if="effectivenessChecks.length" class="qp-section">
-        <h2>3. Effectiveness Checks</h2>
-        <table class="qp-effectiveness">
-          <thead>
-            <tr>
-              <th>Due</th>
-              <th>Status</th>
-              <th>Completed</th>
-              <th>Comments</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="check in effectivenessChecks" :key="check.id">
-              <td>{{ fmtDate(check.dueAt) }}</td>
-              <td>{{ check.statusId }}</td>
-              <td>{{ fmtDateTime(check.completedAt) }}</td>
-              <td>{{ check.comments || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <!-- Cancellation reason appendix -->
-      <section v-if="capa?.cancelReason" class="qp-section">
+      <section v-if="cr?.cancelReason" class="qp-section">
         <h2>Cancellation Reason</h2>
-        <p class="qp-paragraph">{{ capa.cancelReason }}</p>
+        <p class="qp-paragraph">{{ cr.cancelReason }}</p>
       </section>
     </div>
   </PrintLayout>

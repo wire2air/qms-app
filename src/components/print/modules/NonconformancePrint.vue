@@ -3,34 +3,31 @@ import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue
 import '../recordPrint.css'
 
 /**
- * CAPA print module.
+ * Nonconformance print module.
  *
- * Self-contained: fetches the CAPA + its workflow instance + steps + per-
- * step form records via SyncEngine, passes audit entities to PrintLayout,
- * renders title block + meta table + step-by-step body + effectiveness
- * check appendix.
+ * The registry carried `// Future: Nonconformance` while NonconformancesPageId
+ * already linked to `?module=Nonconformance` — so the NC Print button had been
+ * opening the shell's "Unknown print module" error the whole time (reported
+ * 2026-08-18). This is that module.
  *
- * Form payloads are rendered via FormSchemaReadonlyView (the same
- * readonly renderer used by NcWorkflowStep / WorkflowStepForm
- * readonly mode / DocumentVersionSection). It pulls labels from the
- * schema, renders rich-text fields with v-html, resolves option-set
- * labels — keeping the print view consistent with the in-app view.
+ * Structured to mirror CapaPrint so a CAPA and the NC it came from read as one
+ * document family: title block + meta table, then description, containment,
+ * the workflow steps with their submitted form data, and a disposition
+ * appendix. Shared chrome (branding, audit trail, signatures) comes from
+ * PrintLayout; shared styles from recordPrint.css.
  *
- * Auto-fires window.print() ~600ms after the layout has the data it needs
- * (mirrors DocumentPrint).
+ * Self-contained by the registry's contract: reads its own id, runs its own
+ * live queries, auto-fires window.print() once the record has loaded.
  */
 
 const props = defineProps({
   id: { type: String, default: null },
 })
 
-const capa = useLiveQueryWithDeps(
+const nc = useLiveQueryWithDeps(
   [() => props.id],
-  async (db, [id]) => {
-    if (!id) return null
-    return db.Capa.findByPk(id)
-  },
-  { models: ['Capa'] },
+  async (db, [id]) => (id ? db.Nonconformance.findByPk(id) : null),
+  { models: ['Nonconformance'] },
 )
 
 const workflowInstance = useLiveQueryWithDeps(
@@ -38,10 +35,10 @@ const workflowInstance = useLiveQueryWithDeps(
   async (db, [id]) => {
     if (!id) return null
     const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
-      'Capa',
+      'Nonconformance',
       id,
     ]).exec()
-    // Pick the most recent for the audit/print purposes
+    // Most recent wins — an NC that was sent back and re-opened has more than one.
     return (
       results.sort(
         (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
@@ -52,26 +49,17 @@ const workflowInstance = useLiveQueryWithDeps(
 )
 
 const workflowVersion = useLiveQueryWithDeps(
-  [() => workflowInstance.value?.workflowVersionId ?? capa.value?.workflowVersionId],
-
-  async (db, [versionId]) => {
-    if (!versionId) return null
-    return db.WorkflowVersion.findByPk(versionId)
-  },
+  [() => workflowInstance.value?.workflowVersionId ?? nc.value?.workflowVersionId],
+  async (db, [versionId]) => (versionId ? db.WorkflowVersion.findByPk(versionId) : null),
   { models: ['WorkflowVersion'] },
 )
 
 const workflow = useLiveQueryWithDeps(
   [() => workflowVersion.value?.workflowId],
-
-  async (db, [workflowId]) => {
-    if (!workflowId) return null
-    return db.Workflow.findByPk(workflowId)
-  },
+  async (db, [workflowId]) => (workflowId ? db.Workflow.findByPk(workflowId) : null),
   { models: ['Workflow'] },
 )
 
-// All steps under this CAPA's workflow instance (roots + children).
 const allSteps = useLiveQueryWithDeps(
   [() => workflowInstance.value?.id],
   async (db, [instanceId]) => {
@@ -80,7 +68,6 @@ const allSteps = useLiveQueryWithDeps(
       .orderBy('stepNumber', 'asc')
       .exec()
   },
-
   { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
@@ -93,21 +80,22 @@ function childrenOf(parentId) {
 
 const allStepIds = computed(() => allSteps.value.map((s) => s.id))
 
-// Per-step assignment rows so each step prints its reviewer.
 const allAssignments = useLiveQueryWithDeps(
   [() => allStepIds.value.join(',')],
   async (db, [idsStr]) => {
     if (!idsStr) return []
-    const ids = idsStr.split(',')
     const fetched = await Promise.all(
-      ids.map((id) => db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()),
+      idsStr
+        .split(',')
+        .map((id) => db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()),
     )
     return fetched.flat()
   },
-
   { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
+// Who actually did the step: the approver if there is one, else whoever holds
+// it now. REASSIGNED rows are stale by definition and never the answer.
 function assigneeIdFor(stepId) {
   const row =
     allAssignments.value.find(
@@ -119,27 +107,27 @@ function assigneeIdFor(stepId) {
   return row?.userId ?? null
 }
 
-// Submitted CapaRecord per step (the assignee's form answers).
+// Submitted NcRecord per step (the assignee's form answers). Drafts
+// (submittedAt null) are deliberately excluded — an unsubmitted answer is not
+// part of the record.
 const allRecords = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
     if (!id) return []
-    const all = await db.CapaRecord.where('capaId', id).exec()
+    const all = await db.NcRecord.where('ncId', id).exec()
     return all.filter((r) => r.submittedAt)
   },
-
-  { models: ['CapaRecord'], initial: [] },
+  { models: ['NcRecord'], initial: [] },
 )
 
 function recordsForStep(stepId) {
   return allRecords.value.filter((r) => r.workflowInstanceStepId === stepId)
 }
 
-// Resolve user display names — owner, assignees, capa creator.
 const userIds = computed(() => {
   const set = new Set()
-  if (capa.value?.ownerId) set.add(capa.value.ownerId)
-  if (capa.value?.createdBy) set.add(capa.value.createdBy)
+  if (nc.value?.ownerId) set.add(nc.value.ownerId)
+  if (nc.value?.createdBy) set.add(nc.value.createdBy)
   for (const a of allAssignments.value) if (a.userId) set.add(a.userId)
   for (const r of allRecords.value) if (r.userId) set.add(r.userId)
   return [...set]
@@ -157,7 +145,6 @@ const userMap = useLiveQueryWithDeps(
     }
     return map
   },
-
   { models: ['User'], initial: {} },
 )
 
@@ -165,51 +152,71 @@ function userName(id) {
   return id ? (userMap.value[id] ?? id) : '—'
 }
 
-// Resolve type / priority / site / department / source labels via their
-// respective stores. Each is a quick findByPk live query.
-const capaType = useLiveQueryWithDeps(
-  [() => capa.value?.typeId],
-  async (db, [id]) => (id ? db.CapaType.findByPk(id) : null),
-  { models: ['CapaType'] },
+// Label lookups — each a cheap findByPk against its own store.
+const ncType = useLiveQueryWithDeps(
+  [() => nc.value?.typeId],
+  async (db, [id]) => (id ? db.NcType.findByPk(id) : null),
+  { models: ['NcType'] },
 )
-const capaPriority = useLiveQueryWithDeps(
-  [() => capa.value?.priorityId],
-  async (db, [id]) => (id ? db.CapaPriority.findByPk(id) : null),
-  { models: ['CapaPriority'] },
+const ncSource = useLiveQueryWithDeps(
+  [() => nc.value?.sourceId],
+  async (db, [id]) => (id ? db.NcSource.findByPk(id) : null),
+  { models: ['NcSource'] },
 )
-const capaSite = useLiveQueryWithDeps(
-  [() => capa.value?.siteId],
+const ncSeverity = useLiveQueryWithDeps(
+  [() => nc.value?.severityId],
+  async (db, [id]) => (id ? db.NcSeverity.findByPk(id) : null),
+  { models: ['NcSeverity'] },
+)
+const ncStatus = useLiveQueryWithDeps(
+  [() => nc.value?.statusId],
+  async (db, [id]) => (id ? db.NcStatus.findByPk(id) : null),
+  { models: ['NcStatus'] },
+)
+// Shared quality classification (event_categories) — same taxonomy the source
+// Quality Event and any spawned CAPA carry.
+const ncCategory = useLiveQueryWithDeps(
+  [() => nc.value?.categoryId],
+  async (db, [id]) => (id ? db.EventCategory.findByPk(id) : null),
+  { models: ['EventCategory'] },
+)
+const ncSite = useLiveQueryWithDeps(
+  [() => nc.value?.siteId],
   async (db, [id]) => (id ? db.Site.findByPk(id) : null),
   { models: ['Site'] },
 )
-const capaDepartment = useLiveQueryWithDeps(
-  [() => capa.value?.departmentId],
+const ncDepartment = useLiveQueryWithDeps(
+  [() => nc.value?.departmentId],
   async (db, [id]) => (id ? db.Department.findByPk(id) : null),
   { models: ['Department'] },
 )
-const capaStatus = useLiveQueryWithDeps(
-  [() => capa.value?.statusId],
-  async (db, [id]) => (id ? db.CapaStatus.findByPk(id) : null),
-  { models: ['CapaStatus'] },
+const ncProduct = useLiveQueryWithDeps(
+  [() => nc.value?.productId],
+  async (db, [id]) => (id ? db.Product.findByPk(id) : null),
+  { models: ['Product'] },
+)
+const ncSupplier = useLiveQueryWithDeps(
+  [() => nc.value?.supplierId],
+  async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
+  { models: ['Supplier'] },
+)
+const ncDisposition = useLiveQueryWithDeps(
+  [() => nc.value?.dispositionTypeId],
+  async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
 )
 
-// Effectiveness checks for the appendix.
-const effectivenessChecks = useLiveQueryWithDeps(
-  [() => props.id],
-  async (db, [id]) => {
-    if (!id) return []
-    const all = await db.CapaEffectivenessCheck.where('capaId', id).exec()
-    return all.sort((a, b) => (a.dueAt?.toMillis?.() ?? 0) - (b.dueAt?.toMillis?.() ?? 0))
-  },
+const identifier = computed(() => nc.value?.ncNumber ?? '')
 
-  { models: ['CapaEffectivenessCheck'], initial: [] },
+// Commercial references only earn a row when at least one is set — most NCs
+// carry none and an all-dashes row is noise on a printed page.
+const hasCommercialRefs = computed(
+  () => !!(nc.value?.poNumber || nc.value?.orderNumber || nc.value?.lotNumber),
 )
-
-const identifier = computed(() => capa.value?.capaNumber ?? '')
 
 const auditEntities = computed(() => {
   const out = []
-  if (capa.value?.id) out.push({ entityType: 'Capas', entityId: capa.value.id })
+  if (nc.value?.id) out.push({ entityType: 'Nonconformances', entityId: nc.value.id })
   if (workflowInstance.value?.id) {
     out.push({ entityType: 'WorkflowInstances', entityId: workflowInstance.value.id })
   }
@@ -231,8 +238,11 @@ function fmtDateTime(d) {
   return new Date(d).toLocaleString()
 }
 
-const ready = computed(() => !!capa.value)
+const ready = computed(() => !!nc.value)
 
+// Poll rather than watch: in a fresh tab the syncEngine is still bootstrapping
+// when this mounts, so the record arrives some hundreds of ms later. 20 × 200ms
+// then give up — printing an empty page is worse than not printing.
 onMounted(() => {
   const tryPrint = (attempts = 0) => {
     if (ready.value) {
@@ -246,47 +256,74 @@ onMounted(() => {
 </script>
 
 <template>
-  <PrintLayout :status="capa?.statusId" :identifier="identifier" :auditEntities="auditEntities">
+  <PrintLayout :status="nc?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="qp-num">{{ capa?.capaNumber }}</div>
-      <h1 class="qp-title">{{ capa?.title }}</h1>
+      <div class="qp-num">{{ nc?.ncNumber }}</div>
+      <h1 class="qp-title">{{ nc?.title }}</h1>
       <table class="qp-meta">
         <tbody>
           <tr>
-            <th>CAPA Number</th>
-            <td>{{ capa?.capaNumber || '—' }}</td>
+            <th>NC Number</th>
+            <td>{{ nc?.ncNumber || '—' }}</td>
             <th>Status</th>
-            <td>{{ capaStatus?.name || capa?.statusId || '—' }}</td>
+            <td>{{ ncStatus?.name || nc?.statusId || '—' }}</td>
           </tr>
           <tr>
             <th>Type</th>
-            <td>{{ capaType?.name || capa?.typeId || '—' }}</td>
-            <th>Priority</th>
-            <td>{{ capaPriority?.name || capa?.priorityId || '—' }}</td>
+            <td>{{ ncType?.name || nc?.typeId || '—' }}</td>
+            <th>Severity</th>
+            <td>{{ ncSeverity?.name || nc?.severityId || '—' }}</td>
+          </tr>
+          <tr>
+            <th>Category</th>
+            <td>{{ ncCategory?.name || '—' }}</td>
+            <th>Detection Source</th>
+            <td>{{ ncSource?.name || nc?.sourceId || '—' }}</td>
           </tr>
           <tr>
             <th>Site</th>
-            <td>{{ capaSite?.name || '—' }}</td>
+            <td>{{ ncSite?.name || '—' }}</td>
             <th>Department</th>
-            <td>{{ capaDepartment?.name || '—' }}</td>
+            <td>{{ ncDepartment?.name || '—' }}</td>
+          </tr>
+          <tr>
+            <th>Item</th>
+            <td>{{ ncProduct?.name || '—' }}</td>
+            <th>Supplier</th>
+            <td>{{ ncSupplier?.name || '—' }}</td>
           </tr>
           <tr>
             <th>Owner</th>
-            <td>{{ userName(capa?.ownerId) }}</td>
-            <th>Initiated By</th>
-            <td>{{ userName(capa?.createdBy) }}</td>
+            <td>{{ userName(nc?.ownerId) }}</td>
+            <th>Raised By</th>
+            <td>{{ userName(nc?.createdBy) }}</td>
           </tr>
           <tr>
-            <th>Initiated</th>
-            <td>{{ fmtDate(capa?.initiatedAt) }}</td>
+            <th>Detected</th>
+            <td>{{ fmtDate(nc?.detectedAt) }}</td>
             <th>Due Date</th>
-            <td>{{ fmtDate(capa?.dueDate) }}</td>
+            <td>{{ fmtDate(nc?.dueDate) }}</td>
           </tr>
-          <tr v-if="capa?.cancelledAt || capa?.closedAt || capa?.verifiedAt">
-            <th>Verified</th>
-            <td>{{ fmtDateTime(capa?.verifiedAt) }}</td>
-            <th>{{ capa?.cancelledAt ? 'Cancelled' : 'Closed' }}</th>
-            <td>{{ fmtDateTime(capa?.cancelledAt || capa?.closedAt) }}</td>
+          <tr v-if="hasCommercialRefs">
+            <th>PO / Order #</th>
+            <td>{{ [nc?.poNumber, nc?.orderNumber].filter(Boolean).join(' / ') || '—' }}</td>
+            <th>Lot / Qty</th>
+            <td>
+              {{
+                [
+                  nc?.lotNumber,
+                  nc?.qtyAffected && `${nc.qtyAffected} ${nc.unitOfMeasure || ''}`.trim(),
+                ]
+                  .filter(Boolean)
+                  .join(' / ') || '—'
+              }}
+            </td>
+          </tr>
+          <tr v-if="nc?.closedAt">
+            <th>Closed</th>
+            <td>{{ fmtDateTime(nc?.closedAt) }}</td>
+            <th>Disposition</th>
+            <td>{{ ncDisposition?.name || '—' }}</td>
           </tr>
         </tbody>
       </table>
@@ -301,20 +338,25 @@ onMounted(() => {
       </div>
     </template>
 
-    <div v-if="!ready" class="tw:py-10 tw:text-secondary tw:text-center">Loading CAPA…</div>
+    <div v-if="!ready" class="tw:py-10 tw:text-secondary tw:text-center">Loading NC…</div>
     <div v-else class="qp-body">
-      <!-- Problem description -->
-      <section v-if="capa?.description" class="qp-section">
-        <h2>1. Problem Description</h2>
-        <p class="qp-paragraph">{{ capa.description }}</p>
+      <section v-if="nc?.description" class="qp-section">
+        <h2>1. Description</h2>
+        <div class="qp-paragraph" v-html="nc.description" />
       </section>
 
-      <!-- Workflow steps (root level) -->
+      <!-- Containment is the regulator's first question on any NC: what did you
+           do at the moment of detection? It prints ahead of the workflow. -->
+      <section v-if="nc?.immediateContainmentAction" class="qp-section">
+        <h2>2. Immediate Containment Action</h2>
+        <div class="qp-paragraph" v-html="nc.immediateContainmentAction" />
+      </section>
+
       <section v-if="rootSteps.length" class="qp-section">
-        <h2>2. Action Plan &amp; Execution</h2>
+        <h2>3. Investigation &amp; Disposition</h2>
         <p class="qp-paragraph qp-note">
           The {{ rootSteps.length }} step{{ rootSteps.length === 1 ? '' : 's' }} executed for this
-          CAPA, including sub-tasks, assignees, completion, and any form data captured.
+          nonconformance, including assignees, completion, and any form data captured.
         </p>
         <div v-for="(step, idx) in rootSteps" :key="step.id" class="qp-step">
           <div class="qp-step-head">
@@ -334,7 +376,6 @@ onMounted(() => {
             <span class="qp-step-label">Instructions:</span>
             <span v-html="step.description" />
           </div>
-          <!-- Submitted form records -->
           <div v-for="record in recordsForStep(step.id)" :key="record.id" class="qp-record">
             <div class="qp-record-head">
               <strong>{{ userName(record.userId) }}</strong>
@@ -346,7 +387,6 @@ onMounted(() => {
               :values="record.payload"
             />
           </div>
-          <!-- Children -->
           <div v-if="childrenOf(step.id).length" class="qp-children">
             <div class="qp-children-label">Sub-tasks</div>
             <div v-for="(child, ci) in childrenOf(step.id)" :key="child.id" class="qp-child">
@@ -357,10 +397,6 @@ onMounted(() => {
                 <template v-if="child.completedAt">
                   · Completed {{ fmtDateTime(child.completedAt) }}
                 </template>
-              </div>
-              <div v-if="child.description" class="qp-step-instructions">
-                <span class="qp-step-label">Instructions:</span>
-                <span v-html="child.description" />
               </div>
               <div v-for="record in recordsForStep(child.id)" :key="record.id" class="qp-record">
                 <div class="qp-record-head">
@@ -378,33 +414,12 @@ onMounted(() => {
         </div>
       </section>
 
-      <!-- Effectiveness checks appendix -->
-      <section v-if="effectivenessChecks.length" class="qp-section">
-        <h2>3. Effectiveness Checks</h2>
-        <table class="qp-effectiveness">
-          <thead>
-            <tr>
-              <th>Due</th>
-              <th>Status</th>
-              <th>Completed</th>
-              <th>Comments</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="check in effectivenessChecks" :key="check.id">
-              <td>{{ fmtDate(check.dueAt) }}</td>
-              <td>{{ check.statusId }}</td>
-              <td>{{ fmtDateTime(check.completedAt) }}</td>
-              <td>{{ check.comments || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <!-- Cancellation reason appendix -->
-      <section v-if="capa?.cancelReason" class="qp-section">
-        <h2>Cancellation Reason</h2>
-        <p class="qp-paragraph">{{ capa.cancelReason }}</p>
+      <section v-if="nc?.dispositionTypeId || nc?.dispositionNotes" class="qp-section">
+        <h2>4. Disposition</h2>
+        <p class="qp-paragraph">
+          <strong>{{ ncDisposition?.name || '—' }}</strong>
+        </p>
+        <p v-if="nc?.dispositionNotes" class="qp-paragraph">{{ nc.dispositionNotes }}</p>
       </section>
     </div>
   </PrintLayout>

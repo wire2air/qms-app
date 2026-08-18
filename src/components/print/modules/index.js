@@ -41,8 +41,16 @@ export const printModules = {
   // the customer to execute on paper and sign. Takes ?slug=, not ?id=: the
   // content ships with the app rather than living in the customer's data.
   ValidationProtocol: () => import('./ValidationProtocolPrint.vue'),
-  // Future:
-  // Nonconformance: () => import('./NonconformancePrint.vue'),
+  // The quality-event chain. All three share recordPrint.css so a Quality
+  // Event, the NC it escalated to and the CAPA that followed print as one
+  // document family.
+  Nonconformance: () => import('./NonconformancePrint.vue'),
+  QualityEvent: () => import('./QualityEventPrint.vue'),
+  ChangeRequest: () => import('./ChangeRequestPrint.vue'),
+  // Generic register printout — one table for every list page (CAPA, NC,
+  // Change Control, Quality Events, Documents, Audits, QC lots, Submissions).
+  // Takes ?entity= + ?scope=current|all; see composables/useListPrint.js.
+  RecordList: () => import('./RecordListPrint.vue'),
 }
 
 export function resolveModule(name) {
