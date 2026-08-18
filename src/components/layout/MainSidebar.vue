@@ -57,7 +57,6 @@ import {
   IconBell,
   IconListDetails,
   IconEye,
-  IconBolt,
   IconWorld,
   IconLicense,
   IconGavel,
@@ -619,6 +618,25 @@ const navItems = computed(() => {
         //   to: getCompanyPath('/document-templates'),
         // },
         {
+          // The notification engine, under the name people look for
+          // (2026-08-18). Two entries used to compete: a "Notifications" page
+          // backed by notification_rules — one static recipient list per entity
+          // type, no trigger, no conditions, empty in every tenant — and
+          // "Automation Rules", which is the one that works: object → trigger
+          // (created / status-changed / updated / scheduled) → AND/OR
+          // conditions → actions, scoped per site and department. The dead one
+          // is gone; the working one took its name and moved here.
+          //
+          // It does more than notify (CREATE_NC, CREATE_TASK, SEND_SMS), so the
+          // label undersells it — but notification is what people come looking
+          // for, and an engine nobody finds is worth less than one named
+          // slightly too narrowly.
+          label: 'Notifications',
+          permissions: ['automation_rules:manage'],
+          icon: IconBell,
+          to: getCompanyPath('/automation-rules'),
+        },
+        {
           // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
           // Document / Training). Rendered as the "Additional information" card
           // on each detail page; stored in entity_field_values (JSONB), sealed.
@@ -727,22 +745,6 @@ const navItems = computed(() => {
         // /vendor-access-log) was removed from the menu 2026-07-24 (user
         // decision) — page + API remain reachable by direct URL for
         // security:manage holders.
-        {
-          // Config-driven notification engine (entity create / status-change →
-          // notify groups / people / owner / initiator over in-app + email).
-          label: 'Notifications',
-          permissions: ['company_settings:manage'],
-          icon: IconBell,
-          to: getCompanyPath('/notification-rules'),
-        },
-        {
-          // Condition-based automation / notification rules (object → AND/OR
-          // conditions → actions: notify, create NC, …). Scoped per site/dept.
-          label: 'Automation Rules',
-          permissions: ['automation_rules:manage'],
-          icon: IconBolt,
-          to: getCompanyPath('/automation-rules'),
-        },
         // Complaint Settings moved onto the Customer Complaints page itself
         // (gear icon in the header) — module settings live with the module.
         {
