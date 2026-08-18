@@ -41,6 +41,12 @@ const props = defineProps({
   // exposed ref. Save draft stays so the assignee can still persist
   // mid-work without completing.
   hideSubmit: { type: Boolean, default: false },
+  // Step grouping: validate and build the payload, then hand it back instead
+  // of persisting. A grouped run's 2nd..Nth steps are still PENDING and have
+  // no task instance, and a step record needs a task_instance_id — so their
+  // records can only be written server-side, after each step activates.
+  // Default false, so every existing caller behaves exactly as before.
+  collectOnly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done'])
@@ -169,6 +175,27 @@ watch(resource, (resourceRow) => {
   }
 })
 
+/**
+ * The payload as it will be stored: context-only keys stripped, OptionSet
+ * labels frozen. Shared by persistRecord and by collectOnly, so a grouped step
+ * is saved from exactly the same shape as an individually-completed one.
+ */
+async function buildPayload() {
+  // Strip every key the module marks as context-only (prefixed with
+  // _ by convention, e.g. _parent_problem). Anything not in the
+  // context map is part of the persisted payload.
+  const contextKeys = new Set(
+    Object.keys(props.module.getStepFormContextFields(resource.value) ?? {}),
+  )
+  const rawPayload = Object.fromEntries(
+    Object.entries(formData.value || {}).filter(([k]) => !contextKeys.has(k)),
+  )
+  // Freeze OptionSet labels onto the payload so saved records stay
+  // readable as the admin originally meant them even if the source
+  // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
+  return freezeOptionLabels(db, formSchema.value, rawPayload)
+}
+
 async function persistRecord({ submit, esign }) {
   if (saving.value) return
   if (!currentUserTask.value) {
@@ -181,16 +208,7 @@ async function persistRecord({ submit, esign }) {
     // Strip every key the module marks as context-only (prefixed with
     // _ by convention, e.g. _parent_problem). Anything not in the
     // context map is part of the persisted payload.
-    const contextKeys = new Set(
-      Object.keys(props.module.getStepFormContextFields(resource.value) ?? {}),
-    )
-    const rawPayload = Object.fromEntries(
-      Object.entries(formData.value || {}).filter(([k]) => !contextKeys.has(k)),
-    )
-    // Freeze OptionSet labels onto the payload so saved records stay
-    // readable as the admin originally meant them even if the source
-    // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
-    const payload = await freezeOptionLabels(db, formSchema.value, rawPayload)
+    const payload = await buildPayload()
     const existing = currentUserRecord.value
     const submittedAt = submit ? DateTime.now() : (existing?.submittedAt ?? null)
     if (existing) {
@@ -303,6 +321,9 @@ async function submitForm(esign) {
     return
   }
   missingFieldsError.value = ''
+  // Grouped run: hand the validated payload up; the server writes it once the
+  // step activates and its task exists.
+  if (props.collectOnly) return { payload: await buildPayload() }
   return persistRecord({ submit: true, esign })
 }
 
