@@ -208,7 +208,7 @@ async function buildPayload() {
   return freezeOptionLabels(db, formSchema.value, rawPayload)
 }
 
-async function persistRecord({ submit, esign }) {
+async function persistRecord({ submit, esign, extraAction = null }) {
   if (saving.value) return
   // A DRAFT no longer needs a task. Step records already model a draft as
   // `submitted_at IS NULL`, and migration 20260818000100 dropped the NOT NULL
@@ -255,9 +255,14 @@ async function persistRecord({ submit, esign }) {
     // are passed through from the parent's esign dialog.
     if (submit && props.autoApprove && currentUserTask.value?.statusId === 'ASSIGNED') {
       try {
+        // `extraAction` carries step-level fields the CARD owns rather than the
+        // form — today the effectiveness verdict on a DELAY step. It has to ride
+        // this request because the form's submit and the completion are one
+        // round trip when autoApprove is on.
         const body = {
           action: 'COMPLETE_AND_ADVANCE',
           outcomeId: 'COMPLETE_AND_ADVANCE',
+          ...(extraAction ?? {}),
         }
         if (esign?.method) body.method = esign.method
         if (esign?.token) body.token = esign.token
@@ -321,7 +326,7 @@ function getMissingRequiredFields() {
   return missing
 }
 
-async function submitForm(esign) {
+async function submitForm(esign, extraAction = null) {
   // Same finalize-on-save bundling as saveDraft — Mark Complete also
   // benefits from this since a user is likely to hit it once they
   // think they're done, and a still-unfinalized RCA would otherwise
@@ -347,7 +352,7 @@ async function submitForm(esign) {
   // Grouped run: hand the validated payload up; the server writes it once the
   // step activates and its task exists.
   if (props.collectOnly) return { payload: await buildPayload() }
-  return persistRecord({ submit: true, esign })
+  return persistRecord({ submit: true, esign, extraAction })
 }
 
 const usersMap = useLiveQueryWithDeps(

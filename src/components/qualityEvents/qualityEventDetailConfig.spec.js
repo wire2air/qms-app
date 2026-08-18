@@ -39,12 +39,39 @@ describe('buildQualityEventActions', () => {
   const byId = (gates) =>
     Object.fromEntries(buildQualityEventActions(gates, {}).map((a) => [a.id, a]))
 
-  it('returns close, escalate and audit descriptors', () => {
+  it('returns close, escalate, print and audit descriptors', () => {
     expect(buildQualityEventActions({}, {}).map((x) => x.id)).toEqual([
       'close',
       'escalate',
+      'print',
       'audit',
     ])
+  })
+
+  // Escalation stopped being a status on 2026-08-18 — the event stays open and
+  // is still closed the normal way — so "already escalated" comes from the
+  // escalation link, and the button is disabled rather than hidden so the page
+  // can say what it was escalated to.
+  describe('escalate once', () => {
+    it('is enabled while nothing has been escalated', () => {
+      const a = byId({ canEscalate: true, statusId: 'OPEN' }).escalate
+      expect(a.visible).toBe(true)
+      expect(a.disabled).toBe(false)
+      expect(a.title).toBeUndefined()
+    })
+
+    it('disables — but still shows — the button once escalated, naming the target', () => {
+      const a = byId({ canEscalate: true, statusId: 'OPEN', escalatedTo: 'NC' }).escalate
+      expect(a.visible).toBe(true)
+      expect(a.disabled).toBe(true)
+      expect(a.title).toBe('Already escalated to NC')
+    })
+
+    it('leaves Close available after escalating — the event is not resolved', () => {
+      const g = byId({ canClose: true, canEscalate: true, statusId: 'OPEN', escalatedTo: 'CAPA' })
+      expect(g.close.visible).toBe(true)
+      expect(g.close.disabled).toBe(false)
+    })
   })
 
   it('escalate is visible only when canEscalate and the event is open', () => {
@@ -53,6 +80,36 @@ describe('buildQualityEventActions', () => {
     expect(vis({ canEscalate: false, statusId: 'IN_REVIEW' })).toBe(false)
     expect(vis({ canEscalate: true, statusId: 'CLOSED' })).toBe(false)
     expect(vis({ canEscalate: true, statusId: 'CANCELLED' })).toBe(false)
+  })
+
+  // Reported 2026-08-18: a user holding quality_events:close who was NOT the
+  // assigned reviewer saw an enabled Close button and got a 403 from
+  // assertAssignedReviewer. `canClose` is "has a claim to close"; the server
+  // only accepts the assigned reviewer, and `closeBlockedReason` carries that.
+  describe('close is disabled, not broken, for a non-reviewer', () => {
+    it('disables Close with a reason when the server would refuse', () => {
+      const a = byId({
+        canClose: true, // holds quality_events:close
+        closeBlockedReason: 'Only the assigned reviewer can close this event.',
+        statusId: 'OPEN',
+      }).close
+      // Still VISIBLE — this user does hold the permission; hiding it would
+      // read as a permissions bug rather than "you're not the reviewer".
+      expect(a.visible).toBe(true)
+      expect(a.disabled).toBe(true)
+      expect(a.title).toBe('Only the assigned reviewer can close this event.')
+    })
+
+    it('leaves Close enabled for the assigned reviewer', () => {
+      const a = byId({ canClose: true, closeBlockedReason: '', statusId: 'OPEN' }).close
+      expect(a.visible).toBe(true)
+      expect(a.disabled).toBe(false)
+      expect(a.title).toBeUndefined()
+    })
+
+    it('hides Close entirely from someone with no claim to it', () => {
+      expect(byId({ canClose: false, statusId: 'OPEN' }).close.visible).toBe(false)
+    })
   })
 
   // Regression: close and escalate shared one `canOwnerActions` gate, so a role
