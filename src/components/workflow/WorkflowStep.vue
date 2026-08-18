@@ -33,6 +33,7 @@ import {
   IconCalendarTime,
   IconCalendarX,
   IconInfoCircle,
+  IconDeviceFloppy,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
@@ -184,6 +185,19 @@ const formRef = ref(null)
 const formRequired = computed(
   () => Array.isArray(instanceStep.value?.formSchema) && instanceStep.value.formSchema.length > 0,
 )
+
+const savingDraft = ref(false)
+
+/** Drive the form's own saveDraft from the step card's action row. */
+async function onSaveDraftClick() {
+  if (savingDraft.value) return
+  savingDraft.value = true
+  try {
+    await formRef.value?.saveDraft()
+  } finally {
+    savingDraft.value = false
+  }
+}
 
 function onCompleteAndAdvanceClick() {
   if (!canActOnStep.value || completeDisabled.value) return
@@ -762,7 +776,20 @@ function activityLabel(statusId) {
          screen, and scrolling back up to finish reads as a dead end. Same
          handler, same disabled state and reason, so the two can never disagree
          about whether the step can be completed. -->
-    <div v-if="canActOnStep" class="tw:flex tw:justify-end tw:pt-1">
+    <div v-if="canActOnStep" class="tw:flex tw:justify-end tw:gap-2 tw:pt-1">
+      <!-- Save draft lives here, not inside the form, so the two actions read
+           as one row rather than stacking (user request 2026-08-18). The form
+           still owns the behaviour — this calls its exposed saveDraft(). -->
+      <BaseButton
+        v-if="formRequired && formRef?.canSaveDraft"
+        variant="outline"
+        :disabled="savingDraft || completing"
+        :isLoading="savingDraft"
+        @click="onSaveDraftClick"
+      >
+        <template #icon><IconDeviceFloppy :size="16" /></template>
+        Save draft
+      </BaseButton>
       <BaseButton
         :disabled="completeDisabled || completing"
         :isLoading="completing"

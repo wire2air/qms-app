@@ -394,9 +394,13 @@ defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
         :fields="formSchema"
         @update:modelValue="missingFieldsError = ''"
       />
-      <div v-if="currentUserTask && !collectOnly" class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
-        <!-- Save draft needs a task to hang the record on, so it is hidden
-             where there is none. It is hidden in a group too: the group card
+      <div
+        v-if="currentUserTask && !collectOnly && !hideSubmit"
+        class="tw:mt-4 tw:flex tw:justify-end tw:gap-2"
+      >
+        <!-- Hidden whenever the PARENT drives the actions (hideSubmit), so
+             Save draft and Mark Complete sit on one row in the step card
+             instead of stacking. Also hidden in a group: the group card
              carries ONE Save draft beside Complete and drives each step
              through the exposed saveDraft(), so per-step buttons would just be
              noise — the same reasoning as Mark Complete. Outside a group
