@@ -237,7 +237,27 @@ const navSections = computed(() => [
 // Per-field rules live on each <BaseField :rules> (see validators.js). The
 // workflow is picked on its own screen before this form is reachable, so this
 // check is a safety net only — it bounces the user back to the workflow screen.
+/** Rich text is "empty" as `<p></p>`, so test the text, not the markup. */
+function richTextIsEmpty(html) {
+  return !String(html ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+}
+
 function validate() {
+  // The problem statement is what the whole CAPA answers; a CAPA raised
+  // without one cannot be investigated or reviewed meaningfully.
+  if (richTextIsEmpty(form.value.description)) {
+    screen.value = 'details'
+    return [
+      {
+        id: 'capa-description',
+        label: 'Problem Statement',
+        message: 'Describe the problem this CAPA addresses.',
+      },
+    ]
+  }
   if (!form.value.workflowVersionId) {
     screen.value = 'workflow'
     return [
@@ -422,7 +442,7 @@ async function handleCreate() {
               <!-- "Problem Statement", not "Description" (2026-08-17): this
                  field is what the CAPA is answering, and naming it plainly
                  gets a better-written one. -->
-              <BaseField label="Problem Statement">
+              <BaseField label="Problem Statement" required>
                 <div class="create-capa-editor">
                   <BaseRichTextEditor
                     v-model="form.description"

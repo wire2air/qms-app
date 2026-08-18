@@ -165,7 +165,12 @@ const incompleteStepCount = useLiveQueryWithDeps(
 
   { models: ['WorkflowInstanceStep'], initial: 0 },
 )
-const canClose = computed(() => incompleteStepCount.value === 0 && !!closeEffectivenessDate.value)
+const canClose = computed(
+  () =>
+    incompleteStepCount.value === 0 &&
+    !!closeEffectivenessDate.value &&
+    !!closeComments.value.trim(),
+)
 
 // Why the "Sign & Close" action is blocked — surfaced as the submit button's
 // native tooltip via BaseDialogFooter's `submitTitle`.
@@ -176,6 +181,9 @@ const closeDisabledReason = computed(() => {
     } still open. Complete or skip them first.`
   }
   if (!closeEffectivenessDate.value) return 'Pick an effectiveness check date.'
+  // Closure is a signed, regulated act — the record should say what was done,
+  // not just that someone pressed the button.
+  if (!closeComments.value.trim()) return 'Add closure comments.'
   return ''
 })
 
@@ -743,7 +751,7 @@ const capaDetailConfig = computed(() =>
       </BaseField>
 
       <!-- Optional closure comments -->
-      <BaseField v-slot="{ id: fieldId }" label="Closure Comments" optional>
+      <BaseField v-slot="{ id: fieldId }" label="Closure Comments" required>
         <BaseTextarea
           :id="fieldId"
           v-model="closeComments"
