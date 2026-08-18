@@ -293,6 +293,7 @@ export default {
     "useImage": true,
     "useImpersonate": true,
     "useInfiniteScroll": true,
+    "useInsightStaleness": true,
     "useInternalDocs": true,
     "useIntersectionObserver": true,
     "useInterval": true,

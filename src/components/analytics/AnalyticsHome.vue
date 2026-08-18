@@ -129,6 +129,20 @@ const catalogEmpty = computed(
         @clear="reset"
       />
 
+      <!--
+        Insights sit ABOVE the tiles on purpose. A tile answers a question the
+        reader already thought to ask; an insight is the thing nobody was looking
+        at. Below the fold it would only ever be found by someone who already
+        knew to scroll for it, which is the opposite of what it is for.
+
+        It deliberately ignores the filter bar: an insight was computed against
+        a period the generator chose and states that period on its own face, so
+        re-filtering it client-side would make the sentence disagree with its own
+        citation. `moduleId` is the one exception, and that is passed explicitly
+        where a module tab uses this component.
+      -->
+      <AnalyticsInsightsPanel :limit="6" />
+
       <!-- Catalog failure: one message, one retry — not 20 broken tiles. -->
       <PageSection v-if="catalogError" variant="card">
         <div class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-8">

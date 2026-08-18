@@ -28,6 +28,7 @@ import {
   IconShieldCheck,
   IconSettings,
   IconBell,
+  IconBellRinging,
   IconForms,
   IconArrowsShuffle,
   IconTemplate,
@@ -35,6 +36,7 @@ import {
   IconChartBar,
   IconCompass,
   IconLayoutDashboard,
+  IconFileAnalytics,
 } from '@tabler/icons-vue'
 
 /** @type {Record<string, import('@shared/composables/routeMetaHelpers.js').RouteMetaEntry>} */
@@ -100,10 +102,42 @@ export const ROUTE_META = {
     icon: IconLayoutDashboard,
     permission: 'reports_dashboards:read',
   },
+  '/analytics/reports': {
+    title: 'Reports',
+    icon: IconFileAnalytics,
+    permission: 'reports_dashboards:read',
+  },
+  // The report page carries `?tab=schedules`, which makes a delivery schedule
+  // linkable — and a linkable page needs a title and a way back. Same `read`
+  // gate as the rest of the subtree: whether THIS report is yours, and whether
+  // you may make a schedule LIVE (that needs `:export`), are row-level questions
+  // a route guard cannot answer. RLS does, on the row.
+  '/analytics/reports/:id': {
+    title: (_p, ctx) => ctx.recordTitle ?? 'Report',
+    icon: IconFileAnalytics,
+    parent: '/analytics/reports',
+    permission: 'reports_dashboards:read',
+  },
   '/analytics/explore': {
     title: 'Data Explorer',
     icon: IconCompass,
     permission: 'reports_dashboards:read',
+  },
+  // Same gate as the rest of the subtree. Deliberately `read` and not `manage`,
+  // even though naming SOMEBODY ELSE as a recipient needs `manage`: that seam
+  // is inside the row (both write policies end `OR recipients <@ ARRAY[me]`),
+  // so anybody may author an alert that mails only them. A route guard cannot
+  // know which alert is which, and restating the rule here would only give the
+  // client and `analytics_alerts_insert_rls` somewhere to disagree.
+  '/analytics/alerts': {
+    title: 'Alerts',
+    icon: IconBellRinging,
+    permission: 'reports_dashboards:read',
+  },
+  '/analytics/alerts/:id': {
+    title: (_p, ctx) => ctx.recordTitle ?? 'Alert',
+    icon: IconBellRinging,
+    parent: '/analytics/alerts',
   },
 
   // ── Operations ───────────────────────────────────────────────────

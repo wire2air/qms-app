@@ -150,7 +150,7 @@ function questionOf(w) {
       :subtitle="dashboard?.description || ''"
     >
       <template #actions>
-        <DashboardVisibilityBadge v-if="dashboard" :value="dashboard.visibility" />
+        <DashboardVisibilityBadgeById v-if="dashboard" :visibilityId="dashboard.visibility" />
         <BaseButton v-if="canEdit" size="sm" @click="addWidget">
           <IconPlus :size="14" aria-hidden="true" />
           Add widget

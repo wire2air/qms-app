@@ -99,6 +99,7 @@ function cancelEditTitle() {
         :title="builderTitle"
         :initialSchema="initialSchema"
         :showScoring="!!template.isModule"
+        :showReporting="true"
         @save="saveSchema"
       >
         <template #title>

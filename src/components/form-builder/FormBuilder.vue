@@ -19,6 +19,7 @@ import FormCanvas from './FormCanvas.vue'
 import FormFieldConfig from './FormFieldConfig.vue'
 import FormAiChatPanel from '@/components/ai/FormAiChatPanel.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
+import { otherReportingKeys, reportingKeyError } from '@/utils/reportingKey'
 
 const props = defineProps({
   title: {
@@ -40,6 +41,13 @@ const props = defineProps({
   // editor (stored on field.scoring). Off by default so plain forms / log books
   // / workflow-step builders are unaffected.
   showScoring: {
+    type: Boolean,
+    default: false,
+  },
+  // Surface the per-field "Report on this field" sub-panel (stored on
+  // field.reporting), which projects the answer into analytics under a stable
+  // reporting key. Off by default so existing builders are unaffected.
+  showReporting: {
     type: Boolean,
     default: false,
   },
@@ -140,7 +148,15 @@ function onSave() {
   }
 }
 
-function validateSchema(fields) {
+// Reporting keys in use by every field EXCEPT the one currently being edited, so
+// the field editor can refuse a clash as it is typed. Two fields sharing a key
+// collide in analytics_field_values and one silently overwrites the other.
+const takenReportingKeys = computed(() => otherReportingKeys(schema.value, selectedField.value))
+
+// `seenReportingKeys` is threaded through the recursion rather than created per
+// call: a reporting key must be unique across the WHOLE template, and two fields
+// in different sections colliding is the likeliest way to hit it.
+function validateSchema(fields, seenReportingKeys = new Set()) {
   for (const field of fields) {
     // Check if field has a name
     if (!field.name || field.name.trim() === '') {
@@ -148,6 +164,27 @@ function validateSchema(fields) {
         caption: 'All fields must have a unique name',
       })
       return false
+    }
+
+    // A field marked reportable MUST carry a real reporting key. The backend
+    // refuses the save outright (schemas/formTemplates.js) — this exists so the
+    // author is told before the round trip, and told why.
+    //
+    // The key cannot default to the field's own name: names are minted from a
+    // counter (`input_1`, `number_3`) and the counter reuses a name as soon as
+    // the field holding it is deleted. A metric pointing at a reused name keeps
+    // drawing a healthy line over a different field's answers, with no error
+    // anywhere. Hence a separate, human-authored key — and hence NOT a rename of
+    // the field, since answers are stored under the field name and renaming it
+    // would orphan every answer already collected.
+    if (field.reporting?.enabled) {
+      const key = String(field.reporting.key || '').trim()
+      const err = reportingKeyError(key, field.type, [...seenReportingKeys])
+      if (err) {
+        toast.error(`Reporting key for "${field.label || field.name}"`, { caption: err })
+        return false
+      }
+      seenReportingKeys.add(key)
     }
 
     // Check Options (Select, Radio, OptionGroup)
@@ -201,12 +238,12 @@ function validateSchema(fields) {
 
     // Check children recursively
     if (field.children && field.children.length > 0) {
-      if (!validateSchema(field.children)) return false
+      if (!validateSchema(field.children, seenReportingKeys)) return false
     }
 
     // Check template (repeater) recursively
     if (field.template && field.template.length > 0) {
-      if (!validateSchema(field.template)) return false
+      if (!validateSchema(field.template, seenReportingKeys)) return false
     }
   }
   return true
@@ -472,6 +509,8 @@ async function handleAiChatApply({ proposal, onApplied }) {
                 :path="selectedFieldPath"
                 :showSectionPlacement="showSectionPlacement"
                 :showScoring="showScoring"
+                :showReporting="showReporting"
+                :takenKeys="takenReportingKeys"
               />
             </div>
           </aside>

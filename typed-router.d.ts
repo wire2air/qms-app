@@ -72,6 +72,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/analytics/alerts/': RouteRecordInfo<
+      '/analytics/alerts/',
+      '/analytics/alerts',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/alerts/[id]': RouteRecordInfo<
+      '/analytics/alerts/[id]',
+      '/analytics/alerts/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/analytics/dashboards/': RouteRecordInfo<
       '/analytics/dashboards/',
       '/analytics/dashboards',
@@ -91,6 +105,20 @@ declare module 'vue-router/auto-routes' {
       '/analytics/explore',
       Record<never, never>,
       Record<never, never>,
+      | never
+    >,
+    '/analytics/reports/': RouteRecordInfo<
+      '/analytics/reports/',
+      '/analytics/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/reports/[id]': RouteRecordInfo<
+      '/analytics/reports/[id]',
+      '/analytics/reports/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/api-keys': RouteRecordInfo<
@@ -827,6 +855,18 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/analytics/alerts/index.vue': {
+      routes:
+        | '/analytics/alerts/'
+      views:
+        | never
+    }
+    'src/pages/analytics/alerts/[id].vue': {
+      routes:
+        | '/analytics/alerts/[id]'
+      views:
+        | never
+    }
     'src/pages/analytics/dashboards/index.vue': {
       routes:
         | '/analytics/dashboards/'
@@ -842,6 +882,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/analytics/explore.vue': {
       routes:
         | '/analytics/explore'
+      views:
+        | never
+    }
+    'src/pages/analytics/reports/index.vue': {
+      routes:
+        | '/analytics/reports/'
+      views:
+        | never
+    }
+    'src/pages/analytics/reports/[id].vue': {
+      routes:
+        | '/analytics/reports/[id]'
       views:
         | never
     }

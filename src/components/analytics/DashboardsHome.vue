@@ -148,30 +148,45 @@ async function remove(d) {
           "
         />
 
+        <!--
+          BaseCard has exactly two props (padding, as) and ONE default slot — no
+          `clickable`, no `#footer`. This block previously passed both. The
+          named slot rendered nothing at all, so the delete button and the
+          "Provided with Qability" label were invisible on every card since this
+          page shipped, and `clickable` fell through as a meaningless attribute
+          on a plain div that no keyboard could operate.
+
+          Neither eslint nor the production build says a word about either: an
+          unmatched named slot is silently dropped and an unknown prop becomes a
+          fallthrough attribute. Only opening the page shows it.
+
+          BaseClickableRow supplies the real affordance — it renders a
+          RouterLink, so middle-click, keyboard and open-in-new-tab all work
+          without re-implementing any of them.
+        -->
         <ContentGrid v-else min="18rem">
-          <BaseCard
+          <BaseClickableRow
             v-for="d in group.rows"
             :key="d.id"
-            clickable
-            @click="router.push(`/analytics/dashboards/${d.id}`)"
+            :to="`/analytics/dashboards/${d.id}`"
           >
-            <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
-              <div class="tw:min-w-0">
-                <BaseText weight="medium" class="tw:truncate">{{ d.name }}</BaseText>
-                <BaseText
-                  v-if="d.description"
-                  variant="caption"
-                  color="secondary"
-                  class="tw:line-clamp-2"
-                >
-                  {{ d.description }}
-                </BaseText>
+            <BaseCard class="tw:h-full">
+              <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
+                <div class="tw:min-w-0">
+                  <BaseText weight="medium" class="tw:truncate">{{ d.name }}</BaseText>
+                  <BaseText
+                    v-if="d.description"
+                    variant="caption"
+                    color="secondary"
+                    class="tw:line-clamp-2"
+                  >
+                    {{ d.description }}
+                  </BaseText>
+                </div>
+                <DashboardVisibilityBadgeById :visibilityId="d.visibility" />
               </div>
-              <DashboardVisibilityBadge :value="d.visibility" />
-            </div>
 
-            <template #footer>
-              <div class="tw:flex tw:items-center tw:justify-between">
+              <div class="tw:mt-3 tw:flex tw:items-center tw:justify-between">
                 <BaseText variant="caption" color="secondary">
                   {{ d.isSystem ? 'Provided with Qability' : '' }}
                 </BaseText>
@@ -180,13 +195,13 @@ async function remove(d) {
                   size="sm"
                   variant="ghost"
                   aria-label="Delete dashboard"
-                  @click.stop="remove(d)"
+                  @click.stop.prevent="remove(d)"
                 >
                   <IconTrash :size="14" aria-hidden="true" />
                 </BaseButton>
               </div>
-            </template>
-          </BaseCard>
+            </BaseCard>
+          </BaseClickableRow>
         </ContentGrid>
       </PageSection>
     </template>

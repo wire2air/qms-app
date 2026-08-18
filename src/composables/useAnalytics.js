@@ -193,6 +193,73 @@ export function useAnalyticsEntitlement() {
  * @param {string|import('vue').Ref<string>|(() => string)} [params.moduleId] restrict to one authz module
  * @param {object} [options] passed to useServerQuery (e.g. `enabled`)
  */
+const INSIGHT_STALENESS_QUERY = `
+  query InsightStaleness {
+    analyticsInsightStaleness {
+      nodes {
+        visibleCount
+        staleCount
+        lastRunAt
+      }
+    }
+  }
+`
+
+/**
+ * Which EMPTY the insights list is showing.
+ *
+ * ── WHY A SEPARATE CALL AT ALL ──────────────────────────────────────────────
+ * `analytics_insights_select_rls` ends with
+ * `scope_fingerprint = analytics_scope_fingerprint()`, comparing the row's
+ * stored fingerprint to the READER'S CURRENT one. That is the right rule — an
+ * insight is a sentence, already aggregated, so a demoted user would otherwise
+ * keep reading last night's wider figures — but it means a scope change hides
+ * ALL of that user's rows at once.
+ *
+ * The resulting empty list is pixel-identical to a genuinely quiet week and
+ * means the opposite thing:
+ *
+ *   nothing crossed a threshold      -> nothing is wrong
+ *   your access changed              -> your insights exist and are withheld,
+ *                                       and tomorrow's run rebuilds them
+ *
+ * No query against the table can tell them apart, because the rows you would
+ * have to count are exactly the rows the policy is hiding. Hence a SECURITY
+ * DEFINER probe that answers from above the policy, hard-scoped to the caller's
+ * own user and company and returning counts and one timestamp — never a
+ * headline, figure, metric key or dimension.
+ *
+ * Guessing here is worse than either truth: telling a quality manager "nothing
+ * to report" during a week when something WAS reported misleads them, and they
+ * only find out by asking a colleague what they saw.
+ *
+ * @returns {import('@/composables/useServerQuery.js').ServerQueryHandle & {
+ *   staleness: import('vue').ComputedRef<{visibleCount:number, staleCount:number, lastRunAt:string|null}|null>,
+ *   emptyReason: import('vue').ComputedRef<'loading'|'never_run'|'quiet'|'scope_changed'|null>
+ * }}
+ */
+export function useInsightStaleness(options = {}) {
+  const q = useGraphQLQuery(INSIGHT_STALENESS_QUERY, {}, { initial: null, ...options })
+
+  const staleness = computed(() => nodesOf(q.data.value, 'analyticsInsightStaleness')[0] ?? null)
+
+  // `null` means "there are insights to show" — the caller renders the list and
+  // never reaches an empty state at all.
+  const emptyReason = computed(() => {
+    const s = staleness.value
+    if (!s) return 'loading'
+    if (Number(s.visibleCount) > 0) return null
+    if (Number(s.staleCount) > 0) return 'scope_changed'
+    // No rows at all, ever, for this person: the generator has not reached them.
+    // Distinguished from `quiet` because "come back tomorrow" is a lie if the
+    // nightly job is not running — a different problem, for a different person.
+    if (!s.lastRunAt) return 'never_run'
+    return 'quiet'
+  })
+
+  return { ...q, staleness, emptyReason }
+}
+
 export function useMetricCatalog(params = {}, options = {}) {
   const q = useGraphQLQuery(
     METRIC_CATALOG_QUERY,

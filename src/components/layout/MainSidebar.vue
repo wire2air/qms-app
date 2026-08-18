@@ -23,6 +23,7 @@ import {
   IconChartBar,
   IconCompass,
   IconLayoutDashboard,
+  IconFileAnalytics,
   IconUserCircle,
   IconLogout,
   IconChevronDown,
@@ -53,6 +54,7 @@ import {
   IconTestPipe,
   IconHelpCircle,
   IconBell,
+  IconBellRinging,
   IconListDetails,
   IconEye,
   IconBolt,
@@ -339,10 +341,27 @@ const navItems = computed(() => {
           to: getCompanyPath('/analytics/dashboards'),
         },
         {
+          label: 'Reports',
+          permissions: ['reports_dashboards:read'],
+          icon: IconFileAnalytics,
+          to: getCompanyPath('/analytics/reports'),
+        },
+        {
           label: 'Data Explorer',
           permissions: ['reports_dashboards:read'],
           icon: IconCompass,
           to: getCompanyPath('/analytics/explore'),
+        },
+        {
+          // `read` like its siblings. Naming somebody OTHER than yourself as a
+          // recipient needs `manage`, but that is a per-row rule the write
+          // policies enforce (`OR recipients <@ ARRAY[me]`) — anybody may
+          // author an alert that mails only them, so the nav must not hide the
+          // page from them.
+          label: 'Alerts',
+          permissions: ['reports_dashboards:read'],
+          icon: IconBellRinging,
+          to: getCompanyPath('/analytics/alerts'),
         },
       ],
     },
