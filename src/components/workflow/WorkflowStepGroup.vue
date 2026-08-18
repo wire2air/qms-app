@@ -54,6 +54,7 @@ const props = defineProps({
   canAct: { type: Boolean, default: false },
   /** Whose run this is, for the header. Empty means "you". */
   ownerName: { type: String, default: '' },
+  isOwner: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['ungroup', 'reassign'])
@@ -239,18 +240,39 @@ async function submitGroup(esign = null) {
             class="tw:text-secondary"
             title="Requires an electronic signature"
           />
-          <!-- Hand a single step to someone else without breaking the rest of
-               the run apart: the group recomputes from the live assignments. -->
-          <BaseTooltip content="Reassign this step to someone else">
-            <button
-              type="button"
-              class="tw:ml-auto tw:shrink-0 tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
-              :aria-label="`Reassign ${step.name || 'step ' + step.stepNumber}`"
-              @click="emit('reassign', step.id)"
-            >
-              <IconUserShare :size="16" />
-            </button>
-          </BaseTooltip>
+          <!-- Step-level actions stay per step, by design: only Complete and
+               Save draft moved to the group.
+
+               The HEAD is active, so it gets the ordinary actions menu with
+               Complete hidden (the group's button owns that) — same component
+               and same behaviour as an ungrouped step, rather than a parallel
+               set that can drift.
+
+               Later steps have not started: cancel / send back / request info
+               are meaningless on them, and the engine would refuse. Reassign is
+               the exception the engine does allow on a PENDING step, and it is
+               how you take one step out of the run. -->
+          <div class="tw:ml-auto tw:shrink-0">
+            <WorkflowStepActionsMenu
+              v-if="i === 0"
+              :module="module"
+              :instanceStepId="step.id"
+              :resourceId="resourceId"
+              :isOwner="isOwner"
+              :requireEsignature="!!step.requireEsignature"
+              :hideOutcomes="['COMPLETE_AND_ADVANCE']"
+            />
+            <BaseTooltip v-else content="Reassign this step to someone else">
+              <button
+                type="button"
+                class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
+                :aria-label="`Reassign ${step.name || 'step ' + step.stepNumber}`"
+                @click="emit('reassign', step.id)"
+              >
+                <IconUserShare :size="16" />
+              </button>
+            </BaseTooltip>
+          </div>
         </div>
 
         <p v-if="step.description" class="tw:mb-3 tw:text-sm tw:text-secondary">

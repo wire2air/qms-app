@@ -190,6 +190,7 @@ function onUngroup(headId) {
       :headTaskId="myTaskByStep[step.id] ?? null"
       :canAct="!!myTaskByStep[step.id]"
       :ownerName="ownerNameFor(step.id)"
+      :isOwner="isOwner"
       @ungroup="onUngroup(step.id)"
       @reassign="(id) => emit('reassign', id)"
     />
