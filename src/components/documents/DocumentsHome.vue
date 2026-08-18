@@ -1,4 +1,11 @@
 <script setup>
+// `embedded` lets a host page (DocumentsHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { IconFileDescription, IconPlus } from '@tabler/icons-vue'
@@ -127,6 +134,7 @@ function navigateToDetail(row) {
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="Documents"
     :icon="IconFileDescription"
     subtitle="Manage controlled documents, versions, and approvals."
