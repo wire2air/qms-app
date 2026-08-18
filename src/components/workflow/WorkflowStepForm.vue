@@ -359,7 +359,13 @@ function getUserName(userId) {
 // Exposed so parents that render their own Complete & Advance button
 // can trigger save + submit + approve in one shot — paired with
 // `hideSubmit` to suppress the in-form Submit button.
-defineExpose({ submit: submitForm, saving })
+// `saveDraft` / `canSaveDraft` are exposed so a parent can drive drafts from
+// outside the form — the group card puts one Save draft next to Complete and
+// fans it out across its steps. canSaveDraft is false for a step with no task
+// (a group's 2nd..Nth), where there is nothing to attach a record to.
+const canSaveDraft = computed(() => !!currentUserTask.value)
+
+defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
 </script>
 
 <template>

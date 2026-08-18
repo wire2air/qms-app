@@ -33,7 +33,13 @@
  *             Useful when the steps really are all yours but you want to
  *             complete them one at a time, or add a sub-task to one.
  */
-import { IconLayersSubtract, IconDots, IconSignature, IconUserShare } from '@tabler/icons-vue'
+import {
+  IconLayersSubtract,
+  IconDots,
+  IconSignature,
+  IconUserShare,
+  IconDeviceFloppy,
+} from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 
@@ -94,6 +100,41 @@ async function collectPayloads() {
     payloads[step.id] = result.payload
   }
   return payloads
+}
+
+const savingDraft = ref(false)
+
+/** Steps whose form can actually be persisted right now (i.e. they have a
+ *  task). Today that is the head; the rest have not activated. */
+const draftableCount = computed(
+  () => props.steps.filter((st) => formRefs.value[st.id]?.canSaveDraft).length,
+)
+
+/**
+ * One Save draft for the run: fan out to every step that can hold one.
+ *
+ * Steps without a task are skipped rather than failed — their forms keep their
+ * entries in memory and are written by the server when the group completes.
+ * The per-step notice says so, so this button never silently under-delivers.
+ */
+async function onSaveDraftClick() {
+  if (savingDraft.value) return
+  savingDraft.value = true
+  let saved = 0
+  try {
+    for (const st of props.steps) {
+      const form = formRefs.value[st.id]
+      if (!form?.canSaveDraft) continue
+      await form.saveDraft()
+      saved += 1
+    }
+    if (saved) toast.success(`Draft saved for ${saved} step${saved === 1 ? '' : 's'}.`)
+    else toast.info('Nothing to save yet — these steps have not started.')
+  } catch (e) {
+    toast.error(e?.message || 'Could not save the draft')
+  } finally {
+    savingDraft.value = false
+  }
 }
 
 function onCompleteClick() {
@@ -249,14 +290,25 @@ async function submitGroup(esign = null) {
       </BaseCaption>
       <BaseCaption v-else-if="!canAct"> Waiting on {{ ownerName || 'the assignee' }}. </BaseCaption>
       <span v-else />
-      <BaseButton
-        v-if="canAct"
-        :disabled="submitting"
-        :loading="submitting"
-        @click="onCompleteClick"
-      >
-        Complete {{ steps.length }} steps
-      </BaseButton>
+      <div v-if="canAct" class="tw:flex tw:items-center tw:gap-2">
+        <BaseButton
+          v-if="draftableCount > 0"
+          variant="outline"
+          :disabled="savingDraft || submitting"
+          :loading="savingDraft"
+          @click="onSaveDraftClick"
+        >
+          <template #icon><IconDeviceFloppy :size="16" /></template>
+          Save draft
+        </BaseButton>
+        <BaseButton
+          :disabled="submitting || savingDraft"
+          :loading="submitting"
+          @click="onCompleteClick"
+        >
+          Complete {{ steps.length }} steps
+        </BaseButton>
+      </div>
     </div>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
