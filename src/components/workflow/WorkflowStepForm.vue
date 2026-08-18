@@ -118,7 +118,18 @@ const currentUserTask = useLiveQueryWithDeps(
   { models: ['TaskInstance'] },
 )
 
-const isEditable = computed(() => currentUserTask.value?.statusId === 'ASSIGNED')
+// Normally: editable only while you hold an ASSIGNED task on this step.
+//
+// collectOnly is the exception, and has to be. A grouped run's 2nd..Nth steps
+// are still PENDING and have NO task — that is the whole reason the server
+// writes their records — so gating on the task left them rendered through the
+// readonly branch and the user could not fill them in (reported 2026-08-18).
+// Safe because the group card only renders for a run whose every step has
+// exactly one assignee: the current user. The server re-checks that before
+// writing anything.
+const isEditable = computed(() =>
+  props.collectOnly ? true : currentUserTask.value?.statusId === 'ASSIGNED',
+)
 
 const formData = ref({})
 const saving = ref(false)
@@ -365,7 +376,10 @@ defineExpose({ submit: submitForm, saving })
         :fields="formSchema"
         @update:modelValue="missingFieldsError = ''"
       />
-      <div class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
+      <div v-if="!collectOnly" class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
+        <!-- No Save draft in a group: steps 2..N have no task yet, so there is
+             nothing to attach a draft record to. The group's single Complete
+             submits them all. -->
         <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
           <template #icon><IconDeviceFloppy :size="16" /></template>
           {{ saving ? 'Saving…' : 'Save draft' }}
