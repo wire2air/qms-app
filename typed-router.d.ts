@@ -65,9 +65,30 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/analytics': RouteRecordInfo<
+    '/analytics/': RouteRecordInfo<
+      '/analytics/',
       '/analytics',
-      '/analytics',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/dashboards/': RouteRecordInfo<
+      '/analytics/dashboards/',
+      '/analytics/dashboards',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/dashboards/[id]': RouteRecordInfo<
+      '/analytics/dashboards/[id]',
+      '/analytics/dashboards/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/analytics/explore': RouteRecordInfo<
+      '/analytics/explore',
+      '/analytics/explore',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -800,9 +821,27 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/analytics.vue': {
+    'src/pages/analytics/index.vue': {
       routes:
-        | '/analytics'
+        | '/analytics/'
+      views:
+        | never
+    }
+    'src/pages/analytics/dashboards/index.vue': {
+      routes:
+        | '/analytics/dashboards/'
+      views:
+        | never
+    }
+    'src/pages/analytics/dashboards/[id].vue': {
+      routes:
+        | '/analytics/dashboards/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/explore.vue': {
+      routes:
+        | '/analytics/explore'
       views:
         | never
     }

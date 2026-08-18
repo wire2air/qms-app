@@ -213,6 +213,8 @@ import { EventSeverity } from './eventSeverity'
 import { EventNote } from './eventNote'
 import { EventAttachment } from './eventAttachment'
 import { AutomationRule } from './automationRule'
+import { AnalyticsDashboard } from './analyticsDashboard'
+import { AnalyticsWidget } from './analyticsWidget'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -436,4 +438,6 @@ export const db = {
   EventNote,
   EventAttachment,
   AutomationRule,
+  AnalyticsDashboard,
+  AnalyticsWidget,
 }

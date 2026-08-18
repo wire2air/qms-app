@@ -21,6 +21,8 @@ import {
   IconKey,
   IconRobot,
   IconChartBar,
+  IconCompass,
+  IconLayoutDashboard,
   IconUserCircle,
   IconLogout,
   IconChevronDown,
@@ -310,13 +312,39 @@ const navItems = computed(() => {
       //
       // `permissions` also drives the COMMERCIAL gate: isNavItemEntitled()
       // takes the module id from the first permission, so an un-entitled
-      // tenant loses the entry. Per-module analytics pages become children of
-      // this group in Phase 4; today the group has one destination, so it is a
-      // plain entry rather than a collapsible with a single row.
+      // tenant loses the entry — and, because a group header auto-hides when
+      // every child is filtered away, that gate now covers the whole subtree
+      // without being repeated per row.
+      //
+      // This was a plain entry while it had one destination; Phase 6 gave it
+      // three, which is the condition the earlier note set for promoting it.
+      // Every child carries reports_dashboards:read — editing a dashboard needs
+      // more than that, but WHICH dashboard decides it, and a nav guard cannot
+      // know that. Ownership is enforced on the row by RLS; duplicating it here
+      // would only create somewhere for the two rules to disagree.
       label: 'Analytics',
-      permissions: ['reports_dashboards:read'],
       icon: IconChartBar,
-      to: getCompanyPath('/analytics'),
+      permissions: ['reports_dashboards:read'],
+      children: [
+        {
+          label: 'Overview',
+          permissions: ['reports_dashboards:read'],
+          icon: IconChartBar,
+          to: getCompanyPath('/analytics'),
+        },
+        {
+          label: 'Dashboards',
+          permissions: ['reports_dashboards:read'],
+          icon: IconLayoutDashboard,
+          to: getCompanyPath('/analytics/dashboards'),
+        },
+        {
+          label: 'Data Explorer',
+          permissions: ['reports_dashboards:read'],
+          icon: IconCompass,
+          to: getCompanyPath('/analytics/explore'),
+        },
+      ],
     },
     // Admin-defined modules (data-driven).
     ...moduleNavItems.value,

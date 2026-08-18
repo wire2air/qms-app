@@ -33,6 +33,8 @@ import {
   IconTemplate,
   IconTool,
   IconChartBar,
+  IconCompass,
+  IconLayoutDashboard,
 } from '@tabler/icons-vue'
 
 /** @type {Record<string, import('@shared/composables/routeMetaHelpers.js').RouteMetaEntry>} */
@@ -87,6 +89,20 @@ export const ROUTE_META = {
   '/analytics': {
     title: 'Analytics',
     icon: IconChartBar,
+    permission: 'reports_dashboards:read',
+  },
+  // The whole subtree carries the same gate. Editing a dashboard needs more
+  // than `read`, but that is enforced by RLS on the row — a route guard cannot
+  // know whether THIS dashboard is yours, and pretending otherwise would mean
+  // duplicating the ownership rule in the client where it could drift.
+  '/analytics/dashboards': {
+    title: 'Dashboards',
+    icon: IconLayoutDashboard,
+    permission: 'reports_dashboards:read',
+  },
+  '/analytics/explore': {
+    title: 'Data Explorer',
+    icon: IconCompass,
     permission: 'reports_dashboards:read',
   },
 

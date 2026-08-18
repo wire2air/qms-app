@@ -35,6 +35,11 @@ const METRIC_CATALOG_QUERY = `
         tier
         defaultGrain
         dimensions
+        # The ceiling the rollup was built with. The dimensions array above is
+        # ALREADY truncated to it server-side, so the builder never needs to
+        # enforce it — it reads this only to explain a short list ("this metric
+        # can be split 3 ways") instead of leaving the shortness unexplained.
+        dimensionCapacity
         drill
         effectiveScope
       }
