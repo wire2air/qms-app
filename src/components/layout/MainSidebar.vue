@@ -627,11 +627,13 @@ const navItems = computed(() => {
           // conditions → actions, scoped per site and department. The dead one
           // is gone; the working one took its name and moved here.
           //
-          // It does more than notify (CREATE_NC, CREATE_TASK, SEND_SMS), so the
-          // label undersells it — but notification is what people come looking
-          // for, and an engine nobody finds is worth less than one named
-          // slightly too narrowly.
-          label: 'Notifications',
+          // Named for both halves: it notifies (group / user / owner /
+          // requester / email) AND acts (CREATE_NC, CREATE_TASK). "Notifications"
+          // alone would hide the second half from anyone looking for it;
+          // "Automation Rules" alone hid the first, which is why nobody found
+          // it. Whether the action half survives is still open — SEND_SMS is a
+          // stub until Twilio is configured.
+          label: 'Notifications & Automation',
           permissions: ['automation_rules:manage'],
           icon: IconBell,
           to: getCompanyPath('/automation-rules'),
