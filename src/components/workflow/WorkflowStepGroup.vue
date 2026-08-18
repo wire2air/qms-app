@@ -39,6 +39,7 @@ import {
   IconSignature,
   IconUserShare,
   IconDeviceFloppy,
+  IconBan,
 } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -101,6 +102,41 @@ async function collectPayloads() {
     payloads[step.id] = result.payload
   }
   return payloads
+}
+
+// ─── Per-step Cancel (owner) ─────────────────────────────────────────────────
+// Mirrors WorkflowStep's owner inline button, including its gates: the engine
+// allows cancelling a step in PENDING / IN_PROGRESS / SENT_BACK, so a step that
+// has not started yet can be cancelled out of the run.
+const CANCELLABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
+const cancelTarget = ref(null)
+const cancelReason = ref('')
+const cancelling = ref(false)
+
+function canCancel(step) {
+  return props.isOwner && step.stepType !== 'DELAY' && CANCELLABLE_STATUSES.includes(step.statusId)
+}
+
+function openCancel(step) {
+  cancelTarget.value = step
+  cancelReason.value = ''
+}
+
+async function confirmCancel() {
+  if (!cancelTarget.value || cancelling.value) return
+  cancelling.value = true
+  try {
+    await post(`/v1/services/${props.module.apiPath}/${props.resourceId}/cancelStep`, {
+      workflowInstanceStepId: cancelTarget.value.id,
+      comment: cancelReason.value.trim() || null,
+    })
+    toast.success('Step cancelled')
+    cancelTarget.value = null
+  } catch (e) {
+    toast.error(e?.message || 'Could not cancel this step')
+  } finally {
+    cancelling.value = false
+  }
 }
 
 const savingDraft = ref(false)
@@ -262,16 +298,28 @@ async function submitGroup(esign = null) {
               :requireEsignature="!!step.requireEsignature"
               :hideOutcomes="['COMPLETE_AND_ADVANCE']"
             />
-            <BaseTooltip v-else content="Reassign this step to someone else">
-              <button
-                type="button"
-                class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
-                :aria-label="`Reassign ${step.name || 'step ' + step.stepNumber}`"
-                @click="emit('reassign', step.id)"
-              >
-                <IconUserShare :size="16" />
-              </button>
-            </BaseTooltip>
+            <template v-else>
+              <BaseTooltip content="Reassign this step to someone else">
+                <button
+                  type="button"
+                  class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
+                  :aria-label="`Reassign ${step.name || 'step ' + step.stepNumber}`"
+                  @click="emit('reassign', step.id)"
+                >
+                  <IconUserShare :size="16" />
+                </button>
+              </BaseTooltip>
+              <BaseTooltip v-if="canCancel(step)" content="Cancel this step">
+                <button
+                  type="button"
+                  class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-bad"
+                  :aria-label="`Cancel ${step.name || 'step ' + step.stepNumber}`"
+                  @click="openCancel(step)"
+                >
+                  <IconBan :size="16" />
+                </button>
+              </BaseTooltip>
+            </template>
           </div>
         </div>
 
@@ -334,5 +382,34 @@ async function submitGroup(esign = null) {
     </div>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
+
+    <BaseDialog
+      :modelValue="!!cancelTarget"
+      title="Cancel this step"
+      maxWidth="sm"
+      @update:modelValue="(v) => !v && (cancelTarget = null)"
+    >
+      <BaseCaption class="tw:mb-3">
+        Cancelling removes
+        <strong>{{ cancelTarget?.name || 'this step' }}</strong>
+        from the workflow. The rest of the run is unaffected.
+      </BaseCaption>
+      <BaseField label="Reason" optional>
+        <BaseTextarea v-model="cancelReason" :rows="3" placeholder="Why is this step not needed?" />
+      </BaseField>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          submitLabel="Cancel step"
+          :loading="cancelling"
+          @cancel="
+            () => {
+              cancelTarget = null
+              close()
+            }
+          "
+          @submit="confirmCancel"
+        />
+      </template>
+    </BaseDialog>
   </div>
 </template>
