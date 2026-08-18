@@ -2,12 +2,10 @@
 /**
  * Nonconformances, with an Insights tab beside the list.
  *
- * Same shape as CapasHomeTabs — see that file for why the LIST is the default
- * tab rather than Insights: this page's list syncs its filters to the URL with
- * `router.replace({ query })`, which replaces the whole query object and drops
- * `?tab=`. Defaulting to the list makes that loss a no-op instead of throwing
- * the user out of the list mid-filter, and keeps the page identical for anyone
- * who never opens Insights.
+ * Same shape and same reasoning as CapasHomeTabs — the LIST is the default tab
+ * because someone navigating to a records page came for the records. (It began
+ * as a workaround for `useListLayout` replacing the whole query and dropping
+ * `?tab=`; that writer now merges, so the tab survives either way.)
  */
 import { IconChartBar, IconAlertTriangle } from '@tabler/icons-vue'
 

@@ -9,10 +9,17 @@ import { IconDownload } from '@tabler/icons-vue'
  * per-entity) live queries and its own mobile/empty rendering — so this page
  * only owns the filter object and hands it down as props.
  *
- * URL sync is intentionally OFF: the `taskKindId` lives in the route query and
- * is read by the parent page (`pages/task-instances.vue`), then passed in as a
- * prop. Enabling `useListLayout`'s `syncUrl` would rewrite the query with only
- * the filter keys and clobber `taskKindId`, so filters stay in component state.
+ * URL sync was intentionally OFF for a long time: `taskKindId` lives in the
+ * route query and is read by the parent page (`pages/task-instances.vue`), and
+ * `useListLayout`'s writer used to REPLACE the whole query with just its own
+ * filter keys — clobbering it.
+ *
+ * That writer now merges, preserving every key it does not own, and `taskKindId`
+ * is not one of this instance's keys. So sync is on: filters are shareable and
+ * bookmarkable again, and an analytics drill can carry `statusId` in as well as
+ * `taskKindId`. If a future filter here is ever NAMED `taskKindId`, the two
+ * would genuinely fight — merging preserves foreign keys, it cannot arbitrate a
+ * shared one.
  */
 const props = defineProps({
   taskKindId: { type: String, default: null },
@@ -20,12 +27,12 @@ const props = defineProps({
 
 const tableRef = ref(null)
 
-// Filter state + resolved content state. URL sync stays off (see header note).
-// Default the Status filter to "Assigned" so the inbox opens on the tasks that
-// still need action, not the full history.
+// Filter state + resolved content state. Default the Status filter to "Assigned"
+// so the inbox opens on the tasks that still need action, not the full history —
+// a drill arriving with an explicit ?statusId= overrides it on hydrate.
 const list = useListLayout({
   filters: { search: '', statusId: 'ASSIGNED', createdAt: null },
-  syncUrl: false,
+  syncUrl: true,
 })
 
 const title = computed(() => {

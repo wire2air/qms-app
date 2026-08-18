@@ -10,19 +10,22 @@
  * AuditsHome already established (`?tab=insights`), so there is one convention
  * rather than a per-module invention.
  *
- * ── URL SYNC IS DELIBERATELY OFF ────────────────────────────────────────────
+ * ── TWO SYNCING LAYOUTS ON ONE ROUTE, WHICH IS NOW SAFE ─────────────────────
  * Every module Home already runs `useListLayout({ syncUrl: true })` for its LIST
- * filters. A second syncing instance on the same route would fight it: each
- * writes `filtersToQuery` of its OWN defaults on every change, so whichever
- * moved last erases the other's keys — the list's status filter would vanish
- * when the period changed here, and vice versa. This is the same collision that
- * made taskInstancesHome turn URL sync off, and its header says so.
+ * filters, and this tab runs a second one for its period. That used to be
+ * impossible: the writer replaced the whole query object, so whichever instance
+ * moved last erased the other's keys — the list's status filter would vanish the
+ * moment the period changed here.
  *
- * The period therefore lives in component state. The cost is a period that is
- * not shareable via URL; the alternative is a list filter that silently
- * disappears, which is worse. Shareability is preserved where it actually
- * matters — the DRILL links out of these tiles carry their own filters, and
- * those land on the list page's own synced query.
+ * The writer now MERGES, preserving every key it does not own (see
+ * useListLayout.js). Each instance stays authoritative over its own keys — a
+ * filter back at its default is still deleted — so the two coexist and the
+ * period is shareable by URL like everything else.
+ *
+ * The keys here (`period`, `compare`) are deliberately distinct from every
+ * wired list's filter keys. Two instances owning the SAME key would still
+ * fight, and merging cannot fix that — it is a naming contract, not a
+ * mechanism.
  *
  * ── THE CATALOG DECIDES WHAT RENDERS, NOT THIS COMPONENT ────────────────────
  * `useMetricCatalog({ moduleId })` filters server-side and already applies
@@ -46,9 +49,20 @@ const props = defineProps({
 const { entitled } = useAnalyticsEntitlement()
 const isEntitled = computed(() => entitled.value === true)
 
-// Component state, not the URL — see the header.
-const period = ref(null)
-const compare = ref('previous_period')
+// Own keys only; the host list's filters are preserved by the merging writer.
+const { filters } = useListLayout({
+  filters: { period: null, compare: 'previous_period' },
+  syncUrl: true,
+})
+
+const period = computed({
+  get: () => filters.value.period,
+  set: (v) => (filters.value.period = v),
+})
+const compare = computed({
+  get: () => filters.value.compare,
+  set: (v) => (filters.value.compare = v),
+})
 
 const resolvedPeriod = computed(() => periodFromDateToken(period.value))
 

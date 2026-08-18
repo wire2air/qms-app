@@ -7,20 +7,14 @@
  * module inventing its own.
  *
  * ── WHY THE LIST IS THE DEFAULT TAB, NOT INSIGHTS ───────────────────────────
- * AuditsHome defaults to Insights, and that is fine there because its list tab
- * does not sync filters to the URL. CapasHome DOES: `useListLayout({ syncUrl:
- * true })` writes `router.replace({ query })` from `filtersToQuery`, which
- * REPLACES the whole query object — so `?tab=…` is dropped the moment the user
- * touches a filter.
+ * This started as a workaround: `useListLayout`'s writer replaced the whole
+ * query, so `?tab=` was dropped the moment the user touched a filter, and
+ * defaulting to the list made that loss harmless. The writer now merges, so the
+ * tab survives and the workaround is no longer load-bearing.
  *
- * Defaulting to the list makes that harmless: losing the tab param means
- * "stay on the list", which is exactly where the user already is. Defaulting to
- * Insights would instead yank them out of the list mid-filtering, which reads as
- * the page throwing them away. It also means this change is invisible to anyone
- * who never opens Insights — the page behaves exactly as it did before.
- *
- * The real fix is for the query writers to merge rather than replace; until then
- * this ordering makes the collision benign instead of user-visible.
+ * The default stays on the list because it is the right default on its own
+ * terms: someone navigating to a records page came for the records. Insights is
+ * one click away and now genuinely linkable, which it was not before.
  */
 import { IconChartBar, IconShieldCheck } from '@tabler/icons-vue'
 

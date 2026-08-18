@@ -3,10 +3,9 @@
  * Documents, with an Insights tab beside the list.
  *
  * Same shape and same reasoning as CapasHomeTabs — the LIST is the default tab
- * because this page's list syncs filters to the URL with
- * `router.replace({ query })`, which replaces the whole query and drops `?tab=`.
- * Defaulting to the list makes that loss a no-op rather than ejecting the user
- * mid-filter.
+ * because someone navigating to a records page came for the records. (It began
+ * as a workaround for `useListLayout` replacing the whole query and dropping
+ * `?tab=`; that writer now merges, so the tab survives either way.)
  */
 import { IconChartBar, IconFileText } from '@tabler/icons-vue'
 
