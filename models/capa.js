@@ -32,6 +32,9 @@ export class Capa extends BaseModel {
   @Property({ type: String, required: true }) sourceType = ''
   @Property({ type: String, required: true }) siteId = ''
   @Property({ type: String, required: true }) departmentId = ''
+  // Shared quality category (EventCategory) — same taxonomy as Quality Event
+  // and NC, carried down the QE → NC → CAPA chain.
+  @Property({ type: String }) categoryId = /** @type {String} */ (null)
   @Property({ type: String, required: true }) ownerId = ''
   @Property({ type: String }) workflowVersionId = /** @type {String} */ (null)
   @Property({ type: String }) sourceId = /** @type {String} */ (null)

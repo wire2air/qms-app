@@ -1,12 +1,6 @@
 <script setup>
 import { DateTime } from 'luxon'
-import {
-  IconInfoCircle,
-  IconCategory,
-  IconPackage,
-  IconBell,
-  IconSitemap,
-} from '@tabler/icons-vue'
+import { IconInfoCircle, IconCategory, IconPackage, IconBell, IconSitemap } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
@@ -148,7 +142,7 @@ const form = ref({
   isSupplierFacing: false,
   // Top-section classification / commercial-reference fields (added
   // 2026-05-29). All optional — intake may not know any of these yet.
-  ncIssueTypeId: null,
+  categoryId: null,
   priorityId: null,
   dueDate: null,
   poNumber: '',
@@ -218,7 +212,13 @@ watch(sourceFinding, (f) => {
 // Rich-text "has content": an empty editor still emits markup ('<p></p>'),
 // so required checks must strip tags before testing.
 function richTextFilled(v) {
-  return !!v && v.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length > 0
+  return (
+    !!v &&
+    v
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .trim().length > 0
+  )
 }
 
 // Sticky section nav (FormProgressNav). Section ids mirror the FormSection ids
@@ -269,9 +269,7 @@ const navSections = computed(() => [
 function validate() {
   if (!form.value.workflowVersionId) {
     screen.value = 'workflow'
-    return [
-      { id: 'nc-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' },
-    ]
+    return [{ id: 'nc-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' }]
   }
   return []
 }
@@ -424,8 +422,8 @@ async function handleReviewersConfirmed(reviewers) {
         <div>
           <BaseText as="h2" weight="bold" class="tw:text-lg">Select a workflow</BaseText>
           <p class="tw:text-sm tw:text-secondary tw:mt-1">
-            Every nonconformance follows an approval workflow. Pick the process this NC will
-            follow — you'll describe the event on the next screen.
+            Every nonconformance follows an approval workflow. Pick the process this NC will follow
+            — you'll describe the event on the next screen.
           </p>
         </div>
         <WorkflowVersionSelect
@@ -444,357 +442,357 @@ async function handleReviewersConfirmed(reviewers) {
       <!-- Screen 2 — the NC details form, with a context strip recalling
            the chosen workflow (Change returns to screen 1, data intact). -->
       <template v-else>
-      <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
-        <FormProgressNav :sections="navSections" />
-      </div>
-
-      <div
-        class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
-      >
-        <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
-        <div class="tw:min-w-0 tw:flex-1">
-          <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-            {{ selectedWorkflowLabel || 'Workflow selected' }}
-          </p>
-          <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
-            Supplier-facing NCs are auto-assigned to the supplier's first portal user and opened
-            on Submit — you can reassign any step afterwards.
-          </p>
+        <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
+          <FormProgressNav :sections="navSections" />
         </div>
-        <!-- Always offered (user request 2026-08-15). It used to hide when the
+
+        <div
+          class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
+        >
+          <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+          <div class="tw:min-w-0 tw:flex-1">
+            <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ selectedWorkflowLabel || 'Workflow selected' }}
+            </p>
+            <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
+              Supplier-facing NCs are auto-assigned to the supplier's first portal user and opened
+              on Submit — you can reassign any step afterwards.
+            </p>
+          </div>
+          <!-- Always offered (user request 2026-08-15). It used to hide when the
              company had exactly one active workflow, which also hid WHICH
              workflow was about to run and left no way back once the wizard
              auto-skipped that screen. -->
-        <BaseButton variant="outline" size="sm" @click="screen = 'workflow'">
-          {{ singleWorkflow ? 'View workflow' : 'Change' }}
-        </BaseButton>
-        <!-- Submit-time per-step reviewer dialog — select suppressed, the
+          <BaseButton variant="outline" size="sm" @click="screen = 'workflow'">
+            {{ singleWorkflow ? 'View workflow' : 'Change' }}
+          </BaseButton>
+          <!-- Submit-time per-step reviewer dialog — select suppressed, the
              workflow was chosen on screen 1. -->
-        <WorkflowReviewerPickerDialog
-          ref="workflowPickerRef"
-          v-model="form.workflowVersionId"
-          hideSelect
-          :module="NC_MODULE"
-          :isSupplierFacing="form.isSupplierFacing"
-          :supplierId="form.supplierId"
-          :ownerId="form.ownerId"
-          :preferUserId="initiatorId"
-          @submit="handleReviewersConfirmed"
-        />
-      </div>
+          <WorkflowReviewerPickerDialog
+            ref="workflowPickerRef"
+            v-model="form.workflowVersionId"
+            hideSelect
+            :module="NC_MODULE"
+            :isSupplierFacing="form.isSupplierFacing"
+            :supplierId="form.supplierId"
+            :ownerId="form.ownerId"
+            :preferUserId="initiatorId"
+            @submit="handleReviewersConfirmed"
+          />
+        </div>
 
-      <BaseForm
-        class="tw:py-6"
-        :validate="validate"
-        :dirty="isDirty"
-        :loading="saving"
-        :submitError="submitError"
-        submitLabel="Create NC"
-        @submit="onSubmit"
-        @cancel="goBack"
-      >
-        <!-- Basic information -->
-        <FormSection id="nc-basic" title="Basic information" :icon="IconInfoCircle">
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <BaseField
-              id="nc-title"
-              label="Title"
-              required
-              :value="form.title"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.title"
-                  placeholder="Describe the nonconformance…"
-                />
-              </template>
-            </BaseField>
-            <!-- Description — REQUIRED (user decision 2026-08-14). Rich text:
+        <BaseForm
+          class="tw:py-6"
+          :validate="validate"
+          :dirty="isDirty"
+          :loading="saving"
+          :submitError="submitError"
+          submitLabel="Create NC"
+          @submit="onSubmit"
+          @cancel="goBack"
+        >
+          <!-- Basic information -->
+          <FormSection id="nc-basic" title="Basic information" :icon="IconInfoCircle">
+            <div class="tw:flex tw:flex-col tw:gap-3">
+              <BaseField
+                id="nc-title"
+                label="Title"
+                required
+                :value="form.title"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.title"
+                    placeholder="Describe the nonconformance…"
+                  />
+                </template>
+              </BaseField>
+              <!-- Description — REQUIRED (user decision 2026-08-14). Rich text:
                  the rule strips markup, an empty editor still emits '<p></p>'. -->
-            <BaseField
-              id="nc-description"
-              label="Description"
-              required
-              :value="form.description"
-              :rules="[(v) => richTextFilled(v) || 'Description is required.']"
-            >
-              <div class="create-nc-editor">
-                <BaseRichTextEditor
-                  v-model="form.description"
-                  placeholder="Provide details about the nonconformance…"
-                />
-              </div>
-            </BaseField>
-            <!-- Immediate containment — promoted into Basic information and
+              <BaseField
+                id="nc-description"
+                label="Description"
+                required
+                :value="form.description"
+                :rules="[(v) => richTextFilled(v) || 'Description is required.']"
+              >
+                <div class="create-nc-editor">
+                  <BaseRichTextEditor
+                    v-model="form.description"
+                    placeholder="Provide details about the nonconformance…"
+                  />
+                </div>
+              </BaseField>
+              <!-- Immediate containment — promoted into Basic information and
                  made REQUIRED (client decision 2026-08-10). The rule strips
                  markup: an empty editor still emits '<p></p>'. -->
-            <BaseField
-              id="nc-containment"
-              label="Immediate containment action"
-              required
-              :value="form.immediateContainmentAction"
-              :rules="[
-                (v) => richTextFilled(v) || 'Immediate containment action is required.',
-              ]"
-            >
-              <div class="create-nc-editor">
-                <BaseRichTextEditor
-                  v-model="form.immediateContainmentAction"
-                  placeholder="Describe actions taken at the time of detection…"
-                />
-              </div>
-            </BaseField>
-            <SimilarRecordsPanel
-              entityType="Nonconformance"
-              :searchInTypes="['Nonconformance']"
-              :getText="() => `${form.title} ${form.description || ''}`"
-            />
-          </div>
-        </FormSection>
+              <BaseField
+                id="nc-containment"
+                label="Immediate containment action"
+                required
+                :value="form.immediateContainmentAction"
+                :rules="[(v) => richTextFilled(v) || 'Immediate containment action is required.']"
+              >
+                <div class="create-nc-editor">
+                  <BaseRichTextEditor
+                    v-model="form.immediateContainmentAction"
+                    placeholder="Describe actions taken at the time of detection…"
+                  />
+                </div>
+              </BaseField>
+              <SimilarRecordsPanel
+                entityType="Nonconformance"
+                :searchInTypes="['Nonconformance']"
+                :getText="() => `${form.title} ${form.description || ''}`"
+              />
+            </div>
+          </FormSection>
 
-        <!-- Admin-defined custom fields (Additional information). Right after the
+          <!-- Admin-defined custom fields (Additional information). Right after the
              basic card; self-hides when none are configured for Nonconformance. -->
-        <CustomFieldsCreateSection
-          ref="customFieldsRef"
-          v-model="customFieldsData"
-          entityType="Nonconformance"
-        />
+          <CustomFieldsCreateSection
+            ref="customFieldsRef"
+            v-model="customFieldsData"
+            entityType="Nonconformance"
+          />
 
-        <!-- Classification -->
-        <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
-          <BaseFieldRow :columns="2">
-            <!-- Labeled "Item" per the Item-Master UI convention (DB stays
+          <!-- Classification -->
+          <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
+            <BaseFieldRow :columns="2">
+              <!-- Labeled "Item" per the Item-Master UI convention (DB stays
                  products) — also keeps the label distinct from the progress
                  nav's "Product" chip. -->
-            <BaseField
-              id="nc-product-item"
-              label="Item"
-              required
-              :value="form.productId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <ProductSelectMenu
-                  v-bind="field"
-                  v-model="form.productId"
-                  :required="false"
-                  nullLabel="— Select item —"
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="nc-supplier"
-              label="Supplier"
-              :required="form.isSupplierFacing"
-              :value="form.supplierId"
-              :rules="[
-                requiredWhen(
-                  () => form.isSupplierFacing,
-                  'Pick a supplier before marking this NC as supplier-facing.',
-                ),
-              ]"
-            >
-              <template #default="field">
-                <SupplierSelectMenu
-                  v-bind="field"
-                  v-model="form.supplierId"
-                  :required="form.isSupplierFacing"
-                />
-                <label
-                  class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
-                >
-                  <BaseCheckbox v-model="form.isSupplierFacing" />
-                  <div>
-                    <BaseText>Supplier-facing NC</BaseText>
-                    <BaseCaption class="tw:block">
-                      Workflow steps will be reviewed by users from the selected supplier (you'll
-                      pick the specific reviewer per step when you open the NC). Lockable once
-                      opened.
-                    </BaseCaption>
-                  </div>
-                </label>
-              </template>
-            </BaseField>
-            <BaseField label="Qty affected">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.qtyAffected"
-                  type="number"
-                  placeholder="0"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Unit of measure">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.unitOfMeasure"
-                  placeholder="e.g. sheets, units…"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="PO #">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.poNumber"
-                  placeholder="Purchase order number"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Order #">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.orderNumber"
-                  placeholder="Customer / sales order"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Lot #">
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.lotNumber"
-                  placeholder="Material / production lot"
-                />
-              </template>
-            </BaseField>
-          </BaseFieldRow>
-        </FormSection>
+              <BaseField
+                id="nc-product-item"
+                label="Item"
+                required
+                :value="form.productId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <ProductSelectMenu
+                    v-bind="field"
+                    v-model="form.productId"
+                    :required="false"
+                    nullLabel="— Select item —"
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-supplier"
+                label="Supplier"
+                :required="form.isSupplierFacing"
+                :value="form.supplierId"
+                :rules="[
+                  requiredWhen(
+                    () => form.isSupplierFacing,
+                    'Pick a supplier before marking this NC as supplier-facing.',
+                  ),
+                ]"
+              >
+                <template #default="field">
+                  <SupplierSelectMenu
+                    v-bind="field"
+                    v-model="form.supplierId"
+                    :required="form.isSupplierFacing"
+                  />
+                  <label
+                    class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+                  >
+                    <BaseCheckbox v-model="form.isSupplierFacing" />
+                    <div>
+                      <BaseText>Supplier-facing NC</BaseText>
+                      <BaseCaption class="tw:block">
+                        Workflow steps will be reviewed by users from the selected supplier (you'll
+                        pick the specific reviewer per step when you open the NC). Lockable once
+                        opened.
+                      </BaseCaption>
+                    </div>
+                  </label>
+                </template>
+              </BaseField>
+              <BaseField label="Qty affected">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.qtyAffected"
+                    type="number"
+                    placeholder="0"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Unit of measure">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.unitOfMeasure"
+                    placeholder="e.g. sheets, units…"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="PO #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.poNumber"
+                    placeholder="Purchase order number"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Order #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.orderNumber"
+                    placeholder="Customer / sales order"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Lot #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.lotNumber"
+                    placeholder="Material / production lot"
+                  />
+                </template>
+              </BaseField>
+            </BaseFieldRow>
+          </FormSection>
 
-        <!-- Product & material — default EXPANDED with a required Item
+          <!-- Product & material — default EXPANDED with a required Item
              (client decision 2026-08-10). The menu itself stays
              required=false: the required convention would auto-fill the
              FIRST item, and a silently-wrong item is worse than an empty
              field — the BaseField rule enforces the pick instead. -->
-        <FormSection id="nc-classification" title="Classification" :icon="IconCategory">
-          <BaseFieldRow :columns="2">
-            <BaseField
-              id="nc-site"
-              label="Site"
-              required
-              :value="form.siteId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="nc-department"
-              label="Department"
-              required
-              :value="form.departmentId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <DepartmentSelectMenu
-                  v-bind="field"
-                  v-model="form.departmentId"
-                  :siteId="form.siteId"
-                  required
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="nc-type"
-              label="NC Type"
-              required
-              :value="form.typeId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <NcTypeSelectMenu v-bind="field" v-model="form.typeId" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="nc-source"
-              label="Detection source"
-              required
-              :value="form.sourceId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <NcSourceSelectMenu v-bind="field" v-model="form.sourceId" required />
-              </template>
-            </BaseField>
-            <BaseField label="Issue type" optional>
-              <NcIssueTypeSelectMenu v-model="form.ncIssueTypeId" />
-            </BaseField>
-            <BaseField
-              id="nc-severity"
-              label="Severity"
-              required
-              :value="form.severityId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <SegmentedControl
-                  v-bind="field"
-                  v-model="form.severityId"
-                  :options="SEVERITY_OPTIONS"
-                />
-              </template>
-            </BaseField>
-            <BaseField id="nc-priority" label="Priority" optional>
-              <template #default="field">
-                <SegmentedControl
-                  v-bind="field"
-                  v-model="form.priorityId"
-                  :options="PRIORITY_OPTIONS"
-                  nullable
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="nc-detected"
-              label="Detected date"
-              required
-              :value="form.detectedAt"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseDateField v-bind="field" v-model="form.detectedAt" mode="date" />
-              </template>
-            </BaseField>
-            <BaseField label="Due date" optional>
-              <BaseDateField v-model="form.dueDate" mode="date" />
-            </BaseField>
-            <BaseField
-              id="nc-owner"
-              label="Responsible party"
-              required
-              hint="Drives the NC to closure. You remain the initiator."
-              :value="form.ownerId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
-              </template>
-            </BaseField>
-          </BaseFieldRow>
-        </FormSection>
+          <FormSection id="nc-classification" title="Classification" :icon="IconCategory">
+            <BaseFieldRow :columns="2">
+              <BaseField
+                id="nc-site"
+                label="Site"
+                required
+                :value="form.siteId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-department"
+                label="Department"
+                required
+                :value="form.departmentId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <DepartmentSelectMenu
+                    v-bind="field"
+                    v-model="form.departmentId"
+                    :siteId="form.siteId"
+                    required
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-type"
+                label="NC Type"
+                required
+                :value="form.typeId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <NcTypeSelectMenu v-bind="field" v-model="form.typeId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-source"
+                label="Detection source"
+                required
+                :value="form.sourceId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <NcSourceSelectMenu v-bind="field" v-model="form.sourceId" required />
+                </template>
+              </BaseField>
+              <!-- Shared quality classification (Quality Event / NC / CAPA).
+                 Pre-filled when this NC was escalated from an event, and
+                 carried on to any CAPA raised from it. -->
+              <BaseField label="Category" optional>
+                <EventCategorySelectMenu v-model="form.categoryId" />
+              </BaseField>
+              <BaseField
+                id="nc-severity"
+                label="Severity"
+                required
+                :value="form.severityId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <SegmentedControl
+                    v-bind="field"
+                    v-model="form.severityId"
+                    :options="SEVERITY_OPTIONS"
+                  />
+                </template>
+              </BaseField>
+              <BaseField id="nc-priority" label="Priority" optional>
+                <template #default="field">
+                  <SegmentedControl
+                    v-bind="field"
+                    v-model="form.priorityId"
+                    :options="PRIORITY_OPTIONS"
+                    nullable
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-detected"
+                label="Detected date"
+                required
+                :value="form.detectedAt"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseDateField v-bind="field" v-model="form.detectedAt" mode="date" />
+                </template>
+              </BaseField>
+              <BaseField label="Due date" optional>
+                <BaseDateField v-model="form.dueDate" mode="date" />
+              </BaseField>
+              <BaseField
+                id="nc-owner"
+                label="Responsible party"
+                required
+                hint="Drives the NC to closure. You remain the initiator."
+                :value="form.ownerId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
+                </template>
+              </BaseField>
+            </BaseFieldRow>
+          </FormSection>
 
-        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
-        <FormSection
-          id="nc-notify"
-          title="Notify (cc)"
-          :icon="IconBell"
-          optional
-          collapsible
-          :defaultOpen="false"
-        >
-          <NotificationCcField
-            v-model:groupIds="form.notifyGroupIds"
-            v-model:userIds="form.notifyUserIds"
-          />
-        </FormSection>
-
-      </BaseForm>
+          <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+          <FormSection
+            id="nc-notify"
+            title="Notify (cc)"
+            :icon="IconBell"
+            optional
+            collapsible
+            :defaultOpen="false"
+          >
+            <NotificationCcField
+              v-model:groupIds="form.notifyGroupIds"
+              v-model:userIds="form.notifyUserIds"
+            />
+          </FormSection>
+        </BaseForm>
       </template>
     </div>
 

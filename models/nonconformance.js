@@ -54,7 +54,7 @@ export class Nonconformance extends BaseModel {
   // existing typeId — issue-type captures the discovery dimension
   // (out-of-spec / receiving / missing standard), typeId stays the
   // nature of the NC. priorityId mirrors CAPA's enum.
-  @Property({ type: String }) ncIssueTypeId = null
+  @Property({ type: String }) categoryId = null
   @Property({ type: String }) priorityId = null
   @Property({ type: String }) poNumber = ''
   @Property({ type: String }) orderNumber = ''

@@ -9,12 +9,15 @@ declare global {
   const EffectScope: typeof import('vue').EffectScope
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
+  const STEP_GROUPING_ENABLED: typeof import('./src/composables/useWorkflowStepGrouping.js').STEP_GROUPING_ENABLED
   const approvalPendingBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').approvalPendingBanner
   const archivedBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').archivedBanner
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const bucketActions: typeof import('./resource/js/shared/composables/detailLayoutHelpers.js').bucketActions
   const buildBreadcrumbs: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').buildBreadcrumbs
+  const buildStepGroups: typeof import('./src/composables/useWorkflowStepGrouping.js').buildStepGroups
+  const collapsedStepIds: typeof import('./src/composables/useWorkflowStepGrouping.js').collapsedStepIds
   const collectScoredFields: typeof import('./src/composables/useModuleScoring.js').collectScoredFields
   const computeFormScore: typeof import('./src/composables/useModuleScoring.js').computeFormScore
   const computed: typeof import('vue').computed
@@ -22,6 +25,7 @@ declare global {
   const computedEager: typeof import('@vueuse/core').computedEager
   const computedInject: typeof import('@vueuse/core').computedInject
   const computedWithControl: typeof import('@vueuse/core').computedWithControl
+  const consumeListPrintHandoff: typeof import('./src/composables/useListPrint.js').consumeListPrintHandoff
   const controlledComputed: typeof import('@vueuse/core').controlledComputed
   const controlledRef: typeof import('@vueuse/core').controlledRef
   const countActiveGroups: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').countActiveGroups
@@ -65,6 +69,7 @@ declare global {
   const groupCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').groupCommands
   const h: typeof import('vue').h
   const hasChildren: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').hasChildren
+  const humanizeFilter: typeof import('./src/composables/useListPrint.js').humanizeFilter
   const ignorableWatch: typeof import('@vueuse/core').ignorableWatch
   const inject: typeof import('vue').inject
   const injectLocal: typeof import('@vueuse/core').injectLocal
@@ -74,6 +79,7 @@ declare global {
   const isChecked: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isChecked
   const isDateNode: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isDateNode
   const isDefined: typeof import('@vueuse/core').isDefined
+  const isGroupableStep: typeof import('./src/composables/useWorkflowStepGrouping.js').isGroupableStep
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
@@ -121,6 +127,7 @@ declare global {
   const provideLocal: typeof import('@vueuse/core').provideLocal
   const providePageInfo: typeof import('./src/composables/usePageInfo.js').providePageInfo
   const provideRoles: typeof import('./src/composables/useRoles.js').provideRoles
+  const provideSites: typeof import('./src/composables/useSites.js').provideSites
   const provideUsers: typeof import('./src/composables/useUsers.js').provideUsers
   const queryToFilters: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').queryToFilters
   const reactify: typeof import('@vueuse/core').reactify
@@ -291,6 +298,7 @@ declare global {
   const useLastChanged: typeof import('@vueuse/core').useLastChanged
   const useLink: typeof import('vue-router').useLink
   const useListLayout: typeof import('./resource/js/shared/composables/useListLayout.js').useListLayout
+  const useListPrint: typeof import('./src/composables/useListPrint.js').useListPrint
   const useListReorder: typeof import('./src/composables/useListReorder.js').useListReorder
   const useLiveMutation: typeof import('./src/composables/useLiveQuery.js').useLiveMutation
   const useLiveQuery: typeof import('./src/composables/useLiveQuery.js').useLiveQuery
@@ -356,6 +364,7 @@ declare global {
   const useShare: typeof import('@vueuse/core').useShare
   const useSidebar: typeof import('./src/composables/useSidebar.js').useSidebar
   const useSimilarRecords: typeof import('./src/composables/useSimilarRecords.js').useSimilarRecords
+  const useSites: typeof import('./src/composables/useSites.js').useSites
   const useSlots: typeof import('vue').useSlots
   const useSorted: typeof import('@vueuse/core').useSorted
   const useSpeechRecognition: typeof import('@vueuse/core').useSpeechRecognition

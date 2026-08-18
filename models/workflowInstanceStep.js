@@ -38,6 +38,13 @@ export class WorkflowInstanceStep extends BaseModel {
   @Property({ type: DateTime }) delayUntil = /** @type {DateTime|null} */ (null)
   @Property({ type: Number }) delayExtensionCount = 0
   @Property({ type: Number }) maxDelayExtensions = /** @type {number|null} */ (null)
+  // Fixed deadline — wins over slaDays at activation (resolveStepDueDate).
+  @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
+  // F-05 snapshot of the template flag — see the Sequelize model for why.
+  @Property({ type: Boolean }) capturesEffectiveness = false
+  // The verdict: 'EFFECTIVE' | 'NOT_EFFECTIVE'. Named apart from the step's
+  // action `outcome` vocabulary on purpose.
+  @Property({ type: String }) effectivenessOutcome = /** @type {String} */ (null)
   @Property({ type: Array }) formSchema = /** @type {Array} */ ([])
   // 'ACTION' (default), 'APPROVAL', or 'DELAY'. Denormalized from the template
   // step at activation time so runtime renderers don't need to join.

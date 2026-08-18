@@ -1,8 +1,12 @@
 <script setup>
 /**
- * Admin card: manage Event Categories (per-tenant lookup for Events &
- * Observations). Reads via syncEngine; writes via REST (routes/qualityEvents.js),
- * gated by company owner OR `qualityEvents:configure`.
+ * Admin card: manage Quality Categories — the per-tenant `event_categories`
+ * lookup, shared since 2026-08-18 by Quality Events, Nonconformances and CAPAs
+ * so the classification survives the QE → NC → CAPA escalation chain. (The
+ * NC-only nc_issue_types lookup was folded into it and dropped.)
+ *
+ * Reads via syncEngine; writes via REST (routes/qualityEvents.js), still gated
+ * by company owner OR `qualityEvents:configure` — one taxonomy, one editor.
  */
 import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -174,13 +178,15 @@ async function handleRestore(row) {
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
     <BaseSectionHeader
-      title="Event Categories"
+      title="Quality Categories"
       :level="2"
       size="section-title"
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
       <template #subtitle>
-        The categories used to classify events & observations. Scoped to this company.
+        One classification shared by Quality Events, Nonconformances and CAPAs — it carries down
+        the escalation chain, so a category picked on an event stays with the NC and CAPA it
+        becomes. Scoped to this company.
       </template>
       <template #actions>
         <BaseButton v-if="canConfigure" variant="primary" size="sm" @click="openAdd">
