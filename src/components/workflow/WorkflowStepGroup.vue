@@ -141,8 +141,8 @@ async function confirmCancel() {
 
 const savingDraft = ref(false)
 
-/** Steps whose form can actually be persisted right now (i.e. they have a
- *  task). Today that is the head; the rest have not activated. */
+/** Steps whose form can be persisted. Since migration 20260818000100 a draft
+ *  no longer needs a task, so this is every editable step in the run. */
 const draftableCount = computed(
   () => props.steps.filter((st) => formRefs.value[st.id]?.canSaveDraft).length,
 )
@@ -150,9 +150,10 @@ const draftableCount = computed(
 /**
  * One Save draft for the run: fan out to every step that can hold one.
  *
- * Steps without a task are skipped rather than failed — their forms keep their
- * entries in memory and are written by the server when the group completes.
- * The per-step notice says so, so this button never silently under-delivers.
+ * Every step in the run can hold a draft now — a step record models a draft as
+ * `submitted_at IS NULL`, and task_instance_id became nullable in migration
+ * 20260818000100, so a step that has not activated can still be saved. The task
+ * is bound to the row when the step activates and the record is submitted.
  */
 async function onSaveDraftClick() {
   if (savingDraft.value) return
@@ -166,7 +167,7 @@ async function onSaveDraftClick() {
       saved += 1
     }
     if (saved) toast.success(`Draft saved for ${saved} step${saved === 1 ? '' : 's'}.`)
-    else toast.info('Nothing to save yet — these steps have not started.')
+    else toast.info('Nothing to save yet.')
   } catch (e) {
     toast.error(e?.message || 'Could not save the draft')
   } finally {
@@ -325,17 +326,6 @@ async function submitGroup(esign = null) {
 
         <p v-if="step.description" class="tw:mb-3 tw:text-sm tw:text-secondary">
           {{ step.description }}
-        </p>
-
-        <!-- Steps after the first cannot be saved as drafts — they have no task
-             to attach a record to until they activate. Say so next to the form
-             rather than letting someone type for ten minutes and lose it. -->
-        <p
-          v-if="hasForm(step) && i > 0"
-          class="tw:mb-2 tw:rounded-md tw:bg-amber-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-amber-800 tw:dark:bg-amber-950/30 tw:dark:text-amber-200"
-        >
-          Not saved until you complete the group — this step has not started yet, so there is
-          nothing to hold a draft.
         </p>
 
         <!-- collectOnly: validate and hand back the payload. Steps 2..N have no

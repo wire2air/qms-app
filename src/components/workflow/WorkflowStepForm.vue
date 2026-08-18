@@ -210,7 +210,13 @@ async function buildPayload() {
 
 async function persistRecord({ submit, esign }) {
   if (saving.value) return
-  if (!currentUserTask.value) {
+  // A DRAFT no longer needs a task. Step records already model a draft as
+  // `submitted_at IS NULL`, and migration 20260818000100 dropped the NOT NULL
+  // on task_instance_id so one can be written before the step activates —
+  // which is what lets Save draft cover a whole grouped run. Submitting still
+  // requires the task, and the database enforces it:
+  //   CHECK (submitted_at IS NULL OR task_instance_id IS NOT NULL)
+  if (submit && !currentUserTask.value) {
     toast.error('No task assigned to you for this step')
     return
   }
@@ -225,13 +231,18 @@ async function persistRecord({ submit, esign }) {
     const submittedAt = submit ? DateTime.now() : (existing?.submittedAt ?? null)
     if (existing) {
       existing.payload = payload
+      // A draft written before the step activated has no task; bind it now so
+      // the submitted record carries the task it was completed under.
+      if (currentUserTask.value && !existing.taskInstanceId) {
+        existing.taskInstanceId = currentUserTask.value.id
+      }
       if (submit) existing.submittedAt = submittedAt
       await existing.save()
     } else {
       const record = db[props.module.recordModelName].create({
         [props.module.recordResourceFk]: props.resourceId,
         workflowInstanceStepId: props.instanceStepId,
-        taskInstanceId: currentUserTask.value.id,
+        taskInstanceId: currentUserTask.value?.id ?? null,
         payload,
         submittedAt,
       })
@@ -242,7 +253,7 @@ async function persistRecord({ submit, esign }) {
     // sets autoApprove=true. Submitting the form then also approves the
     // reviewer's task in one round trip. Esign credentials, when needed,
     // are passed through from the parent's esign dialog.
-    if (submit && props.autoApprove && currentUserTask.value.statusId === 'ASSIGNED') {
+    if (submit && props.autoApprove && currentUserTask.value?.statusId === 'ASSIGNED') {
       try {
         const body = {
           action: 'COMPLETE_AND_ADVANCE',
@@ -362,9 +373,9 @@ function getUserName(userId) {
 // `hideSubmit` to suppress the in-form Submit button.
 // `saveDraft` / `canSaveDraft` are exposed so a parent can drive drafts from
 // outside the form — the group card puts one Save draft next to Complete and
-// fans it out across its steps. canSaveDraft is false for a step with no task
-// (a group's 2nd..Nth), where there is nothing to attach a record to.
-const canSaveDraft = computed(() => !!currentUserTask.value)
+// fans it out across its steps. Every editable step can now hold a draft,
+// task or not (migration 20260818000100).
+const canSaveDraft = computed(() => isEditable.value)
 
 defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
 </script>
