@@ -310,9 +310,14 @@ export function isDimensionAllowed(metric, viz, dimension) {
  * than render a permanently broken tile, degrade — to the default viz, and to
  * no dimension — and let the tile render the un-split answer.
  *
+ * Returns the WHOLE question with `viz`/`dimension` corrected — not just the
+ * two repaired keys. Callers read the result as the question they are about to
+ * render or persist (`normalised.metricKey`, `q.title`, `q.filters`), so
+ * returning a fragment silently strips every field it does not mention.
+ *
  * @param {object|null} metric
- * @param {{ viz?: string|null, dimension?: string|null }} draft
- * @returns {{ viz: string, dimension: string|null }}
+ * @param {object} draft the question so far
+ * @returns {object} `draft` with a legal `viz`/`dimension` pair
  */
 export function clampQuestion(metric, draft = {}) {
   const offered = vizOptionsFor(metric)
@@ -325,5 +330,5 @@ export function clampQuestion(metric, draft = {}) {
   if (!dimension && rule?.dimension === 'required') {
     dimension = dimensionOptionsFor(metric, viz)[0]?.value ?? null
   }
-  return { viz, dimension }
+  return { ...draft, viz, dimension }
 }

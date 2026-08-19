@@ -166,11 +166,16 @@ function onMetricChange(metricKey) {
   const next = props.metrics.find((m) => m.metricKey === metricKey) ?? null
   // Re-clamp against the NEW metric in the same tick, so the viz/dimension
   // selects never flash a combination that belongs to the previous metric.
-  patch({
-    metricKey,
-    ...clampQuestion(next, question.value),
-    periodToken: question.value?.periodToken || DEFAULT_PERIOD_TOKEN,
-  })
+  // The new metric goes INTO the draft rather than over the clamp's result:
+  // clampQuestion returns the whole question, so spreading it last would put
+  // the outgoing metricKey back and the picker would never change.
+  patch(
+    clampQuestion(next, {
+      ...question.value,
+      metricKey,
+      periodToken: question.value?.periodToken || DEFAULT_PERIOD_TOKEN,
+    }),
+  )
 }
 </script>
 
