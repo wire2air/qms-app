@@ -108,6 +108,23 @@ const currentUserRecord = computed(
 
 const submittedRecords = computed(() => records.value.filter((r) => r.submittedAt))
 
+/**
+ * Unsubmitted drafts belonging to OTHER people on this step.
+ *
+ * The read-only view showed submitted records (with an author name) and your
+ * own draft, and nothing else — so a colleague's work-in-progress was invisible
+ * even though the database had already delivered it. On a step assigned to
+ * someone else you saw an empty form and would reasonably conclude nothing had
+ * been done (reported 2026-08-19: Steve had filled in two steps; Sam saw blanks).
+ *
+ * Tolerable while only the assignee could act. Not now that a permitted
+ * colleague can take the step over — they would restart work already done,
+ * without knowing a draft existed.
+ */
+const otherDrafts = computed(() =>
+  records.value.filter((r) => !r.submittedAt && r.userId !== currentUserId.value),
+)
+
 // Pick the user's CURRENTLY-ACTIONABLE APPROVAL task on this step. A
 // step can host multiple TaskInstances for the same user across its
 // lifecycle: an old APPROVED row from a prior completion (reopen
@@ -385,7 +402,15 @@ async function submitForm(esign, extraAction = null) {
 }
 
 const usersMap = useLiveQueryWithDeps(
-  [() => submittedRecords.value.map((r) => r.userId).join(',')],
+  // Every record author shown in the read-only view — submitted records AND
+  // other people's drafts. Missing the drafts left them labelled "—".
+  [
+    () =>
+      [...submittedRecords.value, ...otherDrafts.value]
+        .map((r) => r.userId)
+        .filter(Boolean)
+        .join(','),
+  ],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
     const ids = [...new Set(idsStr.split(','))]
@@ -468,8 +493,18 @@ defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
         <FormSchemaReadonlyView :fields="formSchema" :values="currentUserRecord.payload || {}" />
       </div>
 
+      <!-- A colleague's work in progress. Named, so it is never mistaken for
+           your own, and shown because starting a takeover from a blank form
+           when a draft already exists is how work gets duplicated. -->
+      <div v-for="draft in otherDrafts" :key="draft.id">
+        <div class="tw:text-caption tw:text-amber-600 tw:font-medium tw:mb-2">
+          Draft by {{ getUserName(draft.userId) }} (not submitted)
+        </div>
+        <FormSchemaReadonlyView :fields="formSchema" :values="draft.payload || {}" />
+      </div>
+
       <DynamicForm
-        v-if="!submittedRecords.length && !currentUserRecord"
+        v-if="!submittedRecords.length && !currentUserRecord && !otherDrafts.length"
         :fields="formSchema"
         :readonly="true"
         disabled

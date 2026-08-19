@@ -162,7 +162,14 @@ const groups = computed(() => {
 
 const collapsed = computed(() => collapsedStepIds(groups.value))
 
-/** Owner display names, so a run that is not yours says whose it is. */
+/**
+ * Assignee display names for each run.
+ *
+ * These used to skip the current user ("blank reads as you"), which let the
+ * group card say "3 steps assigned to you" to whoever happened to be looking —
+ * including someone the run has nothing to do with. Now that anyone permitted
+ * can see and act on another person's steps, the name has to be explicit.
+ */
 const ownerIdKey = computed(() =>
   [...groups.value.keys()]
     .map((h) => (assigneesByStep.value[h] ?? [])[0])
@@ -171,11 +178,10 @@ const ownerIdKey = computed(() =>
 )
 const ownerNames = useLiveQueryWithDeps(
   [() => ownerIdKey.value, () => currentUserId.value],
-  async (db, [key, me]) => {
+  async (db, [key]) => {
     if (!key) return {}
     const out = {}
     for (const id of [...new Set(key.split(','))]) {
-      if (id === me) continue // blank reads as "you"
       const u = await db.User.findByPk(id)
       if (u) out[id] = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
     }

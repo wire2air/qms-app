@@ -58,7 +58,8 @@ const props = defineProps({
   // label has to name them, so the run cannot be completed without reading
   // whose it is. See components/workflow/stepTakeover.js.
   isTakeover: { type: Boolean, default: false },
-  /** Whose run this is, for the header. Empty means "you". */
+  /** Whose run this is, named explicitly — never "you", because anyone
+   *  permitted can be looking at someone else's run. */
   ownerName: { type: String, default: '' },
   isOwner: { type: Boolean, default: false },
 })
@@ -258,7 +259,7 @@ async function submitGroup(esign = null) {
         <IconLayersSubtract :size="18" class="tw:mt-0.5 tw:shrink-0 tw:text-primary" />
         <div class="tw:min-w-0">
           <BaseText variant="body" weight="medium" class="tw:block">
-            {{ steps.length }} steps assigned to you
+            {{ steps.length }} steps assigned to {{ ownerName || 'the assignee' }}
           </BaseText>
           <BaseCaption>
             {{ stepNumberRange }} — completing these finishes all {{ steps.length }} in order.
