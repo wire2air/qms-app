@@ -377,6 +377,7 @@ async function submitGroup(esign = null) {
           :instanceStepId="step.id"
           :resourceId="resourceId"
           collectOnly
+          :collectEditable="canAct"
           hideSubmit
         />
       </section>

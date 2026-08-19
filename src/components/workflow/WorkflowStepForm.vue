@@ -49,6 +49,11 @@ const props = defineProps({
   // records can only be written server-side, after each step activates.
   // Default false, so every existing caller behaves exactly as before.
   collectOnly: { type: Boolean, default: false },
+  /**
+   * Whether a collectOnly form may be filled in. The parent owns this because
+   * only it knows if the RUN has started — see isEditable below.
+   */
+  collectEditable: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done'])
@@ -142,11 +147,18 @@ const currentUserTask = useLiveQueryWithDeps(
 // are still PENDING and have NO task — that is the whole reason the server
 // writes their records — so gating on the task left them rendered through the
 // readonly branch and the user could not fill them in (reported 2026-08-18).
-// Safe because the group card only renders for a run whose every step has
-// exactly one assignee: the current user. The server re-checks that before
-// writing anything.
+//
+// But it was `collectOnly ? true`, i.e. ALWAYS editable, and the group card
+// also renders for a run that has not started — one waiting on an earlier
+// approval. Its fields invited input that no Save draft or Mark complete could
+// persist, and doing so would have jumped the workflow (reported 2026-08-19).
+//
+// So the parent decides: collectEditable is its `canAct`, which is false until
+// the run's head step is actually IN_PROGRESS. Permission is not the question
+// here — the sequence is. Someone with every capability still may not fill in
+// step 4 while step 2 is out for approval.
 const isEditable = computed(() =>
-  props.collectOnly ? true : currentUserTask.value?.statusId === 'ASSIGNED',
+  props.collectOnly ? props.collectEditable : currentUserTask.value?.statusId === 'ASSIGNED',
 )
 
 const formData = ref({})
