@@ -172,7 +172,8 @@ const currentUserTask = useLiveQueryWithDeps(
     const picked = pickActionableTask({
       tasks,
       userId,
-      mayTakeOver: mayTakeOverStep.value,
+      mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
     })
     if (picked.task) return picked.task
     // Fall back to a terminal task of the user's own, so a completed step still

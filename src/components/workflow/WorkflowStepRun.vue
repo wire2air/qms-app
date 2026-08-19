@@ -136,7 +136,8 @@ const actionableByStep = useLiveQueryWithDeps(
       const picked = pickActionableTask({
         tasks,
         userId,
-        mayTakeOver,
+        mayAct: mayTakeOver,
+        matrixApplies: !!props.module.authzModule,
         statuses: ACTIONABLE_STATUSES,
       })
       if (picked.task) out[id] = { id: picked.task.id, isTakeover: picked.isTakeover }

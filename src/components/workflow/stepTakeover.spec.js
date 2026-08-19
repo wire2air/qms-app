@@ -22,19 +22,52 @@ const theirs = { id: 't-theirs', assignedTo: THEM, taskKindId: 'APPROVAL', statu
 
 beforeEach(() => mockIsAllowedOnRecord.mockReset())
 
+describe('the verb is required of the assignee too', () => {
+  it('withholds my OWN task when I do not hold the verb', () => {
+    // The exemption that made `<module>:approve` meaningless: anyone can be
+    // ASSIGNED an approval step, so if assignment granted the verb, the grant
+    // gated nothing. Removed 2026-08-19, matching the record-owner rule.
+    const r = pickActionableTask({ tasks: [mine], userId: ME, mayAct: false })
+    expect(r).toMatchObject({ task: null, isTakeover: false })
+  })
+
+  it('still lets the assignee act where the matrix cannot be consulted', () => {
+    // DocumentVersion / LogBook / InspectionLot have no scope inputs, so their
+    // module carries no authzModule. Enforcing a verb we cannot evaluate would
+    // strand every document approval.
+    const r = pickActionableTask({
+      tasks: [mine],
+      userId: ME,
+      mayAct: false,
+      matrixApplies: false,
+    })
+    expect(r).toMatchObject({ task: mine, isTakeover: false })
+  })
+
+  it('gives a non-assignee nothing when the matrix does not apply', () => {
+    const r = pickActionableTask({
+      tasks: [theirs],
+      userId: ME,
+      mayAct: true,
+      matrixApplies: false,
+    })
+    expect(r).toMatchObject({ task: null, isTakeover: false })
+  })
+})
+
 describe('picking the task to act on', () => {
   it('prefers my own task even when I could take over', () => {
     // Otherwise my ordinary work would render as "on behalf of someone".
-    const r = pickActionableTask({ tasks: [theirs, mine], userId: ME, mayTakeOver: true })
+    const r = pickActionableTask({ tasks: [theirs, mine], userId: ME, mayAct: true })
     expect(r).toMatchObject({ task: mine, isTakeover: false })
   })
 
   it('offers someone else’s task only when the matrix allows it', () => {
-    expect(pickActionableTask({ tasks: [theirs], userId: ME, mayTakeOver: false })).toMatchObject({
+    expect(pickActionableTask({ tasks: [theirs], userId: ME, mayAct: false })).toMatchObject({
       task: null,
       isTakeover: false,
     })
-    expect(pickActionableTask({ tasks: [theirs], userId: ME, mayTakeOver: true })).toMatchObject({
+    expect(pickActionableTask({ tasks: [theirs], userId: ME, mayAct: true })).toMatchObject({
       task: theirs,
       isTakeover: true,
       assigneeId: THEM,
@@ -43,18 +76,18 @@ describe('picking the task to act on', () => {
 
   it('ignores tasks that are not actionable', () => {
     const done = { ...theirs, statusId: 'APPROVED' }
-    expect(pickActionableTask({ tasks: [done], userId: ME, mayTakeOver: true }).task).toBeNull()
+    expect(pickActionableTask({ tasks: [done], userId: ME, mayAct: true }).task).toBeNull()
   })
 
   it('ignores tasks of another kind', () => {
     const other = { ...theirs, taskKindId: 'REVIEW' }
-    expect(pickActionableTask({ tasks: [other], userId: ME, mayTakeOver: true }).task).toBeNull()
+    expect(pickActionableTask({ tasks: [other], userId: ME, mayAct: true }).task).toBeNull()
   })
 
   it('does not treat an unassigned task as mine when I have no id', () => {
     // undefined === undefined would otherwise hand it over as "my own".
     const orphan = { ...theirs, assignedTo: null }
-    const r = pickActionableTask({ tasks: [orphan], userId: undefined, mayTakeOver: true })
+    const r = pickActionableTask({ tasks: [orphan], userId: undefined, mayAct: true })
     expect(r).toMatchObject({ task: null, isTakeover: false })
   })
 })

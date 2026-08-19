@@ -48,7 +48,8 @@ export function permissionForStep(authzModule, stepType) {
  * @param {object}   args
  * @param {object[]} args.tasks         tasks on the step
  * @param {string}   args.userId        current user
- * @param {boolean}  args.mayTakeOver   matrix verdict for this step + record
+ * @param {boolean}  args.mayAct        matrix verdict for this step + record
+ * @param {boolean}  args.matrixApplies false when the module has no authzModule
  * @param {string}  [args.kind]         task kind to consider ('APPROVAL')
  * @param {string[]}[args.statuses]     actionable statuses
  * @returns {{ task: object|null, isTakeover: boolean, assigneeId: string|null }}
@@ -56,7 +57,8 @@ export function permissionForStep(authzModule, stepType) {
 export function pickActionableTask({
   tasks = [],
   userId,
-  mayTakeOver = false,
+  mayAct = false,
+  matrixApplies = true,
   kind = 'APPROVAL',
   statuses = ACTIONABLE_TASK_STATUSES,
 }) {
@@ -67,9 +69,22 @@ export function pickActionableTask({
   // `userId &&` matters: two undefineds compare equal, which would hand an
   // unassigned task to anyone as if it were their own.
   const mine = userId ? eligible.find((t) => t.assignedTo === userId) : null
-  if (mine) return { task: mine, isTakeover: false, assigneeId: mine.assignedTo }
 
-  if (!mayTakeOver) return { task: null, isTakeover: false, assigneeId: null }
+  // Where the matrix cannot be consulted — resource types with no scope inputs,
+  // whose module carries no authzModule — the assignee is the only actor, as
+  // before. Enforcing a verb we cannot evaluate would strand those steps.
+  if (!matrixApplies) {
+    return mine
+      ? { task: mine, isTakeover: false, assigneeId: mine.assignedTo }
+      : { task: null, isTakeover: false, assigneeId: null }
+  }
+
+  // Otherwise the verb is required of everyone, the assignee included. Being
+  // assigned an approval step is not a grant of `approve` — otherwise the grant
+  // would mean nothing, since anyone can be assigned.
+  if (!mayAct) return { task: null, isTakeover: false, assigneeId: null }
+
+  if (mine) return { task: mine, isTakeover: false, assigneeId: mine.assignedTo }
 
   const other = eligible.find((t) => t.assignedTo && t.assignedTo !== userId) || null
   return {

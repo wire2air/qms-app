@@ -70,7 +70,8 @@ const currentUserTask = useLiveQueryWithDeps(
       pickActionableTask({
         tasks,
         userId,
-        mayTakeOver: mayTakeOverStep.value,
+        mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
         kind: null, // this menu drives every outcome, not just APPROVAL tasks
         statuses: ACTIONABLE_STATUSES,
       }).task || null

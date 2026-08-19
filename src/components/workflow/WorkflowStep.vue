@@ -184,7 +184,8 @@ const actionableTask = computed(() =>
   pickActionableTask({
     tasks: stepTasks.value,
     userId: currentUserId.value,
-    mayTakeOver: mayTakeOverStep.value,
+    mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
     statuses: ACTIONABLE_STATUSES,
   }),
 )
@@ -456,7 +457,8 @@ async function handleExtendDelay() {
     const { task: myTask } = pickActionableTask({
       tasks: stepTasks.value,
       userId: currentUserId.value,
-      mayTakeOver: mayTakeOverStep.value,
+      mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
       statuses: ['ASSIGNED', 'FORM_SUBMITTED'],
     })
     if (myTask) {
