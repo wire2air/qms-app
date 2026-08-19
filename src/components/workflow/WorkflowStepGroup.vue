@@ -369,6 +369,14 @@ async function submitGroup(esign = null) {
           {{ step.description }}
         </p>
 
+        <!-- Chain of custody, per step. The standalone card has carried this
+             since task history shipped; grouping a run should not cost you the
+             history of the steps in it. Per step rather than one merged list
+             for the run, because "who did what, when" is only meaningful
+             against a specific step — and it is the same collapsed-by-default
+             component, so a run of five does not become a wall of timeline. -->
+        <WorkflowStepHistory :instanceStepId="step.id" />
+
         <!-- collectOnly: validate and hand back the payload. Steps 2..N have no
              task instance yet, so their records are written server-side. -->
         <WorkflowStepForm
