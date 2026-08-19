@@ -34,6 +34,10 @@ export class WorkflowStep extends BaseModel {
   @Property({ type: DateTime }) delayUntilDate = /** @type {DateTime} */ (null)
   // DELAY steps: how many times the wake-up can be pushed out (null = 1).
   @Property({ type: Number }) maxDelayExtensions = /** @type {Number} */ (null)
+  // Fixed deadline — wins over slaDays at activation (resolveStepDueDate).
+  @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
+  // DELAY steps: does this step record an effectiveness verdict on completion?
+  @Property({ type: Boolean }) capturesEffectiveness = false
   @Property({ type: Boolean }) requireComments = false
   @Property({ type: Boolean }) requireEsignature = false
   @Property({ type: Boolean }) allowChildSteps = false

@@ -27,7 +27,11 @@ export class AuditRecord extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) auditInstanceId = ''
   @Property({ type: String, required: true }) workflowInstanceStepId = ''
-  @Property({ type: String, required: true }) taskInstanceId = ''
+  // Nullable since migration 20260818000100: a step-form DRAFT can be saved
+  // before its step activates, and a task only exists once it does. The
+  // database still guarantees the binding for anything submitted —
+  // CHECK (submitted_at IS NULL OR task_instance_id IS NOT NULL).
+  @Property({ type: String }) taskInstanceId = null
   @Property({ type: String, required: true }) userId = ''
   @Property({ type: Object }) payload = {}
   @Property({ type: DateTime }) submittedAt = /** @type {DateTime} */ (null)

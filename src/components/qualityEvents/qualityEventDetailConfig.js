@@ -1,4 +1,4 @@
-import { IconArrowUpRight, IconHistory, IconCircleCheck } from '@tabler/icons-vue'
+import { IconArrowUpRight, IconHistory, IconCircleCheck, IconPrinter } from '@tabler/icons-vue'
 
 /**
  * Contextual banners, sections, and header actions for a Quality Event detail
@@ -38,8 +38,12 @@ export function buildQualityEventSections(_event) {
  *    escalate → quality_events:update (what POST /escalate enforces)
  */
 export function buildQualityEventActions(gates = {}, handlers = {}) {
-  const { canClose, canEscalate, statusId, closing } = gates
+  const { canClose, closeBlockedReason, canEscalate, statusId, closing, escalatedTo } = gates
   const isOpen = !['CLOSED', 'CANCELLED'].includes(statusId)
+  // Escalating no longer changes the event's status (2026-08-18) — the event is
+  // still open and still has to be reviewed and closed. So "already escalated"
+  // is read from the escalation itself, not from the status.
+  const alreadyEscalated = !!escalatedTo
   return [
     {
       id: 'close',
@@ -47,9 +51,20 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
       icon: IconCircleCheck,
       variant: 'primary',
       priority: 110,
+      // `canClose` is "has a claim to close this" — the assigned reviewer, or a
+      // role holding quality_events:close. `closeBlockedReason` is the narrower
+      // question the SERVER asks, and it only accepts the assigned reviewer
+      // (closeQualityEvent → assertAssignedReviewer).
+      //
+      // Splitting them stops the button being offered and then refused: before
+      // 2026-08-18 a user with the close grant who was not the reviewer got the
+      // button, clicked it, and collected a 403. Disabled-with-a-reason instead
+      // of hidden, because this person DOES hold the permission — the fix is to
+      // get assigned, and the tooltip has to say so.
       visible: !!canClose && isOpen,
-      disabled: !!closing,
+      disabled: !!closing || !!closeBlockedReason,
       loading: !!closing,
+      title: closeBlockedReason || undefined,
       onSelect: handlers.close,
     },
     {
@@ -59,7 +74,21 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
       variant: 'primary',
       priority: 100,
       visible: !!canEscalate && isOpen,
+      // Disabled rather than hidden: a vanished button reads as a permissions
+      // problem, whereas a disabled one with the target in its tooltip answers
+      // "what happened to this event?" without a trip to the audit log.
+      disabled: alreadyEscalated,
+      title: alreadyEscalated ? `Already escalated to ${escalatedTo}` : undefined,
       onSelect: handlers.escalate,
+    },
+    {
+      id: 'print',
+      label: 'Print',
+      icon: IconPrinter,
+      variant: 'secondary',
+      priority: 50,
+      visible: true,
+      onSelect: handlers.print,
     },
     {
       id: 'audit',

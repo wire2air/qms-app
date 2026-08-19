@@ -12,6 +12,10 @@ const filters = defineModel('filters', { type: Object, required: true })
 const activeFilter = defineModel('activeFilter', { type: String, required: true })
 
 const filterPills = [
+  // 'All' means no lifecycle filter at all — closed and cancelled records
+  // included. Every other pill narrows to some subset of open, so without
+  // this there was no way to see the whole register in one list.
+  { value: 'all', label: 'All' },
   { value: 'all_open', label: 'All open' },
   { value: 'mine', label: 'My NCs' },
   { value: 'critical', label: 'Critical' },
@@ -103,7 +107,9 @@ function clearAll() {
 
 <template>
   <!-- Sticky workspace toolbar: pins below the app bar while the list scrolls. -->
-  <div class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5">
+  <div
+    class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-col tw:gap-2.5 tw:bg-main tw:pt-1 tw:pb-2.5"
+  >
     <!-- Row 1 — filter menu + date range (search lives in the table toolbar) -->
     <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
       <div class="tw:ms-auto tw:flex tw:flex-wrap tw:items-center tw:gap-2">
@@ -116,7 +122,9 @@ function clearAll() {
 
     <!-- Row 3 — applied filters as removable tokens -->
     <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
-      <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+      <span
+        class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+      >
         Filters
       </span>
       <NcStatusBadgeById

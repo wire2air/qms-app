@@ -1,4 +1,5 @@
 <script setup>
+import { humanizeFilter } from '@/composables/useListPrint.js'
 import {
   IconLayoutDashboard,
   IconAlertCircle,
@@ -34,7 +35,25 @@ const list = useListLayout({
   syncUrl: true,
 })
 
-const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION', 'ESCALATED']
+// Escalating no longer moves the event to an ESCALATED status (2026-08-18) —
+// it spawns a downstream record but the event itself is still open and still
+// has to be reviewed and closed. "Escalated" is therefore a property of the
+// record_links, not of the status, exactly as QualityEventsDashboard already
+// read it.
+const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION']
+
+// Which events have been escalated. Indexed lookup on fromType, then narrowed
+// to the ESCALATED relation — record_links carries other relations (CAUSED,
+// and the audit-finding spawns) that must not count as an escalation.
+// Declared here because the filter and the KPI strip both read it.
+const escalations = useLiveQuery(
+  async (db) => {
+    const all = await db.RecordLink.where('fromType', 'QualityEvent').exec()
+    return all.filter((l) => l.relation === 'ESCALATED')
+  },
+  { models: ['RecordLink'], initial: [] },
+)
+const escalatedIds = computed(() => new Set(escalations.value.map((l) => l.fromId)))
 
 function applyFilters(results, statusIds, categoryIds, severityIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
@@ -45,12 +64,15 @@ function applyFilters(results, statusIds, categoryIds, severityIds) {
 
 function applyActiveFilter(results, af) {
   const userId = currentSession.value?.userId
+  // Explicit rather than relying on the fallthrough below: 'all' is a real
+  // choice (the whole register, closed included), not an unrecognised value.
+  if (af === 'all') return results
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter(
       (r) => r.assignedToUserId === userId && OPEN_STATUSES.includes(r.statusId),
     )
-  if (af === 'escalated') return results.filter((r) => r.statusId === 'ESCALATED')
+  if (af === 'escalated') return results.filter((r) => escalatedIds.value.has(r.id))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
   if (af === 'cancelled') return results.filter((r) => r.statusId === 'CANCELLED')
   return results
@@ -79,24 +101,12 @@ const events = useLiveQueryWithDeps(
   { models: ['QualityEvent'], initial: [] },
 )
 
-// Which events have been escalated (a record_links row with fromType QualityEvent).
-const escalations = useLiveQuery((db) => db.RecordLink.where().exec(), {
-  models: ['RecordLink'],
-  initial: [],
-})
-const escalatedIds = computed(
-  () =>
-    new Set(
-      (escalations.value || []).filter((l) => l.fromType === 'QualityEvent').map((l) => l.fromId),
-    ),
-)
-
 const stats = computed(() => {
   const all = allEvents.value
   return {
     open: all.filter((r) => OPEN_STATUSES.includes(r.statusId)).length,
     underReview: all.filter((r) => r.statusId === 'UNDER_REVIEW').length,
-    escalated: all.filter((r) => r.statusId === 'ESCALATED').length,
+    escalated: all.filter((r) => escalatedIds.value.has(r.id)).length,
     closed: all.filter((r) => r.statusId === 'CLOSED').length,
   }
 })
@@ -176,6 +186,12 @@ function openCreateDialog() {
     </template>
 
     <template #actions>
+      <ListPrintButton
+        entity="QualityEvent"
+        title="Quality Event Register"
+        :rows="events"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton
         type="button"
         variant="outline"
@@ -210,6 +226,5 @@ function openCreateDialog() {
       :canDelete="canDelete"
       @delete="onDeleteRow"
     />
-
   </BaseListLayout>
 </template>

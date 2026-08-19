@@ -40,9 +40,9 @@ describe('buildCapaBanners', () => {
 })
 
 describe('buildCapaSections', () => {
-  it('always returns details, workflow, effectiveness', () => {
+  it('always returns details and workflow', () => {
     const s = buildCapaSections({ statusId: 'DRAFT' })
-    expect(s.map((x) => x.id)).toEqual(['details', 'workflow', 'effectiveness'])
+    expect(s.map((x) => x.id)).toEqual(['details', 'workflow'])
   })
   it('all sections have a label', () => {
     const s = buildCapaSections({ statusId: 'PENDING' })

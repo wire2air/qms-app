@@ -225,6 +225,28 @@ function setDelayDays(days) {
             </span>
           </div>
         </BaseField>
+        <!-- Turns a plain deferred task into one that must reach a conclusion.
+             Labelled generically — a delay step is a deferred CHECK of any kind
+             (a CAPA effectiveness review, a post-implementation review on a
+             change, a follow-up on an NC), so the UI does not assume CAPA. The
+             stored field keeps the name `effectiveness_outcome`: that is the
+             QMS term of art (ISO 13485 §8.5.2) and it matches the built-in
+             CAPA check, so the two report identically. -->
+        <BaseField label="Verification outcome">
+          <label class="tw:flex tw:items-start tw:gap-3 tw:cursor-pointer tw:select-none">
+            <BaseSwitch v-model="step.capturesEffectiveness" :disabled="!canUpdate" />
+            <span>
+              <span class="tw:block tw:text-xs tw:font-semibold tw:text-on-main">
+                Require a verification result
+              </span>
+              <span class="tw:block tw:text-xs tw:text-secondary">
+                The assignee must answer “was it effective?” before this step can be
+                completed — not just leave a comment. Recorded on the step, so it reports
+                on the record list.
+              </span>
+            </span>
+          </label>
+        </BaseField>
       </template>
 
       <!-- Compliance — inline on the panel for APPROVAL steps (it's core

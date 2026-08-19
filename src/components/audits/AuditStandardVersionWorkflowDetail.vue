@@ -11,7 +11,7 @@
  * EFFECTIVE (or REJECTED on rejection) and the next bootstrap tick
  * unmounts this card.
  */
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { AUDIT_STANDARD_VERSION_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -54,14 +54,11 @@ function openReassignDialog(instanceStepId) {
 <template>
   <div class="tw:contents">
     <template v-if="workflowInstanceSteps.length">
-      <WorkflowStep
-        v-for="(step, idx) in workflowInstanceSteps"
-        :key="step.id"
+      <WorkflowStepRun
+        :steps="workflowInstanceSteps"
         :module="AUDIT_STANDARD_VERSION_MODULE"
-        :instanceStepId="step.id"
         :resourceId="versionId"
         :isOwner="isOwner"
-        :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
       />
     </template>

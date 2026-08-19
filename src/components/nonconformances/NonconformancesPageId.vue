@@ -472,11 +472,18 @@ const ncDetailConfig = computed(() =>
     notFoundDescription="This nonconformance could not be found."
   >
     <template #title>
+      <!-- Matches the rendered title's width and weight — see CapasPageId for
+           the why (a default-size input was far narrower than the text it
+           replaced). Enter commits, Escape reverts. -->
       <BaseTextInput
         v-if="editingTitle && isEditable"
         v-model="nc.title"
         placeholder="NC title"
         autofocus
+        class="tw:mb-2 tw:w-full"
+        inputClass="tw:text-base tw:font-semibold"
+        @keyup.enter="editingTitle = false"
+        @keyup.escape="editingTitle = false"
         @blur="editingTitle = false"
       />
       <BaseClickableRow
@@ -863,9 +870,12 @@ const ncDetailConfig = computed(() =>
             </span>
             <BaseText v-else color="secondary">—</BaseText>
           </BaseDetailField>
-          <BaseDetailField label="Issue type">
-            <NcIssueTypeSelectMenu v-if="isEditable" v-model="nc.ncIssueTypeId" />
-            <NcIssueTypeBadgeById v-else-if="nc.ncIssueTypeId" :issueTypeId="nc.ncIssueTypeId" />
+          <!-- Shared quality classification — same taxonomy as Quality Events
+               and CAPAs, inherited on escalation and carried on to any CAPA
+               raised from this NC. -->
+          <BaseDetailField label="Category">
+            <EventCategorySelectMenu v-if="isEditable" v-model="nc.categoryId" />
+            <EventCategoryBadgeById v-else-if="nc.categoryId" :categoryId="nc.categoryId" />
             <BaseText v-else color="secondary">—</BaseText>
           </BaseDetailField>
           <BaseDetailField label="Detected">

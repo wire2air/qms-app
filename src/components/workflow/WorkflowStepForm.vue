@@ -12,7 +12,8 @@
  * everyone else sees FormSchemaReadonlyView grouped per-submitter.
  *
  * Two contracts the parent step card relies on:
- *   - `defineExpose({ submit, saving })` — lets the step card drive
+ *   - `defineExpose({ submit, saveDraft, canSaveDraft, saving })` — lets the
+ *     step card, or a group card, drive
  *     save + submit + approve in one shot when it renders its own
  *     Complete & Advance button (paired with `hideSubmit`).
  *   - `autoApprove` — when true, a successful submit also POSTs the
@@ -41,6 +42,12 @@ const props = defineProps({
   // exposed ref. Save draft stays so the assignee can still persist
   // mid-work without completing.
   hideSubmit: { type: Boolean, default: false },
+  // Step grouping: validate and build the payload, then hand it back instead
+  // of persisting. A grouped run's 2nd..Nth steps are still PENDING and have
+  // no task instance, and a step record needs a task_instance_id — so their
+  // records can only be written server-side, after each step activates.
+  // Default false, so every existing caller behaves exactly as before.
+  collectOnly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done'])
@@ -112,7 +119,18 @@ const currentUserTask = useLiveQueryWithDeps(
   { models: ['TaskInstance'] },
 )
 
-const isEditable = computed(() => currentUserTask.value?.statusId === 'ASSIGNED')
+// Normally: editable only while you hold an ASSIGNED task on this step.
+//
+// collectOnly is the exception, and has to be. A grouped run's 2nd..Nth steps
+// are still PENDING and have NO task — that is the whole reason the server
+// writes their records — so gating on the task left them rendered through the
+// readonly branch and the user could not fill them in (reported 2026-08-18).
+// Safe because the group card only renders for a run whose every step has
+// exactly one assignee: the current user. The server re-checks that before
+// writing anything.
+const isEditable = computed(() =>
+  props.collectOnly ? true : currentUserTask.value?.statusId === 'ASSIGNED',
+)
 
 const formData = ref({})
 const saving = ref(false)
@@ -169,9 +187,36 @@ watch(resource, (resourceRow) => {
   }
 })
 
-async function persistRecord({ submit, esign }) {
+/**
+ * The payload as it will be stored: context-only keys stripped, OptionSet
+ * labels frozen. Shared by persistRecord and by collectOnly, so a grouped step
+ * is saved from exactly the same shape as an individually-completed one.
+ */
+async function buildPayload() {
+  // Strip every key the module marks as context-only (prefixed with
+  // _ by convention, e.g. _parent_problem). Anything not in the
+  // context map is part of the persisted payload.
+  const contextKeys = new Set(
+    Object.keys(props.module.getStepFormContextFields(resource.value) ?? {}),
+  )
+  const rawPayload = Object.fromEntries(
+    Object.entries(formData.value || {}).filter(([k]) => !contextKeys.has(k)),
+  )
+  // Freeze OptionSet labels onto the payload so saved records stay
+  // readable as the admin originally meant them even if the source
+  // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
+  return freezeOptionLabels(db, formSchema.value, rawPayload)
+}
+
+async function persistRecord({ submit, esign, extraAction = null }) {
   if (saving.value) return
-  if (!currentUserTask.value) {
+  // A DRAFT no longer needs a task. Step records already model a draft as
+  // `submitted_at IS NULL`, and migration 20260818000100 dropped the NOT NULL
+  // on task_instance_id so one can be written before the step activates —
+  // which is what lets Save draft cover a whole grouped run. Submitting still
+  // requires the task, and the database enforces it:
+  //   CHECK (submitted_at IS NULL OR task_instance_id IS NOT NULL)
+  if (submit && !currentUserTask.value) {
     toast.error('No task assigned to you for this step')
     return
   }
@@ -181,27 +226,23 @@ async function persistRecord({ submit, esign }) {
     // Strip every key the module marks as context-only (prefixed with
     // _ by convention, e.g. _parent_problem). Anything not in the
     // context map is part of the persisted payload.
-    const contextKeys = new Set(
-      Object.keys(props.module.getStepFormContextFields(resource.value) ?? {}),
-    )
-    const rawPayload = Object.fromEntries(
-      Object.entries(formData.value || {}).filter(([k]) => !contextKeys.has(k)),
-    )
-    // Freeze OptionSet labels onto the payload so saved records stay
-    // readable as the admin originally meant them even if the source
-    // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
-    const payload = await freezeOptionLabels(db, formSchema.value, rawPayload)
+    const payload = await buildPayload()
     const existing = currentUserRecord.value
     const submittedAt = submit ? DateTime.now() : (existing?.submittedAt ?? null)
     if (existing) {
       existing.payload = payload
+      // A draft written before the step activated has no task; bind it now so
+      // the submitted record carries the task it was completed under.
+      if (currentUserTask.value && !existing.taskInstanceId) {
+        existing.taskInstanceId = currentUserTask.value.id
+      }
       if (submit) existing.submittedAt = submittedAt
       await existing.save()
     } else {
       const record = db[props.module.recordModelName].create({
         [props.module.recordResourceFk]: props.resourceId,
         workflowInstanceStepId: props.instanceStepId,
-        taskInstanceId: currentUserTask.value.id,
+        taskInstanceId: currentUserTask.value?.id ?? null,
         payload,
         submittedAt,
       })
@@ -212,11 +253,16 @@ async function persistRecord({ submit, esign }) {
     // sets autoApprove=true. Submitting the form then also approves the
     // reviewer's task in one round trip. Esign credentials, when needed,
     // are passed through from the parent's esign dialog.
-    if (submit && props.autoApprove && currentUserTask.value.statusId === 'ASSIGNED') {
+    if (submit && props.autoApprove && currentUserTask.value?.statusId === 'ASSIGNED') {
       try {
+        // `extraAction` carries step-level fields the CARD owns rather than the
+        // form — today the effectiveness verdict on a DELAY step. It has to ride
+        // this request because the form's submit and the completion are one
+        // round trip when autoApprove is on.
         const body = {
           action: 'COMPLETE_AND_ADVANCE',
           outcomeId: 'COMPLETE_AND_ADVANCE',
+          ...(extraAction ?? {}),
         }
         if (esign?.method) body.method = esign.method
         if (esign?.token) body.token = esign.token
@@ -280,7 +326,7 @@ function getMissingRequiredFields() {
   return missing
 }
 
-async function submitForm(esign) {
+async function submitForm(esign, extraAction = null) {
   // Same finalize-on-save bundling as saveDraft — Mark Complete also
   // benefits from this since a user is likely to hit it once they
   // think they're done, and a still-unfinalized RCA would otherwise
@@ -303,7 +349,10 @@ async function submitForm(esign) {
     return
   }
   missingFieldsError.value = ''
-  return persistRecord({ submit: true, esign })
+  // Grouped run: hand the validated payload up; the server writes it once the
+  // step activates and its task exists.
+  if (props.collectOnly) return { payload: await buildPayload() }
+  return persistRecord({ submit: true, esign, extraAction })
 }
 
 const usersMap = useLiveQueryWithDeps(
@@ -327,7 +376,13 @@ function getUserName(userId) {
 // Exposed so parents that render their own Complete & Advance button
 // can trigger save + submit + approve in one shot — paired with
 // `hideSubmit` to suppress the in-form Submit button.
-defineExpose({ submit: submitForm, saving })
+// `saveDraft` / `canSaveDraft` are exposed so a parent can drive drafts from
+// outside the form — the group card puts one Save draft next to Complete and
+// fans it out across its steps. Every editable step can now hold a draft,
+// task or not (migration 20260818000100).
+const canSaveDraft = computed(() => isEditable.value)
+
+defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
 </script>
 
 <template>
@@ -344,7 +399,17 @@ defineExpose({ submit: submitForm, saving })
         :fields="formSchema"
         @update:modelValue="missingFieldsError = ''"
       />
-      <div class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
+      <div
+        v-if="currentUserTask && !collectOnly && !hideSubmit"
+        class="tw:mt-4 tw:flex tw:justify-end tw:gap-2"
+      >
+        <!-- Hidden whenever the PARENT drives the actions (hideSubmit), so
+             Save draft and Mark Complete sit on one row in the step card
+             instead of stacking. Also hidden in a group: the group card
+             carries ONE Save draft beside Complete and drives each step
+             through the exposed saveDraft(), so per-step buttons would just be
+             noise — the same reasoning as Mark Complete. Outside a group
+             isEditable already implies a task, so nothing changes there. -->
         <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
           <template #icon><IconDeviceFloppy :size="16" /></template>
           {{ saving ? 'Saving…' : 'Save draft' }}

@@ -1,4 +1,5 @@
 <script setup>
+import { humanizeFilter } from '@/composables/useListPrint.js'
 import {
   IconAlertCircle,
   IconAlertTriangle,
@@ -71,6 +72,9 @@ function applyFilters(results, statusIds, severityIds, typeIds) {
 function applyActiveFilter(results, af) {
   const now = DateTime.now()
   const userId = currentSession.value?.userId
+  // Explicit rather than relying on the fallthrough below: 'all' is a real
+  // choice (the whole register, closed included), not an unrecognised value.
+  if (af === 'all') return results
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
@@ -103,8 +107,7 @@ const ncs = useLiveQueryWithDeps(
     results = applyFilters(results, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
-    if (createdAt)
-      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+    if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -190,7 +193,9 @@ async function onDeleteNc(row) {
     :state="list.state.value"
     :emptyIcon="IconClipboardList"
     :emptyTitle="
-      list.hasActiveFilters.value ? 'No nonconformances match your filters' : 'No nonconformances yet'
+      list.hasActiveFilters.value
+        ? 'No nonconformances match your filters'
+        : 'No nonconformances yet'
     "
   >
     <template #title>
@@ -206,6 +211,12 @@ async function onDeleteNc(row) {
     </template>
 
     <template #actions>
+      <ListPrintButton
+        entity="Nonconformance"
+        title="Nonconformance Register"
+        :rows="ncs"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
     </template>
 

@@ -1,5 +1,6 @@
 <script setup>
 import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue'
+import '../recordPrint.css'
 
 /**
  * CAPA print module.
@@ -247,9 +248,9 @@ onMounted(() => {
 <template>
   <PrintLayout :status="capa?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="capa-print-num">{{ capa?.capaNumber }}</div>
-      <h1 class="capa-print-title">{{ capa?.title }}</h1>
-      <table class="capa-print-meta">
+      <div class="qp-num">{{ capa?.capaNumber }}</div>
+      <h1 class="qp-title">{{ capa?.title }}</h1>
+      <table class="qp-meta">
         <tbody>
           <tr>
             <th>CAPA Number</th>
@@ -289,7 +290,7 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
-      <div v-if="workflow" class="capa-print-workflow">
+      <div v-if="workflow" class="qp-workflow">
         Workflow: <strong>{{ workflow.name }}</strong>
         <span v-if="workflowVersion">
           (v{{
@@ -301,26 +302,26 @@ onMounted(() => {
     </template>
 
     <div v-if="!ready" class="tw:py-10 tw:text-secondary tw:text-center">Loading CAPA…</div>
-    <div v-else class="capa-print-body">
+    <div v-else class="qp-body">
       <!-- Problem description -->
-      <section v-if="capa?.description" class="capa-print-section">
+      <section v-if="capa?.description" class="qp-section">
         <h2>1. Problem Description</h2>
-        <p class="capa-print-paragraph">{{ capa.description }}</p>
+        <p class="qp-paragraph">{{ capa.description }}</p>
       </section>
 
       <!-- Workflow steps (root level) -->
-      <section v-if="rootSteps.length" class="capa-print-section">
+      <section v-if="rootSteps.length" class="qp-section">
         <h2>2. Action Plan &amp; Execution</h2>
-        <p class="capa-print-paragraph capa-print-note">
+        <p class="qp-paragraph qp-note">
           The {{ rootSteps.length }} step{{ rootSteps.length === 1 ? '' : 's' }} executed for this
           CAPA, including sub-tasks, assignees, completion, and any form data captured.
         </p>
-        <div v-for="(step, idx) in rootSteps" :key="step.id" class="capa-print-step">
-          <div class="capa-print-step-head">
-            <div class="capa-print-step-num">{{ idx + 1 }}</div>
-            <div class="capa-print-step-meta">
-              <div class="capa-print-step-title">{{ step.name || 'Step' }}</div>
-              <div class="capa-print-step-detail">
+        <div v-for="(step, idx) in rootSteps" :key="step.id" class="qp-step">
+          <div class="qp-step-head">
+            <div class="qp-step-num">{{ idx + 1 }}</div>
+            <div class="qp-step-meta">
+              <div class="qp-step-title">{{ step.name || 'Step' }}</div>
+              <div class="qp-step-detail">
                 Status: <strong>{{ step.statusId }}</strong> · Assignee:
                 <strong>{{ userName(assigneeIdFor(step.id)) }}</strong>
                 <template v-if="step.completedAt">
@@ -329,13 +330,13 @@ onMounted(() => {
               </div>
             </div>
           </div>
-          <div v-if="step.description" class="capa-print-step-instructions">
-            <span class="capa-print-step-label">Instructions:</span>
+          <div v-if="step.description" class="qp-step-instructions">
+            <span class="qp-step-label">Instructions:</span>
             <span v-html="step.description" />
           </div>
           <!-- Submitted form records -->
-          <div v-for="record in recordsForStep(step.id)" :key="record.id" class="capa-print-record">
-            <div class="capa-print-record-head">
+          <div v-for="record in recordsForStep(step.id)" :key="record.id" class="qp-record">
+            <div class="qp-record-head">
               <strong>{{ userName(record.userId) }}</strong>
               submitted {{ fmtDateTime(record.submittedAt) }}
             </div>
@@ -346,14 +347,10 @@ onMounted(() => {
             />
           </div>
           <!-- Children -->
-          <div v-if="childrenOf(step.id).length" class="capa-print-children">
-            <div class="capa-print-children-label">Sub-tasks</div>
-            <div
-              v-for="(child, ci) in childrenOf(step.id)"
-              :key="child.id"
-              class="capa-print-child"
-            >
-              <div class="capa-print-child-head">
+          <div v-if="childrenOf(step.id).length" class="qp-children">
+            <div class="qp-children-label">Sub-tasks</div>
+            <div v-for="(child, ci) in childrenOf(step.id)" :key="child.id" class="qp-child">
+              <div class="qp-child-head">
                 <strong>{{ idx + 1 }}.{{ ci + 1 }}</strong>
                 {{ child.name || 'Sub-task' }}
                 · {{ child.statusId }} · Assignee: {{ userName(assigneeIdFor(child.id)) }}
@@ -361,16 +358,12 @@ onMounted(() => {
                   · Completed {{ fmtDateTime(child.completedAt) }}
                 </template>
               </div>
-              <div v-if="child.description" class="capa-print-step-instructions">
-                <span class="capa-print-step-label">Instructions:</span>
+              <div v-if="child.description" class="qp-step-instructions">
+                <span class="qp-step-label">Instructions:</span>
                 <span v-html="child.description" />
               </div>
-              <div
-                v-for="record in recordsForStep(child.id)"
-                :key="record.id"
-                class="capa-print-record"
-              >
-                <div class="capa-print-record-head">
+              <div v-for="record in recordsForStep(child.id)" :key="record.id" class="qp-record">
+                <div class="qp-record-head">
                   <strong>{{ userName(record.userId) }}</strong>
                   submitted {{ fmtDateTime(record.submittedAt) }}
                 </div>
@@ -386,9 +379,9 @@ onMounted(() => {
       </section>
 
       <!-- Effectiveness checks appendix -->
-      <section v-if="effectivenessChecks.length" class="capa-print-section">
+      <section v-if="effectivenessChecks.length" class="qp-section">
         <h2>3. Effectiveness Checks</h2>
-        <table class="capa-print-effectiveness">
+        <table class="qp-effectiveness">
           <thead>
             <tr>
               <th>Due</th>
@@ -409,193 +402,10 @@ onMounted(() => {
       </section>
 
       <!-- Cancellation reason appendix -->
-      <section v-if="capa?.cancelReason" class="capa-print-section">
+      <section v-if="capa?.cancelReason" class="qp-section">
         <h2>Cancellation Reason</h2>
-        <p class="capa-print-paragraph">{{ capa.cancelReason }}</p>
+        <p class="qp-paragraph">{{ capa.cancelReason }}</p>
       </section>
     </div>
   </PrintLayout>
 </template>
-
-<style>
-.capa-print-num {
-  font-size: 11px;
-  color: #6b7280;
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  letter-spacing: 0.5px;
-}
-.capa-print-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 4px 0 14px;
-  line-height: 1.25;
-  color: var(--print-accent, #111827);
-}
-.capa-print-meta {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-.capa-print-meta th {
-  text-align: left;
-  background: #f9fafb;
-  padding: 6px 10px;
-  border: 1px solid #e5e7eb;
-  font-weight: 600;
-  width: 16%;
-}
-.capa-print-meta td {
-  padding: 6px 10px;
-  border: 1px solid #e5e7eb;
-  width: 34%;
-}
-.capa-print-workflow {
-  font-size: 11px;
-  color: #4b5563;
-  margin-top: 10px;
-}
-
-.capa-print-body {
-  font-size: 11px;
-}
-.capa-print-section {
-  margin: 18px 0;
-  break-inside: avoid-page;
-}
-.capa-print-section > h2 {
-  font-size: 14px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #e5e7eb;
-  color: var(--print-accent, #111827);
-}
-.capa-print-paragraph {
-  line-height: 1.5;
-}
-.capa-print-note {
-  color: #6b7280;
-  font-size: 10px;
-}
-
-.capa-print-step {
-  margin: 10px 0 14px;
-  padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  break-inside: avoid-page;
-}
-.capa-print-step-head {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-.capa-print-step-num {
-  width: 22px;
-  height: 22px;
-  border-radius: 11px;
-  background: #eef2ff;
-  color: #3730a3;
-  font-weight: 700;
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.capa-print-step-title {
-  font-weight: 700;
-  font-size: 12px;
-}
-.capa-print-step-detail {
-  color: #4b5563;
-  font-size: 10px;
-  margin-top: 2px;
-}
-.capa-print-step-instructions {
-  margin: 8px 0 4px 32px;
-  font-size: 10.5px;
-  color: #374151;
-  line-height: 1.5;
-}
-.capa-print-step-label {
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 9px;
-  letter-spacing: 0.3px;
-  color: #6b7280;
-  margin-right: 4px;
-}
-
-.capa-print-record {
-  margin: 8px 0 4px 32px;
-  padding: 6px 8px;
-  background: #f9fafb;
-  border-left: 2px solid #d1d5db;
-  font-size: 10px;
-  break-inside: avoid-page;
-}
-.capa-print-record-head {
-  color: #4b5563;
-  margin-bottom: 4px;
-}
-.capa-print-payload {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 10px;
-}
-.capa-print-payload th {
-  text-align: left;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  padding: 4px 6px;
-  font-weight: 600;
-  width: 30%;
-}
-.capa-print-payload td {
-  border: 1px solid #e5e7eb;
-  padding: 4px 6px;
-}
-
-.capa-print-children {
-  margin: 10px 0 0 32px;
-  padding-top: 6px;
-  border-top: 1px dashed #e5e7eb;
-}
-.capa-print-children-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  font-weight: 600;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-.capa-print-child {
-  margin: 4px 0 6px;
-  padding-left: 8px;
-  border-left: 2px solid #e5e7eb;
-}
-.capa-print-child-head {
-  font-size: 10.5px;
-}
-
-.capa-print-effectiveness {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 10px;
-}
-.capa-print-effectiveness th,
-.capa-print-effectiveness td {
-  border: 1px solid #e5e7eb;
-  padding: 5px 8px;
-  text-align: left;
-}
-.capa-print-effectiveness th {
-  background: #f9fafb;
-  font-weight: 600;
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: #6b7280;
-}
-</style>

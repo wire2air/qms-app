@@ -6,6 +6,10 @@ const filters = defineModel('filters', { type: Object, required: true })
 const activeFilter = defineModel('activeFilter', { type: String, required: true })
 
 const filterPills = [
+  // 'All' means no lifecycle filter at all — closed and cancelled records
+  // included. Every other pill narrows to some subset of open, so without
+  // this there was no way to see the whole register in one list.
+  { value: 'all', label: 'All' },
   { value: 'all_open', label: 'All open' },
   { value: 'mine', label: 'Assigned to me' },
   { value: 'escalated', label: 'Escalated' },
@@ -86,7 +90,9 @@ function clearAll() {
 
     <!-- Row 3 — applied filters as removable tokens -->
     <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
-      <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+      <span
+        class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+      >
         Filters
       </span>
       <QualityEventStatusBadgeById

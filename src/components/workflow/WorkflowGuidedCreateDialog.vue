@@ -82,6 +82,15 @@ const approvalEsign = ref(false)
 const approvalRoleIds = ref([])
 const needCheck = ref(false)
 const checkDays = ref(90)
+// A delay can be relative (N days after the previous step) or absolute (a fixed
+// calendar date). The step settings dialog and the runtime scheduler have always
+// offered both; this wizard only offered preset windows, so a template whose
+// check lands on a known date — an annual review, a regulatory deadline — could
+// not be expressed here at all (2026-08-18).
+//
+// Mutually exclusive, and the date wins at runtime — same rule as
+// WorkflowStepSettingsDialog.setDelayDays.
+const checkDate = ref(null)
 const checkRoleIds = ref([])
 
 // ── Which screens does THIS module need? ─────────────────────────────────────
@@ -130,6 +139,7 @@ watch(show, (open) => {
   approvalRoleIds.value = []
   needCheck.value = false
   checkDays.value = 90
+  checkDate.value = null
   checkRoleIds.value = []
   error.value = ''
 })
@@ -218,8 +228,11 @@ const plannedSteps = computed(() => {
       stepType: 'DELAY',
       roleIds: checkRoleIds.value,
       hasForm: supportsStepForms.value,
-      delayDays: checkDays.value,
-      note: `Waits ${checkDays.value} days after the previous step, then assigns its task. The owner can reschedule or skip it at runtime.`,
+      delayDays: checkDate.value ? null : checkDays.value,
+      delayUntilDate: checkDate.value ? checkDate.value.toFormat('yyyy-LL-dd') : null,
+      note: checkDate.value
+        ? `Waits until ${checkDate.value.toFormat('d LLL yyyy')}, then assigns its task. The owner can reschedule or skip it at runtime.`
+        : `Waits ${checkDays.value} days after the previous step, then assigns its task. The owner can reschedule or skip it at runtime.`,
     })
   }
   return out
@@ -258,6 +271,9 @@ const createDraft = useLiveMutation(async (db) => {
       approvalRule: settings.defaultWorkflowApprovalRule ?? 'ALL',
       slaDays: settings.defaultSla ?? null,
       delayDays: p.stepType === 'DELAY' ? (p.delayDays ?? null) : null,
+      // A fixed date is the alternative to the relative window, not an extra —
+      // the two are mutually exclusive and the date wins at runtime.
+      delayUntilDate: p.stepType === 'DELAY' ? (p.delayUntilDate ?? null) : null,
       maxDelayExtensions: p.stepType === 'DELAY' ? 1 : null,
       requireComments: settings.defaultWorkflowRequireComment ?? false,
       requireEsignature: p.esign ?? settings.defaultWorkflowRequireSignature ?? false,
@@ -484,10 +500,34 @@ function typeLabel(p) {
                         ? 'tw:bg-primary tw:text-white tw:border-primary'
                         : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
                     "
-                    @click="checkDays = preset.days"
+                    @click="((checkDays = preset.days), (checkDate = null))"
                   >
                     {{ preset.label }}
                   </button>
+                  <BaseTextInput
+                    v-model.number="checkDays"
+                    type="number"
+                    placeholder="Custom"
+                    inputClass="tw:w-24"
+                    :min="1"
+                    @input="checkDate = null"
+                  />
+                  <span class="tw:text-xs tw:font-medium tw:text-secondary">
+                    days after the previous step
+                  </span>
+                </div>
+              </BaseField>
+              <BaseField label="…or a specific date">
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <BaseDateField
+                    v-model="checkDate"
+                    mode="date"
+                    clearable
+                    @update:modelValue="(v) => v && (checkDays = null)"
+                  />
+                  <span class="tw:text-xs tw:font-medium tw:text-secondary">
+                    Fixed calendar date (overrides the window)
+                  </span>
                 </div>
               </BaseField>
               <BaseField label="Who verifies?" optional>

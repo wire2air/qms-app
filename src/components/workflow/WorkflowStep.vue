@@ -33,6 +33,7 @@ import {
   IconCalendarTime,
   IconCalendarX,
   IconInfoCircle,
+  IconDeviceFloppy,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
@@ -80,6 +81,20 @@ const resource = useLiveQueryWithDeps([() => props.resourceId], async (db, [id])
 // / VOID / CANCELLED as terminal flavours. Treat the union as terminal.
 const resourceIsTerminal = computed(() =>
   ['CLOSED', 'VOID', 'CANCELLED'].includes(resource.value?.statusId),
+)
+
+// A DELAY step is DESIGNED to outlive the record's close — that is the whole
+// point of a deferred effectiveness check, and stepBlocksClose lets an armed
+// one through for exactly that reason. So its own controls must not be gated on
+// `resourceIsTerminal`: doing so hid Extend / Skip / Reschedule in precisely the
+// situation they exist for, leaving a woken check on a closed CAPA with no way
+// to push its date out (reported 2026-08-18).
+//
+// Abandonment is different from completion. A VOID or CANCELLED record means
+// the work was dropped and there is nothing left to verify; a CLOSED one means
+// the work finished and the check is the last outstanding piece of it.
+const resourceAbandoned = computed(() =>
+  ['VOID', 'CANCELLED'].includes(resource.value?.statusId),
 )
 
 // ─── Assignees ───────────────────────────────────────────────────────────────
@@ -162,10 +177,36 @@ const currentUserTask = computed(() => {
 })
 
 const canActOnStep = computed(() => !!currentUserTask.value)
-const completeDisabled = computed(() => childrenBlock.value)
-const completeDisabledReason = computed(() =>
-  childrenBlock.value ? 'All sub-tasks must be completed before advancing' : '',
+// ── Effectiveness verdict (DELAY steps) ──────────────────────────────────────
+// A DELAY step is a deferred verification — "did the corrective action work?".
+// When the template sets capturesEffectiveness the answer is a first-class field
+// on the step (workflow_instance_steps.effectiveness_outcome), not a form field,
+// so it is asked for HERE on the card rather than inside the step form. The
+// server refuses to complete such a step without it.
+const capturesEffectiveness = computed(() => !!instanceStep.value?.capturesEffectiveness)
+const EFFECTIVENESS_OPTIONS = [
+  { label: 'Effective', value: 'EFFECTIVE' },
+  { label: 'Not effective', value: 'NOT_EFFECTIVE' },
+]
+const effectivenessOutcome = ref(null)
+// Prefill when revisiting a step that already recorded one.
+watch(
+  () => instanceStep.value?.effectivenessOutcome,
+  (v) => {
+    if (v) effectivenessOutcome.value = v
+  },
+  { immediate: true },
 )
+const effectivenessMissing = computed(
+  () => capturesEffectiveness.value && !effectivenessOutcome.value,
+)
+
+const completeDisabled = computed(() => childrenBlock.value || effectivenessMissing.value)
+const completeDisabledReason = computed(() => {
+  if (childrenBlock.value) return 'All sub-tasks must be completed before advancing'
+  if (effectivenessMissing.value) return 'Record the effectiveness outcome first'
+  return ''
+})
 
 // Instructions the template author wrote for this step. Plain text: the field
 // is a single-line input in the builder, and rendering it as HTML would let
@@ -184,6 +225,19 @@ const formRef = ref(null)
 const formRequired = computed(
   () => Array.isArray(instanceStep.value?.formSchema) && instanceStep.value.formSchema.length > 0,
 )
+
+const savingDraft = ref(false)
+
+/** Drive the form's own saveDraft from the step card's action row. */
+async function onSaveDraftClick() {
+  if (savingDraft.value) return
+  savingDraft.value = true
+  try {
+    await formRef.value?.saveDraft()
+  } finally {
+    savingDraft.value = false
+  }
+}
 
 function onCompleteAndAdvanceClick() {
   if (!canActOnStep.value || completeDisabled.value) return
@@ -207,11 +261,19 @@ async function submitCompleteAndAdvance(esign = null) {
       // Form's submit() saves the record, marks it submitted, AND posts
       // COMPLETE_AND_ADVANCE in a single pass via autoApprove. Esign
       // creds (when needed) flow through.
-      await formRef.value?.submit(esign)
+      await formRef.value?.submit(
+        esign,
+        capturesEffectiveness.value
+          ? { effectivenessOutcome: effectivenessOutcome.value }
+          : null,
+      )
     } else {
       const body = {
         action: 'COMPLETE_AND_ADVANCE',
         outcomeId: 'COMPLETE_AND_ADVANCE',
+        ...(capturesEffectiveness.value
+          ? { effectivenessOutcome: effectivenessOutcome.value }
+          : {}),
       }
       if (esign?.method) body.method = esign.method
       if (esign?.token) body.token = esign.token
@@ -243,7 +305,7 @@ const delayExtensionsUsed = computed(() => instanceStep.value?.delayExtensionCou
 
 // Pre-fire (SCHEDULED): owner sets/changes the wake date.
 const canRescheduleDelay = computed(
-  () => isDelayStep.value && isScheduled.value && props.isOwner && !resourceIsTerminal.value,
+  () => isDelayStep.value && isScheduled.value && props.isOwner && !resourceAbandoned.value,
 )
 // Skip ("check isn't needed") is valid pre-fire (SCHEDULED) AND post-fire
 // (IN_PROGRESS) — the owner can drop the effectiveness step even after its
@@ -253,7 +315,7 @@ const canSkipDelay = computed(
     isDelayStep.value &&
     ['SCHEDULED', 'IN_PROGRESS'].includes(instanceStep.value?.statusId) &&
     props.isOwner &&
-    !resourceIsTerminal.value,
+    !resourceAbandoned.value,
 )
 // Post-fire (IN_PROGRESS): owner or the assignee can extend, capped.
 const canExtendDelay = computed(
@@ -261,7 +323,7 @@ const canExtendDelay = computed(
     isDelayStep.value &&
     instanceStep.value?.statusId === 'IN_PROGRESS' &&
     delayExtensionsUsed.value < delayCap.value &&
-    !resourceIsTerminal.value &&
+    !resourceAbandoned.value &&
     (props.isOwner || !!currentUserTask.value),
 )
 
@@ -324,17 +386,24 @@ async function handleSkipDelay() {
 // Extend dialog (post-fire — owner step action or assignee task action)
 const showExtendDialog = ref(false)
 const extendDays = ref(null)
+// Extend by a window OR to a fixed date — "push it 30 days" and "push it to the
+// next management review" are both real answers. Mutually exclusive, date wins,
+// same rule as scheduling.
+const extendDate = ref(null)
 const extendReason = ref('')
 const extending = ref(false)
 
+const extendTargetChosen = computed(() => !!extendDate.value || extendDays.value >= 1)
+
 function openExtendDialog() {
   extendDays.value = null
+  extendDate.value = null
   extendReason.value = ''
   showExtendDialog.value = true
 }
 
 async function handleExtendDelay() {
-  if (extending.value || !(extendDays.value >= 1) || !extendReason.value.trim()) return
+  if (extending.value || !extendTargetChosen.value || !extendReason.value.trim()) return
   extending.value = true
   try {
     // Assignee path: extend through the fired task (only ASSIGNED /
@@ -350,14 +419,16 @@ async function handleExtendDelay() {
       await post(`/v1/services/taskInstances/${myTask.id}/action`, {
         action: 'EXTEND_DELAY',
         outcomeId: 'EXTEND_DELAY',
-        extendByDays: extendDays.value,
+        extendByDays: extendDate.value ? undefined : extendDays.value,
+        extendUntilDate: extendDate.value ? extendDate.value.toFormat('yyyy-LL-dd') : undefined,
         comment: extendReason.value.trim(),
       })
     } else {
       await post(delayApiPath.value, {
         workflowInstanceStepId: props.instanceStepId,
         intent: 'EXTEND',
-        extendByDays: extendDays.value,
+        extendByDays: extendDate.value ? undefined : extendDays.value,
+        extendUntilDate: extendDate.value ? extendDate.value.toFormat('yyyy-LL-dd') : undefined,
         reason: extendReason.value.trim(),
       })
     }
@@ -408,12 +479,20 @@ async function handleReopen() {
 // (for a parent step) or the parent step's assignee (for a child task),
 // so there's no target picker the owner needs to drive.
 const REASSIGNABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
+// Delay steps carry none of the routing actions (2026-08-18). A delay is not
+// work anyone is doing yet — it is a timer waiting for a date — so Reassign,
+// Cancel and Send back are noise on it. The only decisions that mean anything
+// are Schedule / Extend / Skip, and Complete once it wakes. Reassigning is
+// pointless too: the assignee defaults to the record owner, who is the person
+// who would set the date anyway.
 const canReassign = computed(
-  () => props.isOwner && REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
+  () =>
+    props.isOwner &&
+    !isDelayStep.value &&
+    REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
 )
-// Delay steps use Skip (advance the workflow) instead of Cancel (halt it) —
-// Cancel is a confusing near-duplicate for an effectiveness check, so it's
-// hidden on delay steps in both the SCHEDULED and IN_PROGRESS states.
+// Cancel likewise — Skip (advance the workflow) is the delay-step equivalent,
+// and Cancel is a confusing near-duplicate for an effectiveness check.
 const canCancelStep = computed(
   () =>
     props.isOwner &&
@@ -655,7 +734,11 @@ function activityLabel(statusId) {
           :resourceId="resourceId"
           :isOwner="isOwner"
           :requireEsignature="requireEsignature"
-          :hideOutcomes="['COMPLETE_AND_ADVANCE']"
+          :hideOutcomes="
+            isDelayStep
+              ? ['COMPLETE_AND_ADVANCE', 'SEND_BACK', 'REQUEST_INFO', 'REASSIGN', 'CANCEL']
+              : ['COMPLETE_AND_ADVANCE']
+          "
         />
       </div>
     </div>
@@ -745,7 +828,40 @@ function activityLabel(statusId) {
       <div class="tw:text-sm tw:text-on-main tw:min-w-0">{{ stepInstructions }}</div>
     </div>
 
+    <!-- Chain of custody for this step: assigned → reassigned → completed,
+         with the e-signature where there was one. Collapsed by default so it
+         does not crowd an active step, but always present — a finished step
+         used to show nothing at all about how it got there. -->
+    <WorkflowStepHistory :instanceStepId="instanceStepId" />
+
     <slot name="beforeForm" />
+
+    <!-- Effectiveness verdict. Sits on the CARD, not in the step form, because
+         it is a first-class field on the step
+         (workflow_instance_steps.effectiveness_outcome) rather than a form
+         answer — which is what makes it queryable for the CAPA register. The
+         server refuses to complete the step without it; completeDisabled
+         mirrors that so the button explains itself instead of erroring. -->
+    <div
+      v-if="capturesEffectiveness"
+      class="tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:p-3"
+    >
+      <BaseLabel required>Was it effective?</BaseLabel>
+      <SegmentedControl
+        v-if="canActOnStep"
+        v-model="effectivenessOutcome"
+        :options="EFFECTIVENESS_OPTIONS"
+      />
+      <div v-else-if="instanceStep.effectivenessOutcome" class="tw:text-sm tw:text-on-main">
+        {{
+          instanceStep.effectivenessOutcome === 'EFFECTIVE' ? 'Effective' : 'Not effective'
+        }}
+      </div>
+      <BaseText v-else color="secondary" class="tw:text-sm">Not yet recorded</BaseText>
+      <BaseCaption>
+        Recorded against the step itself, so it reports on the record list.
+      </BaseCaption>
+    </div>
 
     <WorkflowStepForm
       ref="formRef"
@@ -762,7 +878,20 @@ function activityLabel(statusId) {
          screen, and scrolling back up to finish reads as a dead end. Same
          handler, same disabled state and reason, so the two can never disagree
          about whether the step can be completed. -->
-    <div v-if="canActOnStep" class="tw:flex tw:justify-end tw:pt-1">
+    <div v-if="canActOnStep" class="tw:flex tw:justify-end tw:gap-2 tw:pt-1">
+      <!-- Save draft lives here, not inside the form, so the two actions read
+           as one row rather than stacking (user request 2026-08-18). The form
+           still owns the behaviour — this calls its exposed saveDraft(). -->
+      <BaseButton
+        v-if="formRequired && formRef?.canSaveDraft"
+        variant="outline"
+        :disabled="savingDraft || completing"
+        :isLoading="savingDraft"
+        @click="onSaveDraftClick"
+      >
+        <template #icon><IconDeviceFloppy :size="16" /></template>
+        Save draft
+      </BaseButton>
       <BaseButton
         :disabled="completeDisabled || completing"
         :isLoading="completing"
@@ -941,7 +1070,7 @@ function activityLabel(statusId) {
                   ? 'tw:bg-primary tw:text-white tw:border-primary'
                   : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
               "
-              @click="extendDays = preset.days"
+              @click="((extendDays = preset.days), (extendDate = null))"
             >
               {{ preset.label }}
             </button>
@@ -952,8 +1081,22 @@ function activityLabel(statusId) {
               placeholder="Custom"
               inputClass="tw:w-24"
               :min="1"
+              @input="extendDate = null"
             />
             <span class="tw:text-xs tw:font-medium tw:text-secondary">days from today</span>
+          </div>
+        </BaseField>
+        <BaseField label="…or extend to a specific date">
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <BaseDateField
+              v-model="extendDate"
+              mode="date"
+              clearable
+              @update:modelValue="(v) => v && (extendDays = null)"
+            />
+            <span class="tw:text-xs tw:font-medium tw:text-secondary">
+              Fixed calendar date (overrides the window)
+            </span>
           </div>
         </BaseField>
         <BaseField v-slot="{ id: fieldId }" label="Reason">
@@ -969,7 +1112,7 @@ function activityLabel(statusId) {
         <BaseDialogFooter
           submitLabel="Extend Delay"
           :loading="extending"
-          :disabled="!(extendDays >= 1) || !extendReason.trim() || extending"
+          :disabled="!extendTargetChosen || !extendReason.trim() || extending"
           @cancel="close"
           @submit="handleExtendDelay"
         />

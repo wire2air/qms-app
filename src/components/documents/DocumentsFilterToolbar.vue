@@ -2,6 +2,20 @@
 import { IconFileText, IconBuilding, IconCircleDot } from '@tabler/icons-vue'
 
 const filters = defineModel('filters', { type: Object, required: true })
+const activeFilter = defineModel('activeFilter', { type: String, required: true })
+
+// Quick views. A document's real state is its VERSIONS' state, so these read
+// "has an effective version" / "latest version is mid-approval" rather than the
+// document row's own statusId — see applyActiveFilter in DocumentsHome.
+// 'All' leads because a controlled-document register is normally read whole.
+const filterPills = [
+  { value: 'all', label: 'All' },
+  { value: 'effective', label: 'Effective' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'mine', label: 'Mine' },
+  { value: 'archived', label: 'Archived' },
+]
 
 // Option sources for the cascading filter menu.
 const documentTypes = useLiveQuery((db) => db.DocumentType.where().orderBy('displayOrder').exec(), {
@@ -76,7 +90,10 @@ function clearAll() {
       </div>
     </div>
 
-    <!-- Row 2 — applied filters as removable tokens -->
+    <!-- Row 2 — quick views -->
+    <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
+
+    <!-- Row 3 — applied filters as removable tokens -->
     <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
       <span
         class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"

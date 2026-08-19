@@ -1,10 +1,6 @@
 <script setup>
-import {
-  IconAlertCircle,
-  IconClock,
-  IconShieldCheck,
-  IconCircleCheck,
-} from '@tabler/icons-vue'
+import { humanizeFilter } from '@/composables/useListPrint.js'
+import { IconAlertCircle, IconClock, IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
@@ -44,13 +40,15 @@ const CLOSED_STATUSES = ['CLOSED', 'REJECTED', 'CANCELLED']
 function applyFilters(results, statusIds, priorityIds, changeTypeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
   if (priorityIds?.length) results = results.filter((r) => priorityIds.includes(r.priorityId))
-  if (changeTypeIds?.length)
-    results = results.filter((r) => changeTypeIds.includes(r.changeTypeId))
+  if (changeTypeIds?.length) results = results.filter((r) => changeTypeIds.includes(r.changeTypeId))
   return results
 }
 
 function applyActiveFilter(results, af) {
   const userId = currentSession.value?.userId
+  // Explicit rather than relying on the fallthrough below: 'all' is a real
+  // choice (the whole register, closed included), not an unrecognised value.
+  if (af === 'all') return results
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
@@ -78,8 +76,7 @@ const changeRequests = useLiveQueryWithDeps(
     let results = await db.ChangeRequest.where().exec()
     results = applyFilters(results, statusIds, priorityIds, changeTypeIds)
     results = applyActiveFilter(results, af)
-    if (createdAt)
-      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+    if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -150,6 +147,12 @@ function onCreate() {
     "
   >
     <template #actions>
+      <ListPrintButton
+        entity="ChangeRequest"
+        title="Change Control Register"
+        :rows="crs"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton v-if="canCreate" variant="primary" @click="onCreate">
         New Change Request
       </BaseButton>

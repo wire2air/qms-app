@@ -36,6 +36,109 @@ const capaTypes = useLiveQuery((db) => db.CapaType.where().exec(), {
   models: ['CapaType'],
   initial: [],
 })
+// Effectiveness check, from the real capa_effectiveness_checks rows.
+//
+// This column used to read `capa.effectivenessCheck?.status` — a JSONB column
+// on the CAPA row that nothing has ever written (0 of 50 rows populated). So
+// the column showed "—" for every CAPA, including closed ones with a check
+// scheduled and visible on the detail page (reported 2026-08-18). The checks
+// live in their own table; that is what this reads.
+//
+// One CAPA can have several checks over time (a failed check is renewed into a
+// new one). The open check is the interesting one; once they are all finished
+// the most recent tells you the outcome.
+const OPEN_EC_STATUSES = ['PENDING', 'IN_PROGRESS']
+
+const checksByCapaId = useLiveQueryWithDeps(
+  [() => props.rows.map((r) => r.id).join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return {}
+    const ids = idsStr.split(',')
+    const lists = await Promise.all(
+      ids.map((id) => db.CapaEffectivenessCheck.where('capaId', id).exec()),
+    )
+    const out = {}
+    ids.forEach((id, i) => {
+      const checks = lists[i] ?? []
+      if (!checks.length) return
+      const open = checks.find((c) => OPEN_EC_STATUSES.includes(c.statusId))
+      const latest = checks
+        .slice()
+        .sort((a, b) => (b.dueAt?.toMillis?.() ?? 0) - (a.dueAt?.toMillis?.() ?? 0))[0]
+      out[id] = open ?? latest
+    })
+    return out
+  },
+  { models: ['CapaEffectivenessCheck'], initial: {} },
+)
+
+// The SECOND implementation: CAPAs on a template with an Effectiveness Check
+// DELAY step carry the check as a workflow step, not a CapaEffectivenessCheck
+// row (see the guard in closeCapa). Both populations exist while the transition
+// runs, so the column reads both and this is the join for the step-based one:
+// Capa → WorkflowInstance → its DELAY step.
+const delayStepByCapaId = useLiveQueryWithDeps(
+  [() => props.rows.map((r) => r.id).join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return {}
+    const ids = idsStr.split(',')
+    const instanceLists = await Promise.all(
+      ids.map((id) => db.WorkflowInstance.where('[resourceType+resourceId]', ['Capa', id]).exec()),
+    )
+    const out = {}
+    await Promise.all(
+      ids.map(async (id, i) => {
+        const instances = instanceLists[i] ?? []
+        if (!instances.length) return
+        const stepLists = await Promise.all(
+          instances.map((inst) =>
+            db.WorkflowInstanceStep.where('workflowInstanceId', inst.id).exec(),
+          ),
+        )
+        const delays = stepLists.flat().filter((s) => s.stepType === 'DELAY')
+        if (!delays.length) return
+        // Prefer one still running; otherwise the last one, which holds the verdict.
+        const live = delays.find((s) => !TERMINAL_STEP_STATUSES.includes(s.statusId))
+        out[id] = live ?? delays[delays.length - 1]
+      }),
+    )
+    return out
+  },
+  { models: ['WorkflowInstance', 'WorkflowInstanceStep'], initial: {} },
+)
+
+const TERMINAL_STEP_STATUSES = ['APPROVED', 'SKIPPED', 'CANCELLED', 'REJECTED']
+
+/**
+ * One shape for the column regardless of which implementation backs the row:
+ * { label, date, outcome }.
+ *
+ * The record-based check keeps its own status vocabulary; the step-based one
+ * reports the step status, plus the verdict once recorded — which is the thing
+ * a reader actually wants ("did it work?"), and is only queryable at all
+ * because effectiveness_outcome is a column rather than a form answer.
+ */
+function effectivenessCheckFor(row) {
+  const check = checksByCapaId.value[row.id]
+  if (check) {
+    return { label: check.statusId, date: check.dueAt, outcome: check.outcome ?? null }
+  }
+  const step = delayStepByCapaId.value[row.id]
+  if (step) {
+    return {
+      label: step.statusId,
+      date: step.delayUntil ?? step.delayUntilDate ?? null,
+      outcome: step.effectivenessOutcome ?? null,
+    }
+  }
+  return null
+}
+
+const EFFECTIVENESS_LABELS = {
+  EFFECTIVE: 'Effective',
+  NOT_EFFECTIVE: 'Not effective',
+}
+
 function selectOpts(list) {
   return list.map((x) => ({ value: x.id, label: x.name }))
 }
@@ -67,25 +170,25 @@ const columns = computed(() => {
       field: 'effectivenessCheck',
       align: 'left',
       sortable: false,
-    },
-    {
-      name: 'scheduledCycle',
-      label: 'CYCLE',
-      field: 'scheduledCycle',
-      align: 'left',
-      sortable: false,
+      // The on-screen cell renders a badge; CSV gets "Pending · 25 Oct 2026".
+      // Without this the export serialises the dead JSONB column instead.
+      exportValue: (row) => {
+        const check = effectivenessCheckFor(row)
+        if (!check) return ''
+        return [
+          check.label,
+          check.outcome ? EFFECTIVENESS_LABELS[check.outcome] : null,
+          check.date ? check.date.formatDate('date') : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      },
     },
     { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
     { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
     { name: 'actions', label: '', field: 'actions', align: 'right' },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
-
-function formatCycle(cycle) {
-  if (!cycle?.value || !cycle?.unit) return null
-  const unit = String(cycle.unit).toLowerCase()
-  return `${cycle.value} ${unit}`
-}
 
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
@@ -153,16 +256,23 @@ function rowMenuItems(row) {
     </template>
 
     <template #body-cell-effectivenessCheck="{ row }">
-      <span v-if="row.effectivenessCheck?.status" class="tw:text-sm tw:font-medium tw:text-on-main">
-        {{ row.effectivenessCheck.status }}
-      </span>
-      <span v-else class="tw:text-secondary">—</span>
-    </template>
-
-    <template #body-cell-scheduledCycle="{ row }">
-      <span v-if="formatCycle(row.scheduledCycle)" class="tw:text-sm tw:text-secondary">
-        {{ formatCycle(row.scheduledCycle) }}
-      </span>
+      <div v-if="effectivenessCheckFor(row)" class="tw:flex tw:items-center tw:gap-1.5">
+        <CapaEffectivenessCheckStatusBadgeById :statusId="effectivenessCheckFor(row).label" />
+        <BaseBadge
+          v-if="effectivenessCheckFor(row).outcome"
+          class="tw:text-micro"
+          :class="
+            effectivenessCheckFor(row).outcome === 'EFFECTIVE'
+              ? 'tw:bg-green-100 tw:text-green-700'
+              : 'tw:bg-red-100 tw:text-red-700'
+          "
+        >
+          {{ EFFECTIVENESS_LABELS[effectivenessCheckFor(row).outcome] }}
+        </BaseBadge>
+        <span v-if="effectivenessCheckFor(row).date" class="tw:text-xs tw:text-secondary">
+          {{ effectivenessCheckFor(row).date.formatDate('date') }}
+        </span>
+      </div>
       <span v-else class="tw:text-secondary">—</span>
     </template>
 

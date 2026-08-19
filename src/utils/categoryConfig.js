@@ -246,11 +246,6 @@ export const CATEGORY_METADATA = {
     icon: IconList,
     description: 'Manage nonconformance disposition types',
   },
-  ncIssueTypes: {
-    label: 'NC Issue Types',
-    icon: IconList,
-    description: 'Manage nonconformance issue types',
-  },
   hazardCategories: {
     label: 'Hazard Categories',
     icon: IconList,
@@ -336,7 +331,6 @@ export const PERMISSION_SECTIONS = [
     name: 'Lookups & Categories',
     categories: [
       'ncDispositionTypes',
-      'ncIssueTypes',
       'hazardCategories',
       'rootCauseCategories',
       'supplierCertificateTypes',

@@ -20,6 +20,7 @@ const empty = () => ({
   name: '',
   description: '',
   slaDays: null,
+  dueDate: null,
   assigneeUserId: null,
   formSchema: [],
   requireComments: false,
@@ -126,7 +127,8 @@ async function onValidSubmit() {
       parentInstanceStepId: props.parentInstanceStepId,
       name: form.value.name,
       description: form.value.description || null,
-      slaDays: form.value.slaDays || null,
+      slaDays: form.value.dueDate ? null : form.value.slaDays || null,
+      dueDate: form.value.dueDate ? form.value.dueDate.toFormat('yyyy-LL-dd') : null,
       assigneeUserId: form.value.assigneeUserId,
       formSchema: form.value.formSchema || [],
       roleIds: inheritedRoleIds.value,
@@ -166,6 +168,9 @@ async function onValidSubmit() {
               />
             </div>
           </BaseField>
+          <!-- Days OR a date (2026-08-18). A window is right for "the assignee
+               gets 5 days"; a date is right for work with a real deadline. The
+               two are mutually exclusive and the date wins at activation. -->
           <BaseField
             label="Due within"
             help="SLA — how many business days the assignee has to complete this step once it activates."
@@ -177,9 +182,23 @@ async function onValidSubmit() {
                 :min="1"
                 placeholder="e.g. 5"
                 inputClass="tw:w-24"
+                @input="form.dueDate = null"
               />
               <span class="tw:text-xs tw:font-medium tw:text-secondary">
                 business days of activation
+              </span>
+            </div>
+          </BaseField>
+          <BaseField label="…or due on a specific date">
+            <div class="tw:flex tw:items-center tw:gap-2">
+              <BaseDateField
+                v-model="form.dueDate"
+                mode="date"
+                clearable
+                @update:modelValue="(v) => v && (form.slaDays = null)"
+              />
+              <span class="tw:text-xs tw:font-medium tw:text-secondary">
+                Fixed calendar date (overrides the window)
               </span>
             </div>
           </BaseField>

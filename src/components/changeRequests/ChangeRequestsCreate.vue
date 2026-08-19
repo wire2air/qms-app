@@ -532,14 +532,16 @@ function goBack() {
           </BaseFieldRow>
         </FormSection>
 
-        <!-- Context (optional) -->
+        <!-- Context — expanded by default (2026-08-18). Reason for Change and
+             Business Justification are the two fields a reviewer actually reads
+             to decide; behind a collapsed header they were being skipped. Still
+             collapsible and still optional, just not hidden. -->
         <FormSection
           id="cr-context"
           title="Context"
           :icon="IconFileDescription"
           optional
           collapsible
-          :defaultOpen="false"
         >
           <div class="tw:flex tw:flex-col tw:gap-4">
             <BaseField label="Reason for Change">
