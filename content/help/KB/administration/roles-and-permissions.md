@@ -15,7 +15,9 @@ Roles control what each person can see and do in Qability. Instead of setting ac
 You manage all of this from the **Roles Administration** page. From there you can create roles, edit their permissions, activate or deactivate them, and decide which users they apply to.
 
 :::note
-**Company owners bypass roles entirely** — an owner always has full access, regardless of role assignments. Everyone else gets exactly what their roles grant.
+**The permission matrix decides everything.** There is no separate "super user" setting to hand out — a role holding every capability on every module, company-wide, *is* full access. Give that role to as many people as you need. Because it's a role, you can see who holds it, take it away in one click, and even scope it (all capabilities, but only at one site).
+
+The one exception is the **company owner flag**, set automatically on the person who first creates the workspace. It bypasses roles entirely and exists as a recovery route in case roles are ever misconfigured — not as a way to grant access. It can't be changed from inside the app.
 :::
 
 ## How a permission works: Level × Scope
@@ -76,6 +78,34 @@ The left navigation follows the same logic:
 
 :::note
 If a module is missing from the matrix and the navigation entirely, it may not be part of your workspace's **plan** — module availability per workspace is managed at the platform level, above roles. Roles decide who can use what your plan includes.
+:::
+
+## Owning a record, and being assigned a task
+
+Two things people often assume grant special powers. Neither does — both mark **who is accountable**, and the matrix still decides who *can*.
+
+### The record owner is the custodian, not the only one who can act
+
+The owner of an NC or CAPA is the person responsible for driving it. That does **not** make them the only person who can work on it, and it does **not** hand them capabilities their role lacks:
+
+- Someone else whose role covers the record — same site, same department, or company-wide — can edit it, without being made the owner.
+- The owner still needs the **Close** capability to close it. Owning a CAPA is not permission to close a CAPA.
+
+Where ownership does count is **scope**: an `Own`-scoped grant reaches the records you own and no others. So "Editor, Own" behaves exactly as it reads.
+
+### An assigned task routes work — it doesn't lock it
+
+A task in someone's queue says *this is yours to do*. It doesn't stop a colleague with the right permission from doing it when they're away:
+
+- Acting on an **action step** needs the module's edit capability; **approving** needs Approve.
+- The task stays in the assignee's queue and never appears in anyone else's — reaching it means opening the record deliberately.
+- When someone else does act, the button says so — **"Approve on behalf of Sam Patel"** — so it can't be clicked without noticing whose task it is.
+- The assignee is **notified straight away**, and the audit trail and electronic signature record both who acted and whose task it was.
+
+This is what stops work stalling when someone is on leave, without anyone quietly taking over another person's approval.
+
+:::tip
+If you want approvals restricted to a specific group, don't rely on the assignment — grant **Approve** only to the roles that should have it. A role with Editor can act on action steps but cannot approve.
 :::
 
 ## Access can also come from involvement, not just roles

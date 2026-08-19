@@ -32,7 +32,7 @@ validation stands.
 
 ## 2. Requirements verified
 
-URS-SEC-01 … URS-SEC-16. Procedural requirements URS-SEC-17 … 20 are verified by inspection
+URS-SEC-01 … URS-SEC-16 and URS-SEC-21 … 23. Procedural requirements URS-SEC-17 … 20 are verified by inspection
 of SOPs, not by this protocol. See the
 [Part 11 Assessment](/validation/framework/part-11-assessment) for the clause mapping.
 
@@ -42,7 +42,8 @@ of SOPs, not by this protocol. See the
 | --- | --- | --- |
 | 1 | This protocol is approved before execution |  |
 | 2 | [IQ](/validation/framework/installation-qualification) executed; security configuration baselined in IQ §7 |  |
-| 3 | Test accounts available: **Admin**, **Full-User**, **Read-Only**, **No-Access**, **Leaver** |  |
+| 3 | Test accounts available: **Admin**, **Full-User**, **Read-Only**, **No-Access**, **Leaver**, **Scoped-User** (a role whose scope can be varied), **Approver-User** (holds Approve but is not the assignee) |  |
+| 3a | At least two sites and two departments exist, with records owned by different users at each |  |
 | 4 | The organisation's password, lockout, session and MFA settings are the ones intended for production |  |
 | 5 | At least one signed record exists (for example a CAPA closed in OQ-04) |  |
 
@@ -85,7 +86,7 @@ The critical test is step 4: hiding a control is not access control.
 | 2 | Confirm create, edit, approve and delete controls are not offered | No write actions are presented |  |  |  |
 | 3 | Sign in as **No-Access** and confirm the module is absent from navigation | Module is not presented |  |  |  |
 | 4 | As **No-Access**, paste a direct URL to that module's list and to a specific record | Access is refused in **both** cases; no data is rendered |  |  |  |
-| 5 | As **Read-Only**, attempt to act on a workflow step assigned to a different user | The action is refused |  |  |  |
+| 5 | As **Read-Only**, attempt to act on a workflow step assigned to a different user | The action is refused — Read-Only holds neither the edit nor the approve capability. (Refusal because of the *permission*, not because of the assignment: see TC-16-17) |  |  |  |
 | 6 | As **Full-User**, confirm the permitted actions are available | Actions available as granted |  |  |  |
 | 7 | Change **Read-Only**'s role to grant write, sign out and in again, and confirm the new permission takes effect | Access reflects the updated role |  |  |  |
 | 8 | Revoke the permission again and confirm access is withdrawn | Access is withdrawn |  |  |  |
@@ -219,6 +220,63 @@ Execute if MFA is used. If not, mark N/A and record the written justification.
 | 5 | Open the records they created and signed | Records remain intact and still attributed to that named person |  |  |  |
 | 6 | Confirm their audit entries remain and are still attributed | History is unchanged |  |  |  |
 | 7 | Confirm the account cannot be reassigned to a different person | No reassignment capability — or, if technically possible, a procedural control prohibits it (record the SOP) |  |  |  |
+
+### TC-16-15 — Scope of access: own, department, site, company *(URS-SEC-21)*
+
+A permission answers *what* a user may do; its scope answers *which records*. Both are
+enforced at the data layer — a record outside a user's scope is never delivered to their
+device, so hiding is not what is being tested here.
+
+**Setup:** one NC owned by **Full-User** at Site A / Department 1, and one owned by another
+user at Site B / Department 2.
+
+| # | Test step | Expected result | Actual result | P/F | Init / Date |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Grant **Scoped-User** Editor on Nonconformance at scope **Own**; list NCs | Only NCs they own are returned |  |  |  |
+| 2 | Open the Site B NC by direct URL | Refused; no data rendered |  |  |  |
+| 3 | Change the scope to **Department** and repeat | NCs in their department are returned; other departments are not |  |  |  |
+| 4 | Change the scope to **Site** and repeat | NCs at every site assigned to the user are returned; other sites are not |  |  |  |
+| 5 | Assign the user a second site and repeat without changing the role | Records at both sites are now returned |  |  |  |
+| 6 | Change the scope to **Company-wide** and repeat | All NCs in the tenant are returned |  |  |  |
+| 7 | Reduce the scope back to **Own** and confirm the wider records disappear | Access is withdrawn |  |  |  |
+
+### TC-16-16 — Capabilities are separate, and ownership is not an exemption *(URS-SEC-22)*
+
+Verifies that each capability gates only itself, and that being the record's owner does not
+substitute for holding one. This is the control that makes an **Approve** or **Close** grant
+meaningful — without it, anyone able to edit could finish the record.
+
+**Setup:** **Scoped-User** holds Editor (create/read/update) on CAPA, company-wide, with
+**no** Approve and **no** Close. They are made the **owner** of a test CAPA.
+
+| # | Test step | Expected result | Actual result | P/F | Init / Date |
+| --- | --- | --- | --- | --- | --- |
+| 1 | As **Scoped-User**, open the CAPA they own and edit a field | The edit saves |  |  |  |
+| 2 | Attempt to close it from the record | No Close control is offered |  |  |  |
+| 3 | Call the close endpoint directly for that CAPA | Refused, stating the role does not grant the action |  |  |  |
+| 4 | Attempt to approve an approval step on it | Refused; approving requires the Approve capability |  |  |  |
+| 5 | Grant the role **Close**, sign out and in, and retry | The CAPA closes |  |  |  |
+| 6 | Confirm a **different** user with Close, in scope but not the owner, can also close a CAPA | Permitted — ownership is not required |  |  |  |
+
+### TC-16-17 — Acting on another user's task, with attribution *(URS-SEC-23)*
+
+Work must not stall when an assignee is unavailable, and a task taken over must be
+unmistakable and fully attributed. Part 11 relevance: the signature records **who signed**
+and **whose task it was**.
+
+**Setup:** an in-progress approval step assigned to **Full-User**. **Approver-User** is not
+the assignee but holds Approve on the module, in scope.
+
+| # | Test step | Expected result | Actual result | P/F | Init / Date |
+| --- | --- | --- | --- | --- | --- |
+| 1 | As **Approver-User**, open the record and locate the step | The workflow and its steps are visible |  |  |  |
+| 2 | Inspect the action control | It names the assignee — "Approve on behalf of *\<assignee\>*" — and is not presented as an ordinary Approve |  |  |  |
+| 3 | Confirm the task does **not** appear in Approver-User's own task list | Only the assignee's queue holds it |  |  |  |
+| 4 | Complete the action, signing where the step requires it | The step completes |  |  |  |
+| 5 | Inspect the audit trail | The entry attributes the action to **Approver-User** |  |  |  |
+| 6 | Inspect the signature record | Signed by **Approver-User**, recording **Full-User** as the user whose task was actioned |  |  |  |
+| 7 | Sign in as **Full-User** and check notifications | A notification states that their task was actioned, naming who did it |  |  |  |
+| 8 | Repeat as **Read-Only** (no Approve) on another such step | Refused; no control is offered and the endpoint rejects the call |  |  |  |
 
 ## 5. Procedural controls — verification by inspection
 

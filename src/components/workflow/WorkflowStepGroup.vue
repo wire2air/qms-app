@@ -114,6 +114,28 @@ async function collectPayloads() {
 // allows cancelling a step in PENDING / IN_PROGRESS / SENT_BACK, so a step that
 // has not started yet can be cancelled out of the run.
 const CANCELLABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
+
+/**
+ * Why this run cannot be actioned — null when it can.
+ *
+ * There are two quite different reasons and the card used to give the same
+ * answer to both: "Waiting on {ownerName || 'the assignee'}". `ownerName` is
+ * deliberately blank when the run is YOURS ("blank reads as you"), so an
+ * assignee looking at their own not-yet-started run was told they were waiting
+ * on themselves — reported from live use 2026-08-19.
+ *
+ * A run has no tasks until its head step activates, and a step activates only
+ * when everything before it is done. So the usual reason a run of your own is
+ * inert is an earlier step, not you.
+ */
+const blockedReason = computed(() => {
+  if (props.canAct) return null
+  const head = props.steps?.[0]
+  if (head && head.statusId !== 'IN_PROGRESS') {
+    return 'Not started yet — an earlier step is still open.'
+  }
+  return `Waiting on ${props.ownerName || 'the assignee'}.`
+})
 const cancelTarget = ref(null)
 const cancelReason = ref('')
 const cancelling = ref(false)
@@ -366,7 +388,7 @@ async function submitGroup(esign = null) {
       <BaseCaption v-if="canAct && requiresEsignature">
         You'll sign once; a signature is recorded against each step.
       </BaseCaption>
-      <BaseCaption v-else-if="!canAct"> Waiting on {{ ownerName || 'the assignee' }}. </BaseCaption>
+      <BaseCaption v-else-if="blockedReason">{{ blockedReason }}</BaseCaption>
       <span v-else />
       <div v-if="canAct" class="tw:flex tw:items-center tw:gap-2">
         <BaseButton
