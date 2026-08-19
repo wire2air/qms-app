@@ -430,7 +430,13 @@ const ncBanners = computed(() => buildNcBanners(nc.value, { isEditable: isEditab
 const ncActions = computed(() =>
   buildNcActions(
     {
-      isOwner: isOwner.value,
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // not a bypass any more — it makes the `own` scope tier match — so an
+      // owner still needs ncr:close to see Approve & Close, and a non-owner who
+      // holds it in scope now does. See recordScope.js.
+      canOpen: isAllowedOnRecord('ncr:update', nc.value),
+      canClose: isAllowedOnRecord('ncr:close', nc.value),
+      canDelete: isAllowedOnRecord('ncr:delete', nc.value),
       statusId: nc.value?.statusId,
       canMarkComplete: canMarkComplete.value,
       markCompleteBlockedReason: markCompleteBlockedReason.value,

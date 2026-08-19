@@ -364,7 +364,14 @@ const capaBanners = computed(() => buildCapaBanners(capa.value, { isEditable: is
 const capaActions = computed(() =>
   buildCapaActions(
     {
-      isOwner: isOwner.value,
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // no longer a bypass — it makes the `own` scope tier match — so an owner
+      // still needs capa:close to see Close CAPA, and a non-owner who holds it
+      // in scope now does. Cancel is an 'update' action server-side.
+      canStart: isAllowedOnRecord('capa:update', capa.value),
+      canCloseCapa: isAllowedOnRecord('capa:close', capa.value),
+      canCancel: isAllowedOnRecord('capa:update', capa.value),
+      canDelete: isAllowedOnRecord('capa:delete', capa.value),
       statusId: capa.value?.statusId,
       canClose: canOpenClose.value,
       closeDisabledReason: closeBlockedReason.value,

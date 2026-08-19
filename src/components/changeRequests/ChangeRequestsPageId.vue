@@ -286,7 +286,13 @@ const changeRequestSections = computed(() => buildChangeRequestSections(cr.value
 const changeRequestActions = computed(() =>
   buildChangeRequestActions(
     {
-      isOwner: isOwner.value,
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // no longer a bypass — it makes the `own` scope tier match. Cancel is an
+      // 'update' action server-side.
+      canOpen: isAllowedOnRecord('change_control:update', cr.value),
+      canCloseCr: isAllowedOnRecord('change_control:close', cr.value),
+      canCancel: isAllowedOnRecord('change_control:update', cr.value),
+      canDeleteCr: isAllowedOnRecord('change_control:delete', cr.value),
       canDelete: canDelete.value,
       statusId: cr.value?.statusId,
       canClose: canClose.value,

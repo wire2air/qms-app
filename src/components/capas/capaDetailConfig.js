@@ -49,7 +49,10 @@ export function buildCapaSections(_capa) {
 /** Header action descriptors (SP-6). gates = resolved booleans/strings; handlers = callbacks. */
 export function buildCapaActions(gates = {}, handlers = {}) {
   const {
-    isOwner,
+    canStart,
+    canCloseCapa,
+    canCancel,
+    canDelete,
     statusId,
     canClose,
     closeDisabledReason,
@@ -65,7 +68,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Start CAPA',
       variant: 'primary',
       priority: 100,
-      visible: !!isOwner && statusId === 'DRAFT',
+      visible: !!canStart && statusId === 'DRAFT',
       disabled: !!saving,
       loading: !!saving,
       onSelect: handlers.openOpen,
@@ -75,7 +78,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Close CAPA',
       variant: 'primary',
       priority: 100,
-      visible: !!isOwner && statusId === 'PENDING',
+      visible: !!canCloseCapa && statusId === 'PENDING',
       disabled: !canClose || !!closing,
       loading: !!closing,
       title: closeDisabledReason || undefined,
@@ -86,7 +89,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Cancel CAPA',
       variant: 'secondary',
       priority: 60,
-      visible: !!isOwner && statusId === 'PENDING',
+      visible: !!canCancel && statusId === 'PENDING',
       disabled: !!cancelling,
       loading: !!cancelling,
       onSelect: handlers.openCancel,
@@ -137,7 +140,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       icon: IconTrash,
       variant: 'danger',
       priority: 10,
-      visible: !!isOwner && statusId === 'DRAFT',
+      visible: !!canDelete && statusId === 'DRAFT',
       onSelect: handlers.openDelete,
     },
   ]
