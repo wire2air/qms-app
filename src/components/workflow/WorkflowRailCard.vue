@@ -79,6 +79,48 @@ const workflow = useLiveQueryWithDeps(
 
 const isRunning = computed(() => !!workflowInstance.value)
 
+/** "Default CAPA Workflow v1.0" — the name alone is ambiguous once a template
+ *  has more than one version, and which version a record is on is exactly what
+ *  you need to know when its steps do not match the current template. */
+const versionText = computed(() =>
+  workflowVersion.value ? `v${workflowVersionLabel(workflowVersion.value)}` : '',
+)
+
+/**
+ * Is the template's current version newer than the one this record is on?
+ *
+ * A running instance is pinned to the version it started on, deliberately — the
+ * steps you are working are the ones you were given. But that pinning is
+ * invisible, so a template edited mid-flight leaves the record showing steps
+ * that no longer match the template anyone else is looking at, with nothing on
+ * screen to explain it.
+ */
+const latestVersion = useLiveQueryWithDeps(
+  [() => workflowVersion.value?.workflowId],
+  async (db, [workflowId]) => {
+    if (!workflowId) return null
+    const rows = await db.WorkflowVersion.where('workflowId', workflowId).exec()
+    return (
+      rows
+        .slice()
+        .sort(
+          (a, b) =>
+            (a.versionMajor ?? 0) - (b.versionMajor ?? 0) ||
+            (a.versionMinor ?? 0) - (b.versionMinor ?? 0),
+        )
+        .pop() ?? null
+    )
+  },
+  { models: ['WorkflowVersion'], initial: null },
+)
+
+const isSupersededVersion = computed(
+  () =>
+    !!workflowVersion.value &&
+    !!latestVersion.value &&
+    latestVersion.value.id !== workflowVersion.value.id,
+)
+
 const selectedWorkflowVersionId = computed({
   get: () => props.record?.workflowVersionId ?? null,
   set: async (id) => {
@@ -103,7 +145,16 @@ const selectedWorkflowVersionId = computed({
   <BaseRailCard title="Workflow">
     <!-- Running: report, don't offer. -->
     <div v-if="isRunning" class="tw:flex tw:flex-col tw:gap-1">
-      <BaseText v-if="workflow" variant="body" weight="medium">{{ workflow.name }}</BaseText>
+      <BaseText v-if="workflow" variant="body" weight="medium">
+        {{ workflow.name }}<span v-if="versionText" class="tw:text-secondary">
+          {{ versionText }}</span
+        >
+      </BaseText>
+      <BaseCaption v-if="isSupersededVersion">
+        This record is running v{{ workflowVersionLabel(workflowVersion) }}. The template has since
+        moved to v{{ workflowVersionLabel(latestVersion) }} — in-flight records stay on the version
+        they started, so its steps will not match the newer template.
+      </BaseCaption>
       <div>
         <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
       </div>
@@ -143,8 +194,15 @@ const selectedWorkflowVersionId = computed({
 
     <!-- Chosen, but not running and not this user's to change. -->
     <div v-else-if="versionId" class="tw:flex tw:flex-col tw:gap-1">
-      <BaseText v-if="workflow" variant="body" weight="medium">{{ workflow.name }}</BaseText>
+      <BaseText v-if="workflow" variant="body" weight="medium">
+        {{ workflow.name }}<span v-if="versionText" class="tw:text-secondary">
+          {{ versionText }}</span
+        >
+      </BaseText>
       <BaseText color="secondary" class="tw:text-sm">Not started yet.</BaseText>
+      <BaseCaption v-if="isSupersededVersion">
+        The template has moved to v{{ workflowVersionLabel(latestVersion) }} since this was chosen.
+      </BaseCaption>
     </div>
 
     <BaseText v-else color="secondary" class="tw:text-sm tw:italic">

@@ -589,6 +589,12 @@ function getStatusLabel(statusId) {
   if (!statusId) return '—'
   if (statusId === 'APPROVED') return 'Completed'
   if (statusId === 'SKIPPED') return 'Skipped'
+  // SCHEDULED is the DELAY step's parked state, which it enters BEFORE anyone
+  // picks a date — delay_until is null until then. Rendering the raw status
+  // told the reader a date had been set while the banner directly beneath said
+  // "Awaiting scheduling. This delay step won't activate until a date is set."
+  // Two labels for one state, contradicting each other (reported 2026-08-19).
+  if (statusId === 'SCHEDULED') return awaitingScheduling.value ? 'Not scheduled' : 'Scheduled'
   return statusId.replace('_', ' ')
 }
 
@@ -691,7 +697,14 @@ function activityLabel(statusId) {
         <BaseHeading :level="3" as="subheading" truncate class="tw:min-w-0">
           {{ displayNumber ?? instanceStep.stepNumber }}. {{ instanceStep.name || 'Step' }}
         </BaseHeading>
-        <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
+        <BaseBadge
+          class="tw:text-micro"
+          :class="
+            awaitingScheduling
+              ? 'tw:bg-amber-100 tw:text-amber-800'
+              : getStepStatusClass(instanceStep.statusId)
+          "
+        >
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
       </div>
