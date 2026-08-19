@@ -71,7 +71,7 @@ export const FIELD_TYPES = Object.freeze({
     label: 'Rich Text + Attachments',
     category: 'input',
     description:
-      'A rich-text editor with inline images and file attachments in one field (replaces a Rich Text + File Upload pair).',
+      'A rich-text editor with inline images and file attachments in one field (replaces a Rich Text + File Upload pair). Attachments are stored alongside the text as part of this answer — use a separate File field when each file is evidence of record that will be asked about individually.',
   },
   number: {
     icon: IconHash,

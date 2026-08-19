@@ -971,6 +971,7 @@ declare module 'vue' {
     RetainSamplesList: typeof import('./src/components/qcInspection/RetainSamplesList.vue')['default']
     RetainSampleStatusBadge: typeof import('./src/components/badges/RetainSampleStatusBadge.vue')['default']
     RetainSampleStatusBadgeById: typeof import('./src/components/badges/RetainSampleStatusBadgeById.vue')['default']
+    'RichTextAttachmentKeys.spec': typeof import('./src/components/form/richTextAttachmentKeys.spec.js')['default']
     RichTextAttachments: typeof import('./src/components/shared/RichTextAttachments.vue')['default']
     RiskAssessmentField: typeof import('./src/components/form/tools/RiskAssessmentField.vue')['default']
     RiskAssessmentReadonly: typeof import('./src/components/form/tools/RiskAssessmentReadonly.vue')['default']

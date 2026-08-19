@@ -119,9 +119,24 @@ function serialize(html, attachments) {
 // ── Draft state ───────────────────────────────────────────────────────────────
 const { html: initHtml, attachments: initAtts } = parse(modelValue.value)
 const draftHtml = ref(initHtml)
-const draftAtts = ref(
-  props.separateAttachments ? [...(attachmentsModel.value ?? [])] : [...initAtts],
-)
+
+/**
+ * In separate mode the attachments live in their own model. But records written
+ * BEFORE a field moved to separate mode have them encoded in the string, and
+ * separate mode's serialize() drops the marker — so reading one, then saving,
+ * would silently discard its attachments.
+ *
+ * So: prefer the separate model, and fall back to whatever the string carries
+ * when it is empty. The next save rewrites the record in the new shape. Delete
+ * this once no marker-format rows remain.
+ */
+function initialAttachments() {
+  if (!props.separateAttachments) return [...initAtts]
+  const separate = attachmentsModel.value ?? []
+  return separate.length ? [...separate] : [...initAtts]
+}
+
+const draftAtts = ref(initialAttachments())
 
 // Guard: when we emit, suppress the echo back into draftHtml.
 let _emitting = false
@@ -130,7 +145,12 @@ watch(modelValue, (v) => {
   if (_emitting) return
   const p = parse(v)
   draftHtml.value = p.html
-  if (!props.separateAttachments) draftAtts.value = [...p.attachments]
+  if (!props.separateAttachments) {
+    draftAtts.value = [...p.attachments]
+  } else if (!draftAtts.value.length && p.attachments.length) {
+    // Same legacy rescue as initialAttachments, for a value that arrives late.
+    draftAtts.value = [...p.attachments]
+  }
 })
 
 watch(attachmentsModel, (v) => {
