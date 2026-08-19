@@ -213,8 +213,32 @@ async function runFinalizers() {
 // (e.g. _parent_problem from the resource description). The watch fires
 // again whenever `resource` changes so the context fields refresh, but
 // we only seed the user payload once to avoid clobbering mid-edit input.
+/**
+ * Where a takeover starts from.
+ *
+ * Saving never overwrites anyone: the persist path finds the record whose
+ * userId is yours and creates one if there is none, so a colleague taking a
+ * step over gets their own row and the assignee's draft survives untouched.
+ * Good for the audit trail — Steve started it, Sam finished it — but it left
+ * Sam retyping work he could see on screen.
+ *
+ * So an ACTION or DELAY step seeds from the assignee's draft when you have none
+ * of your own. You continue their work; the record, and therefore the
+ * attribution, is still yours.
+ *
+ * NOT on an APPROVAL step. There each record is a separate attestation, and
+ * pre-filling one reviewer's answer with another's would put words in their
+ * mouth — the exact thing an approval is supposed to prevent.
+ */
+const seedRecord = computed(() => {
+  if (currentUserRecord.value) return currentUserRecord.value
+  if (isApprovalStep.value) return null
+  if (!isEditable.value) return null
+  return otherDrafts.value[0] ?? null
+})
+
 watch(
-  [currentUserRecord, resource],
+  [seedRecord, resource],
   ([record, resourceRow]) => {
     if (record && !formSeeded) {
       formData.value = {
