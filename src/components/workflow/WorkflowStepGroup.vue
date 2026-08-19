@@ -53,6 +53,11 @@ const props = defineProps({
    *  is somebody else's, in which case the card is descriptive only. */
   headTaskId: { type: String, default: null },
   canAct: { type: Boolean, default: false },
+  // True when the run belongs to someone else and the viewer is acting on
+  // their behalf. Same permission, deliberately different affordance — the
+  // label has to name them, so the run cannot be completed without reading
+  // whose it is. See components/workflow/stepTakeover.js.
+  isTakeover: { type: Boolean, default: false },
   /** Whose run this is, for the header. Empty means "you". */
   ownerName: { type: String, default: '' },
   isOwner: { type: Boolean, default: false },
@@ -379,7 +384,11 @@ async function submitGroup(esign = null) {
           :loading="submitting"
           @click="onCompleteClick"
         >
-          Complete {{ steps.length }} steps
+          {{
+            isTakeover
+              ? `Complete ${steps.length} steps on behalf of ${ownerName || 'the assignee'}`
+              : `Complete ${steps.length} steps`
+          }}
         </BaseButton>
       </div>
     </div>

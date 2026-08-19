@@ -28,6 +28,7 @@
  * grouping rules.
  */
 import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import { pickActionableTask, mayActOnStepType } from '@/components/workflow/stepTakeover.js'
 import WorkflowStepGroup from '@/components/workflow/WorkflowStepGroup.vue'
 import { currentSession } from '@/utils/currentSession'
 import { buildStepGroups, collapsedStepIds } from '@/composables/useWorkflowStepGrouping.js'
@@ -107,11 +108,24 @@ const openChildrenByStep = useLiveQueryWithDeps(
   { models: ['WorkflowInstanceStep'], initial: {} },
 )
 
-// The current user's actionable task on each step — a run can only be headed by
-// a step the user can actually act on.
-const myTaskByStep = useLiveQueryWithDeps(
-  [() => stepIdKey.value, () => currentUserId.value],
-  async (db, [key, userId]) => {
+// The record behind this workflow — needed to ask whether a non-assignee may
+// act on its steps.
+const resource = useLiveQueryWithDeps([() => props.resourceId], async (db, [id]) =>
+  id ? db[props.module.resourceModel.modelName].findByPk(id) : null,
+)
+
+// Grouped runs are ACTION steps by definition (stepGroupIneligibleReason
+// refuses anything else), so the verb is always the module's update.
+const mayTakeOverRun = computed(() =>
+  mayActOnStepType({ module: props.module, record: resource.value, stepType: 'ACTION' }),
+)
+
+// The actionable task on each step — the viewer's own, or the assignee's when
+// the matrix lets them act on someone else's. A run can only be headed by a
+// step the viewer can actually act on.
+const actionableByStep = useLiveQueryWithDeps(
+  [() => stepIdKey.value, () => currentUserId.value, () => mayTakeOverRun.value],
+  async (db, [key, userId, mayTakeOver]) => {
     if (!key || !userId) return {}
     const out = {}
     for (const id of key.split(',')) {
@@ -119,13 +133,13 @@ const myTaskByStep = useLiveQueryWithDeps(
         'WorkflowInstanceStep',
         id,
       ]).exec()
-      const mine = tasks.find(
-        (t) =>
-          t.assignedTo === userId &&
-          t.taskKindId === 'APPROVAL' &&
-          ACTIONABLE_STATUSES.includes(t.statusId),
-      )
-      if (mine) out[id] = mine.id
+      const picked = pickActionableTask({
+        tasks,
+        userId,
+        mayTakeOver,
+        statuses: ACTIONABLE_STATUSES,
+      })
+      if (picked.task) out[id] = { id: picked.task.id, isTakeover: picked.isTakeover }
     }
     return out
   },
@@ -187,8 +201,9 @@ function onUngroup(headId) {
       :steps="groups.get(step.id)"
       :module="module"
       :resourceId="resourceId"
-      :headTaskId="myTaskByStep[step.id] ?? null"
-      :canAct="!!myTaskByStep[step.id]"
+      :headTaskId="actionableByStep[step.id]?.id ?? null"
+      :canAct="!!actionableByStep[step.id]"
+      :isTakeover="!!actionableByStep[step.id]?.isTakeover"
       :ownerName="ownerNameFor(step.id)"
       :isOwner="isOwner"
       @ungroup="onUngroup(step.id)"

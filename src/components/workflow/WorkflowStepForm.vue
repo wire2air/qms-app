@@ -21,6 +21,7 @@
  *     emits `done` so the parent can close (used in child-step dialogs).
  */
 import { IconDeviceFloppy, IconSend } from '@tabler/icons-vue'
+import { pickActionableTask, mayActOnStepType } from '@/components/workflow/stepTakeover.js'
 import DynamicForm from '@/components/form/DynamicForm.js'
 import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue'
 import { currentSession } from '@/utils/currentSession.js'
@@ -69,6 +70,16 @@ const instanceStep = useLiveQueryWithDeps(
 // so any leftover schema from the old TASK-template auto-seed doesn't
 // surface at runtime.
 const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+
+// May a non-assignee act on this step? Server re-decides; this only governs
+// whether the form is offered as editable.
+const mayTakeOverStep = computed(() =>
+  mayActOnStepType({
+    module: props.module,
+    record: resource.value,
+    stepType: instanceStep.value?.stepType,
+  }),
+)
 const formSchema = computed(() =>
   isApprovalStep.value ? [] : instanceStep.value?.formSchema || [],
 )
@@ -100,7 +111,6 @@ const submittedRecords = computed(() => records.value.filter((r) => r.submittedA
 // isEditable / persistRecord could lock onto a stale APPROVED row
 // after a reopen and render read-only even though there's a live
 // ASSIGNED task ready to edit.
-const ACTIONABLE_TASK_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
 
@@ -110,11 +120,18 @@ const currentUserTask = useLiveQueryWithDeps(
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
-    const userApprovalTasks = tasks.filter(
-      (t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL',
-    )
-    const actionable = userApprovalTasks.find((t) => ACTIONABLE_TASK_STATUSES.includes(t.statusId))
-    return actionable ?? userApprovalTasks[0] ?? null
+    // Whoever may act on the step, not only its assignee — see stepTakeover.js.
+    // mayTakeOver is read through a getter so the live query re-runs when the
+    // record or step type resolves.
+    const picked = pickActionableTask({
+      tasks,
+      userId,
+      mayTakeOver: mayTakeOverStep.value,
+    })
+    if (picked.task) return picked.task
+    // Fall back to a terminal task of the user's own, so a completed step still
+    // renders the answer they submitted.
+    return tasks.find((t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL') ?? null
   },
   { models: ['TaskInstance'] },
 )

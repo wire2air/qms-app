@@ -1038,6 +1038,8 @@ declare module 'vue' {
     SpecificationStatusBadge: typeof import('./src/components/badges/SpecificationStatusBadge.vue')['default']
     SpecificationStatusBadgeById: typeof import('./src/components/badges/SpecificationStatusBadgeById.vue')['default']
     SpecificationSubmitDialog: typeof import('./src/components/qcInspection/SpecificationSubmitDialog.vue')['default']
+    StepTakeover: typeof import('./src/components/workflow/stepTakeover.js')['default']
+    'StepTakeover.spec': typeof import('./src/components/workflow/stepTakeover.spec.js')['default']
     StepUpDialog: typeof import('./src/components/platform/StepUpDialog.vue')['default']
     StickyFormFooter: typeof import('./resource/js/shared/components/form/StickyFormFooter.vue')['default']
     'StickyFormFooter.stories': typeof import('./resource/js/shared/components/form/StickyFormFooter.stories.js')['default']
