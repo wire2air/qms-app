@@ -6,7 +6,7 @@ import {
 } from './changeRequestDetailConfig.js'
 import { IconAlertTriangle } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
@@ -53,8 +53,16 @@ const isOwner = computed(() => {
 const canUpdate = computed(() => isAllowed(['change_control:update']))
 const canDelete = computed(() => isAllowed(['change_control:delete']))
 
+// Custodian OR whatever the permission matrix grants at this record's scope —
+// see authz.scope_allowed and the note in CapasPageId. (The DRAFT-only clause is
+// a lifecycle rule, not an access rule: a CR under review is edited through its
+// workflow steps, not the detail form.)
 const isEditable = computed(
-  () => cr.value && cr.value.statusId === 'DRAFT' && canUpdate.value && isOwner.value,
+  () =>
+    cr.value &&
+    cr.value.statusId === 'DRAFT' &&
+    canUpdate.value &&
+    (isOwner.value || isAllowedOnRecord('change_control:update', cr.value)),
 )
 
 const toast = useToast()
@@ -64,8 +72,11 @@ const toast = useToast()
 // dialogs, so a failed INLINE field save (title/description/rail) was silent to
 // the user. Surface it as a toast — pessimistic saves mean a failure persisted
 // nothing.
+// `enabled` must track isEditable exactly. When it restated the gate by hand,
+// widening isEditable would have rendered an editable field whose autosave never
+// fired — typing that vanishes with no error at all, worse than a failed save.
 const { saveError } = useAutoSave(cr, {
-  enabled: () => cr.value?.statusId === 'DRAFT' && isOwner.value,
+  enabled: isEditable,
   onError: (e) => toast.error(e?.message || 'Failed to save change request'),
 })
 
