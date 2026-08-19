@@ -80,6 +80,9 @@ export const ACTION_TYPES = [
 ]
 export const ACTION_LABEL = Object.fromEntries(ACTION_TYPES.map((a) => [a.value, a.label]))
 
+/** Notify-only actions — the set every object supports. */
+const NOTIFY_ONLY = ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL']
+
 export const AUTOMATION_OBJECTS = [
   {
     value: 'QualityEvent',
@@ -149,6 +152,37 @@ export const AUTOMATION_OBJECTS = [
       { key: 'subject', label: 'Subject', type: 'string' },
     ],
     allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'SEND_SMS'],
+  },
+  // Added 2026-08-19 alongside the worker registry. Both were missing, which is
+  // why "notify QA when a QC lot is rejected" could not be expressed at all.
+  {
+    value: 'InspectionLot',
+    label: 'QC Inspection Lots',
+    fields: [
+      { key: 'status_id', label: 'Status', type: 'enum' },
+      { key: 'quality_state', label: 'Quality state', type: 'enum' },
+      { key: 'disposition_type_id', label: 'Disposition', type: 'lookup' },
+      { key: 'product_id', label: 'Item', type: 'lookup' },
+      { key: 'supplier_id', label: 'Supplier', type: 'lookup' },
+      { key: 'inspection_point', label: 'Inspection point', type: 'enum' },
+      { key: 'coa_received', label: 'CoA received', type: 'boolean' },
+      { key: 'lot_number', label: 'Lot number', type: 'string' },
+    ],
+    allowedActions: NOTIFY_ONLY,
+  },
+  {
+    value: 'AuditInstance',
+    label: 'Audits',
+    fields: [
+      { key: 'status_id', label: 'Status', type: 'enum' },
+      { key: 'site_id', label: 'Site', type: 'lookup' },
+      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'supplier_id', label: 'Supplier', type: 'lookup' },
+      { key: 'program_type_id', label: 'Programme type', type: 'lookup' },
+      { key: 'scheduled_date', label: 'Scheduled date', type: 'date' },
+      { key: 'scope', label: 'Scope', type: 'string' },
+    ],
+    allowedActions: NOTIFY_ONLY,
   },
 ]
 
