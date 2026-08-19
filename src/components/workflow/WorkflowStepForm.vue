@@ -102,9 +102,33 @@ const records = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const currentUserRecord = computed(
-  () => records.value.find((r) => r.userId === currentUserId.value) || null,
-)
+/**
+ * The record this user is working on for this step.
+ *
+ * Keyed on the TASK, not the user. nc_records / capa_records / cr_records all
+ * carry UNIQUE (task_instance_id): one task, one record. Looking it up by
+ * `userId === me` was fine while only the assignee could act, but a colleague
+ * taking the step over found nothing of their own, took the create path, and
+ * hit the unique index on the assignee's task —
+ *
+ *     duplicate key value violates unique constraint
+ *     "nc_records_task_instance_id_idx"
+ *
+ * (live, 2026-08-19). A takeover CONTINUES the task's record; it does not open
+ * a second one, because the schema does not allow a second one.
+ *
+ * The `userId` fallback still matters: a draft saved before the step activated
+ * has no task yet (task_instance_id is NULL, and Postgres permits many NULLs in
+ * a unique index), and the persist path binds the task to it on the next save.
+ */
+const currentUserRecord = computed(() => {
+  const taskId = currentUserTask.value?.id
+  if (taskId) {
+    const forTask = records.value.find((r) => r.taskInstanceId === taskId)
+    if (forTask) return forTask
+  }
+  return records.value.find((r) => r.userId === currentUserId.value && !r.taskInstanceId) || null
+})
 
 const submittedRecords = computed(() => records.value.filter((r) => r.submittedAt))
 
@@ -305,6 +329,14 @@ async function persistRecord({ submit, esign, extraAction = null }) {
       // the submitted record carries the task it was completed under.
       if (currentUserTask.value && !existing.taskInstanceId) {
         existing.taskInstanceId = currentUserTask.value.id
+      }
+      // Taking over someone else's draft: the record is the TASK's (unique per
+      // task), so it is continued rather than duplicated — but whoever submits
+      // it owns the answer, and their signature is the one on the step. Stamp
+      // the author to match. The audit trigger keeps the original creation, so
+      // the trail still reads "drafted by X, completed by Y".
+      if (submit && existing.userId !== currentUserId.value) {
+        existing.userId = currentUserId.value
       }
       if (submit) existing.submittedAt = submittedAt
       await existing.save()
