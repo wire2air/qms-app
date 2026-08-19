@@ -26,18 +26,28 @@ export function buildNcSections(nc) {
   ]
 }
 
-/** Header action descriptors (SP-6). gates = resolved booleans/strings; handlers = callbacks. */
+/**
+ * Header action descriptors (SP-6). gates = resolved booleans/strings; handlers = callbacks.
+ *
+ * Each action is gated on the VERB its controller enforces, not on ownership.
+ * These read `!!isOwner` until 2026-08-19, which had two failure modes now that
+ * the backend is matrix-driven (backend utils/recordAccess.js): a role granted
+ * ncr:close could not see the button unless it also owned the record, and an
+ * owner WITHOUT ncr:close saw a button the API would refuse. The gate names now
+ * line up 1:1 with the controller's assertCanActOnRecord action — canOpen and
+ * canConvert are 'update', canClose is 'close', canDelete is 'delete'.
+ */
 export function buildNcActions(gates = {}, handlers = {}) {
-  const { isOwner, statusId, canMarkComplete, markCompleteBlockedReason, canConvert, saving, completing } = gates
+  const { canOpen, canClose, canDelete, statusId, canMarkComplete, markCompleteBlockedReason, canConvert, saving, completing } = gates
   const notTerminal = !['DRAFT', 'CLOSED', 'VOID'].includes(statusId)
   return [
     { id: 'open', label: 'Open NC', variant: 'primary', priority: 100,
-      visible: !!isOwner && statusId === 'DRAFT', disabled: !!saving, loading: !!saving, onSelect: handlers.openOpen },
+      visible: !!canOpen && statusId === 'DRAFT', disabled: !!saving, loading: !!saving, onSelect: handlers.openOpen },
     { id: 'approve', label: 'Approve & Close', variant: 'primary', priority: 100,
-      visible: !!isOwner && notTerminal, disabled: !canMarkComplete || !!completing, loading: !!completing, title: markCompleteBlockedReason || undefined, onSelect: handlers.openMarkComplete },
+      visible: !!canClose && notTerminal, disabled: !canMarkComplete || !!completing, loading: !!completing, title: markCompleteBlockedReason || undefined, onSelect: handlers.openMarkComplete },
     { id: 'print', label: 'Print', icon: IconPrinter, variant: 'secondary', priority: 50, visible: true, onSelect: handlers.print },
     { id: 'convert', label: 'Convert to supplier-facing', icon: IconArrowsExchange, variant: 'secondary', priority: 20, visible: !!canConvert, onSelect: handlers.openConvert },
     { id: 'audit', label: 'Audit Log', icon: IconHistory, variant: 'secondary', priority: 15, visible: true, onSelect: handlers.openAudit },
-    { id: 'delete', label: 'Delete', icon: IconTrash, variant: 'danger', priority: 10, visible: !!isOwner && statusId === 'DRAFT', onSelect: handlers.openDelete },
+    { id: 'delete', label: 'Delete', icon: IconTrash, variant: 'danger', priority: 10, visible: !!canDelete && statusId === 'DRAFT', onSelect: handlers.openDelete },
   ]
 }

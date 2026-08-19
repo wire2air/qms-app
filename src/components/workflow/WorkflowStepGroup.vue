@@ -53,7 +53,13 @@ const props = defineProps({
    *  is somebody else's, in which case the card is descriptive only. */
   headTaskId: { type: String, default: null },
   canAct: { type: Boolean, default: false },
-  /** Whose run this is, for the header. Empty means "you". */
+  // True when the run belongs to someone else and the viewer is acting on
+  // their behalf. Same permission, deliberately different affordance — the
+  // label has to name them, so the run cannot be completed without reading
+  // whose it is. See components/workflow/stepTakeover.js.
+  isTakeover: { type: Boolean, default: false },
+  /** Whose run this is, named explicitly — never "you", because anyone
+   *  permitted can be looking at someone else's run. */
   ownerName: { type: String, default: '' },
   isOwner: { type: Boolean, default: false },
 })
@@ -109,6 +115,28 @@ async function collectPayloads() {
 // allows cancelling a step in PENDING / IN_PROGRESS / SENT_BACK, so a step that
 // has not started yet can be cancelled out of the run.
 const CANCELLABLE_STATUSES = ['PENDING', 'IN_PROGRESS', 'SENT_BACK']
+
+/**
+ * Why this run cannot be actioned — null when it can.
+ *
+ * There are two quite different reasons and the card used to give the same
+ * answer to both: "Waiting on {ownerName || 'the assignee'}". `ownerName` is
+ * deliberately blank when the run is YOURS ("blank reads as you"), so an
+ * assignee looking at their own not-yet-started run was told they were waiting
+ * on themselves — reported from live use 2026-08-19.
+ *
+ * A run has no tasks until its head step activates, and a step activates only
+ * when everything before it is done. So the usual reason a run of your own is
+ * inert is an earlier step, not you.
+ */
+const blockedReason = computed(() => {
+  if (props.canAct) return null
+  const head = props.steps?.[0]
+  if (head && head.statusId !== 'IN_PROGRESS') {
+    return 'Not started yet — an earlier step is still open.'
+  }
+  return `Waiting on ${props.ownerName || 'the assignee'}.`
+})
 const cancelTarget = ref(null)
 const cancelReason = ref('')
 const cancelling = ref(false)
@@ -231,7 +259,7 @@ async function submitGroup(esign = null) {
         <IconLayersSubtract :size="18" class="tw:mt-0.5 tw:shrink-0 tw:text-primary" />
         <div class="tw:min-w-0">
           <BaseText variant="body" weight="medium" class="tw:block">
-            {{ steps.length }} steps assigned to you
+            {{ steps.length }} steps assigned to {{ ownerName || 'the assignee' }}
           </BaseText>
           <BaseCaption>
             {{ stepNumberRange }} — completing these finishes all {{ steps.length }} in order.
@@ -341,6 +369,14 @@ async function submitGroup(esign = null) {
           {{ step.description }}
         </p>
 
+        <!-- Chain of custody, per step. The standalone card has carried this
+             since task history shipped; grouping a run should not cost you the
+             history of the steps in it. Per step rather than one merged list
+             for the run, because "who did what, when" is only meaningful
+             against a specific step — and it is the same collapsed-by-default
+             component, so a run of five does not become a wall of timeline. -->
+        <WorkflowStepHistory :instanceStepId="step.id" />
+
         <!-- collectOnly: validate and hand back the payload. Steps 2..N have no
              task instance yet, so their records are written server-side. -->
         <WorkflowStepForm
@@ -350,6 +386,7 @@ async function submitGroup(esign = null) {
           :instanceStepId="step.id"
           :resourceId="resourceId"
           collectOnly
+          :collectEditable="canAct"
           hideSubmit
         />
       </section>
@@ -361,7 +398,7 @@ async function submitGroup(esign = null) {
       <BaseCaption v-if="canAct && requiresEsignature">
         You'll sign once; a signature is recorded against each step.
       </BaseCaption>
-      <BaseCaption v-else-if="!canAct"> Waiting on {{ ownerName || 'the assignee' }}. </BaseCaption>
+      <BaseCaption v-else-if="blockedReason">{{ blockedReason }}</BaseCaption>
       <span v-else />
       <div v-if="canAct" class="tw:flex tw:items-center tw:gap-2">
         <BaseButton
@@ -379,7 +416,11 @@ async function submitGroup(esign = null) {
           :loading="submitting"
           @click="onCompleteClick"
         >
-          Complete {{ steps.length }} steps
+          {{
+            isTakeover
+              ? `Complete ${steps.length} steps on behalf of ${ownerName || 'the assignee'}`
+              : `Complete ${steps.length} steps`
+          }}
         </BaseButton>
       </div>
     </div>

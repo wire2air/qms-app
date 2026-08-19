@@ -36,6 +36,11 @@ import {
   IconDeviceFloppy,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
+import {
+  pickActionableTask,
+  mayActOnStepType,
+  onBehalfOfLabel,
+} from '@/components/workflow/stepTakeover.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
@@ -164,19 +169,57 @@ const stepTasks = useLiveQueryWithDeps(
   { models: ['TaskInstance'], initial: [] },
 )
 
-const currentUserTask = computed(() => {
-  if (!currentUserId.value) return null
-  return (
-    stepTasks.value.find(
-      (t) =>
-        t.assignedTo === currentUserId.value &&
-        t.taskKindId === 'APPROVAL' &&
-        ACTIONABLE_STATUSES.includes(t.statusId),
-    ) || null
-  )
+// May a NON-assignee act here? Assignment is routing, not a lock — see
+// stepTakeover.js. The server decides for real (utils/workflowStepAccess.js);
+// this only governs whether the control is offered, and how it is labelled.
+const mayTakeOverStep = computed(() =>
+  mayActOnStepType({
+    module: props.module,
+    record: resource.value,
+    stepType: instanceStep.value?.stepType,
+  }),
+)
+
+const actionableTask = computed(() =>
+  pickActionableTask({
+    tasks: stepTasks.value,
+    userId: currentUserId.value,
+    mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
+    statuses: ACTIONABLE_STATUSES,
+  }),
+)
+
+const currentUserTask = computed(() => actionableTask.value.task)
+const canActOnStep = computed(() => !!currentUserTask.value)
+
+/**
+ * Label for the Complete / Approve control, in both places it renders.
+ *
+ * On a takeover it names the assignee, so the action cannot be taken without
+ * reading whose task it is. That is the whole guard against accidental
+ * takeover — same permission either way, deliberately different affordance.
+ */
+const completeActionLabel = computed(() => {
+  if (completing.value) return isApprovalStep.value ? 'Approving…' : 'Completing…'
+  const base = isApprovalStep.value ? 'Approve' : 'Mark Complete'
+  return isStepTakeover.value ? onBehalfOfLabel(base, takeoverAssigneeName.value) : base
 })
 
-const canActOnStep = computed(() => !!currentUserTask.value)
+// True when the task belongs to someone else. Drives the distinct affordance:
+// the label names them, so the action cannot be taken without reading whose it
+// is. Guards against ACCIDENTAL takeover, which is the real risk here.
+const isStepTakeover = computed(() => actionableTask.value.isTakeover)
+const takeoverAssignee = useLiveQueryWithDeps(
+  [() => actionableTask.value.assigneeId],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
+)
+const takeoverAssigneeName = computed(() => {
+  const u = takeoverAssignee.value
+  if (!u) return null
+  return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || null
+})
 // ── Effectiveness verdict (DELAY steps) ──────────────────────────────────────
 // A DELAY step is a deferred verification — "did the corrective action work?".
 // When the template sets capturesEffectiveness the answer is a first-class field
@@ -409,12 +452,15 @@ async function handleExtendDelay() {
     // Assignee path: extend through the fired task (only ASSIGNED /
     // FORM_SUBMITTED tasks are actionable on the endpoint). Owner path:
     // the module's step action.
-    const myTask = stepTasks.value.find(
-      (t) =>
-        t.assignedTo === currentUserId.value &&
-        t.taskKindId === 'APPROVAL' &&
-        ['ASSIGNED', 'FORM_SUBMITTED'].includes(t.statusId),
-    )
+    // Same picker as the action gates, so extending a delay is available to
+    // whoever may act on the step — not only its assignee.
+    const { task: myTask } = pickActionableTask({
+      tasks: stepTasks.value,
+      userId: currentUserId.value,
+      mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
+      statuses: ['ASSIGNED', 'FORM_SUBMITTED'],
+    })
     if (myTask) {
       await post(`/v1/services/taskInstances/${myTask.id}/action`, {
         action: 'EXTEND_DELAY',
@@ -543,6 +589,12 @@ function getStatusLabel(statusId) {
   if (!statusId) return '—'
   if (statusId === 'APPROVED') return 'Completed'
   if (statusId === 'SKIPPED') return 'Skipped'
+  // SCHEDULED is the DELAY step's parked state, which it enters BEFORE anyone
+  // picks a date — delay_until is null until then. Rendering the raw status
+  // told the reader a date had been set while the banner directly beneath said
+  // "Awaiting scheduling. This delay step won't activate until a date is set."
+  // Two labels for one state, contradicting each other (reported 2026-08-19).
+  if (statusId === 'SCHEDULED') return awaitingScheduling.value ? 'Not scheduled' : 'Scheduled'
   return statusId.replace('_', ' ')
 }
 
@@ -645,7 +697,14 @@ function activityLabel(statusId) {
         <BaseHeading :level="3" as="subheading" truncate class="tw:min-w-0">
           {{ displayNumber ?? instanceStep.stepNumber }}. {{ instanceStep.name || 'Step' }}
         </BaseHeading>
-        <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
+        <BaseBadge
+          class="tw:text-micro"
+          :class="
+            awaitingScheduling
+              ? 'tw:bg-amber-100 tw:text-amber-800'
+              : getStepStatusClass(instanceStep.statusId)
+          "
+        >
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
       </div>
@@ -659,15 +718,7 @@ function activityLabel(statusId) {
           @click="onCompleteAndAdvanceClick"
         >
           <IconCheck :size="14" />
-          {{
-            completing
-              ? isApprovalStep
-                ? 'Approving…'
-                : 'Completing…'
-              : isApprovalStep
-                ? 'Approve'
-                : 'Mark Complete'
-          }}
+          {{ completeActionLabel }}
         </button>
         <button
           v-if="canRescheduleDelay"
@@ -899,15 +950,7 @@ function activityLabel(statusId) {
         @click="onCompleteAndAdvanceClick"
       >
         <template #icon><IconCheck :size="16" /></template>
-        {{
-          completing
-            ? isApprovalStep
-              ? 'Approving…'
-              : 'Completing…'
-            : isApprovalStep
-              ? 'Approve'
-              : 'Mark Complete'
-        }}
+        {{ completeActionLabel }}
       </BaseButton>
     </div>
 

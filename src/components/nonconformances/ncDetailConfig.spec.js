@@ -38,15 +38,15 @@ describe('buildNcSections', () => {
 
 describe('buildNcActions', () => {
   const handlers = { openOpen() {}, openMarkComplete() {}, openDelete() {}, print() {}, openAudit() {}, openConvert() {} }
-  it('shows Open NC (primary) for a DRAFT owner, not Approve', () => {
-    const a = buildNcActions({ isOwner: true, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: false }, handlers)
+  it('shows Open NC (primary) on a DRAFT when the user may update, not Approve', () => {
+    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: false }, handlers)
     const ids = a.filter((x) => x.visible).map((x) => x.id)
     expect(ids).toContain('open')
     expect(ids).toContain('delete')
     expect(ids).not.toContain('approve')
   })
-  it('shows Approve & Close (disabled with reason) for an UNDER_REVIEW owner', () => {
-    const a = buildNcActions({ isOwner: true, statusId: 'UNDER_REVIEW', canMarkComplete: false, markCompleteBlockedReason: 'Pick disposition', canConvert: true, saving: false }, handlers)
+  it('shows Approve & Close (disabled with reason) when the user holds ncr:close', () => {
+    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'UNDER_REVIEW', canMarkComplete: false, markCompleteBlockedReason: 'Pick disposition', canConvert: true, saving: false }, handlers)
     const approve = a.find((x) => x.id === 'approve')
     expect(approve.visible).toBe(true)
     expect(approve.disabled).toBe(true)
@@ -54,26 +54,40 @@ describe('buildNcActions', () => {
     expect(a.find((x) => x.id === 'convert').visible).toBe(true)
     expect(a.find((x) => x.id === 'open').visible).toBe(false)
   })
-  it('hides owner-only actions for a non-owner', () => {
-    const a = buildNcActions({ isOwner: false, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: false }, handlers)
+  it('hides every lifecycle action from a user who holds none of the verbs', () => {
+    const a = buildNcActions({ canOpen: false, canClose: false, canDelete: false, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: false }, handlers)
     expect(a.find((x) => x.id === 'open').visible).toBe(false)
     expect(a.find((x) => x.id === 'delete').visible).toBe(false)
     expect(a.find((x) => x.id === 'audit').visible).toBe(true) // audit always available
   })
+  it('gates each action on its OWN verb, independently', () => {
+    // The rule that changed 2026-08-19. These were all one `isOwner` flag, so a
+    // role granted ncr:close could not see Approve & Close unless it also owned
+    // the record, and an owner WITHOUT ncr:close saw a button the API refuses.
+    // Holding close must light up close and nothing else.
+    const a = buildNcActions(
+      { canOpen: false, canClose: true, canDelete: false, statusId: 'UNDER_REVIEW',
+        canMarkComplete: true, markCompleteBlockedReason: null, canConvert: false, saving: false },
+      handlers,
+    )
+    expect(a.find((x) => x.id === 'approve').visible).toBe(true)
+    expect(a.find((x) => x.id === 'delete').visible).toBe(false)
+    expect(a.find((x) => x.id === 'open').visible).toBe(false)
+  })
   it('wires onSelect to the provided handlers', () => {
     let opened = false
-    const a = buildNcActions({ isOwner: true, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: false }, { ...handlers, openOpen: () => { opened = true } })
+    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: false }, { ...handlers, openOpen: () => { opened = true } })
     a.find((x) => x.id === 'open').onSelect()
     expect(opened).toBe(true)
   })
   it('approve action is disabled and loading while completing is true', () => {
-    const a = buildNcActions({ isOwner: true, statusId: 'UNDER_REVIEW', canMarkComplete: true, markCompleteBlockedReason: null, canConvert: false, saving: false, completing: true }, handlers)
+    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'UNDER_REVIEW', canMarkComplete: true, markCompleteBlockedReason: null, canConvert: false, saving: false, completing: true }, handlers)
     const approve = a.find((x) => x.id === 'approve')
     expect(approve.disabled).toBe(true)
     expect(approve.loading).toBe(true)
   })
   it('open action has loading=true while saving is true', () => {
-    const a = buildNcActions({ isOwner: true, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: true }, handlers)
+    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: true }, handlers)
     const open = a.find((x) => x.id === 'open')
     expect(open.disabled).toBe(true)
     expect(open.loading).toBe(true)

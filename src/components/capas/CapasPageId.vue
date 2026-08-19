@@ -1,6 +1,6 @@
 <script setup>
 import { buildCapaBanners, buildCapaSections, buildCapaActions } from './capaDetailConfig.js'
-import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
@@ -41,6 +41,13 @@ const loading = computed(() => capa.value === undefined)
 // Status alone is not authorization: without this, a role scoped to capa
 // write=Own could type into another user's CAPA and the RLS UPDATE policy would
 // silently match 0 rows (edit looked accepted, never persisted).
+//
+// That last clause used to read `isOwner.value`, which fixed the phantom save by
+// pinning EVERY user to the narrowest tier — a role granted capa:update at site
+// or tenant still could not touch a colleague's CAPA. Ownership is custodianship,
+// not exclusivity (backend utils/recordAccess.js), so the gate is now custodian
+// OR whatever the matrix actually grants, mirroring authz.scope_allowed. The
+// phantom save itself is fixed at its source in directSaveStrategy.js.
 const canUpdate = computed(() => isAllowed(['capa:update']))
 const isEditable = computed(
   () =>
@@ -48,7 +55,7 @@ const isEditable = computed(
     capa.value.statusId !== 'CLOSED' &&
     capa.value.statusId !== 'CANCELLED' &&
     canUpdate.value &&
-    isOwner.value,
+    (isOwner.value || isAllowedOnRecord('capa:update', capa.value)),
 )
 
 const toast = useToast()
@@ -357,7 +364,14 @@ const capaBanners = computed(() => buildCapaBanners(capa.value, { isEditable: is
 const capaActions = computed(() =>
   buildCapaActions(
     {
-      isOwner: isOwner.value,
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // no longer a bypass — it makes the `own` scope tier match — so an owner
+      // still needs capa:close to see Close CAPA, and a non-owner who holds it
+      // in scope now does. Cancel is an 'update' action server-side.
+      canStart: isAllowedOnRecord('capa:update', capa.value),
+      canCloseCapa: isAllowedOnRecord('capa:close', capa.value),
+      canCancel: isAllowedOnRecord('capa:update', capa.value),
+      canDelete: isAllowedOnRecord('capa:delete', capa.value),
       statusId: capa.value?.statusId,
       canClose: canOpenClose.value,
       closeDisabledReason: closeBlockedReason.value,
@@ -532,8 +546,6 @@ const capaDetailConfig = computed(() =>
         :isOwner="isOwner"
       />
     </template>
-
-
 
     <template v-if="capa" #rail>
       <!-- 1. General — number, status, priority, type, source, initiated.

@@ -77,9 +77,9 @@ describe('buildChangeRequestActions', () => {
     openDelete() {},
   }
 
-  it('shows open (primary) for DRAFT owner; close and cancel not visible', () => {
+  it('shows open (primary) on a DRAFT; close and cancel not visible', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     const visible = a.filter((x) => x.visible).map((x) => x.id)
@@ -89,9 +89,9 @@ describe('buildChangeRequestActions', () => {
     expect(visible).not.toContain('cancel')
   })
 
-  it('shows delete for DRAFT owner when canDelete=true', () => {
+  it('shows delete on a DRAFT when the user may delete when canDelete=true', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'delete').visible).toBe(true)
@@ -99,15 +99,15 @@ describe('buildChangeRequestActions', () => {
 
   it('hides delete when canDelete=false', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'delete').visible).toBe(false)
   })
 
-  it('shows close and cancel for UNDER_REVIEW owner with canClose=true', () => {
+  it('shows close and cancel under review when the user holds the close verb', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     const visible = a.filter((x) => x.visible).map((x) => x.id)
@@ -118,15 +118,15 @@ describe('buildChangeRequestActions', () => {
 
   it('hides close when canClose=false', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'close').visible).toBe(false)
   })
 
-  it('hides owner-only actions for a non-owner', () => {
+  it('hides every lifecycle action from a user who holds none of the verbs', () => {
     const a = buildChangeRequestActions(
-      { isOwner: false, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: false, canCloseCr: false, canCancel: false, canDeleteCr: false, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'open').visible).toBe(false)
@@ -137,7 +137,7 @@ describe('buildChangeRequestActions', () => {
 
   it('open is disabled and loading while opening=true', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'DRAFT', canClose: false, opening: true, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'DRAFT', canClose: false, opening: true, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     const open = a.find((x) => x.id === 'open')
@@ -147,7 +147,7 @@ describe('buildChangeRequestActions', () => {
 
   it('close is disabled and loading while closing=true', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: true, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: true, cancelling: false, deleting: false },
       handlers,
     )
     const close = a.find((x) => x.id === 'close')
@@ -157,7 +157,7 @@ describe('buildChangeRequestActions', () => {
 
   it('cancel is disabled and loading while cancelling=true', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: false, cancelling: true, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: false, cancelling: true, deleting: false },
       handlers,
     )
     const cancel = a.find((x) => x.id === 'cancel')
@@ -167,7 +167,7 @@ describe('buildChangeRequestActions', () => {
 
   it('delete is disabled and loading while deleting=true', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: true },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: true, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: true },
       handlers,
     )
     const del = a.find((x) => x.id === 'delete')
@@ -178,7 +178,7 @@ describe('buildChangeRequestActions', () => {
   it('wires onSelect to the provided handlers', () => {
     let opened = false
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'DRAFT', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       { ...handlers, openOpen() { opened = true } },
     )
     a.find((x) => x.id === 'open').onSelect()
@@ -187,7 +187,7 @@ describe('buildChangeRequestActions', () => {
 
   it('cancel is not visible for CLOSED status (terminal)', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'CLOSED', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'CLOSED', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'cancel').visible).toBe(false)
@@ -195,7 +195,7 @@ describe('buildChangeRequestActions', () => {
 
   it('cancel is not visible for REJECTED status (terminal)', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'REJECTED', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'REJECTED', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'cancel').visible).toBe(false)
@@ -203,7 +203,7 @@ describe('buildChangeRequestActions', () => {
 
   it('cancel is visible for IN_IMPLEMENTATION (non-terminal)', () => {
     const a = buildChangeRequestActions(
-      { isOwner: true, canDelete: false, statusId: 'IN_IMPLEMENTATION', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'IN_IMPLEMENTATION', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'cancel').visible).toBe(true)

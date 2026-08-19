@@ -21,6 +21,7 @@
  *     emits `done` so the parent can close (used in child-step dialogs).
  */
 import { IconDeviceFloppy, IconSend } from '@tabler/icons-vue'
+import { pickActionableTask, mayActOnStepType } from '@/components/workflow/stepTakeover.js'
 import DynamicForm from '@/components/form/DynamicForm.js'
 import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue'
 import { currentSession } from '@/utils/currentSession.js'
@@ -48,6 +49,11 @@ const props = defineProps({
   // records can only be written server-side, after each step activates.
   // Default false, so every existing caller behaves exactly as before.
   collectOnly: { type: Boolean, default: false },
+  /**
+   * Whether a collectOnly form may be filled in. The parent owns this because
+   * only it knows if the RUN has started — see isEditable below.
+   */
+  collectEditable: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done'])
@@ -69,6 +75,16 @@ const instanceStep = useLiveQueryWithDeps(
 // so any leftover schema from the old TASK-template auto-seed doesn't
 // surface at runtime.
 const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+
+// May a non-assignee act on this step? Server re-decides; this only governs
+// whether the form is offered as editable.
+const mayTakeOverStep = computed(() =>
+  mayActOnStepType({
+    module: props.module,
+    record: resource.value,
+    stepType: instanceStep.value?.stepType,
+  }),
+)
 const formSchema = computed(() =>
   isApprovalStep.value ? [] : instanceStep.value?.formSchema || [],
 )
@@ -86,11 +102,52 @@ const records = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const currentUserRecord = computed(
-  () => records.value.find((r) => r.userId === currentUserId.value) || null,
-)
+/**
+ * The record this user is working on for this step.
+ *
+ * Keyed on the TASK, not the user. nc_records / capa_records / cr_records all
+ * carry UNIQUE (task_instance_id): one task, one record. Looking it up by
+ * `userId === me` was fine while only the assignee could act, but a colleague
+ * taking the step over found nothing of their own, took the create path, and
+ * hit the unique index on the assignee's task —
+ *
+ *     duplicate key value violates unique constraint
+ *     "nc_records_task_instance_id_idx"
+ *
+ * (live, 2026-08-19). A takeover CONTINUES the task's record; it does not open
+ * a second one, because the schema does not allow a second one.
+ *
+ * The `userId` fallback still matters: a draft saved before the step activated
+ * has no task yet (task_instance_id is NULL, and Postgres permits many NULLs in
+ * a unique index), and the persist path binds the task to it on the next save.
+ */
+const currentUserRecord = computed(() => {
+  const taskId = currentUserTask.value?.id
+  if (taskId) {
+    const forTask = records.value.find((r) => r.taskInstanceId === taskId)
+    if (forTask) return forTask
+  }
+  return records.value.find((r) => r.userId === currentUserId.value && !r.taskInstanceId) || null
+})
 
 const submittedRecords = computed(() => records.value.filter((r) => r.submittedAt))
+
+/**
+ * Unsubmitted drafts belonging to OTHER people on this step.
+ *
+ * The read-only view showed submitted records (with an author name) and your
+ * own draft, and nothing else — so a colleague's work-in-progress was invisible
+ * even though the database had already delivered it. On a step assigned to
+ * someone else you saw an empty form and would reasonably conclude nothing had
+ * been done (reported 2026-08-19: Steve had filled in two steps; Sam saw blanks).
+ *
+ * Tolerable while only the assignee could act. Not now that a permitted
+ * colleague can take the step over — they would restart work already done,
+ * without knowing a draft existed.
+ */
+const otherDrafts = computed(() =>
+  records.value.filter((r) => !r.submittedAt && r.userId !== currentUserId.value),
+)
 
 // Pick the user's CURRENTLY-ACTIONABLE APPROVAL task on this step. A
 // step can host multiple TaskInstances for the same user across its
@@ -100,7 +157,6 @@ const submittedRecords = computed(() => records.value.filter((r) => r.submittedA
 // isEditable / persistRecord could lock onto a stale APPROVED row
 // after a reopen and render read-only even though there's a live
 // ASSIGNED task ready to edit.
-const ACTIONABLE_TASK_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
 
@@ -110,11 +166,19 @@ const currentUserTask = useLiveQueryWithDeps(
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
-    const userApprovalTasks = tasks.filter(
-      (t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL',
-    )
-    const actionable = userApprovalTasks.find((t) => ACTIONABLE_TASK_STATUSES.includes(t.statusId))
-    return actionable ?? userApprovalTasks[0] ?? null
+    // Whoever may act on the step, not only its assignee — see stepTakeover.js.
+    // mayTakeOver is read through a getter so the live query re-runs when the
+    // record or step type resolves.
+    const picked = pickActionableTask({
+      tasks,
+      userId,
+      mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
+    })
+    if (picked.task) return picked.task
+    // Fall back to a terminal task of the user's own, so a completed step still
+    // renders the answer they submitted.
+    return tasks.find((t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL') ?? null
   },
   { models: ['TaskInstance'] },
 )
@@ -125,11 +189,18 @@ const currentUserTask = useLiveQueryWithDeps(
 // are still PENDING and have NO task — that is the whole reason the server
 // writes their records — so gating on the task left them rendered through the
 // readonly branch and the user could not fill them in (reported 2026-08-18).
-// Safe because the group card only renders for a run whose every step has
-// exactly one assignee: the current user. The server re-checks that before
-// writing anything.
+//
+// But it was `collectOnly ? true`, i.e. ALWAYS editable, and the group card
+// also renders for a run that has not started — one waiting on an earlier
+// approval. Its fields invited input that no Save draft or Mark complete could
+// persist, and doing so would have jumped the workflow (reported 2026-08-19).
+//
+// So the parent decides: collectEditable is its `canAct`, which is false until
+// the run's head step is actually IN_PROGRESS. Permission is not the question
+// here — the sequence is. Someone with every capability still may not fill in
+// step 4 while step 2 is out for approval.
 const isEditable = computed(() =>
-  props.collectOnly ? true : currentUserTask.value?.statusId === 'ASSIGNED',
+  props.collectOnly ? props.collectEditable : currentUserTask.value?.statusId === 'ASSIGNED',
 )
 
 const formData = ref({})
@@ -167,8 +238,32 @@ async function runFinalizers() {
 // (e.g. _parent_problem from the resource description). The watch fires
 // again whenever `resource` changes so the context fields refresh, but
 // we only seed the user payload once to avoid clobbering mid-edit input.
+/**
+ * Where a takeover starts from.
+ *
+ * Saving never overwrites anyone: the persist path finds the record whose
+ * userId is yours and creates one if there is none, so a colleague taking a
+ * step over gets their own row and the assignee's draft survives untouched.
+ * Good for the audit trail — Steve started it, Sam finished it — but it left
+ * Sam retyping work he could see on screen.
+ *
+ * So an ACTION or DELAY step seeds from the assignee's draft when you have none
+ * of your own. You continue their work; the record, and therefore the
+ * attribution, is still yours.
+ *
+ * NOT on an APPROVAL step. There each record is a separate attestation, and
+ * pre-filling one reviewer's answer with another's would put words in their
+ * mouth — the exact thing an approval is supposed to prevent.
+ */
+const seedRecord = computed(() => {
+  if (currentUserRecord.value) return currentUserRecord.value
+  if (isApprovalStep.value) return null
+  if (!isEditable.value) return null
+  return otherDrafts.value[0] ?? null
+})
+
 watch(
-  [currentUserRecord, resource],
+  [seedRecord, resource],
   ([record, resourceRow]) => {
     if (record && !formSeeded) {
       formData.value = {
@@ -235,6 +330,14 @@ async function persistRecord({ submit, esign, extraAction = null }) {
       // the submitted record carries the task it was completed under.
       if (currentUserTask.value && !existing.taskInstanceId) {
         existing.taskInstanceId = currentUserTask.value.id
+      }
+      // Taking over someone else's draft: the record is the TASK's (unique per
+      // task), so it is continued rather than duplicated — but whoever submits
+      // it owns the answer, and their signature is the one on the step. Stamp
+      // the author to match. The audit trigger keeps the original creation, so
+      // the trail still reads "drafted by X, completed by Y".
+      if (submit && existing.userId !== currentUserId.value) {
+        existing.userId = currentUserId.value
       }
       if (submit) existing.submittedAt = submittedAt
       await existing.save()
@@ -356,7 +459,15 @@ async function submitForm(esign, extraAction = null) {
 }
 
 const usersMap = useLiveQueryWithDeps(
-  [() => submittedRecords.value.map((r) => r.userId).join(',')],
+  // Every record author shown in the read-only view — submitted records AND
+  // other people's drafts. Missing the drafts left them labelled "—".
+  [
+    () =>
+      [...submittedRecords.value, ...otherDrafts.value]
+        .map((r) => r.userId)
+        .filter(Boolean)
+        .join(','),
+  ],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
     const ids = [...new Set(idsStr.split(','))]
@@ -439,8 +550,18 @@ defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
         <FormSchemaReadonlyView :fields="formSchema" :values="currentUserRecord.payload || {}" />
       </div>
 
+      <!-- A colleague's work in progress. Named, so it is never mistaken for
+           your own, and shown because starting a takeover from a blank form
+           when a draft already exists is how work gets duplicated. -->
+      <div v-for="draft in otherDrafts" :key="draft.id">
+        <div class="tw:text-caption tw:text-amber-600 tw:font-medium tw:mb-2">
+          Draft by {{ getUserName(draft.userId) }} (not submitted)
+        </div>
+        <FormSchemaReadonlyView :fields="formSchema" :values="draft.payload || {}" />
+      </div>
+
       <DynamicForm
-        v-if="!submittedRecords.length && !currentUserRecord"
+        v-if="!submittedRecords.length && !currentUserRecord && !otherDrafts.length"
         :fields="formSchema"
         :readonly="true"
         disabled

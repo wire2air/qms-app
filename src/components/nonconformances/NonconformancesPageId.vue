@@ -1,6 +1,6 @@
 <script setup>
 import { IconAlertTriangle } from '@tabler/icons-vue'
-import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
 import { DateTime } from 'luxon'
@@ -38,17 +38,19 @@ const breadcrumbs = computed(() => [
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
 const canUpdate = computed(() => isAllowed(['ncr:update']))
-// Page-level fields (title, description, disposition, containment, etc.)
-// are owner-controlled. Anyone else with NC module access can READ the
-// record (default module behavior) but must not edit it — workflow-step
-// forms have their own editability gate inside WorkflowStepForm.
+// Page-level fields (title, description, disposition, containment, etc.) are
+// custodian-controlled OR open to whatever the permission matrix grants at this
+// record's scope — see authz.scope_allowed and the note in CapasPageId. Anyone
+// else with NC module access can READ the record (default module behavior) but
+// must not edit it; workflow-step forms keep their own editability gate inside
+// WorkflowStepForm.
 const isEditable = computed(
   () =>
     nc.value &&
     nc.value.statusId !== 'CLOSED' &&
     nc.value.statusId !== 'VOID' &&
     canUpdate.value &&
-    isOwner.value,
+    (isOwner.value || isAllowedOnRecord('ncr:update', nc.value)),
 )
 
 const toast = useToast()
@@ -428,7 +430,13 @@ const ncBanners = computed(() => buildNcBanners(nc.value, { isEditable: isEditab
 const ncActions = computed(() =>
   buildNcActions(
     {
-      isOwner: isOwner.value,
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // not a bypass any more — it makes the `own` scope tier match — so an
+      // owner still needs ncr:close to see Approve & Close, and a non-owner who
+      // holds it in scope now does. See recordScope.js.
+      canOpen: isAllowedOnRecord('ncr:update', nc.value),
+      canClose: isAllowedOnRecord('ncr:close', nc.value),
+      canDelete: isAllowedOnRecord('ncr:delete', nc.value),
       statusId: nc.value?.statusId,
       canMarkComplete: canMarkComplete.value,
       markCompleteBlockedReason: markCompleteBlockedReason.value,

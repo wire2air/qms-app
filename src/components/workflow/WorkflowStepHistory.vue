@@ -72,6 +72,48 @@ const auditRows = useLiveQueryWithDeps(
   { models: ['AuditLog'], initial: [] },
 )
 
+/**
+ * Audit rows for the step's TASKS — who actually performed each action.
+ *
+ * The task carries `assignedTo` (who it was routed to) and `completedAt` (when
+ * it ended) but nothing for WHO ended it, because until takeover shipped those
+ * were always the same person. They are not any more: a permitted colleague can
+ * complete a task assigned to someone else, and the panel was crediting the
+ * assignee for their work — "Completed by Steve" when Sam did it (reported live
+ * 2026-08-19).
+ *
+ * The audit trail had it right all along (APPROVE performed_by Sam); only the
+ * display was reading the wrong field.
+ */
+const taskAuditRows = useLiveQueryWithDeps(
+  [() => tasks.value.map((t) => t.id).join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const lists = await Promise.all(
+      idsStr
+        .split(',')
+        .map((id) => db.AuditLog.where('[entityType+entityId]', ['TaskInstances', id]).exec()),
+    )
+    return lists.flat()
+  },
+  { models: ['AuditLog'], initial: [] },
+)
+
+/** Who actually ended this task, and on whose behalf. */
+const TASK_END_ACTIONS = ['APPROVE', 'REJECT', 'CANCEL']
+function actorForTaskEnd(task) {
+  const row = taskAuditRows.value
+    .filter((a) => a.entityId === task.id && TASK_END_ACTIONS.includes(a.action) && a.performedBy)
+    .sort((a, b) => (b.performedAt?.toMillis?.() ?? 0) - (a.performedAt?.toMillis?.() ?? 0))[0]
+  const actorId = row?.performedBy ?? task.assignedTo
+  return {
+    actorId,
+    // Only a genuine takeover gets the on-behalf-of note; the ordinary case
+    // reads exactly as it did before.
+    onBehalfOf: actorId && task.assignedTo && actorId !== task.assignedTo ? task.assignedTo : null,
+  }
+}
+
 // Everyone who appears anywhere in the timeline, resolved in one pass.
 const userIds = computed(() => {
   const set = new Set()
@@ -80,6 +122,7 @@ const userIds = computed(() => {
     if (t.reassignedToUserId) set.add(t.reassignedToUserId)
   }
   for (const a of auditRows.value) if (a.performedBy) set.add(a.performedBy)
+  for (const a of taskAuditRows.value) if (a.performedBy) set.add(a.performedBy)
   return [...set]
 })
 
@@ -153,15 +196,18 @@ const timeline = computed(() => {
     })
     const end = TASK_END_EVENT[t.statusId]
     if (end) {
+      const { actorId, onBehalfOf } = actorForTaskEnd(t)
       out.push({
         at: t.completedAt ?? t.updatedAt,
         kind: end.kind,
         label: end.label,
-        who: userName(t.assignedTo),
+        who: userName(actorId),
         note:
           t.statusId === 'REASSIGNED' && t.reassignedToUserId
             ? `→ ${userName(t.reassignedToUserId)}`
-            : null,
+            : onBehalfOf
+              ? `on behalf of ${userName(onBehalfOf)}`
+              : null,
       })
     }
   }
