@@ -58,6 +58,15 @@ const metricsByKey = computed(() => {
   return out
 })
 
+/**
+ * What a widget is CALLED, for the reorder grip's label and its move
+ * announcement. Falls back the same way the tile itself does — a blank title
+ * means "use the metric's own name" — so the spoken name matches the seen one.
+ */
+function widgetLabel(w) {
+  return w?.title?.trim() || metricsByKey.value[w?.metricKey]?.name || 'Widget'
+}
+
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
   // The server is authoritative; this only decides which buttons to draw.
@@ -118,6 +127,9 @@ useListReorder(
   () => widgets.value ?? [],
   {
     handle: '[data-drag-handle]',
+    // Named rather than generic: a board can hold a dozen tiles, and "Moved to
+    // position 3 of 9" leaves a screen-reader user to work out which tile moved.
+    announce: (w, to, total) => `${widgetLabel(w)} moved to position ${to + 1} of ${total}.`,
     async onEnd() {
       if (!canEdit.value) return
       try {
@@ -205,7 +217,8 @@ function questionOf(w) {
               data-drag-handle
               type="button"
               class="tw:cursor-grab tw:rounded tw:p-1 tw:text-secondary hover:tw:text-on-main"
-              aria-label="Reorder widget"
+              :aria-label="`Reorder ${widgetLabel(w)}. Use arrow keys to move it, Home or End to send it to either end.`"
+              aria-keyshortcuts="ArrowUp ArrowDown Home End"
             >
               <IconGripVertical :size="16" aria-hidden="true" />
             </button>

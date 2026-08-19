@@ -59,8 +59,10 @@ test.describe('ANL-A4 · the same shared board reads differently for two readers
     await expect(page.getByText(ANALYTICS.sharedDashboard.name).first()).toBeVisible()
 
     // The KPI card carries no test id, and `locator('*').filter(...)` matches
-    // every ancestor up to <html>. The board holds exactly one widget, so the
-    // title and the figure being on the page is the same claim, said plainly.
+    // every ancestor up to <html>. The board holds three tiles since ANL-A11
+    // needed an order to change, but only ONE of them is a single-number tile
+    // for this metric, so the title and the figure being on the page is still
+    // the same claim, said plainly.
     await expect(page.getByText(ANALYTICS.sharedWidget.title).first()).toBeVisible()
     await expect(
       page.getByText(String(expected.value), { exact: true }).first(),

@@ -595,6 +595,11 @@ export const ANALYTICS = {
     name: 'E2E Private Board',
   },
   sharedWidget: { id: 'e2ea3000-0000-4000-8000-000000000001', title: 'NCs raised' },
+  // The shared board's tiles IN SEEDED ORDER. Three of them, because a reorder
+  // journey has to tell "moved down one" apart from "moved to the end".
+  // e2e-seed.sql §31 resets `position` on every run, so this order is the state
+  // every test starts from even though the journey persists a different one.
+  sharedWidgetOrder: ['NCs raised', 'NC severity split', 'NC trend'],
   sharedReport: {
     id: 'e2ea4000-0000-4000-8000-000000000001',
     name: 'E2E Shared NC Report',
