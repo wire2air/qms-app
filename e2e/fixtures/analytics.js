@@ -51,11 +51,21 @@ export async function ensureRollup({ timeoutMs = 90_000 } = {}) {
 
 // ── metrics as a specific reader ────────────────────────────────────────────
 
+const MV_TAG = 'MV='
+
 /**
  * `metric_value()` for the seeded fact month, resolved as `userId` under RLS.
- * Returns `{ value, scope }`, or `{ value: null, scope: null }` when the reader
- * gets no row at all — which is what a reader with no grant on the measured
- * module must get, and is NOT the same as a zero.
+ *
+ * Returns `{ value, scope, rows }`. All three matter, because there are THREE
+ * distinct outcomes and the first two look identical if you only read `value`:
+ *
+ *   rows 1, value 6      an answer
+ *   rows 1, value null   you may see this metric, but not these facts — the
+ *                        reader lacks the MEASURED module's read. Absence is
+ *                        deliberately not distinguished from "no data" here;
+ *                        `metric_catalog()` is the authority on offerability.
+ *   rows 0               the registry row itself is invisible — the reader
+ *                        lacks the ANALYTICS module grant (F-11).
  */
 export function metricValueAs(userId, { metricKey = ANALYTICS.METRIC, from, to, defaultWindow = false } = {}) {
   // `defaultWindow` passes NULL/NULL so the function snaps its OWN window — the
@@ -66,17 +76,35 @@ export function metricValueAs(userId, { metricKey = ANALYTICS.METRIC, from, to, 
   const window = defaultWindow
     ? 'NULL, NULL'
     : `${q(from ?? ANALYTICS.FACT_MONTH.start)}, ${q(to ?? ANALYTICS.FACT_MONTH.end)}`
+  // The payload is TAGGED rather than located by position. sqlAsAppUser echoes
+  // its own set_config() calls first, and those echoes are indistinguishable
+  // from a result by shape alone — one of them prints `false`, two print uuids.
+  // Taking "the last line" therefore reads a GUC echo whenever the query returns
+  // nothing, which is precisely the case this helper has to be able to report.
   const res = sqlAsAppUser(
-    `SELECT COALESCE(value::text,'') || '\u001f' || COALESCE(effective_scope,'')
+    `SELECT '${MV_TAG}' || COALESCE(value::text,'') || '\u001f' || COALESCE(effective_scope,'')
        FROM public.metric_value(${q(metricKey)}, ${window});`,
     { userId, companyId: COMPANY_ID },
   )
-  if (!res.ok) return { value: null, scope: null, error: res.error }
-  // The script echoes its own SET/DO output first; the metric row is the last line.
-  const last = res.output.split('\n').filter(Boolean).pop() ?? ''
-  if (!last.includes('\u001f')) return { value: null, scope: null }
-  const [value, scope] = last.split('\u001f')
-  return { value: value === '' ? null : Number(value), scope: scope || null }
+  if (!res.ok) return { value: null, scope: null, rows: 0, error: res.error }
+  const payload = res.output
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith(MV_TAG))
+
+  // `rows` separates the two ways of having no answer, which the values alone
+  // cannot: ONE row with a NULL value means "you may see this metric, but not
+  // these facts", while ZERO rows means the registry row itself is invisible —
+  // you do not hold the analytics module grant (F-11). Both used to collapse to
+  // `{ value: null }`, and the two specs that assert on them drifted into
+  // stating opposite things about the same persona as a result.
+  if (!payload.length) return { value: null, scope: null, rows: 0 }
+  const [value, scope] = payload[0].slice(MV_TAG.length).split('\u001f')
+  return {
+    value: value === '' ? null : Number(value),
+    scope: scope || null,
+    rows: payload.length,
+  }
 }
 
 /** The rows `metric_breakdown()` returns for the fact month, as `{ label: value }`. */

@@ -50,7 +50,13 @@ test.describe('ANL-A9 · denials', () => {
     })
 
     test('the metric layer returns no row — which is not a zero', async () => {
+      // This title was aspirational when it was written: before F-11 was closed
+      // the layer returned ONE row with a NULL value, because analytics_metrics
+      // was readable without the analytics grant. Nothing caught the discrepancy
+      // because the assertion only looked at `value`, which is NULL either way.
+      // It is true now, and `rows` is what makes it a claim rather than a hope.
       const v = metricValueAs(USERS.noAccess.id)
+      expect(v.rows, 'the registry row itself is invisible without the module grant').toBe(0)
       expect(v.value, 'absent, not 0').toBeNull()
       expect(v.scope).toBeNull()
     })

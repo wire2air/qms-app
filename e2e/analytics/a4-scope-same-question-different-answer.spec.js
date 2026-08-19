@@ -98,14 +98,29 @@ test.describe('ANL-A4 · the same shared board reads differently for two readers
     // has to tell them apart or it will print "0 nonconformances" to somebody who
     // simply may not look.
     //
-    // Note the exact shape, because it is deliberate and easy to mis-state:
-    // `metric_value()` returns ONE ROW with a NULL value and a NULL scope — not
-    // zero rows. That leaks nothing, and the single NULL deliberately does not
-    // distinguish "no data" from "you may not see it". Absence is expressed by
-    // `metric_catalog()` instead, which returns nothing at all.
+    // ⚠️ THE EXACT SHAPE, because it changed on 2026-08-19 and this comment
+    // previously stated the opposite. There are TWO ways to get no answer and
+    // they are different rows, not different values:
+    //
+    //   analytics grant, no measured-module grant → ONE row, NULL value, NULL
+    //     scope. The single NULL deliberately does not distinguish "no data"
+    //     from "you may not look"; `metric_catalog()` is the authority on what
+    //     is offerable. Pinned at the integration layer, which has a persona for
+    //     it (scope.test.js) — the E2E seed does not.
+    //   no analytics grant at all → ZERO rows. The registry row itself is
+    //     invisible, because closing F-11 put the analytics module grant on
+    //     analytics_metrics.
+    //
+    // `noAccess` holds NOTHING, so it is the second case. Asserting `rows` is
+    // what keeps this comment honest: until the helper reported it, both cases
+    // collapsed to `{ value: null }` and this file and a9 drifted into claiming
+    // opposite things about the same persona.
     const denied = metricValueAs(USERS.noAccess.id)
-    expect(denied.value, 'noAccess holds no ncr grant').toBeNull()
+    expect(denied.value, 'absent, not 0').toBeNull()
     expect(denied.scope).toBeNull()
+    expect(denied.rows, 'noAccess holds no analytics grant — the metric is not even visible').toBe(
+      0,
+    )
 
     const catalog = sqlAsAppUser('SELECT count(*) FROM public.metric_catalog();', {
       userId: USERS.noAccess.id,

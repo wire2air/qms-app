@@ -51,9 +51,23 @@ const ADMIN_PERMISSIONS = {
   'vendor-access-log': 'security:manage',
   // Analytics (the seeded `reports_dashboards` module — read / export / manage).
   // Guarded across the WHOLE subtree, not list-only: unlike a record module
-  // there is no row-level RLS exception that legitimately shows one aggregate
-  // to someone without the module read, and the metric functions themselves
-  // return nothing without it. Suppliers are blocked by the ADMIN branch below.
+  // there is no row-level RLS exception that legitimately shows one aggregate to
+  // someone without the module read. Suppliers are blocked by the ADMIN branch
+  // below.
+  //
+  // ⚠ THIS COMMENT USED TO CLAIM the metric functions "return nothing without
+  // it". They returned 6. That was F-11: until the migration of 2026-08-19 the
+  // metric layer gated on tenant entitlement plus the MEASURED module's read and
+  // never on the analytics grant, so this guard was the only thing enforcing it
+  // and a non-browser client bypassed it entirely. The claim was written from
+  // reasoning rather than measurement, and because it read as a finding nobody
+  // re-checked it.
+  //
+  // It is true NOW — `authz.has_permission('reports_dashboards','read')` is in
+  // the analytics_metrics and analytics_rollup SELECT policies in
+  // database/rls.sql — and it stays true because a test says so, not because
+  // this comment does: backend/api/tests/integration/analytics/moduleGrant.test.js.
+  // If you are about to widen this guard, read that file first.
   // NB there is no `create` action on this module, so if a future authoring
   // route lands at /analytics/create, map it explicitly rather than letting
   // createPermissionFrom() derive a `reports_dashboards:create` nobody holds.
