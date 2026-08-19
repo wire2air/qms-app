@@ -1,6 +1,6 @@
 <script setup>
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm.vue'
-import { IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 defineOptions({
   name: 'ForgotPasswordPage',
@@ -13,8 +13,8 @@ defineOptions({
       <!-- Left side - Branding -->
       <div class="login-branding">
         <div class="branding-content">
-          <IconShieldCheck :size="48" class="tw:text-white" />
-          <h1 class="branding-title">QMS</h1>
+          <!-- tone="light": this panel is dark in BOTH themes. -->
+          <BrandLogo tone="mono" class="branding-logo" />
           <p class="branding-subtitle">Quality Management System</p>
           <div class="branding-features">
             <div class="tw:flex tw:items-center tw:gap-2 tw:mb-4">
@@ -74,11 +74,10 @@ defineOptions({
   max-width: 400px;
 }
 
-.branding-title {
-  font-size: 3rem;
-  font-weight: 700;
-  margin: 24px 0 8px;
-  letter-spacing: -0.025em;
+.branding-logo {
+  height: 52px;
+  width: auto;
+  margin: 8px 0 12px;
 }
 
 .branding-subtitle {

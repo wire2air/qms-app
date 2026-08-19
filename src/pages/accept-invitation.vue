@@ -1,6 +1,6 @@
 <script setup>
 import AcceptInvitationForm from '@/components/auth/AcceptInvitationForm.vue'
-import { IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
+import { IconCircleCheck } from '@tabler/icons-vue'
 
 defineOptions({
   name: 'AcceptInvitationPage',
@@ -14,8 +14,7 @@ defineOptions({
       class="tw:flex-1 tw:bg-linear-to-br tw:from-primary tw:to-primary tw:hidden tw:md:flex tw:items-center tw:justify-center tw:p-12 tw:text-white"
     >
       <div class="tw:max-w-sm">
-        <IconShieldCheck :size="48" class="tw:text-white" />
-        <h1 class="tw:text-5xl tw:font-bold tw:mt-6 tw:mb-2 tw:tracking-tight">QMS</h1>
+        <BrandLogo tone="mono" class="tw:h-12 tw:mb-4" />
         <p class="tw:text-lg tw:opacity-90 tw:mb-12">Quality Management System</p>
         <div class="tw:flex tw:flex-col tw:gap-4">
           <div class="tw:flex tw:items-center tw:gap-2">

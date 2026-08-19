@@ -1,5 +1,5 @@
 <script setup>
-import { IconShieldCheck, IconCircleCheck, IconLock } from '@tabler/icons-vue'
+import { IconCircleCheck, IconLock } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 
@@ -53,8 +53,8 @@ async function handleSubmit() {
       <!-- Left side - Branding -->
       <div class="login-branding">
         <div class="branding-content">
-          <IconShieldCheck :size="48" class="tw:text-white" />
-          <h1 class="branding-title">QMS</h1>
+          <!-- tone="light": this panel is dark in BOTH themes. -->
+          <BrandLogo tone="mono" class="branding-logo" />
           <p class="branding-subtitle">Quality Management System</p>
           <div class="branding-features">
             <div class="tw:flex tw:items-center tw:gap-2 tw:mb-4">
@@ -133,7 +133,9 @@ async function handleSubmit() {
                   <template #icon><IconLock :size="16" class="tw:text-secondary" /></template>
                 </BaseTextInput>
 
-                <div class="tw:text-xs tw:text-secondary">PIN must be at least 4 characters long</div>
+                <div class="tw:text-xs tw:text-secondary">
+                  PIN must be at least 4 characters long
+                </div>
 
                 <button
                   class="tw:w-full tw:py-3 tw:px-4 tw:rounded-lg tw:bg-primary tw:text-white tw:font-medium tw:text-sm tw:hover:opacity-90 tw:transition-opacity tw:cursor-pointer tw:border-0 disabled:tw:opacity-50 disabled:tw:cursor-not-allowed"
@@ -191,11 +193,10 @@ async function handleSubmit() {
   max-width: 400px;
 }
 
-.branding-title {
-  font-size: 3rem;
-  font-weight: 700;
-  margin: 24px 0 8px;
-  letter-spacing: -0.025em;
+.branding-logo {
+  height: 52px;
+  width: auto;
+  margin: 8px 0 12px;
 }
 
 .branding-subtitle {

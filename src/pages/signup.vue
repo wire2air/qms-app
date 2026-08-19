@@ -1,6 +1,5 @@
 <script setup>
 import {
-  IconShieldCheck,
   IconCircleCheck,
   IconLogout,
   IconBuilding,
@@ -86,10 +85,7 @@ onMounted(async () => {
       class="tw:flex-1 tw:bg-linear-to-br tw:from-indigo-900 tw:to-indigo-700 tw:hidden md:tw:flex tw:items-center tw:justify-center tw:p-12 tw:text-white"
     >
       <div class="tw:max-w-sm">
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <IconShieldCheck :size="48" />
-          <h1 class="tw:text-5xl tw:font-bold tw:m-2">QMS</h1>
-        </div>
+        <BrandLogo tone="mono" class="tw:h-12 tw:mb-4" />
         <p class="tw:text-lg tw:opacity-90 tw:mb-12">Quality Management System</p>
         <div class="tw:flex tw:flex-col tw:gap-2">
           <div class="tw:flex tw:items-center tw:gap-2">
@@ -124,8 +120,7 @@ onMounted(async () => {
       class="tw:flex-1 tw:bg-linear-to-br tw:from-indigo-900 tw:to-indigo-700 tw:hidden md:tw:flex tw:items-center tw:justify-center tw:p-12 tw:text-white"
     >
       <div class="tw:max-w-sm">
-        <IconShieldCheck :size="48" />
-        <h1 class="tw:text-5xl tw:font-bold tw:my-2">QMS</h1>
+        <BrandLogo tone="mono" class="tw:h-12 tw:mb-4" />
         <p class="tw:text-lg tw:opacity-90 tw:mb-12">Quality Management System</p>
         <div class="tw:flex tw:flex-col tw:gap-4">
           <div class="tw:flex tw:items-center tw:gap-2">
@@ -236,7 +231,9 @@ onMounted(async () => {
 
             <!-- Invitation Code -->
             <div>
-              <div class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-sm tw:font-medium tw:text-on-main">
+              <div
+                class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-sm tw:font-medium tw:text-on-main"
+              >
                 <IconKey :size="16" class="tw:text-secondary" />
                 Invitation Code
               </div>

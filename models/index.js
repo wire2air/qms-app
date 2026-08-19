@@ -46,6 +46,8 @@ import { DocumentCounter } from './documentCounter'
 import { DocumentLink } from './documentLink'
 import { DocumentSection } from './documentSection'
 import { DocumentStatus } from './documentStatus'
+import { DocumentImportBatch } from './documentImportBatch'
+import { DocumentImportItem } from './documentImportItem'
 import { DocumentTemplate } from './documentTemplate'
 import { DocumentTemplateStatus } from './documentTemplateStatus'
 import { DocumentType } from './documentType'
@@ -128,7 +130,6 @@ import { ComplaintReportScheme } from './complaintReportScheme'
 import { Complaint } from './complaint'
 import { ComplaintRecord } from './complaintRecord'
 import { ComplaintStatus } from './complaintStatus'
-import { NcSourceLink } from './ncSourceLink'
 import { ComplaintCannedResponse } from './complaintCannedResponse'
 import { Customer } from './customer'
 import { CustomerOrganization } from './customerOrganization'
@@ -283,6 +284,8 @@ export const db = {
   DocumentLink,
   DocumentSection,
   DocumentStatus,
+  DocumentImportBatch,
+  DocumentImportItem,
   DocumentTemplate,
   DocumentTemplateStatus,
   DocumentType,
@@ -362,7 +365,6 @@ export const db = {
   Complaint,
   ComplaintRecord,
   ComplaintStatus,
-  NcSourceLink,
   ComplaintCannedResponse,
   Customer,
   CustomerOrganization,

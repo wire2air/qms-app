@@ -52,7 +52,7 @@ pills such as **All open**, **My CAPAs**, **Critical**, **High**, **Overdue**,
 
 1. On the **CAPAs** page, click **Create CAPA**.
 2. Under **Basic information**, enter a **Title** and an optional rich-text
-   **Description**. The panel shows similar existing records so you can avoid duplicates.
+   **Problem Statement**. The panel shows similar existing records so you can avoid duplicates.
 3. Under **Classification**, set the required fields: **Site**, **Department**,
    **CAPA Type**, **Source**, **Priority**, **Initiated date**, and **Owner**.
    Add an optional **Due date**.
@@ -71,10 +71,10 @@ category, and supplier details are pre-filled from that record.
 
 A Draft CAPA is a worksheet — nothing is running yet. To activate it:
 
-1. Open the CAPA. As the owner, click **Open CAPA**.
+1. Open the CAPA. As the owner, click **Start CAPA**.
 2. Review the confirmation: opening starts the workflow, makes the CAPA a **permanent
    audit record**, and means it can no longer be deleted — only closed or cancelled.
-3. Click **Open CAPA** to confirm. The status changes to **Pending**, the first
+3. Click **Start CAPA** to confirm. The status changes to **Pending**, the first
    workflow step becomes active, and reviewers receive their tasks.
 
 To discard a CAPA you no longer need, use **Delete** while it is still in Draft.

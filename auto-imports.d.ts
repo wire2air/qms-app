@@ -48,6 +48,7 @@ declare global {
   const encodeSort: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').encodeSort
   const eventToChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').eventToChord
   const extendRef: typeof import('@vueuse/core').extendRef
+  const extractHeaderFields: typeof import('./src/composables/usePdfImport.js').extractHeaderFields
   const extractPdfHeader: typeof import('./src/composables/usePdfImport.js').extractPdfHeader
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
@@ -407,6 +408,7 @@ declare global {
   const useVModel: typeof import('@vueuse/core').useVModel
   const useVModels: typeof import('@vueuse/core').useVModels
   const useValidation: typeof import('./resource/js/shared/composables/validator.js').useValidation
+  const useValidationContent: typeof import('./src/composables/useValidationContent.js').useValidationContent
   const useValidator: typeof import('./resource/js/shared/composables/validator.js').useValidator
   const useVibrate: typeof import('@vueuse/core').useVibrate
   const useVirtualList: typeof import('@vueuse/core').useVirtualList

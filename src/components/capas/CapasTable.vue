@@ -49,7 +49,14 @@ const columns = computed(() => {
     createdAt: { filterType: 'date' },
   }
   return [
-    { name: 'capaNumber', label: 'CAPA NUMBER', field: 'capaNumber', align: 'left', sortable: true, hideable: false },
+    {
+      name: 'capaNumber',
+      label: 'CAPA NUMBER',
+      field: 'capaNumber',
+      align: 'left',
+      sortable: true,
+      hideable: false,
+    },
     { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
     { name: 'priority', label: 'PRIORITY', field: 'priorityId', align: 'left', sortable: false },
     { name: 'status', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },

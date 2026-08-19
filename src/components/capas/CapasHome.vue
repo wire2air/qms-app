@@ -6,12 +6,7 @@ defineProps({
   embedded: { type: Boolean, default: false },
 })
 
-import {
-  IconAlertCircle,
-  IconClock,
-  IconCircleCheck,
-  IconShieldCheck,
-} from '@tabler/icons-vue'
+import { IconAlertCircle, IconClock, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
