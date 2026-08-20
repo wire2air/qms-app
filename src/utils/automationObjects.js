@@ -74,6 +74,11 @@ export const ACTION_TYPES = [
   { value: 'NOTIFY_REQUESTER', label: 'Notify Requester', config: null },
   { value: 'NOTIFY_OWNER', label: 'Notify Owner / Assignee', config: null },
   { value: 'NOTIFY_EMAIL', label: 'Notify Email address(es)', config: 'emails' },
+  // No config: a rule cannot name a supplier, because "tell the supplier"
+  // means whichever supplier the record is about. The resolver reads
+  // supplier_id off the row, then its flagged point(s) of contact — falling
+  // back to every user at that supplier when none is flagged.
+  { value: 'NOTIFY_SUPPLIER', label: 'Notify Supplier contact', config: null },
   { value: 'SEND_SMS', label: 'Send SMS/MMS', config: 'sms' },
   { value: 'CREATE_NC', label: 'Create Nonconformance', config: null },
   { value: 'CREATE_TASK', label: 'Create Task', config: 'task' },
@@ -118,7 +123,7 @@ export const AUTOMATION_OBJECTS = [
       { key: 'is_supplier_facing', label: 'Supplier-facing', type: 'boolean' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
+    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'NOTIFY_SUPPLIER'],
   },
   {
     value: 'Capa',
@@ -135,7 +140,7 @@ export const AUTOMATION_OBJECTS = [
       { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
+    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'NOTIFY_SUPPLIER'],
   },
   {
     value: 'ChangeRequest',
@@ -186,7 +191,7 @@ export const AUTOMATION_OBJECTS = [
       { key: 'coa_received', label: 'CoA received', type: 'boolean' },
       { key: 'lot_number', label: 'Lot number', type: 'string' },
     ],
-    allowedActions: NOTIFY_ONLY,
+    allowedActions: [...NOTIFY_ONLY, 'NOTIFY_SUPPLIER'],
   },
   {
     value: 'AuditInstance',
@@ -203,7 +208,7 @@ export const AUTOMATION_OBJECTS = [
       { key: 'scheduled_date', label: 'Scheduled date', type: 'date' },
       { key: 'scope', label: 'Scope', type: 'string' },
     ],
-    allowedActions: NOTIFY_ONLY,
+    allowedActions: [...NOTIFY_ONLY, 'NOTIFY_SUPPLIER'],
   },
 ]
 
