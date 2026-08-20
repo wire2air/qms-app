@@ -121,21 +121,55 @@ const { allowLeave } = useUnsavedChangesGuard(isDirty)
 
 // Seed title + site + department from the originating record so the
 // owner doesn't have to retype context.
+// Same treatment for a CR raised straight off an NC — it had the identical
+// "Change from NC-001" title and no guard against the live query re-firing.
+const ncSeeded = ref(false)
 watch(sourceNc, (nc) => {
-  if (!nc) return
-  if (!form.value.title) {
-    form.value.title = `Change from NC ${nc.ncNumber || nc.title}`
+  if (!nc || ncSeeded.value) return
+  ncSeeded.value = true
+  if (!form.value.title) form.value.title = nc.title || `Change from NC ${nc.ncNumber}`
+  if (richTextIsEmpty(form.value.description) && nc.description) {
+    form.value.description = nc.description
   }
   if (!form.value.siteId) form.value.siteId = nc.siteId
   if (!form.value.departmentId) form.value.departmentId = nc.departmentId
 })
+/** Rich text is "empty" as `<p></p>`, so test the text, not the markup. */
+function richTextIsEmpty(html) {
+  return !String(html ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+}
+
+// A CR raised from a CAPA carries the CAPA's context down, the same way a CAPA
+// raised from an NC does. It is the next step on one quality event, not a fresh
+// record — retyping the problem invites a second, subtly different account of
+// it in the file.
+//
+// The one-shot flag matters: sourceCapa is a live query and re-fires on any
+// syncBus tick. Most fields are guarded by an "only if empty" test, but
+// priority ships defaulted to MEDIUM, so "empty" is unreadable there and a
+// re-fire would silently reset a priority the user had just changed.
+const capaSeeded = ref(false)
 watch(sourceCapa, (capa) => {
-  if (!capa) return
-  if (!form.value.title) {
-    form.value.title = `Change from CAPA ${capa.capaNumber || capa.title}`
+  if (!capa || capaSeeded.value) return
+  capaSeeded.value = true
+  // The CAPA's OWN title, not "Change from CAPA CAPA-001". The CR has its own
+  // number and shows a linked-record chip, so restating the CAPA number added
+  // nothing and cost the one thing a title is for — saying what the change IS.
+  // A register reading "Change from CAPA-001, Change from CAPA-002…" is
+  // unreadable, which is why CAPA-from-NC dropped the same pattern.
+  if (!form.value.title) form.value.title = capa.title || `Change from CAPA ${capa.capaNumber}`
+  // The CAPA's description is the problem this change answers.
+  if (richTextIsEmpty(form.value.description) && capa.description) {
+    form.value.description = capa.description
   }
   if (!form.value.siteId) form.value.siteId = capa.siteId
   if (!form.value.departmentId) form.value.departmentId = capa.departmentId
+  // Straight across — both use the same LOW/MEDIUM/HIGH scale, so unlike
+  // NC → CAPA there is no severity-to-urgency translation to do.
+  if (capa.priorityId) form.value.priorityId = capa.priorityId
 })
 watch(sourceFinding, (f) => {
   if (!f) return
