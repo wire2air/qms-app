@@ -86,13 +86,16 @@ const NOTIFY_ONLY = ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_
 export const AUTOMATION_OBJECTS = [
   {
     value: 'QualityEvent',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'QualityEventStatus',
     label: 'Events & Observations',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
-      { key: 'category_id', label: 'Category', type: 'lookup' },
-      { key: 'severity_id', label: 'Severity', type: 'lookup' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'category_id', label: 'Category', type: 'lookup', lookup: 'EventCategory' },
+      { key: 'severity_id', label: 'Severity', type: 'lookup', lookup: 'EventSeverity' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'anonymous_submission', label: 'Anonymous', type: 'boolean' },
       { key: 'title', label: 'Title', type: 'string' },
       { key: 'description', label: 'Description', type: 'string' },
@@ -101,14 +104,17 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'Nonconformance',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'NcStatus',
     label: 'Nonconformances',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'severity_id', label: 'Severity', type: 'enum' },
       { key: 'type_id', label: 'Type', type: 'enum' },
       { key: 'source_id', label: 'Source', type: 'enum' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'is_supplier_facing', label: 'Supplier-facing', type: 'boolean' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
@@ -116,33 +122,42 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'Capa',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'CapaStatus',
     label: 'CAPAs',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'priority_id', label: 'Priority', type: 'enum' },
       { key: 'type_id', label: 'Type', type: 'enum' },
       { key: 'source_type', label: 'Source', type: 'enum' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
     allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
   },
   {
     value: 'ChangeRequest',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'ChangeRequestStatus',
     label: 'Change Control',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'priority_id', label: 'Priority', type: 'enum' },
       { key: 'change_type_id', label: 'Change Type', type: 'enum' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
     allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
   },
   {
     value: 'CustomerComplaint',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'CustomerComplaintStatus',
     label: 'Customer Complaints',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
@@ -157,13 +172,16 @@ export const AUTOMATION_OBJECTS = [
   // why "notify QA when a QC lot is rejected" could not be expressed at all.
   {
     value: 'InspectionLot',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'InspectionLotStatus',
     label: 'QC Inspection Lots',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'quality_state', label: 'Quality state', type: 'enum' },
       { key: 'disposition_type_id', label: 'Disposition', type: 'lookup' },
-      { key: 'product_id', label: 'Item', type: 'lookup' },
-      { key: 'supplier_id', label: 'Supplier', type: 'lookup' },
+      { key: 'product_id', label: 'Item', type: 'lookup', lookup: 'Product' },
+      { key: 'supplier_id', label: 'Supplier', type: 'lookup', lookup: 'Supplier' },
       { key: 'inspection_point', label: 'Inspection point', type: 'enum' },
       { key: 'coa_received', label: 'CoA received', type: 'boolean' },
       { key: 'lot_number', label: 'Lot number', type: 'string' },
@@ -172,12 +190,15 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'AuditInstance',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'AuditInstanceStatus',
     label: 'Audits',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
-      { key: 'supplier_id', label: 'Supplier', type: 'lookup' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
+      { key: 'supplier_id', label: 'Supplier', type: 'lookup', lookup: 'Supplier' },
       { key: 'program_type_id', label: 'Programme type', type: 'lookup' },
       { key: 'scheduled_date', label: 'Scheduled date', type: 'date' },
       { key: 'scope', label: 'Scope', type: 'string' },

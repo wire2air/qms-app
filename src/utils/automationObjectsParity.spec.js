@@ -37,7 +37,10 @@ function workerRegistry() {
       .filter((i) => i > start)
     const end = nextStarts.length ? Math.min(...nextStarts) : src.length
     const block = src.slice(start, end)
-    fieldsByObject[name] = [...block.matchAll(/\{ key: '([^']+)'/g)].map((m) => m[1])
+    // `\bkey:` rather than `{ key:` — prettier wraps long field entries across
+    // lines, and matching the opening brace made a pure formatting change look
+    // like real drift. The registry uses `key:` only in field definitions.
+    fieldsByObject[name] = [...block.matchAll(/\bkey: '([^']+)'/g)].map((m) => m[1])
   }
   return { objects, fieldsByObject }
 }

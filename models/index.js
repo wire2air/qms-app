@@ -102,6 +102,9 @@ import { UserStatus } from './userStatus'
 import { Nonconformance } from './nonconformance'
 import { NcCounter } from './ncCounter'
 import { NcStatus } from './ncStatus'
+import { InspectionLotStatus } from './inspectionLotStatus'
+import { QualityEventStatus } from './qualityEventStatus'
+import { AuditInstanceStatus } from './auditInstanceStatus'
 import { NcType } from './ncType'
 import { NcSeverity } from './ncSeverity'
 import { NcSource } from './ncSource'
@@ -327,6 +330,9 @@ export const db = {
   Nonconformance,
   NcCounter,
   NcStatus,
+  InspectionLotStatus,
+  QualityEventStatus,
+  AuditInstanceStatus,
   NcType,
   NcSeverity,
   NcSource,

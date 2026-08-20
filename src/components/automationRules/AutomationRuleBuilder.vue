@@ -10,6 +10,7 @@ import {
   LIST_OPERATORS,
   MODULE_ACTIONS,
   moduleOperatorsForField,
+  OBJECT_BY_VALUE,
 } from '@/utils/automationObjects'
 import { required } from '@shared/components/form/validators.js'
 
@@ -127,10 +128,56 @@ const statusOptions = computed(() =>
 function fieldFor(key) {
   return fields.value.find((f) => f.key === key)
 }
+/**
+ * Real options for a condition's value, so "Status is …" is a dropdown rather
+ * than a text box.
+ *
+ * It used to return [] for everything outside admin-defined modules, so on
+ * CAPA / NC / QC / Audits the status, site, supplier and item conditions all
+ * fell through to a free-text input. That asked people to type
+ * RETURN_TO_SUPPLIER from memory, and a typo produced a rule that silently
+ * never matched — the worst failure mode an automation rule has.
+ *
+ * Both sources are declared on the object registry: `statusModel` names the
+ * status lookup, `lookup` names the model behind a FK field. Nothing is
+ * hardcoded here; adding a status or a site shows up without a code change.
+ */
+const objectStatuses = useLiveQueryWithDeps(
+  [() => OBJECT_BY_VALUE[draft.value.objectType]?.statusModel],
+  async (db, [modelName]) => {
+    if (!modelName || !db[modelName]) return []
+    const rows = await db[modelName].where().exec()
+    return rows
+      .slice()
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+      .map((r) => ({ value: r.id, label: r.name || r.id }))
+  },
+  { initial: [] },
+)
+
+// Every lookup model the current object's fields reference, resolved once and
+// keyed by model name — a condition row cannot query on its own.
+const lookupOptions = useLiveQueryWithDeps(
+  [() => fields.value.map((f) => f.lookup).filter(Boolean).sort().join(',')],
+  async (db, [names]) => {
+    const out = {}
+    for (const name of [...new Set((names || '').split(',').filter(Boolean))]) {
+      if (!db[name]) continue
+      const rows = await db[name].where().exec()
+      // name / title / label — lookups are not consistent about which they use.
+      out[name] = rows.map((r) => ({ value: r.id, label: r.name || r.title || r.label || r.id }))
+    }
+    return out
+  },
+  { initial: {} },
+)
+
 function optionsForField(field) {
   if (field?.options?.length) return field.options
-  // status_id carries no inline options — source the lifecycle statuses.
+  // Admin-defined modules share one lifecycle; keep their existing source.
   if (isModuleMode.value && field?.key === 'status_id') return statusOptions.value
+  if (field?.key === 'status_id') return objectStatuses.value
+  if (field?.lookup) return lookupOptions.value[field.lookup] ?? []
   return []
 }
 const DATE_PICK_OPERATORS = new Set(['before', 'after'])
