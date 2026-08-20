@@ -181,9 +181,13 @@ function _setHazardCategory(id) {
 }
 void _setHazardCategory
 
-function setAssessmentType(t) {
+// Kept alongside the hidden Assessment type control, same as
+// _setHazardCategory above — the void keeps lint quiet without deleting the
+// setter the commented-out field needs if it is restored.
+function _setAssessmentType(t) {
   patchFinalized({ assessmentType: t })
 }
+void _setAssessmentType
 
 // Read enough off the template config to denormalize labels + scores
 // onto the finalized payload at click time.
@@ -320,6 +324,20 @@ onBeforeUnmount(() => {
           />
         </BaseField>
         -->
+        <!-- HIDDEN (user request 2026-08-20), same treatment as hazard
+             category above — hidden, not deleted.
+
+             Initial-vs-residual is a risk-management distinction: you score a
+             hazard before mitigation, mitigate it, then score again. An NC is
+             assessed once, so the toggle asked a question with no meaning in
+             this context and no obvious right answer.
+
+             The value still exists and still defaults to INITIAL, so
+             `finalized.assessmentType` keeps its shape, historical assessments
+             keep whatever they were scored as, and canFinalize is unaffected
+             (it tests assessmentType, which is never empty). Un-comment to
+             restore. -->
+        <!--
         <BaseField label="Assessment type" required size="sm">
           <div class="tw:flex tw:gap-2">
             <button
@@ -332,12 +350,13 @@ onBeforeUnmount(() => {
                   : 'tw:border-divider tw:bg-white tw:text-secondary tw:hover:border-primary/50'
               "
               :disabled="readonly || disabled"
-              @click="setAssessmentType(t)"
+              @click="_setAssessmentType(t)"
             >
               {{ t === 'INITIAL' ? 'Initial (before mitigation)' : 'Residual (after mitigation)' }}
             </button>
           </div>
         </BaseField>
+        -->
       </div>
 
       <!-- Selected risk level display -->
@@ -507,7 +526,7 @@ onBeforeUnmount(() => {
             Finalized {{ new Date(modelValue.finalized.finalizedAt).toLocaleString() }}
           </template>
           <template v-else-if="!canFinalize">
-            Pick a hazard category, assessment type, and a matrix cell to finalize.
+            Pick a likelihood and severity on the matrix to finalize.
           </template>
           <template v-else> Mark complete to lock the assessment into reports. </template>
         </span>
