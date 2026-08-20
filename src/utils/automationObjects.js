@@ -191,29 +191,6 @@ export const AUTOMATION_OBJECTS = [
     allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
   },
   {
-    value: 'CustomerComplaint',
-    // Which columns the record ACTUALLY carries — mirrored from the worker
-    // registry. Distinct from `fields` below, which is what may be used in a
-    // CONDITION: an NC has a supplier_id without offering it as a filter, so
-    // reading the fields list to answer 'does this record have a supplier'
-    // silently said no.
-    supplierField: null,
-    siteField: null,
-    departmentField: null,
-    // Where the Status dropdown's options come from — a real lookup table,
-    // so the rule builder can enumerate them instead of asking for typed text.
-    statusModel: 'CustomerComplaintStatus',
-    label: 'Customer Complaints',
-    fields: [
-      { key: 'status_id', label: 'Status', type: 'enum' },
-      { key: 'priority_id', label: 'Priority', type: 'enum' },
-      { key: 'source_id', label: 'Source', type: 'enum' },
-      { key: 'customer_phone', label: 'Customer phone', type: 'string' },
-      { key: 'subject', label: 'Subject', type: 'string' },
-    ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'SEND_SMS'],
-  },
-  {
     // The QMS Complaint module — the live one. `CustomerComplaint` above is the
     // older ticketing entity: no records, dormant module. The builder offered
     // that and not this, so a rule about the complaints people actually raise
