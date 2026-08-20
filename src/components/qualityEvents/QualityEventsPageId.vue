@@ -614,7 +614,6 @@ const qualityEventDetailConfig = computed(() =>
                   v-model:groupIds="event.notifyGroupIds"
                   v-model:userIds="event.notifyUserIds"
                   :editable="canOwnerActions"
-                  hint="Default recipients come from company notification settings. Add more as needed; dedup is automatic on send."
                 />
                 <div class="tw:flex tw:justify-end">
                   <BaseButton

@@ -10,9 +10,20 @@
  */
 defineProps({
   editable: { type: Boolean, default: true },
+  /**
+   * What this field actually does, in the reader's terms.
+   *
+   * The old wording — "Notified in-app + email on create and status changes.
+   * No task is created." — left two questions unanswered that people kept
+   * asking (2026-08-20): WHICH status changes, and whether these are the only
+   * people who get told. They are not: notification rules configured under
+   * Templates → Notifications & Automation add recipients on top of this list,
+   * so someone reading only this field would think it was the whole picture.
+   */
   hint: {
     type: String,
-    default: 'Notified in-app + email on create and status changes. No task is created.',
+    default:
+      'Cc’d in addition to the people already involved — in app and by email when the record is created and on every status change. They are not assigned a task. Notification rules set up by an administrator may add more recipients.',
   },
 })
 
