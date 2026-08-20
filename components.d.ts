@@ -934,6 +934,7 @@ declare module 'vue' {
     QualityEventStatusBadge: typeof import('./src/components/badges/QualityEventStatusBadge.vue')['default']
     QualityEventStatusBadgeById: typeof import('./src/components/badges/QualityEventStatusBadgeById.vue')['default']
     QualityEventStatusSelectMenu: typeof import('./src/components/menus/QualityEventStatusSelectMenu.vue')['default']
+    QuickNotificationPanel: typeof import('./src/components/automationRules/QuickNotificationPanel.vue')['default']
     RcaField: typeof import('./src/components/form/tools/RcaField.vue')['default']
     RcaMethodBadge: typeof import('./src/components/badges/RcaMethodBadge.vue')['default']
     RcaReadonly: typeof import('./src/components/form/tools/RcaReadonly.vue')['default']

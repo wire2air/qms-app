@@ -95,6 +95,10 @@ async function onDelete(rule) {
       </template>
     </PageHeader>
 
+    <!-- The simple front door. The engine works and yet no tenant had a single
+         rule — the builder's ceremony was the barrier, not the capability. -->
+    <QuickNotificationPanel />
+
     <DataTable
       :rows="rules"
       :columns="columns"
