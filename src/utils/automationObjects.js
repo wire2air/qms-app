@@ -91,6 +91,14 @@ const NOTIFY_ONLY = ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_
 export const AUTOMATION_OBJECTS = [
   {
     value: 'QualityEvent',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
     // Where the Status dropdown's options come from — a real lookup table,
     // so the rule builder can enumerate them instead of asking for typed text.
     statusModel: 'QualityEventStatus',
@@ -109,6 +117,14 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'Nonconformance',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
     // Where the Status dropdown's options come from — a real lookup table,
     // so the rule builder can enumerate them instead of asking for typed text.
     statusModel: 'NcStatus',
@@ -127,6 +143,14 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'Capa',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
     // Where the Status dropdown's options come from — a real lookup table,
     // so the rule builder can enumerate them instead of asking for typed text.
     statusModel: 'CapaStatus',
@@ -144,6 +168,14 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'ChangeRequest',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: null,
+    siteField: 'site_id',
+    departmentField: 'department_id',
     // Where the Status dropdown's options come from — a real lookup table,
     // so the rule builder can enumerate them instead of asking for typed text.
     statusModel: 'ChangeRequestStatus',
@@ -160,6 +192,14 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'CustomerComplaint',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: null,
+    siteField: null,
+    departmentField: null,
     // Where the Status dropdown's options come from — a real lookup table,
     // so the rule builder can enumerate them instead of asking for typed text.
     statusModel: 'CustomerComplaintStatus',
@@ -173,10 +213,40 @@ export const AUTOMATION_OBJECTS = [
     ],
     allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'SEND_SMS'],
   },
+  {
+    // The QMS Complaint module — the live one. `CustomerComplaint` above is the
+    // older ticketing entity: no records, dormant module. The builder offered
+    // that and not this, so a rule about the complaints people actually raise
+    // could not be written (reported 2026-08-20).
+    value: 'Complaint',
+    label: 'Complaints',
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: null,
+    statusModel: 'ComplaintStatus',
+    fields: [
+      { key: 'status_id', label: 'Status', type: 'enum' },
+      { key: 'severity_id', label: 'Severity', type: 'lookup', lookup: 'ComplaintSeverity' },
+      { key: 'risk_level_id', label: 'Risk Level', type: 'lookup', lookup: 'ComplaintRiskLevel' },
+      { key: 'category_id', label: 'Category', type: 'lookup', lookup: 'ComplaintCategory' },
+      { key: 'safety_issue', label: 'Safety issue', type: 'boolean' },
+      { key: 'regulatory_reportable', label: 'Regulatory reportable', type: 'boolean' },
+      { key: 'subject', label: 'Subject', type: 'string' },
+    ],
+    allowedActions: [...NOTIFY_ONLY, 'NOTIFY_SUPPLIER'],
+  },
   // Added 2026-08-19 alongside the worker registry. Both were missing, which is
   // why "notify QA when a QC lot is rejected" could not be expressed at all.
   {
     value: 'InspectionLot',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: null,
+    departmentField: null,
     // Where the Status dropdown's options come from — a real lookup table,
     // so the rule builder can enumerate them instead of asking for typed text.
     statusModel: 'InspectionLotStatus',
@@ -195,6 +265,14 @@ export const AUTOMATION_OBJECTS = [
   },
   {
     value: 'AuditInstance',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
     // Where the Status dropdown's options come from — a real lookup table,
     // so the rule builder can enumerate them instead of asking for typed text.
     statusModel: 'AuditInstanceStatus',

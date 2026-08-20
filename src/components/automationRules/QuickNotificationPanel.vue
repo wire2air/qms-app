@@ -71,12 +71,14 @@ const statusOptions = useLiveQueryWithDeps(
  * department. Offering a filter that silently matches nothing is worse than
  * offering none — the rule looks configured and never fires.
  */
-const fieldKeys = computed(() => new Set((selected.value?.fields ?? []).map((f) => f.key)))
-const supportsSite = computed(() => fieldKeys.value.has('site_id'))
-const supportsDepartment = computed(() => fieldKeys.value.has('department_id'))
-// Same rule: only where the record actually names a supplier. Change Requests
-// and Customer Complaints have no supplier_id, so there is nobody to resolve.
-const supportsSupplier = computed(() => fieldKeys.value.has('supplier_id'))
+// Read the object's declared COLUMNS, not its condition fields. Those are
+// different lists: an NC carries supplier_id without offering it as a filter, so
+// asking the fields list "does this record have a supplier" answered no and the
+// checkbox never appeared (reported 2026-08-20). The declarations mirror the
+// worker registry, which is what the resolver reads at evaluation time.
+const supportsSite = computed(() => !!selected.value?.siteField)
+const supportsDepartment = computed(() => !!selected.value?.departmentField)
+const supportsSupplier = computed(() => !!selected.value?.supplierField)
 
 const notifySupplier = ref(false)
 
