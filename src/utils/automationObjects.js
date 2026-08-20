@@ -105,7 +105,7 @@ export const AUTOMATION_OBJECTS = [
       { key: 'title', label: 'Title', type: 'string' },
       { key: 'description', label: 'Description', type: 'string' },
     ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'CREATE_NC'],
+    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'NOTIFY_SUPPLIER', 'CREATE_NC'],
   },
   {
     value: 'Nonconformance',

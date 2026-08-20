@@ -74,8 +74,17 @@ const statusOptions = useLiveQueryWithDeps(
 const fieldKeys = computed(() => new Set((selected.value?.fields ?? []).map((f) => f.key)))
 const supportsSite = computed(() => fieldKeys.value.has('site_id'))
 const supportsDepartment = computed(() => fieldKeys.value.has('department_id'))
+// Same rule: only where the record actually names a supplier. Change Requests
+// and Customer Complaints have no supplier_id, so there is nobody to resolve.
+const supportsSupplier = computed(() => fieldKeys.value.has('supplier_id'))
 
-const hasRecipients = computed(() => groupIds.value.length > 0 || userIds.value.length > 0)
+const notifySupplier = ref(false)
+
+// The supplier counts as a recipient in its own right — a rule that tells only
+// the supplier is a perfectly ordinary rule.
+const hasRecipients = computed(
+  () => groupIds.value.length > 0 || userIds.value.length > 0 || notifySupplier.value,
+)
 const canSave = computed(
   () => !!objectType.value && pickedStatuses.value.length > 0 && hasRecipients.value && !saving.value,
 )
@@ -85,6 +94,8 @@ watch(objectType, () => {
   pickedStatuses.value = []
   siteIds.value = []
   departmentIds.value = []
+  // A record type without a supplier cannot carry the choice forward.
+  if (!supportsSupplier.value) notifySupplier.value = false
 })
 
 /** "Notify QA when a CAPA is Closed, Cancelled" — shown before saving. */
@@ -116,6 +127,12 @@ async function save() {
     if (userIds.value.length) {
       actions.push({ type: 'NOTIFY_USER', config: { userIds: [...userIds.value] } })
     }
+    // No config: the rule cannot name a supplier, because "the supplier" means
+    // whichever one the record is about. The resolver reads supplier_id off the
+    // row and finds that supplier's point(s) of contact.
+    if (notifySupplier.value && supportsSupplier.value) {
+      actions.push({ type: 'NOTIFY_SUPPLIER', config: {} })
+    }
 
     await createRule({
       name: `Notify on ${selected.value.label} status change`,
@@ -139,6 +156,7 @@ async function save() {
     userIds.value = []
     siteIds.value = []
     departmentIds.value = []
+    notifySupplier.value = false
     emit('created')
   } catch (e) {
     toast.error(e?.message || 'Could not create the rule')
@@ -191,6 +209,13 @@ async function save() {
           @update:groupIds="(v) => (groupIds = v)"
           @update:userIds="(v) => (userIds = v)"
         />
+        <div v-if="supportsSupplier" class="tw:mt-3">
+          <BaseCheckbox v-model="notifySupplier" label="Also notify the supplier on the record" />
+          <BaseCaption>
+            Goes to the supplier's marked point(s) of contact, or to all of its users when none is
+            marked.
+          </BaseCaption>
+        </div>
       </BaseField>
 
       <!-- Only where the record carries the column — see supportsSite above. -->
