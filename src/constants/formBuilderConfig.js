@@ -482,6 +482,10 @@ export const FIELD_TYPES_CONFIG = Object.freeze({
   },
   riskAssessment: {
     riskAssessmentTemplateId: null,
+    // Mirrors the rca field: which form value carries the problem being
+    // assessed. Without it the assessor scores a matrix with no statement of
+    // what they are scoring.
+    problemField: '_parent_problem',
   },
 })
 

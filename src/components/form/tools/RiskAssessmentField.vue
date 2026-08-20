@@ -4,9 +4,27 @@ const props = defineProps({
   field: { type: Object, required: true },
   readonly: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  /** All values on the form, so the field can read its problem source. */
+  formValues: { type: Object, default: () => ({}) },
 })
 
+
+
 const emit = defineEmits(['update:modelValue'])
+
+/**
+ * What is being assessed, carried in from the parent record.
+ *
+ * The matrix asked for a likelihood and a severity with no statement of what
+ * they applied to, so the assessor had to leave the step to find out — the same
+ * gap the RCA field closed with problemField. Read-only here: it belongs to the
+ * record, and an assessment is not the place to restate the problem.
+ */
+const problemText = computed(() => {
+  const src = props.field?.problemField
+  if (!src) return ''
+  return props.formValues?.[src] ?? ''
+})
 
 // Prefer embedded snapshot; fall back to FK lookup. See RcaField for
 // the rationale.
@@ -269,6 +287,20 @@ onBeforeUnmount(() => {
     <!-- Loading -->
     <div v-if="template === undefined" class="tw:text-sm tw:text-secondary tw:animate-pulse">
       Loading...
+    </div>
+
+    <!-- What is being assessed. Read-only — it belongs to the record, and an
+         assessment is not the place to restate the problem. -->
+    <div v-if="problemText" class="tw:flex tw:flex-col tw:gap-1">
+      <label
+        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+      >
+        Assessing
+      </label>
+      <div
+        class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:bg-main-hover/30 tw:border tw:border-divider tw:rounded-lg tw:p-3"
+        v-html="problemText"
+      />
     </div>
 
     <!-- Change the matrix. Only when there is a choice to make. -->
