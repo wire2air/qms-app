@@ -207,6 +207,7 @@ import { FieldRecordFlag } from './fieldRecordFlag'
 import { AssignmentInstance } from './assignmentInstance'
 import { AssignmentInstanceStatus } from './assignmentInstanceStatus'
 import { RecordLink } from './recordLink'
+import { RecordShareLink } from './recordShareLink'
 import { NotificationRule } from './notificationRule'
 import { EntityFieldSet } from './entityFieldSet'
 import { EntityFieldValue } from './entityFieldValue'
@@ -433,6 +434,7 @@ export const db = {
   AssignmentInstance,
   AssignmentInstanceStatus,
   RecordLink,
+  RecordShareLink,
   NotificationRule,
   EntityFieldSet,
   EntityFieldValue,

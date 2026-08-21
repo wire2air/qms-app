@@ -950,6 +950,7 @@ declare module 'vue' {
     RecordPreview: typeof import('./src/components/records/RecordPreview.vue')['default']
     RecordRefChip: typeof import('./src/components/common/RecordRefChip.vue')['default']
     RecordsFilterToolbar: typeof import('./src/components/records/RecordsFilterToolbar.vue')['default']
+    RecordShareCard: typeof import('./src/components/share/RecordShareCard.vue')['default']
     RecordsIndex: typeof import('./src/components/records/RecordsIndex.vue')['default']
     RecordsSubmissionsTab: typeof import('./src/components/records/RecordsSubmissionsTab.vue')['default']
     RecordsTable: typeof import('./src/components/records/RecordsTable.vue')['default']

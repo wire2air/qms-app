@@ -618,6 +618,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/share/[token]': RouteRecordInfo<
+      '/share/[token]',
+      '/share/:token',
+      { token: ParamValue<true> },
+      { token: ParamValue<false> },
+      | never
+    >,
     '/signin': RouteRecordInfo<
       '/signin',
       '/signin',
@@ -1285,6 +1292,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/settings.vue': {
       routes:
         | '/settings'
+      views:
+        | never
+    }
+    'src/pages/share/[token].vue': {
+      routes:
+        | '/share/[token]'
       views:
         | never
     }

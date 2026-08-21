@@ -582,11 +582,20 @@ const changeRequestDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
+      <!-- External sharing — who outside the company can read this. -->
+      <RecordShareCard
+        entityType="ChangeRequest"
+        :entityId="cr.id"
+        module="change_control"
+        :record="cr"
+      />
+
       <!-- 3. Notify (cc) — groups/people emailed + in-app on status change -->
       <BaseRailCard title="Notify (cc)">
         <NotificationCcField
           v-model:groupIds="cr.notifyGroupIds"
           v-model:userIds="cr.notifyUserIds"
+          v-model:emails="cr.notifyEmails"
           :editable="isEditable"
           hint=""
         />

@@ -939,6 +939,14 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
+      <!-- External sharing — who outside the company can read this. -->
+      <RecordShareCard
+        entityType="Nonconformance"
+        :entityId="nc.id"
+        module="ncr"
+        :record="nc"
+      />
+
       <!-- 3. Workflow — below People (user decision 2026-08-12).
            While DRAFT the owner picks / switches the workflow here (the old
            in-body selection card is gone); once opened it shows the running
@@ -982,6 +990,7 @@ const ncDetailConfig = computed(() =>
         <NotificationCcField
           v-model:groupIds="nc.notifyGroupIds"
           v-model:userIds="nc.notifyUserIds"
+          v-model:emails="nc.notifyEmails"
           :editable="isEditable"
           hint=""
         />
