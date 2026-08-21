@@ -156,6 +156,7 @@ const form = ref({
   // no tasks, no access granted (unlike workflow step assignment).
   notifyGroupIds: [],
   notifyUserIds: [],
+  notifyEmails: [],
 })
 
 // Resolve the chosen workflow's name + version for the details screen's
@@ -790,6 +791,7 @@ async function handleReviewersConfirmed(reviewers) {
             <NotificationCcField
               v-model:groupIds="form.notifyGroupIds"
               v-model:userIds="form.notifyUserIds"
+              v-model:emails="form.notifyEmails"
             />
           </FormSection>
         </BaseForm>

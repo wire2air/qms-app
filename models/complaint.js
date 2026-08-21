@@ -97,6 +97,11 @@ export class Complaint extends BaseModel {
   @Property({ type: String }) workflowVersionId = /** @type {String} */ (null)
   @Property({ type: Object }) pendingReviewers = /** @type {Object} */ (null)
 
+  // Per-record notification cc, matching the other record modules.
+  @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
+
   @Property({ type: String }) createdBy = /** @type {String} */ (null)
   @Property({ type: String }) updatedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)

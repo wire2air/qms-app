@@ -37,6 +37,7 @@ export class QualityEvent extends BaseModel {
   @Property({ type: String }) assignedToUserId = /** @type {String} */ (null)
   @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
   @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   @Property({ type: Boolean }) anonymousSubmission = false
   @Property({ type: DateTime }) occurrenceDate = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) reportedDate = /** @type {DateTime} */ (null)

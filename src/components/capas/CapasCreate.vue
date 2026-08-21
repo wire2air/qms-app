@@ -113,6 +113,7 @@ const form = ref({
   // Per-record cc recipients (notification engine).
   notifyGroupIds: [],
   notifyUserIds: [],
+  notifyEmails: [],
 })
 
 // ── Workflow — two-screen wizard, same as NC (user decision 2026-08-14) ─────
@@ -670,6 +671,7 @@ async function handleCreate(reviewers) {
             <NotificationCcField
               v-model:groupIds="form.notifyGroupIds"
               v-model:userIds="form.notifyUserIds"
+              v-model:emails="form.notifyEmails"
             />
           </FormSection>
 

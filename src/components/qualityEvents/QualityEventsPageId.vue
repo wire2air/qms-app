@@ -613,6 +613,7 @@ const qualityEventDetailConfig = computed(() =>
                 <NotificationCcField
                   v-model:groupIds="event.notifyGroupIds"
                   v-model:userIds="event.notifyUserIds"
+                  v-model:emails="event.notifyEmails"
                   :editable="canOwnerActions"
                 />
                 <div class="tw:flex tw:justify-end">
