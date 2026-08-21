@@ -14,7 +14,7 @@
  * renders labels and values it is handed — it has no model, no query, and no
  * way to ask for a field the projection did not include.
  */
-import { IconLock, IconMail, IconAlertCircle } from '@tabler/icons-vue'
+import { IconLock, IconMail, IconAlertCircle, IconPaperclip } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
 
@@ -85,6 +85,12 @@ async function verify() {
   } finally {
     verifying.value = false
   }
+}
+
+function formatSize(bytes) {
+  if (!bytes) return ''
+  const mb = bytes / 1024 / 1024
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(Math.round(bytes / 1024), 1)} KB`
 }
 
 onMounted(load)
@@ -203,6 +209,34 @@ onMounted(load)
             </section>
           </div>
 
+          <!-- Attachments. Served through /v1/share/:token/files/:assetId, which
+               re-checks the link and the verified session on every request — so
+               revoking the link kills these in the same instant, with no copies
+               to clean up. -->
+          <section v-if="record.attachments?.length" class="tw:mt-6">
+            <h2
+              class="tw:mb-2 tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
+            >
+              Attachments
+            </h2>
+            <ul class="tw:flex tw:flex-col tw:gap-1.5">
+              <li v-for="f in record.attachments" :key="f.url">
+                <a
+                  :href="f.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-primary hover:tw:underline"
+                >
+                  <IconPaperclip :size="14" class="tw:shrink-0" />
+                  <span class="tw:truncate">{{ f.name }}</span>
+                  <span v-if="f.size" class="tw:shrink-0 tw:text-xs tw:text-secondary">
+                    {{ formatSize(f.size) }}
+                  </span>
+                </a>
+              </li>
+            </ul>
+          </section>
+
           <p
             class="tw:mt-8 tw:border-t tw:border-input-border tw:pt-4 tw:text-xs tw:text-secondary"
           >
@@ -235,6 +269,12 @@ onMounted(load)
 }
 .tw\:share-rich :deep(li) {
   margin: 0.125rem 0;
+}
+.tw\:share-rich :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+  margin: 0.25rem 0;
 }
 .tw\:share-rich :deep(blockquote) {
   margin: 0 0 0.5rem;
