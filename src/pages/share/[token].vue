@@ -185,7 +185,19 @@ onMounted(load)
               <dl class="tw:grid tw:gap-x-6 tw:gap-y-3 sm:tw:grid-cols-2">
                 <div v-for="item in section.items" :key="item.label">
                   <dt class="tw:text-xs tw:text-secondary">{{ item.label }}</dt>
-                  <dd class="tw:mt-0.5 tw:text-sm tw:whitespace-pre-line">{{ item.value }}</dd>
+                  <!-- richText is HTML from the editor, already sanitised
+                       server-side against a tight allow-list (no script, no
+                       links, no images). Rendering it escaped showed readers
+                       literal <p> tags; rendering it raw would be stored XSS
+                       aimed at an external browser. -->
+                  <dd
+                    v-if="item.type === 'richText'"
+                    class="tw:mt-0.5 tw:text-sm tw:share-rich"
+                    v-html="item.value"
+                  />
+                  <dd v-else class="tw:mt-0.5 tw:text-sm tw:whitespace-pre-line">
+                    {{ item.value }}
+                  </dd>
                 </div>
               </dl>
             </section>
@@ -202,3 +214,32 @@ onMounted(load)
     </div>
   </div>
 </template>
+
+<style scoped>
+.tw\:share-rich :deep(p) {
+  margin: 0 0 0.5rem;
+}
+.tw\:share-rich :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.tw\:share-rich :deep(ul),
+.tw\:share-rich :deep(ol) {
+  margin: 0 0 0.5rem;
+  padding-left: 1.25rem;
+}
+.tw\:share-rich :deep(ul) {
+  list-style: disc;
+}
+.tw\:share-rich :deep(ol) {
+  list-style: decimal;
+}
+.tw\:share-rich :deep(li) {
+  margin: 0.125rem 0;
+}
+.tw\:share-rich :deep(blockquote) {
+  margin: 0 0 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid currentColor;
+  opacity: 0.8;
+}
+</style>
