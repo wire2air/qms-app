@@ -21,11 +21,22 @@ export const AUTH_ROUTES = [
 // Both were retired: suppliers now read shared documents and upload requested
 // files as logged-in portal users, so nothing about a supplier interaction is
 // reachable without a session.
+//
+// `/share/:token` reopens that door DELIBERATELY, and for a different audience.
+// The retired routes were about suppliers ACTING (uploading, responding), which
+// rightly needs an account. This one is about anyone READING a single record —
+// a customer, an auditor, a supplier's quality lead — where requiring an
+// account means creating logins for people who will never log in. Access is
+// still two-factor: the link plus a code sent to the address on the share
+// record. It is NOT an AUTH_ROUTE: an internal user previewing what they just
+// shared must not be bounced to the dashboard.
 export const PUBLIC_ROUTES = [
   ...AUTH_ROUTES,
   '/reset-esign-pin',
   // Public complaint intake forms (/support/<slug>) — no session needed.
   '/support',
+  // External record share links.
+  '/share',
 ]
 
 /**

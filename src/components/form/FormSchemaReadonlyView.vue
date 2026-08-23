@@ -102,6 +102,21 @@ function getFieldValue(field) {
   return props.values?.[field.name] ?? null
 }
 
+/**
+ * The attachments for a richTextAttachment field.
+ *
+ * `<field>_attachments`, written by DynamicForm since 2026-08-19.
+ *
+ * The marker-format fallback that read the list out of the body string is
+ * gone: it existed only so records written before that date kept their
+ * attachments, and the database reset of 2026-08-23 removed the last of them.
+ */
+function attachmentsFor(field) {
+  if (!field.name) return []
+  const separate = props.values?.[`${field.name}_attachments`]
+  return Array.isArray(separate) ? separate : []
+}
+
 function resolveOptionLabel(field, val) {
   if (val == null) return '—'
 
@@ -434,17 +449,22 @@ function getChecklistColumnLabel(col) {
         </div>
       </div>
 
-      <!-- Rich text + attachments field (full-width). Rendered via the
-           component so the HTML renders AND the attachment/document links show;
-           v-html alone would leak the encoded "[qms-attachments]::" marker. -->
+      <!-- Rich text + attachments (full-width). Rendered through the component
+           so the body renders AND the attachment/document links show.
+
+           Two keys — `<field>` and `<field>_attachments`. Both are handed to
+           the component, which renders the body from the first and the links
+           from the second. -->
       <div
         v-else-if="field.type === 'richTextAttachment'"
         class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5"
       >
         <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <RichTextAttachments
-          v-if="getFieldValue(field)"
-          :modelValue="getFieldValue(field)"
+          v-if="getFieldValue(field) || attachmentsFor(field).length"
+          :modelValue="getFieldValue(field) || ''"
+          :attachments="attachmentsFor(field)"
+          :separateAttachments="true"
           :readonly="true"
         />
         <span v-else class="tw:text-xs tw:text-secondary tw:italic">Not provided</span>

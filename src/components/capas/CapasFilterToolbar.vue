@@ -20,7 +20,6 @@ const filterPills = [
   { value: 'mine', label: 'My CAPAs' },
   { value: 'critical', label: 'Critical' },
   { value: 'high', label: 'High' },
-  { value: 'overdue', label: 'Overdue' },
   { value: 'closed', label: 'Closed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]

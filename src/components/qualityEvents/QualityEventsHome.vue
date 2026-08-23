@@ -3,7 +3,6 @@ import { humanizeFilter } from '@/composables/useListPrint.js'
 import {
   IconLayoutDashboard,
   IconAlertCircle,
-  IconEye,
   IconArrowUpRight,
   IconCircleCheck,
   IconClipboardList,
@@ -40,7 +39,7 @@ const list = useListLayout({
 // has to be reviewed and closed. "Escalated" is therefore a property of the
 // record_links, not of the status, exactly as QualityEventsDashboard already
 // read it.
-const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 // Which events have been escalated. Indexed lookup on fromType, then narrowed
 // to the ESCALATED relation — record_links carries other relations (CAUSED,
@@ -105,7 +104,6 @@ const stats = computed(() => {
   const all = allEvents.value
   return {
     open: all.filter((r) => OPEN_STATUSES.includes(r.statusId)).length,
-    underReview: all.filter((r) => r.statusId === 'UNDER_REVIEW').length,
     escalated: all.filter((r) => escalatedIds.value.has(r.id)).length,
     closed: all.filter((r) => r.statusId === 'CLOSED').length,
   }
@@ -114,13 +112,6 @@ const stats = computed(() => {
 // Compact KPI strip (list-page metrics bar, not a dashboard card grid).
 const kpiItems = computed(() => [
   { key: 'open', label: 'Open', value: stats.value.open, icon: IconAlertCircle, color: 'blue' },
-  {
-    key: 'review',
-    label: 'Under review',
-    value: stats.value.underReview,
-    icon: IconEye,
-    color: 'amber',
-  },
   {
     key: 'escalated',
     label: 'Escalated',

@@ -1,7 +1,6 @@
 <script setup>
 import {
   IconInbox,
-  IconClockExclamation,
   IconCalendarMonth,
   IconArrowUpRight,
   IconCircleCheck,
@@ -37,7 +36,7 @@ const departments = useLiveQuery((db) => db.Department.where().exec(), {
   initial: [],
 })
 
-const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 const escalatedEventIds = computed(() => new Set(links.value.map((l) => l.fromId)))
 
@@ -46,9 +45,6 @@ const kpis = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const open = all.filter((e) => OPEN_STATUSES.includes(e.statusId))
-  const overdueReviews = open.filter(
-    (e) => e.reviewDueDate && e.reviewDueDate < now && !e.reviewSummary,
-  )
   const thisMonth = all.filter((e) => e.reportedDate && e.reportedDate >= startOfMonth)
   // Escalation is a link, never a status (2026-08-18) — the status half of
   // this test used to be the primary signal and is now always false.
@@ -56,7 +52,6 @@ const kpis = computed(() => {
   const closed = all.filter((e) => e.statusId === 'CLOSED')
   return {
     open: open.length,
-    overdueReviews: overdueReviews.length,
     thisMonth: thisMonth.length,
     escalated: escalated.length,
     closed: closed.length,
@@ -136,12 +131,6 @@ const escalationRate = computed(() => {
 
     <ContentGrid min="14rem">
       <BaseStatCard label="Open Events" :value="kpis.open" :icon="IconInbox" iconColor="blue" />
-      <BaseStatCard
-        label="Overdue Reviews"
-        :value="kpis.overdueReviews"
-        :icon="IconClockExclamation"
-        iconColor="red"
-      />
       <BaseStatCard
         label="This Month"
         :value="kpis.thisMonth"

@@ -53,6 +53,12 @@ const openReviewTask = useLiveQueryWithDeps(
   { models: ['TaskInstance'], initial: null },
 )
 
+/** The review task's own due date — what the reader actually needs from it. */
+const taskDueDate = computed(() => {
+  const due = openReviewTask.value?.dueDate
+  return due ? toDateTime(due)?.formatDate('date') : null
+})
+
 function toDateTime(value) {
   if (!value) return null
   if (value.toFormat) return value
@@ -107,15 +113,6 @@ async function markReviewed() {
   }
 }
 
-const router = useRouter()
-function openTask() {
-  // Navigate to the task inbox / tasks page filtered to this task. The
-  // exact route depends on the app's task routing — falling back to
-  // the global tasks list with the task id as a query for deep-link.
-  if (!openReviewTask.value) return
-  // Subdomain tenancy: routes are flat (tenant is the host).
-  router.push(`/tasks/${openReviewTask.value.id}`)
-}
 </script>
 
 <template>
@@ -127,12 +124,12 @@ function openTask() {
   >
     <IconListCheck :size="14" class="tw:text-amber-700" />
     <span class="tw:font-semibold tw:text-amber-900">Review pending</span>
-    <button
-      class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:text-amber-800 tw:hover:underline tw:font-medium"
-      @click="openTask"
-    >
-      Open task →
-    </button>
+    <!-- No "open task" link. A Document task resolves to the document
+         (resolveTaskInstanceRoute), which is the page this badge is on — the
+         old button pushed /tasks/:id, a route that was never registered, so it
+         404'd. The task's own due date is the thing worth showing here, and
+         Mark Reviewed is the action. -->
+    <span v-if="taskDueDate" class="tw:text-amber-800">due {{ taskDueDate }}</span>
     <button
       v-if="canEdit"
       class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-amber-600 tw:text-white tw:px-2 tw:py-0.5 tw:font-medium tw:hover:bg-amber-700 tw:disabled:opacity-60"

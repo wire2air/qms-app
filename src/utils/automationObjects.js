@@ -74,81 +74,196 @@ export const ACTION_TYPES = [
   { value: 'NOTIFY_REQUESTER', label: 'Notify Requester', config: null },
   { value: 'NOTIFY_OWNER', label: 'Notify Owner / Assignee', config: null },
   { value: 'NOTIFY_EMAIL', label: 'Notify Email address(es)', config: 'emails' },
+  // No config: a rule cannot name a supplier, because "tell the supplier"
+  // means whichever supplier the record is about. The resolver reads
+  // supplier_id off the row, then its flagged point(s) of contact — falling
+  // back to every user at that supplier when none is flagged.
+  { value: 'NOTIFY_SUPPLIER', label: 'Notify Supplier contact', config: null },
   { value: 'SEND_SMS', label: 'Send SMS/MMS', config: 'sms' },
   { value: 'CREATE_NC', label: 'Create Nonconformance', config: null },
   { value: 'CREATE_TASK', label: 'Create Task', config: 'task' },
 ]
 export const ACTION_LABEL = Object.fromEntries(ACTION_TYPES.map((a) => [a.value, a.label]))
 
+/** Notify-only actions — the set every object supports. */
+const NOTIFY_ONLY = ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL']
+
 export const AUTOMATION_OBJECTS = [
   {
     value: 'QualityEvent',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'QualityEventStatus',
     label: 'Events & Observations',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
-      { key: 'category_id', label: 'Category', type: 'lookup' },
-      { key: 'severity_id', label: 'Severity', type: 'lookup' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'category_id', label: 'Category', type: 'lookup', lookup: 'EventCategory' },
+      { key: 'severity_id', label: 'Severity', type: 'lookup', lookup: 'EventSeverity' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'anonymous_submission', label: 'Anonymous', type: 'boolean' },
       { key: 'title', label: 'Title', type: 'string' },
       { key: 'description', label: 'Description', type: 'string' },
     ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'CREATE_NC'],
+    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'NOTIFY_SUPPLIER', 'CREATE_NC'],
   },
   {
     value: 'Nonconformance',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'NcStatus',
     label: 'Nonconformances',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'severity_id', label: 'Severity', type: 'enum' },
       { key: 'type_id', label: 'Type', type: 'enum' },
       { key: 'source_id', label: 'Source', type: 'enum' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'is_supplier_facing', label: 'Supplier-facing', type: 'boolean' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
+    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'NOTIFY_SUPPLIER'],
   },
   {
     value: 'Capa',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'CapaStatus',
     label: 'CAPAs',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'priority_id', label: 'Priority', type: 'enum' },
       { key: 'type_id', label: 'Type', type: 'enum' },
       { key: 'source_type', label: 'Source', type: 'enum' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
+    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'NOTIFY_SUPPLIER'],
   },
   {
     value: 'ChangeRequest',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: null,
+    siteField: 'site_id',
+    departmentField: 'department_id',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'ChangeRequestStatus',
     label: 'Change Control',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
       { key: 'priority_id', label: 'Priority', type: 'enum' },
       { key: 'change_type_id', label: 'Change Type', type: 'enum' },
-      { key: 'site_id', label: 'Site', type: 'lookup' },
-      { key: 'department_id', label: 'Department', type: 'lookup' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
       { key: 'title', label: 'Title', type: 'string' },
     ],
     allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL'],
   },
   {
-    value: 'CustomerComplaint',
-    label: 'Customer Complaints',
+    // The QMS Complaint module — the live one. `CustomerComplaint` above is the
+    // older ticketing entity: no records, dormant module. The builder offered
+    // that and not this, so a rule about the complaints people actually raise
+    // could not be written (reported 2026-08-20).
+    value: 'Complaint',
+    label: 'Complaints',
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: null,
+    statusModel: 'ComplaintStatus',
     fields: [
       { key: 'status_id', label: 'Status', type: 'enum' },
-      { key: 'priority_id', label: 'Priority', type: 'enum' },
-      { key: 'source_id', label: 'Source', type: 'enum' },
-      { key: 'customer_phone', label: 'Customer phone', type: 'string' },
+      { key: 'severity_id', label: 'Severity', type: 'lookup', lookup: 'ComplaintSeverity' },
+      { key: 'risk_level_id', label: 'Risk Level', type: 'lookup', lookup: 'ComplaintRiskLevel' },
+      { key: 'category_id', label: 'Category', type: 'lookup', lookup: 'ComplaintCategory' },
+      { key: 'safety_issue', label: 'Safety issue', type: 'boolean' },
+      { key: 'regulatory_reportable', label: 'Regulatory reportable', type: 'boolean' },
       { key: 'subject', label: 'Subject', type: 'string' },
     ],
-    allowedActions: ['NOTIFY_GROUP', 'NOTIFY_USER', 'NOTIFY_REQUESTER', 'NOTIFY_OWNER', 'NOTIFY_EMAIL', 'SEND_SMS'],
+    allowedActions: [...NOTIFY_ONLY, 'NOTIFY_SUPPLIER'],
+  },
+  // Added 2026-08-19 alongside the worker registry. Both were missing, which is
+  // why "notify QA when a QC lot is rejected" could not be expressed at all.
+  {
+    value: 'InspectionLot',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: null,
+    departmentField: null,
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'InspectionLotStatus',
+    label: 'QC Inspection Lots',
+    fields: [
+      { key: 'status_id', label: 'Status', type: 'enum' },
+      { key: 'quality_state', label: 'Quality state', type: 'enum' },
+      { key: 'disposition_type_id', label: 'Disposition', type: 'lookup' },
+      { key: 'product_id', label: 'Item', type: 'lookup', lookup: 'Product' },
+      { key: 'supplier_id', label: 'Supplier', type: 'lookup', lookup: 'Supplier' },
+      { key: 'inspection_point', label: 'Inspection point', type: 'enum' },
+      { key: 'coa_received', label: 'CoA received', type: 'boolean' },
+      { key: 'lot_number', label: 'Lot number', type: 'string' },
+    ],
+    allowedActions: [...NOTIFY_ONLY, 'NOTIFY_SUPPLIER'],
+  },
+  {
+    value: 'AuditInstance',
+    // Which columns the record ACTUALLY carries — mirrored from the worker
+    // registry. Distinct from `fields` below, which is what may be used in a
+    // CONDITION: an NC has a supplier_id without offering it as a filter, so
+    // reading the fields list to answer 'does this record have a supplier'
+    // silently said no.
+    supplierField: 'supplier_id',
+    siteField: 'site_id',
+    departmentField: 'department_id',
+    // Where the Status dropdown's options come from — a real lookup table,
+    // so the rule builder can enumerate them instead of asking for typed text.
+    statusModel: 'AuditInstanceStatus',
+    label: 'Audits',
+    fields: [
+      { key: 'status_id', label: 'Status', type: 'enum' },
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
+      { key: 'supplier_id', label: 'Supplier', type: 'lookup', lookup: 'Supplier' },
+      { key: 'program_type_id', label: 'Programme type', type: 'lookup' },
+      { key: 'scheduled_date', label: 'Scheduled date', type: 'date' },
+      { key: 'scope', label: 'Scope', type: 'string' },
+    ],
+    allowedActions: [...NOTIFY_ONLY, 'NOTIFY_SUPPLIER'],
   },
 ]
 

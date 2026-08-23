@@ -1285,6 +1285,13 @@ function blockNegative(e, c) {
     <!-- Persistent right rail — all lot metadata (mirrors NC/CAPA) + read-only COA. -->
     <template v-if="lot" #rail>
       <InspectionLotRail :lotId="props.id" />
+      <!-- External sharing — typically the supplier of an incoming lot. -->
+      <RecordShareCard
+        entityType="InspectionLot"
+        :entityId="lot.id"
+        module="inspection_qc"
+        :record="lot"
+      />
     </template>
     </BaseDetailLayout>
 

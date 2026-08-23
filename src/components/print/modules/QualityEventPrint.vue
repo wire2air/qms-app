@@ -198,11 +198,9 @@ onMounted(() => {
             <th>Reported</th>
             <td>{{ fmtDate(event?.reportedDate) }}</td>
           </tr>
-          <tr v-if="event?.reviewDueDate || supplier">
-            <th>Review Due</th>
-            <td>{{ fmtDate(event?.reviewDueDate) }}</td>
+          <tr v-if="supplier">
             <th>Supplier</th>
-            <td>{{ supplier?.name || '—' }}</td>
+            <td colspan="3">{{ supplier?.name || '—' }}</td>
           </tr>
         </tbody>
       </table>

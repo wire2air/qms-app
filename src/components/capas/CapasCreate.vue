@@ -98,7 +98,6 @@ const form = ref({
   sourceType: presetNcId.value ? 'NC' : null,
   priorityId: 'MEDIUM',
   initiatedAt: DateTime.now(),
-  dueDate: null,
   ownerId: currentSession.value?.userId ?? null,
   // Optional pointer to the originating row when source_type maps to a known
   // table (e.g. source_type='NC' → source_id = a Nonconformance id).
@@ -113,6 +112,7 @@ const form = ref({
   // Per-record cc recipients (notification engine).
   notifyGroupIds: [],
   notifyUserIds: [],
+  notifyEmails: [],
 })
 
 // ── Workflow — two-screen wizard, same as NC (user decision 2026-08-14) ─────
@@ -608,9 +608,6 @@ async function handleCreate(reviewers) {
                   <BaseDateField v-bind="field" v-model="form.initiatedAt" mode="date" />
                 </template>
               </BaseField>
-              <BaseField label="Due date" optional>
-                <BaseDateField v-model="form.dueDate" mode="date" />
-              </BaseField>
               <BaseField
                 id="capa-owner"
                 label="Responsible party"
@@ -670,6 +667,7 @@ async function handleCreate(reviewers) {
             <NotificationCcField
               v-model:groupIds="form.notifyGroupIds"
               v-model:userIds="form.notifyUserIds"
+              v-model:emails="form.notifyEmails"
             />
           </FormSection>
 

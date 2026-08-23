@@ -144,7 +144,6 @@ const form = ref({
   // 2026-05-29). All optional — intake may not know any of these yet.
   categoryId: null,
   priorityId: null,
-  dueDate: null,
   poNumber: '',
   orderNumber: '',
   lotNumber: '',
@@ -156,6 +155,7 @@ const form = ref({
   // no tasks, no access granted (unlike workflow step assignment).
   notifyGroupIds: [],
   notifyUserIds: [],
+  notifyEmails: [],
 })
 
 // Resolve the chosen workflow's name + version for the details screen's
@@ -760,9 +760,6 @@ async function handleReviewersConfirmed(reviewers) {
                   <BaseDateField v-bind="field" v-model="form.detectedAt" mode="date" />
                 </template>
               </BaseField>
-              <BaseField label="Due date" optional>
-                <BaseDateField v-model="form.dueDate" mode="date" />
-              </BaseField>
               <BaseField
                 id="nc-owner"
                 label="Responsible party"
@@ -790,6 +787,7 @@ async function handleReviewersConfirmed(reviewers) {
             <NotificationCcField
               v-model:groupIds="form.notifyGroupIds"
               v-model:userIds="form.notifyUserIds"
+              v-model:emails="form.notifyEmails"
             />
           </FormSection>
         </BaseForm>

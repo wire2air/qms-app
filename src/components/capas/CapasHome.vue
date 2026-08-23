@@ -1,6 +1,6 @@
 <script setup>
 import { humanizeFilter } from '@/composables/useListPrint.js'
-import { IconAlertCircle, IconClock, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
+import { IconAlertCircle, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
@@ -52,7 +52,7 @@ function clearSupplierFilter() {
 }
 
 const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
-const OPEN_STATUSES = ['DRAFT', 'PENDING']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 function applyFilters(results, statusIds, priorityIds, typeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
@@ -62,7 +62,6 @@ function applyFilters(results, statusIds, priorityIds, typeIds) {
 }
 
 function applyActiveFilter(results, af) {
-  const now = DateTime.now()
   const userId = currentSession.value?.userId
   // Explicit rather than relying on the fallthrough below: 'all' is a real
   // choice (the whole register, closed included), not an unrecognised value.
@@ -74,8 +73,6 @@ function applyActiveFilter(results, af) {
     return results.filter((r) => r.priorityId === 'CRITICAL' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'high')
     return results.filter((r) => r.priorityId === 'HIGH' && OPEN_STATUSES.includes(r.statusId))
-  if (af === 'overdue')
-    return results.filter((r) => r.dueDate && r.dueDate < now && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
   if (af === 'cancelled') return results.filter((r) => r.statusId === 'CANCELLED')
   return results
@@ -111,14 +108,12 @@ const stats = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const openCapas = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
-  const overdue = openCapas.filter((r) => r.dueDate && r.dueDate < now)
   const criticalOpen = openCapas.filter((r) => r.priorityId === 'CRITICAL')
   const closedThisMonth = all.filter(
     (r) => CLOSED_STATUSES.includes(r.statusId) && r.closedAt && r.closedAt >= startOfMonth,
   )
   return {
     open: openCapas.length,
-    overdue: overdue.length,
     criticalOpen: criticalOpen.length,
     closedThisMonth: closedThisMonth.length,
   }
@@ -132,14 +127,6 @@ const kpiItems = computed(() => [
     value: stats.value.open,
     icon: IconAlertCircle,
     color: 'blue',
-  },
-  {
-    key: 'overdue',
-    label: 'Overdue',
-    value: stats.value.overdue,
-    icon: IconClock,
-    color: 'red',
-    emphasize: stats.value.overdue > 0,
   },
   {
     key: 'critical',

@@ -3,7 +3,6 @@ import { humanizeFilter } from '@/composables/useListPrint.js'
 import {
   IconAlertCircle,
   IconAlertTriangle,
-  IconClock,
   IconCircleCheck,
   IconClipboardList,
 } from '@tabler/icons-vue'
@@ -60,7 +59,7 @@ function clearSupplierFilter() {
 }
 
 const CLOSED_STATUSES = ['CLOSED']
-const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 function applyFilters(results, statusIds, severityIds, typeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
@@ -70,7 +69,6 @@ function applyFilters(results, statusIds, severityIds, typeIds) {
 }
 
 function applyActiveFilter(results, af) {
-  const now = DateTime.now()
   const userId = currentSession.value?.userId
   // Explicit rather than relying on the fallthrough below: 'all' is a real
   // choice (the whole register, closed included), not an unrecognised value.
@@ -82,8 +80,6 @@ function applyActiveFilter(results, af) {
     return results.filter((r) => r.severityId === 'CRITICAL' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'major')
     return results.filter((r) => r.severityId === 'MAJOR' && OPEN_STATUSES.includes(r.statusId))
-  if (af === 'overdue')
-    return results.filter((r) => r.dueDate && r.dueDate < now && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
   return results
 }
@@ -121,14 +117,12 @@ const stats = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const openNcs = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
-  const overdue = openNcs.filter((r) => r.dueDate && r.dueDate < now)
   const criticalOpen = openNcs.filter((r) => r.severityId === 'CRITICAL')
   const closedThisMonth = all.filter(
     (r) => CLOSED_STATUSES.includes(r.statusId) && r.closedAt && r.closedAt >= startOfMonth,
   )
   return {
     open: openNcs.length,
-    overdue: overdue.length,
     criticalOpen: criticalOpen.length,
     closedThisMonth: closedThisMonth.length,
   }
@@ -137,14 +131,6 @@ const stats = computed(() => {
 // Compact KPI strip (list-page metrics bar, not a dashboard card grid).
 const kpiItems = computed(() => [
   { key: 'open', label: 'Open NCs', value: stats.value.open, icon: IconAlertCircle, color: 'blue' },
-  {
-    key: 'overdue',
-    label: 'Overdue',
-    value: stats.value.overdue,
-    icon: IconClock,
-    color: 'red',
-    emphasize: stats.value.overdue > 0,
-  },
   {
     key: 'critical',
     label: 'Critical open',

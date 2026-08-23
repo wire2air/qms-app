@@ -13,6 +13,18 @@
  */
 export const TOOLTIPS = [
   {
+    key: 'record.notifications',
+    label: 'Notifications',
+    tooltip:
+      'Email and in-app notices about this record. They are sent when the record is OPENED (leaves draft) and when it is CLOSED — not on every step in between, and not when a field changes. The people listed here are cc’d in addition to whoever is already involved; they are not assigned a task. Administrators can add more recipients with notification rules, which are listed on this card when they apply to this record.',
+  },
+  {
+    key: 'record.notifications.external',
+    label: 'Notify email addresses',
+    tooltip:
+      'People outside the company — a customer, a supplier’s quality lead, an auditor. Each one is emailed a secure link to a read-only summary of this record, opened with a code sent to that same address. Access lasts 30 days and can be withdrawn at any time from the Shared externally card.',
+  },
+  {
     key: 'document.collaboration',
     label: 'Collaboration',
     tooltip:

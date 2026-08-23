@@ -7,7 +7,13 @@ import {
   uploadKey,
   findUploadPlaceholderPos,
 } from './imageUploadPlugin.js'
-import { isValidImageFile, sanitizeImageUrl, nextUploadId, normalizeAlignment } from './helpers.js'
+import {
+  isValidImageFile,
+  sanitizeImageUrl,
+  nextUploadId,
+  normalizeAlignment,
+  dataUriToFile,
+} from './helpers.js'
 
 // Markdown-style image input: ![alt](src "title")
 const INPUT_RX = /(?:^|\s)!\[([^\]]*)\]\((\S+?)(?:\s+["']([^"']*)["'])?\)$/
@@ -310,7 +316,30 @@ export const AdvancedImage = Node.create({
           handlePaste(_view, event) {
             const items = Array.from(event.clipboardData?.items || [])
             const imageItems = items.filter((i) => i.kind === 'file' && i.type.startsWith('image/'))
-            if (!imageItems.length) return false
+
+            if (!imageItems.length) {
+              // No clipboard FILE, but the HTML may carry images inlined as
+              // data URIs — that is what pasting from Word or from a copied
+              // web page produces. Those would otherwise be stored as base64
+              // in a text column and indexed for search, megabytes at a time.
+              //
+              // The paste itself proceeds normally (returning false), because
+              // the clipboard usually holds text and tables the user wants
+              // too. The images are upgraded to assets straight afterwards,
+              // once the paste transaction has been applied.
+              const html = event.clipboardData?.getData('text/html') || ''
+              if (/<img[^>]+src=["']?data:image\//i.test(html) && ext.options.uploader) {
+                setTimeout(() => {
+                  upgradeInlineDataImages(
+                    ext.editor,
+                    ext.options.uploader,
+                    ext.options.onUploadError,
+                  )
+                }, 0)
+              }
+              return false
+            }
+
             event.preventDefault()
             imageItems.forEach((item) => {
               const file = item.getAsFile()
@@ -325,6 +354,70 @@ export const AdvancedImage = Node.create({
     ]
   },
 })
+
+/**
+ * Replace every inlined data-URI image in the document with a real asset.
+ *
+ * Runs after a paste that brought images in as base64. Each one is converted
+ * back to a File, uploaded through the same uploader the file path uses, and
+ * the node's attrs are rewritten in place — so the result is indistinguishable
+ * from having pasted a screenshot: an `<img>` pointing at our file route with
+ * a `data-id` naming the asset.
+ *
+ * Nodes are re-found by their src rather than by a captured position, because
+ * the user keeps typing during the upload and positions move. If the image has
+ * been deleted in the meantime, there is simply nothing to rewrite.
+ *
+ * Failures are deliberately quiet at the document level: the base64 image
+ * still renders, so a failed upgrade leaves the paste intact rather than
+ * blanking a picture the user can see. It is reported through onError like any
+ * other upload failure.
+ */
+async function upgradeInlineDataImages(editor, uploader, onError) {
+  if (!editor || editor.isDestroyed) return
+
+  const sources = []
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === 'image' && typeof node.attrs.src === 'string') {
+      if (node.attrs.src.startsWith('data:image/')) sources.push(node.attrs.src)
+    }
+  })
+  if (!sources.length) return
+
+  for (const src of sources) {
+    const file = dataUriToFile(src)
+    if (!file || !isValidImageFile(file)) continue
+
+    try {
+      const result = await uploader(file)
+      if (editor.isDestroyed) return
+      const safeSrc = result?.url ? sanitizeImageUrl(result.url) : null
+      if (!safeSrc) throw new Error('Uploader returned no usable URL')
+
+      // Find it again — one occurrence per upload, so repeated identical
+      // images each get their own asset instead of collapsing into one.
+      let target = null
+      editor.state.doc.descendants((node, pos) => {
+        if (target) return false
+        if (node.type.name === 'image' && node.attrs.src === src) target = { node, pos }
+        return true
+      })
+      if (!target) continue
+
+      editor.view.dispatch(
+        editor.state.tr.setNodeMarkup(target.pos, undefined, {
+          ...target.node.attrs,
+          src: safeSrc,
+          dataId: result.id || null,
+          width: target.node.attrs.width || result.width || null,
+          height: target.node.attrs.height || result.height || null,
+        }),
+      )
+    } catch (err) {
+      onError?.(err)
+    }
+  }
+}
 
 // Drives the upload + placeholder lifecycle. Why not a Tiptap command:
 // the upload is async, so the second transaction (replace placeholder with

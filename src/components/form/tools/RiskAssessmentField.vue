@@ -4,9 +4,27 @@ const props = defineProps({
   field: { type: Object, required: true },
   readonly: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  /** All values on the form, so the field can read its problem source. */
+  formValues: { type: Object, default: () => ({}) },
 })
 
+
+
 const emit = defineEmits(['update:modelValue'])
+
+/**
+ * What is being assessed, carried in from the parent record.
+ *
+ * The matrix asked for a likelihood and a severity with no statement of what
+ * they applied to, so the assessor had to leave the step to find out — the same
+ * gap the RCA field closed with problemField. Read-only here: it belongs to the
+ * record, and an assessment is not the place to restate the problem.
+ */
+const problemText = computed(() => {
+  const src = props.field?.problemField
+  if (!src) return ''
+  return props.formValues?.[src] ?? ''
+})
 
 // Prefer embedded snapshot; fall back to FK lookup. See RcaField for
 // the rationale.
@@ -181,9 +199,13 @@ function _setHazardCategory(id) {
 }
 void _setHazardCategory
 
-function setAssessmentType(t) {
+// Kept alongside the hidden Assessment type control, same as
+// _setHazardCategory above — the void keeps lint quiet without deleting the
+// setter the commented-out field needs if it is restored.
+function _setAssessmentType(t) {
   patchFinalized({ assessmentType: t })
 }
+void _setAssessmentType
 
 // Read enough off the template config to denormalize labels + scores
 // onto the finalized payload at click time.
@@ -267,6 +289,20 @@ onBeforeUnmount(() => {
       Loading...
     </div>
 
+    <!-- What is being assessed. Read-only — it belongs to the record, and an
+         assessment is not the place to restate the problem. -->
+    <div v-if="problemText" class="tw:flex tw:flex-col tw:gap-1">
+      <label
+        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+      >
+        Assessing
+      </label>
+      <div
+        class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:bg-main-hover/30 tw:border tw:border-divider tw:rounded-lg tw:p-3"
+        v-html="problemText"
+      />
+    </div>
+
     <!-- Change the matrix. Only when there is a choice to make. -->
     <div v-if="canPickTemplate && template" class="tw:mt-3 tw:flex tw:items-center tw:gap-2">
       <span class="tw:text-xs tw:text-secondary tw:shrink-0">Matrix</span>
@@ -320,6 +356,20 @@ onBeforeUnmount(() => {
           />
         </BaseField>
         -->
+        <!-- HIDDEN (user request 2026-08-20), same treatment as hazard
+             category above — hidden, not deleted.
+
+             Initial-vs-residual is a risk-management distinction: you score a
+             hazard before mitigation, mitigate it, then score again. An NC is
+             assessed once, so the toggle asked a question with no meaning in
+             this context and no obvious right answer.
+
+             The value still exists and still defaults to INITIAL, so
+             `finalized.assessmentType` keeps its shape, historical assessments
+             keep whatever they were scored as, and canFinalize is unaffected
+             (it tests assessmentType, which is never empty). Un-comment to
+             restore. -->
+        <!--
         <BaseField label="Assessment type" required size="sm">
           <div class="tw:flex tw:gap-2">
             <button
@@ -332,12 +382,13 @@ onBeforeUnmount(() => {
                   : 'tw:border-divider tw:bg-white tw:text-secondary tw:hover:border-primary/50'
               "
               :disabled="readonly || disabled"
-              @click="setAssessmentType(t)"
+              @click="_setAssessmentType(t)"
             >
               {{ t === 'INITIAL' ? 'Initial (before mitigation)' : 'Residual (after mitigation)' }}
             </button>
           </div>
         </BaseField>
+        -->
       </div>
 
       <!-- Selected risk level display -->
@@ -507,7 +558,7 @@ onBeforeUnmount(() => {
             Finalized {{ new Date(modelValue.finalized.finalizedAt).toLocaleString() }}
           </template>
           <template v-else-if="!canFinalize">
-            Pick a hazard category, assessment type, and a matrix cell to finalize.
+            Pick a likelihood and severity on the matrix to finalize.
           </template>
           <template v-else> Mark complete to lock the assessment into reports. </template>
         </span>

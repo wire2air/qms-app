@@ -115,6 +115,10 @@ function buildInitialValue(method) {
     }
   } else if (method === 'isnot') {
     base.isnot = {
+      // Added 2026-08-20 so Is/Is-Not carries a problem statement like the
+      // other three methods. Existing analyses simply have no key here and
+      // fall back to the inherited value.
+      problem: '',
       dimensions: (cfg.dimensions ?? []).map((d) => ({ label: d, is: '', isNot: '' })),
       probableCauses: '',
     }

@@ -377,6 +377,30 @@ const userDetailConfig = computed(() =>
               <UserStatusBadgeById v-else :statusId="user?.userStatusId" />
             </div>
 
+            <!-- Supplier point of contact.
+                 Only meaningful for supplier users, so it only renders for
+                 them — a CHECK on the column refuses the flag on anyone else,
+                 and showing a control the database will reject is worse than
+                 not showing it.
+
+                 The users security guard puts this in TIER B: an administrator
+                 may set it, the row's own user may not. Otherwise a supplier
+                 user could route their customer's notifications to themselves. -->
+            <div v-if="user?.supplierId">
+              <p class="tw:text-secondary tw:mb-1">Supplier point of contact</p>
+              <BaseCheckbox
+                v-if="canUpdateUser"
+                v-model="user.isPrimaryContact"
+                label="Receives notifications for this supplier"
+              />
+              <BaseText v-else class="tw:text-sm">
+                {{ user?.isPrimaryContact ? 'Yes' : 'No' }}
+              </BaseText>
+              <BaseCaption>
+                When nobody at a supplier is marked, notifications go to all of its users.
+              </BaseCaption>
+            </div>
+
             <!-- Primary Site -->
             <div>
               <p class="tw:text-secondary tw:mb-1">Primary Site</p>

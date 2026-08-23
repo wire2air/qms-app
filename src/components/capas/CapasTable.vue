@@ -1,7 +1,6 @@
 <script setup>
 import { IconEdit, IconTrash } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { DateTime } from 'luxon'
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
@@ -16,11 +15,6 @@ const priorityDotClass = {
   HIGH: 'tw:bg-amber-500',
   MEDIUM: 'tw:bg-blue-500',
   LOW: 'tw:bg-green-500',
-}
-
-function isOverdue(row) {
-  if (!row.dueDate || row.statusId === 'CLOSED') return false
-  return row.dueDate < DateTime.now()
 }
 
 // Option sources for the advanced filter's entity-column dropdowns.
@@ -148,7 +142,6 @@ const columns = computed(() => {
     priority: { filterType: 'select', filterOptions: selectOpts(capaPriorities.value) },
     status: { filterType: 'select', filterOptions: selectOpts(capaStatuses.value) },
     type: { filterType: 'select', filterOptions: selectOpts(capaTypes.value) },
-    dueDate: { filterType: 'date' },
     createdAt: { filterType: 'date' },
   }
   return [
@@ -184,7 +177,6 @@ const columns = computed(() => {
           .join(' · ')
       },
     },
-    { name: 'dueDate', label: 'DUE DATE', field: 'dueDate', align: 'left', sortable: true },
     { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
     { name: 'actions', label: '', field: 'actions', align: 'right' },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
@@ -273,17 +265,6 @@ function rowMenuItems(row) {
           {{ effectivenessCheckFor(row).date.formatDate('date') }}
         </span>
       </div>
-      <span v-else class="tw:text-secondary">—</span>
-    </template>
-
-    <template #body-cell-dueDate="{ row }">
-      <span
-        v-if="row.dueDate"
-        :class="isOverdue(row) ? 'tw:text-red-600 tw:font-semibold' : 'tw:text-secondary'"
-      >
-        {{ row.dueDate.formatDate('date') }}
-        <span v-if="isOverdue(row)">↑</span>
-      </span>
       <span v-else class="tw:text-secondary">—</span>
     </template>
 

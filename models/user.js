@@ -44,6 +44,12 @@ export class User extends BaseModel {
   // Nullable UUID FKs default to null, not '', so PostGraphile's UUID
   // type validation doesn't reject "" → "Invalid UUID" on createUser.
   @Property({ type: String }) supplierId = null
+  // Marks who at a supplier receives its notifications. When nobody at a
+  // supplier carries it, NOTIFY_SUPPLIER falls back to all of its users — most
+  // suppliers have exactly one, and nobody will have ticked a box for them.
+  // TIER B on the users security guard: admins may set it, the row's own user
+  // may not.
+  @Property({ type: Boolean }) isPrimaryContact = false
   @Property({ type: String }) siteId = null
   @Property({ type: String }) departmentId = null
   @Property({ type: String }) supervisorId = null

@@ -27,12 +27,27 @@ const props = defineProps({
   // Trim whitespace around each added tag.
   trim: { type: Boolean, default: true },
   size: { type: String, default: 'md' },
+  /**
+   * Optional per-tag validator: (value) => true | string.
+   *
+   * Returning a string rejects the tag and shows it as the error. Default null
+   * accepts anything, so existing callers are unchanged. Added for email
+   * recipients, where a typo is invisible — the address is accepted, mail is
+   * "sent", and the only symptom is a person who never hears anything.
+   */
+  validate: { type: Function, default: null },
 })
 
 const model = defineModel({ type: Array, default: () => [] })
 
 const draft = ref('')
 const inputEl = ref(null)
+/** Last rejection from `validate`, cleared as soon as the draft is edited. */
+const error = ref('')
+
+watch(draft, () => {
+  error.value = ''
+})
 
 const atMax = computed(() => props.max != null && model.value.length >= props.max)
 
@@ -44,6 +59,15 @@ function addTag() {
     draft.value = ''
     return
   }
+  if (props.validate) {
+    const result = props.validate(value)
+    if (result !== true) {
+      // Keep the draft so the typo can be corrected rather than retyped.
+      error.value = typeof result === 'string' ? result : 'Not valid'
+      return
+    }
+  }
+  error.value = ''
   model.value = [...model.value, value]
   draft.value = ''
 }
@@ -76,33 +100,43 @@ const sizeClass = computed(() =>
 </script>
 
 <template>
-  <div
-    class="tw:flex tw:flex-wrap tw:items-center tw:rounded-lg tw:border tw:border-input-border tw:bg-card tw:transition-colors tw:focus-within:border-primary tw:focus-within:ring-2 tw:focus-within:ring-primary/30"
-    :class="[sizeClass, disabled ? 'tw:cursor-not-allowed tw:opacity-60' : 'tw:cursor-text']"
-    @click="focusInput"
-  >
-    <BaseBadge
-      v-for="(tag, i) in model"
-      :key="`${tag}-${i}`"
-      class="tw:bg-sidebar tw:text-on-main"
-      :clearable="!disabled"
-      :clearLabel="`Remove ${tag}`"
-      size="sm"
-      @clear="removeTag(i)"
+  <div>
+    <div
+      class="tw:flex tw:flex-wrap tw:items-center tw:rounded-lg tw:border tw:bg-card tw:transition-colors tw:focus-within:ring-2"
+      :class="[
+        sizeClass,
+        disabled ? 'tw:cursor-not-allowed tw:opacity-60' : 'tw:cursor-text',
+        error
+          ? 'tw:border-red-400 tw:focus-within:border-red-400 tw:focus-within:ring-red-400/30'
+          : 'tw:border-input-border tw:focus-within:border-primary tw:focus-within:ring-primary/30',
+      ]"
+      @click="focusInput"
     >
-      {{ tag }}
-    </BaseBadge>
+      <BaseBadge
+        v-for="(tag, i) in model"
+        :key="`${tag}-${i}`"
+        class="tw:bg-sidebar tw:text-on-main"
+        :clearable="!disabled"
+        :clearLabel="`Remove ${tag}`"
+        size="sm"
+        @clear="removeTag(i)"
+      >
+        {{ tag }}
+      </BaseBadge>
 
-    <input
-      ref="inputEl"
-      v-bind="$attrs"
-      v-model="draft"
-      type="text"
-      :placeholder="atMax ? '' : placeholder"
-      :disabled="disabled || atMax"
-      class="tw:min-w-24 tw:flex-1 tw:border-0 tw:bg-transparent tw:px-1.5 tw:py-0.5 tw:text-sm tw:text-on-main tw:outline-none tw:placeholder:text-placeholder tw:disabled:cursor-not-allowed"
-      @keydown="onKeydown"
-      @blur="addTag"
-    />
+      <input
+        ref="inputEl"
+        v-bind="$attrs"
+        v-model="draft"
+        type="text"
+        :placeholder="atMax ? '' : placeholder"
+        :disabled="disabled || atMax"
+        class="tw:min-w-24 tw:flex-1 tw:border-0 tw:bg-transparent tw:px-1.5 tw:py-0.5 tw:text-sm tw:text-on-main tw:outline-none tw:placeholder:text-placeholder tw:disabled:cursor-not-allowed"
+        @keydown="onKeydown"
+        @blur="addTag"
+      />
+    </div>
+
+    <p v-if="error" class="tw:mt-1 tw:text-xs tw:text-red-600">{{ error }}</p>
   </div>
 </template>

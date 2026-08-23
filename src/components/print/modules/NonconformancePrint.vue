@@ -300,9 +300,7 @@ onMounted(() => {
           </tr>
           <tr>
             <th>Detected</th>
-            <td>{{ fmtDate(nc?.detectedAt) }}</td>
-            <th>Due Date</th>
-            <td>{{ fmtDate(nc?.dueDate) }}</td>
+            <td colspan="3">{{ fmtDate(nc?.detectedAt) }}</td>
           </tr>
           <tr v-if="hasCommercialRefs">
             <th>PO / Order #</th>

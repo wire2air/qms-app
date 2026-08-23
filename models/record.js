@@ -41,6 +41,7 @@ export class Record extends BaseModel {
   @Property({ type: String }) ownerUserId = null
   @Property({ type: String }) workflowInstanceId = null
   @Property({ type: Array }) notifyUserIds = []
+  @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   @Property({ type: Array }) notifyGroupIds = []
   @Property({ type: String }) moduleKey = ''
   @Property({ type: String }) siteId = null

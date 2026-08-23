@@ -3,9 +3,25 @@ const props = defineProps({
   config: { type: Object, required: true },
   modelValue: { type: Object, default: () => ({}) },
   readonly: { type: Boolean, default: false },
+  /**
+   * The problem, carried in from the parent record — the NC's description via
+   * the field's `problemField`. Every other method shows it; this one did not,
+   * so an Is/Is-Not analysis opened with no statement of what is being analysed
+   * and the reader had to go back to the record to find out (2026-08-20).
+   */
+  problem: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])
+
+// The inherited value wins; the local one is the fallback for an analysis that
+// is not attached to a record. Mirrors FishboneAnalysis.
+const problemText = computed(() => props.problem || props.modelValue?.problem || '')
+
+function onProblemInput(val) {
+  if (props.readonly || props.problem) return
+  emit('update:modelValue', { ...props.modelValue, problem: val })
+}
 
 function updateCell(idx, key, val) {
   const dimensions = (props.modelValue.dimensions ?? []).map((d, i) =>
@@ -21,6 +37,23 @@ function updateProbableCauses(val) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
+    <!-- Problem statement — what the comparison below is distinguishing. -->
+    <div class="tw:flex tw:flex-col tw:gap-1">
+      <label
+        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+      >
+        {{ config.problemPrompt || 'Problem Statement' }}
+      </label>
+      <BaseTextarea
+        :modelValue="problemText"
+        placeholder="Describe the problem..."
+        :rows="2"
+        :readonly="readonly || !!problem"
+        @update:modelValue="onProblemInput"
+      />
+      <BaseCaption v-if="problem">Carried from the record.</BaseCaption>
+    </div>
+
     <!-- Comparison table -->
     <div class="tw:overflow-x-auto">
       <table class="tw:w-full tw:text-sm">

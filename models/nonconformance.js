@@ -50,6 +50,7 @@ export class Nonconformance extends BaseModel {
   @Property({ type: Boolean }) isSupplierFacing = false
   @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
   @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   // Top-section classification (added 2026-05-29). Independent of the
   // existing typeId — issue-type captures the discovery dimension
   // (out-of-spec / receiving / missing standard), typeId stays the
@@ -69,6 +70,15 @@ export class Nonconformance extends BaseModel {
   @Property({ type: Boolean }) capaRequired = null
   @Property({ type: String }) dispositionNotes = ''
   @Property({ type: String }) immediateContainmentAction = ''
+  /**
+   * The first look at the NC. Body and evidence are SEPARATE columns, not one
+   * encoded string: the text is searchable as a plain column and the files are
+   * queryable as an array. `RichTextAttachments` binds both directly in its
+   * separateAttachments mode — the same shape document sections use.
+   */
+  @Property({ type: String }) initialInvestigation = ''
+  /** [{ assetId, name, mimeType } | { documentId, name }] */
+  @Property({ type: Array }) initialInvestigationAttachments = []
   @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) markedCompleteAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) markedCompleteBy = null
