@@ -1,6 +1,13 @@
 <script setup>
 import { DateTime } from 'luxon'
-import { IconInfoCircle, IconCategory, IconPackage, IconBell, IconSitemap } from '@tabler/icons-vue'
+import {
+  IconInfoCircle,
+  IconCategory,
+  IconPackage,
+  IconBell,
+  IconSitemap,
+  IconShieldCheck,
+} from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
@@ -57,6 +64,7 @@ watch(
 const saving = ref(false)
 // Server-side save failure — surfaced persistently in the form footer.
 const submitError = ref('')
+const savingDraft = ref(false)
 
 const SEVERITY_OPTIONS = [
   { label: 'Minor', value: 'MINOR' },
@@ -151,6 +159,8 @@ const form = ref({
   unitOfMeasure: '',
   workflowVersionId: null,
   immediateContainmentAction: '',
+  initialInvestigation: '',
+  initialInvestigationAttachments: [],
   // Groups emailed when the NC is raised and when it closes. Email-only —
   // no tasks, no access granted (unlike workflow step assignment).
   notifyGroupIds: [],
@@ -235,29 +245,41 @@ const classificationComplete = computed(
 )
 // (No Workflow entry — the workflow is chosen on its own screen before
 // this form is reachable; the context strip above the form shows it.)
+// Mirrors the FORM's order. A nav that lists sections in a different order
+// than the page scrolls in is worse than no nav — it is a map of somewhere
+// else.
 const navSections = computed(() => [
   {
     id: 'nc-basic',
     label: 'Basic',
     icon: IconInfoCircle,
+    // Containment moved out of this section (2026-08-23), so it no longer
+    // gates the tick here.
     status:
-      form.value.title &&
-      richTextFilled(form.value.description) &&
-      richTextFilled(form.value.immediateContainmentAction)
-        ? 'complete'
-        : null,
-  },
-  {
-    id: 'nc-product',
-    label: 'Product',
-    icon: IconPackage,
-    status: form.value.productId ? 'complete' : null,
+      form.value.title && richTextFilled(form.value.description) ? 'complete' : null,
   },
   {
     id: 'nc-classification',
     label: 'Classification',
     icon: IconCategory,
     status: classificationComplete.value ? 'complete' : null,
+  },
+  {
+    id: 'nc-product',
+    label: 'Product',
+    icon: IconPackage,
+    // No tick: every field in this section is optional (an NC about a
+    // procedure names no item), so "complete" would mean nothing — and a
+    // section that can never go green reads as unfinished forever.
+    status: null,
+  },
+  {
+    id: 'nc-response',
+    label: 'Response',
+    icon: IconShieldCheck,
+    // Containment is the required half; the initial investigation is optional
+    // at intake, so it does not hold the tick back.
+    status: richTextFilled(form.value.immediateContainmentAction) ? 'complete' : null,
   },
   { id: 'nc-notify', label: 'Notify', icon: IconBell, status: null },
 ])
@@ -288,6 +310,49 @@ async function onSubmit() {
   }
 
   workflowPickerRef.value.submit()
+}
+
+/**
+ * Save without starting the workflow.
+ *
+ * Create-and-open (2026-08-10) folded "open" into "create", which left no way
+ * to write an NC down and finish it later — the case this restores. The record
+ * is created exactly as before; the difference is that submitForReview is NOT
+ * called, so the NC sits in DRAFT and the owner can keep editing it on the
+ * detail page and open it when it is ready.
+ *
+ * The form still validates. A draft is a real NC — it has a number, it is
+ * visible, and it is auditable — so it is held to the same shape as one that
+ * opens immediately. A genuinely partial save (missing site, owner, workflow)
+ * would be a different feature and a different endpoint.
+ *
+ * Reviewers are not collected: nobody is being asked to review anything yet.
+ */
+async function saveAsDraft() {
+  if ((await customFieldsRef.value?.validate()) === false) return
+  savingDraft.value = true
+  submitError.value = ''
+  try {
+    const response = await post('/v1/services/nonconformances', { ...form.value })
+    // Best-effort, like the other create paths: the NC exists, and losing the
+    // draft over a custom-field write would be the worse outcome.
+    try {
+      await customFieldsRef.value?.persist(response.nonconformance.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message: `Draft saved, but additional information did not: ${cfErr?.message || 'unknown error'}`,
+      })
+    }
+    toast.notify({ type: 'positive', message: 'Saved as draft — open it when you are ready' })
+    allowLeave()
+    router.push(getCompanyPath(`/nonconformances/${response.nonconformance.id}`))
+  } catch (e) {
+    submitError.value = e.message || 'Failed to save draft'
+    toast.notify({ type: 'negative', message: submitError.value })
+  } finally {
+    savingDraft.value = false
+  }
 }
 
 function goBack() {
@@ -491,6 +556,19 @@ async function handleReviewersConfirmed(reviewers) {
           @submit="onSubmit"
           @cancel="goBack"
         >
+          <!-- Create NC also OPENS it (2026-08-10). This is the way to write
+               one down and come back to it. -->
+          <template #actions-extra>
+            <BaseButton
+              variant="outline"
+              size="md"
+              :isLoading="savingDraft"
+              :disabled="saving || savingDraft"
+              @click="saveAsDraft"
+            >
+              Save as Draft
+            </BaseButton>
+          </template>
           <!-- Basic information -->
           <FormSection id="nc-basic" title="Basic information" :icon="IconInfoCircle">
             <div class="tw:flex tw:flex-col tw:gap-3">
@@ -525,23 +603,6 @@ async function handleReviewersConfirmed(reviewers) {
                   />
                 </div>
               </BaseField>
-              <!-- Immediate containment — promoted into Basic information and
-                 made REQUIRED (client decision 2026-08-10). The rule strips
-                 markup: an empty editor still emits '<p></p>'. -->
-              <BaseField
-                id="nc-containment"
-                label="Immediate containment action"
-                required
-                :value="form.immediateContainmentAction"
-                :rules="[(v) => richTextFilled(v) || 'Immediate containment action is required.']"
-              >
-                <div class="create-nc-editor">
-                  <BaseRichTextEditor
-                    v-model="form.immediateContainmentAction"
-                    placeholder="Describe actions taken at the time of detection…"
-                  />
-                </div>
-              </BaseField>
               <SimilarRecordsPanel
                 entityType="Nonconformance"
                 :searchInTypes="['Nonconformance']"
@@ -550,123 +611,6 @@ async function handleReviewersConfirmed(reviewers) {
             </div>
           </FormSection>
 
-          <!-- Admin-defined custom fields (Additional information). Right after the
-             basic card; self-hides when none are configured for Nonconformance. -->
-          <CustomFieldsCreateSection
-            ref="customFieldsRef"
-            v-model="customFieldsData"
-            entityType="Nonconformance"
-          />
-
-          <!-- Classification -->
-          <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
-            <BaseFieldRow :columns="2">
-              <!-- Labeled "Item" per the Item-Master UI convention (DB stays
-                 products) — also keeps the label distinct from the progress
-                 nav's "Product" chip. -->
-              <BaseField
-                id="nc-product-item"
-                label="Item"
-                required
-                :value="form.productId"
-                :rules="[required()]"
-              >
-                <template #default="field">
-                  <ProductSelectMenu
-                    v-bind="field"
-                    v-model="form.productId"
-                    :required="false"
-                    nullLabel="— Select item —"
-                  />
-                </template>
-              </BaseField>
-              <BaseField
-                id="nc-supplier"
-                label="Supplier"
-                :required="form.isSupplierFacing"
-                :value="form.supplierId"
-                :rules="[
-                  requiredWhen(
-                    () => form.isSupplierFacing,
-                    'Pick a supplier before marking this NC as supplier-facing.',
-                  ),
-                ]"
-              >
-                <template #default="field">
-                  <SupplierSelectMenu
-                    v-bind="field"
-                    v-model="form.supplierId"
-                    :required="form.isSupplierFacing"
-                  />
-                  <label
-                    class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
-                  >
-                    <BaseCheckbox v-model="form.isSupplierFacing" />
-                    <div>
-                      <BaseText>Supplier-facing NC</BaseText>
-                      <BaseCaption class="tw:block">
-                        Workflow steps will be reviewed by users from the selected supplier (you'll
-                        pick the specific reviewer per step when you open the NC). Lockable once
-                        opened.
-                      </BaseCaption>
-                    </div>
-                  </label>
-                </template>
-              </BaseField>
-              <BaseField label="Qty affected">
-                <template #default="field">
-                  <BaseTextInput
-                    v-bind="field"
-                    v-model="form.qtyAffected"
-                    type="number"
-                    placeholder="0"
-                  />
-                </template>
-              </BaseField>
-              <BaseField label="Unit of measure">
-                <template #default="field">
-                  <BaseTextInput
-                    v-bind="field"
-                    v-model="form.unitOfMeasure"
-                    placeholder="e.g. sheets, units…"
-                  />
-                </template>
-              </BaseField>
-              <BaseField label="PO #">
-                <template #default="field">
-                  <BaseTextInput
-                    v-bind="field"
-                    v-model="form.poNumber"
-                    placeholder="Purchase order number"
-                  />
-                </template>
-              </BaseField>
-              <BaseField label="Order #">
-                <template #default="field">
-                  <BaseTextInput
-                    v-bind="field"
-                    v-model="form.orderNumber"
-                    placeholder="Customer / sales order"
-                  />
-                </template>
-              </BaseField>
-              <BaseField label="Lot #">
-                <template #default="field">
-                  <BaseTextInput
-                    v-bind="field"
-                    v-model="form.lotNumber"
-                    placeholder="Material / production lot"
-                  />
-                </template>
-              </BaseField>
-            </BaseFieldRow>
-          </FormSection>
-
-          <!-- Product & material — default EXPANDED with a required Item
-             (client decision 2026-08-10). The menu itself stays
-             required=false: the required convention would auto-fill the
-             FIRST item, and a silently-wrong item is worse than an empty
-             field — the BaseField rule enforces the pick instead. -->
           <FormSection id="nc-classification" title="Classification" :icon="IconCategory">
             <BaseFieldRow :columns="2">
               <BaseField
@@ -776,6 +720,157 @@ async function handleReviewersConfirmed(reviewers) {
           </FormSection>
 
           <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+          <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
+            <BaseFieldRow :columns="2">
+              <!-- Labeled "Item" per the Item-Master UI convention (DB stays
+                 products) — also keeps the label distinct from the progress
+                 nav's "Product" chip. -->
+              <BaseField
+                id="nc-product-item"
+                label="Item"
+                optional
+              >
+                <template #default="field">
+                  <ProductSelectMenu
+                    v-bind="field"
+                    v-model="form.productId"
+                    :required="false"
+                    nullLabel="— Select item —"
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-supplier"
+                label="Supplier"
+                :required="form.isSupplierFacing"
+                :value="form.supplierId"
+                :rules="[
+                  requiredWhen(
+                    () => form.isSupplierFacing,
+                    'Pick a supplier before marking this NC as supplier-facing.',
+                  ),
+                ]"
+              >
+                <template #default="field">
+                  <SupplierSelectMenu
+                    v-bind="field"
+                    v-model="form.supplierId"
+                    :required="form.isSupplierFacing"
+                  />
+                  <label
+                    class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+                  >
+                    <BaseCheckbox v-model="form.isSupplierFacing" />
+                    <div>
+                      <BaseText>Supplier-facing NC</BaseText>
+                      <BaseCaption class="tw:block">
+                        Workflow steps will be reviewed by users from the selected supplier (you'll
+                        pick the specific reviewer per step when you open the NC). Lockable once
+                        opened.
+                      </BaseCaption>
+                    </div>
+                  </label>
+                </template>
+              </BaseField>
+              <BaseField label="Qty affected">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.qtyAffected"
+                    type="number"
+                    placeholder="0"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Unit of measure">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.unitOfMeasure"
+                    placeholder="e.g. sheets, units…"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="PO #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.poNumber"
+                    placeholder="Purchase order number"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Order #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.orderNumber"
+                    placeholder="Customer / sales order"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Lot #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.lotNumber"
+                    placeholder="Material / production lot"
+                  />
+                </template>
+              </BaseField>
+            </BaseFieldRow>
+          </FormSection>
+
+          <!-- Product & material — default EXPANDED with a required Item
+             (client decision 2026-08-10). The menu itself stays
+             required=false: the required convention would auto-fill the
+             FIRST item, and a silently-wrong item is worse than an empty
+             field — the BaseField rule enforces the pick instead. -->
+
+          <!-- What was DONE about it, after what it IS (title/description) and
+             how it is classified. Requested order 2026-08-23: identity →
+             classification → product → response. -->
+          <FormSection id="nc-response" title="Containment & investigation" :icon="IconShieldCheck">
+            <div class="tw:flex tw:flex-col tw:gap-4">
+              <!-- REQUIRED since 2026-08-10. The rule strips markup: an empty
+                 editor still emits '<p></p>'. -->
+              <BaseField
+                id="nc-containment"
+                label="Immediate containment action"
+                required
+                :value="form.immediateContainmentAction"
+                :rules="[(v) => richTextFilled(v) || 'Immediate containment action is required.']"
+              >
+                <div class="create-nc-editor">
+                  <BaseRichTextEditor
+                    v-model="form.immediateContainmentAction"
+                    placeholder="Describe actions taken at the time of detection…"
+                  />
+                </div>
+              </BaseField>
+
+              <!-- Optional at intake: the first look often happens later, and
+                 requiring it here would push people to type a placeholder. Body
+                 and evidence bind to their own keys (separateAttachments). -->
+              <BaseField id="nc-initial-investigation" label="Initial investigation" optional>
+                <RichTextAttachments
+                  v-model="form.initialInvestigation"
+                  v-model:attachments="form.initialInvestigationAttachments"
+                  :separateAttachments="true"
+                  placeholder="What was checked, what was found, and the evidence…"
+                />
+              </BaseField>
+            </div>
+          </FormSection>
+
+          <!-- Admin-defined custom fields (Additional information). Right after the
+             basic card; self-hides when none are configured for Nonconformance. -->
+          <CustomFieldsCreateSection
+            ref="customFieldsRef"
+            v-model="customFieldsData"
+            entityType="Nonconformance"
+          />
+
           <FormSection
             id="nc-notify"
             title="Notify (cc)"

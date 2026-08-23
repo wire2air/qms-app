@@ -89,8 +89,15 @@ function hasConditions(rule) {
 const lastNotification = useLiveQueryWithDeps(
   [() => props.entityId],
   async (db, [entityId]) => {
-    const rows = await db.Notification.where('resourceId', entityId).exec()
-    return rows.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
+    // `notifications` declares no custom index, so resourceId cannot be
+    // queried directly — every other caller scans and filters, and so does
+    // this one.
+    const rows = await db.Notification.where().exec()
+    return (
+      rows
+        .filter((n) => n.resourceId === entityId)
+        .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
+    )
   },
   { models: ['Notification'] },
 )
@@ -103,8 +110,10 @@ const lastNotification = useLiveQueryWithDeps(
 const ruleSentLinks = useLiveQueryWithDeps(
   [() => props.entityType, () => props.entityId],
   async (db, [entityType, entityId]) =>
-    (await db.RecordShareLink.where('entityId', entityId).exec()).filter(
-      (l) => l.entityType === entityType && l.origin === 'NOTIFICATION',
+    // Compound index — see RecordShareCard for why the first where() cannot
+    // name entityId on its own.
+    (await db.RecordShareLink.where('[entityType+entityId]', [entityType, entityId]).exec()).filter(
+      (l) => l.origin === 'NOTIFICATION',
     ),
   { models: ['RecordShareLink'], initial: [] },
 )
