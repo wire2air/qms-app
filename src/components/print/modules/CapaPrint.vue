@@ -278,9 +278,7 @@ onMounted(() => {
           </tr>
           <tr>
             <th>Initiated</th>
-            <td>{{ fmtDate(capa?.initiatedAt) }}</td>
-            <th>Due Date</th>
-            <td>{{ fmtDate(capa?.dueDate) }}</td>
+            <td colspan="3">{{ fmtDate(capa?.initiatedAt) }}</td>
           </tr>
           <tr v-if="capa?.cancelledAt || capa?.closedAt || capa?.verifiedAt">
             <th>Verified</th>

@@ -15,6 +15,7 @@ import {
   IconTemplate,
   IconDatabase,
   IconShieldCheck,
+  IconShare,
   IconSettings,
   IconAdjustments,
   IconBuilding,
@@ -819,6 +820,27 @@ const navItems = computed(() => {
           permissions: ['audit_trail:read'],
           icon: IconShieldCheck,
           to: getCompanyPath('/audit-logs'),
+        },
+        {
+          // Every external share link in one place: who outside the company can
+          // read a record, whether they ever opened it, and withdrawal.
+          //
+          // `anyPermissions` (ANY, not ALL) because sharing is granted per
+          // module — somebody who may share NCs but nothing else still needs
+          // the page. The ROWS are filtered by RLS, which inherits each
+          // record's own visibility, so the entry gate can stay this simple
+          // without showing anyone a record they could not already open.
+          label: 'Shared Records',
+          anyPermissions: [
+            'ncr:manage_access',
+            'capa:manage_access',
+            'change_control:manage_access',
+            'complaints:manage_access',
+            'inspection_qc:manage_access',
+            'quality_events:manage_access',
+          ],
+          icon: IconShare,
+          to: getCompanyPath('/shared-records'),
         },
         {
           // Qualification protocols customers execute to validate the system in

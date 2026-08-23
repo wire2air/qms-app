@@ -20,7 +20,6 @@ const filterPills = [
   { value: 'mine', label: 'My NCs' },
   { value: 'critical', label: 'Critical' },
   { value: 'major', label: 'Major' },
-  { value: 'overdue', label: 'Overdue' },
   { value: 'closed', label: 'Closed' },
 ]
 

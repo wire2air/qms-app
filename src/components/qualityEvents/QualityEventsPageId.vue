@@ -3,7 +3,6 @@ import { IconArrowUpRight } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { currentCompany } from '@/utils/currentCompany.js'
 import { useDebounceFn } from '@vueuse/core'
 import { DateTime } from 'luxon'
 import {
@@ -48,10 +47,6 @@ const closeBlockedReason = computed(() => {
   return 'Only the assigned reviewer can close this event.'
 })
 const canEscalate = computed(() => canUpdate.value)
-const reviewSlaDays = computed(() => {
-  const n = Number(currentCompany.value?.settings?.defaultQualityEventReviewSlaDays)
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 7
-})
 const closing = ref(false)
 const notifying = ref(false)
 const supplierAckSubmitting = ref(false)
@@ -202,8 +197,8 @@ watch(
 )
 
 watch(
-  [event, reviewSlaDays, qualityEventNotifyRule],
-  ([e, sla, notifyRule]) => {
+  [event, qualityEventNotifyRule],
+  ([e, notifyRule]) => {
     if (!e) return
 
     // Once notification-rule query resolves (row or null), hydrate defaults once per event.
@@ -222,16 +217,6 @@ watch(
     const occ = toDateTime(e.occurrenceDate)
     if (occ && !DateTime.isDateTime(e.occurrenceDate)) e.occurrenceDate = occ.startOf('day')
 
-    const existing = toDateTime(e.reviewDueDate)
-    if (existing) {
-      // Keep the bound value in DateTime form so BaseDateField always renders it.
-      if (!DateTime.isDateTime(e.reviewDueDate)) e.reviewDueDate = existing.startOf('day')
-      return
-    }
-
-    const base = toDateTime(e.createdAt) || toDateTime(e.reportedDate)
-    if (!base) return
-    e.reviewDueDate = base.plus({ days: sla }).startOf('day')
   },
   { immediate: true },
 )
@@ -616,6 +601,17 @@ const qualityEventDetailConfig = computed(() =>
                   v-model:emails="event.notifyEmails"
                   :editable="canOwnerActions"
                 />
+                <!-- The rules that also reach this event, and whether anything
+                     has gone out. Inline rather than a rail card: a quality
+                     event's notify surface is this box, and two notify surfaces
+                     on one record would eventually disagree. -->
+                <RecordNotificationStatus
+                  entityType="QualityEvent"
+                  :entityId="event.id"
+                  :siteId="event.siteId"
+                  :departmentId="event.departmentId"
+                  :externalCount="event.notifyEmails?.length ?? 0"
+                />
                 <div class="tw:flex tw:justify-end">
                   <BaseButton
                     variant="primary"
@@ -796,13 +792,15 @@ const qualityEventDetailConfig = computed(() =>
               }}
             </BaseText>
           </BaseDetailField>
-          <BaseDetailField label="Review Due Date">
-            <BaseDateField v-if="canUpdate" v-model="event.reviewDueDate" mode="date" />
-            <BaseText v-else color="secondary">
-              {{ event.reviewDueDate ? toDateTime(event.reviewDueDate)?.formatDate('date') : '—' }}
-            </BaseText>
-          </BaseDetailField>
         </BaseRailCard>
+
+        <!-- External sharing — who outside the company can read this. -->
+        <RecordShareCard
+          entityType="QualityEvent"
+          :entityId="event.id"
+          module="quality_events"
+          :record="event"
+        />
       </template>
     </BaseDetailLayout>
 

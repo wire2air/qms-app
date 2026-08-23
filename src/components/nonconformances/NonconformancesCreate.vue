@@ -144,7 +144,6 @@ const form = ref({
   // 2026-05-29). All optional — intake may not know any of these yet.
   categoryId: null,
   priorityId: null,
-  dueDate: null,
   poNumber: '',
   orderNumber: '',
   lotNumber: '',
@@ -760,9 +759,6 @@ async function handleReviewersConfirmed(reviewers) {
                 <template #default="field">
                   <BaseDateField v-bind="field" v-model="form.detectedAt" mode="date" />
                 </template>
-              </BaseField>
-              <BaseField label="Due date" optional>
-                <BaseDateField v-model="form.dueDate" mode="date" />
               </BaseField>
               <BaseField
                 id="nc-owner"

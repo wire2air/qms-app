@@ -3,7 +3,6 @@ import { buildCapaBanners, buildCapaSections, buildCapaActions } from './capaDet
 import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
-import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
 import {
@@ -329,12 +328,6 @@ async function handleDeleteDraft() {
   }
 }
 
-const isOverdue = computed(() => {
-  if (!capa.value?.dueDate) return false
-  if (capa.value.statusId === 'CLOSED') return false
-  return capa.value.dueDate < DateTime.now()
-})
-
 const workflowInstance = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -643,19 +636,8 @@ const capaDetailConfig = computed(() =>
         "
       />
 
-      <!-- 4. Schedule — due, verified, closed -->
+      <!-- 4. Schedule — verified, closed -->
       <BaseRailCard title="Schedule">
-        <BaseDetailField label="Due">
-          <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
-          <BaseText
-            v-else
-            variant="body"
-            weight="medium"
-            :class="isOverdue ? 'tw:text-red-600' : ''"
-          >
-            {{ capa.dueDate?.formatDate('date') || '—' }}
-          </BaseText>
-        </BaseDetailField>
         <BaseDetailField
           v-if="capa.verifiedAt"
           label="Verified"
@@ -668,16 +650,17 @@ const capaDetailConfig = computed(() =>
         />
       </BaseRailCard>
 
-      <!-- 5. Notify (cc) — groups/people emailed + in-app on status change -->
-      <BaseRailCard title="Notify (cc)">
-        <NotificationCcField
-          v-model:groupIds="capa.notifyGroupIds"
-          v-model:userIds="capa.notifyUserIds"
-          v-model:emails="capa.notifyEmails"
-          :editable="isEditable"
-          hint=""
-        />
-      </BaseRailCard>
+      <!-- 5. Notifications — cc list, the rules that also apply, and when anything last went out -->
+      <RecordNotificationsCard
+        v-model:groupIds="capa.notifyGroupIds"
+        v-model:userIds="capa.notifyUserIds"
+        v-model:emails="capa.notifyEmails"
+        entityType="Capa"
+        :entityId="capa.id"
+        :siteId="capa.siteId"
+        :departmentId="capa.departmentId"
+        :editable="isEditable"
+      />
 
       <!-- (Workflow template link moved into the dedicated Workflow rail
            card below People — 2026-08-12.) -->
