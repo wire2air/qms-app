@@ -10,10 +10,12 @@
  * print/export without parsing a marker out of a text column. A field named
  * `investigation` now writes `investigation` and `investigation_attachments`.
  *
- * The risk in the change is not the new shape — it is the OLD records. Reading
- * one through the new binding and saving it would drop its attachments, since
- * separate mode's serializer omits the marker. These pin the fallback that
- * stops that happening. They can go once no marker-format rows remain.
+ * The marker-format fallback these once pinned is gone: it existed so records
+ * written before the change kept their attachments, and the database reset of
+ * 2026-08-23 removed the last of them. What remains pins the shape itself —
+ * that the sibling key is what gets read, and that it is PLURAL, since
+ * `payload.x_attachment.name` coming back undefined is the failure a singular
+ * name invites.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -31,28 +33,13 @@ const ATTS = [
  */
 function attachmentsFor(values, fieldName) {
   const separate = values?.[`${fieldName}_attachments`]
-  if (Array.isArray(separate) && separate.length) return separate
-  const raw = values?.[fieldName]
-  if (typeof raw !== 'string') return []
-  const idx = raw.indexOf(MARKER)
-  if (idx === -1) return []
-  try {
-    const parsed = JSON.parse(raw.slice(idx + MARKER.length))
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+  return Array.isArray(separate) ? separate : []
 }
+
 
 describe('reading attachments off a payload', () => {
   it('prefers the separate key', () => {
     const values = { investigation: '<p>body</p>', investigation_attachments: ATTS }
-    expect(attachmentsFor(values, 'investigation')).toEqual(ATTS)
-  })
-
-  it('falls back to the marker for a record written the old way', () => {
-    // The case that would otherwise lose data: no separate key at all.
-    const values = { investigation: `<p>body</p>${MARKER}${JSON.stringify(ATTS)}` }
     expect(attachmentsFor(values, 'investigation')).toEqual(ATTS)
   })
 
@@ -61,23 +48,14 @@ describe('reading attachments off a payload', () => {
     expect(attachmentsFor({}, 'investigation')).toEqual([])
   })
 
-  it('survives a corrupt marker rather than throwing at render time', () => {
-    const values = { investigation: `<p>body</p>${MARKER}not-json` }
-    expect(attachmentsFor(values, 'investigation')).toEqual([])
-  })
-
   it('ignores a non-string body', () => {
     expect(attachmentsFor({ investigation: { nope: true } }, 'investigation')).toEqual([])
   })
 
-  it('treats an empty separate list as absent, so the marker still wins', () => {
-    // A half-migrated record: the key exists but holds nothing, while the
-    // string still carries the real list.
-    const values = {
-      investigation: `<p>body</p>${MARKER}${JSON.stringify(ATTS)}`,
-      investigation_attachments: [],
-    }
-    expect(attachmentsFor(values, 'investigation')).toEqual(ATTS)
+  it('treats an empty separate list as empty, not as a reason to look elsewhere', () => {
+    // Nothing to fall back TO any more: an empty list is the answer.
+    const values = { investigation: `<p>body</p>${MARKER}${JSON.stringify(ATTS)}`, investigation_attachments: [] }
+    expect(attachmentsFor(values, 'investigation')).toEqual([])
   })
 })
 
@@ -96,13 +74,5 @@ describe('the wiring', () => {
     const s = src('src/components/form/DynamicForm.js')
     expect(s).toContain('${scope.path}_attachments')
     expect(s).not.toContain('${scope.path}_attachment`')
-  })
-
-  it('separate mode still rescues attachments encoded in the string', () => {
-    const s = src('src/components/shared/RichTextAttachments.vue')
-    expect(s).toContain('function initialAttachments')
-    // The rescue must consult the marker parse, not only the separate model.
-    const fn = s.slice(s.indexOf('function initialAttachments'), s.indexOf('const draftAtts'))
-    expect(fn).toContain('initAtts')
   })
 })

@@ -121,19 +121,22 @@ const { html: initHtml, attachments: initAtts } = parse(modelValue.value)
 const draftHtml = ref(initHtml)
 
 /**
- * In separate mode the attachments live in their own model. But records written
- * BEFORE a field moved to separate mode have them encoded in the string, and
- * separate mode's serialize() drops the marker — so reading one, then saving,
- * would silently discard its attachments.
+ * In separate mode the attachments live in their own model, and the string
+ * carries only the body.
  *
- * So: prefer the separate model, and fall back to whatever the string carries
- * when it is empty. The next save rewrites the record in the new shape. Delete
- * this once no marker-format rows remain.
+ * The rescue that read them back out of the string existed for records written
+ * before a field moved to separate mode — without it, reading one and saving
+ * would silently discard its attachments, since separate mode's serialize()
+ * drops the marker. The database reset of 2026-08-23 removed the last of those
+ * records, so the rescue went with them.
+ *
+ * The SINGLE-STRING mode below still uses the marker. That is not legacy: it
+ * is the live format for every caller that has not been given two models
+ * (QC test methods among them).
  */
 function initialAttachments() {
   if (!props.separateAttachments) return [...initAtts]
-  const separate = attachmentsModel.value ?? []
-  return separate.length ? [...separate] : [...initAtts]
+  return [...(attachmentsModel.value ?? [])]
 }
 
 const draftAtts = ref(initialAttachments())

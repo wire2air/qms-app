@@ -105,28 +105,16 @@ function getFieldValue(field) {
 /**
  * The attachments for a richTextAttachment field.
  *
- * `<field>_attachments` since 2026-08-19. Older records packed the list into
- * the body string after a "[qms-attachments]::" marker, so fall back to parsing
- * that — otherwise every attachment on an existing record would vanish from the
- * read view and from print. Remove once no marker-format rows remain.
+ * `<field>_attachments`, written by DynamicForm since 2026-08-19.
+ *
+ * The marker-format fallback that read the list out of the body string is
+ * gone: it existed only so records written before that date kept their
+ * attachments, and the database reset of 2026-08-23 removed the last of them.
  */
-const ATTACHMENT_MARKER = '\n[qms-attachments]::'
-
 function attachmentsFor(field) {
   if (!field.name) return []
   const separate = props.values?.[`${field.name}_attachments`]
-  if (Array.isArray(separate) && separate.length) return separate
-
-  const raw = props.values?.[field.name]
-  if (typeof raw !== 'string') return []
-  const idx = raw.indexOf(ATTACHMENT_MARKER)
-  if (idx === -1) return []
-  try {
-    const parsed = JSON.parse(raw.slice(idx + ATTACHMENT_MARKER.length))
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+  return Array.isArray(separate) ? separate : []
 }
 
 function resolveOptionLabel(field, val) {
@@ -462,14 +450,11 @@ function getChecklistColumnLabel(col) {
       </div>
 
       <!-- Rich text + attachments (full-width). Rendered through the component
-           so the body renders AND the attachment/document links show; v-html
-           alone would leak the encoded "[qms-attachments]::" marker of the old
-           single-string format.
+           so the body renders AND the attachment/document links show.
 
-           Two keys since 2026-08-19 — `<field>` and `<field>_attachments`. The
-           component is given both: it prefers the separate list and falls back
-           to whatever the string carries, so records written either way read
-           correctly. -->
+           Two keys — `<field>` and `<field>_attachments`. Both are handed to
+           the component, which renders the body from the first and the links
+           from the second. -->
       <div
         v-else-if="field.type === 'richTextAttachment'"
         class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5"
