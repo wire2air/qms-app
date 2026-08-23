@@ -35,6 +35,58 @@ const sending = ref(false)
 const verifying = ref(false)
 const codeSent = ref(false)
 
+/**
+ * The image the reader has opened, or null.
+ *
+ * Inline images render as thumbnails: an editor image is whatever size the
+ * camera produced, and a 960px photo dropped into a two-column summary pushes
+ * the record itself off the screen. The full picture is one click away rather
+ * than always in the way.
+ *
+ * The click is delegated from the container because the images live inside
+ * v-html — there is no element here to put @click on.
+ */
+/**
+ * A value ready to show.
+ *
+ * The API client parses every ISO string in a response into a Luxon DateTime,
+ * so a projected date reached the template as an object and rendered as
+ * "2026-08-21T00:00:00.000-04:00" — an ISO timestamp shown to a customer.
+ * Format it the way the rest of the app does, and pass anything the parser
+ * left alone straight through.
+ */
+function displayValue(item) {
+  if (item.type === 'date' && typeof item.value?.formatDate === 'function') {
+    return item.value.formatDate('date')
+  }
+  return item.value
+}
+
+const viewerImage = ref(null)
+
+function openImage(event) {
+  const img = event.target.closest?.('img')
+  if (!img) return
+  viewerImage.value = { src: img.getAttribute('src'), alt: img.getAttribute('alt') || '' }
+}
+
+function closeImage() {
+  viewerImage.value = null
+}
+
+// Escape closes the overlay — the reader's first instinct, and this page has no
+// dialog primitive to inherit it from.
+function onViewerKey(event) {
+  if (event.key === 'Escape') closeImage()
+}
+
+watch(viewerImage, (open) => {
+  if (open) window.addEventListener('keydown', onViewerKey)
+  else window.removeEventListener('keydown', onViewerKey)
+})
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onViewerKey))
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -193,16 +245,35 @@ onMounted(load)
                   <dt class="tw:text-xs tw:text-secondary">{{ item.label }}</dt>
                   <!-- richText is HTML from the editor, already sanitised
                        server-side against a tight allow-list (no script, no
-                       links, no images). Rendering it escaped showed readers
-                       literal <p> tags; rendering it raw would be stored XSS
-                       aimed at an external browser. -->
+                       links; images only after every src has been rewritten to
+                       our own share endpoint). Rendering it escaped showed
+                       readers literal <p> tags; rendering it raw would be
+                       stored XSS aimed at an external browser.
+                       Click is delegated here to open an image full size. -->
                   <dd
                     v-if="item.type === 'richText'"
                     class="tw:mt-0.5 tw:text-sm tw:share-rich"
+                    @click="openImage"
                     v-html="item.value"
                   />
+                  <!-- A file field inside a step form. Same share endpoint as
+                       the record's own attachments, so the same revocation
+                       applies. -->
+                  <dd v-else-if="item.type === 'files'" class="tw:mt-0.5 tw:text-sm">
+                    <a
+                      v-for="f in item.value"
+                      :key="f.url"
+                      :href="f.url"
+                      target="_blank"
+                      rel="noopener"
+                      class="tw:flex tw:items-center tw:gap-2 tw:text-primary hover:tw:underline"
+                    >
+                      <IconPaperclip :size="14" class="tw:shrink-0" />
+                      <span class="tw:truncate">{{ f.name }}</span>
+                    </a>
+                  </dd>
                   <dd v-else class="tw:mt-0.5 tw:text-sm tw:whitespace-pre-line">
-                    {{ item.value }}
+                    {{ displayValue(item) }}
                   </dd>
                 </div>
               </dl>
@@ -247,6 +318,32 @@ onMounted(load)
       </div>
     </div>
   </div>
+
+  <!-- Full-size image. A plain overlay rather than a dialog primitive: this
+       page is deliberately standalone and carries no app chrome. -->
+  <div
+    v-if="viewerImage"
+    class="tw:fixed tw:inset-0 tw:z-50 tw:flex tw:items-center tw:justify-center tw:bg-black/80 tw:p-4"
+    role="dialog"
+    aria-modal="true"
+    :aria-label="viewerImage.alt || 'Image'"
+    @click="closeImage"
+  >
+    <img
+      :src="viewerImage.src"
+      :alt="viewerImage.alt"
+      class="tw:max-h-full tw:max-w-full tw:rounded"
+    />
+    <BaseButton
+      variant="secondary"
+      size="sm"
+      class="tw:absolute tw:right-4 tw:top-4"
+      aria-label="Close image"
+      @click.stop="closeImage"
+    >
+      Close
+    </BaseButton>
+  </div>
 </template>
 
 <style scoped>
@@ -270,11 +367,17 @@ onMounted(load)
 .tw\:share-rich :deep(li) {
   margin: 0.125rem 0;
 }
+/* Thumbnail, not full size — the record is the point, the photo is evidence
+   for it. Click opens the full image (see openImage). */
 .tw\:share-rich :deep(img) {
-  max-width: 100%;
+  max-width: 12rem;
+  max-height: 12rem;
+  width: auto;
   height: auto;
   border-radius: 0.375rem;
+  border: 1px solid var(--color-input-border);
   margin: 0.25rem 0;
+  cursor: zoom-in;
 }
 .tw\:share-rich :deep(blockquote) {
   margin: 0 0 0.5rem;

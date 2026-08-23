@@ -1,6 +1,6 @@
 <script setup>
 /**
- * "Shared externally" rail card — share a record with someone outside the
+ * "Share externally" rail card — share a record with someone outside the
  * company, and see who currently has access.
  *
  * A share is an OBJECT, not a fired action: it is listed, it shows whether it
@@ -54,22 +54,54 @@ function isExpired(link) {
   return new Date(link.expiresAt) <= new Date()
 }
 
+/**
+ * Split what was typed into addresses.
+ *
+ * People paste from a mail client, so accept what a mail client emits —
+ * commas, semicolons, newlines, spaces — rather than making them clean it up.
+ */
+function parseAddresses(value) {
+  return value
+    .split(/[\s,;]+/)
+    .map((a) => a.trim())
+    .filter(Boolean)
+}
+
+const addresses = computed(() => parseAddresses(email.value))
+
 async function share() {
-  const address = email.value.trim()
-  if (!address) return
+  const list = addresses.value
+  if (!list.length) return
   sending.value = true
   try {
+    // Each address gets its OWN link — own code, own expiry, revocable alone.
     const data = await post(
       '/v1/services/recordShareLinks',
-      { entityType: props.entityType, entityId: props.entityId, email: address },
+      { entityType: props.entityType, entityId: props.entityId, emails: list },
       { showError: true },
     )
     email.value = ''
-    toast.success(
-      data.reused
-        ? `Sent a fresh link to ${address} — they already had access, so no second link was created.`
-        : `Shared with ${address}.`,
-    )
+
+    const sent = data.shared ?? []
+    const reused = sent.filter((s) => s.reused).length
+    const parts = []
+    if (sent.length === 1) {
+      parts.push(
+        sent[0].reused
+          ? `Sent a fresh link to ${sent[0].shareLink.email} — they already had access, so no second link was created.`
+          : `Shared with ${sent[0].shareLink.email}.`,
+      )
+    } else if (sent.length > 1) {
+      parts.push(`Shared with ${sent.length} people.`)
+      if (reused) parts.push(`${reused} already had access and got a fresh link.`)
+    }
+    if (parts.length) toast.success(parts.join(' '))
+
+    // Surfaced separately: the valid addresses were sent, and only the typo
+    // needs fixing.
+    if (data.invalid?.length) {
+      toast.error(`Not a valid email address: ${data.invalid.join(', ')}`)
+    }
   } finally {
     sending.value = false
   }
@@ -83,28 +115,39 @@ async function revoke(link) {
 
 <template>
   <BaseRailCard
-    title="Shared externally"
-    titleHelp="People outside the company who can open a read-only summary of this record. They verify a code emailed to them each visit, and access can be withdrawn at any time."
+    title="Share externally"
+    titleHelp="Give someone outside the company read-only access to a summary of this record. Each person gets their own link, opened with a code emailed to that same address, and access can be withdrawn at any time."
   >
     <div class="tw:flex tw:flex-col tw:gap-3">
       <div v-if="canShare" class="tw:flex tw:gap-2">
         <BaseTextInput
           v-model="email"
-          placeholder="name@company.com"
+          placeholder="name@company.com, another@company.com"
           size="sm"
           class="tw:flex-1"
           @keyup.enter="share"
         />
-        <BaseButton size="sm" :loading="sending" :disabled="!email.trim()" @click="share">
+        <BaseButton size="sm" :loading="sending" :disabled="!addresses.length" @click="share">
           <IconSend :size="14" />
         </BaseButton>
       </div>
 
+      <!-- "Not shared with anyone outside the company" read as a RULE — as
+           though the record were marked un-shareable — rather than as the
+           current state. "Nobody … yet" can only be read as a fact about now. -->
       <div v-if="!liveLinks.length && !revokedLinks.length">
         <BaseText color="secondary" class="tw:text-sm">
-          Not shared with anyone outside the company.
+          Nobody outside the company has access yet.
         </BaseText>
       </div>
+
+      <BaseText
+        v-if="liveLinks.length"
+        color="secondary"
+        class="tw:text-xs tw:uppercase tw:tracking-wide"
+      >
+        Has access
+      </BaseText>
 
       <div v-for="link in liveLinks" :key="link.id" class="tw:flex tw:flex-col tw:gap-1">
         <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
