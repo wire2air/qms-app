@@ -590,16 +590,17 @@ const changeRequestDetailConfig = computed(() =>
         :record="cr"
       />
 
-      <!-- 3. Notify (cc) — groups/people emailed + in-app on status change -->
-      <BaseRailCard title="Notify (cc)">
-        <NotificationCcField
-          v-model:groupIds="cr.notifyGroupIds"
-          v-model:userIds="cr.notifyUserIds"
-          v-model:emails="cr.notifyEmails"
-          :editable="isEditable"
-          hint=""
-        />
-      </BaseRailCard>
+      <!-- 3. Notifications — cc list, the rules that also apply, and when anything last went out -->
+      <RecordNotificationsCard
+        v-model:groupIds="cr.notifyGroupIds"
+        v-model:userIds="cr.notifyUserIds"
+        v-model:emails="cr.notifyEmails"
+        entityType="ChangeRequest"
+        :entityId="cr.id"
+        :siteId="cr.siteId"
+        :departmentId="cr.departmentId"
+        :editable="isEditable"
+      />
 
       <!-- 4. Schedule -->
       <BaseRailCard title="Schedule">

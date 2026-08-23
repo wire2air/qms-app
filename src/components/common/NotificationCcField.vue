@@ -10,6 +10,7 @@
  *                        v-model:emails="nc.notifyEmails" :editable="isEditable" />
  */
 import { IconMail } from '@tabler/icons-vue'
+import { useTooltipData } from '@shared/composables/useTooltipData.js'
 
 defineProps({
   editable: { type: Boolean, default: true },
@@ -37,6 +38,8 @@ const groupIds = defineModel('groupIds', { type: Array, default: () => [] })
 const userIds = defineModel('userIds', { type: Array, default: () => [] })
 const emails = defineModel('emails', { type: Array, default: () => [] })
 
+const { getFromTooltipData } = useTooltipData()
+
 /**
  * Deliberately permissive — something@something.something with no spaces.
  *
@@ -60,9 +63,14 @@ function validateEmail(value) {
       <BaseField label="Notify people">
         <UserSelectMenu v-model="userIds" multiple class="tw:w-full" />
       </BaseField>
+      <!-- The old copy here said these people "get no access to the record".
+           That stopped being true when notifications started minting share
+           links (send_notification mints one per external address), and a
+           setting that understates what it discloses is worse than one that
+           says nothing. The registry entry carries the accurate wording. -->
       <BaseField
         label="Notify email addresses"
-        hint="For people outside the system — a customer, a supplier’s quality lead, an auditor. They receive the email only; they get no access to the record."
+        :help="getFromTooltipData('record.notifications.external', 'tooltip')"
       >
         <template #default="field">
           <BaseTagsInput
