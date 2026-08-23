@@ -10,8 +10,6 @@
 export const QUALITY_EVENT_STATUSES = [
   { id: 'DRAFT', name: 'Draft' },
   { id: 'OPEN', name: 'Open' },
-  { id: 'UNDER_REVIEW', name: 'Under Review' },
-  { id: 'AWAITING_DECISION', name: 'Awaiting Decision' },
   { id: 'CLOSED', name: 'Closed' },
   { id: 'CANCELLED', name: 'Cancelled' },
 ]

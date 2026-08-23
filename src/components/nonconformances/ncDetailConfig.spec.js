@@ -10,7 +10,7 @@ describe('buildNcBanners', () => {
     expect(b.some((x) => x.id === 'qc-origin')).toBe(false)
   })
   it('adds a supplier-facing banner when isSupplierFacing', () => {
-    const b = buildNcBanners({ statusId: 'UNDER_REVIEW', isSupplierFacing: true }, { isEditable: true })
+    const b = buildNcBanners({ statusId: 'OPEN', isSupplierFacing: true }, { isEditable: true })
     expect(b.some((x) => x.id === 'supplier-facing' && x.tone === 'info')).toBe(true)
   })
   it('adds a read-only banner when closed and not editable', () => {
@@ -20,7 +20,7 @@ describe('buildNcBanners', () => {
     expect(ro.message.toLowerCase()).toContain('closed')
   })
   it('no read-only banner while editable', () => {
-    const b = buildNcBanners({ statusId: 'UNDER_REVIEW' }, { isEditable: true })
+    const b = buildNcBanners({ statusId: 'OPEN' }, { isEditable: true })
     expect(b.some((x) => x.id === 'read-only')).toBe(false)
   })
 })
@@ -46,7 +46,7 @@ describe('buildNcActions', () => {
     expect(ids).not.toContain('approve')
   })
   it('shows Approve & Close (disabled with reason) when the user holds ncr:close', () => {
-    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'UNDER_REVIEW', canMarkComplete: false, markCompleteBlockedReason: 'Pick disposition', canConvert: true, saving: false }, handlers)
+    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'OPEN', canMarkComplete: false, markCompleteBlockedReason: 'Pick disposition', canConvert: true, saving: false }, handlers)
     const approve = a.find((x) => x.id === 'approve')
     expect(approve.visible).toBe(true)
     expect(approve.disabled).toBe(true)
@@ -66,7 +66,7 @@ describe('buildNcActions', () => {
     // the record, and an owner WITHOUT ncr:close saw a button the API refuses.
     // Holding close must light up close and nothing else.
     const a = buildNcActions(
-      { canOpen: false, canClose: true, canDelete: false, statusId: 'UNDER_REVIEW',
+      { canOpen: false, canClose: true, canDelete: false, statusId: 'OPEN',
         canMarkComplete: true, markCompleteBlockedReason: null, canConvert: false, saving: false },
       handlers,
     )
@@ -81,7 +81,7 @@ describe('buildNcActions', () => {
     expect(opened).toBe(true)
   })
   it('approve action is disabled and loading while completing is true', () => {
-    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'UNDER_REVIEW', canMarkComplete: true, markCompleteBlockedReason: null, canConvert: false, saving: false, completing: true }, handlers)
+    const a = buildNcActions({ canOpen: true, canClose: true, canDelete: true, statusId: 'OPEN', canMarkComplete: true, markCompleteBlockedReason: null, canConvert: false, saving: false, completing: true }, handlers)
     const approve = a.find((x) => x.id === 'approve')
     expect(approve.disabled).toBe(true)
     expect(approve.loading).toBe(true)

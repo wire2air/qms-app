@@ -10,7 +10,7 @@ export function buildNcBanners(nc, { isEditable } = {}) {
   if (nc.isSupplierFacing) {
     banners.push({ id: 'supplier-facing', tone: 'info', title: 'Supplier-facing', message: 'This NC is shared with the supplier.' })
   }
-  if (!isEditable && ['CLOSED', 'VOID'].includes(nc.statusId)) {
+  if (!isEditable && ['CLOSED', 'CANCELLED'].includes(nc.statusId)) {
     banners.push({ id: 'read-only', tone: 'neutral', title: 'Read-only', message: `This NC is ${nc.statusId.toLowerCase()} and read-only.` })
   }
   return banners
@@ -39,7 +39,7 @@ export function buildNcSections(nc) {
  */
 export function buildNcActions(gates = {}, handlers = {}) {
   const { canOpen, canClose, canDelete, statusId, canMarkComplete, markCompleteBlockedReason, canConvert, saving, completing } = gates
-  const notTerminal = !['DRAFT', 'CLOSED', 'VOID'].includes(statusId)
+  const notTerminal = !['DRAFT', 'CLOSED', 'CANCELLED'].includes(statusId)
   return [
     { id: 'open', label: 'Open NC', variant: 'primary', priority: 100,
       visible: !!canOpen && statusId === 'DRAFT', disabled: !!saving, loading: !!saving, onSelect: handlers.openOpen },

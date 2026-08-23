@@ -36,7 +36,7 @@ const departments = useLiveQuery((db) => db.Department.where().exec(), {
   initial: [],
 })
 
-const OPEN_STATUSES = ['DRAFT', 'OPEN', 'UNDER_REVIEW', 'AWAITING_DECISION']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 const escalatedEventIds = computed(() => new Set(links.value.map((l) => l.fromId)))
 

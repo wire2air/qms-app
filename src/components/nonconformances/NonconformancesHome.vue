@@ -59,7 +59,7 @@ function clearSupplierFilter() {
 }
 
 const CLOSED_STATUSES = ['CLOSED']
-const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 function applyFilters(results, statusIds, severityIds, typeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))

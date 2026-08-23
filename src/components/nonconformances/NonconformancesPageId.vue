@@ -46,7 +46,7 @@ const isEditable = computed(
   () =>
     nc.value &&
     nc.value.statusId !== 'CLOSED' &&
-    nc.value.statusId !== 'VOID' &&
+    nc.value.statusId !== 'CANCELLED' &&
     canUpdate.value &&
     (isOwner.value || isAllowedOnRecord('ncr:update', nc.value)),
 )
@@ -218,7 +218,7 @@ const isOwner = computed(() => {
   return !!uid && (nc.value?.ownerId === uid || nc.value?.createdBy === uid)
 })
 
-// ─── Open NC (DRAFT → UNDER_REVIEW, kicks off workflow) ──────────────────────
+// ─── Open NC (DRAFT → OPEN, kicks off workflow) ──────────────────────
 // "Open" matches the industry term (Greenlight Guru / ISO 13485 §10.2).
 // Confirmation dialog sets expectations: once opened, the NC becomes a
 // permanent audit record — most fields stay editable but it can't be
@@ -326,7 +326,7 @@ const convertSupplierId = ref(null)
 const converting = ref(false)
 const canConvertToSupplier = computed(
   () =>
-    nc.value && !nc.value.isSupplierFacing && nc.value.statusId === 'UNDER_REVIEW' && isOwner.value,
+    nc.value && !nc.value.isSupplierFacing && nc.value.statusId === 'OPEN' && isOwner.value,
 )
 function openConvertDialog() {
   convertSupplierId.value = nc.value?.supplierId ?? null
