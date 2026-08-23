@@ -1,9 +1,7 @@
 <script setup>
-import { IconAlertTriangle } from '@tabler/icons-vue'
 import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
-import { DateTime } from 'luxon'
 import { buildNcBanners, buildNcActions, buildNcSections } from './ncDetailConfig.js'
 import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
@@ -72,6 +70,23 @@ const qtyAffectedModel = computed({
   set: (v) => {
     if (!nc.value) return
     nc.value.qtyAffected = v === '' || v === null || v === undefined ? null : String(v)
+  },
+})
+
+/**
+ * Attachments on the initial investigation.
+ *
+ * A proxy rather than a raw v-model on the field: the column is nullable, and
+ * RichTextAttachments expects an array — binding null straight through makes
+ * the control render nothing and then overwrite it. Writing back through
+ * `nc.value` keeps the change inside useAutoSave's deep watch, so files save
+ * the same way every other field on this page does.
+ */
+const initialInvestigationAttachments = computed({
+  get: () => nc.value?.initialInvestigationAttachments ?? [],
+  set: (next) => {
+    if (!nc.value) return
+    nc.value.initialInvestigationAttachments = next ?? []
   },
 })
 
@@ -251,12 +266,6 @@ async function handleDeleteDraft() {
   }
 }
 
-const isOverdue = computed(() => {
-  if (!nc.value?.dueDate) return false
-  if (nc.value.statusId === 'CLOSED' || nc.value.statusId === 'VOID') return false
-  return nc.value.dueDate < DateTime.now()
-})
-
 const workflowInstance = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -347,7 +356,6 @@ async function confirmConvert() {
 const editingTitle = ref(false)
 const editingSeverity = ref(false)
 const editingDetected = ref(false)
-const editingDueDate = ref(false)
 
 // ─── Print + Audit Log (parity with CAPA page) ───────────────────────────────
 const showAuditLog = ref(false)
@@ -578,6 +586,25 @@ const ncDetailConfig = computed(() =>
             :editable="isEditable"
             placeholder="Describe the immediate action taken to contain this nonconformance…"
             textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
+          />
+        </div>
+
+        <!-- Initial investigation. A first-class NC field rather than a
+             workflow step form: the first look at an NC happens whether or not
+             the template has an investigation step, and as a column it is
+             searchable and survives a template change.
+
+             separateAttachments mode — body and evidence go to their own
+             columns (initial_investigation TEXT, _attachments JSONB), the same
+             shape document sections use. -->
+        <div class="tw:flex tw:flex-col tw:gap-1 tw:mt-4">
+          <BaseText variant="overline" class="tw:block"> Initial investigation </BaseText>
+          <RichTextAttachments
+            v-model="nc.initialInvestigation"
+            v-model:attachments="initialInvestigationAttachments"
+            :separateAttachments="true"
+            :readonly="!isEditable"
+            placeholder="What was checked, what was found, and the evidence…"
           />
         </div>
       </FormSection>
@@ -913,90 +940,7 @@ const ncDetailConfig = computed(() =>
            General. Self-hides when none configured. -->
       <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
 
-      <!-- 2. People — initiator, responsible party, site, department -->
-      <BaseRailCard title="People" grid>
-        <!-- Initiator = who raised the NC (createdBy, immutable). -->
-        <BaseDetailField label="Initiator">
-          <UserBadgeById v-if="nc.createdBy" :userId="nc.createdBy" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <!-- Responsible party = drives the NC to closure; effectiveness
-             checks + default workflow assignment route here. -->
-        <BaseDetailField label="Responsible party">
-          <UserSelectMenu v-if="isEditable" v-model="nc.ownerId" :required="true" />
-          <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Site">
-          <SiteSelectMenu v-if="isEditable" v-model="nc.siteId" :required="true" />
-          <SiteBadgeById v-else-if="nc.siteId" :siteId="nc.siteId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField label="Department">
-          <DepartmentSelectMenu v-if="isEditable" v-model="nc.departmentId" :required="true" />
-          <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-      </BaseRailCard>
-
-      <!-- External sharing — who outside the company can read this. -->
-      <RecordShareCard
-        entityType="Nonconformance"
-        :entityId="nc.id"
-        module="ncr"
-        :record="nc"
-      />
-
-      <!-- 3. Workflow — below People (user decision 2026-08-12).
-           While DRAFT the owner picks / switches the workflow here (the old
-           in-body selection card is gone); once opened it shows the running
-           instance's status + links. -->
-      <!-- Shared with CAPA / Change Control / Complaint (2026-08-17). -->
-      <WorkflowRailCard
-        :record="nc"
-        moduleId="NON_CONFORMANCE"
-        resourceType="Nonconformance"
-        :canChange="nc.statusId === 'DRAFT' && isOwner"
-        changeHint="You can switch workflows while in draft — step assignments reset on change."
-      />
-
-      <!-- 4. Schedule — due date -->
-      <BaseRailCard title="Schedule">
-        <BaseDetailField label="Due date">
-          <BaseDateField
-            v-if="editingDueDate && isEditable"
-            v-model="nc.dueDate"
-            mode="date"
-            class="tw:w-full"
-            @blur="editingDueDate = false"
-          />
-          <BaseClickableRow
-            v-else
-            tag="span"
-            class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
-            :class="[isOverdue ? 'tw:text-red-600' : '', isEditable ? 'tw:hover:text-primary' : '']"
-            :disabled="!isEditable"
-            aria-label="Edit due date"
-            @click="editingDueDate = true"
-          >
-            <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
-            <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
-          </BaseClickableRow>
-        </BaseDetailField>
-      </BaseRailCard>
-
-      <!-- 5. Notify (cc) — groups/people emailed + in-app on status change -->
-      <BaseRailCard title="Notify (cc)">
-        <NotificationCcField
-          v-model:groupIds="nc.notifyGroupIds"
-          v-model:userIds="nc.notifyUserIds"
-          v-model:emails="nc.notifyEmails"
-          :editable="isEditable"
-          hint=""
-        />
-      </BaseRailCard>
-
-      <!-- 6. Product impact — supplier, supplier-facing + Convert path, product, qty+UOM, PO/Order/Lot.
+      <!-- 2. Product impact — supplier, supplier-facing + Convert path, product, qty+UOM, PO/Order/Lot.
                Collapsed by default; editable rows always render so a missing value can be ADDED;
                read-only mode keeps hiding empties. -->
       <BaseRailCard
@@ -1086,7 +1030,54 @@ const ncDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 7. Related — CAPA state, linked complaints, workflow info card, shared-with panel -->
+      <!-- 3. People — initiator, responsible party, site, department -->
+      <BaseRailCard title="People" grid>
+        <!-- Initiator = who raised the NC (createdBy, immutable). -->
+        <BaseDetailField label="Initiator">
+          <UserBadgeById v-if="nc.createdBy" :userId="nc.createdBy" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Responsible party = drives the NC to closure; effectiveness
+             checks + default workflow assignment route here. -->
+        <BaseDetailField label="Responsible party">
+          <UserSelectMenu v-if="isEditable" v-model="nc.ownerId" :required="true" />
+          <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Site">
+          <SiteSelectMenu v-if="isEditable" v-model="nc.siteId" :required="true" />
+          <SiteBadgeById v-else-if="nc.siteId" :siteId="nc.siteId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Department">
+          <DepartmentSelectMenu v-if="isEditable" v-model="nc.departmentId" :required="true" />
+          <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+      </BaseRailCard>
+
+      <!-- External sharing — who outside the company can read this. -->
+      <RecordShareCard
+        entityType="Nonconformance"
+        :entityId="nc.id"
+        module="ncr"
+        :record="nc"
+      />
+
+      <!-- 4. Workflow — below People (user decision 2026-08-12).
+           While DRAFT the owner picks / switches the workflow here (the old
+           in-body selection card is gone); once opened it shows the running
+           instance's status + links. -->
+      <!-- Shared with CAPA / Change Control / Complaint (2026-08-17). -->
+      <WorkflowRailCard
+        :record="nc"
+        moduleId="NON_CONFORMANCE"
+        resourceType="Nonconformance"
+        :canChange="nc.statusId === 'DRAFT' && isOwner"
+        changeHint="You can switch workflows while in draft — step assignments reset on change."
+      />
+
+      <!-- 5. Related — CAPA state, linked complaints, workflow info card, shared-with panel -->
       <BaseRailCard title="Related">
         <BaseDetailField label="CAPA">
           <BaseText
@@ -1118,6 +1109,20 @@ const ncDetailConfig = computed(() =>
              NCs — internal NCs never share externally. -->
         <SharedWithPanel v-if="nc.isSupplierFacing" entityType="Nonconformance" :entityId="id" />
       </BaseRailCard>
+
+      <!-- 6. Notifications — cc list, the rules that also apply, and when anything last went out -->
+      <RecordNotificationsCard
+        v-model:groupIds="nc.notifyGroupIds"
+        v-model:userIds="nc.notifyUserIds"
+        v-model:emails="nc.notifyEmails"
+        entityType="Nonconformance"
+        :entityId="nc.id"
+        :siteId="nc.siteId"
+        :departmentId="nc.departmentId"
+        :editable="isEditable"
+      />
+
+
 
       <!-- Workflow detail component (steps, reassign, send-back, record viewer) -->
     </template>
