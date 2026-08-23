@@ -83,12 +83,9 @@ const currentMethodDef = computed(() => METHODS.find((m) => m.key === chosenMeth
 // publishes — so old schemas heal instead of opening blank.
 const externalProblem = computed(() => {
   const src = props.field.problemField ?? '_parent_problem'
-  const raw = props.formValues?.[src] ?? ''
-  // Record descriptions are rich text; the problem statement is plain.
-  return String(raw)
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  // Rich text, kept as authored (user request 2026-08-24): the NC description
+  // carries emphasis and inline images, and flattening it here lost both.
+  return props.formValues?.[src] ?? ''
 })
 
 // ── Shared problem statement ────────────────────────────────────────────────
@@ -99,7 +96,21 @@ const externalProblem = computed(() => {
 // and present even when no tool is chosen.
 const problemText = computed(() => props.modelValue?.problem ?? externalProblem.value)
 
+/** Tag-stripped, for the fishbone head, the AI payload — anywhere plain. */
+const problemPlain = computed(() =>
+  String(problemText.value ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim(),
+)
+
 function updateProblem(val) {
+  // The editor echoes setContent() back through onUpdate, and storing that
+  // echo would register the record's own text as a USER override — freezing
+  // the field at whatever the first programmatic push contained (it froze at
+  // the literal first keystroke, "U", when this was found live). An update
+  // identical to what is already displayed is an echo, not an edit.
+  if ((val ?? '') === (problemText.value ?? '')) return
   const current = props.modelValue ?? {}
   const next = { ...current, problem: val }
   // Mirror into the chosen method's sub-object: readonly views, prints and
@@ -109,6 +120,23 @@ function updateProblem(val) {
   }
   emit('update:modelValue', next)
 }
+
+// The record's description keeps moving after the analysis was started, and
+// the copy frozen into the method payload at selection time went stale — the
+// reported symptom. While the analyst has NOT overridden the statement and the
+// analysis is not finalized, follow the record: re-mirror on every change so
+// payload, readonly views and the share projection stay current.
+watch(externalProblem, (val) => {
+  const current = props.modelValue
+  if (!current?._method) return
+  if (current.problem) return // analyst's own wording wins
+  if (current.outcome?.completedAt) return // finalized analyses are history
+  if (current[current._method]?.problem === val) return
+  emit('update:modelValue', {
+    ...current,
+    [current._method]: { ...current[current._method], problem: val },
+  })
+})
 
 function buildInitialValue(method) {
   const t = template.value
@@ -341,7 +369,7 @@ const aiPanel = ref(null)
 
 function aiPayload() {
   const m = props.modelValue?.[chosenMethod.value] ?? {}
-  const payload = { method: chosenMethod.value, problem: problemText.value || undefined }
+  const payload = { method: chosenMethod.value, problem: problemPlain.value || undefined }
   if (chosenMethod.value === '5why') {
     payload.whys = (m.whys ?? [])
       .filter((w) => w.answer?.trim())
@@ -385,15 +413,22 @@ async function articulateWithAi() {
       aiPanel.value = { empty: true, gaps: r?.gaps ?? [] }
       return
     }
-    // Into the PRIMARY row, as editable text — a proposal, not a conclusion.
-    const rows = rootCauses.value.map((row, i) =>
-      i === 0 && row.isPrimary ? { ...row, description: `<p>${r.rootCause}</p>` } : row,
-    )
-    emitRootCauses(rows)
-    aiPanel.value = { reasoning: r.reasoning, gaps: r.gaps ?? [] }
+    // Proposal only — nothing is written until the analyst clicks Apply
+    // (user request 2026-08-24: the statement must be a deliberate act, not a
+    // side effect of asking).
+    aiPanel.value = { statement: r.rootCause, reasoning: r.reasoning, gaps: r.gaps ?? [] }
   } finally {
     aiBusy.value = false
   }
+}
+
+function applyAiStatement() {
+  if (!aiPanel.value?.statement) return
+  const rows = rootCauses.value.map((row, i) =>
+    i === 0 && row.isPrimary ? { ...row, description: `<p>${aiPanel.value.statement}</p>` } : row,
+  )
+  emitRootCauses(rows)
+  aiPanel.value = { ...aiPanel.value, applied: true }
 }
 
 const isCompleted = computed(() => !!props.modelValue?.outcome?.completedAt)
@@ -435,11 +470,18 @@ onBeforeUnmount(() => {
         >
           Problem Statement
         </label>
-        <BaseTextarea
+        <!-- Rich text (user request 2026-08-24): the statement arrives from
+             the NC description with emphasis and inline images intact. -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div
+          v-if="readonly || disabled || isCompleted"
+          class="tw:text-sm tw:text-on-main"
+          v-html="problemText"
+        />
+        <BaseRichTextEditor
+          v-else
           :modelValue="problemText"
           placeholder="Describe what happened…"
-          :rows="2"
-          :readonly="readonly || disabled || isCompleted"
           @update:modelValue="updateProblem"
         />
         <BaseCaption v-if="!modelValue?.problem && externalProblem">
@@ -529,7 +571,7 @@ onBeforeUnmount(() => {
           :config="template.config?.[chosenMethod] ?? {}"
           :modelValue="methodValue"
           :readonly="readonly || disabled"
-          :problem="externalProblem"
+          :problem="problemPlain"
           @update:modelValue="onMethodUpdate"
         />
 
@@ -581,10 +623,23 @@ onBeforeUnmount(() => {
           <BaseText v-if="aiPanel.empty" class="tw:text-xs tw:text-secondary">
             The analysis has too little in it to support a statement yet.
           </BaseText>
-          <BaseText v-else class="tw:text-xs">{{ aiPanel.reasoning }}</BaseText>
+          <template v-else>
+            <BaseText class="tw:text-sm tw:font-medium tw:text-on-main">
+              “{{ aiPanel.statement }}”
+            </BaseText>
+            <BaseText class="tw:text-xs">{{ aiPanel.reasoning }}</BaseText>
+          </template>
           <ul v-if="aiPanel.gaps?.length" class="tw:m-0 tw:pl-4 tw:text-xs tw:text-amber-700">
             <li v-for="(g, i) in aiPanel.gaps" :key="i">{{ g }}</li>
           </ul>
+          <div v-if="aiPanel.statement" class="tw:flex tw:items-center tw:gap-2 tw:pt-1">
+            <BaseButton size="sm" :disabled="aiPanel.applied" @click="applyAiStatement">
+              {{ aiPanel.applied ? 'Applied' : 'Apply to primary root cause' }}
+            </BaseButton>
+            <BaseText v-if="aiPanel.applied" color="secondary" class="tw:text-xs">
+              Edit it freely — it is your statement now.
+            </BaseText>
+          </div>
         </div>
 
         <!-- Multi-row outcome. Row 0 is always primary (one canonical

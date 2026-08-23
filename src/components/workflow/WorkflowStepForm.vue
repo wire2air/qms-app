@@ -271,26 +271,37 @@ watch(
         ...props.module.getStepFormContextFields(resourceRow),
       }
       formSeeded = true
-      return
-    }
-    // No draft yet — the normal FIRST visit to a step. The context fields
-    // must reach the form anyway: this was the branch that didn't exist, so
-    // _parent_problem never landed unless somebody had already saved a draft,
-    // and every freshly-opened RCA started with an empty problem statement
-    // (reported 2026-08-23). Assign rather than replace, so anything the user
-    // has already typed survives the resource refreshing underneath them.
-    if (!formSeeded && resourceRow) {
-      Object.assign(formData.value, props.module.getStepFormContextFields(resourceRow))
     }
   },
   { immediate: true },
 )
 
-watch(resource, (resourceRow) => {
-  if (formSeeded) {
-    Object.assign(formData.value, props.module.getStepFormContextFields(resourceRow))
-  }
-})
+// Context fields (e.g. _parent_problem from the record's description) follow
+// the RECORD, live. Two prior bugs live here:
+//
+//   1. They were only injected when a draft record existed, so a step's FIRST
+//      visit — the normal case — opened with no problem statement at all
+//      (reported 2026-08-23).
+//   2. `watch(resource, …)` never fired after the first refresh: findByPk
+//      returns the SAME ObjectPool instance every time, and a shallowRef set
+//      to the same reference does not notify. Edits mutate INSIDE the object,
+//      so editing the NC description never propagated (reported 2026-08-24).
+//
+// A computed over the derived fields tracks the reactive properties the module
+// actually reads (resource.description → _parent_problem), so it re-evaluates
+// on the edit itself, not on the reference changing.
+const contextFields = computed(() =>
+  resource.value ? (props.module.getStepFormContextFields(resource.value) ?? {}) : {},
+)
+watch(
+  contextFields,
+  (ctx) => {
+    // Assign, never replace: the user's typed answers must survive the
+    // record refreshing underneath them. Context keys are stripped at save.
+    Object.assign(formData.value, ctx)
+  },
+  { immediate: true },
+)
 
 /**
  * The payload as it will be stored: context-only keys stripped, OptionSet

@@ -203,6 +203,18 @@ async function suggestWithAi() {
   }
 }
 
+function applyAiRationale() {
+  const r = aiPanel.value
+  if (!r) return
+  // APPENDED, not replaced: the assessor may already have context written, and
+  // the rationale is an argument alongside it, not a substitute for it.
+  const block =
+    `<p><strong>Likelihood:</strong> ${r.likelihoodRationale}</p>` +
+    `<p><strong>Severity:</strong> ${r.severityRationale}</p>`
+  updateNotes(notes.value ? `${notes.value}${block}` : block)
+  aiPanel.value = { ...r, applied: true }
+}
+
 function updateNotes(notes) {
   emit('update:modelValue', { ...(props.modelValue ?? {}), notes })
 }
@@ -388,6 +400,14 @@ onBeforeUnmount(() => {
         <ul v-if="aiPanel.unknowns?.length" class="tw:m-0 tw:pl-4 tw:text-xs tw:text-amber-700">
           <li v-for="(u, i) in aiPanel.unknowns" :key="i">{{ u }}</li>
         </ul>
+        <div class="tw:flex tw:items-center tw:gap-2 tw:pt-1">
+          <BaseButton size="sm" :disabled="aiPanel.applied" @click="applyAiRationale">
+            {{ aiPanel.applied ? 'Applied' : 'Apply to Justification' }}
+          </BaseButton>
+          <BaseText v-if="aiPanel.applied" color="secondary" class="tw:text-xs">
+            Appended below — edit it freely.
+          </BaseText>
+        </div>
       </div>
     </div>
 
