@@ -204,6 +204,9 @@ defineExpose({ submit, focusField })
         <template v-if="$slots['footer-status']" #status>
           <slot name="footer-status" />
         </template>
+        <template v-if="$slots['actions-extra']" #actions-extra>
+          <slot name="actions-extra" />
+        </template>
       </StickyFormFooter>
     </slot>
   </div>
