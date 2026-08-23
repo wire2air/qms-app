@@ -39,8 +39,11 @@ const canShare = computed(() =>
 const links = useLiveQueryWithDeps(
   [() => props.entityType, () => props.entityId],
   async (db, [entityType, entityId]) =>
-    db.RecordShareLink.where('entityId', entityId)
-      .where('entityType', entityType)
+    // The FIRST where() must name a real index — `entityId` alone is not one,
+    // and asking for it throws NotFoundError out of IDBObjectStore.index(),
+    // which kills the live query and takes the sync subscriber with it. The
+    // model declares the compound [entityType+entityId]; use it.
+    db.RecordShareLink.where('[entityType+entityId]', [entityType, entityId])
       .orderBy('createdAt', 'desc')
       .exec(),
   { models: ['RecordShareLink'], initial: [] },
