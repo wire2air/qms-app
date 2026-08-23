@@ -11,7 +11,6 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const nodes = computed(() => props.modelValue.nodes ?? [])
-const problemText = computed(() => props.problem || props.modelValue?.problem || '')
 
 // Track the most recently added node to auto-focus its input
 const newNodeId = ref(null)
@@ -82,25 +81,6 @@ function toggleRootCause(nodeId) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
-    <!-- Problem statement -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <label
-        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-      >
-        {{ config.problemPrompt || 'Problem Statement' }}
-      </label>
-      <BaseTextarea
-        :modelValue="problemText"
-        placeholder="Describe what happened..."
-        :rows="2"
-        :readonly="readonly || !!problem"
-        @update:modelValue="
-          (v) => !problem && emit('update:modelValue', { ...modelValue, problem: v })
-        "
-      />
-      <div v-if="problem" class="tw:text-xs tw:text-secondary tw:italic">Linked from form</div>
-    </div>
-
     <!-- Instructions -->
     <p class="tw:text-xs tw:text-secondary tw:-mt-2">
       Add a "why" for the problem, then keep drilling down. Mark each terminal cause as

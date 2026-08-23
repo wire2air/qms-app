@@ -271,6 +271,16 @@ watch(
         ...props.module.getStepFormContextFields(resourceRow),
       }
       formSeeded = true
+      return
+    }
+    // No draft yet — the normal FIRST visit to a step. The context fields
+    // must reach the form anyway: this was the branch that didn't exist, so
+    // _parent_problem never landed unless somebody had already saved a draft,
+    // and every freshly-opened RCA started with an empty problem statement
+    // (reported 2026-08-23). Assign rather than replace, so anything the user
+    // has already typed survives the resource refreshing underneath them.
+    if (!formSeeded && resourceRow) {
+      Object.assign(formData.value, props.module.getStepFormContextFields(resourceRow))
     }
   },
   { immediate: true },

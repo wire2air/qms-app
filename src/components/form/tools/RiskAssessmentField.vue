@@ -1,4 +1,7 @@
 <script setup>
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post } from '@/api'
+import { canUseAi } from '@/utils/currentSession.js'
 const props = defineProps({
   modelValue: { type: Object, default: null },
   field: { type: Object, required: true },
@@ -21,7 +24,9 @@ const emit = defineEmits(['update:modelValue'])
  * record, and an assessment is not the place to restate the problem.
  */
 const problemText = computed(() => {
-  const src = props.field?.problemField
+  // Defaulted: schemas seeded before 2026-08-20 carry no problemField, and
+  // '_parent_problem' is what every module publishes.
+  const src = props.field?.problemField ?? '_parent_problem'
   if (!src) return ''
   return props.formValues?.[src] ?? ''
 })
@@ -150,6 +155,52 @@ function selectDetectability(detectabilityId) {
 
 function isSelectedCell(likelihoodId, severityId) {
   return selectedLikelihoodId.value === likelihoodId && selectedSeverityId.value === severityId
+}
+
+// ── AI: suggest an assessment ───────────────────────────────────────────────
+// Proposes a likelihood and a severity ON THIS TEMPLATE'S OWN SCALES, with the
+// reasoning for each — the assessor argues with a proposal instead of staring
+// at a grid. Applied through the same selectCell path a human click takes.
+const aiBusy = ref(false)
+const aiPanel = ref(null)
+
+function levelFor(rows) {
+  return rows.map((l) => ({
+    id: l.id,
+    label: l.label,
+    score: l.score ?? l.order ?? undefined,
+    description: l.description ?? undefined,
+  }))
+}
+
+async function suggestWithAi() {
+  aiBusy.value = true
+  aiPanel.value = null
+  try {
+    const data = await post(
+      '/v1/services/ai/risk/suggest',
+      {
+        problem: String(problemText.value)
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+        likelihoodLevels: levelFor(likelihood.value),
+        severityLevels: levelFor(severity.value),
+      },
+      { showError: true },
+    )
+    const r = data.result
+    if (r?.likelihoodId && r?.severityId) {
+      selectCell(r.likelihoodId, r.severityId)
+      aiPanel.value = {
+        likelihoodRationale: r.likelihoodRationale,
+        severityRationale: r.severityRationale,
+        unknowns: r.unknowns ?? [],
+      }
+    }
+  } finally {
+    aiBusy.value = false
+  }
 }
 
 function updateNotes(notes) {
@@ -292,15 +343,52 @@ onBeforeUnmount(() => {
     <!-- What is being assessed. Read-only — it belongs to the record, and an
          assessment is not the place to restate the problem. -->
     <div v-if="problemText" class="tw:flex tw:flex-col tw:gap-1">
-      <label
-        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-      >
-        Assessing
-      </label>
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
+        <label
+          class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+        >
+          Assessing
+        </label>
+        <!-- A starting point on the tenant's own scales, not a verdict — the
+             proposal lands via the same selectCell path a human click takes,
+             and the rationale shows so the assessor judges the argument. -->
+        <BaseButton
+          v-if="canUseAi && template && !isFinalized && !readonly && !disabled"
+          variant="outline"
+          size="sm"
+          :isLoading="aiBusy"
+          @click="suggestWithAi"
+        >
+          ✨ Suggest with AI
+        </BaseButton>
+      </div>
       <div
         class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:bg-main-hover/30 tw:border tw:border-divider tw:rounded-lg tw:p-3"
         v-html="problemText"
       />
+      <div
+        v-if="aiPanel"
+        class="tw:rounded-md tw:border tw:border-primary/30 tw:bg-primary/5 tw:p-3 tw:flex tw:flex-col tw:gap-1.5"
+      >
+        <div class="tw:flex tw:items-center tw:justify-between">
+          <BaseText class="tw:text-xs tw:font-semibold">AI rationale</BaseText>
+          <button
+            class="tw:text-xs tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            @click="aiPanel = null"
+          >
+            ✕
+          </button>
+        </div>
+        <BaseText class="tw:text-xs"
+          ><strong>Likelihood:</strong> {{ aiPanel.likelihoodRationale }}</BaseText
+        >
+        <BaseText class="tw:text-xs"
+          ><strong>Severity:</strong> {{ aiPanel.severityRationale }}</BaseText
+        >
+        <ul v-if="aiPanel.unknowns?.length" class="tw:m-0 tw:pl-4 tw:text-xs tw:text-amber-700">
+          <li v-for="(u, i) in aiPanel.unknowns" :key="i">{{ u }}</li>
+        </ul>
+      </div>
     </div>
 
     <!-- Change the matrix. Only when there is a choice to make. -->
@@ -531,13 +619,19 @@ onBeforeUnmount(() => {
            payload for backward compat; the label changed because the
            text now anchors the finalized assessment's rationale, not
            just freeform notes). -->
-      <BaseField v-slot="{ id: fieldId }" label="Justification" size="sm">
-        <BaseTextarea
-          :id="fieldId"
+      <BaseField label="Justification" size="sm">
+        <!-- Rich text since 2026-08-24 (user request). Readonly renders the
+             HTML directly; the payload key stays `notes`. -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div
+          v-if="readonly || disabled"
+          class="tw:text-sm tw:text-on-main"
+          v-html="notes"
+        />
+        <BaseRichTextEditor
+          v-else
           :modelValue="notes"
           placeholder="Explain the rationale for this risk assessment — controls in place, what would change between initial and residual, etc."
-          :rows="2"
-          :readonly="readonly || disabled"
           @update:modelValue="updateNotes"
         />
       </BaseField>
