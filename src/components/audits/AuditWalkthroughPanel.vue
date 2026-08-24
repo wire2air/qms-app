@@ -401,6 +401,12 @@ function setAuditorNotes(v) {
   debouncedSave()
 }
 
+// Voice-note transcript arrives as a marker-wrapped HTML block — APPEND to
+// the auditor's notes, never replace (user rule 2026-08-24).
+function appendVoiceTranscript(block) {
+  setAuditorNotes((currentBuffer.value?.auditorNotes || '') + block)
+}
+
 // Deterministic Summarize — assembles Finding Notes from the notebook with no
 // AI: the flagged items (+ their notes) and the auditor's notes. Fast, reliable,
 // offline-friendly; the auditor edits it into the final finding.
@@ -908,6 +914,7 @@ function summarizeFinding() {
                 :scopeId="currentResponse?.id ?? null"
                 :readonly="readonly"
                 :ensureResponse="ensureResponse"
+                @transcribed="appendVoiceTranscript"
               />
             </div>
 
