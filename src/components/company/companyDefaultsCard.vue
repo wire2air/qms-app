@@ -39,6 +39,50 @@ watch(
   { deep: true },
 )
 
+// ── Overdue reminders ───────────────────────────────────────────────────────
+// UI over settings.overdueReminders, which the nightly ladder
+// (send_task_overdue_notification) reads fresh on every run — a change here
+// takes effect the next night with nothing to reschedule. Defaults mirror the
+// worker's resolveOverdueConfig exactly, so what an admin sees when the key
+// has never been written is what actually happens.
+const overdue = computed(() => company.value?.settings?.overdueReminders ?? {})
+
+function patchOverdue(patch) {
+  if (!company.value?.settings) return
+  company.value.settings.overdueReminders = { ...overdue.value, ...patch }
+}
+
+const overdueEnabled = computed({
+  get: () => overdue.value.enabled !== false,
+  set: (v) => patchOverdue({ enabled: v }),
+})
+
+const escalationDay = computed({
+  get: () => overdue.value.escalationDay ?? 12,
+  set: (v) => patchOverdue({ escalationDay: Number.isInteger(v) && v > 0 ? v : 12 }),
+})
+
+// Drafted while typing, committed on blur: parsing per keystroke would sort
+// and de-duplicate the list under the admin's cursor ("3, 1" reordering to
+// "1, 3" mid-type). The commit applies the same normalisation the worker does,
+// so the field always redisplays what will actually fire.
+const reminderDaysDraft = ref(null)
+const reminderDaysDisplay = computed(
+  () => reminderDaysDraft.value ?? (overdue.value.reminderDays ?? [3, 6, 9]).join(', '),
+)
+function commitReminderDays() {
+  const parsed = [
+    ...new Set(
+      String(reminderDaysDraft.value ?? reminderDaysDisplay.value)
+        .split(/[\s,;]+/)
+        .map((n) => parseInt(n, 10))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  ].sort((a, b) => a - b)
+  patchOverdue({ reminderDays: parsed.length ? parsed : [3, 6, 9] })
+  reminderDaysDraft.value = null
+}
+
 const approvalRuleOptions = [
   { label: 'ALL — every approver must approve', value: 'ALL' },
   { label: 'ANY — one approver is sufficient', value: 'ANY' },
@@ -202,6 +246,42 @@ const approvalRuleOptions = [
           hint="Default review due date = event created date + this many days"
           class="tw:max-w-xs"
         />
+      </div>
+
+      <hr class="tw:border-divider" />
+
+      <!-- Overdue Reminders — the nightly task ladder. Read fresh each run,
+           so changes take effect the next night with nothing to reschedule. -->
+      <div class="tw:flex tw:flex-col tw:gap-5">
+        <BaseText variant="overline">Overdue Task Reminders</BaseText>
+
+        <div class="tw:flex tw:items-center tw:justify-between">
+          <div>
+            <div class="tw:text-sm tw:font-medium tw:text-on-sidebar">Chase overdue tasks</div>
+            <div class="tw:text-xs tw:text-secondary">
+              Reminders to the assignee on the days below, then ONE escalation to their
+              department supervisor, then silence — the escalation stays the last word.
+            </div>
+          </div>
+          <BaseSwitch v-model="overdueEnabled" />
+        </div>
+
+        <div v-if="overdueEnabled" class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
+          <BaseTextInput
+            :modelValue="reminderDaysDisplay"
+            label="Reminder days past due"
+            hint="Comma-separated, e.g. 3, 6, 9 — each sends one reminder to the assignee"
+            @update:modelValue="(v) => (reminderDaysDraft = v)"
+            @blur="commitReminderDays"
+            @keyup.enter="commitReminderDays"
+          />
+          <BaseTextInput
+            v-model.number="escalationDay"
+            label="Escalation day"
+            type="number"
+            hint="Days past due when the supervisor is told — once, and nothing after"
+          />
+        </div>
       </div>
     </div>
   </div>

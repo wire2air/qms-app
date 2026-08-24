@@ -16,12 +16,6 @@ const emit = defineEmits(['update:modelValue'])
 
 // The inherited value wins; the local one is the fallback for an analysis that
 // is not attached to a record. Mirrors FishboneAnalysis.
-const problemText = computed(() => props.problem || props.modelValue?.problem || '')
-
-function onProblemInput(val) {
-  if (props.readonly || props.problem) return
-  emit('update:modelValue', { ...props.modelValue, problem: val })
-}
 
 function updateCell(idx, key, val) {
   const dimensions = (props.modelValue.dimensions ?? []).map((d, i) =>
@@ -30,30 +24,10 @@ function updateCell(idx, key, val) {
   emit('update:modelValue', { ...props.modelValue, dimensions })
 }
 
-function updateProbableCauses(val) {
-  emit('update:modelValue', { ...props.modelValue, probableCauses: val })
-}
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
-    <!-- Problem statement — what the comparison below is distinguishing. -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <label
-        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-      >
-        {{ config.problemPrompt || 'Problem Statement' }}
-      </label>
-      <BaseTextarea
-        :modelValue="problemText"
-        placeholder="Describe the problem..."
-        :rows="2"
-        :readonly="readonly || !!problem"
-        @update:modelValue="onProblemInput"
-      />
-      <BaseCaption v-if="problem">Carried from the record.</BaseCaption>
-    </div>
-
     <!-- Comparison table -->
     <div class="tw:overflow-x-auto">
       <table class="tw:w-full tw:text-sm">
@@ -108,16 +82,8 @@ function updateProbableCauses(val) {
       </table>
     </div>
 
-    <!-- Probable causes -->
-    <BaseField v-slot="{ id: fieldId }" label="Probable Causes">
-      <BaseTextarea
-        :id="fieldId"
-        :modelValue="modelValue.probableCauses ?? ''"
-        placeholder="Based on the IS / IS NOT analysis, what are the probable causes?"
-        :rows="3"
-        :readonly="readonly"
-        @update:modelValue="updateProbableCauses"
-      />
-    </BaseField>
+    <!-- "Probable Causes" removed 2026-08-24: it existed in no other method,
+         and the shared Root Causes box below the tool is where causes land —
+         a second free-text causes field was the same answer in two places. -->
   </div>
 </template>

@@ -225,10 +225,6 @@ function updateBranchLabel(branchId, label) {
 
 const problemText = computed(() => props.problem || props.modelValue?.problem || '')
 
-function onProblemInput(e) {
-  if (props.readonly || props.problem) return
-  emit('update:modelValue', { ...props.modelValue, problem: e.target.value })
-}
 
 const selectedCount = computed(() =>
   branches.value.reduce((acc, b) => acc + b.causes.filter((c) => c.selected).length, 0),
@@ -591,15 +587,11 @@ const selectedCount = computed(() =>
             >
               Problem
             </div>
-            <textarea
-              class="tw:flex-1 tw:w-full tw:resize-none tw:border-0 tw:outline-none tw:text-xs tw:text-gray-800 tw:leading-snug tw:bg-transparent tw:placeholder-gray-400"
-              placeholder="Describe the effect..."
-              :value="problemText"
-              :readonly="readonly || !!problem"
-              @input="onProblemInput"
-            />
-            <div v-if="problem" class="tw:text-xs tw:text-gray-400 tw:italic tw:mt-0.5 tw:shrink-0">
-              from form
+            <!-- Display-only since 2026-08-24: the problem statement is
+                 edited on the parent RcaField, shared by every method. The
+                 fish head just shows it. -->
+            <div class="tw:flex-1 tw:w-full tw:text-xs tw:text-gray-800 tw:leading-snug tw:overflow-hidden">
+              {{ problemText || '—' }}
             </div>
           </div>
         </div>

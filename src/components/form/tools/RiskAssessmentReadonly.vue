@@ -77,7 +77,8 @@ const detectabilityLabel = computed(() => {
           >
           <template v-if="rpnScore"> = RPN {{ rpnScore }}</template>
         </span>
-        <span v-if="values.notes" class="tw:text-xs tw:text-secondary">{{ values.notes }}</span>
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <span v-if="values.notes" class="tw:text-xs tw:text-secondary" v-html="values.notes" />
       </div>
       <div
         v-if="rpnScore"

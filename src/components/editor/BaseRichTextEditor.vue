@@ -422,7 +422,13 @@ function setContent(content) {
   }
 
   try {
-    editor.value.commands.setContent(content)
+    // emitUpdate: false — a programmatic replace must not fire onUpdate. The
+    // echo looked like a USER edit to any parent that distinguishes "the
+    // record changed" from "the analyst typed": RcaField stored the first
+    // echoed keystroke as a manual override and froze its problem statement
+    // at the literal text "U" (found live, 2026-08-24). Callers that need the
+    // model updated already have it — they are the ones who called this.
+    editor.value.commands.setContent(content, { emitUpdate: false })
   } catch (error) {
     console.error('Error setting editor content:', error)
   }

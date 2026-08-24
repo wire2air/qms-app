@@ -10,10 +10,6 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-function updateProblem(val) {
-  emit('update:modelValue', { ...props.modelValue, problem: val })
-}
-
 function updateAnswer(whyId, answer) {
   const whys = (props.modelValue.whys ?? []).map((w) => (w.id === whyId ? { ...w, answer } : w))
   emit('update:modelValue', { ...props.modelValue, whys })
@@ -37,22 +33,10 @@ const whys = computed(() => props.modelValue.whys ?? [])
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
-    <!-- Problem statement -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <label
-        class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-      >
-        {{ config.problemPrompt || 'Problem Statement' }}
-      </label>
-      <BaseTextarea
-        :modelValue="modelValue.problem ?? ''"
-        placeholder="Describe the problem..."
-        :rows="2"
-        :readonly="readonly"
-        @update:modelValue="updateProblem"
-      />
-    </div>
-
+    <!-- The problem statement lives on the parent RcaField now, shared by
+         every method (2026-08-24). This block used to bind modelValue.problem
+         and IGNORE the problem prop — the one method that never showed the
+         record's description. -->
     <!-- Why chain -->
     <div v-for="(why, idx) in whys" :key="why.id" class="tw:flex tw:gap-3 tw:group">
       <div class="tw:flex tw:flex-col tw:items-center tw:gap-1 tw:shrink-0">
