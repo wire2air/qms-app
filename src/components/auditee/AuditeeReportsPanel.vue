@@ -30,19 +30,57 @@ import { canUseAi } from '@/utils/currentSession.js'
 const props = defineProps({
   auditInstance: { type: Object, required: true },
   readonly: { type: Boolean, default: false },
+  // Certificate mode: same register, kind CERTIFICATE — upload + list only
+  // (a certificate has no findings to extract or summarise).
+  certificateMode: { type: Boolean, default: false },
 })
 const emit = defineEmits(['goFindings', 'goOfi'])
 
 const toast = useToast()
 
 const reports = useLiveQueryWithDeps(
-  [() => props.auditInstance.id],
-  async (db, [instanceId]) =>
-    db.AuditReport.where('auditInstanceId', instanceId).orderBy('reportDate', 'desc').exec(),
+  [() => props.auditInstance.id, () => props.certificateMode],
+  async (db, [instanceId, certMode]) => {
+    const rows = await db.AuditReport.where('auditInstanceId', instanceId)
+      .orderBy('reportDate', 'desc')
+      .exec()
+    return rows.filter((r) => (r.kind === 'CERTIFICATE') === !!certMode)
+  },
   { models: ['AuditReport'], initial: [] },
 )
 
+// Findings per report — each report carries its own findings/OFIs, so the
+// row shows what it produced.
+const findingsByReport = useLiveQueryWithDeps(
+  [() => props.auditInstance.id],
+  async (db, [instanceId]) => {
+    const rows = await db.AuditFinding.where('auditInstanceId', instanceId).exec()
+    const m = {}
+    for (const f of rows) {
+      if (!f.auditReportId || f.statusId === 'CANCELLED') continue
+      const bucket = (m[f.auditReportId] ??= { findings: 0, ofi: 0 })
+      if (f.findingTypeId === 'OFI') bucket.ofi += 1
+      else bucket.findings += 1
+    }
+    return m
+  },
+  { models: ['AuditFinding'], initial: {} },
+)
+
 const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+
+const assetUrlById = useLiveQueryWithDeps(
+  [() => reports.value.map((r) => r.assetId).join(',')],
+  async (db, [csv]) => {
+    const m = {}
+    for (const id of (csv || '').split(',').filter(Boolean)) {
+      const a = await db.Asset.findByPk(id)
+      if (a?.url) m[id] = a.url
+    }
+    return m
+  },
+  { models: ['Asset'], initial: {} },
+)
 function userName(id) {
   const u = users.value.find((x) => x.id === id)
   return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email : '—'
@@ -52,6 +90,7 @@ function userName(id) {
 const fileInput = ref(null)
 const uploading = ref(false)
 const kind = ref('INTERIM')
+const uploadKind = computed(() => (props.certificateMode ? 'CERTIFICATE' : kind.value))
 
 async function onFilePicked(e) {
   const file = e.target.files?.[0]
@@ -70,12 +109,16 @@ async function onFilePicked(e) {
       {
         assetId: up.asset.id,
         title: file.name.replace(/\.pdf$/i, ''),
-        kind: kind.value,
+        kind: uploadKind.value,
         reportDate: new Date().toISOString().slice(0, 10),
       },
       { showError: true },
     )
-    toast.success(`${kind.value === 'FINAL' ? 'Final report' : 'Report'} uploaded.`)
+    toast.success(
+      props.certificateMode
+        ? 'Certificate uploaded.'
+        : `${kind.value === 'FINAL' ? 'Final report' : 'Report'} uploaded.`,
+    )
   } catch (err) {
     toast.error(err?.message || 'Upload failed')
   } finally {
@@ -183,6 +226,7 @@ async function addFinding(f, idx) {
       '/v1/services/auditFindings',
       {
         auditInstanceId: props.auditInstance.id,
+        auditReportId: proposals.value?.reportId || null,
         findingTypeId: f.typeId,
         description: `${prefix}${body}`.slice(0, 10000),
       },
@@ -198,6 +242,7 @@ async function addFinding(f, idx) {
 const KIND_CLASS = {
   FINAL: 'tw:bg-emerald-100 tw:text-emerald-700',
   INTERIM: 'tw:bg-sky-100 tw:text-sky-700',
+  CERTIFICATE: 'tw:bg-violet-100 tw:text-violet-700',
 }
 </script>
 
@@ -205,6 +250,7 @@ const KIND_CLASS = {
   <div class="tw:flex tw:flex-col tw:gap-4">
     <div v-if="!readonly" class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
       <BaseInlineSelect
+        v-if="!certificateMode"
         v-model="kind"
         :items="[
           { id: 'INTERIM', name: 'Interim report' },
@@ -213,15 +259,18 @@ const KIND_CLASS = {
       />
       <BaseButton variant="outline" size="sm" :isLoading="uploading" @click="fileInput?.click()">
         <template #icon><IconUpload :size="16" /></template>
-        Upload report PDF
+        {{ certificateMode ? 'Upload certificate' : 'Upload report PDF' }}
       </BaseButton>
       <input ref="fileInput" type="file" accept="application/pdf" hidden @change="onFilePicked" />
       <input ref="extractInput" type="file" accept="application/pdf" hidden @change="onExtractFile" />
     </div>
 
     <div v-if="!reports?.length" class="tw:text-sm tw:text-secondary">
-      No auditor reports uploaded yet. Upload the registrar's interim or final report to start
-      tracking findings.
+      {{
+        certificateMode
+          ? 'No certificate uploaded yet. Once the auditing body issues one, keep it here for future reference.'
+          : "No auditor reports uploaded yet. Upload the auditing body's report to start tracking findings."
+      }}
     </div>
     <div v-else class="tw:divide-y tw:divide-divider tw:rounded-xl tw:border tw:border-divider">
       <div v-for="r in reports" :key="r.id" class="tw:flex tw:flex-col tw:gap-2 tw:px-3 tw:py-2">
@@ -229,16 +278,36 @@ const KIND_CLASS = {
           <IconFileTypePdf :size="18" class="tw:shrink-0 tw:text-red-500" />
           <div class="tw:min-w-0 tw:flex-1">
             <div class="tw:flex tw:items-center tw:gap-2">
-              <BaseText class="tw:truncate tw:text-sm tw:font-medium">{{ r.title }}</BaseText>
+              <a
+                v-if="assetUrlById[r.assetId]"
+                :href="assetUrlById[r.assetId]"
+                target="_blank"
+                rel="noopener"
+                class="tw:truncate tw:text-sm tw:font-medium tw:text-on-main tw:hover:text-primary tw:hover:underline"
+              >
+                {{ r.title }}
+              </a>
+              <BaseText v-else class="tw:truncate tw:text-sm tw:font-medium">{{ r.title }}</BaseText>
               <BaseBadge :class="KIND_CLASS[r.kind] || ''">{{ r.kind }}</BaseBadge>
             </div>
             <BaseText color="secondary" class="tw:text-xs">
               {{ r.reportDate ? r.reportDate.formatDate('date') : '—' }} ·
               {{ userName(r.uploadedBy) }}
-              <template v-if="r.aiParsedAt"> · findings extracted</template>
+              <template v-if="findingsByReport[r.id]">
+                · {{ findingsByReport[r.id].findings }} finding{{
+                  findingsByReport[r.id].findings === 1 ? '' : 's'
+                }}
+                <template v-if="findingsByReport[r.id].ofi">
+                  · {{ findingsByReport[r.id].ofi }} OFI</template
+                >
+              </template>
+              <template v-else-if="r.aiParsedAt"> · findings extracted</template>
             </BaseText>
           </div>
-          <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5 tw:shrink-0">
+          <div
+            v-if="!certificateMode"
+            class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5 tw:shrink-0"
+          >
             <BaseButton variant="outline" size="sm" @click="openSummary(r)">
               <template #icon><IconNotes :size="14" /></template>
               Summary

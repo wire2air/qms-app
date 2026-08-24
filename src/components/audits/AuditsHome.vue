@@ -70,10 +70,12 @@ const activeTab = computed(() =>
 const section = computed(() => SECTIONS[activeTab.value])
 
 // The sidebar now shows ONE "Auditor" entry (the Auditee module is its
-// sibling), so the four auditor working sections regained their tab strip
-// (2026-08-24). Standards + Readiness keep their own sidebar entries and
-// render without the strip.
-const AUDITOR_TAB_IDS = ['insights', 'instances', 'programs', 'calendar']
+// sibling), so the auditor working sections regained their tab strip
+// (2026-08-24). Calendar is NOT one of them — it shows every audit,
+// internal, supplier and certification alike, so it has its own sidebar
+// entry beside Auditee. Standards + Readiness likewise render without the
+// strip.
+const AUDITOR_TAB_IDS = ['insights', 'instances', 'programs']
 const auditorTabs = AUDITOR_TAB_IDS.map((id) => ({
   value: id,
   label: SECTIONS[id].label,

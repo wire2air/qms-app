@@ -37,6 +37,7 @@ import {
   IconSchool,
   IconReplace,
   IconChecklist,
+  IconCalendar,
   IconBuildingBank,
   IconClipboardList,
   IconClipboardText,
@@ -389,6 +390,14 @@ const navItems = computed(() => {
           permissions: ['audit_management:read'],
           icon: IconBuildingBank,
           to: getCompanyPath('/auditee'),
+        },
+        {
+          // Shared view: internal + supplier + certification audits on one
+          // grid — belongs to neither role, so it sits beside them.
+          label: 'Calendar',
+          permissions: ['audit_management:read'],
+          icon: IconCalendar,
+          to: getCompanyPath('/audits?tab=calendar'),
         },
         {
           label: 'Standards',

@@ -67,12 +67,12 @@ function openAudit(row) {
     <PageHeader
       :icon="IconBuildingBank"
       title="Auditee"
-      subtitle="Certification and external audits where the company is being audited."
+      subtitle="External audits — ISO certification, FDA inspection, customer audit — where the company is being audited."
     >
       <template #actions>
         <BaseButton v-if="canCreate" size="sm" @click="showCreateDialog = true">
           <template #icon><IconPlus :size="16" /></template>
-          New Certification Audit
+          New External Audit
         </BaseButton>
       </template>
     </PageHeader>
@@ -82,7 +82,7 @@ function openAudit(row) {
       :columns="columns"
       rowKey="id"
       :loading="false"
-      noDataLabel="No certification audits yet. When a registrar schedules one, create it here to track the agenda, reports and findings."
+      noDataLabel="No external audits yet. When an auditing body schedules one, create it here to track the agenda, reports and findings."
       @rowClick="openAudit"
     >
       <template #body-cell-firm="{ row }">

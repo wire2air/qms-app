@@ -27,6 +27,7 @@ import {
   IconPlayerPlay,
   IconBan,
   IconCalendarEvent,
+  IconCertificate,
   IconUpload,
   IconTrash,
 } from '@tabler/icons-vue'
@@ -244,6 +245,13 @@ const detailConfig = computed(() =>
       { value: 'reports', label: 'Reports', icon: IconFileTypePdf, mode: 'panel', lazy: false },
       { value: 'findings', label: 'Findings', icon: IconBolt, mode: 'panel', lazy: false },
       { value: 'ofi', label: 'OFI', icon: IconBulb, mode: 'panel', lazy: false },
+      {
+        value: 'certificate',
+        label: 'Certificate',
+        icon: IconCertificate,
+        mode: 'panel',
+        lazy: false,
+      },
     ],
   }),
 )
@@ -257,16 +265,16 @@ const detailConfig = computed(() =>
     :loading="loading"
     :notFound="!loading && !auditInstance"
     notFoundTitle="Audit not found"
-    notFoundDescription="This certification audit could not be found."
+    notFoundDescription="This external audit could not be found."
   >
-    <template #title>{{ auditInstance?.auditNumber || 'Certification Audit' }}</template>
+    <template #title>{{ auditInstance?.auditNumber || 'External Audit' }}</template>
 
     <template #status>
       <AuditInstanceStatusBadgeById v-if="auditInstance" :statusId="auditInstance.statusId" />
     </template>
 
     <template v-if="auditInstance" #meta>
-      <span>{{ auditInstance.externalAuditFirm || 'Certification' }}</span>
+      <span>{{ auditInstance.externalAuditFirm || 'External audit' }}</span>
       <template v-if="auditInstance.scheduledDate">
         · Scheduled {{ auditInstance.scheduledDate.formatDate('date') }}
       </template>
@@ -361,6 +369,20 @@ const detailConfig = computed(() =>
           :auditInstance="auditInstance"
           :readonly="!isEditable"
           :typeFilter="['MAJOR_NC', 'MINOR_NC', 'OBSERVATION']"
+        />
+      </FormSection>
+    </template>
+
+    <template v-if="auditInstance" #tab-certificate>
+      <FormSection title="Audit Certificate" :icon="IconCertificate">
+        <p class="tw:text-xs tw:text-secondary tw:mb-3">
+          Once findings are addressed and the auditing body issues the certificate, keep it here —
+          the next audit starts by showing the last one passed.
+        </p>
+        <AuditeeReportsPanel
+          :auditInstance="auditInstance"
+          :readonly="!isEditable"
+          :certificateMode="true"
         />
       </FormSection>
     </template>

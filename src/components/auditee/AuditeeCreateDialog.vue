@@ -1,6 +1,8 @@
 <script setup>
 /**
- * New Certification Audit — the AUDITEE's create path.
+ * New External Audit — the AUDITEE's create path. Generic on purpose: an ISO
+ * certification audit, an FDA inspection, a customer audit — anything where
+ * an outside body audits the company.
  *
  * The company is being audited: an outside registrar (BSI, TÜV, NSF…) sends
  * an auditor. So the people fields are OUR side of the table — Lead POC and
@@ -86,7 +88,7 @@ async function onValidSubmit() {
       objectives: form.value.objectives || null,
     })
     const instance = res?.auditInstance
-    toast.success(`Certification audit ${instance?.auditNumber || ''} created`)
+    toast.success(`External audit ${instance?.auditNumber || ''} created`)
     emit('created', instance)
     close()
     if (navigateAfterSave.value && instance?.id) {
@@ -108,7 +110,7 @@ function submit(navigate) {
 <template>
   <BaseDialog
     :modelValue="modelValue"
-    title="New Certification Audit"
+    title="New External Audit"
     maxWidth="xl"
     @update:modelValue="close"
   >

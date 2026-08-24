@@ -115,6 +115,19 @@ const findings = useLiveQueryWithDeps(
   { models: ['AuditFinding'], initial: [] },
 )
 
+// Source-report titles (auditee flow) — findings extracted from an auditor's
+// report carry auditReportId; label them so multi-report audits stay legible.
+const reportTitleById = useLiveQueryWithDeps(
+  [() => props.auditInstance.id],
+  async (db, [instanceId]) => {
+    const rows = await db.AuditReport.where('auditInstanceId', instanceId).exec()
+    const m = {}
+    for (const r of rows) m[r.id] = r.title
+    return m
+  },
+  { models: ['AuditReport'], initial: {} },
+)
+
 const visibleFindings = computed(() =>
   props.typeFilter?.length
     ? findings.value.filter((f) => props.typeFilter.includes(f.findingTypeId))
@@ -440,6 +453,13 @@ function unlinkedKinds(finding) {
               <span v-if="finding.processArea" class="tw:text-caption tw:text-secondary tw:italic">
                 {{ finding.processArea }}
               </span>
+              <BaseBadge
+                v-if="finding.auditReportId && reportTitleById[finding.auditReportId]"
+                class="tw:bg-gray-100 tw:text-gray-600"
+                :title="`From report: ${reportTitleById[finding.auditReportId]}`"
+              >
+                {{ reportTitleById[finding.auditReportId] }}
+              </BaseBadge>
               <!-- Linked-record chips, surfaced in the collapsed row so users
                    see at a glance that a CAPA / NC / CR / Training was raised
                    from this finding (clickable to open it). Full link/unlink
