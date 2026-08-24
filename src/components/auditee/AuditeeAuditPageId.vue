@@ -332,7 +332,12 @@ const detailConfig = computed(() =>
     notFoundTitle="Audit not found"
     notFoundDescription="This external audit could not be found."
   >
-    <template #title>{{ auditInstance?.auditNumber || 'External Audit' }}</template>
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        {{ auditInstance?.auditNumber || 'External Audit' }}
+        <HelpButton slug="KB/quality/audits-auditee" :size="15" />
+      </span>
+    </template>
 
     <template #status>
       <AuditInstanceStatusBadgeById v-if="auditInstance" :statusId="auditInstance.statusId" />

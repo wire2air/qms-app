@@ -69,6 +69,12 @@ function openAudit(row) {
       title="Auditee"
       subtitle="External audits — ISO certification, FDA inspection, customer audit — where the company is being audited."
     >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Auditee
+          <HelpButton slug="KB/quality/audits-auditee" :size="16" />
+        </span>
+      </template>
       <template #actions>
         <BaseButton v-if="canCreate" size="sm" @click="showCreateDialog = true">
           <template #icon><IconPlus :size="16" /></template>

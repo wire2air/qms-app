@@ -270,26 +270,28 @@ onUnmounted(() => {
           Taken {{ note.createdAt?.formatDate ? note.createdAt.formatDate('datetime') : '—' }}
         </span>
       </div>
-      <button
-        v-if="!readonly"
-        type="button"
-        class="tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:shrink-0 tw:flex tw:items-center"
-        :disabled="transcribingId === note.id"
-        title="Convert to text — appends to Auditor Notes"
-        @click="transcribeNote(note)"
-      >
-        <BaseSpinner v-if="transcribingId === note.id" size="xs" />
-        <IconFileText v-else :size="14" />
-      </button>
-      <button
-        v-if="!readonly"
-        type="button"
-        class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:shrink-0"
-        title="Delete voice note"
-        @click="removeNote(note)"
-      >
-        <IconTrash :size="14" />
-      </button>
+      <BaseTooltip v-if="!readonly" content="Convert to text — appends to Auditor Notes">
+        <button
+          type="button"
+          class="tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:shrink-0 tw:flex tw:items-center"
+          :disabled="transcribingId === note.id"
+          aria-label="Convert voice note to text"
+          @click="transcribeNote(note)"
+        >
+          <BaseSpinner v-if="transcribingId === note.id" size="xs" />
+          <IconFileText v-else :size="14" />
+        </button>
+      </BaseTooltip>
+      <BaseTooltip v-if="!readonly" content="Delete voice note">
+        <button
+          type="button"
+          class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:shrink-0 tw:flex tw:items-center"
+          aria-label="Delete voice note"
+          @click="removeNote(note)"
+        >
+          <IconTrash :size="14" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <!-- Recorder -->

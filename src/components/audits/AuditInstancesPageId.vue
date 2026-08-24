@@ -443,7 +443,12 @@ const auditInstanceDetailConfig = computed(() =>
     notFoundTitle="Audit not found"
     notFoundDescription="This audit could not be found."
   >
-    <template #title>{{ auditInstance?.auditNumber || 'Audit' }}</template>
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        {{ auditInstance?.auditNumber || 'Audit' }}
+        <HelpButton slug="KB/quality/audits-auditor" :size="15" />
+      </span>
+    </template>
 
     <template #status>
       <AuditInstanceStatusBadgeById v-if="auditInstance" :statusId="auditInstance.statusId" />

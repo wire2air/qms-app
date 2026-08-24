@@ -94,7 +94,14 @@ const tabModel = computed({
       :icon="section.icon"
       :title="showAuditorTabs ? 'Auditor' : section.label"
       :subtitle="section.subtitle"
-    />
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          {{ showAuditorTabs ? 'Auditor' : section.label }}
+          <HelpButton v-if="showAuditorTabs" slug="KB/quality/audits-auditor" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <BaseTabs
       v-if="showAuditorTabs"
