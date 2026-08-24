@@ -1,7 +1,6 @@
 <script setup>
 import { DateTime } from 'luxon'
 import { IconAlertTriangle, IconCalendarClock, IconCheck, IconListCheck } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
 
 /**
  * Periodic review status for a controlled document.
@@ -92,26 +91,15 @@ const state = computed(() => {
 
 const formattedDate = computed(() => nextReview.value?.toFormat('LLL d, yyyy') ?? '')
 
-const saving = ref(false)
-async function markReviewed() {
-  if (!props.document || saving.value) return
-  saving.value = true
-  try {
-    props.document.lastReviewedAt = DateTime.now()
-    props.document.lastReviewedBy = currentSession.value?.userId || null
-    await props.document.save()
-    // Close the open REVIEW task if there is one — otherwise the
-    // periodic-review scanner will still see it as pending and the chip
-    // won't clear.
-    const task = openReviewTask.value
-    if (task) {
-      task.statusId = 'APPROVED'
-      await task.save()
-    }
-  } finally {
-    saving.value = false
-  }
-}
+// The one-click stamp is gone (2026-08-24): a review that restarts a
+// compliance clock is a signed DECISION, and "no change required" was the one
+// outcome that left no record at all. The dialog collects outcome +
+// justification + PIN, and the server stamps the document, mints the
+// signature, and closes the task atomically — this component only opens it.
+const showReviewDialog = ref(false)
+const documentLabel = computed(
+  () => [props.document?.docNumber, props.document?.title].filter(Boolean).join(' — ') || 'this document',
+)
 
 </script>
 
@@ -133,10 +121,10 @@ async function markReviewed() {
     <button
       v-if="canEdit"
       class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-amber-600 tw:text-white tw:px-2 tw:py-0.5 tw:font-medium tw:hover:bg-amber-700 tw:disabled:opacity-60"
-      :disabled="saving"
-      @click="markReviewed"
+      :disabled="showReviewDialog"
+      @click="showReviewDialog = true"
     >
-      <IconCheck :size="12" /> Mark Reviewed
+      <IconCheck :size="12" /> Complete Review
     </button>
   </div>
 
@@ -151,10 +139,10 @@ async function markReviewed() {
     <button
       v-if="canEdit"
       class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-red-600 tw:text-white tw:px-2 tw:py-0.5 tw:font-medium tw:hover:bg-red-700 tw:disabled:opacity-60"
-      :disabled="saving"
-      @click="markReviewed"
+      :disabled="showReviewDialog"
+      @click="showReviewDialog = true"
     >
-      <IconCheck :size="12" /> Mark Reviewed
+      <IconCheck :size="12" /> Complete Review
     </button>
   </div>
 
@@ -169,10 +157,10 @@ async function markReviewed() {
     <button
       v-if="canEdit"
       class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-amber-600 tw:text-white tw:px-2 tw:py-0.5 tw:font-medium tw:hover:bg-amber-700 tw:disabled:opacity-60"
-      :disabled="saving"
-      @click="markReviewed"
+      :disabled="showReviewDialog"
+      @click="showReviewDialog = true"
     >
-      <IconCheck :size="12" /> Mark Reviewed
+      <IconCheck :size="12" /> Complete Review
     </button>
   </div>
 
@@ -183,4 +171,11 @@ async function markReviewed() {
     <IconCalendarClock :size="12" />
     <span>Next review: {{ formattedDate }}</span>
   </div>
+
+  <DocumentReviewDialog
+    v-if="document"
+    v-model="showReviewDialog"
+    :documentId="document.id"
+    :documentLabel="documentLabel"
+  />
 </template>

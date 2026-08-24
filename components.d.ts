@@ -559,6 +559,8 @@ declare module 'vue' {
     DocumentObsoletionDialog: typeof import('./src/components/documents/DocumentObsoletionDialog.vue')['default']
     DocumentPeriodicReviewBadge: typeof import('./src/components/documents/DocumentPeriodicReviewBadge.vue')['default']
     DocumentPrint: typeof import('./src/components/print/modules/DocumentPrint.vue')['default']
+    DocumentReviewDialog: typeof import('./src/components/documents/DocumentReviewDialog.vue')['default']
+    DocumentReviewHistory: typeof import('./src/components/documents/DocumentReviewHistory.vue')['default']
     DocumentRevisionHistoryDialog: typeof import('./src/components/documents/DocumentRevisionHistoryDialog.vue')['default']
     DocumentsAddSectionDialog: typeof import('./src/components/documents/DocumentsAddSectionDialog.vue')['default']
     DocumentsChangeControlTab: typeof import('./src/components/documents/DocumentsChangeControlTab.vue')['default']
