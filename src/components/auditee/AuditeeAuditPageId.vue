@@ -29,6 +29,7 @@ import {
   IconCalendarEvent,
   IconCertificate,
   IconNotes,
+  IconShieldCheck,
   IconUpload,
   IconTrash,
 } from '@tabler/icons-vue'
@@ -294,6 +295,13 @@ const detailConfig = computed(() =>
     ],
     tabs: [
       { value: 'info', label: 'Information', icon: IconInfoCircle, mode: 'panel', lazy: false },
+      {
+        value: 'readiness',
+        label: 'Readiness',
+        icon: IconShieldCheck,
+        mode: 'panel',
+        lazy: false,
+      },
       { value: 'reports', label: 'Reports', icon: IconFileTypePdf, mode: 'panel', lazy: false },
       { value: 'summary', label: 'Summary', icon: IconNotes, mode: 'panel', lazy: false },
       { value: 'findings', label: 'Findings', icon: IconBolt, mode: 'panel', lazy: false },
@@ -400,6 +408,15 @@ const detailConfig = computed(() =>
         />
         <p v-else-if="agendaNotes" class="tw:text-sm tw:whitespace-pre-line">{{ agendaNotes }}</p>
         <BaseText v-if="savingAgenda" color="secondary" class="tw:text-xs tw:mt-1">Saving…</BaseText>
+      </FormSection>
+    </template>
+
+    <!-- Readiness: the company-wide gap dashboard, in context — what an
+         auditor would find TODAY, before this one arrives. Same dashboard as
+         the sidebar entry; here it sits next to the audit being prepared. -->
+    <template v-if="auditInstance" #tab-readiness>
+      <FormSection title="Audit Readiness" :icon="IconShieldCheck">
+        <AuditReadinessDashboard />
       </FormSection>
     </template>
 
