@@ -28,6 +28,7 @@ import {
   IconBan,
   IconCalendarEvent,
   IconCertificate,
+  IconNotes,
   IconUpload,
   IconTrash,
 } from '@tabler/icons-vue'
@@ -58,6 +59,57 @@ const isEditable = computed(
 )
 
 const tab = ref('info')
+
+// Per-report jumps from the Reports tab land pre-filtered; 'ALL' shows the
+// accumulated picture across every report.
+const findingsReportFilter = ref('ALL')
+const ofiReportFilter = ref('ALL')
+
+function goFindings(reportId) {
+  findingsReportFilter.value = reportId || 'ALL'
+  tab.value = 'findings'
+}
+function goOfi(reportId) {
+  ofiReportFilter.value = reportId || 'ALL'
+  tab.value = 'ofi'
+}
+function goSummary() {
+  tab.value = 'summary'
+}
+
+// ── Summary tab: every report's summary, editable in place ─────────────────
+const summaryReports = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [instanceId]) => {
+    const rows = await db.AuditReport.where('auditInstanceId', instanceId)
+      .orderBy('reportDate', 'desc')
+      .exec()
+    return rows.filter((r) => r.kind !== 'CERTIFICATE')
+  },
+  { models: ['AuditReport'], initial: [] },
+)
+const summaryBuffers = ref({})
+const savingSummaryId = ref(null)
+const debouncedSummarySave = useDebounceFn(async () => {
+  const entries = Object.entries(summaryBuffers.value)
+  summaryBuffers.value = {}
+  for (const [reportId, notes] of entries) {
+    savingSummaryId.value = reportId
+    try {
+      await patch(`/v1/services/auditInstances/${props.id}/reports/${reportId}`, {
+        notes: notes || null,
+      })
+    } catch (e) {
+      toast.error(e.message || 'Failed to save summary')
+    } finally {
+      savingSummaryId.value = null
+    }
+  }
+}, 800)
+function stageSummary(reportId, notes) {
+  summaryBuffers.value[reportId] = notes
+  debouncedSummarySave()
+}
 
 // ── Lifecycle (simple flips — no close-out workflow in the auditee flow) ────
 const transitioning = ref(false)
@@ -243,6 +295,7 @@ const detailConfig = computed(() =>
     tabs: [
       { value: 'info', label: 'Information', icon: IconInfoCircle, mode: 'panel', lazy: false },
       { value: 'reports', label: 'Reports', icon: IconFileTypePdf, mode: 'panel', lazy: false },
+      { value: 'summary', label: 'Summary', icon: IconNotes, mode: 'panel', lazy: false },
       { value: 'findings', label: 'Findings', icon: IconBolt, mode: 'panel', lazy: false },
       { value: 'ofi', label: 'OFI', icon: IconBulb, mode: 'panel', lazy: false },
       {
@@ -356,9 +409,62 @@ const detailConfig = computed(() =>
         <AuditeeReportsPanel
           :auditInstance="auditInstance"
           :readonly="!isEditable"
-          @goFindings="tab = 'findings'"
-          @goOfi="tab = 'ofi'"
+          @goFindings="goFindings"
+          @goOfi="goOfi"
+          @goSummary="goSummary"
         />
+      </FormSection>
+    </template>
+
+    <!-- Summary: what each report concluded — AI-drafted, human-owned -->
+    <template v-if="auditInstance" #tab-summary>
+      <FormSection title="Report Summaries" :icon="IconNotes">
+        <p class="tw:text-xs tw:text-secondary tw:mb-3">
+          One summary per auditor report — accept the AI draft from the Reports tab, then edit it
+          here any time.
+        </p>
+        <div v-if="!summaryReports.length" class="tw:text-sm tw:text-secondary">
+          No reports yet — upload the auditing body's report on the Reports tab first.
+        </div>
+        <div v-else class="tw:flex tw:flex-col tw:gap-4">
+          <div
+            v-for="r in summaryReports"
+            :key="r.id"
+            class="tw:rounded-xl tw:border tw:border-divider tw:p-3"
+          >
+            <div class="tw:flex tw:items-center tw:gap-2 tw:mb-2">
+              <BaseText class="tw:text-sm tw:font-medium">{{ r.title }}</BaseText>
+              <BaseBadge
+                :class="
+                  r.kind === 'FINAL'
+                    ? 'tw:bg-emerald-100 tw:text-emerald-700'
+                    : 'tw:bg-sky-100 tw:text-sky-700'
+                "
+              >
+                {{ r.kind }}
+              </BaseBadge>
+              <BaseText color="secondary" class="tw:text-xs">
+                {{ r.reportDate ? r.reportDate.formatDate('date') : '' }}
+              </BaseText>
+              <BaseText
+                v-if="savingSummaryId === r.id"
+                color="secondary"
+                class="tw:text-xs tw:ml-auto"
+              >
+                Saving…
+              </BaseText>
+            </div>
+            <BaseTextarea
+              v-if="isEditable"
+              :modelValue="r.notes || ''"
+              :rows="4"
+              placeholder="What this report concluded — accept the AI draft on the Reports tab, or write your own."
+              @update:modelValue="(v) => stageSummary(r.id, v)"
+            />
+            <p v-else-if="r.notes" class="tw:text-sm tw:whitespace-pre-line">{{ r.notes }}</p>
+            <p v-else class="tw:text-sm tw:text-secondary">No summary yet.</p>
+          </div>
+        </div>
       </FormSection>
     </template>
 
@@ -366,6 +472,7 @@ const detailConfig = computed(() =>
     <template v-if="auditInstance" #tab-findings>
       <FormSection title="Findings" :icon="IconBolt">
         <AuditFindingsPanel
+          v-model:reportFilter="findingsReportFilter"
           :auditInstance="auditInstance"
           :readonly="!isEditable"
           :typeFilter="['MAJOR_NC', 'MINOR_NC', 'OBSERVATION']"
@@ -390,6 +497,7 @@ const detailConfig = computed(() =>
     <template v-if="auditInstance" #tab-ofi>
       <FormSection title="Opportunities for Improvement" :icon="IconBulb">
         <AuditFindingsPanel
+          v-model:reportFilter="ofiReportFilter"
           :auditInstance="auditInstance"
           :readonly="!isEditable"
           :typeFilter="['OFI']"

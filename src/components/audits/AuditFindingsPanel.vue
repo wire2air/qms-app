@@ -45,6 +45,11 @@ const props = defineProps({
   defaultTypeId: { type: String, default: 'MINOR_NC' },
 })
 
+// Which auditor report's findings to show: 'ALL', a report id, or 'NONE'
+// (manually raised, no source report). Bindable so the Reports tab can jump
+// here pre-filtered; renders no control unless the audit has reports.
+const reportFilter = defineModel('reportFilter', { type: String, default: 'ALL' })
+
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -128,11 +133,20 @@ const reportTitleById = useLiveQueryWithDeps(
   { models: ['AuditReport'], initial: {} },
 )
 
-const visibleFindings = computed(() =>
-  props.typeFilter?.length
-    ? findings.value.filter((f) => props.typeFilter.includes(f.findingTypeId))
-    : findings.value,
-)
+const reportFilterItems = computed(() => [
+  { id: 'ALL', name: 'All reports' },
+  ...Object.entries(reportTitleById.value).map(([id, name]) => ({ id, name })),
+  { id: 'NONE', name: 'Added manually' },
+])
+
+const visibleFindings = computed(() => {
+  let rows = findings.value
+  if (props.typeFilter?.length) rows = rows.filter((f) => props.typeFilter.includes(f.findingTypeId))
+  if (reportFilter.value === 'NONE') rows = rows.filter((f) => !f.auditReportId)
+  else if (reportFilter.value !== 'ALL')
+    rows = rows.filter((f) => f.auditReportId === reportFilter.value)
+  return rows
+})
 
 const showDialog = ref(false)
 const editingFinding = ref(null)
@@ -367,6 +381,13 @@ function unlinkedKinds(finding) {
         <span class="tw:font-medium">
           {{ visibleFindings.length }} finding{{ visibleFindings.length === 1 ? '' : 's' }}
         </span>
+        <!-- Per-report filter — only when this audit has auditor reports. -->
+        <BaseInlineSelect
+          v-if="Object.keys(reportTitleById).length"
+          v-model="reportFilter"
+          :items="reportFilterItems"
+          :required="true"
+        />
       </div>
       <BaseButton v-if="!readonly" variant="outline" size="sm" @click="openCreate">
         <template #icon><IconPlus :size="14" /></template>
