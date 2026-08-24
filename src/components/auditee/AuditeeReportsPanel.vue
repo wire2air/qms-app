@@ -246,6 +246,21 @@ function openReview(report) {
   }
 }
 
+async function cancelExtraction(report) {
+  try {
+    await post(
+      `/v1/services/auditInstances/${props.auditInstance.id}/reports/${report.id}/extract/cancel`,
+      {},
+      { showError: true },
+    )
+    delete waitingSince.value[report.id]
+    if (extracting.value === report.id) extracting.value = null
+    toast.success('Extraction cancelled — run AI Extract again any time.')
+  } catch {
+    /* toast shown */
+  }
+}
+
 const FINDING_TYPES = [
   { id: 'MAJOR_NC', name: 'Major NC' },
   { id: 'MINOR_NC', name: 'Minor NC' },
@@ -391,17 +406,31 @@ const KIND_CLASS = {
             v-if="!certificateMode"
             class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5 tw:shrink-0"
           >
+            <template v-if="r.aiExtraction?.pending">
+              <BaseButton size="sm" :isLoading="true" disabled>
+                <template #icon><IconSparkles :size="14" /></template>
+                Extracting…
+              </BaseButton>
+              <BaseButton
+                v-if="!readonly"
+                variant="outline"
+                size="sm"
+                @click="cancelExtraction(r)"
+              >
+                Cancel
+              </BaseButton>
+            </template>
             <BaseButton
-              v-if="canUseAi && !readonly"
+              v-else-if="canUseAi && !readonly"
               size="sm"
-              :isLoading="extracting === r.id || !!waitingSince[r.id]"
+              :isLoading="extracting === r.id"
               @click="startExtract(r)"
             >
               <template #icon><IconSparkles :size="14" /></template>
               {{ r.aiParsedAt ? 'Re-extract' : 'AI Extract' }}
             </BaseButton>
             <BaseButton
-              v-if="r.aiExtraction && !r.aiExtraction.failed"
+              v-if="r.aiExtraction?.completedAt && !r.aiExtraction.failed"
               variant="outline"
               size="sm"
               @click="openReview(r)"
