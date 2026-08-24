@@ -38,6 +38,11 @@ const props = defineProps({
   // #7 — can the current user record a supplier CAPA/response + mark complete
   // (the supplier/auditee on a supplier audit, or the auditor).
   canRespond: { type: Boolean, default: false },
+  // Show only these finding types (null = all). The Auditee module splits
+  // Findings and OFI into separate tabs over the same records.
+  typeFilter: { type: Array, default: null },
+  // Seed for the create dialog's Type (the OFI tab creates OFIs).
+  defaultTypeId: { type: String, default: 'MINOR_NC' },
 })
 
 const toast = useToast()
@@ -108,6 +113,12 @@ const findings = useLiveQueryWithDeps(
   },
 
   { models: ['AuditFinding'], initial: [] },
+)
+
+const visibleFindings = computed(() =>
+  props.typeFilter?.length
+    ? findings.value.filter((f) => props.typeFilter.includes(f.findingTypeId))
+    : findings.value,
 )
 
 const showDialog = ref(false)
@@ -262,7 +273,7 @@ function openLinkDialog(finding, kind) {
 // to the CAPA create page with ?findingIds=…; Attach reuses the link dialog
 // in multi mode.
 const selected = reactive({})
-const selectedFindings = computed(() => findings.value.filter((f) => selected[f.id]))
+const selectedFindings = computed(() => visibleFindings.value.filter((f) => selected[f.id]))
 const selectedCount = computed(() => selectedFindings.value.length)
 
 function toggleSelect(id) {
@@ -341,7 +352,7 @@ function unlinkedKinds(finding) {
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
         <IconBolt :size="14" class="tw:text-amber-600" />
         <span class="tw:font-medium">
-          {{ findings.length }} finding{{ findings.length === 1 ? '' : 's' }}
+          {{ visibleFindings.length }} finding{{ visibleFindings.length === 1 ? '' : 's' }}
         </span>
       </div>
       <BaseButton v-if="!readonly" variant="outline" size="sm" @click="openCreate">
@@ -384,7 +395,7 @@ function unlinkedKinds(finding) {
     </div>
 
     <div
-      v-if="!findings.length"
+      v-if="!visibleFindings.length"
       class="tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic"
     >
       No findings yet. Escalate from a non-conforming clause in the requirements panel, or add one
@@ -393,7 +404,7 @@ function unlinkedKinds(finding) {
 
     <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
       <div
-        v-for="finding in findings"
+        v-for="finding in visibleFindings"
         :key="finding.id"
         class="tw:py-3 tw:flex tw:flex-col tw:gap-2"
       >
@@ -688,6 +699,7 @@ function unlinkedKinds(finding) {
 
     <AuditFindingDialog
       v-model="showDialog"
+      :defaultTypeId="defaultTypeId"
       :auditInstance="auditInstance"
       :finding="editingFinding"
     />

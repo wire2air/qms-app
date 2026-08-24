@@ -21,6 +21,7 @@ import { canUseAi } from '@/utils/currentSession'
 import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
+  defaultTypeId: { type: String, default: 'MINOR_NC' },
   auditInstance: { type: Object, required: true },
   // When passed: the response the user is escalating into a finding.
   // Drives the auditRequirementResponseId binding + the prefilled
@@ -44,7 +45,7 @@ const FINDING_TYPES = [
 
 function defaultForm() {
   return {
-    findingTypeId: 'MINOR_NC',
+    findingTypeId: props.defaultTypeId,
     detailsHtml: '',
     categoryId: null,
     departmentId: props.auditInstance?.departmentId ?? null,

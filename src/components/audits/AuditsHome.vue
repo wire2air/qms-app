@@ -60,6 +60,7 @@ const SECTIONS = {
 }
 
 const route = useRoute()
+const router = useRouter()
 
 // Unknown or absent ?tab lands on Insights rather than a blank page — the
 // sidebar always supplies one, but a hand-edited URL might not.
@@ -67,11 +68,38 @@ const activeTab = computed(() =>
   Object.hasOwn(SECTIONS, route.query.tab) ? route.query.tab : 'insights',
 )
 const section = computed(() => SECTIONS[activeTab.value])
+
+// The sidebar now shows ONE "Auditor" entry (the Auditee module is its
+// sibling), so the four auditor working sections regained their tab strip
+// (2026-08-24). Standards + Readiness keep their own sidebar entries and
+// render without the strip.
+const AUDITOR_TAB_IDS = ['insights', 'instances', 'programs', 'calendar']
+const auditorTabs = AUDITOR_TAB_IDS.map((id) => ({
+  value: id,
+  label: SECTIONS[id].label,
+  icon: SECTIONS[id].icon,
+}))
+const showAuditorTabs = computed(() => AUDITOR_TAB_IDS.includes(activeTab.value))
+const tabModel = computed({
+  get: () => activeTab.value,
+  set: (tab) => router.push({ query: { ...route.query, tab } }),
+})
 </script>
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="section.icon" :title="section.label" :subtitle="section.subtitle" />
+    <PageHeader
+      :icon="section.icon"
+      :title="showAuditorTabs ? 'Auditor' : section.label"
+      :subtitle="section.subtitle"
+    />
+
+    <BaseTabs
+      v-if="showAuditorTabs"
+      v-model="tabModel"
+      :tabs="auditorTabs"
+      ariaLabel="Auditor sections"
+    />
 
     <!-- One section. Which one is a sidebar decision, not a second control
          repeated on every page. -->

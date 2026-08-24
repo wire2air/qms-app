@@ -37,6 +37,7 @@ import {
   IconSchool,
   IconReplace,
   IconChecklist,
+  IconBuildingBank,
   IconClipboardList,
   IconClipboardText,
   IconClipboardCheck,
@@ -64,8 +65,6 @@ import {
   IconMessageReport,
   IconSeeding,
   IconBook,
-  IconCalendar,
-  IconCalendarTime,
   IconStack2,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
@@ -374,30 +373,22 @@ const navItems = computed(() => {
       label: 'Audits',
       icon: IconChecklist,
       permissions: ['audit_management:read'],
+      // Two roles, two surfaces (2026-08-24): the AUDITOR runs internal /
+      // supplier audits (tabbed working page); the AUDITEE tracks
+      // certification audits done TO the company. Standards + Readiness are
+      // shared references alongside.
       children: [
         {
-          label: 'Insights',
+          label: 'Auditor',
           permissions: ['audit_management:read'],
-          icon: IconChartBar,
+          icon: IconChecklist,
           to: getCompanyPath('/audits?tab=insights'),
         },
         {
-          label: 'Audits',
+          label: 'Auditee',
           permissions: ['audit_management:read'],
-          icon: IconChecklist,
-          to: getCompanyPath('/audits?tab=instances'),
-        },
-        {
-          label: 'Audit Plan',
-          permissions: ['audit_management:read'],
-          icon: IconCalendarTime,
-          to: getCompanyPath('/audits?tab=programs'),
-        },
-        {
-          label: 'Calendar',
-          permissions: ['audit_management:read'],
-          icon: IconCalendar,
-          to: getCompanyPath('/audits?tab=calendar'),
+          icon: IconBuildingBank,
+          to: getCompanyPath('/auditee'),
         },
         {
           label: 'Standards',

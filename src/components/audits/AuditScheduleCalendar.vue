@@ -173,6 +173,10 @@ function openAudit(a) {
     router.push(getCompanyPath(`/audits/programs/${a.programId}`))
     return
   }
+  if (a.programTypeId === 'EXTERNAL') {
+    router.push(getCompanyPath(`/auditee/${a.id}`))
+    return
+  }
   router.push(getCompanyPath(`/audits/instances/${a.id}`))
 }
 
@@ -183,6 +187,9 @@ function startOfToday() {
   return d.getTime()
 }
 function auditTone(a) {
+  // Certification audits (company as auditee) — one unmistakable color,
+  // whatever the lifecycle state (user request 2026-08-24).
+  if (a.programTypeId === 'EXTERNAL') return a.planned ? 'certificationPlanned' : 'certification'
   if (a.planned) return 'planned'
   if (a.statusId === 'CANCELLED') return 'cancelled'
   if (['COMPLETED', 'CLOSED'].includes(a.statusId)) return 'done'
@@ -196,6 +203,8 @@ const TONE_CLASS = {
   // Projected from a recurring program — no instance exists yet; the chip
   // opens the program. Dashed border so a plan never reads as a commitment.
   planned: 'tw:bg-sky-50 tw:border-sky-300 tw:border-dashed tw:hover:bg-sky-100',
+  certification: 'tw:bg-violet-100 tw:border-violet-400 tw:hover:bg-violet-200',
+  certificationPlanned: 'tw:bg-violet-50 tw:border-violet-400 tw:border-dashed tw:hover:bg-violet-100',
   pastdue: 'tw:bg-red-50 tw:border-red-300 tw:hover:bg-red-100',
   inflight: 'tw:bg-amber-50 tw:border-amber-300 tw:hover:bg-amber-100',
   done: 'tw:bg-emerald-50 tw:border-emerald-300 tw:hover:bg-emerald-100',
@@ -207,6 +216,7 @@ const LEGEND = [
   { tone: 'inflight', label: 'In Flight', dot: 'tw:bg-amber-400' },
   { tone: 'pastdue', label: 'Past Due', dot: 'tw:bg-red-400' },
   { tone: 'done', label: 'Completed', dot: 'tw:bg-emerald-400' },
+  { tone: 'certification', label: 'Certification', dot: 'tw:bg-violet-400' },
 ]
 </script>
 

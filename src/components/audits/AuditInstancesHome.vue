@@ -150,7 +150,11 @@ const columns = [
 const allInstances = useLiveQuery(
   async (db) => {
     const results = await db.AuditInstance.where().exec()
-    return results.sort(
+    // Certification (EXTERNAL) audits belong to the Auditee module — the
+    // auditor's list is internal + supplier work.
+    return results
+      .filter((a) => a.programTypeId !== 'EXTERNAL')
+      .sort(
       (a, b) =>
         (b.scheduledDate?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0) -
         (a.scheduledDate?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0),

@@ -17,7 +17,6 @@
 import {
   IconChecklist,
   IconClipboardCheck,
-  IconBuilding,
   IconUsers,
   IconClipboardList,
   IconBolt,
@@ -49,6 +48,16 @@ const auditInstance = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.AuditInstance.findByPk(id),
   { models: ['AuditInstance'] },
+)
+
+// Certification (EXTERNAL) audits live in the Auditee module — same record,
+// different surface. One redirect keeps this page free of auditee branches.
+watch(
+  () => auditInstance.value?.programTypeId,
+  (t) => {
+    if (t === 'EXTERNAL') router.replace(getCompanyPath(`/auditee/${props.id}`))
+  },
+  { immediate: true },
 )
 
 // #1 — conformance scoring rollup (shared with the printable report).
@@ -755,40 +764,6 @@ const auditInstanceDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- Overview -->
-      <!-- EXTERNAL audits: who is auditing us. The lead/team above are OUR
-           POC and involved people for these — the outside firm has no user
-           account, so its contact renders from plain columns. -->
-      <BaseRailCard
-        v-if="auditInstance.programTypeId === 'EXTERNAL'"
-        title="Auditing Body"
-        :icon="IconBuilding"
-      >
-        <div class="tw:flex tw:flex-col tw:gap-2 tw:text-sm">
-          <BaseDetailField label="Firm / registrar">
-            <BaseText v-if="auditInstance.externalAuditFirm">{{
-              auditInstance.externalAuditFirm
-            }}</BaseText>
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <BaseDetailField label="Auditor">
-            <BaseText v-if="auditInstance.externalAuditorName">{{
-              auditInstance.externalAuditorName
-            }}</BaseText>
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="auditInstance.externalAuditorEmail" label="Email">
-            <a
-              :href="`mailto:${auditInstance.externalAuditorEmail}`"
-              class="tw:text-primary hover:tw:underline"
-              >{{ auditInstance.externalAuditorEmail }}</a
-            >
-          </BaseDetailField>
-          <BaseDetailField v-if="auditInstance.externalAuditorPhone" label="Phone">
-            <BaseText>{{ auditInstance.externalAuditorPhone }}</BaseText>
-          </BaseDetailField>
-        </div>
-      </BaseRailCard>
-
       <BaseRailCard title="Overview" grid>
         <BaseDetailField label="Audit Number">
           <span class="tw:text-xs tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">
