@@ -31,6 +31,8 @@ export class AuditReport extends BaseModel {
   @Property({ type: String }) notes = /** @type {String} */ (null)
   @Property({ type: String, required: true }) uploadedBy = ''
   @Property({ type: DateTime }) aiParsedAt = /** @type {DateTime} */ (null)
+  /** Async extraction result ({summary, findings, caveats, completedAt} | {failed, error}). */
+  @Property({ type: Object }) aiExtraction = /** @type {Object} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

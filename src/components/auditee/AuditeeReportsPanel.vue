@@ -183,36 +183,66 @@ async function onExtractFile(e) {
   await runExtraction(report, file)
 }
 
+// Queued extraction: a dense report takes the model past any HTTP timeout,
+// so the server enqueues a worker job and the result lands on the report row
+// (aiExtraction) via the sync engine. The watcher below opens the popup when
+// it arrives; `extracting` keeps the row's spinner going until then.
+const waitingSince = ref({}) // reportId -> ms epoch of the request
+
 async function runExtraction(report, file) {
   try {
     const { text } = await parsePdfAndExtractImages(file)
-    const data = await post(
+    await post(
       '/v1/services/ai/audit-report/extract-findings',
       {
+        auditInstanceId: props.auditInstance.id,
+        reportId: report.id,
         extractedText: text,
         standardName: props.auditInstance.displayMeta?.standardName || undefined,
       },
       { showError: true },
     )
-    review.value = {
-      report,
-      summary: data.result?.summary || '',
-      caveats: data.result?.caveats || [],
-      findings: (data.result?.findings || []).map((f) => ({
-        ...f,
-        typeId: defaultTypeFor(f.classification),
-        selected: true,
-        added: null,
-      })),
-    }
-    await post(
-      `/v1/services/auditInstances/${props.auditInstance.id}/reports/${report.id}/parsed`,
-      {},
-    )
+    waitingSince.value[report.id] = Date.now()
+    toast.success('Extraction started — the review will open here when it finishes.')
   } catch (err) {
     toast.error(err?.message || 'Extraction failed')
-  } finally {
     extracting.value = null
+  }
+}
+
+// Open the popup the moment a waited-on extraction lands (or report failure).
+watch(reports, (rows) => {
+  for (const r of rows || []) {
+    const since = waitingSince.value[r.id]
+    if (!since) continue
+    const done = r.aiExtraction?.completedAt ? Date.parse(r.aiExtraction.completedAt) : 0
+    if (done && done >= since - 60_000) {
+      delete waitingSince.value[r.id]
+      if (extracting.value === r.id) extracting.value = null
+      if (r.aiExtraction.failed) {
+        toast.error(`Extraction failed: ${r.aiExtraction.error || 'unknown error'}`)
+      } else {
+        openReview(r)
+      }
+    }
+  }
+})
+
+// Build the review popup from the STORED extraction — also how a user
+// returns to it after a reload or after closing the popup.
+function openReview(report) {
+  const x = report.aiExtraction
+  if (!x || x.failed) return
+  review.value = {
+    report,
+    summary: x.summary || '',
+    caveats: x.caveats || [],
+    findings: (x.findings || []).map((f) => ({
+      ...f,
+      typeId: defaultTypeFor(f.classification),
+      selected: true,
+      added: null,
+    })),
   }
 }
 
@@ -364,11 +394,19 @@ const KIND_CLASS = {
             <BaseButton
               v-if="canUseAi && !readonly"
               size="sm"
-              :isLoading="extracting === r.id"
+              :isLoading="extracting === r.id || !!waitingSince[r.id]"
               @click="startExtract(r)"
             >
               <template #icon><IconSparkles :size="14" /></template>
               {{ r.aiParsedAt ? 'Re-extract' : 'AI Extract' }}
+            </BaseButton>
+            <BaseButton
+              v-if="r.aiExtraction && !r.aiExtraction.failed"
+              variant="outline"
+              size="sm"
+              @click="openReview(r)"
+            >
+              Review ({{ r.aiExtraction.findings?.length ?? 0 }})
             </BaseButton>
             <BaseButton variant="outline" size="sm" @click="emit('goSummary', r.id)">
               <template #icon><IconNotes :size="14" /></template>

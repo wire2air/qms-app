@@ -132,30 +132,58 @@ async function onExtractFile(e) {
   await runExtraction(report, file)
 }
 
+// Queued extraction (2026-08-24): the server enqueues a worker job — a dense
+// report takes the model past any HTTP timeout — and the result lands on the
+// report row (aiExtraction) via the sync engine.
+const waitingSince = ref({})
+
 async function runExtraction(report, file) {
   try {
     const { text } = await parsePdfAndExtractImages(file)
-    const data = await post(
+    await post(
       '/v1/services/ai/audit-report/extract-findings',
       {
+        auditInstanceId: props.auditInstance.id,
+        reportId: report.id,
         extractedText: text,
         standardName: props.auditInstance.displayMeta?.standardName || undefined,
       },
       { showError: true },
     )
-    const found = (data.result?.findings || []).map((f) => ({
-      ...f,
-      typeId: defaultTypeFor(f.classification),
-    }))
-    proposals.value = { reportId: report.id, added: {}, ...data.result, findings: found }
-    await post(
-      `/v1/services/auditInstances/${props.auditInstance.id}/reports/${report.id}/parsed`,
-      {},
-    )
+    waitingSince.value[report.id] = Date.now()
+    toast.success('Extraction started — proposals will appear here when it finishes.')
   } catch (err) {
     toast.error(err?.message || 'Extraction failed')
-  } finally {
     extracting.value = null
+  }
+}
+
+watch(reports, (rows) => {
+  for (const r of rows || []) {
+    const since = waitingSince.value[r.id]
+    if (!since) continue
+    const done = r.aiExtraction?.completedAt ? Date.parse(r.aiExtraction.completedAt) : 0
+    if (done && done >= since - 60_000) {
+      delete waitingSince.value[r.id]
+      if (extracting.value === r.id) extracting.value = null
+      if (r.aiExtraction.failed) {
+        toast.error(`Extraction failed: ${r.aiExtraction.error || 'unknown error'}`)
+      } else {
+        openProposals(r)
+      }
+    }
+  }
+})
+
+function openProposals(report) {
+  const x = report.aiExtraction
+  if (!x || x.failed) return
+  proposals.value = {
+    reportId: report.id,
+    added: {},
+    summary: x.summary,
+    caveats: x.caveats || [],
+    findings: (x.findings || []).map((f) => ({ ...f, typeId: defaultTypeFor(f.classification) })),
   }
 }
 
@@ -249,11 +277,19 @@ const KIND_CLASS = {
           v-if="canUseAi && !readonly"
           variant="outline"
           size="sm"
-          :isLoading="extracting === r.id"
+          :isLoading="extracting === r.id || !!waitingSince[r.id]"
           @click="startExtract(r)"
         >
           <template #icon><IconSparkles :size="14" /></template>
           {{ r.aiParsedAt ? 'Re-extract findings' : 'Extract findings' }}
+        </BaseButton>
+        <BaseButton
+          v-if="r.aiExtraction && !r.aiExtraction.failed"
+          variant="outline"
+          size="sm"
+          @click="openProposals(r)"
+        >
+          Review ({{ r.aiExtraction.findings?.length ?? 0 }})
         </BaseButton>
       </div>
     </div>
