@@ -147,9 +147,28 @@ const review = ref(null) // { report, summary, findings:[{...f, typeId, selected
 const acceptingSummary = ref(false)
 const bulkAdding = ref(false)
 
-function startExtract(report) {
-  // The server never sees the PDF; text is extracted in the browser. The user
-  // re-picks the PDF they uploaded — one extra click, zero new plumbing.
+async function startExtract(report) {
+  // The server never sees the PDF; text is extracted in the browser. The
+  // uploaded asset is same-origin, so fetch it back and parse it directly —
+  // the user already picked this file once. The file picker survives only as
+  // a fallback (asset missing / fetch blocked).
+  const url = assetUrlById.value[report.assetId]
+  if (url) {
+    extracting.value = report.id
+    try {
+      const res = await fetch(url, { credentials: 'include' })
+      if (!res.ok) throw new Error(`Could not load the uploaded PDF (${res.status})`)
+      const blob = await res.blob()
+      const file = new File([blob], `${report.title || 'report'}.pdf`, {
+        type: 'application/pdf',
+      })
+      await runExtraction(report, file)
+      return
+    } catch {
+      extracting.value = null
+      toast.warning('Could not reload the uploaded PDF — pick the file to extract.')
+    }
+  }
   pendingReport.value = report
   extractInput.value?.click()
 }
@@ -161,6 +180,10 @@ async function onExtractFile(e) {
   pendingReport.value = null
   if (!file || !report) return
   extracting.value = report.id
+  await runExtraction(report, file)
+}
+
+async function runExtraction(report, file) {
   try {
     const { text } = await parsePdfAndExtractImages(file)
     const data = await post(

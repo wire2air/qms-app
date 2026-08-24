@@ -37,6 +37,19 @@ const reports = useLiveQueryWithDeps(
 )
 
 const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+
+const assetUrlById = useLiveQueryWithDeps(
+  [() => reports.value.map((r) => r.assetId).join(',')],
+  async (db, [csv]) => {
+    const m = {}
+    for (const id of (csv || '').split(',').filter(Boolean)) {
+      const a = await db.Asset.findByPk(id)
+      if (a?.url) m[id] = a.url
+    }
+    return m
+  },
+  { models: ['Asset'], initial: {} },
+)
 function userName(id) {
   const u = users.value.find((x) => x.id === id)
   return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email : '—'
@@ -83,10 +96,27 @@ const proposals = ref(null) // { reportId, findings, caveats }
 const extractInput = ref(null)
 const pendingReport = ref(null)
 
-function startExtract(report) {
-  // The server never sees the PDF; text is extracted here. The asset cannot
-  // be re-downloaded as a File without extra plumbing, so the user picks the
-  // same PDF they just uploaded — one extra click, zero new attack surface.
+async function startExtract(report) {
+  // The server never sees the PDF; text is extracted here. The uploaded asset
+  // is same-origin, so fetch it back and parse it directly — the picker
+  // survives only as a fallback.
+  const url = assetUrlById.value[report.assetId]
+  if (url) {
+    extracting.value = report.id
+    proposals.value = null
+    try {
+      const res = await fetch(url, { credentials: 'include' })
+      if (!res.ok) throw new Error(`Could not load the uploaded PDF (${res.status})`)
+      const blob = await res.blob()
+      const file = new File([blob], `${report.title || 'report'}.pdf`, {
+        type: 'application/pdf',
+      })
+      await runExtraction(report, file)
+      return
+    } catch {
+      extracting.value = null
+    }
+  }
   pendingReport.value = report
   extractInput.value?.click()
 }
@@ -99,6 +129,10 @@ async function onExtractFile(e) {
   if (!file || !report) return
   extracting.value = report.id
   proposals.value = null
+  await runExtraction(report, file)
+}
+
+async function runExtraction(report, file) {
   try {
     const { text } = await parsePdfAndExtractImages(file)
     const data = await post(
