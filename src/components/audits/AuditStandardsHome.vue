@@ -139,6 +139,12 @@ const columns = [
       >
         {{ row.name }}
       </RouterLink>
+      <BaseBadge
+        v-if="row.statusId === 'ARCHIVED'"
+        class="tw:ml-2 tw:bg-gray-200 tw:text-gray-600"
+      >
+        Archived
+      </BaseBadge>
       <div
         v-if="row.description"
         class="tw:text-xs tw:text-secondary tw:font-normal tw:mt-0.5 tw:truncate tw:max-w-md"
