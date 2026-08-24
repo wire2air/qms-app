@@ -29,6 +29,10 @@
  *   full               — uncapped                    — escape hatch (rare)
  */
 const props = defineProps({
+  // Flush: no outer padding/gap — the page manages its own spacing INSIDE its
+  // scroll container. Used by BaseDetailLayout so the scroller is full-bleed
+  // (wheel over the gutters must scroll; the width cap moves inside).
+  flush: { type: Boolean, default: false },
   width: {
     type: String,
     default: 'standard',
@@ -59,11 +63,11 @@ const WIDTH = {
 const containerClass = computed(() => [
   'tw:mx-auto tw:flex tw:w-full tw:flex-col',
   WIDTH[props.width] || WIDTH.standard,
-  props.density === 'compact' ? 'tw:gap-4' : 'tw:gap-6',
+  props.flush ? '' : props.density === 'compact' ? 'tw:gap-4' : 'tw:gap-6',
   props.padded ? 'tw:px-4 tw:sm:px-6 tw:lg:px-8' : '',
   // box-border (Tailwind default) keeps padding inside h-full so fullHeight
   // pages never overflow the shell's scroll container.
-  'tw:py-6 tw:lg:py-8',
+  props.flush ? '' : 'tw:py-6 tw:lg:py-8',
   props.fullHeight ? 'tw:h-full tw:min-h-0' : '',
 ])
 </script>
