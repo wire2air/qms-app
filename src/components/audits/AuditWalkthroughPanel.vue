@@ -11,6 +11,7 @@
  * exists, edits auto-save (debounced).
  */
 import {
+  IconChevronLeft,
   IconChevronDown,
   IconChevronRight,
   IconX,
@@ -147,9 +148,10 @@ const currentChildren = computed(() => childrenByParent.value[currentReqId.value
 const currentHasChildren = computed(() => currentChildren.value.length > 0)
 
 // Clause rail visibility — collapsible on every screen size. Defaults open on
-// desktop, closed on iPad/phone (where it stacks full-width above the step);
-// resetting to the layout default when the breakpoint is crossed.
-const isDesktop = useMediaQuery('(min-width: 1024px)')
+// desktop (≥1280), closed on iPad/phone (the auditor works clause-by-clause
+// there; the list is one tap away); resetting to the layout default when the
+// breakpoint is crossed.
+const isDesktop = useMediaQuery('(min-width: 1280px)')
 const railOpen = ref(isDesktop.value)
 watch(isDesktop, (d) => {
   railOpen.value = d
@@ -587,16 +589,28 @@ function summarizeFinding() {
             <span class="tw:text-xs tw:text-secondary"
               >{{ currentIndex + 1 }} / {{ orderedSteps.length }}</span
             >
-            <BaseButton variant="outline" size="sm" :disabled="currentIndex <= 0" @click="prevStep"
-              >Prev</BaseButton
-            >
+            <!-- Big, colored, on every screen size (iPad-first, 2026-08-24):
+                 these are the auditor's most-pressed controls on the floor. -->
             <BaseButton
-              variant="outline"
-              size="sm"
+              variant="primary"
+              size="lg"
+              class="tw:font-semibold"
+              :disabled="currentIndex <= 0"
+              @click="prevStep"
+            >
+              <template #icon><IconChevronLeft :size="20" /></template>
+              Prev
+            </BaseButton>
+            <BaseButton
+              variant="primary"
+              size="lg"
+              class="tw:font-semibold"
               :disabled="currentIndex >= orderedSteps.length - 1"
               @click="nextStep"
-              >Next</BaseButton
             >
+              Next
+              <IconChevronRight :size="20" />
+            </BaseButton>
           </div>
         </div>
 

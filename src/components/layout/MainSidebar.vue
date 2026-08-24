@@ -1032,13 +1032,13 @@ const quickCreateItems = computed(() => {
     <!-- Backdrop — only on small screens when the overlay sidebar is open. -->
     <div
       v-if="visible && !isDesktop"
-      class="tw:fixed tw:inset-0 tw:z-sticky tw:bg-black/40 tw:lg:hidden"
+      class="tw:fixed tw:inset-0 tw:z-sticky tw:bg-black/40 tw:xl:hidden"
       @click="closeMobile"
     />
     <Transition name="mainSidebar">
       <aside
         v-if="visible"
-        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-overlay tw:lg:static tw:lg:z-auto"
+        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-overlay tw:xl:static tw:xl:z-auto"
       >
         <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
           <!-- Brand — links home (dashboard) -->

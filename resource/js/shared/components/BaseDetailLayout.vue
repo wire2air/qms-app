@@ -97,9 +97,22 @@ const twoCol = computed(() => vd.value.columns === 2 && showRailFinal.value)
 // 2026-07-24). Persisted globally across detail pages; ignored on mobile
 // (the rail stacks under the content there) and in linearized/print variants.
 const railCollapsed = useLocalStorage('qms:detail-rail-collapsed', false)
-const railCollapsedEff = computed(
-  () => railCollapsed.value && !isMobile.value && !vd.value.linearized,
-)
+// Compact viewports (iPad landscape, small laptops — 1024-1279px, where the
+// rail renders but the center column is starved): default the rail COLLAPSED,
+// overridable per session via the expand strip. ≥1280 follows the persisted
+// preference as before; <1024 the rail stacks under the content (isMobile).
+const isCompactViewport = useMediaQuery('(max-width: 1279px)')
+const railOverride = ref(null) // null = follow default for the viewport
+const railCollapsedEff = computed(() => {
+  const wanted =
+    railOverride.value ?? (isCompactViewport.value ? true : railCollapsed.value)
+  return wanted && !isMobile.value && !vd.value.linearized
+})
+function setRailCollapsed(v) {
+  railOverride.value = v
+  // Persist only on desktop — an iPad expand is situational, not a preference.
+  if (!isCompactViewport.value) railCollapsed.value = v
+}
 const aiEnabled = computed(() => cfg.value?.ai?.enabled === true)
 const versionEnabled = computed(() => cfg.value?.version?.enabled === true)
 
@@ -248,7 +261,7 @@ const slotState = computed(() => ({
             class="tw:flex tw:items-center tw:justify-center tw:w-9 tw:h-9 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:text-secondary tw:hover:text-primary tw:hover:border-primary/40 tw:cursor-pointer tw:transition"
             title="Show side panel"
             aria-label="Show side panel"
-            @click="railCollapsed = false"
+            @click="setRailCollapsed(false)"
           >
             <IconLayoutSidebarRightExpand :size="18" />
           </button>
@@ -266,7 +279,7 @@ const slotState = computed(() => ({
               class="tw:flex tw:items-center tw:gap-1 tw:text-micro tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
               title="Hide side panel"
               aria-label="Hide side panel"
-              @click="railCollapsed = true"
+              @click="setRailCollapsed(true)"
             >
               <IconLayoutSidebarRightCollapse :size="15" /> Hide
             </button>
