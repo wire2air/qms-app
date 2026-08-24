@@ -151,7 +151,7 @@ watch(
     name.value = ''
     description.value = ''
     contentLicense.value = 'CUSTOMER_LICENSED'
-    format.value = 'paste'
+    format.value = 'csv'
     content.value = ''
     licenseAttested.value = false
     customerLicenseReference.value = ''
@@ -182,8 +182,10 @@ async function onValidSubmit() {
       customerLicenseExpiresAt: customerLicenseExpiresAt.value || null,
     }
     const res = await post('/v1/services/auditStandards/import', payload)
-    toast.success(`Imported ${res?.auditStandard?.name ?? name.value}`)
-    emit('created', res?.auditStandard ?? null)
+    toast.success(
+      `Imported ${res?.standard?.name ?? name.value} (${res?.importedClauseCount ?? 0} clauses)`,
+    )
+    emit('created', res?.standard ?? null)
     close()
   } catch (err) {
     saveError.value = err?.message || 'Import failed'
