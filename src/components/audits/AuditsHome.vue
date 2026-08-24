@@ -23,6 +23,7 @@ import {
   IconCalendar,
   IconChecklist,
   IconChartBar,
+  IconShieldCheck,
 } from '@tabler/icons-vue'
 
 const SECTIONS = {
@@ -51,6 +52,11 @@ const SECTIONS = {
     icon: IconBook,
     subtitle: 'The clause libraries audits are conducted against.',
   },
+  readiness: {
+    label: 'Audit Readiness',
+    icon: IconShieldCheck,
+    subtitle: 'Open gaps an auditor would find — close them before the audit does.',
+  },
 }
 
 const route = useRoute()
@@ -74,5 +80,6 @@ const section = computed(() => SECTIONS[activeTab.value])
     <AuditProgramsHome v-else-if="activeTab === 'programs'" />
     <AuditScheduleCalendar v-else-if="activeTab === 'calendar'" />
     <AuditStandardsHome v-else-if="activeTab === 'standards'" />
+    <AuditReadinessDashboard v-else-if="activeTab === 'readiness'" />
   </BasePage>
 </template>

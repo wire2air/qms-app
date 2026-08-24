@@ -207,6 +207,7 @@ import { FieldRecordFlag } from './fieldRecordFlag'
 import { AssignmentInstance } from './assignmentInstance'
 import { AssignmentInstanceStatus } from './assignmentInstanceStatus'
 import { RecordLink } from './recordLink'
+import { AuditReport } from './auditReport'
 import { DocumentReview } from './documentReview'
 import { RecordShareLink } from './recordShareLink'
 import { RecordShareLinkView } from './recordShareLinkView'
@@ -436,6 +437,7 @@ export const db = {
   AssignmentInstance,
   AssignmentInstanceStatus,
   RecordLink,
+  AuditReport,
   DocumentReview,
   RecordShareLink,
   RecordShareLinkView,

@@ -85,6 +85,8 @@ declare module 'vue' {
     'AuditProgramDetailConfig.spec': typeof import('./src/components/audits/auditProgramDetailConfig.spec.js')['default']
     AuditProgramsHome: typeof import('./src/components/audits/AuditProgramsHome.vue')['default']
     AuditProgramsPageId: typeof import('./src/components/audits/AuditProgramsPageId.vue')['default']
+    AuditReadinessDashboard: typeof import('./src/components/audits/AuditReadinessDashboard.vue')['default']
+    AuditReportsPanel: typeof import('./src/components/audits/AuditReportsPanel.vue')['default']
     AuditRequirementResultBadge: typeof import('./src/components/badges/AuditRequirementResultBadge.vue')['default']
     AuditRequirementResultBadgeById: typeof import('./src/components/badges/AuditRequirementResultBadgeById.vue')['default']
     AuditRequirementsEditor: typeof import('./src/components/audits/AuditRequirementsEditor.vue')['default']

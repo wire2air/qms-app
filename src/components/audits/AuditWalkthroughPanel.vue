@@ -34,7 +34,21 @@ const toast = useToast()
 
 // Frozen clause snapshot: { requirementId, parentId, clauseNumber, title,
 // questions, peopleToInterview, guidance, expectedEvidence, description, … }.
-const clauses = computed(() => props.auditInstance.requirementSchema || [])
+//
+// Two question formats exist in snapshots: the guided-audit `questions`
+// CHECKLIST, and the older singular `question` string (the title/question
+// split seeded 361 clauses that way). The notebook only ever rendered the
+// checklist, so every audit built on a singular-question standard showed the
+// auditor NO questions at all (reported 2026-08-24). Normalise here: a lone
+// `question` becomes a one-item checklist with a DETERMINISTIC id, so the
+// asked/answered state keyed on question ids survives reloads.
+const clauses = computed(() =>
+  (props.auditInstance.requirementSchema || []).map((c) =>
+    c.questions?.length || !c.question
+      ? c
+      : { ...c, questions: [{ id: `legacy-${c.requirementId}`, text: c.question }] },
+  ),
+)
 
 const responsesById = useLiveQueryWithDeps(
   [() => props.auditInstance.id],

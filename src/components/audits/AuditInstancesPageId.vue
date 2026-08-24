@@ -17,6 +17,7 @@
 import {
   IconChecklist,
   IconClipboardCheck,
+  IconBuilding,
   IconUsers,
   IconClipboardList,
   IconBolt,
@@ -24,6 +25,7 @@ import {
   IconPlus,
   IconTrash,
   IconBulb,
+  IconFileTypePdf,
 } from '@tabler/icons-vue'
 import { useAuditScoring } from '@/composables/useAuditScoring'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -161,8 +163,6 @@ const debouncedSave = useDebounceFn(async () => {
   }
 }, 500)
 
-const editingScope = ref(false)
-const editingObjectives = ref(false)
 
 // ─── Lifecycle button visibility / handlers ───────────────────────
 const canStart = computed(() => auditInstance.value?.statusId === 'SCHEDULED' && isEditable.value)
@@ -351,11 +351,18 @@ async function releaseAudit() {
 }
 
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const auditReports = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [instanceId]) => db.AuditReport.where('auditInstanceId', instanceId).exec(),
+  { models: ['AuditReport'], initial: [] },
+)
+
 const auditInstanceTabs = computed(() =>
   buildAuditInstanceTabs({
     clauseCount: clauseCount.value,
     findingsTotal: findingsByStatus.value.total,
     ofiCount: scoring.value.counts.OFI,
+    reportCount: auditReports.value.length,
     supplierTabsLocked: supplierTabsLocked.value,
   }),
 )
@@ -405,7 +412,10 @@ const auditInstanceActions = computed(() =>
 const auditInstanceDetailConfig = computed(() =>
   defineDetailConfig({
     variant: 'standard',
-    width: 'standard',
+    // 'full' (2026-08-24, user request): the auditor works here — clause tree,
+    // question checklists, notes and evidence side by side — and the standard
+    // 80rem box wasted the screen the notebook needs.
+    width: 'full',
     breadcrumbs: breadcrumbs.value,
     banners: () => auditInstanceBanners.value,
     actions: auditInstanceActions.value,
@@ -543,49 +553,41 @@ const auditInstanceDetailConfig = computed(() =>
             </div>
           </div>
 
-          <!-- Scope / Objectives — click-to-edit, long form -->
+          <!-- Scope / Objectives — rich text since 2026-08-24: they carry
+               clause lists, exclusions and emphasis. Old plain-text values
+               render fine through v-html (no markup, no harm). -->
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Scope</p>
-              <BaseTextarea
-                v-if="editingScope && isEditable"
+              <BaseRichTextEditor
+                v-if="isEditable"
                 v-model="auditInstance.scope"
-                :rows="3"
                 placeholder="What's in scope for this audit?"
-                @blur="editingScope = false"
               />
-              <BaseClickableRow
-                v-else
-                class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                :disabled="!isEditable"
-                aria-label="Edit audit scope"
-                @click="isEditable && (editingScope = true)"
-              >
-                {{ auditInstance.scope || (isEditable ? 'Add scope…' : '—') }}
-              </BaseClickableRow>
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div
+                v-else-if="auditInstance.scope"
+                class="tw:text-sm tw:text-on-main"
+                v-html="auditInstance.scope"
+              />
+              <BaseText v-else color="secondary" class="tw:text-sm">—</BaseText>
             </div>
             <div>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
                 Objectives
               </p>
-              <BaseTextarea
-                v-if="editingObjectives && isEditable"
+              <BaseRichTextEditor
+                v-if="isEditable"
                 v-model="auditInstance.objectives"
-                :rows="3"
                 placeholder="What outcomes does this audit need to produce?"
-                @blur="editingObjectives = false"
               />
-              <BaseClickableRow
-                v-else
-                class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                :disabled="!isEditable"
-                aria-label="Edit audit objectives"
-                @click="isEditable && (editingObjectives = true)"
-              >
-                {{ auditInstance.objectives || (isEditable ? 'Add objectives…' : '—') }}
-              </BaseClickableRow>
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div
+                v-else-if="auditInstance.objectives"
+                class="tw:text-sm tw:text-on-main"
+                v-html="auditInstance.objectives"
+              />
+              <BaseText v-else color="secondary" class="tw:text-sm">—</BaseText>
             </div>
           </div>
         </FormSection>
@@ -636,6 +638,12 @@ const auditInstanceDetailConfig = computed(() =>
     <template v-if="auditInstance" #tab-ofi>
       <FormSection title="Opportunities for Improvement" :icon="IconBulb">
         <AuditOfiPanel :auditInstance="auditInstance" />
+      </FormSection>
+    </template>
+
+    <template v-if="auditInstance" #tab-reports>
+      <FormSection title="Auditor Reports" :icon="IconFileTypePdf">
+        <AuditReportsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
       </FormSection>
     </template>
 
@@ -747,6 +755,40 @@ const auditInstanceDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- Overview -->
+      <!-- EXTERNAL audits: who is auditing us. The lead/team above are OUR
+           POC and involved people for these — the outside firm has no user
+           account, so its contact renders from plain columns. -->
+      <BaseRailCard
+        v-if="auditInstance.programTypeId === 'EXTERNAL'"
+        title="Auditing Body"
+        :icon="IconBuilding"
+      >
+        <div class="tw:flex tw:flex-col tw:gap-2 tw:text-sm">
+          <BaseDetailField label="Firm / registrar">
+            <BaseText v-if="auditInstance.externalAuditFirm">{{
+              auditInstance.externalAuditFirm
+            }}</BaseText>
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Auditor">
+            <BaseText v-if="auditInstance.externalAuditorName">{{
+              auditInstance.externalAuditorName
+            }}</BaseText>
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField v-if="auditInstance.externalAuditorEmail" label="Email">
+            <a
+              :href="`mailto:${auditInstance.externalAuditorEmail}`"
+              class="tw:text-primary hover:tw:underline"
+              >{{ auditInstance.externalAuditorEmail }}</a
+            >
+          </BaseDetailField>
+          <BaseDetailField v-if="auditInstance.externalAuditorPhone" label="Phone">
+            <BaseText>{{ auditInstance.externalAuditorPhone }}</BaseText>
+          </BaseDetailField>
+        </div>
+      </BaseRailCard>
+
       <BaseRailCard title="Overview" grid>
         <BaseDetailField label="Audit Number">
           <span class="tw:text-xs tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded">

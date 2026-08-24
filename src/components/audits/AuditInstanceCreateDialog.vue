@@ -34,6 +34,10 @@ function defaultForm() {
     programTypeId: 'INTERNAL',
     scheduledDate: '',
     scope: '',
+    externalAuditFirm: '',
+    externalAuditorName: '',
+    externalAuditorEmail: '',
+    externalAuditorPhone: '',
     objectives: '',
     leadAuditorUserId: null,
     departmentId: null,
@@ -67,6 +71,11 @@ watch(
 )
 
 const supplierRequired = computed(() => form.value.programTypeId === 'SUPPLIER')
+
+// EXTERNAL: the company is the AUDITEE. Lead/team become the company's own
+// POC and involved people, and the outside firm's contact gets its own block —
+// the auditor has no user account here.
+const isExternal = computed(() => form.value.programTypeId === 'EXTERNAL')
 
 // Switching audit type or supplier invalidates a previously-picked auditee
 // (internal ↔ supplier user, or a different supplier's user) — clear it.
@@ -181,14 +190,11 @@ async function onValidSubmit() {
           </BaseField>
         </div>
 
-        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <BaseField label="Lead Auditor">
-            <UserSelectMenu v-model="form.leadAuditorUserId" />
-          </BaseField>
-          <BaseField label="Team">
-            <UserSelectMenu v-model="form.teamUserIds" :multiple="true" />
-          </BaseField>
-        </div>
+        <!-- WHERE first, WHO second (requested order 2026-08-24): Site,
+             Department, then Lead Auditor and Team. -->
+        <BaseField label="Site">
+          <SiteSelectMenu v-model="form.siteId" />
+        </BaseField>
 
         <!-- Supplier + Auditee. For a supplier audit the auditee is one of the
              SUPPLIER's users (supplier selected first); for internal audits it's
@@ -236,29 +242,52 @@ async function onValidSubmit() {
           </BaseField>
         </div>
 
-        <BaseField label="Site">
-          <SiteSelectMenu v-model="form.siteId" />
-        </BaseField>
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+          <BaseField :label="isExternal ? 'Lead POC (our company)' : 'Lead Auditor'">
+            <UserSelectMenu v-model="form.leadAuditorUserId" />
+          </BaseField>
+          <BaseField :label="isExternal ? 'Involved people' : 'Team'">
+            <UserSelectMenu v-model="form.teamUserIds" :multiple="true" />
+          </BaseField>
+        </div>
 
+        <!-- Who is auditing us. Free text — the registrar's auditor has no
+             account in this system, and should not need one to be named. -->
+        <div v-if="isExternal" class="tw:flex tw:flex-col tw:gap-3">
+          <BaseText variant="overline">Auditing body</BaseText>
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+            <BaseField label="Audit firm / registrar">
+              <BaseTextInput
+                v-model="form.externalAuditFirm"
+                placeholder="e.g. BSI, TÜV SÜD, NSF"
+              />
+            </BaseField>
+            <BaseField label="Auditor name">
+              <BaseTextInput v-model="form.externalAuditorName" placeholder="Lead auditor's name" />
+            </BaseField>
+            <BaseField label="Auditor email">
+              <BaseTextInput
+                v-model="form.externalAuditorEmail"
+                type="email"
+                placeholder="name@registrar.com"
+              />
+            </BaseField>
+            <BaseField label="Auditor phone">
+              <BaseTextInput v-model="form.externalAuditorPhone" placeholder="+1 …" />
+            </BaseField>
+          </div>
+        </div>
+
+        <!-- Rich text (requested 2026-08-24): scope and objectives carry
+             structure — clause lists, exclusions, emphasis. -->
         <BaseField label="Scope">
-          <template #default="field">
-            <BaseTextarea
-              v-bind="field"
-              v-model="form.scope"
-              :rows="2"
-              placeholder="What's in scope?"
-            />
-          </template>
+          <BaseRichTextEditor v-model="form.scope" placeholder="What's in scope?" />
         </BaseField>
         <BaseField label="Objectives">
-          <template #default="field">
-            <BaseTextarea
-              v-bind="field"
-              v-model="form.objectives"
-              :rows="2"
-              placeholder="What does this audit need to produce?"
-            />
-          </template>
+          <BaseRichTextEditor
+            v-model="form.objectives"
+            placeholder="What does this audit need to produce?"
+          />
         </BaseField>
 
         <!-- Admin-defined custom fields. Self-hides when none configured. -->

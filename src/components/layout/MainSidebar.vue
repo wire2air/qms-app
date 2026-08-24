@@ -405,6 +405,12 @@ const navItems = computed(() => {
           icon: IconBook,
           to: getCompanyPath('/audits?tab=standards'),
         },
+        {
+          label: 'Audit Readiness',
+          permissions: ['audit_management:read'],
+          icon: IconShieldCheck,
+          to: getCompanyPath('/audits?tab=readiness'),
+        },
       ],
     },
     {

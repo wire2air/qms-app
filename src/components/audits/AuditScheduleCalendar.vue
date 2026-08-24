@@ -19,6 +19,15 @@ const instances = useLiveQuery(async (db) => db.AuditInstance.where().exec(), {
   models: ['AuditInstance'],
   initial: [],
 })
+// Recurring programs. Instances are minted only when DUE (the nightly
+// generator), so future occurrences of a scheduled audit exist nowhere as
+// rows — which is why recurring audits never appeared here while ad-hoc ones
+// did (reported 2026-08-24). The calendar PROJECTS them instead.
+const programs = useLiveQuery(async (db) => db.AuditProgram.where().exec(), {
+  models: ['AuditProgram'],
+  initial: [],
+})
+
 const departments = useLiveQuery(async (db) => db.Department.where().exec(), {
   models: ['Department'],
   initial: [],
@@ -76,10 +85,47 @@ function rowKey(a) {
   return a.departmentId || UNASSIGNED
 }
 
-// grid[rowKey][monthIdx] = [instances]; only scheduled audits in the year.
+// Project a program's occurrences through the END of the selected year,
+// mirroring computeNextDueDate's windows (worker auditInstanceService). The
+// projection is a PLAN, not a promise — chips render distinctly and open the
+// program, since no instance exists yet. Capped at 60 steps so a runaway
+// EVERY_X_DAYS interval cannot hang the page.
+function projectedOccurrences(p, forYear) {
+  if (!p.active || !p.nextDueDate) return []
+  const stepMonths = { MONTHLY: 1, QUARTERLY: 3, SEMI_ANNUAL: 6, ANNUAL: 12 }[p.frequencyId]
+  const stepDays = p.frequencyId === 'EVERY_X_DAYS' ? p.daysInterval : null
+  const out = []
+  let d = p.nextDueDate
+  for (let i = 0; i < 60 && d && d.year <= forYear; i += 1) {
+    if (d.year === forYear) out.push(d)
+    if (p.frequencyId === 'ONE_TIME') break
+    if (stepMonths) d = d.plus({ months: stepMonths })
+    else if (stepDays > 0) d = d.plus({ days: stepDays })
+    else break // CUSTOM_RECURRENCE needs a cron engine — the minted instance will show
+  }
+  return out
+}
+
+const plannedEntries = computed(() =>
+  programs.value.flatMap((p) =>
+    projectedOccurrences(p, year.value).map((d, i) => ({
+      id: `${p.id}:planned:${i}`,
+      planned: true,
+      programId: p.id,
+      programName: p.name,
+      programTypeId: p.programTypeId,
+      supplierId: p.supplierId || null,
+      departmentId: p.departmentId || null,
+      scheduledDate: d,
+      displayMeta: {},
+    })),
+  ),
+)
+
+// grid[rowKey][monthIdx] = [entries]; minted instances + projected plans.
 const grid = computed(() => {
   const g = {}
-  for (const a of instances.value) {
+  for (const a of [...instances.value, ...plannedEntries.value]) {
     if (yearOf(a.scheduledDate) !== year.value) continue
     const mi = monthIndex(a.scheduledDate)
     if (mi == null) continue
@@ -123,6 +169,10 @@ function cellAudits(deptKey, monthIdx) {
   return grid.value[deptKey]?.[monthIdx] ?? []
 }
 function openAudit(a) {
+  if (a.planned) {
+    router.push(getCompanyPath(`/audits/programs/${a.programId}`))
+    return
+  }
   router.push(getCompanyPath(`/audits/instances/${a.id}`))
 }
 
@@ -133,6 +183,7 @@ function startOfToday() {
   return d.getTime()
 }
 function auditTone(a) {
+  if (a.planned) return 'planned'
   if (a.statusId === 'CANCELLED') return 'cancelled'
   if (['COMPLETED', 'CLOSED'].includes(a.statusId)) return 'done'
   if (['IN_PROGRESS', 'REVIEW'].includes(a.statusId)) return 'inflight'
@@ -142,6 +193,9 @@ function auditTone(a) {
   return 'scheduled'
 }
 const TONE_CLASS = {
+  // Projected from a recurring program — no instance exists yet; the chip
+  // opens the program. Dashed border so a plan never reads as a commitment.
+  planned: 'tw:bg-sky-50 tw:border-sky-300 tw:border-dashed tw:hover:bg-sky-100',
   pastdue: 'tw:bg-red-50 tw:border-red-300 tw:hover:bg-red-100',
   inflight: 'tw:bg-amber-50 tw:border-amber-300 tw:hover:bg-amber-100',
   done: 'tw:bg-emerald-50 tw:border-emerald-300 tw:hover:bg-emerald-100',
@@ -236,13 +290,17 @@ const LEGEND = [
                   type="button"
                   class="tw:text-left tw:rounded tw:border tw:px-1.5 tw:py-1 tw:cursor-pointer"
                   :class="TONE_CLASS[auditTone(a)]"
-                  :title="`${a.auditNumber || 'Audit'}${a.displayMeta?.standardName ? ' · ' + a.displayMeta.standardName : ''} — ${auditorName(a.leadAuditorUserId)} (${a.statusId})`"
+                  :title="
+                    a.planned
+                      ? `${a.programName} — planned (recurring program; not yet generated)`
+                      : `${a.auditNumber || 'Audit'}${a.displayMeta?.standardName ? ' · ' + a.displayMeta.standardName : ''} — ${auditorName(a.leadAuditorUserId)} (${a.statusId})`
+                  "
                   @click="openAudit(a)"
                 >
                   <div
                     class="tw:font-semibold tw:text-on-main tw:text-micro tw:truncate"
                   >
-                    {{ a.auditNumber || 'Audit' }}
+                    {{ a.planned ? `${a.programName} (planned)` : a.auditNumber || 'Audit' }}
                   </div>
                   <div
                     v-if="a.displayMeta?.standardName"
