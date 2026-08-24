@@ -255,7 +255,11 @@ const standard = useLiveQueryWithDeps(
 const detailConfig = computed(() =>
   defineDetailConfig({
     variant: 'standard',
-    width: 'standard',
+    // 'wide' (96rem cap): fluid below the cap, so a laptop still fills edge
+    // to edge while a big monitor gets a wider column than 'standard' (80rem)
+    // without going full-bleed — the readiness dashboard and report rows use
+    // the room.
+    width: 'wide',
     breadcrumbs: [
       { label: 'Auditee', to: getCompanyPath('/auditee') },
       { label: auditInstance.value?.auditNumber || 'Audit' },
