@@ -37,6 +37,8 @@ import {
   IconSchool,
   IconReplace,
   IconChecklist,
+  IconCalendar,
+  IconBuildingBank,
   IconClipboardList,
   IconClipboardText,
   IconClipboardCheck,
@@ -64,8 +66,6 @@ import {
   IconMessageReport,
   IconSeeding,
   IconBook,
-  IconCalendar,
-  IconCalendarTime,
   IconStack2,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
@@ -374,26 +374,26 @@ const navItems = computed(() => {
       label: 'Audits',
       icon: IconChecklist,
       permissions: ['audit_management:read'],
+      // Two roles, two surfaces (2026-08-24): the AUDITOR runs internal /
+      // supplier audits (tabbed working page); the AUDITEE tracks
+      // certification audits done TO the company. Standards + Readiness are
+      // shared references alongside.
       children: [
         {
-          label: 'Insights',
+          label: 'Auditor',
           permissions: ['audit_management:read'],
-          icon: IconChartBar,
+          icon: IconChecklist,
           to: getCompanyPath('/audits?tab=insights'),
         },
         {
-          label: 'Audits',
+          label: 'Auditee',
           permissions: ['audit_management:read'],
-          icon: IconChecklist,
-          to: getCompanyPath('/audits?tab=instances'),
+          icon: IconBuildingBank,
+          to: getCompanyPath('/auditee'),
         },
         {
-          label: 'Audit Plan',
-          permissions: ['audit_management:read'],
-          icon: IconCalendarTime,
-          to: getCompanyPath('/audits?tab=programs'),
-        },
-        {
+          // Shared view: internal + supplier + certification audits on one
+          // grid — belongs to neither role, so it sits beside them.
           label: 'Calendar',
           permissions: ['audit_management:read'],
           icon: IconCalendar,
@@ -404,6 +404,12 @@ const navItems = computed(() => {
           permissions: ['audit_management:read'],
           icon: IconBook,
           to: getCompanyPath('/audits?tab=standards'),
+        },
+        {
+          label: 'Audit Readiness',
+          permissions: ['audit_management:read'],
+          icon: IconShieldCheck,
+          to: getCompanyPath('/audits?tab=readiness'),
         },
       ],
     },
@@ -1026,13 +1032,13 @@ const quickCreateItems = computed(() => {
     <!-- Backdrop — only on small screens when the overlay sidebar is open. -->
     <div
       v-if="visible && !isDesktop"
-      class="tw:fixed tw:inset-0 tw:z-sticky tw:bg-black/40 tw:lg:hidden"
+      class="tw:fixed tw:inset-0 tw:z-sticky tw:bg-black/40 tw:xl:hidden"
       @click="closeMobile"
     />
     <Transition name="mainSidebar">
       <aside
         v-if="visible"
-        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-overlay tw:lg:static tw:lg:z-auto"
+        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-overlay tw:xl:static tw:xl:z-auto"
       >
         <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
           <!-- Brand — links home (dashboard) -->

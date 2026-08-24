@@ -15,6 +15,7 @@
  * omit `icon` rather than risk an unresolved import.
  */
 import {
+  IconBuildingBank,
   IconFileText,
   IconAlertCircle,
   IconShield,
@@ -80,6 +81,11 @@ export const ROUTE_META = {
     parent: '/change-requests',
   },
   '/audits': { title: 'Audits', icon: IconClipboardCheck, permission: 'audit_management:read' },
+  '/auditee': {
+    title: 'Auditee',
+    icon: IconBuildingBank,
+    permission: 'audit_management:read',
+  },
   '/records': { title: 'Records', icon: IconTable, permission: 'records:read' },
 
   // ── Operations ───────────────────────────────────────────────────

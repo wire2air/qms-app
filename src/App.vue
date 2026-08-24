@@ -17,8 +17,8 @@ providePageInfo(pageInfo)
 // hamburger. Full-canvas pages set showHeader:false (they render their own title
 // bar), which on a small screen would leave no way to reopen the drawer / switch
 // modules — so keep the header mounted under 1024px regardless. Matches the
-// breakpoint in useSidebar().
-const isDesktopViewport = useMediaQuery('(min-width: 1024px)')
+// breakpoint in useSidebar() (1280 — iPad landscape gets the overlay too).
+const isDesktopViewport = useMediaQuery('(min-width: 1280px)')
 
 // B7 — route-metadata: keep document.title in sync with the route (registry in
 // src/router/routeMeta.js). Unmatched routes fall back to the bare app name.

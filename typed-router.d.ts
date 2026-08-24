@@ -93,6 +93,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/auditee/': RouteRecordInfo<
+      '/auditee/',
+      '/auditee',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/auditee/[id]': RouteRecordInfo<
+      '/auditee/[id]',
+      '/auditee/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/audits/': RouteRecordInfo<
       '/audits/',
       '/audits',
@@ -849,6 +863,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/audit-logs.vue': {
       routes:
         | '/audit-logs'
+      views:
+        | never
+    }
+    'src/pages/auditee/index.vue': {
+      routes:
+        | '/auditee/'
+      views:
+        | never
+    }
+    'src/pages/auditee/[id].vue': {
+      routes:
+        | '/auditee/[id]'
       views:
         | never
     }

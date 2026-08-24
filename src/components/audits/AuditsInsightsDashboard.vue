@@ -29,16 +29,40 @@ const router = useRouter()
 
 // ── Source live queries (each runs once + flows into the widgets) ───
 
-const programs = useLiveQuery(async (db) => db.AuditProgram.where().exec(), {
+// Auditor insights cover the AUDITOR's work — internal + supplier audits.
+// Certification (EXTERNAL) audits and their findings belong to the Auditee
+// module and are excluded here, same as the auditor's Audits list.
+const programs = useLiveQuery(
+  async (db) => {
+    const rows = await db.AuditProgram.where().exec()
+    return rows.filter((p) => p.programTypeId !== 'EXTERNAL')
+  },
+  {
   models: ['AuditProgram'],
   initial: [],
 })
-const instances = useLiveQuery(async (db) => db.AuditInstance.where().exec(), {
+const instances = useLiveQuery(
+  async (db) => {
+    const rows = await db.AuditInstance.where().exec()
+    return rows.filter((a) => a.programTypeId !== 'EXTERNAL')
+  },
+  {
   models: ['AuditInstance'],
   initial: [],
 })
-const findings = useLiveQuery(async (db) => db.AuditFinding.where().exec(), {
-  models: ['AuditFinding'],
+const findings = useLiveQuery(
+  async (db) => {
+    const [rows, audits] = await Promise.all([
+      db.AuditFinding.where().exec(),
+      db.AuditInstance.where().exec(),
+    ])
+    const external = new Set(
+      audits.filter((a) => a.programTypeId === 'EXTERNAL').map((a) => a.id),
+    )
+    return rows.filter((f) => !external.has(f.auditInstanceId))
+  },
+  {
+  models: ['AuditFinding', 'AuditInstance'],
   initial: [],
 })
 const findingCategories = useLiveQuery(

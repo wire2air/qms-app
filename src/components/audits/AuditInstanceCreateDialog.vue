@@ -22,9 +22,10 @@ const emit = defineEmits(['update:modelValue', 'created'])
 const router = useRouter()
 const toast = useToast()
 
+// EXTERNAL (certification) audits live in the Auditee module — this dialog is
+// the AUDITOR's create path (internal + supplier audits only).
 const PROGRAM_TYPES = [
   { id: 'INTERNAL', name: 'Internal' },
-  { id: 'EXTERNAL', name: 'External / Certification' },
   { id: 'SUPPLIER', name: 'Supplier' },
 ]
 
@@ -67,6 +68,7 @@ watch(
 )
 
 const supplierRequired = computed(() => form.value.programTypeId === 'SUPPLIER')
+
 
 // Switching audit type or supplier invalidates a previously-picked auditee
 // (internal ↔ supplier user, or a different supplier's user) — clear it.
@@ -181,14 +183,11 @@ async function onValidSubmit() {
           </BaseField>
         </div>
 
-        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-          <BaseField label="Lead Auditor">
-            <UserSelectMenu v-model="form.leadAuditorUserId" />
-          </BaseField>
-          <BaseField label="Team">
-            <UserSelectMenu v-model="form.teamUserIds" :multiple="true" />
-          </BaseField>
-        </div>
+        <!-- WHERE first, WHO second (requested order 2026-08-24): Site,
+             Department, then Lead Auditor and Team. -->
+        <BaseField label="Site">
+          <SiteSelectMenu v-model="form.siteId" />
+        </BaseField>
 
         <!-- Supplier + Auditee. For a supplier audit the auditee is one of the
              SUPPLIER's users (supplier selected first); for internal audits it's
@@ -236,29 +235,25 @@ async function onValidSubmit() {
           </BaseField>
         </div>
 
-        <BaseField label="Site">
-          <SiteSelectMenu v-model="form.siteId" />
-        </BaseField>
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+          <BaseField label="Lead Auditor">
+            <UserSelectMenu v-model="form.leadAuditorUserId" />
+          </BaseField>
+          <BaseField label="Team">
+            <UserSelectMenu v-model="form.teamUserIds" :multiple="true" />
+          </BaseField>
+        </div>
 
+        <!-- Rich text (requested 2026-08-24): scope and objectives carry
+             structure — clause lists, exclusions, emphasis. -->
         <BaseField label="Scope">
-          <template #default="field">
-            <BaseTextarea
-              v-bind="field"
-              v-model="form.scope"
-              :rows="2"
-              placeholder="What's in scope?"
-            />
-          </template>
+          <BaseRichTextEditor v-model="form.scope" placeholder="What's in scope?" />
         </BaseField>
         <BaseField label="Objectives">
-          <template #default="field">
-            <BaseTextarea
-              v-bind="field"
-              v-model="form.objectives"
-              :rows="2"
-              placeholder="What does this audit need to produce?"
-            />
-          </template>
+          <BaseRichTextEditor
+            v-model="form.objectives"
+            placeholder="What does this audit need to produce?"
+          />
         </BaseField>
 
         <!-- Admin-defined custom fields. Self-hides when none configured. -->

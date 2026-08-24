@@ -329,11 +329,14 @@ async function onSubmit() {
  * Reviewers are not collected: nobody is being asked to review anything yet.
  */
 async function saveAsDraft() {
-  if ((await customFieldsRef.value?.validate()) === false) return
+  // A draft is a NOTE, not a submission: no client validation beyond a title
+  // (2026-08-24, deliberately loosened from full-form validation). Required
+  // custom fields are enforced at OPEN, like everything else — a partial save
+  // must never be blocked by the fields it exists to defer.
   savingDraft.value = true
   submitError.value = ''
   try {
-    const response = await post('/v1/services/nonconformances', { ...form.value })
+    const response = await post('/v1/services/nonconformances/draft', { ...form.value })
     // Best-effort, like the other create paths: the NC exists, and losing the
     // draft over a custom-field write would be the worse outcome.
     try {
@@ -563,7 +566,8 @@ async function handleReviewersConfirmed(reviewers) {
               variant="outline"
               size="md"
               :isLoading="savingDraft"
-              :disabled="saving || savingDraft"
+              :disabled="saving || savingDraft || !form.title?.trim()"
+              :title="form.title?.trim() ? '' : 'Give it a title first — everything else can wait'"
               @click="saveAsDraft"
             >
               Save as Draft

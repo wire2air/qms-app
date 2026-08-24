@@ -55,6 +55,11 @@ export class AuditInstance extends BaseModel {
   @Property({ type: DateTime }) releasedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) releasedBy = ''
   @Property({ type: String }) scope = ''
+  /** EXTERNAL audits: the auditing body's contact (firm + primary auditor). */
+  @Property({ type: String }) externalAuditFirm = /** @type {String} */ (null)
+  @Property({ type: String }) externalAuditorName = /** @type {String} */ (null)
+  @Property({ type: String }) externalAuditorEmail = /** @type {String} */ (null)
+  @Property({ type: String }) externalAuditorPhone = /** @type {String} */ (null)
   @Property({ type: String }) objectives = ''
   @Property({ type: String }) workflowInstanceId = ''
   @Property({ type: String }) createdBy = ''

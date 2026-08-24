@@ -150,6 +150,10 @@ const versionLabel = computed(() => {
         />
       </div>
     </div>
+
+    <!-- Attested review decisions, newest first — the plural answer to
+         "show me the review decisions for this SOP". Self-hides when none. -->
+    <DocumentReviewHistory :documentId="document.id" class="tw:mt-4" />
   </div>
 </template>
 

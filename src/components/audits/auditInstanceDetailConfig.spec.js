@@ -31,12 +31,18 @@ describe('buildAuditInstanceBanners', () => {
 })
 
 describe('buildAuditInstanceTabs', () => {
-  it('returns the four panel tabs with counts', () => {
-    const t = buildAuditInstanceTabs({ clauseCount: 13, findingsTotal: 2, ofiCount: 1 })
-    expect(t.map((x) => x.value)).toEqual(['info', 'requirements', 'findings', 'ofi'])
+  it('returns the five panel tabs with counts', () => {
+    const t = buildAuditInstanceTabs({
+      clauseCount: 13,
+      findingsTotal: 2,
+      ofiCount: 1,
+      reportCount: 3,
+    })
+    expect(t.map((x) => x.value)).toEqual(['info', 'requirements', 'findings', 'ofi', 'reports'])
     expect(t.find((x) => x.value === 'requirements').count).toBe(13)
     expect(t.find((x) => x.value === 'findings').count).toBe(2)
     expect(t.find((x) => x.value === 'ofi').count).toBe(1)
+    expect(t.find((x) => x.value === 'reports').count).toBe(3)
   })
 
   it('all tabs are panel-mode and keep-alive (lazy:false)', () => {

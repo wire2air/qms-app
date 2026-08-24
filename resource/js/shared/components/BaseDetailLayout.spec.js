@@ -13,14 +13,38 @@ function mountLayout(options = {}) {
   })
 }
 
+/**
+ * Happy-dom's default viewport is 1024px — a COMPACT viewport since the
+ * iPad-first pass (2026-08-24), where the rail defaults collapsed. These
+ * specs assert desktop behavior, so present a desktop viewport: matchMedia
+ * matches only min-width queries.
+ */
+function mockDesktopViewport() {
+  window.matchMedia = (query) => ({
+    matches: query.includes('min-width'),
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })
+}
+
 describe('BaseDetailLayout', () => {
   let title, actions
   beforeEach(() => {
+    mockDesktopViewport()
     title = Object.assign(document.createElement('div'), { id: 'main-header-title' })
     actions = Object.assign(document.createElement('div'), { id: 'main-header-actions' })
     document.body.append(title, actions)
   })
-  afterEach(() => { title.remove(); actions.remove() })
+  afterEach(() => {
+    title.remove()
+    actions.remove()
+    delete window.matchMedia
+  })
 
   it('shows the layout skeleton while loading and hides the body', () => {
     const w = mountLayout({ props: { loading: true }, slots: { default: '<div data-test="body" />' } })

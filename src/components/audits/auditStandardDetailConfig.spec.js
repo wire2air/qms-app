@@ -71,7 +71,39 @@ describe('buildAuditStandardActions', () => {
     spawnNewDraft() {},
     openAudit() {},
     openDelete() {},
+    openArchive() {},
+    restoreStandard() {},
   }
+
+  const visibleIds = (gates) =>
+    buildAuditStandardActions(gates, handlers)
+      .filter((a) => a.visible)
+      .map((a) => a.id)
+
+  it('effective standard: archivable, never deletable (user rule 2026-08-24)', () => {
+    const ids = visibleIds({ canDelete: true, hasStandard: true, hasEffectiveVersion: true })
+    expect(ids).toContain('archive')
+    expect(ids).not.toContain('delete')
+    expect(ids).not.toContain('restore')
+  })
+
+  it('never-effective draft: discardable, not archivable', () => {
+    const ids = visibleIds({ canDelete: true, hasStandard: true, hasEffectiveVersion: false })
+    expect(ids).toContain('delete')
+    expect(ids).not.toContain('archive')
+  })
+
+  it('archived standard: restore only', () => {
+    const ids = visibleIds({
+      canDelete: true,
+      hasStandard: true,
+      hasEffectiveVersion: true,
+      isArchived: true,
+    })
+    expect(ids).toContain('restore')
+    expect(ids).not.toContain('archive')
+    expect(ids).not.toContain('delete')
+  })
 
   it('shows duplicate when canCreate and hasStandard', () => {
     const a = buildAuditStandardActions(

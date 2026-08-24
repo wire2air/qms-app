@@ -23,6 +23,7 @@ import {
   IconCalendar,
   IconChecklist,
   IconChartBar,
+  IconShieldCheck,
 } from '@tabler/icons-vue'
 
 const SECTIONS = {
@@ -51,9 +52,15 @@ const SECTIONS = {
     icon: IconBook,
     subtitle: 'The clause libraries audits are conducted against.',
   },
+  readiness: {
+    label: 'Audit Readiness',
+    icon: IconShieldCheck,
+    subtitle: 'Open gaps an auditor would find — close them before the audit does.',
+  },
 }
 
 const route = useRoute()
+const router = useRouter()
 
 // Unknown or absent ?tab lands on Insights rather than a blank page — the
 // sidebar always supplies one, but a hand-edited URL might not.
@@ -61,11 +68,47 @@ const activeTab = computed(() =>
   Object.hasOwn(SECTIONS, route.query.tab) ? route.query.tab : 'insights',
 )
 const section = computed(() => SECTIONS[activeTab.value])
+
+// The sidebar now shows ONE "Auditor" entry (the Auditee module is its
+// sibling), so the auditor working sections regained their tab strip
+// (2026-08-24). Calendar is NOT one of them — it shows every audit,
+// internal, supplier and certification alike, so it has its own sidebar
+// entry beside Auditee. Standards + Readiness likewise render without the
+// strip.
+const AUDITOR_TAB_IDS = ['insights', 'instances', 'programs']
+const auditorTabs = AUDITOR_TAB_IDS.map((id) => ({
+  value: id,
+  label: SECTIONS[id].label,
+  icon: SECTIONS[id].icon,
+}))
+const showAuditorTabs = computed(() => AUDITOR_TAB_IDS.includes(activeTab.value))
+const tabModel = computed({
+  get: () => activeTab.value,
+  set: (tab) => router.push({ query: { ...route.query, tab } }),
+})
 </script>
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="section.icon" :title="section.label" :subtitle="section.subtitle" />
+    <PageHeader
+      :icon="section.icon"
+      :title="showAuditorTabs ? 'Auditor' : section.label"
+      :subtitle="section.subtitle"
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          {{ showAuditorTabs ? 'Auditor' : section.label }}
+          <HelpButton v-if="showAuditorTabs" slug="KB/quality/audits-auditor" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
+
+    <BaseTabs
+      v-if="showAuditorTabs"
+      v-model="tabModel"
+      :tabs="auditorTabs"
+      ariaLabel="Auditor sections"
+    />
 
     <!-- One section. Which one is a sidebar decision, not a second control
          repeated on every page. -->
@@ -74,5 +117,6 @@ const section = computed(() => SECTIONS[activeTab.value])
     <AuditProgramsHome v-else-if="activeTab === 'programs'" />
     <AuditScheduleCalendar v-else-if="activeTab === 'calendar'" />
     <AuditStandardsHome v-else-if="activeTab === 'standards'" />
+    <AuditReadinessDashboard v-else-if="activeTab === 'readiness'" />
   </BasePage>
 </template>

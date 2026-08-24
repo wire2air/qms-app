@@ -3,6 +3,7 @@ import {
   IconClipboardList,
   IconBolt,
   IconBulb,
+  IconFileTypePdf,
   IconPlayerPlay,
   IconSend,
   IconBan,
@@ -49,7 +50,13 @@ export function buildAuditInstanceBanners(auditInstance) {
  *  the auditor releases the audit (gates.supplierTabsLocked).
  */
 export function buildAuditInstanceTabs(gates = {}) {
-  const { clauseCount = 0, findingsTotal = 0, ofiCount = 0, supplierTabsLocked = false } = gates
+  const {
+    clauseCount = 0,
+    findingsTotal = 0,
+    ofiCount = 0,
+    reportCount = 0,
+    supplierTabsLocked = false,
+  } = gates
   const all = [
     { value: 'info', label: 'Information', icon: IconClipboardCheck, mode: 'panel', lazy: false },
     {
@@ -69,6 +76,14 @@ export function buildAuditInstanceTabs(gates = {}) {
       lazy: false,
     },
     { value: 'ofi', label: 'OFI', icon: IconBulb, count: ofiCount, mode: 'panel', lazy: false },
+    {
+      value: 'reports',
+      label: 'Reports',
+      icon: IconFileTypePdf,
+      count: reportCount,
+      mode: 'panel',
+      lazy: false,
+    },
   ]
   return supplierTabsLocked ? all.filter((t) => t.value === 'info') : all
 }

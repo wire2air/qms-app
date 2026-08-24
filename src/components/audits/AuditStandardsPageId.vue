@@ -48,6 +48,14 @@ const loading = computed(() => standard.value === undefined)
 
 const canUpdate = computed(() => isAllowed(['audit_standards:update']))
 const canDelete = computed(() => isAllowed(['audit_standards:delete']))
+// A standard that has (or ever had) an EFFECTIVE version is archivable, never
+// deletable; only a never-effective draft can be discarded.
+const hasEffectiveVersion = computed(
+  () =>
+    !!standard.value?.currentEffectiveVersionId ||
+    (versions.value || []).some((v) => ['EFFECTIVE', 'SUPERSEDED', 'ARCHIVED'].includes(v.statusId)),
+)
+const isArchived = computed(() => standard.value?.statusId === 'ARCHIVED')
 const canCreate = computed(() => isAllowed(['audit_standards:create']))
 const showCloneDialog = ref(false)
 const isOwner = computed(() => !!currentSession.value?.isOwner)
@@ -153,14 +161,45 @@ async function handleDelete() {
   if (!standard.value?.id) return
   deleting.value = true
   try {
-    await standard.value.delete()
-    toast.success('Standard archived')
+    // REST, not instance.delete(): the server refuses to delete a standard
+    // with an effective version or referencing audits — the GraphQL soft
+    // delete would sail past those guards.
+    await del(`/v1/services/auditStandards/${standard.value.id}`)
+    toast.success('Draft standard discarded')
     showDeleteDialog.value = false
     router.push(getCompanyPath('/audits?tab=standards'))
+  } catch (e) {
+    toast.error(e.message || 'Failed to discard standard')
+  } finally {
+    deleting.value = false
+  }
+}
+
+const showArchiveDialog = ref(false)
+
+async function handleArchive() {
+  if (!standard.value) return
+  deleting.value = true
+  try {
+    standard.value.statusId = 'ARCHIVED'
+    await standard.value.save()
+    toast.success('Standard archived — existing audits stay valid.')
+    showArchiveDialog.value = false
   } catch (e) {
     toast.error(e.message || 'Failed to archive standard')
   } finally {
     deleting.value = false
+  }
+}
+
+async function handleRestore() {
+  if (!standard.value) return
+  try {
+    standard.value.statusId = 'ACTIVE'
+    await standard.value.save()
+    toast.success('Standard restored')
+  } catch (e) {
+    toast.error(e.message || 'Failed to restore standard')
   }
 }
 
@@ -330,6 +369,8 @@ const auditStandardActions = computed(() =>
       canSpawnNewDraft: canSpawnNewDraft.value,
       hasStandard: !!standard.value,
       hasEditableVersion: !!editableVersion.value,
+      hasEffectiveVersion: hasEffectiveVersion.value,
+      isArchived: isArchived.value,
       spawningDraft: spawningDraft.value,
       deleting: deleting.value,
     },
@@ -347,6 +388,10 @@ const auditStandardActions = computed(() =>
       openDelete() {
         showDeleteDialog.value = true
       },
+      openArchive() {
+        showArchiveDialog.value = true
+      },
+      restoreStandard: handleRestore,
     },
   ),
 )
@@ -810,24 +855,34 @@ const auditStandardDetailConfig = computed(() =>
     </div>
   </BaseDialog>
 
-  <BaseDialog v-model="showDeleteDialog" title="Archive Standard" maxWidth="md">
+  <BaseDialog v-model="showDeleteDialog" title="Discard Draft Standard" maxWidth="md">
     <p class="tw:text-sm tw:text-on-main tw:mb-3">
-      Archive <strong>{{ standard?.name }}</strong
-      >? Existing audit instances referencing this standard keep their reference and snapshot.
-      Active audits filed against it stay valid; the standard just won't appear in pickers for new
-      audits.
-    </p>
-    <p
-      v-if="!canDelete"
-      class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2 tw:mb-3"
-    >
-      You don't have the auditStandards:delete permission. Soft-delete only.
+      Discard <strong>{{ standard?.name }}</strong
+      >? This standard never went effective — discarding removes it and its draft version(s). This
+      cannot be undone.
     </p>
     <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
       <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
         Cancel
       </BaseButton>
       <BaseButton variant="danger" :disabled="deleting" @click="handleDelete">
+        {{ deleting ? 'Discarding…' : 'Discard' }}
+      </BaseButton>
+    </div>
+  </BaseDialog>
+
+  <BaseDialog v-model="showArchiveDialog" title="Archive Standard" maxWidth="md">
+    <p class="tw:text-sm tw:text-on-main tw:mb-3">
+      Archive <strong>{{ standard?.name }}</strong
+      >? Existing audit instances referencing this standard keep their reference and snapshot.
+      Active audits filed against it stay valid; the standard just won't appear in pickers for new
+      audits. You can restore it later.
+    </p>
+    <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+      <BaseButton variant="outline" :disabled="deleting" @click="showArchiveDialog = false">
+        Cancel
+      </BaseButton>
+      <BaseButton variant="danger" :disabled="deleting" @click="handleArchive">
         {{ deleting ? 'Archiving…' : 'Archive' }}
       </BaseButton>
     </div>

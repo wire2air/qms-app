@@ -55,6 +55,15 @@ const effSections = computed(() => cfg.value?.sections ?? [])
 const visibleSections = computed(() => effSections.value.filter((s) => s.visible !== false))
 
 const slots = useSlots()
+// The configured page width, applied INSIDE the scroll container.
+const CAP = {
+  narrow: 'tw:max-w-3xl',
+  standard: 'tw:max-w-7xl',
+  wide: 'tw:max-w-[96rem]',
+  full: 'tw:max-w-none',
+}
+const capClass = computed(() => CAP[effWidth.value] || CAP.standard)
+
 const scrollEl = ref(null)
 const { state, scrolled, isMobile, variantDescriptor } = useDetailLayout({
   loading: () => props.loading,
@@ -88,9 +97,22 @@ const twoCol = computed(() => vd.value.columns === 2 && showRailFinal.value)
 // 2026-07-24). Persisted globally across detail pages; ignored on mobile
 // (the rail stacks under the content there) and in linearized/print variants.
 const railCollapsed = useLocalStorage('qms:detail-rail-collapsed', false)
-const railCollapsedEff = computed(
-  () => railCollapsed.value && !isMobile.value && !vd.value.linearized,
-)
+// Compact viewports (iPad landscape, small laptops — 1024-1279px, where the
+// rail renders but the center column is starved): default the rail COLLAPSED,
+// overridable per session via the expand strip. ≥1280 follows the persisted
+// preference as before; <1024 the rail stacks under the content (isMobile).
+const isCompactViewport = useMediaQuery('(max-width: 1279px)')
+const railOverride = ref(null) // null = follow default for the viewport
+const railCollapsedEff = computed(() => {
+  const wanted =
+    railOverride.value ?? (isCompactViewport.value ? true : railCollapsed.value)
+  return wanted && !isMobile.value && !vd.value.linearized
+})
+function setRailCollapsed(v) {
+  railOverride.value = v
+  // Persist only on desktop — an iPad expand is situational, not a preference.
+  if (!isCompactViewport.value) railCollapsed.value = v
+}
 const aiEnabled = computed(() => cfg.value?.ai?.enabled === true)
 const versionEnabled = computed(() => cfg.value?.version?.enabled === true)
 
@@ -126,7 +148,12 @@ const slotState = computed(() => ({
 </script>
 
 <template>
-  <BasePage :width="effWidth" :fullHeight="true">
+  <!-- width="full" + flush ON PURPOSE (2026-08-24): the scroll container must
+       span the whole main area so the wheel works over the side gutters on
+       wide screens — the configured width cap is applied INSIDE the scroller
+       (capClass below). With the cap outside, gutters sat in a no-scroll dead
+       zone on every detail page. -->
+  <BasePage width="full" :fullHeight="true" :padded="false" :flush="true">
     <PageHeader
       :icon="effBreadcrumbs && vd.showBreadcrumbs ? null : effIcon"
       :title="effBreadcrumbs && vd.showBreadcrumbs ? '' : effTitle"
@@ -137,7 +164,7 @@ const slotState = computed(() => ({
     </PageHeader>
 
     <!-- Loading skeleton mirrors the layout -->
-    <div v-if="state === 'loading'" data-test="detail-skeleton" class="tw:flex tw:flex-1 tw:min-h-0 tw:flex-col tw:gap-4 tw:py-4">
+    <div v-if="state === 'loading'" data-test="detail-skeleton" class="tw:flex tw:flex-1 tw:min-h-0 tw:flex-col tw:gap-4 tw:py-6 tw:px-4 tw:sm:px-6 tw:lg:px-8 tw:mx-auto tw:w-full" :class="capClass">
       <slot name="loading">
         <div class="tw:flex tw:items-center tw:gap-3">
           <BaseSkeleton variant="rect" width="40px" height="40px" rounded="tw:rounded-lg" />
@@ -151,13 +178,13 @@ const slotState = computed(() => ({
       </slot>
     </div>
 
-    <div v-else-if="state === 'notFound'" class="tw:flex tw:flex-1 tw:items-center tw:justify-center">
+    <div v-else-if="state === 'notFound'" class="tw:flex tw:flex-1 tw:items-center tw:justify-center tw:py-6">
       <slot name="notFound">
         <BaseStatusState variant="notfound" :icon="IconFileOff" :title="notFoundTitle" :description="notFoundDescription || null" />
       </slot>
     </div>
 
-    <div v-else-if="state === 'error'" class="tw:flex tw:flex-1 tw:items-center tw:justify-center">
+    <div v-else-if="state === 'error'" class="tw:flex tw:flex-1 tw:items-center tw:justify-center tw:py-6">
       <slot name="error">
         <BaseStatusState variant="error" :icon="IconAlertTriangle" :title="errorTitle" :description="errorDescription || null" />
       </slot>
@@ -167,6 +194,10 @@ const slotState = computed(() => ({
     <!-- --detail-header-offset is the single sticky-offset source (spec §5.1); nav top and section scroll-margin derive from it.
          A fully dynamic measured value is a deferred refinement for the SP-6 page integration. -->
     <div v-else ref="scrollEl" class="tw:flex tw:flex-1 tw:min-h-0 tw:flex-col tw:overflow-auto" style="--detail-header-offset: 4rem">
+      <div
+        class="tw:mx-auto tw:flex tw:w-full tw:flex-col tw:px-4 tw:sm:px-6 tw:lg:px-8 tw:pt-6 tw:pb-8"
+        :class="capClass"
+      >
       <div :class="vd.stickyHeader ? 'tw:sticky tw:top-0 tw:z-raised tw:bg-main' : 'tw:bg-main'">
         <DetailHeader
           :title="effTitle"
@@ -230,7 +261,7 @@ const slotState = computed(() => ({
             class="tw:flex tw:items-center tw:justify-center tw:w-9 tw:h-9 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:text-secondary tw:hover:text-primary tw:hover:border-primary/40 tw:cursor-pointer tw:transition"
             title="Show side panel"
             aria-label="Show side panel"
-            @click="railCollapsed = false"
+            @click="setRailCollapsed(false)"
           >
             <IconLayoutSidebarRightExpand :size="18" />
           </button>
@@ -248,7 +279,7 @@ const slotState = computed(() => ({
               class="tw:flex tw:items-center tw:gap-1 tw:text-micro tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
               title="Hide side panel"
               aria-label="Hide side panel"
-              @click="railCollapsed = true"
+              @click="setRailCollapsed(true)"
             >
               <IconLayoutSidebarRightCollapse :size="15" /> Hide
             </button>
@@ -265,6 +296,7 @@ const slotState = computed(() => ({
           </template>
         </DetailRail>
         </div>
+      </div>
       </div>
     </div>
   </BasePage>
