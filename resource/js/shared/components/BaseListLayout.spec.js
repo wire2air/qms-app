@@ -20,7 +20,10 @@ describe('BaseListLayout', () => {
   })
 
   it('shows the skeleton while loading and hides the body', () => {
-    const w = mountLayout({ props: { state: 'loading' }, slots: { default: '<div data-test="body" />' } })
+    const w = mountLayout({
+      props: { state: 'loading' },
+      slots: { default: '<div data-test="body" />' },
+    })
     expect(w.find('[data-test="body"]').exists()).toBe(false)
     expect(w.find('[data-test="list-skeleton"]').exists()).toBe(true)
   })
@@ -34,18 +37,49 @@ describe('BaseListLayout', () => {
     expect(w.text()).toContain('No documents yet')
   })
 
+  it('keeps the content region mounted when empty and contentOwnsEmpty is set', () => {
+    // The table hosts its own filter controls (search, quick-view tabs), so
+    // swapping it out on an empty result would hide the control that emptied it.
+    const w = mountLayout({
+      props: { state: 'empty', contentOwnsEmpty: true, emptyTitle: 'No documents yet' },
+      slots: { default: '<div data-test="body" />' },
+    })
+    expect(w.find('[data-test="body"]').exists()).toBe(true)
+    expect(w.text()).not.toContain('No documents yet')
+  })
+
+  it('still swaps to the loading and error states when contentOwnsEmpty is set', () => {
+    const loadingW = mountLayout({
+      props: { state: 'loading', contentOwnsEmpty: true },
+      slots: { default: '<div data-test="body" />' },
+    })
+    expect(loadingW.find('[data-test="body"]').exists()).toBe(false)
+    const errorW = mountLayout({
+      props: { state: 'error', contentOwnsEmpty: true, errorTitle: 'Load failed' },
+      slots: { default: '<div data-test="body" />' },
+    })
+    expect(errorW.find('[data-test="body"]').exists()).toBe(false)
+    expect(errorW.text()).toContain('Load failed')
+  })
+
   it('shows an error state distinct from empty', () => {
     const w = mountLayout({ props: { state: 'error', errorTitle: 'Load failed' } })
     expect(w.text()).toContain('Load failed')
   })
 
   it('renders the default slot when ready', () => {
-    const w = mountLayout({ props: { state: 'ready' }, slots: { default: '<div data-test="body">rows</div>' } })
+    const w = mountLayout({
+      props: { state: 'ready' },
+      slots: { default: '<div data-test="body">rows</div>' },
+    })
     expect(w.find('[data-test="body"]').exists()).toBe(true)
   })
 
   it('resolves state from boolean flags when no state prop is given', () => {
-    const w = mountLayout({ props: { error: true }, slots: { default: '<div data-test="body" />' } })
+    const w = mountLayout({
+      props: { error: true },
+      slots: { default: '<div data-test="body" />' },
+    })
     expect(w.find('[data-test="body"]').exists()).toBe(false)
     expect(w.find('.tw\\:flex-1').exists()).toBe(true) // error region rendered
   })
@@ -62,7 +96,10 @@ describe('BaseListLayout', () => {
   })
 
   it('hides the bulk-action bar when nothing is selected', () => {
-    const w = mountLayout({ props: { state: 'ready', selectedCount: 0 }, slots: { default: '<div/>' } })
+    const w = mountLayout({
+      props: { state: 'ready', selectedCount: 0 },
+      slots: { default: '<div/>' },
+    })
     expect(w.find('[role="toolbar"]').exists()).toBe(false)
   })
 

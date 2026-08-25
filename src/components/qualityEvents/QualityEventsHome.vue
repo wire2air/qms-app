@@ -5,7 +5,6 @@ import {
   IconAlertCircle,
   IconArrowUpRight,
   IconCircleCheck,
-  IconClipboardList,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -160,10 +159,7 @@ function openCreateDialog() {
     title="Events & Observations"
     subtitle="Log quality observations, concerns, and near-misses — escalate only when justified."
     :state="list.state.value"
-    :emptyIcon="IconClipboardList"
-    :emptyTitle="
-      list.hasActiveFilters.value ? 'No events match your filters' : 'No events logged yet'
-    "
+    contentOwnsEmpty
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-2">
@@ -205,13 +201,15 @@ function openCreateDialog() {
     </template>
 
     <template #filters>
-      <QualityEventsFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <QualityEventsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <QualityEventsTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
+      :emptyLabel="
+        list.hasActiveFilters.value ? 'No events match your filters' : 'No events logged yet'
+      "
       :rows="events"
       :escalatedIds="escalatedIds"
       :canDelete="canDelete"

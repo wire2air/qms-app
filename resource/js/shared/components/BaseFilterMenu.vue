@@ -23,9 +23,12 @@ import {
   countActiveGroups,
 } from '../composables/filterMenuHelpers.js'
 
-defineProps({
+const props = defineProps({
   items: { type: Array, default: () => [] },
   label: { type: String, default: 'Filter' },
+  // Compact, borderless icon trigger for use inside a table toolbar (matches the
+  // sibling filter/export icon buttons). `label` becomes the tooltip + a11y name.
+  iconOnly: { type: Boolean, default: false },
 })
 const model = defineModel({ type: Object, default: () => ({}) })
 
@@ -45,6 +48,24 @@ provide('filterMenuCtx', {
   requestClose: () => {
     open.value = false
   },
+})
+
+// Two trigger skins: a standalone bordered button, or the borderless icon button
+// used inside a table toolbar.
+const triggerClass = computed(() => {
+  const active = activeCount.value || open.value
+  if (props.iconOnly) {
+    return [
+      'tw:flex tw:items-center tw:gap-1 tw:rounded-md tw:px-2 tw:py-1.5 tw:text-xs tw:font-medium tw:transition-colors tw:hover:bg-main-hover tw:hover:text-on-main',
+      active ? 'tw:text-primary' : 'tw:text-secondary',
+    ]
+  }
+  return [
+    'tw:inline-flex tw:min-h-9 tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:transition-colors',
+    active
+      ? 'tw:border-primary/40 tw:bg-main-selected tw:text-primary'
+      : 'tw:border-divider tw:bg-card tw:text-on-main tw:hover:bg-main-hover',
+  ]
 })
 
 function toggleOpen() {
@@ -69,19 +90,21 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
       type="button"
       aria-haspopup="menu"
       :aria-expanded="open"
-      class="tw:inline-flex tw:min-h-9 tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:transition-colors"
-      :class="
-        activeCount || open
-          ? 'tw:border-primary/40 tw:bg-main-selected tw:text-primary'
-          : 'tw:border-divider tw:bg-card tw:text-on-main tw:hover:bg-main-hover'
-      "
+      :title="iconOnly ? label : undefined"
+      :class="triggerClass"
       @click="toggleOpen"
     >
       <IconFilter :size="16" />
-      {{ label }}
+      <!-- Icon-only keeps the label in the accessible tree (screen readers, and
+           name-based test locators) rather than swapping it for an aria-label. -->
+      <span :class="iconOnly ? 'tw:sr-only' : ''">{{ label }}</span>
       <span
         v-if="activeCount"
-        class="tw:rounded-full tw:bg-primary tw:px-1.5 tw:text-micro tw:font-bold tw:text-on-primary tw:tabular-nums"
+        :class="
+          iconOnly
+            ? 'tw:rounded tw:bg-primary/15 tw:px-1 tw:text-micro tw:font-semibold tw:text-primary tw:tabular-nums'
+            : 'tw:rounded-full tw:bg-primary tw:px-1.5 tw:text-micro tw:font-bold tw:text-on-primary tw:tabular-nums'
+        "
       >
         {{ activeCount }}
       </span>
