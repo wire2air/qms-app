@@ -140,11 +140,7 @@ function onCreate() {
     title="Change Control"
     subtitle="Plan, approve, implement, and verify the effectiveness of controlled changes."
     :state="list.state.value"
-    :emptyTitle="
-      list.hasActiveFilters.value
-        ? 'No change requests match your filters'
-        : 'No change requests yet'
-    "
+    contentOwnsEmpty
   >
     <template #actions>
       <ListPrintButton
@@ -163,13 +159,17 @@ function onCreate() {
     </template>
 
     <template #filters>
-      <ChangeRequestsFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <ChangeRequestsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <ChangeRequestsTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
+      :emptyLabel="
+        list.hasActiveFilters.value
+          ? 'No change requests match your filters'
+          : 'No change requests yet'
+      "
       :rows="changeRequests"
       :canUpdate="canUpdate"
       @edit="(row) => router.push(getCompanyPath(`/change-requests/${row.id}`))"

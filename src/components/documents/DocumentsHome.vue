@@ -153,10 +153,7 @@ function navigateToDetail(row) {
     :icon="IconFileDescription"
     subtitle="Manage controlled documents, versions, and approvals."
     :state="list.state.value"
-    :emptyIcon="IconFileDescription"
-    :emptyTitle="
-      list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'
-    "
+    contentOwnsEmpty
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-1.5">
@@ -185,16 +182,18 @@ function navigateToDetail(row) {
 
     <!-- Filter Toolbar -->
     <template #filters>
-      <DocumentsFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <DocumentsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <!-- Documents Table -->
     <DocumentsTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
       :rows="documents"
       :loading="allDocuments === undefined"
+      :emptyLabel="
+        list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'
+      "
       @view="navigateToDetail"
     />
   </BaseListLayout>

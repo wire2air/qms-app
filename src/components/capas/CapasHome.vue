@@ -174,7 +174,7 @@ async function onDeleteCapa(row) {
     title="CAPAs"
     subtitle="Track corrective and preventive actions through to verification."
     :state="list.state.value"
-    :emptyTitle="list.hasActiveFilters.value ? 'No CAPAs match your filters' : 'No CAPAs yet'"
+    contentOwnsEmpty
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-1.5">
@@ -214,13 +214,13 @@ async function onDeleteCapa(row) {
         </button>
       </div>
 
-      <CapasFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <CapasFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <CapasTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
+      :emptyLabel="list.hasActiveFilters.value ? 'No CAPAs match your filters' : 'No CAPAs yet'"
       :rows="capas"
       :canUpdate="canUpdate"
       :canDelete="canDelete"

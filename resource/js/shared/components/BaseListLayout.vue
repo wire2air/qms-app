@@ -22,7 +22,9 @@
  * `state` is the single source of truth (pass `list.state.value`); if omitted it
  * is resolved from the `loading`/`error`/`empty` boolean props. Stats / filters /
  * quick-filters stay visible across every state so users can adjust the filters
- * that produced an empty result. Icons are NOT auto-imported — pass the component.
+ * that produced an empty result — for the same reason, set `contentOwnsEmpty`
+ * when the table itself hosts filter controls, so an empty result renders inside
+ * the table instead of replacing it. Icons are NOT auto-imported — pass the component.
  */
 import { IconSearchOff, IconAlertTriangle } from '@tabler/icons-vue'
 import { resolveListState } from '../composables/listLayoutHelpers.js'
@@ -57,6 +59,13 @@ const props = defineProps({
   empty: { type: Boolean, default: false },
   // Selection-aware bulk bar appears when > 0.
   selectedCount: { type: Number, default: 0 },
+  // The content region renders its own empty presentation (e.g. DataTable's
+  // in-card empty / no-results state), so keep it mounted instead of swapping in
+  // the page-level empty panel. Required whenever controls live INSIDE the table
+  // (search, column filters, quick-view tabs) — swapping the table out takes
+  // those controls with it, and the user can't undo the filter that emptied the
+  // list. `loading`/`error` still swap as usual.
+  contentOwnsEmpty: { type: Boolean, default: false },
   // State copy (override entirely with the matching slot).
   emptyTitle: { type: String, default: 'No results found' },
   emptyDescription: { type: String, default: '' },
@@ -118,7 +127,13 @@ const rootProps = computed(() =>
       class="tw:flex tw:flex-col tw:gap-3 tw:py-2"
     >
       <slot name="loading">
-        <BaseSkeleton v-for="n in 6" :key="n" variant="rect" height="44px" rounded="tw:rounded-lg" />
+        <BaseSkeleton
+          v-for="n in 6"
+          :key="n"
+          variant="rect"
+          height="44px"
+          rounded="tw:rounded-lg"
+        />
       </slot>
     </div>
 
@@ -139,7 +154,7 @@ const rootProps = computed(() =>
     </div>
 
     <div
-      v-else-if="resolvedState === 'empty'"
+      v-else-if="resolvedState === 'empty' && !contentOwnsEmpty"
       class="tw:flex tw:flex-1 tw:items-center tw:justify-center tw:py-12"
     >
       <slot name="empty">

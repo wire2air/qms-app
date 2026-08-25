@@ -1,4 +1,10 @@
 <script setup>
+//  <TableSearchScope
+//           v-if="searchable"
+//           v-model="searchScope"
+//           :columns="searchableColumns"
+//           class="tw:mr-1"
+//         />
 /**
  * DataTable — the presentational shell (Layer 2) of the enterprise table system.
  *
@@ -7,6 +13,10 @@
  * drop-in successor to the legacy BaseTable ergonomics. Adds: full state machine
  * (skeleton / empty / no-results / error / denied / offline), 3-level density,
  * multi-sort, sticky header, and keyboard-operable rows (rule #8 / WCAG 2.1.1).
+ *
+ * Toolbar slots, left → right: `#tabs` (quick-view / scope pills), `#toolbar-left`,
+ * then search, `#toolbar`, `#toolbar-filters` (a consumer's own filter control,
+ * beside the built-in one), filters, export, density and the column manager.
  *
  * Public state is exposed as v-models in clean, modern shapes:
  *   v-model:pagination = { page, pageSize }
@@ -501,6 +511,8 @@ const showToolbar = computed(
   () =>
     !!slots.toolbar ||
     !!slots['toolbar-left'] ||
+    !!slots.tabs ||
+    !!slots['toolbar-filters'] ||
     props.searchable ||
     props.columnManager ||
     props.densitySelector ||
@@ -671,18 +683,28 @@ defineExpose({ table })
             <slot name="bulk-actions" :selected="selected" :clear="clearSelection" />
           </template>
         </template>
-        <slot v-else name="toolbar-left" />
+        <template v-else>
+          <!-- Quick views / scope tabs. Lives inside the toolbar (left of search)
+               so the table owns its own scoping row instead of the page above it.
+               Scrolls horizontally on narrow viewports rather than wrapping. -->
+          <div
+            v-if="$slots.tabs"
+            class="tw:flex tw:min-w-0 tw:shrink tw:items-center tw:overflow-x-auto"
+          >
+            <slot name="tabs" />
+          </div>
+          <slot name="toolbar-left" />
+        </template>
       </div>
 
       <div class="tw:flex tw:items-center tw:gap-1">
         <TableSearch v-if="searchable" v-model="search" :placeholder="searchPlaceholder" />
-        <TableSearchScope
-          v-if="searchable"
-          v-model="searchScope"
-          :columns="searchableColumns"
-          class="tw:mr-1"
-        />
+
         <slot name="toolbar" />
+        <!-- Consumer-owned filter control (e.g. a page-level BaseFilterMenu whose
+             filters are applied to the query upstream), rendered beside the
+             table's own column-filter trigger so both live in one toolbar. -->
+        <slot name="toolbar-filters" />
         <TableFilters
           v-if="filterable"
           v-model="filters"
