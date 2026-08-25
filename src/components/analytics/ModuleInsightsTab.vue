@@ -91,7 +91,18 @@ const catalogEmpty = computed(
     />
 
     <template v-else>
-      <AnalyticsFilterBar v-model:period="period" v-model:compare="compare" :metrics="metrics ?? []" />
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-3">
+        <AnalyticsFilterBar
+          v-model:period="period"
+          v-model:compare="compare"
+          :metrics="metrics ?? []"
+        />
+        <HelpButton
+          slug="KB/analytics/metric-definitions"
+          label="How these are calculated"
+          :size="15"
+        />
+      </div>
 
       <div v-if="catalogLoading" class="tw:grid tw:gap-4">
         <ContentGrid min="16rem">
@@ -127,6 +138,7 @@ const catalogEmpty = computed(
             :unit="m.unit"
             :direction="m.direction"
             :drill="m.drill"
+            :calculationNote="m.calculationNote"
             :periodStart="resolvedPeriod.periodStart"
             :periodEnd="resolvedPeriod.periodEnd"
             :compare="compare"

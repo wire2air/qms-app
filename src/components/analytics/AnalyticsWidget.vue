@@ -59,6 +59,10 @@ const props = defineProps({
   periodStart: { type: String, default: null },
   periodEnd: { type: String, default: null },
   showPeriod: { type: Boolean, default: true },
+  // Catalog `calculationNote`: how the number in this tile is worked out. The
+  // tile's `subtitle` is the metric's DESCRIPTION (what it measures); this is
+  // the method behind it, and the two never repeat each other.
+  calculationNote: { type: String, default: null },
 
   // ── content state ──
   loading: { type: Boolean, default: false },
@@ -224,13 +228,14 @@ async function runExport(format) {
       </BaseTooltip>
 
       <AnalyticsMetaLine
-        v-if="scope || tier || computedAt"
+        v-if="scope || tier || computedAt || calculationNote"
         :scope="scope"
         :tier="tier"
         :computedAt="computedAt"
         :periodStart="periodStart"
         :periodEnd="periodEnd"
         :showPeriod="showPeriod"
+        :calculationNote="calculationNote"
       />
 
       <slot name="footer" />

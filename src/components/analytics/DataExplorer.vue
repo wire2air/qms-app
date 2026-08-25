@@ -95,7 +95,14 @@ async function save() {
       :icon="IconCompass"
       title="Data Explorer"
       subtitle="Ask a question without saving it. Numbers resolve under your own access."
-    />
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Data Explorer
+          <HelpButton slug="KB/analytics/metric-definitions" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <PageSection v-if="entitled === false" variant="card">
       <BaseEmptyState

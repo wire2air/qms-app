@@ -88,7 +88,14 @@ const catalogEmpty = computed(
 
 <template>
   <BasePage width="wide">
-    <PageHeader :icon="IconChartBar" title="Analytics" />
+    <PageHeader :icon="IconChartBar" title="Analytics">
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Analytics
+          <HelpButton slug="KB/analytics/metric-definitions" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <!-- Entitlement unknown: don't flash "not in your plan" on every load. -->
     <ContentGrid v-if="entitled === null && !entitlementError" min="16rem">
@@ -191,6 +198,7 @@ const catalogEmpty = computed(
               :unit="m.unit"
               :direction="m.direction"
               :drill="m.drill"
+              :calculationNote="m.calculationNote"
               :periodStart="resolvedPeriod.periodStart"
               :periodEnd="resolvedPeriod.periodEnd"
               :compare="filters.compare"

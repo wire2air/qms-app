@@ -36,6 +36,10 @@ const props = defineProps({
   direction: { type: String, default: null },
   // `drill` jsonb from the catalog: { route, filters }.
   drill: { type: Object, default: null },
+  // Catalog `calculationNote` — how this number is worked out, in plain
+  // English. Passed down rather than fetched: it is a property of the METRIC,
+  // not of the value row, so it is already in the catalog row the caller holds.
+  calculationNote: { type: String, default: null },
   // Resolved window (ISO dates) — null lets the server pick its default month.
   periodStart: { type: String, default: null },
   periodEnd: { type: String, default: null },
@@ -142,11 +146,14 @@ function openDrill() {
             <BaseText variant="caption" color="secondary">{{ marker.label }}</BaseText>
           </BaseTooltip>
 
+          <!-- The note comes from the catalog, so it can still be explained
+               when the VALUE call failed and there is no provenance to state. -->
           <AnalyticsMetaLine
-            v-if="metric"
-            :scope="metric.effectiveScope"
-            :tier="metric.tier"
-            :computedAt="metric.computedAt"
+            v-if="metric || calculationNote"
+            :scope="metric?.effectiveScope"
+            :tier="metric?.tier"
+            :computedAt="metric?.computedAt"
+            :calculationNote="calculationNote"
           />
         </div>
       </template>

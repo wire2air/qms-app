@@ -29,6 +29,12 @@ const METRIC_CATALOG_QUERY = `
         metricKey
         name
         description
+        # Plain-English "how this number is worked out", shown behind the info
+        # affordance on every metric tile. The description above is the WHAT;
+        # this is the HOW — complementary, never the same sentence. NULL for a
+        # metric that has not been given one yet, and the UI then renders no
+        # affordance at all rather than an empty popover.
+        calculationNote
         moduleId
         unit
         direction

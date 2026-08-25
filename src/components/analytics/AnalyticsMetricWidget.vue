@@ -247,6 +247,7 @@ const exportName = computed(
     :scope="valueRow?.effectiveScope ?? metric?.effectiveScope"
     :tier="valueRow?.tier ?? metric?.tier"
     :computedAt="valueRow?.computedAt"
+    :calculationNote="metric?.calculationNote"
     :periodStart="valueRow?.periodStart ?? periodStart"
     :periodEnd="valueRow?.periodEnd ?? periodEnd"
     :suppressedCount="suppressedCount"

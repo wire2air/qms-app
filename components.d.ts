@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    '__popoverProbe.spec': typeof import('./src/components/analytics/__popover-probe.spec.js')['default']
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
     ActiveSessions: typeof import('./src/components/security/ActiveSessions.vue')['default']
     AddRecordDialog: typeof import('./src/components/records/AddRecordDialog.vue')['default']
@@ -38,6 +39,7 @@ declare module 'vue' {
     AnalyticsInsightsPanel: typeof import('./src/components/analytics/AnalyticsInsightsPanel.vue')['default']
     AnalyticsKpiCard: typeof import('./src/components/analytics/AnalyticsKpiCard.vue')['default']
     AnalyticsMetaLine: typeof import('./src/components/analytics/AnalyticsMetaLine.vue')['default']
+    'AnalyticsMetaLine.spec': typeof import('./src/components/analytics/AnalyticsMetaLine.spec.js')['default']
     AnalyticsMetricWidget: typeof import('./src/components/analytics/AnalyticsMetricWidget.vue')['default']
     AnalyticsQuestionBuilder: typeof import('./src/components/analytics/AnalyticsQuestionBuilder.vue')['default']
     AnalyticsQuestionTile: typeof import('./src/components/analytics/AnalyticsQuestionTile.vue')['default']
