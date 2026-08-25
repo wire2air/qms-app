@@ -6,13 +6,8 @@ defineProps({
   embedded: { type: Boolean, default: false },
 })
 
-import {
-  IconAlertCircle,
-  IconAlertTriangle,
-  IconClock,
-  IconCircleCheck,
-  IconClipboardList,
-} from '@tabler/icons-vue'
+import { humanizeFilter } from '@/composables/useListPrint.js'
+import { IconAlertCircle, IconAlertTriangle, IconCircleCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
@@ -66,7 +61,7 @@ function clearSupplierFilter() {
 }
 
 const CLOSED_STATUSES = ['CLOSED']
-const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 function applyFilters(results, statusIds, severityIds, typeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
@@ -76,8 +71,10 @@ function applyFilters(results, statusIds, severityIds, typeIds) {
 }
 
 function applyActiveFilter(results, af) {
-  const now = DateTime.now()
   const userId = currentSession.value?.userId
+  // Explicit rather than relying on the fallthrough below: 'all' is a real
+  // choice (the whole register, closed included), not an unrecognised value.
+  if (af === 'all') return results
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
@@ -85,8 +82,6 @@ function applyActiveFilter(results, af) {
     return results.filter((r) => r.severityId === 'CRITICAL' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'major')
     return results.filter((r) => r.severityId === 'MAJOR' && OPEN_STATUSES.includes(r.statusId))
-  if (af === 'overdue')
-    return results.filter((r) => r.dueDate && r.dueDate < now && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
   return results
 }
@@ -110,8 +105,7 @@ const ncs = useLiveQueryWithDeps(
     results = applyFilters(results, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
-    if (createdAt)
-      results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+    if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
@@ -125,14 +119,12 @@ const stats = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const openNcs = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
-  const overdue = openNcs.filter((r) => r.dueDate && r.dueDate < now)
   const criticalOpen = openNcs.filter((r) => r.severityId === 'CRITICAL')
   const closedThisMonth = all.filter(
     (r) => CLOSED_STATUSES.includes(r.statusId) && r.closedAt && r.closedAt >= startOfMonth,
   )
   return {
     open: openNcs.length,
-    overdue: overdue.length,
     criticalOpen: criticalOpen.length,
     closedThisMonth: closedThisMonth.length,
   }
@@ -141,14 +133,6 @@ const stats = computed(() => {
 // Compact KPI strip (list-page metrics bar, not a dashboard card grid).
 const kpiItems = computed(() => [
   { key: 'open', label: 'Open NCs', value: stats.value.open, icon: IconAlertCircle, color: 'blue' },
-  {
-    key: 'overdue',
-    label: 'Overdue',
-    value: stats.value.overdue,
-    icon: IconClock,
-    color: 'red',
-    emphasize: stats.value.overdue > 0,
-  },
   {
     key: 'critical',
     label: 'Critical open',
@@ -196,10 +180,7 @@ async function onDeleteNc(row) {
     title="Nonconformances"
     subtitle="Track, investigate and close nonconformances."
     :state="list.state.value"
-    :emptyIcon="IconClipboardList"
-    :emptyTitle="
-      list.hasActiveFilters.value ? 'No nonconformances match your filters' : 'No nonconformances yet'
-    "
+    contentOwnsEmpty
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-2">
@@ -214,6 +195,12 @@ async function onDeleteNc(row) {
     </template>
 
     <template #actions>
+      <ListPrintButton
+        entity="Nonconformance"
+        title="Nonconformance Register"
+        :rows="ncs"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
     </template>
 
@@ -238,14 +225,18 @@ async function onDeleteNc(row) {
         </button>
       </div>
 
-      <NonconformancesFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <NonconformancesFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <NonconformancesTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
       :rows="ncs"
+      :emptyLabel="
+        list.hasActiveFilters.value
+          ? 'No nonconformances match your filters'
+          : 'No nonconformances yet'
+      "
       :canUpdate="canUpdate"
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/nonconformances/${row.id}`))"

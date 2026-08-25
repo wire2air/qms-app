@@ -1,12 +1,35 @@
 <script setup>
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post } from '@/api'
+import { canUseAi } from '@/utils/currentSession.js'
 const props = defineProps({
   modelValue: { type: Object, default: null },
   field: { type: Object, required: true },
   readonly: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  /** All values on the form, so the field can read its problem source. */
+  formValues: { type: Object, default: () => ({}) },
 })
 
+
+
 const emit = defineEmits(['update:modelValue'])
+
+/**
+ * What is being assessed, carried in from the parent record.
+ *
+ * The matrix asked for a likelihood and a severity with no statement of what
+ * they applied to, so the assessor had to leave the step to find out — the same
+ * gap the RCA field closed with problemField. Read-only here: it belongs to the
+ * record, and an assessment is not the place to restate the problem.
+ */
+const problemText = computed(() => {
+  // Defaulted: schemas seeded before 2026-08-20 carry no problemField, and
+  // '_parent_problem' is what every module publishes.
+  const src = props.field?.problemField ?? '_parent_problem'
+  if (!src) return ''
+  return props.formValues?.[src] ?? ''
+})
 
 // Prefer embedded snapshot; fall back to FK lookup. See RcaField for
 // the rationale.
@@ -134,6 +157,64 @@ function isSelectedCell(likelihoodId, severityId) {
   return selectedLikelihoodId.value === likelihoodId && selectedSeverityId.value === severityId
 }
 
+// ── AI: suggest an assessment ───────────────────────────────────────────────
+// Proposes a likelihood and a severity ON THIS TEMPLATE'S OWN SCALES, with the
+// reasoning for each — the assessor argues with a proposal instead of staring
+// at a grid. Applied through the same selectCell path a human click takes.
+const aiBusy = ref(false)
+const aiPanel = ref(null)
+
+function levelFor(rows) {
+  return rows.map((l) => ({
+    id: l.id,
+    label: l.label,
+    score: l.score ?? l.order ?? undefined,
+    description: l.description ?? undefined,
+  }))
+}
+
+async function suggestWithAi() {
+  aiBusy.value = true
+  aiPanel.value = null
+  try {
+    const data = await post(
+      '/v1/services/ai/risk/suggest',
+      {
+        problem: String(problemText.value)
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+        likelihoodLevels: levelFor(likelihood.value),
+        severityLevels: levelFor(severity.value),
+      },
+      { showError: true },
+    )
+    const r = data.result
+    if (r?.likelihoodId && r?.severityId) {
+      selectCell(r.likelihoodId, r.severityId)
+      aiPanel.value = {
+        likelihoodRationale: r.likelihoodRationale,
+        severityRationale: r.severityRationale,
+        unknowns: r.unknowns ?? [],
+      }
+    }
+  } finally {
+    aiBusy.value = false
+  }
+}
+
+function applyAiRationale() {
+  const r = aiPanel.value
+  if (!r) return
+  // APPENDED, not replaced: the assessor may already have context written, and
+  // the rationale is an argument alongside it, not a substitute for it.
+  const block =
+    `<p><strong>Likelihood:</strong> ${r.likelihoodRationale}</p>` +
+    `<p><strong>Severity:</strong> ${r.severityRationale}</p>`
+  updateNotes(notes.value ? `${notes.value}${block}` : block)
+  aiPanel.value = { ...r, applied: true }
+}
+
 function updateNotes(notes) {
   emit('update:modelValue', { ...(props.modelValue ?? {}), notes })
 }
@@ -181,9 +262,13 @@ function _setHazardCategory(id) {
 }
 void _setHazardCategory
 
-function setAssessmentType(t) {
+// Kept alongside the hidden Assessment type control, same as
+// _setHazardCategory above — the void keeps lint quiet without deleting the
+// setter the commented-out field needs if it is restored.
+function _setAssessmentType(t) {
   patchFinalized({ assessmentType: t })
 }
+void _setAssessmentType
 
 // Read enough off the template config to denormalize labels + scores
 // onto the finalized payload at click time.
@@ -267,6 +352,65 @@ onBeforeUnmount(() => {
       Loading...
     </div>
 
+    <!-- What is being assessed. Read-only — it belongs to the record, and an
+         assessment is not the place to restate the problem. -->
+    <div v-if="problemText" class="tw:flex tw:flex-col tw:gap-1">
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-2">
+        <label
+          class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+        >
+          Assessing
+        </label>
+        <!-- A starting point on the tenant's own scales, not a verdict — the
+             proposal lands via the same selectCell path a human click takes,
+             and the rationale shows so the assessor judges the argument. -->
+        <BaseButton
+          v-if="canUseAi && template && !isFinalized && !readonly && !disabled"
+          variant="outline"
+          size="sm"
+          :isLoading="aiBusy"
+          @click="suggestWithAi"
+        >
+          ✨ Suggest with AI
+        </BaseButton>
+      </div>
+      <div
+        class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:bg-main-hover/30 tw:border tw:border-divider tw:rounded-lg tw:p-3"
+        v-html="problemText"
+      />
+      <div
+        v-if="aiPanel"
+        class="tw:rounded-md tw:border tw:border-primary/30 tw:bg-primary/5 tw:p-3 tw:flex tw:flex-col tw:gap-1.5"
+      >
+        <div class="tw:flex tw:items-center tw:justify-between">
+          <BaseText class="tw:text-xs tw:font-semibold">AI rationale</BaseText>
+          <button
+            class="tw:text-xs tw:text-secondary tw:hover:text-on-main tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            @click="aiPanel = null"
+          >
+            ✕
+          </button>
+        </div>
+        <BaseText class="tw:text-xs"
+          ><strong>Likelihood:</strong> {{ aiPanel.likelihoodRationale }}</BaseText
+        >
+        <BaseText class="tw:text-xs"
+          ><strong>Severity:</strong> {{ aiPanel.severityRationale }}</BaseText
+        >
+        <ul v-if="aiPanel.unknowns?.length" class="tw:m-0 tw:pl-4 tw:text-xs tw:text-amber-700">
+          <li v-for="(u, i) in aiPanel.unknowns" :key="i">{{ u }}</li>
+        </ul>
+        <div class="tw:flex tw:items-center tw:gap-2 tw:pt-1">
+          <BaseButton size="sm" :disabled="aiPanel.applied" @click="applyAiRationale">
+            {{ aiPanel.applied ? 'Applied' : 'Apply to Justification' }}
+          </BaseButton>
+          <BaseText v-if="aiPanel.applied" color="secondary" class="tw:text-xs">
+            Appended below — edit it freely.
+          </BaseText>
+        </div>
+      </div>
+    </div>
+
     <!-- Change the matrix. Only when there is a choice to make. -->
     <div v-if="canPickTemplate && template" class="tw:mt-3 tw:flex tw:items-center tw:gap-2">
       <span class="tw:text-xs tw:text-secondary tw:shrink-0">Matrix</span>
@@ -320,6 +464,20 @@ onBeforeUnmount(() => {
           />
         </BaseField>
         -->
+        <!-- HIDDEN (user request 2026-08-20), same treatment as hazard
+             category above — hidden, not deleted.
+
+             Initial-vs-residual is a risk-management distinction: you score a
+             hazard before mitigation, mitigate it, then score again. An NC is
+             assessed once, so the toggle asked a question with no meaning in
+             this context and no obvious right answer.
+
+             The value still exists and still defaults to INITIAL, so
+             `finalized.assessmentType` keeps its shape, historical assessments
+             keep whatever they were scored as, and canFinalize is unaffected
+             (it tests assessmentType, which is never empty). Un-comment to
+             restore. -->
+        <!--
         <BaseField label="Assessment type" required size="sm">
           <div class="tw:flex tw:gap-2">
             <button
@@ -332,12 +490,13 @@ onBeforeUnmount(() => {
                   : 'tw:border-divider tw:bg-white tw:text-secondary tw:hover:border-primary/50'
               "
               :disabled="readonly || disabled"
-              @click="setAssessmentType(t)"
+              @click="_setAssessmentType(t)"
             >
               {{ t === 'INITIAL' ? 'Initial (before mitigation)' : 'Residual (after mitigation)' }}
             </button>
           </div>
         </BaseField>
+        -->
       </div>
 
       <!-- Selected risk level display -->
@@ -480,13 +639,19 @@ onBeforeUnmount(() => {
            payload for backward compat; the label changed because the
            text now anchors the finalized assessment's rationale, not
            just freeform notes). -->
-      <BaseField v-slot="{ id: fieldId }" label="Justification" size="sm">
-        <BaseTextarea
-          :id="fieldId"
+      <BaseField label="Justification" size="sm">
+        <!-- Rich text since 2026-08-24 (user request). Readonly renders the
+             HTML directly; the payload key stays `notes`. -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div
+          v-if="readonly || disabled"
+          class="tw:text-sm tw:text-on-main"
+          v-html="notes"
+        />
+        <BaseRichTextEditor
+          v-else
           :modelValue="notes"
           placeholder="Explain the rationale for this risk assessment — controls in place, what would change between initial and residual, etc."
-          :rows="2"
-          :readonly="readonly || disabled"
           @update:modelValue="updateNotes"
         />
       </BaseField>
@@ -507,7 +672,7 @@ onBeforeUnmount(() => {
             Finalized {{ new Date(modelValue.finalized.finalizedAt).toLocaleString() }}
           </template>
           <template v-else-if="!canFinalize">
-            Pick a hazard category, assessment type, and a matrix cell to finalize.
+            Pick a likelihood and severity on the matrix to finalize.
           </template>
           <template v-else> Mark complete to lock the assessment into reports. </template>
         </span>

@@ -102,10 +102,12 @@ import { UserStatus } from './userStatus'
 import { Nonconformance } from './nonconformance'
 import { NcCounter } from './ncCounter'
 import { NcStatus } from './ncStatus'
+import { InspectionLotStatus } from './inspectionLotStatus'
+import { QualityEventStatus } from './qualityEventStatus'
+import { AuditInstanceStatus } from './auditInstanceStatus'
 import { NcType } from './ncType'
 import { NcSeverity } from './ncSeverity'
 import { NcSource } from './ncSource'
-import { NcIssueType } from './ncIssueType'
 import { NcDispositionType } from './ncDispositionType'
 import { NcRootCauseCategory } from './ncRootCauseCategory'
 import { NcRecord } from './ncRecord'
@@ -205,6 +207,10 @@ import { FieldRecordFlag } from './fieldRecordFlag'
 import { AssignmentInstance } from './assignmentInstance'
 import { AssignmentInstanceStatus } from './assignmentInstanceStatus'
 import { RecordLink } from './recordLink'
+import { AuditReport } from './auditReport'
+import { DocumentReview } from './documentReview'
+import { RecordShareLink } from './recordShareLink'
+import { RecordShareLinkView } from './recordShareLinkView'
 import { NotificationRule } from './notificationRule'
 import { EntityFieldSet } from './entityFieldSet'
 import { EntityFieldValue } from './entityFieldValue'
@@ -340,10 +346,12 @@ export const db = {
   Nonconformance,
   NcCounter,
   NcStatus,
+  InspectionLotStatus,
+  QualityEventStatus,
+  AuditInstanceStatus,
   NcType,
   NcSeverity,
   NcSource,
-  NcIssueType,
   NcDispositionType,
   NcRootCauseCategory,
   NcRecord,
@@ -441,6 +449,10 @@ export const db = {
   AssignmentInstance,
   AssignmentInstanceStatus,
   RecordLink,
+  AuditReport,
+  DocumentReview,
+  RecordShareLink,
+  RecordShareLinkView,
   NotificationRule,
   EntityFieldSet,
   EntityFieldValue,

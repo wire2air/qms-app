@@ -28,6 +28,13 @@
  *   'Change Request'). Used in submit-picker empty-state hints
  *   ('... before submitting this <displayName>').
  * @property {string} resourceType                — workflow_instances.resource_type value
+ * @property {string} [authzModule]               — authz module id ('ncr', 'capa', …) used to
+ *                                                  ask whether a NON-assignee may act on this
+ *                                                  module's steps. Present only for the record
+ *                                                  types the backend can scope-check (see
+ *                                                  utils/workflowStepAccess.js); absent means
+ *                                                  assignee-only, which is what the server
+ *                                                  enforces for those types too.
  * @property {string} apiPath                     — module path under /v1/services/<apiPath>/:id/...
  * @property {string} resourceIdParam             — name of the resource-id prop passed by parents
  * @property {string} recordModelName             — SyncEngine model name for per-step records
@@ -50,6 +57,7 @@ export const NC_MODULE = {
   key: 'NC',
   displayName: 'NC',
   resourceType: 'Nonconformance',
+  authzModule: 'ncr',
   apiPath: 'nonconformances',
   resourceIdParam: 'ncId',
   recordModelName: 'NcRecord',
@@ -66,6 +74,7 @@ export const CAPA_MODULE = {
   key: 'CAPA',
   displayName: 'CAPA',
   resourceType: 'Capa',
+  authzModule: 'capa',
   apiPath: 'capas',
   resourceIdParam: 'capaId',
   recordModelName: 'CapaRecord',
@@ -85,6 +94,7 @@ export const CR_MODULE = {
   key: 'CR',
   displayName: 'Change Request',
   resourceType: 'ChangeRequest',
+  authzModule: 'change_control',
   apiPath: 'changeRequests',
   resourceIdParam: 'crId',
   recordModelName: 'CrRecord',
@@ -101,6 +111,7 @@ export const COMPLAINT_MODULE = {
   key: 'CMP',
   displayName: 'Complaint',
   resourceType: 'Complaint',
+  authzModule: 'complaints',
   apiPath: 'complaints',
   resourceIdParam: 'complaintId',
   recordModelName: 'ComplaintRecord',

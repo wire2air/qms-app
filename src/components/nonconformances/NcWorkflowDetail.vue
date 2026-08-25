@@ -1,5 +1,5 @@
 <script setup>
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { NC_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -50,14 +50,11 @@ function openReassignDialog(instanceStepId) {
 <template>
   <div class="tw:contents">
     <template v-if="workflowInstanceSteps.length">
-      <WorkflowStep
-        v-for="(step, idx) in workflowInstanceSteps"
-        :key="step.id"
+      <WorkflowStepRun
+        :steps="workflowInstanceSteps"
         :module="NC_MODULE"
-        :instanceStepId="step.id"
         :resourceId="ncId"
         :isOwner="isOwner"
-        :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
       />
     </template>

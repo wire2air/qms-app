@@ -261,6 +261,23 @@ function toggleExpanded(id) {
 // gets clear feedback on which row is in flight.
 const enrichingRowId = ref(null)
 const bulkEnriching = ref(false)
+// Reload-safe job status straight off the version row (worker keeps it
+// current via sync push): {pending, done, total} while running.
+const enrichJob = computed(() => props.version?.aiEnrichment ?? null)
+const enrichRunning = computed(() => !!enrichJob.value?.pending)
+const cancellingEnrich = ref(false)
+async function cancelBulkEnrich() {
+  if (cancellingEnrich.value) return
+  cancellingEnrich.value = true
+  try {
+    await post(`/v1/services/ai/auditStandardVersions/${props.version.id}/bulkEnrich/cancel`, {})
+    toast.success('Cancelling — the job stops at the next clause.')
+  } catch (e) {
+    toast.error(e.message || 'Failed to cancel')
+  } finally {
+    cancellingEnrich.value = false
+  }
+}
 
 const emptyRowCount = computed(
   () => requirements.value.filter((r) => !r.guidance || !r.expectedEvidence).length,
@@ -330,6 +347,28 @@ async function handleBulkEnrich() {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3">
+    <!-- Running bulk-enrichment job — persisted on the version row, so this
+       banner survives leaving and returning; Cancel stops the worker at the
+       next clause boundary. -->
+    <div
+      v-if="enrichRunning"
+      class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-primary/30 tw:bg-primary/5 tw:px-3 tw:py-2 tw:mb-3"
+    >
+      <BaseSpinner size="sm" />
+      <span class="tw:text-sm tw:text-on-main">
+        AI enrichment running — {{ enrichJob.done ?? 0 }} / {{ enrichJob.total ?? '?' }} clauses
+      </span>
+      <span class="tw:flex-1" />
+      <BaseButton
+        v-if="!readonly"
+        variant="outline"
+        size="sm"
+        :isLoading="cancellingEnrich"
+        @click="cancelBulkEnrich"
+      >
+        Cancel
+      </BaseButton>
+    </div>
     <!-- Add affordance (editable only) -->
     <div v-if="!readonly" class="tw:flex tw:items-center tw:justify-between">
       <div class="tw:flex tw:items-center tw:gap-3">
@@ -348,8 +387,8 @@ async function handleBulkEnrich() {
           v-if="canUseAi && emptyRowCount > 0"
           variant="outline"
           size="sm"
-          :loading="bulkEnriching"
-          :disabled="bulkEnriching"
+          :loading="bulkEnriching || enrichRunning"
+          :disabled="bulkEnriching || enrichRunning"
           @click="openBulkConfirm"
         >
           <template #icon><IconSparkles :size="16" /></template>

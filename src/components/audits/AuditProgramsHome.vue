@@ -20,7 +20,9 @@ const showCreateDialog = ref(false)
 const programs = useLiveQuery(
   async (db) => {
     const results = await db.AuditProgram.where().exec()
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
   { models: ['AuditProgram'], initial: [] },
 )
@@ -34,7 +36,10 @@ const FREQUENCY_LABELS = {
   EVERY_X_DAYS: 'Every X Days',
   CUSTOM_RECURRENCE: 'Custom',
 }
-const FREQUENCY_OPTIONS = Object.entries(FREQUENCY_LABELS).map(([value, label]) => ({ value, label }))
+const FREQUENCY_OPTIONS = Object.entries(FREQUENCY_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}))
 
 const TYPE_LABELS = {
   INTERNAL: 'Internal',
@@ -111,8 +116,6 @@ const columns = [
     :mobileCards="false"
     searchable
     filterable
-    densitySelector
-    columnManager
     exportManager
     exportFilename="audit-programs.csv"
     persistKey="audits:programs"
@@ -155,7 +158,10 @@ const columns = [
     <template #body-cell-frequency="{ row }">
       <span class="tw:text-xs">
         {{ FREQUENCY_LABELS[row.frequencyId] || row.frequencyId }}
-        <span v-if="row.frequencyId === 'EVERY_X_DAYS' && row.daysInterval" class="tw:text-secondary">
+        <span
+          v-if="row.frequencyId === 'EVERY_X_DAYS' && row.daysInterval"
+          class="tw:text-secondary"
+        >
           ({{ row.daysInterval }}d)
         </span>
       </span>
@@ -167,7 +173,9 @@ const columns = [
     </template>
 
     <template #body-cell-nextDue="{ row }">
-      <span class="tw:text-xs">{{ row.nextDueDate ? row.nextDueDate.formatDate('date') : '—' }}</span>
+      <span class="tw:text-xs">{{
+        row.nextDueDate ? row.nextDueDate.formatDate('date') : '—'
+      }}</span>
     </template>
 
     <template #body-cell-active="{ row }">

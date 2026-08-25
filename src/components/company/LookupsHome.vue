@@ -9,8 +9,12 @@
 import { IconList } from '@tabler/icons-vue'
 
 const tabs = [
-  { value: 'nc-dispositions', label: 'NC Dispositions', group: 'Nonconformance' },
-  { value: 'nc-issue-types', label: 'NC Issue Types', group: 'Nonconformance' },
+  // One Category taxonomy across Quality Event, NC and CAPA (2026-08-18) — it
+  // rides the QE → NC → CAPA escalation chain, so it leads the Quality Records
+  // group rather than sitting under Events where it started. The NC-only
+  // "NC Issue Types" lookup was folded into it and removed.
+  { value: 'event-categories', label: 'Quality Categories', group: 'Quality Records' },
+  { value: 'nc-dispositions', label: 'NC Dispositions', group: 'Quality Records' },
   { value: 'item-categories', label: 'Item Categories', group: 'Products & Suppliers' },
   { value: 'product-families', label: 'Item Groups', group: 'Products & Suppliers' },
   { value: 'uoms', label: 'Units of Measure', group: 'Products & Suppliers' },
@@ -21,7 +25,6 @@ const tabs = [
   { value: 'shifts', label: 'Shifts', group: 'QC Inspection' },
   { value: 'audit-standard-types', label: 'Audit Standard Types', group: 'Audit' },
   { value: 'audit-finding-categories', label: 'Audit Finding Categories', group: 'Audit' },
-  { value: 'event-categories', label: 'Event Categories', group: 'Events' },
   { value: 'event-severities', label: 'Event Severities', group: 'Events' },
   { value: 'related-standards', label: 'Related Standards', group: 'People & Standards' },
   { value: 'employee-titles', label: 'Employee Titles', group: 'People & Standards' },
@@ -58,7 +61,7 @@ watch(activeTab, (v) => {
     <PageHeader
       :icon="IconList"
       title="Lookups"
-      subtitle="Shared master data — dispositions, issue types, certificate types and audit categories used across the QMS."
+      subtitle="Shared master data — quality categories, dispositions, certificate types and audit categories used across the QMS."
     />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
@@ -80,7 +83,6 @@ watch(activeTab, (v) => {
       <StorageLocationsCard v-else-if="activeTab === 'storage-locations'" />
       <ShiftsCard v-else-if="activeTab === 'shifts'" />
       <NcDispositionTypesCard v-else-if="activeTab === 'nc-dispositions'" />
-      <NcIssueTypesCard v-else-if="activeTab === 'nc-issue-types'" />
       <ItemCategoriesCard v-else-if="activeTab === 'item-categories'" />
       <ProductFamiliesCard v-else-if="activeTab === 'product-families'" />
       <UnitsOfMeasureCard v-else-if="activeTab === 'uoms'" />

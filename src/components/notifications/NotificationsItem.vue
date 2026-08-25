@@ -94,6 +94,11 @@ const RESOURCE_ROUTES = {
   // inbox and the email deep link.
   // Equipment has no detail page yet — land on the list (calibration reminders).
   Equipment: () => getCompanyPath('/equipment'),
+  Nonconformance: (id) => getCompanyPath(`/nonconformances/${id}`),
+  Capa: (id) => getCompanyPath(`/capas/${id}`),
+  QualityEvent: (id) => getCompanyPath(`/qualityEvents/${id}`),
+  TrainingInstance: (id) => getCompanyPath(`/training-instances/${id}`),
+  LogBook: (id) => getCompanyPath(`/inspections-logs/log-books/${id}`),
 
   // ── Analytics ──────────────────────────────────────────────────────────
   // Dashboards and reports are the only analytics records with a page of

@@ -3,9 +3,19 @@ const props = defineProps({
   config: { type: Object, required: true },
   modelValue: { type: Object, default: () => ({}) },
   readonly: { type: Boolean, default: false },
+  /**
+   * The problem, carried in from the parent record — the NC's description via
+   * the field's `problemField`. Every other method shows it; this one did not,
+   * so an Is/Is-Not analysis opened with no statement of what is being analysed
+   * and the reader had to go back to the record to find out (2026-08-20).
+   */
+  problem: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])
+
+// The inherited value wins; the local one is the fallback for an analysis that
+// is not attached to a record. Mirrors FishboneAnalysis.
 
 function updateCell(idx, key, val) {
   const dimensions = (props.modelValue.dimensions ?? []).map((d, i) =>
@@ -14,9 +24,6 @@ function updateCell(idx, key, val) {
   emit('update:modelValue', { ...props.modelValue, dimensions })
 }
 
-function updateProbableCauses(val) {
-  emit('update:modelValue', { ...props.modelValue, probableCauses: val })
-}
 </script>
 
 <template>
@@ -75,16 +82,8 @@ function updateProbableCauses(val) {
       </table>
     </div>
 
-    <!-- Probable causes -->
-    <BaseField v-slot="{ id: fieldId }" label="Probable Causes">
-      <BaseTextarea
-        :id="fieldId"
-        :modelValue="modelValue.probableCauses ?? ''"
-        placeholder="Based on the IS / IS NOT analysis, what are the probable causes?"
-        :rows="3"
-        :readonly="readonly"
-        @update:modelValue="updateProbableCauses"
-      />
-    </BaseField>
+    <!-- "Probable Causes" removed 2026-08-24: it existed in no other method,
+         and the shared Root Causes box below the tool is where causes land —
+         a second free-text causes field was the same answer in two places. -->
   </div>
 </template>

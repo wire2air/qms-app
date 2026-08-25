@@ -24,6 +24,7 @@ import {
   IconPlus,
   IconTrash,
   IconBulb,
+  IconFileTypePdf,
 } from '@tabler/icons-vue'
 import { useAuditScoring } from '@/composables/useAuditScoring'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -47,6 +48,16 @@ const auditInstance = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => db.AuditInstance.findByPk(id),
   { models: ['AuditInstance'] },
+)
+
+// Certification (EXTERNAL) audits live in the Auditee module — same record,
+// different surface. One redirect keeps this page free of auditee branches.
+watch(
+  () => auditInstance.value?.programTypeId,
+  (t) => {
+    if (t === 'EXTERNAL') router.replace(getCompanyPath(`/auditee/${props.id}`))
+  },
+  { immediate: true },
 )
 
 // #1 — conformance scoring rollup (shared with the printable report).
@@ -161,8 +172,6 @@ const debouncedSave = useDebounceFn(async () => {
   }
 }, 500)
 
-const editingScope = ref(false)
-const editingObjectives = ref(false)
 
 // ─── Lifecycle button visibility / handlers ───────────────────────
 const canStart = computed(() => auditInstance.value?.statusId === 'SCHEDULED' && isEditable.value)
@@ -351,11 +360,18 @@ async function releaseAudit() {
 }
 
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const auditReports = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [instanceId]) => db.AuditReport.where('auditInstanceId', instanceId).exec(),
+  { models: ['AuditReport'], initial: [] },
+)
+
 const auditInstanceTabs = computed(() =>
   buildAuditInstanceTabs({
     clauseCount: clauseCount.value,
     findingsTotal: findingsByStatus.value.total,
     ofiCount: scoring.value.counts.OFI,
+    reportCount: auditReports.value.length,
     supplierTabsLocked: supplierTabsLocked.value,
   }),
 )
@@ -405,7 +421,10 @@ const auditInstanceActions = computed(() =>
 const auditInstanceDetailConfig = computed(() =>
   defineDetailConfig({
     variant: 'standard',
-    width: 'standard',
+    // 'full' (2026-08-24, user request): the auditor works here — clause tree,
+    // question checklists, notes and evidence side by side — and the standard
+    // 80rem box wasted the screen the notebook needs.
+    width: 'full',
     breadcrumbs: breadcrumbs.value,
     banners: () => auditInstanceBanners.value,
     actions: auditInstanceActions.value,
@@ -424,7 +443,12 @@ const auditInstanceDetailConfig = computed(() =>
     notFoundTitle="Audit not found"
     notFoundDescription="This audit could not be found."
   >
-    <template #title>{{ auditInstance?.auditNumber || 'Audit' }}</template>
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        {{ auditInstance?.auditNumber || 'Audit' }}
+        <HelpButton slug="KB/quality/audits-auditor" :size="15" />
+      </span>
+    </template>
 
     <template #status>
       <AuditInstanceStatusBadgeById v-if="auditInstance" :statusId="auditInstance.statusId" />
@@ -543,49 +567,41 @@ const auditInstanceDetailConfig = computed(() =>
             </div>
           </div>
 
-          <!-- Scope / Objectives — click-to-edit, long form -->
+          <!-- Scope / Objectives — rich text since 2026-08-24: they carry
+               clause lists, exclusions and emphasis. Old plain-text values
+               render fine through v-html (no markup, no harm). -->
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Scope</p>
-              <BaseTextarea
-                v-if="editingScope && isEditable"
+              <BaseRichTextEditor
+                v-if="isEditable"
                 v-model="auditInstance.scope"
-                :rows="3"
                 placeholder="What's in scope for this audit?"
-                @blur="editingScope = false"
               />
-              <BaseClickableRow
-                v-else
-                class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                :disabled="!isEditable"
-                aria-label="Edit audit scope"
-                @click="isEditable && (editingScope = true)"
-              >
-                {{ auditInstance.scope || (isEditable ? 'Add scope…' : '—') }}
-              </BaseClickableRow>
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div
+                v-else-if="auditInstance.scope"
+                class="tw:text-sm tw:text-on-main"
+                v-html="auditInstance.scope"
+              />
+              <BaseText v-else color="secondary" class="tw:text-sm">—</BaseText>
             </div>
             <div>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
                 Objectives
               </p>
-              <BaseTextarea
-                v-if="editingObjectives && isEditable"
+              <BaseRichTextEditor
+                v-if="isEditable"
                 v-model="auditInstance.objectives"
-                :rows="3"
                 placeholder="What outcomes does this audit need to produce?"
-                @blur="editingObjectives = false"
               />
-              <BaseClickableRow
-                v-else
-                class="tw:text-sm tw:whitespace-pre-line tw:text-on-main"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                :disabled="!isEditable"
-                aria-label="Edit audit objectives"
-                @click="isEditable && (editingObjectives = true)"
-              >
-                {{ auditInstance.objectives || (isEditable ? 'Add objectives…' : '—') }}
-              </BaseClickableRow>
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div
+                v-else-if="auditInstance.objectives"
+                class="tw:text-sm tw:text-on-main"
+                v-html="auditInstance.objectives"
+              />
+              <BaseText v-else color="secondary" class="tw:text-sm">—</BaseText>
             </div>
           </div>
         </FormSection>
@@ -636,6 +652,12 @@ const auditInstanceDetailConfig = computed(() =>
     <template v-if="auditInstance" #tab-ofi>
       <FormSection title="Opportunities for Improvement" :icon="IconBulb">
         <AuditOfiPanel :auditInstance="auditInstance" />
+      </FormSection>
+    </template>
+
+    <template v-if="auditInstance" #tab-reports>
+      <FormSection title="Auditor Reports" :icon="IconFileTypePdf">
+        <AuditReportsPanel :auditInstance="auditInstance" :readonly="!isEditable" />
       </FormSection>
     </template>
 

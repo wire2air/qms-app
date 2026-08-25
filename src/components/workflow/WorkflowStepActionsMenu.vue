@@ -15,6 +15,7 @@
  * "Reject" when stepType === 'APPROVAL'.
  */
 import { IconArrowBackUp } from '@tabler/icons-vue'
+import { pickActionableTask, mayActOnStepType } from '@/components/workflow/stepTakeover.js'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import { required } from '@shared/components/form/validators.js'
@@ -40,6 +41,19 @@ const instanceStep = useLiveQueryWithDeps(
 
 const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
 
+// The record behind this workflow, needed to ask whether a non-assignee may
+// act. The step card already loads it; this menu is also used standalone.
+const resource = useLiveQueryWithDeps([() => props.resourceId], async (db, [id]) =>
+  id ? db[props.module.resourceModel.modelName].findByPk(id) : null,
+)
+const mayTakeOverStep = computed(() =>
+  mayActOnStepType({
+    module: props.module,
+    record: resource.value,
+    stepType: instanceStep.value?.stepType,
+  }),
+)
+
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 
 const currentUserTask = useLiveQueryWithDeps(
@@ -51,8 +65,16 @@ const currentUserTask = useLiveQueryWithDeps(
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
+    // Whoever may act on the step, not only its assignee — see stepTakeover.js.
     return (
-      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
+      pickActionableTask({
+        tasks,
+        userId,
+        mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
+        kind: null, // this menu drives every outcome, not just APPROVAL tasks
+        statuses: ACTIONABLE_STATUSES,
+      }).task || null
     )
   },
   { models: ['TaskInstance'] },

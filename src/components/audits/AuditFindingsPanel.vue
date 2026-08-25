@@ -38,7 +38,17 @@ const props = defineProps({
   // #7 — can the current user record a supplier CAPA/response + mark complete
   // (the supplier/auditee on a supplier audit, or the auditor).
   canRespond: { type: Boolean, default: false },
+  // Show only these finding types (null = all). The Auditee module splits
+  // Findings and OFI into separate tabs over the same records.
+  typeFilter: { type: Array, default: null },
+  // Seed for the create dialog's Type (the OFI tab creates OFIs).
+  defaultTypeId: { type: String, default: 'MINOR_NC' },
 })
+
+// Which auditor report's findings to show: 'ALL', a report id, or 'NONE'
+// (manually raised, no source report). Bindable so the Reports tab can jump
+// here pre-filtered; renders no control unless the audit has reports.
+const reportFilter = defineModel('reportFilter', { type: String, default: 'ALL' })
 
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -109,6 +119,34 @@ const findings = useLiveQueryWithDeps(
 
   { models: ['AuditFinding'], initial: [] },
 )
+
+// Source-report titles (auditee flow) — findings extracted from an auditor's
+// report carry auditReportId; label them so multi-report audits stay legible.
+const reportTitleById = useLiveQueryWithDeps(
+  [() => props.auditInstance.id],
+  async (db, [instanceId]) => {
+    const rows = await db.AuditReport.where('auditInstanceId', instanceId).exec()
+    const m = {}
+    for (const r of rows) m[r.id] = r.title
+    return m
+  },
+  { models: ['AuditReport'], initial: {} },
+)
+
+const reportFilterItems = computed(() => [
+  { id: 'ALL', name: 'All reports' },
+  ...Object.entries(reportTitleById.value).map(([id, name]) => ({ id, name })),
+  { id: 'NONE', name: 'Added manually' },
+])
+
+const visibleFindings = computed(() => {
+  let rows = findings.value
+  if (props.typeFilter?.length) rows = rows.filter((f) => props.typeFilter.includes(f.findingTypeId))
+  if (reportFilter.value === 'NONE') rows = rows.filter((f) => !f.auditReportId)
+  else if (reportFilter.value !== 'ALL')
+    rows = rows.filter((f) => f.auditReportId === reportFilter.value)
+  return rows
+})
 
 const showDialog = ref(false)
 const editingFinding = ref(null)
@@ -262,7 +300,7 @@ function openLinkDialog(finding, kind) {
 // to the CAPA create page with ?findingIds=…; Attach reuses the link dialog
 // in multi mode.
 const selected = reactive({})
-const selectedFindings = computed(() => findings.value.filter((f) => selected[f.id]))
+const selectedFindings = computed(() => visibleFindings.value.filter((f) => selected[f.id]))
 const selectedCount = computed(() => selectedFindings.value.length)
 
 function toggleSelect(id) {
@@ -341,8 +379,15 @@ function unlinkedKinds(finding) {
       <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
         <IconBolt :size="14" class="tw:text-amber-600" />
         <span class="tw:font-medium">
-          {{ findings.length }} finding{{ findings.length === 1 ? '' : 's' }}
+          {{ visibleFindings.length }} finding{{ visibleFindings.length === 1 ? '' : 's' }}
         </span>
+        <!-- Per-report filter — only when this audit has auditor reports. -->
+        <BaseInlineSelect
+          v-if="Object.keys(reportTitleById).length"
+          v-model="reportFilter"
+          :items="reportFilterItems"
+          :required="true"
+        />
       </div>
       <BaseButton v-if="!readonly" variant="outline" size="sm" @click="openCreate">
         <template #icon><IconPlus :size="14" /></template>
@@ -384,7 +429,7 @@ function unlinkedKinds(finding) {
     </div>
 
     <div
-      v-if="!findings.length"
+      v-if="!visibleFindings.length"
       class="tw:py-8 tw:text-center tw:text-sm tw:text-secondary tw:italic"
     >
       No findings yet. Escalate from a non-conforming clause in the requirements panel, or add one
@@ -393,7 +438,7 @@ function unlinkedKinds(finding) {
 
     <div v-else class="tw:flex tw:flex-col tw:divide-y tw:divide-divider">
       <div
-        v-for="finding in findings"
+        v-for="finding in visibleFindings"
         :key="finding.id"
         class="tw:py-3 tw:flex tw:flex-col tw:gap-2"
       >
@@ -429,6 +474,13 @@ function unlinkedKinds(finding) {
               <span v-if="finding.processArea" class="tw:text-caption tw:text-secondary tw:italic">
                 {{ finding.processArea }}
               </span>
+              <BaseBadge
+                v-if="finding.auditReportId && reportTitleById[finding.auditReportId]"
+                class="tw:bg-gray-100 tw:text-gray-600"
+                :title="`From report: ${reportTitleById[finding.auditReportId]}`"
+              >
+                {{ reportTitleById[finding.auditReportId] }}
+              </BaseBadge>
               <!-- Linked-record chips, surfaced in the collapsed row so users
                    see at a glance that a CAPA / NC / CR / Training was raised
                    from this finding (clickable to open it). Full link/unlink
@@ -688,6 +740,7 @@ function unlinkedKinds(finding) {
 
     <AuditFindingDialog
       v-model="showDialog"
+      :defaultTypeId="defaultTypeId"
       :auditInstance="auditInstance"
       :finding="editingFinding"
     />

@@ -58,6 +58,9 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-SEC-18 | Users are accountable for actions taken under their electronic signature | P | — | SOP |  |  |
 | URS-SEC-19 | Identity is verified before a signing credential is issued | P | — | SOP |  |  |
 | URS-SEC-20 | The audit trail is reviewed periodically | P | — | SOP |  |  |
+| URS-SEC-21 | Each permission is limited to a scope — the user's own records, their department, their assigned sites, or the whole company — and records outside that scope are not delivered | T | OQ-16 | TC-16-15 |  |  |
+| URS-SEC-22 | Each capability (edit, approve, close, delete) is granted independently, and owning a record does not confer a capability the user's role withholds | T | OQ-16 | TC-16-16 |  |  |
+| URS-SEC-23 | A permitted user may action a task assigned to another user; the action is presented as acting on their behalf, the assignee is notified, and both identities are recorded in the audit trail and signature | T | OQ-16 | TC-16-17 |  |  |
 
 ## 4. Document Control
 

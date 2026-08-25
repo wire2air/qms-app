@@ -12,7 +12,8 @@
  * everyone else sees FormSchemaReadonlyView grouped per-submitter.
  *
  * Two contracts the parent step card relies on:
- *   - `defineExpose({ submit, saving })` — lets the step card drive
+ *   - `defineExpose({ submit, saveDraft, canSaveDraft, saving })` — lets the
+ *     step card, or a group card, drive
  *     save + submit + approve in one shot when it renders its own
  *     Complete & Advance button (paired with `hideSubmit`).
  *   - `autoApprove` — when true, a successful submit also POSTs the
@@ -20,6 +21,7 @@
  *     emits `done` so the parent can close (used in child-step dialogs).
  */
 import { IconDeviceFloppy, IconSend } from '@tabler/icons-vue'
+import { pickActionableTask, mayActOnStepType } from '@/components/workflow/stepTakeover.js'
 import DynamicForm from '@/components/form/DynamicForm.js'
 import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue'
 import { currentSession } from '@/utils/currentSession.js'
@@ -41,6 +43,17 @@ const props = defineProps({
   // exposed ref. Save draft stays so the assignee can still persist
   // mid-work without completing.
   hideSubmit: { type: Boolean, default: false },
+  // Step grouping: validate and build the payload, then hand it back instead
+  // of persisting. A grouped run's 2nd..Nth steps are still PENDING and have
+  // no task instance, and a step record needs a task_instance_id — so their
+  // records can only be written server-side, after each step activates.
+  // Default false, so every existing caller behaves exactly as before.
+  collectOnly: { type: Boolean, default: false },
+  /**
+   * Whether a collectOnly form may be filled in. The parent owns this because
+   * only it knows if the RUN has started — see isEditable below.
+   */
+  collectEditable: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['done'])
@@ -62,6 +75,16 @@ const instanceStep = useLiveQueryWithDeps(
 // so any leftover schema from the old TASK-template auto-seed doesn't
 // surface at runtime.
 const isApprovalStep = computed(() => instanceStep.value?.stepType === 'APPROVAL')
+
+// May a non-assignee act on this step? Server re-decides; this only governs
+// whether the form is offered as editable.
+const mayTakeOverStep = computed(() =>
+  mayActOnStepType({
+    module: props.module,
+    record: resource.value,
+    stepType: instanceStep.value?.stepType,
+  }),
+)
 const formSchema = computed(() =>
   isApprovalStep.value ? [] : instanceStep.value?.formSchema || [],
 )
@@ -79,11 +102,52 @@ const records = useLiveQueryWithDeps(
   { initial: [] },
 )
 
-const currentUserRecord = computed(
-  () => records.value.find((r) => r.userId === currentUserId.value) || null,
-)
+/**
+ * The record this user is working on for this step.
+ *
+ * Keyed on the TASK, not the user. nc_records / capa_records / cr_records all
+ * carry UNIQUE (task_instance_id): one task, one record. Looking it up by
+ * `userId === me` was fine while only the assignee could act, but a colleague
+ * taking the step over found nothing of their own, took the create path, and
+ * hit the unique index on the assignee's task —
+ *
+ *     duplicate key value violates unique constraint
+ *     "nc_records_task_instance_id_idx"
+ *
+ * (live, 2026-08-19). A takeover CONTINUES the task's record; it does not open
+ * a second one, because the schema does not allow a second one.
+ *
+ * The `userId` fallback still matters: a draft saved before the step activated
+ * has no task yet (task_instance_id is NULL, and Postgres permits many NULLs in
+ * a unique index), and the persist path binds the task to it on the next save.
+ */
+const currentUserRecord = computed(() => {
+  const taskId = currentUserTask.value?.id
+  if (taskId) {
+    const forTask = records.value.find((r) => r.taskInstanceId === taskId)
+    if (forTask) return forTask
+  }
+  return records.value.find((r) => r.userId === currentUserId.value && !r.taskInstanceId) || null
+})
 
 const submittedRecords = computed(() => records.value.filter((r) => r.submittedAt))
+
+/**
+ * Unsubmitted drafts belonging to OTHER people on this step.
+ *
+ * The read-only view showed submitted records (with an author name) and your
+ * own draft, and nothing else — so a colleague's work-in-progress was invisible
+ * even though the database had already delivered it. On a step assigned to
+ * someone else you saw an empty form and would reasonably conclude nothing had
+ * been done (reported 2026-08-19: Steve had filled in two steps; Sam saw blanks).
+ *
+ * Tolerable while only the assignee could act. Not now that a permitted
+ * colleague can take the step over — they would restart work already done,
+ * without knowing a draft existed.
+ */
+const otherDrafts = computed(() =>
+  records.value.filter((r) => !r.submittedAt && r.userId !== currentUserId.value),
+)
 
 // Pick the user's CURRENTLY-ACTIONABLE APPROVAL task on this step. A
 // step can host multiple TaskInstances for the same user across its
@@ -93,7 +157,6 @@ const submittedRecords = computed(() => records.value.filter((r) => r.submittedA
 // isEditable / persistRecord could lock onto a stale APPROVED row
 // after a reopen and render read-only even though there's a live
 // ASSIGNED task ready to edit.
-const ACTIONABLE_TASK_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
 
@@ -103,16 +166,42 @@ const currentUserTask = useLiveQueryWithDeps(
       'WorkflowInstanceStep',
       stepInstanceId,
     ]).exec()
-    const userApprovalTasks = tasks.filter(
-      (t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL',
-    )
-    const actionable = userApprovalTasks.find((t) => ACTIONABLE_TASK_STATUSES.includes(t.statusId))
-    return actionable ?? userApprovalTasks[0] ?? null
+    // Whoever may act on the step, not only its assignee — see stepTakeover.js.
+    // mayTakeOver is read through a getter so the live query re-runs when the
+    // record or step type resolves.
+    const picked = pickActionableTask({
+      tasks,
+      userId,
+      mayAct: mayTakeOverStep.value,
+    matrixApplies: !!props.module.authzModule,
+    })
+    if (picked.task) return picked.task
+    // Fall back to a terminal task of the user's own, so a completed step still
+    // renders the answer they submitted.
+    return tasks.find((t) => t.assignedTo === userId && t.taskKindId === 'APPROVAL') ?? null
   },
   { models: ['TaskInstance'] },
 )
 
-const isEditable = computed(() => currentUserTask.value?.statusId === 'ASSIGNED')
+// Normally: editable only while you hold an ASSIGNED task on this step.
+//
+// collectOnly is the exception, and has to be. A grouped run's 2nd..Nth steps
+// are still PENDING and have NO task — that is the whole reason the server
+// writes their records — so gating on the task left them rendered through the
+// readonly branch and the user could not fill them in (reported 2026-08-18).
+//
+// But it was `collectOnly ? true`, i.e. ALWAYS editable, and the group card
+// also renders for a run that has not started — one waiting on an earlier
+// approval. Its fields invited input that no Save draft or Mark complete could
+// persist, and doing so would have jumped the workflow (reported 2026-08-19).
+//
+// So the parent decides: collectEditable is its `canAct`, which is false until
+// the run's head step is actually IN_PROGRESS. Permission is not the question
+// here — the sequence is. Someone with every capability still may not fill in
+// step 4 while step 2 is out for approval.
+const isEditable = computed(() =>
+  props.collectOnly ? props.collectEditable : currentUserTask.value?.statusId === 'ASSIGNED',
+)
 
 const formData = ref({})
 const saving = ref(false)
@@ -149,8 +238,32 @@ async function runFinalizers() {
 // (e.g. _parent_problem from the resource description). The watch fires
 // again whenever `resource` changes so the context fields refresh, but
 // we only seed the user payload once to avoid clobbering mid-edit input.
+/**
+ * Where a takeover starts from.
+ *
+ * Saving never overwrites anyone: the persist path finds the record whose
+ * userId is yours and creates one if there is none, so a colleague taking a
+ * step over gets their own row and the assignee's draft survives untouched.
+ * Good for the audit trail — Steve started it, Sam finished it — but it left
+ * Sam retyping work he could see on screen.
+ *
+ * So an ACTION or DELAY step seeds from the assignee's draft when you have none
+ * of your own. You continue their work; the record, and therefore the
+ * attribution, is still yours.
+ *
+ * NOT on an APPROVAL step. There each record is a separate attestation, and
+ * pre-filling one reviewer's answer with another's would put words in their
+ * mouth — the exact thing an approval is supposed to prevent.
+ */
+const seedRecord = computed(() => {
+  if (currentUserRecord.value) return currentUserRecord.value
+  if (isApprovalStep.value) return null
+  if (!isEditable.value) return null
+  return otherDrafts.value[0] ?? null
+})
+
 watch(
-  [currentUserRecord, resource],
+  [seedRecord, resource],
   ([record, resourceRow]) => {
     if (record && !formSeeded) {
       formData.value = {
@@ -163,15 +276,63 @@ watch(
   { immediate: true },
 )
 
-watch(resource, (resourceRow) => {
-  if (formSeeded) {
-    Object.assign(formData.value, props.module.getStepFormContextFields(resourceRow))
-  }
-})
+// Context fields (e.g. _parent_problem from the record's description) follow
+// the RECORD, live. Two prior bugs live here:
+//
+//   1. They were only injected when a draft record existed, so a step's FIRST
+//      visit — the normal case — opened with no problem statement at all
+//      (reported 2026-08-23).
+//   2. `watch(resource, …)` never fired after the first refresh: findByPk
+//      returns the SAME ObjectPool instance every time, and a shallowRef set
+//      to the same reference does not notify. Edits mutate INSIDE the object,
+//      so editing the NC description never propagated (reported 2026-08-24).
+//
+// A computed over the derived fields tracks the reactive properties the module
+// actually reads (resource.description → _parent_problem), so it re-evaluates
+// on the edit itself, not on the reference changing.
+const contextFields = computed(() =>
+  resource.value ? (props.module.getStepFormContextFields(resource.value) ?? {}) : {},
+)
+watch(
+  contextFields,
+  (ctx) => {
+    // Assign, never replace: the user's typed answers must survive the
+    // record refreshing underneath them. Context keys are stripped at save.
+    Object.assign(formData.value, ctx)
+  },
+  { immediate: true },
+)
 
-async function persistRecord({ submit, esign }) {
+/**
+ * The payload as it will be stored: context-only keys stripped, OptionSet
+ * labels frozen. Shared by persistRecord and by collectOnly, so a grouped step
+ * is saved from exactly the same shape as an individually-completed one.
+ */
+async function buildPayload() {
+  // Strip every key the module marks as context-only (prefixed with
+  // _ by convention, e.g. _parent_problem). Anything not in the
+  // context map is part of the persisted payload.
+  const contextKeys = new Set(
+    Object.keys(props.module.getStepFormContextFields(resource.value) ?? {}),
+  )
+  const rawPayload = Object.fromEntries(
+    Object.entries(formData.value || {}).filter(([k]) => !contextKeys.has(k)),
+  )
+  // Freeze OptionSet labels onto the payload so saved records stay
+  // readable as the admin originally meant them even if the source
+  // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
+  return freezeOptionLabels(db, formSchema.value, rawPayload)
+}
+
+async function persistRecord({ submit, esign, extraAction = null }) {
   if (saving.value) return
-  if (!currentUserTask.value) {
+  // A DRAFT no longer needs a task. Step records already model a draft as
+  // `submitted_at IS NULL`, and migration 20260818000100 dropped the NOT NULL
+  // on task_instance_id so one can be written before the step activates —
+  // which is what lets Save draft cover a whole grouped run. Submitting still
+  // requires the task, and the database enforces it:
+  //   CHECK (submitted_at IS NULL OR task_instance_id IS NOT NULL)
+  if (submit && !currentUserTask.value) {
     toast.error('No task assigned to you for this step')
     return
   }
@@ -181,27 +342,31 @@ async function persistRecord({ submit, esign }) {
     // Strip every key the module marks as context-only (prefixed with
     // _ by convention, e.g. _parent_problem). Anything not in the
     // context map is part of the persisted payload.
-    const contextKeys = new Set(
-      Object.keys(props.module.getStepFormContextFields(resource.value) ?? {}),
-    )
-    const rawPayload = Object.fromEntries(
-      Object.entries(formData.value || {}).filter(([k]) => !contextKeys.has(k)),
-    )
-    // Freeze OptionSet labels onto the payload so saved records stay
-    // readable as the admin originally meant them even if the source
-    // OptionSet is later edited. See utils/freezeFormPayloadLabels.js.
-    const payload = await freezeOptionLabels(db, formSchema.value, rawPayload)
+    const payload = await buildPayload()
     const existing = currentUserRecord.value
     const submittedAt = submit ? DateTime.now() : (existing?.submittedAt ?? null)
     if (existing) {
       existing.payload = payload
+      // A draft written before the step activated has no task; bind it now so
+      // the submitted record carries the task it was completed under.
+      if (currentUserTask.value && !existing.taskInstanceId) {
+        existing.taskInstanceId = currentUserTask.value.id
+      }
+      // Taking over someone else's draft: the record is the TASK's (unique per
+      // task), so it is continued rather than duplicated — but whoever submits
+      // it owns the answer, and their signature is the one on the step. Stamp
+      // the author to match. The audit trigger keeps the original creation, so
+      // the trail still reads "drafted by X, completed by Y".
+      if (submit && existing.userId !== currentUserId.value) {
+        existing.userId = currentUserId.value
+      }
       if (submit) existing.submittedAt = submittedAt
       await existing.save()
     } else {
       const record = db[props.module.recordModelName].create({
         [props.module.recordResourceFk]: props.resourceId,
         workflowInstanceStepId: props.instanceStepId,
-        taskInstanceId: currentUserTask.value.id,
+        taskInstanceId: currentUserTask.value?.id ?? null,
         payload,
         submittedAt,
       })
@@ -212,11 +377,16 @@ async function persistRecord({ submit, esign }) {
     // sets autoApprove=true. Submitting the form then also approves the
     // reviewer's task in one round trip. Esign credentials, when needed,
     // are passed through from the parent's esign dialog.
-    if (submit && props.autoApprove && currentUserTask.value.statusId === 'ASSIGNED') {
+    if (submit && props.autoApprove && currentUserTask.value?.statusId === 'ASSIGNED') {
       try {
+        // `extraAction` carries step-level fields the CARD owns rather than the
+        // form — today the effectiveness verdict on a DELAY step. It has to ride
+        // this request because the form's submit and the completion are one
+        // round trip when autoApprove is on.
         const body = {
           action: 'COMPLETE_AND_ADVANCE',
           outcomeId: 'COMPLETE_AND_ADVANCE',
+          ...(extraAction ?? {}),
         }
         if (esign?.method) body.method = esign.method
         if (esign?.token) body.token = esign.token
@@ -280,7 +450,7 @@ function getMissingRequiredFields() {
   return missing
 }
 
-async function submitForm(esign) {
+async function submitForm(esign, extraAction = null) {
   // Same finalize-on-save bundling as saveDraft — Mark Complete also
   // benefits from this since a user is likely to hit it once they
   // think they're done, and a still-unfinalized RCA would otherwise
@@ -303,11 +473,22 @@ async function submitForm(esign) {
     return
   }
   missingFieldsError.value = ''
-  return persistRecord({ submit: true, esign })
+  // Grouped run: hand the validated payload up; the server writes it once the
+  // step activates and its task exists.
+  if (props.collectOnly) return { payload: await buildPayload() }
+  return persistRecord({ submit: true, esign, extraAction })
 }
 
 const usersMap = useLiveQueryWithDeps(
-  [() => submittedRecords.value.map((r) => r.userId).join(',')],
+  // Every record author shown in the read-only view — submitted records AND
+  // other people's drafts. Missing the drafts left them labelled "—".
+  [
+    () =>
+      [...submittedRecords.value, ...otherDrafts.value]
+        .map((r) => r.userId)
+        .filter(Boolean)
+        .join(','),
+  ],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
     const ids = [...new Set(idsStr.split(','))]
@@ -327,7 +508,13 @@ function getUserName(userId) {
 // Exposed so parents that render their own Complete & Advance button
 // can trigger save + submit + approve in one shot — paired with
 // `hideSubmit` to suppress the in-form Submit button.
-defineExpose({ submit: submitForm, saving })
+// `saveDraft` / `canSaveDraft` are exposed so a parent can drive drafts from
+// outside the form — the group card puts one Save draft next to Complete and
+// fans it out across its steps. Every editable step can now hold a draft,
+// task or not (migration 20260818000100).
+const canSaveDraft = computed(() => isEditable.value)
+
+defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
 </script>
 
 <template>
@@ -344,7 +531,17 @@ defineExpose({ submit: submitForm, saving })
         :fields="formSchema"
         @update:modelValue="missingFieldsError = ''"
       />
-      <div class="tw:mt-4 tw:flex tw:justify-end tw:gap-2">
+      <div
+        v-if="currentUserTask && !collectOnly && !hideSubmit"
+        class="tw:mt-4 tw:flex tw:justify-end tw:gap-2"
+      >
+        <!-- Hidden whenever the PARENT drives the actions (hideSubmit), so
+             Save draft and Mark Complete sit on one row in the step card
+             instead of stacking. Also hidden in a group: the group card
+             carries ONE Save draft beside Complete and drives each step
+             through the exposed saveDraft(), so per-step buttons would just be
+             noise — the same reasoning as Mark Complete. Outside a group
+             isEditable already implies a task, so nothing changes there. -->
         <BaseButton variant="outline" :disabled="saving" @click="saveDraft">
           <template #icon><IconDeviceFloppy :size="16" /></template>
           {{ saving ? 'Saving…' : 'Save draft' }}
@@ -374,8 +571,18 @@ defineExpose({ submit: submitForm, saving })
         <FormSchemaReadonlyView :fields="formSchema" :values="currentUserRecord.payload || {}" />
       </div>
 
+      <!-- A colleague's work in progress. Named, so it is never mistaken for
+           your own, and shown because starting a takeover from a blank form
+           when a draft already exists is how work gets duplicated. -->
+      <div v-for="draft in otherDrafts" :key="draft.id">
+        <div class="tw:text-caption tw:text-amber-600 tw:font-medium tw:mb-2">
+          Draft by {{ getUserName(draft.userId) }} (not submitted)
+        </div>
+        <FormSchemaReadonlyView :fields="formSchema" :values="draft.payload || {}" />
+      </div>
+
       <DynamicForm
-        v-if="!submittedRecords.length && !currentUserRecord"
+        v-if="!submittedRecords.length && !currentUserRecord && !otherDrafts.length"
         :fields="formSchema"
         :readonly="true"
         disabled

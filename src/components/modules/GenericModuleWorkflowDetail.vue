@@ -3,7 +3,7 @@
 // CapaWorkflowDetail but with the dynamic FORM descriptor and no child steps
 // (form sections are flat). Each WorkflowStep renders the assignee's section
 // fill (WorkflowStepForm reads the step's formSchema; answers → ModuleSectionRecord).
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { formModuleFor } from '@/components/workflow/workflowModule.js'
 
@@ -45,14 +45,11 @@ function openReassignDialog(instanceStepId) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
-    <WorkflowStep
-      v-for="(step, idx) in workflowInstanceSteps"
-      :key="step.id"
+    <WorkflowStepRun
+      :steps="workflowInstanceSteps"
       :module="moduleDescriptor"
-      :instanceStepId="step.id"
       :resourceId="recordId"
       :isOwner="isOwner"
-      :displayNumber="String(idx + 1)"
       @reassign="openReassignDialog"
     />
     <WorkflowReassignDialog

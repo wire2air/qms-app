@@ -40,9 +40,9 @@ describe('buildCapaBanners', () => {
 })
 
 describe('buildCapaSections', () => {
-  it('always returns details, workflow, effectiveness', () => {
+  it('always returns details and workflow', () => {
     const s = buildCapaSections({ statusId: 'DRAFT' })
-    expect(s.map((x) => x.id)).toEqual(['details', 'workflow', 'effectiveness'])
+    expect(s.map((x) => x.id)).toEqual(['details', 'workflow'])
   })
   it('all sections have a label', () => {
     const s = buildCapaSections({ statusId: 'PENDING' })
@@ -65,10 +65,13 @@ describe('buildCapaActions', () => {
     openDelete() {},
   }
 
-  it('shows open (primary) for DRAFT owner; close and cancel not visible', () => {
+  it('shows open (primary) on a DRAFT; close and cancel not visible', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'DRAFT',
         canClose: true,
         closeDisabledReason: '',
@@ -83,10 +86,13 @@ describe('buildCapaActions', () => {
     expect(visible).not.toContain('cancel')
   })
 
-  it('shows delete for DRAFT owner', () => {
+  it('shows delete on a DRAFT when the user may delete', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'DRAFT',
         canClose: true,
         closeDisabledReason: '',
@@ -98,10 +104,13 @@ describe('buildCapaActions', () => {
     expect(a.find((x) => x.id === 'delete').visible).toBe(true)
   })
 
-  it('shows close (primary) and cancel for PENDING owner; open not visible', () => {
+  it('shows close (primary) and cancel when PENDING; open not visible', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'PENDING',
         canClose: true,
         closeDisabledReason: '',
@@ -119,7 +128,10 @@ describe('buildCapaActions', () => {
   it('close is disabled with tooltip when canClose=false', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'PENDING',
         canClose: false,
         closeDisabledReason: '2 steps still open.',
@@ -137,7 +149,10 @@ describe('buildCapaActions', () => {
   it('close has no title when canClose=true and no closeDisabledReason', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'PENDING',
         canClose: true,
         closeDisabledReason: '',
@@ -151,10 +166,13 @@ describe('buildCapaActions', () => {
     expect(close.title).toBeUndefined()
   })
 
-  it('hides owner-only actions for a non-owner', () => {
+  it('hides every lifecycle action from a user who holds none of the verbs', () => {
     const a = buildCapaActions(
       {
-        isOwner: false,
+        canStart: false,
+        canCloseCapa: false,
+        canCancel: false,
+        canDelete: false,
         statusId: 'DRAFT',
         canClose: false,
         closeDisabledReason: '',
@@ -172,7 +190,10 @@ describe('buildCapaActions', () => {
   it('open has loading=true and disabled=true while saving', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'DRAFT',
         canClose: false,
         closeDisabledReason: '',
@@ -190,7 +211,10 @@ describe('buildCapaActions', () => {
     let opened = false
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'DRAFT',
         canClose: false,
         closeDisabledReason: '',
@@ -211,7 +235,10 @@ describe('buildCapaActions', () => {
   it('createCr visible when canCreateChangeRequest and status is not DRAFT', () => {
     const a = buildCapaActions(
       {
-        isOwner: false,
+        canStart: false,
+        canCloseCapa: false,
+        canCancel: false,
+        canDelete: false,
         statusId: 'PENDING',
         canClose: false,
         closeDisabledReason: '',
@@ -226,7 +253,10 @@ describe('buildCapaActions', () => {
   it('createCr NOT visible on DRAFT even when permission granted', () => {
     const a = buildCapaActions(
       {
-        isOwner: false,
+        canStart: false,
+        canCloseCapa: false,
+        canCancel: false,
+        canDelete: false,
         statusId: 'DRAFT',
         canClose: false,
         closeDisabledReason: '',
@@ -241,7 +271,10 @@ describe('buildCapaActions', () => {
   it('close action is disabled and loading while closing is true', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'PENDING',
         canClose: true,
         closeDisabledReason: '',
@@ -259,7 +292,10 @@ describe('buildCapaActions', () => {
   it('cancel action is disabled and loading while cancelling is true', () => {
     const a = buildCapaActions(
       {
-        isOwner: true,
+        canStart: true,
+        canCloseCapa: true,
+        canCancel: true,
+        canDelete: true,
         statusId: 'PENDING',
         canClose: true,
         closeDisabledReason: '',

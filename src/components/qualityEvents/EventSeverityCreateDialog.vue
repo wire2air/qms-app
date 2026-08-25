@@ -70,7 +70,13 @@ async function submit() {
       </p>
     </div>
     <template #footer="{ close }">
-      <BaseDialogFooter submitLabel="Create" :loading="saving" :disabled="!name.trim()" @cancel="close" @submit="submit" />
+      <BaseDialogFooter
+        submitLabel="Create"
+        :loading="saving"
+        :disabled="!name.trim()"
+        @cancel="close"
+        @submit="submit"
+      />
     </template>
   </BaseDialog>
 </template>

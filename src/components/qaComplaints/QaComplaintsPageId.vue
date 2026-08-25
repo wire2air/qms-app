@@ -671,6 +671,14 @@ const complaintDetailConfig = computed(() =>
     </template>
 
     <template v-if="complaint" #rail>
+      <!-- External sharing. The complainant is by definition not a user, which
+           makes this the module most likely to need it. -->
+      <RecordShareCard
+        entityType="Complaint"
+        :entityId="complaint.id"
+        module="complaints"
+        :record="complaint"
+      />
       <!-- Workflow. Complaints showed NOTHING here before (2026-08-17). -->
       <WorkflowRailCard
         :record="complaint"

@@ -1,5 +1,5 @@
 <script setup>
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { COMPLAINT_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -43,14 +43,11 @@ function openReassignDialog(instanceStepId) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
     <template v-if="workflowInstanceSteps.length">
-      <WorkflowStep
-        v-for="(step, idx) in workflowInstanceSteps"
-        :key="step.id"
+      <WorkflowStepRun
+        :steps="workflowInstanceSteps"
         :module="COMPLAINT_MODULE"
-        :instanceStepId="step.id"
         :resourceId="complaintId"
         :isOwner="isOwner"
-        :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
       />
     </template>

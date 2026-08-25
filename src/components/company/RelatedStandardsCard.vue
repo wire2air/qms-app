@@ -199,8 +199,6 @@ async function handleRestore(row) {
         hidePagination
         searchable
         filterable
-        densitySelector
-        columnManager
         exportManager
         exportFilename="related-standards.csv"
         persistKey="lookups:relatedStandards"
@@ -295,7 +293,12 @@ async function handleRestore(row) {
 
           <BaseField label="Display Order" :value="form.displayOrder">
             <template #default="field">
-              <BaseTextInput v-bind="field" v-model.number="form.displayOrder" type="number" :min="0" />
+              <BaseTextInput
+                v-bind="field"
+                v-model.number="form.displayOrder"
+                type="number"
+                :min="0"
+              />
             </template>
           </BaseField>
         </div>

@@ -11,6 +11,7 @@
  * exists, edits auto-save (debounced).
  */
 import {
+  IconChevronLeft,
   IconChevronDown,
   IconChevronRight,
   IconX,
@@ -34,7 +35,31 @@ const toast = useToast()
 
 // Frozen clause snapshot: { requirementId, parentId, clauseNumber, title,
 // questions, peopleToInterview, guidance, expectedEvidence, description, … }.
-const clauses = computed(() => props.auditInstance.requirementSchema || [])
+//
+// Two formats exist in snapshots: the guided-audit CHECKLIST arrays
+// (questions / evidenceItems), and the older singular TEXT fields (`question`,
+// `expectedEvidence`) the 361-clause seeds use. The notebook only ever
+// rendered the arrays, so audits built on legacy standards showed the auditor
+// NO questions (reported 2026-08-24) and no Expected Evidence checklist.
+// Normalise here with DETERMINISTIC ids so asked/answered state keyed on item
+// ids survives reloads. Legacy expectedEvidence follows the CSV convention:
+// multiple items in one string separated by " | " (or line breaks).
+const clauses = computed(() =>
+  (props.auditInstance.requirementSchema || []).map((c) => {
+    const out = { ...c }
+    if (!c.questions?.length && c.question) {
+      out.questions = [{ id: `legacy-${c.requirementId}`, text: c.question }]
+    }
+    if (!c.evidenceItems?.length && c.expectedEvidence) {
+      out.evidenceItems = String(c.expectedEvidence)
+        .split(/\s*\|\s*|\n+/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .map((t, i) => ({ id: `legacy-ev-${c.requirementId}-${i}`, text: t }))
+    }
+    return out
+  }),
+)
 
 const responsesById = useLiveQueryWithDeps(
   [() => props.auditInstance.id],
@@ -123,9 +148,10 @@ const currentChildren = computed(() => childrenByParent.value[currentReqId.value
 const currentHasChildren = computed(() => currentChildren.value.length > 0)
 
 // Clause rail visibility — collapsible on every screen size. Defaults open on
-// desktop, closed on iPad/phone (where it stacks full-width above the step);
-// resetting to the layout default when the breakpoint is crossed.
-const isDesktop = useMediaQuery('(min-width: 1024px)')
+// desktop (≥1280), closed on iPad/phone (the auditor works clause-by-clause
+// there; the list is one tap away); resetting to the layout default when the
+// breakpoint is crossed.
+const isDesktop = useMediaQuery('(min-width: 1280px)')
 const railOpen = ref(isDesktop.value)
 watch(isDesktop, (d) => {
   railOpen.value = d
@@ -239,17 +265,11 @@ async function ensureResponse() {
   return await saveResponse(reqId, currentResponse.value?.resultId ?? null)
 }
 
-// Per-item conformance ratings. Each list has its own vocabulary; severity
-// (Major/Minor/OFI) stays the clause-level Result, not a per-item choice.
-const QUESTION_STATUSES = [
-  {
-    id: 'CONFORM',
-    name: 'Conform',
-    active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600',
-  },
-  { id: 'NONCONFORM', name: 'Nonconform', active: 'tw:bg-red-600 tw:text-white tw:border-red-600' },
-  { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
-]
+// Per-item ratings for observations/evidence only. Questions deliberately have
+// NO per-item verdict (user call 2026-08-24): they exist to run the interview —
+// tick nothing, note everything — and the auditor makes the one verdict in
+// Result & Finding after reviewing all of it. Severity (Major/Minor/OFI)
+// likewise stays the clause-level Result.
 const OBSERVATION_STATUSES = [
   { id: 'OK', name: 'OK', active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600' },
   { id: 'CONCERN', name: 'Concern', active: 'tw:bg-amber-500 tw:text-white tw:border-amber-500' },
@@ -295,7 +315,11 @@ const currentHasChecklistItems = computed(() => {
 })
 function visibleItems(field, items) {
   if (!hideAnswered.value) return items || []
-  return (items || []).filter((it) => !checklistState(field, it.id).status)
+  return (items || []).filter((it) => {
+    const st = checklistState(field, it.id)
+    // Questions carry no status — a written note is what "answered" means.
+    return field === 'questionChecklist' ? !st.note?.trim() : !st.status
+  })
 }
 
 // Roll-up of the per-item ratings for the current clause — drives the summary
@@ -306,16 +330,10 @@ const clauseSummary = computed(() => {
   const empty = { parts: [], flags: 0, assessed: 0, suggested: null }
   if (!cl) return empty
   const stat = (field, id) => currentBuffer.value?.[field]?.[id]?.status
-  let nonconform = 0,
-    missing = 0,
+  let missing = 0,
     partial = 0,
     concern = 0,
     assessed = 0
-  for (const q of cl.questions || []) {
-    const s = stat('questionChecklist', q.id)
-    if (s) assessed++
-    if (s === 'NONCONFORM') nonconform++
-  }
   for (const o of cl.observations || []) {
     const s = stat('observationChecklist', o.id)
     if (s) assessed++
@@ -328,13 +346,12 @@ const clauseSummary = computed(() => {
     else if (s === 'PARTIAL') partial++
   }
   const parts = []
-  if (nonconform) parts.push(`${nonconform} nonconform`)
   if (missing) parts.push(`${missing} missing`)
   if (partial) parts.push(`${partial} partial`)
   if (concern) parts.push(`${concern} concern${concern > 1 ? 's' : ''}`)
-  const flags = nonconform + missing + partial + concern
+  const flags = missing + partial + concern
   let suggested = null
-  if (nonconform || missing) suggested = 'NC'
+  if (missing) suggested = 'NC'
   else if (partial || concern) suggested = 'OFI'
   else if (assessed > 0) suggested = 'CONFORMING'
   return { parts, flags, assessed, suggested }
@@ -386,6 +403,12 @@ function setAuditorNotes(v) {
   debouncedSave()
 }
 
+// Voice-note transcript arrives as a marker-wrapped HTML block — APPEND to
+// the auditor's notes, never replace (user rule 2026-08-24).
+function appendVoiceTranscript(block) {
+  setAuditorNotes((currentBuffer.value?.auditorNotes || '') + block)
+}
+
 // Deterministic Summarize — assembles Finding Notes from the notebook with no
 // AI: the flagged items (+ their notes) and the auditor's notes. Fast, reliable,
 // offline-friendly; the auditor edits it into the final finding.
@@ -402,10 +425,6 @@ function summarizeFinding() {
   const stat = (field, id) => buf?.[field]?.[id]?.status
   const noteOf = (field, id) => buf?.[field]?.[id]?.note
   const flagged = []
-  for (const q of cl.questions || []) {
-    if (stat('questionChecklist', q.id) === 'NONCONFORM')
-      flagged.push({ tag: 'Nonconform', text: q.text, note: noteOf('questionChecklist', q.id) })
-  }
   for (const e of cl.evidenceItems || []) {
     const s = stat('evidenceChecklist', e.id)
     if (s === 'MISSING' || s === 'PARTIAL')
@@ -420,7 +439,20 @@ function summarizeFinding() {
       flagged.push({ tag: 'Concern', text: o.text, note: noteOf('observationChecklist', o.id) })
   }
 
+  // Interview notes: whatever the auditor wrote against a question while
+  // asking it. There is no per-question verdict — the notes ARE the capture.
+  const asked = (cl.questions || [])
+    .map((q) => ({ text: q.text, note: noteOf('questionChecklist', q.id) }))
+    .filter((q) => q.note && q.note.trim())
+
   const html = [`<p><strong>${escapeHtml(cl.clauseNumber)} — ${escapeHtml(cl.title)}</strong></p>`]
+  if (asked.length) {
+    html.push('<p><strong>Interview notes:</strong></p><ul>')
+    for (const q of asked) {
+      html.push(`<li>${escapeHtml(q.text)} — ${escapeHtml(q.note)}</li>`)
+    }
+    html.push('</ul>')
+  }
   if (flagged.length) {
     html.push('<p><strong>Findings:</strong></p><ul>')
     for (const f of flagged) {
@@ -557,16 +589,28 @@ function summarizeFinding() {
             <span class="tw:text-xs tw:text-secondary"
               >{{ currentIndex + 1 }} / {{ orderedSteps.length }}</span
             >
-            <BaseButton variant="outline" size="sm" :disabled="currentIndex <= 0" @click="prevStep"
-              >Prev</BaseButton
-            >
+            <!-- Big, colored, on every screen size (iPad-first, 2026-08-24):
+                 these are the auditor's most-pressed controls on the floor. -->
             <BaseButton
-              variant="outline"
-              size="sm"
+              variant="primary"
+              size="lg"
+              class="tw:font-semibold"
+              :disabled="currentIndex <= 0"
+              @click="prevStep"
+            >
+              <template #icon><IconChevronLeft :size="20" /></template>
+              Prev
+            </BaseButton>
+            <BaseButton
+              variant="primary"
+              size="lg"
+              class="tw:font-semibold"
               :disabled="currentIndex >= orderedSteps.length - 1"
               @click="nextStep"
-              >Next</BaseButton
             >
+              Next
+              <IconChevronRight :size="20" />
+            </BaseButton>
           </div>
         </div>
 
@@ -694,7 +738,7 @@ function summarizeFinding() {
                   items: currentClause.questions,
                   field: 'questionChecklist',
                   label: 'Questions',
-                  statuses: QUESTION_STATUSES,
+                  statuses: null,
                 },
                 {
                   items: currentClause.observations,
@@ -727,7 +771,10 @@ function summarizeFinding() {
                       <p class="tw:text-sm tw:text-on-main tw:flex-1 tw:min-w-48">
                         {{ item.text }}
                       </p>
-                      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:shrink-0">
+                      <div
+                        v-if="cl.statuses"
+                        class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:shrink-0"
+                      >
                         <button
                           v-for="st in cl.statuses"
                           :key="st.id"
@@ -749,7 +796,7 @@ function summarizeFinding() {
                       v-if="!readonly"
                       :modelValue="checklistState(cl.field, item.id).note"
                       size="sm"
-                      placeholder="Note (optional)"
+                      :placeholder="cl.statuses ? 'Note (optional)' : 'Interview notes…'"
                       @update:modelValue="(v) => setChecklistNote(cl.field, item.id, v)"
                     />
                     <p
@@ -881,6 +928,7 @@ function summarizeFinding() {
                 :scopeId="currentResponse?.id ?? null"
                 :readonly="readonly"
                 :ensureResponse="ensureResponse"
+                @transcribed="appendVoiceTranscript"
               />
             </div>
 

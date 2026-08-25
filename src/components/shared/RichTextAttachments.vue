@@ -119,9 +119,27 @@ function serialize(html, attachments) {
 // ── Draft state ───────────────────────────────────────────────────────────────
 const { html: initHtml, attachments: initAtts } = parse(modelValue.value)
 const draftHtml = ref(initHtml)
-const draftAtts = ref(
-  props.separateAttachments ? [...(attachmentsModel.value ?? [])] : [...initAtts],
-)
+
+/**
+ * In separate mode the attachments live in their own model, and the string
+ * carries only the body.
+ *
+ * The rescue that read them back out of the string existed for records written
+ * before a field moved to separate mode — without it, reading one and saving
+ * would silently discard its attachments, since separate mode's serialize()
+ * drops the marker. The database reset of 2026-08-23 removed the last of those
+ * records, so the rescue went with them.
+ *
+ * The SINGLE-STRING mode below still uses the marker. That is not legacy: it
+ * is the live format for every caller that has not been given two models
+ * (QC test methods among them).
+ */
+function initialAttachments() {
+  if (!props.separateAttachments) return [...initAtts]
+  return [...(attachmentsModel.value ?? [])]
+}
+
+const draftAtts = ref(initialAttachments())
 
 // Guard: when we emit, suppress the echo back into draftHtml.
 let _emitting = false
@@ -130,7 +148,12 @@ watch(modelValue, (v) => {
   if (_emitting) return
   const p = parse(v)
   draftHtml.value = p.html
-  if (!props.separateAttachments) draftAtts.value = [...p.attachments]
+  if (!props.separateAttachments) {
+    draftAtts.value = [...p.attachments]
+  } else if (!draftAtts.value.length && p.attachments.length) {
+    // Same legacy rescue as initialAttachments, for a value that arrives late.
+    draftAtts.value = [...p.attachments]
+  }
 })
 
 watch(attachmentsModel, (v) => {

@@ -34,6 +34,8 @@ export class AuditStandardVersion extends BaseModel {
   @Property({ type: String }) workflowInstanceId = ''
   @Property({ type: DateTime }) effectiveAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) supersededAt = /** @type {DateTime} */ (null)
+  /** Bulk-enrich job status ({pending,total,done} | {completedAt} | {cancelled}). */
+  @Property({ type: Object }) aiEnrichment = /** @type {Object} */ (null)
   @Property({ type: String }) createdBy = ''
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })

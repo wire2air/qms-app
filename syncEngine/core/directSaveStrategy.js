@@ -28,12 +28,7 @@ import { OPERATION, LOAD_STRATEGY } from '../shared/constants.js'
 import ModelRegistry from './ModelRegistry.js'
 import { MutationRunner } from '../network/MutationRunner.js'
 import { IndexedDB } from '../persistence/IndexedDB.js'
-import {
-  computeUpdatePatch,
-  dehydrate,
-  hydrate,
-  serializeValue,
-} from '../persistence/hydration.js'
+import { computeUpdatePatch, dehydrate, hydrate, serializeValue } from '../persistence/hydration.js'
 import { ObjectPool } from './ObjectPool.js'
 import { syncBus } from './syncBus.js'
 import { markAsRecentlyWritten } from '../sync/socketSubscriber.js'
@@ -198,13 +193,30 @@ async function _executeSave(instance, schema, pk, id, tableName) {
     // Fields still marked edited (changed mid-flight) are preserved by hydrate.
     await hydrate(modelName, id, {}, serverRecord)
   } else {
-    // No server record returned for a non-DELETE — the mutation succeeded but
-    // the response was empty. Fall back to persisting local state.
-    console.warn(
-      `[directSaveStrategy] ${action} for ${modelName}:${id} returned no record; persisting local state`,
+    // No server record on a networked CREATE/UPDATE means the row was NOT
+    // written. PostGraphile always returns the row it mutated, so an empty
+    // payload means the statement matched zero rows — almost always an RLS
+    // denial (the user's grant does not cover this record), occasionally a
+    // record deleted underneath us.
+    //
+    // This used to `dehydrate` — write the local state to IndexedDB and clear
+    // the edit flags — on the assumption that an empty response still meant
+    // success. It does not. The effect was a phantom save: the field showed the
+    // new value, IndexedDB agreed, the edit markers were cleared so nothing
+    // would retry, and the server had none of it. Silent data loss on exactly
+    // the path where the server said no.
+    //
+    // Saves here are pessimistic, so the correct behaviour is to throw and
+    // touch nothing: IndexedDB keeps the server's version, the edits stay
+    // marked (the user's typing is not discarded), and the caller surfaces the
+    // error. See useAutoSave's onError and the saveError banners.
+    // The echo-suppression window set before the request simply expires on its
+    // own timer; there is nothing to un-mark, and no server event is coming
+    // for a write that did not happen.
+    throw new Error(
+      `Not saved — the server rejected this change to ${modelName}. ` +
+        `Your role may not cover this record. Nothing was changed.`,
     )
-    await dehydrate(modelName, instance)
-    clearAllEdits(instance)
   }
 
   syncBus.emit({ modelName, modelId: id, action, type: 'transactionCommitted' })

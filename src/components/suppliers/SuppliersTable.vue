@@ -43,7 +43,14 @@ const columns = computed(() => {
     createdAt: { filterType: 'date' },
   }
   return [
-    { name: 'name', label: 'SUPPLIER NAME', field: 'name', align: 'left', sortable: true, hideable: false },
+    {
+      name: 'name',
+      label: 'SUPPLIER NAME',
+      field: 'name',
+      align: 'left',
+      sortable: true,
+      hideable: false,
+    },
     { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
     { name: 'category', label: 'CATEGORY', field: 'category', align: 'left', sortable: true },
     { name: 'riskLevel', label: 'RISK LEVEL', field: 'riskLevel', align: 'left', sortable: true },
@@ -91,8 +98,6 @@ function rowMenuItems(row) {
     rowKey="id"
     :mobileCards="false"
     searchable
-    columnManager
-    densitySelector
     filterable
     exportManager
     exportFilename="suppliers.csv"

@@ -250,8 +250,6 @@ const columns = [
       rowKey="id"
       :mobileCards="false"
       hidePagination
-      densitySelector
-      columnManager
       exportManager
       exportFilename="log-books.csv"
       persistKey="inspectionsLogs:logBooks"

@@ -45,8 +45,6 @@ function fmt(value, format) {
     :columns="tableColumns"
     :rowKey="rowKey"
     :mobileCards="false"
-    densitySelector
-    columnManager
     exportManager
     :exportFilename="`ai-usage-${title.toLowerCase().replace(/\s+/g, '-')}.csv`"
     :persistKey="`aiUsage:breakdown:${title}`"

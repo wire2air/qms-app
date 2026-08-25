@@ -20,20 +20,17 @@ const router = useRouter()
 
 const canCreate = computed(() => isAllowed(['complaints:create']))
 const canUpdate = computed(() => isAllowed(['complaints:update']))
-const canConvert = computed(
-  () => isAllowed(['complaints:update']) && isAllowed(['ncr:create']),
-)
+const canConvert = computed(() => isAllowed(['complaints:update']) && isAllowed(['ncr:create']))
 
 const list = useListLayout({
-  filters: { search: '' },
   total: () => complaints.value.length,
   loading: () => complaints.value === undefined,
   empty: () => complaints.value.length === 0,
 })
-const filters = list.filters
 
-// QA quick-views. "QA Review" = complaints assigned to me or a team I'm on and
-// still active — the queue a QA reviewer works from.
+// QA quick-views, rendered in the table toolbar's #tabs slot. "QA Review" =
+// complaints assigned to me or a team I'm on and still active — the queue a QA
+// reviewer works from.
 const activeFilter = ref('all')
 const VIEWS = [
   { value: 'all', label: 'All' },
@@ -71,22 +68,11 @@ const allComplaints = useLiveQuery((db) => db.Complaint.where().exec(), {
 })
 
 const complaints = useLiveQueryWithDeps(
-  [() => filters.value.search, () => activeFilter.value, () => myTeamIds.value.join(',')],
-  async (db, [search, af]) => {
+  [() => activeFilter.value, () => myTeamIds.value.join(',')],
+  async (db, [af]) => {
     const uid = currentSession.value?.userId
     const teamSet = new Set(myTeamIds.value)
     let results = (await db.Complaint.where().exec()).filter((r) => !r.isSpam)
-
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(
-        (r) =>
-          r.subject?.toLowerCase().includes(q) ||
-          r.complaintNumber?.toLowerCase().includes(q) ||
-          r.customerName?.toLowerCase().includes(q) ||
-          r.customerEmail?.toLowerCase().includes(q),
-      )
-    }
 
     if (af === 'qa_review') {
       // My QA queue: complaints I own (the workflow's responsible party — e.g.
@@ -105,7 +91,9 @@ const complaints = useLiveQueryWithDeps(
       results = results.filter((r) => CLOSED_STATUSES.includes(r.statusId))
     }
 
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
   { models: ['Complaint'], initial: [] },
 )
@@ -115,11 +103,22 @@ const stats = computed(() => {
   const open = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
   const unassigned = open.filter((r) => !r.assignedTo)
   const converted = all.filter((r) => r.statusId === 'CONVERTED_TO_NC')
-  return { total: all.length, open: open.length, unassigned: unassigned.length, converted: converted.length }
+  return {
+    total: all.length,
+    open: open.length,
+    unassigned: unassigned.length,
+    converted: converted.length,
+  }
 })
 
 const kpiItems = computed(() => [
-  { key: 'total', label: 'Total complaints', value: stats.value.total, icon: IconMessageReport, color: 'blue' },
+  {
+    key: 'total',
+    label: 'Total complaints',
+    value: stats.value.total,
+    icon: IconMessageReport,
+    color: 'blue',
+  },
   { key: 'open', label: 'Open', value: stats.value.open, icon: IconProgressCheck, color: 'amber' },
   {
     key: 'unassigned',
@@ -129,7 +128,13 @@ const kpiItems = computed(() => [
     color: 'red',
     emphasize: stats.value.unassigned > 0,
   },
-  { key: 'converted', label: 'Escalated to NC', value: stats.value.converted, icon: IconTransform, color: 'green' },
+  {
+    key: 'converted',
+    label: 'Escalated to NC',
+    value: stats.value.converted,
+    icon: IconTransform,
+    color: 'green',
+  },
 ])
 
 // ─── Selection + bulk escalate to NC (reuses the shared convert dialog) ──────
@@ -152,16 +157,18 @@ function onConverted(ncId) {
     :icon="IconMessageReport"
     subtitle="Review, investigate and escalate customer complaints — sourced from manual entry, CSV import or the Zendesk integration."
     :state="list.state.value"
-    :emptyIcon="IconMessageReport"
-    :emptyTitle="filters.search || activeFilter !== 'all' ? 'No complaints match your filters' : 'No complaints yet'"
-    :selectedCount="selectedIds.length"
+    contentOwnsEmpty
   >
     <template #actions>
       <BaseButton variant="secondary" @click="router.push(getCompanyPath('/complaints/reports'))">
         <IconChartBar :size="18" class="tw:mr-1" />
         Reports
       </BaseButton>
-      <BaseButton v-if="canCreate" variant="primary" @click="router.push(getCompanyPath('/complaints/create'))">
+      <BaseButton
+        v-if="canCreate"
+        variant="primary"
+        @click="router.push(getCompanyPath('/complaints/create'))"
+      >
         New Complaint
       </BaseButton>
     </template>
@@ -170,42 +177,26 @@ function onConverted(ncId) {
       <BaseStatStrip :items="kpiItems" />
     </template>
 
-    <template #filters>
-      <BaseFilterBar v-model:search="filters.search" searchPlaceholder="Search complaints…">
-        <template #filters>
-          <div class="tw:flex tw:items-center tw:gap-1">
-            <BaseButton
-              v-for="v in VIEWS"
-              :key="v.value"
-              size="sm"
-              :variant="activeFilter === v.value ? 'primary' : 'outline'"
-              @click="activeFilter = v.value"
-            >
-              {{ v.label }}
-            </BaseButton>
-          </div>
-        </template>
-      </BaseFilterBar>
-    </template>
-
-    <template #bulk-actions>
-      <BaseButton
-        v-if="canConvert"
-        variant="primary"
-        size="sm"
-        @click="showConvertDialog = true"
-      >
-        Create NC
-      </BaseButton>
-    </template>
-
     <CustomerComplaintsTable
       v-model:selected="selectedIds"
       :rows="complaints"
       :selectable="canConvert || canUpdate"
       detailBasePath="/complaints"
       :ownerAsAssignee="true"
-    />
+      :emptyLabel="activeFilter === 'all' ? 'No complaints yet' : 'No complaints match this view'"
+    >
+      <!-- Quick views -->
+      <template #tabs>
+        <BaseQuickFilterPills v-model="activeFilter" :pills="VIEWS" ariaLabel="Quick views" />
+      </template>
+
+      <!-- Bulk escalate — the table's toolbar becomes the action bar on selection -->
+      <template #bulk-actions>
+        <BaseButton v-if="canConvert" variant="primary" size="sm" @click="showConvertDialog = true">
+          Create NC
+        </BaseButton>
+      </template>
+    </CustomerComplaintsTable>
 
     <CustomerComplaintConvertToNcDialog
       v-model="showConvertDialog"

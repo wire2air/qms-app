@@ -6,7 +6,8 @@ defineProps({
   embedded: { type: Boolean, default: false },
 })
 
-import { IconAlertCircle, IconClock, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
+import { humanizeFilter } from '@/composables/useListPrint.js'
+import { IconAlertCircle, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
@@ -58,7 +59,7 @@ function clearSupplierFilter() {
 }
 
 const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
-const OPEN_STATUSES = ['DRAFT', 'PENDING']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
 function applyFilters(results, statusIds, priorityIds, typeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
@@ -68,8 +69,10 @@ function applyFilters(results, statusIds, priorityIds, typeIds) {
 }
 
 function applyActiveFilter(results, af) {
-  const now = DateTime.now()
   const userId = currentSession.value?.userId
+  // Explicit rather than relying on the fallthrough below: 'all' is a real
+  // choice (the whole register, closed included), not an unrecognised value.
+  if (af === 'all') return results
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
@@ -77,8 +80,6 @@ function applyActiveFilter(results, af) {
     return results.filter((r) => r.priorityId === 'CRITICAL' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'high')
     return results.filter((r) => r.priorityId === 'HIGH' && OPEN_STATUSES.includes(r.statusId))
-  if (af === 'overdue')
-    return results.filter((r) => r.dueDate && r.dueDate < now && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
   if (af === 'cancelled') return results.filter((r) => r.statusId === 'CANCELLED')
   return results
@@ -114,14 +115,12 @@ const stats = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const openCapas = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
-  const overdue = openCapas.filter((r) => r.dueDate && r.dueDate < now)
   const criticalOpen = openCapas.filter((r) => r.priorityId === 'CRITICAL')
   const closedThisMonth = all.filter(
     (r) => CLOSED_STATUSES.includes(r.statusId) && r.closedAt && r.closedAt >= startOfMonth,
   )
   return {
     open: openCapas.length,
-    overdue: overdue.length,
     criticalOpen: criticalOpen.length,
     closedThisMonth: closedThisMonth.length,
   }
@@ -135,14 +134,6 @@ const kpiItems = computed(() => [
     value: stats.value.open,
     icon: IconAlertCircle,
     color: 'blue',
-  },
-  {
-    key: 'overdue',
-    label: 'Overdue',
-    value: stats.value.overdue,
-    icon: IconClock,
-    color: 'red',
-    emphasize: stats.value.overdue > 0,
   },
   {
     key: 'critical',
@@ -191,7 +182,7 @@ async function onDeleteCapa(row) {
     title="CAPAs"
     subtitle="Track corrective and preventive actions through to verification."
     :state="list.state.value"
-    :emptyTitle="list.hasActiveFilters.value ? 'No CAPAs match your filters' : 'No CAPAs yet'"
+    contentOwnsEmpty
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-1.5">
@@ -201,6 +192,12 @@ async function onDeleteCapa(row) {
     </template>
 
     <template #actions>
+      <ListPrintButton
+        entity="Capa"
+        title="CAPA Register"
+        :rows="capas"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton v-if="canCreate" variant="primary" @click="onCreateCapa">Create CAPA</BaseButton>
     </template>
 
@@ -225,13 +222,13 @@ async function onDeleteCapa(row) {
         </button>
       </div>
 
-      <CapasFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <CapasFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <CapasTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
+      :emptyLabel="list.hasActiveFilters.value ? 'No CAPAs match your filters' : 'No CAPAs yet'"
       :rows="capas"
       :canUpdate="canUpdate"
       :canDelete="canDelete"

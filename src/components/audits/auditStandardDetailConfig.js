@@ -1,4 +1,12 @@
-import { IconCopy, IconSend, IconPlus, IconHistory, IconTrash } from '@tabler/icons-vue'
+import {
+  IconCopy,
+  IconSend,
+  IconPlus,
+  IconHistory,
+  IconTrash,
+  IconArchive,
+  IconArchiveOff,
+} from '@tabler/icons-vue'
 
 /**
  * Contextual banners for an Audit Standard (SP-6). Pure — caller resolves
@@ -50,7 +58,14 @@ export function buildAuditStandardSections(standard, { underReviewVersion } = {}
  *  - submit:    submit editable version for approval (canSubmitEditable + editableVersion)
  *  - newDraft:  spawn a new draft off effective (canSpawnNewDraft)
  *  - audit:     open audit log (always)
- *  - delete:    archive standard (canDelete + standard exists)
+ *  - archive:   retire a standard that has an EFFECTIVE version (canDelete).
+ *               Archived standards stay on record and existing audits stay
+ *               valid; they just leave the pickers for new audits.
+ *  - restore:   un-archive (canDelete + isArchived)
+ *  - delete:    "Discard draft" — ONLY for a standard that never went
+ *               effective (canDelete + !hasEffectiveVersion). A standard with
+ *               an effective version is a controlled reference: archivable,
+ *               never deletable (user rule 2026-08-24).
  */
 export function buildAuditStandardActions(gates = {}, handlers = {}) {
   const {
@@ -60,6 +75,8 @@ export function buildAuditStandardActions(gates = {}, handlers = {}) {
     canSpawnNewDraft,
     hasStandard,
     hasEditableVersion,
+    hasEffectiveVersion,
+    isArchived,
     spawningDraft,
     deleting,
   } = gates
@@ -103,12 +120,32 @@ export function buildAuditStandardActions(gates = {}, handlers = {}) {
       onSelect: handlers.openAudit,
     },
     {
+      id: 'archive',
+      label: 'Archive',
+      icon: IconArchive,
+      variant: 'secondary',
+      priority: 11,
+      visible: !!canDelete && !!hasStandard && !!hasEffectiveVersion && !isArchived,
+      disabled: !!deleting,
+      onSelect: handlers.openArchive,
+    },
+    {
+      id: 'restore',
+      label: 'Restore',
+      icon: IconArchiveOff,
+      variant: 'secondary',
+      priority: 11,
+      visible: !!canDelete && !!hasStandard && !!isArchived,
+      disabled: !!deleting,
+      onSelect: handlers.restoreStandard,
+    },
+    {
       id: 'delete',
-      label: 'Delete',
+      label: 'Discard draft',
       icon: IconTrash,
       variant: 'danger',
       priority: 10,
-      visible: !!canDelete && !!hasStandard,
+      visible: !!canDelete && !!hasStandard && !hasEffectiveVersion,
       disabled: !!deleting,
       loading: !!deleting,
       onSelect: handlers.openDelete,

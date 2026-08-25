@@ -15,6 +15,7 @@ import {
   IconTemplate,
   IconDatabase,
   IconShieldCheck,
+  IconShare,
   IconSettings,
   IconAdjustments,
   IconBuilding,
@@ -39,6 +40,8 @@ import {
   IconSchool,
   IconReplace,
   IconChecklist,
+  IconCalendar,
+  IconBuildingBank,
   IconClipboardList,
   IconClipboardText,
   IconClipboardCheck,
@@ -61,15 +64,12 @@ import {
   IconBellRinging,
   IconListDetails,
   IconEye,
-  IconBolt,
   IconWorld,
   IconLicense,
   IconGavel,
   IconMessageReport,
   IconSeeding,
   IconBook,
-  IconCalendar,
-  IconCalendarTime,
   IconStack2,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
@@ -436,26 +436,26 @@ const navItems = computed(() => {
       label: 'Audits',
       icon: IconChecklist,
       permissions: ['audit_management:read'],
+      // Two roles, two surfaces (2026-08-24): the AUDITOR runs internal /
+      // supplier audits (tabbed working page); the AUDITEE tracks
+      // certification audits done TO the company. Standards + Readiness are
+      // shared references alongside.
       children: [
         {
-          label: 'Insights',
+          label: 'Auditor',
           permissions: ['audit_management:read'],
-          icon: IconChartBar,
+          icon: IconChecklist,
           to: getCompanyPath('/audits?tab=insights'),
         },
         {
-          label: 'Audits',
+          label: 'Auditee',
           permissions: ['audit_management:read'],
-          icon: IconChecklist,
-          to: getCompanyPath('/audits?tab=instances'),
+          icon: IconBuildingBank,
+          to: getCompanyPath('/auditee'),
         },
         {
-          label: 'Audit Plan',
-          permissions: ['audit_management:read'],
-          icon: IconCalendarTime,
-          to: getCompanyPath('/audits?tab=programs'),
-        },
-        {
+          // Shared view: internal + supplier + certification audits on one
+          // grid — belongs to neither role, so it sits beside them.
           label: 'Calendar',
           permissions: ['audit_management:read'],
           icon: IconCalendar,
@@ -466,6 +466,12 @@ const navItems = computed(() => {
           permissions: ['audit_management:read'],
           icon: IconBook,
           to: getCompanyPath('/audits?tab=standards'),
+        },
+        {
+          label: 'Audit Readiness',
+          permissions: ['audit_management:read'],
+          icon: IconShieldCheck,
+          to: getCompanyPath('/audits?tab=readiness'),
         },
       ],
     },
@@ -681,6 +687,27 @@ const navItems = computed(() => {
         //   to: getCompanyPath('/document-templates'),
         // },
         {
+          // The notification engine, under the name people look for
+          // (2026-08-18). Two entries used to compete: a "Notifications" page
+          // backed by notification_rules — one static recipient list per entity
+          // type, no trigger, no conditions, empty in every tenant — and
+          // "Automation Rules", which is the one that works: object → trigger
+          // (created / status-changed / updated / scheduled) → AND/OR
+          // conditions → actions, scoped per site and department. The dead one
+          // is gone; the working one took its name and moved here.
+          //
+          // Named for both halves: it notifies (group / user / owner /
+          // requester / email) AND acts (CREATE_NC, CREATE_TASK). "Notifications"
+          // alone would hide the second half from anyone looking for it;
+          // "Automation Rules" alone hid the first, which is why nobody found
+          // it. Whether the action half survives is still open — SEND_SMS is a
+          // stub until Twilio is configured.
+          label: 'Notifications & Automation',
+          permissions: ['automation_rules:manage'],
+          icon: IconBell,
+          to: getCompanyPath('/automation-rules'),
+        },
+        {
           // Admin-defined custom fields per entity (NC / CAPA / CR / Audit /
           // Document / Training). Rendered as the "Additional information" card
           // on each detail page; stored in entity_field_values (JSONB), sealed.
@@ -789,22 +816,6 @@ const navItems = computed(() => {
         // /vendor-access-log) was removed from the menu 2026-07-24 (user
         // decision) — page + API remain reachable by direct URL for
         // security:manage holders.
-        {
-          // Config-driven notification engine (entity create / status-change →
-          // notify groups / people / owner / initiator over in-app + email).
-          label: 'Notifications',
-          permissions: ['company_settings:manage'],
-          icon: IconBell,
-          to: getCompanyPath('/notification-rules'),
-        },
-        {
-          // Condition-based automation / notification rules (object → AND/OR
-          // conditions → actions: notify, create NC, …). Scoped per site/dept.
-          label: 'Automation Rules',
-          permissions: ['automation_rules:manage'],
-          icon: IconBolt,
-          to: getCompanyPath('/automation-rules'),
-        },
         // Complaint Settings moved onto the Customer Complaints page itself
         // (gear icon in the header) — module settings live with the module.
         {
@@ -877,6 +888,27 @@ const navItems = computed(() => {
           permissions: ['audit_trail:read'],
           icon: IconShieldCheck,
           to: getCompanyPath('/audit-logs'),
+        },
+        {
+          // Every external share link in one place: who outside the company can
+          // read a record, whether they ever opened it, and withdrawal.
+          //
+          // `anyPermissions` (ANY, not ALL) because sharing is granted per
+          // module — somebody who may share NCs but nothing else still needs
+          // the page. The ROWS are filtered by RLS, which inherits each
+          // record's own visibility, so the entry gate can stay this simple
+          // without showing anyone a record they could not already open.
+          label: 'Shared Records',
+          anyPermissions: [
+            'ncr:manage_access',
+            'capa:manage_access',
+            'change_control:manage_access',
+            'complaints:manage_access',
+            'inspection_qc:manage_access',
+            'quality_events:manage_access',
+          ],
+          icon: IconShare,
+          to: getCompanyPath('/shared-records'),
         },
         {
           // Qualification protocols customers execute to validate the system in
@@ -1062,13 +1094,13 @@ const quickCreateItems = computed(() => {
     <!-- Backdrop — only on small screens when the overlay sidebar is open. -->
     <div
       v-if="visible && !isDesktop"
-      class="tw:fixed tw:inset-0 tw:z-sticky tw:bg-black/40 tw:lg:hidden"
+      class="tw:fixed tw:inset-0 tw:z-sticky tw:bg-black/40 tw:xl:hidden"
       @click="closeMobile"
     />
     <Transition name="mainSidebar">
       <aside
         v-if="visible"
-        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-overlay tw:lg:static tw:lg:z-auto"
+        class="tw:w-64 tw:border-r tw:border-divider tw:bg-sidebar tw:flex! tw:flex-col tw:justify-between tw:h-screen tw:fixed tw:inset-y-0 tw:left-0 tw:z-overlay tw:xl:static tw:xl:z-auto"
       >
         <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4 tw:flex-1 tw:overflow-hidden">
           <!-- Brand — links home (dashboard) -->

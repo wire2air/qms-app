@@ -149,6 +149,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/auditee/': RouteRecordInfo<
+      '/auditee/',
+      '/auditee',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/auditee/[id]': RouteRecordInfo<
+      '/auditee/[id]',
+      '/auditee/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/audits/': RouteRecordInfo<
       '/audits/',
       '/audits',
@@ -674,6 +688,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/share/[token]': RouteRecordInfo<
+      '/share/[token]',
+      '/share/:token',
+      { token: ParamValue<true> },
+      { token: ParamValue<false> },
+      | never
+    >,
+    '/shared-records': RouteRecordInfo<
+      '/shared-records',
+      '/shared-records',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/signin': RouteRecordInfo<
       '/signin',
       '/signin',
@@ -939,6 +967,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/audit-logs.vue': {
       routes:
         | '/audit-logs'
+      views:
+        | never
+    }
+    'src/pages/auditee/index.vue': {
+      routes:
+        | '/auditee/'
+      views:
+        | never
+    }
+    'src/pages/auditee/[id].vue': {
+      routes:
+        | '/auditee/[id]'
       views:
         | never
     }
@@ -1389,6 +1429,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/settings.vue': {
       routes:
         | '/settings'
+      views:
+        | never
+    }
+    'src/pages/share/[token].vue': {
+      routes:
+        | '/share/[token]'
+      views:
+        | never
+    }
+    'src/pages/shared-records.vue': {
+      routes:
+        | '/shared-records'
       views:
         | never
     }

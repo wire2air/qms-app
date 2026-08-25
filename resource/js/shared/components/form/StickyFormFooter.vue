@@ -63,6 +63,11 @@ const emit = defineEmits(['submit', 'cancel'])
       <!-- Actions: override the whole cluster via #actions if needed. -->
       <div class="tw:flex tw:shrink-0 tw:items-center tw:gap-2 tw:sm:justify-end">
         <slot name="actions">
+          <!-- A secondary action that sits BESIDE cancel/submit rather than
+               replacing them. #actions overrides the whole cluster, which means
+               re-implementing the loading and disabled wiring; this is for the
+               common case of adding one button (e.g. "Save as Draft"). -->
+          <slot name="actions-extra" />
           <BaseButton
             v-if="!hideCancel"
             variant="outline"

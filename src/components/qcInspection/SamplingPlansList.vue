@@ -124,7 +124,10 @@ function openView(plan) {
 }
 
 async function deletePlan(id) {
-  if (deletingId.value !== id) { deletingId.value = id; return }
+  if (deletingId.value !== id) {
+    deletingId.value = id
+    return
+  }
   try {
     await del(`/v1/services/qcInspection/samplingPlans/${id}`)
     toast.success('Sampling plan deleted')
@@ -173,8 +176,6 @@ async function createNewVersion(plan) {
       :expandable="true"
       searchable
       filterable
-      densitySelector
-      columnManager
       exportManager
       exportFilename="sampling-plans.csv"
       persistKey="qcInspection:samplingPlans"
@@ -198,9 +199,7 @@ async function createNewVersion(plan) {
         >
           {{ row.name }}
         </button>
-        <span
-          v-if="row.version > 1"
-          class="tw:text-micro tw:text-secondary tw:font-normal tw:ml-1"
+        <span v-if="row.version > 1" class="tw:text-micro tw:text-secondary tw:font-normal tw:ml-1"
           >v{{ row.version }}</span
         >
       </template>
@@ -304,32 +303,35 @@ async function createNewVersion(plan) {
           <div v-if="p.planType === 'CUSTOM' && p.customPlanTable?.rows?.length">
             <BaseText variant="overline" class="tw:block tw:mb-2"> Custom Plan Table </BaseText>
             <p class="tw:text-sm tw:text-on-main tw:mb-2">
-              Sample size <span class="tw:font-semibold">{{ p.customPlanTable.sampleSize ?? '—' }}</span>
+              Sample size
+              <span class="tw:font-semibold">{{ p.customPlanTable.sampleSize ?? '—' }}</span>
               <span class="tw:text-xs tw:text-secondary"> — one pull for the whole inspection</span>
             </p>
             <div class="tw:overflow-x-auto">
-            <table class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden">
-              <thead class="tw:bg-white tw:text-secondary tw:uppercase">
-                <tr>
-                  <th class="tw:text-left tw:px-3 tw:py-1.5">Defect class</th>
-                  <th class="tw:text-left tw:px-3 tw:py-1.5">Accept</th>
-                  <th class="tw:text-left tw:px-3 tw:py-1.5">Reject</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="cr in p.customPlanTable.rows"
-                  :key="cr.severityLabel"
-                  class="tw:border-t tw:border-divider"
-                >
-                  <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">
-                    {{ cr.severityLabel }}
-                  </td>
-                  <td class="tw:px-3 tw:py-1.5 tw:text-green-700">≤ {{ cr.accept }}</td>
-                  <td class="tw:px-3 tw:py-1.5 tw:text-red-700">≥ {{ cr.reject }}</td>
-                </tr>
-              </tbody>
-            </table>
+              <table
+                class="tw:text-xs tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden"
+              >
+                <thead class="tw:bg-white tw:text-secondary tw:uppercase">
+                  <tr>
+                    <th class="tw:text-left tw:px-3 tw:py-1.5">Defect class</th>
+                    <th class="tw:text-left tw:px-3 tw:py-1.5">Accept</th>
+                    <th class="tw:text-left tw:px-3 tw:py-1.5">Reject</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="cr in p.customPlanTable.rows"
+                    :key="cr.severityLabel"
+                    class="tw:border-t tw:border-divider"
+                  >
+                    <td class="tw:px-3 tw:py-1.5 tw:font-medium tw:text-on-main">
+                      {{ cr.severityLabel }}
+                    </td>
+                    <td class="tw:px-3 tw:py-1.5 tw:text-green-700">≤ {{ cr.accept }}</td>
+                    <td class="tw:px-3 tw:py-1.5 tw:text-red-700">≥ {{ cr.reject }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -365,7 +367,8 @@ async function createNewVersion(plan) {
                 <span class="tw:font-medium tw:text-on-main">v{{ prev.version }}</span>
                 <span>{{ prev.name }}</span>
                 <span v-if="prev.planType === 'STANDARD'"
-                  >· {{ standardName(prev.standardCode) }} {{ levelLabel(prev.inspectionLevel) }}</span
+                  >· {{ standardName(prev.standardCode) }}
+                  {{ levelLabel(prev.inspectionLevel) }}</span
                 >
                 <span class="tw:ml-auto tw:text-micro"
                   >superseded {{ prev.effectiveUntil?.formatDate('date') }}</span

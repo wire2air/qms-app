@@ -6,7 +6,8 @@ defineProps({
   embedded: { type: Boolean, default: false },
 })
 
-import { isAllowed } from '@/utils/currentSession.js'
+import { humanizeFilter } from '@/composables/useListPrint.js'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { IconFileDescription, IconPlus } from '@tabler/icons-vue'
 
@@ -23,6 +24,11 @@ const list = useListLayout({
     statusId: [],
     // Deep-link only (e.g. from a template) — single value, no toolbar control.
     documentTemplateId: null,
+    // Quick view (the pill row). Defaults to 'all': unlike NC/CAPA, a document
+    // register is normally read whole — the controlled set includes the
+    // superseded and archived versions, and hiding them by default would
+    // misrepresent what is under control.
+    activeFilter: 'all',
   },
   total: () => documents.value.length,
   empty: () => documents.value.length === 0,
@@ -87,12 +93,28 @@ const latestVersionStatusByDocId = useLiveQueryWithDeps(
   { models: ['DocumentVersion'], initial: {} },
 )
 
+// Quick views. A document's meaningful state lives on its VERSIONS, not the
+// document row — "effective" means it has an effective current version, "in
+// review" means its latest version is mid-approval. So each pill tests the
+// version-status maps above rather than d.statusId.
+function applyActiveFilter(rows, af, currentStatuses, latestStatuses) {
+  const userId = currentSession.value?.userId
+  if (af === 'effective') return rows.filter((d) => currentStatuses[d.id] === 'EFFECTIVE')
+  if (af === 'in_review')
+    return rows.filter((d) => ['IN_REVIEW', 'CHANGES_REQUESTED'].includes(latestStatuses[d.id]))
+  if (af === 'draft') return rows.filter((d) => latestStatuses[d.id] === 'DRAFT')
+  if (af === 'mine') return rows.filter((d) => d.authorId === userId || d.userId === userId)
+  if (af === 'archived')
+    return rows.filter((d) => ['ARCHIVED', 'SUPERSEDED'].includes(latestStatuses[d.id]))
+  return rows // 'all'
+}
+
 const documents = computed(() => {
   let rows = allDocuments.value ?? []
+  const currentStatuses = currentVersionStatusByDocId.value ?? {}
+  const latestStatuses = latestVersionStatusByDocId.value ?? {}
   const statusIds = list.filters.value.statusId
   if (Array.isArray(statusIds) && statusIds.length) {
-    const currentStatuses = currentVersionStatusByDocId.value ?? {}
-    const latestStatuses = latestVersionStatusByDocId.value ?? {}
     rows = rows.filter(
       (d) =>
         statusIds.includes(d.statusId) ||
@@ -100,7 +122,7 @@ const documents = computed(() => {
         statusIds.includes(latestStatuses[d.id]),
     )
   }
-  return rows
+  return applyActiveFilter(rows, list.filters.value.activeFilter, currentStatuses, latestStatuses)
 })
 
 const allDocumentsForStats = useLiveQuery(async (db) => db.Document.where().exec(), {
@@ -139,10 +161,7 @@ function navigateToDetail(row) {
     :icon="IconFileDescription"
     subtitle="Manage controlled documents, versions, and approvals."
     :state="list.state.value"
-    :emptyIcon="IconFileDescription"
-    :emptyTitle="
-      list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'
-    "
+    contentOwnsEmpty
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-1.5">
@@ -152,6 +171,12 @@ function navigateToDetail(row) {
     </template>
 
     <template #actions>
+      <ListPrintButton
+        entity="Document"
+        title="Document Register"
+        :rows="documents"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton v-if="canCreate" @click="navigateToCreate">
         <IconPlus :size="16" class="tw:mr-1" />
         Create Document
@@ -170,8 +195,13 @@ function navigateToDetail(row) {
 
     <!-- Documents Table -->
     <DocumentsTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
       :rows="documents"
       :loading="allDocuments === undefined"
+      :emptyLabel="
+        list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'
+      "
       @view="navigateToDetail"
     />
   </BaseListLayout>

@@ -410,20 +410,38 @@ const executePublish = useLiveMutation(async () => {
 const creatingDraft = ref(false)
 
 const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }) => {
-  // Base the new draft on LIVE versions only (not soft-deleted/discarded ones),
-  // so the version number reuses a freed slot instead of ever-incrementing, and
-  // the clone source is the current published/draft version — not a discarded one.
-  const sourceVersions = await db.WorkflowVersion.where('workflowId', workflowId).exec()
-  const sortedVersions = sourceVersions.sort((a, b) => {
-    if (a.versionMajor !== b.versionMajor) {
-      return b.versionMajor - a.versionMajor
-    }
-    return b.versionMinor - a.versionMinor
-  })
+  // Two different questions, two different queries.
+  //
+  // CLONE SOURCE — live versions only: copying a discarded draft's steps would
+  // resurrect work someone deliberately threw away.
+  //
+  // NEXT NUMBER — every version, including soft-deleted ones. The unique index
+  // `workflow_versions_workflow_version_unique (workflow_id, version_major,
+  // version_minor)` has no `WHERE deleted_at IS NULL`, so a discarded 1.1 still
+  // owns that slot forever. Numbering from live rows alone therefore picked a
+  // number already taken and the insert failed with 23505 — "reopen CAPA
+  // template" was dead for any workflow with a discarded draft (reported
+  // 2026-08-18; 2 of 72 workflows were already in that state).
+  //
+  // So numbers only ever go up, and a discarded 1.1 is never reissued. That is
+  // also the right answer for a QMS: two different versions both called 1.1
+  // would make the audit trail ambiguous about which one an entry refers to.
+  const byVersionDesc = (a, b) =>
+    a.versionMajor !== b.versionMajor
+      ? b.versionMajor - a.versionMajor
+      : b.versionMinor - a.versionMinor
 
-  const sourceVersion = sortedVersions[0]
-  const currentVersionMajor = sourceVersion ? sourceVersion.versionMajor : 0
-  const currentVersionMinor = sourceVersion ? sourceVersion.versionMinor : 0
+  const liveVersions = (await db.WorkflowVersion.where('workflowId', workflowId).exec()).sort(
+    byVersionDesc,
+  )
+  const allVersions = (
+    await db.WorkflowVersion.where('workflowId', workflowId, { force: true }).exec()
+  ).sort(byVersionDesc)
+
+  const sourceVersion = liveVersions[0]
+  const highest = allVersions[0]
+  const currentVersionMajor = highest ? highest.versionMajor : 0
+  const currentVersionMinor = highest ? highest.versionMinor : 0
   const newMajor = majorBump ? currentVersionMajor + 1 : currentVersionMajor
   const newMinor = majorBump ? 0 : currentVersionMinor + 1
 

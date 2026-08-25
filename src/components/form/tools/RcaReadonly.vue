@@ -40,7 +40,10 @@ const template = useLiveQueryWithDeps(
       >
         Root Cause
       </div>
-      <p class="tw:text-sm tw:text-on-main">{{ values.outcome.rootCause }}</p>
+      <!-- Root-cause statements are rich text since 2026-08-24; the editor's
+           HTML renders directly. -->
+      <!-- eslint-disable-next-line vue/no-v-html -->
+      <div class="tw:text-sm tw:text-on-main" v-html="values.outcome.rootCause" />
     </div>
 
     <!-- Fishbone summary -->

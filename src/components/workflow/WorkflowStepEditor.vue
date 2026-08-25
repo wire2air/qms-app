@@ -70,27 +70,29 @@ const showApprovalRule = computed(() => isApproval.value && props.selectedApprov
 
 <template>
   <div v-if="step" class="tw:space-y-4">
+    <!-- WHO the step routes to. Shown for EVERY step type, and in the
+         read-only (published) state too: which roles a step is assigned to is
+         the fact people come here to check, and a published template is
+         exactly when they cannot look it up anywhere else. Approval steps got
+         this on 2026-08-15; ACTION steps never did, so a published workflow
+         showed no roles at all for them (user report 2026-08-18).
+         Read-only here — the dialog behind "Change" is still the editor. -->
+    <BaseField :label="isApproval ? 'Approvers' : 'Assignees'">
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <WorkflowStepRoleBadges :stepId="stepId" />
+        <button
+          v-if="canUpdate"
+          type="button"
+          class="tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
+          @click="emit('openAssignees')"
+        >
+          Change
+        </button>
+      </div>
+    </BaseField>
+
     <!-- ── Approval steps: the gate's rules ─────────────────────────────── -->
     <template v-if="isApproval">
-      <!-- WHO signs. Previously only reachable through the people icon on the
-           step header, so an approval step showed its ALL/ANY rule but never
-           the roles it applied to — the single most important fact about a
-           gate (user report 2026-08-15). Read-only here; the dialog behind
-           "Change" is still the editor. -->
-      <BaseField label="Approvers">
-        <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
-          <WorkflowStepRoleBadges :stepId="stepId" />
-          <button
-            v-if="canUpdate"
-            type="button"
-            class="tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
-            @click="emit('openAssignees')"
-          >
-            Change
-          </button>
-        </div>
-      </BaseField>
-
       <BaseField
         v-if="showApprovalRule"
         label="Who must approve?"

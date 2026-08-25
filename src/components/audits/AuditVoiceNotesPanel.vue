@@ -12,7 +12,12 @@
  * `ensureResponse` materialises the (possibly verdict-less) response row and
  * returns its id, so a recording can be saved before a result is picked (#27).
  */
-import { IconMicrophone, IconPlayerStopFilled, IconTrash, IconLoader2 } from '@tabler/icons-vue'
+import {
+  IconMicrophone,
+  IconPlayerStopFilled,
+  IconTrash,
+  IconFileText,
+} from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { upload, del } from '@/api'
 
@@ -24,6 +29,10 @@ const props = defineProps({
   // Async () => Promise<responseId|null> — creates the response if needed.
   ensureResponse: { type: Function, default: null },
 })
+
+// transcribed(block): marker-wrapped transcript for the parent to APPEND to
+// Auditor Notes — the panel never touches the notes itself.
+const emit = defineEmits(['transcribed'])
 
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -118,9 +127,12 @@ async function startRecording() {
   mediaRecorder.onstop = () => {
     const type = mediaRecorder.mimeType || mimeType || 'audio/webm'
     recordedBlob.value = new Blob(chunks, { type })
-    recordedUrl.value = URL.createObjectURL(recordedBlob.value)
     stream?.getTracks().forEach((t) => t.stop())
     stream = null
+    // Save by default (user call 2026-08-24): stopping IS saving — no
+    // Save/Discard step between the auditor and their next clause. A bad
+    // take is deleted from the list afterwards.
+    saveRecording()
   }
   mediaRecorder.start()
   recording.value = true
@@ -162,10 +174,50 @@ async function saveRecording() {
     await upload('/v1/services/auditEvidence', fd)
     toast.success('Voice note saved')
     clearRecorded()
+    chunks = []
   } catch (e) {
     toast.error(e?.message || 'Failed to save voice note')
   } finally {
     saving.value = false
+  }
+}
+
+// ── Convert to text: transcribe the saved audio and hand the parent a
+// marker-wrapped block to APPEND to Auditor Notes (never replace).
+const transcribingId = ref(null)
+
+async function transcribeNote(note) {
+  const asset = assetsById.value[note.assetId]
+  if (!asset?.url || transcribingId.value) return
+  transcribingId.value = note.id
+  try {
+    const res = await fetch(asset.url, { credentials: 'include' })
+    if (!res.ok) throw new Error('Could not load the recording.')
+    const blob = await res.blob()
+    const fd = new FormData()
+    fd.append('file', blob, 'voice-note.webm')
+    const out = await upload('/v1/services/ai/transcribe', fd)
+    const text = out?.text?.trim()
+    if (!text) {
+      toast.warning('No speech detected in this voice note.')
+      return
+    }
+    const takenAt = note.createdAt?.formatDate
+      ? note.createdAt.formatDate('datetime')
+      : String(note.createdAt ?? '')
+    emit(
+      'transcribed',
+      `<p>++++ From Voice Note (taken ${takenAt}) ++++</p><p>${text
+        .split(/\n+/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .join('</p><p>')}</p><p>++++</p>`,
+    )
+    toast.success('Transcript appended to Auditor Notes.')
+  } catch (e) {
+    toast.error(e?.message || 'Transcription failed')
+  } finally {
+    transcribingId.value = null
   }
 }
 
@@ -203,31 +255,49 @@ onUnmounted(() => {
       :key="note.id"
       class="tw:flex tw:items-center tw:gap-2 tw:border tw:border-divider tw:rounded tw:p-2"
     >
-      <audio
-        v-if="assetsById[note.assetId]?.url"
-        :src="assetsById[note.assetId].url"
-        controls
-        preload="none"
-        class="tw:h-8 tw:flex-1 tw:min-w-0"
-      />
-      <span v-else class="tw:text-xs tw:text-secondary tw:flex-1">{{
-        note.caption || 'Voice note'
-      }}</span>
-      <button
-        v-if="!readonly"
-        type="button"
-        class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:shrink-0"
-        title="Delete voice note"
-        @click="removeNote(note)"
-      >
-        <IconTrash :size="14" />
-      </button>
+      <div class="tw:flex-1 tw:min-w-0 tw:flex tw:flex-col tw:gap-0.5">
+        <audio
+          v-if="assetsById[note.assetId]?.url"
+          :src="assetsById[note.assetId].url"
+          controls
+          preload="none"
+          class="tw:h-8 tw:w-full tw:min-w-0"
+        />
+        <span v-else class="tw:text-xs tw:text-secondary">{{
+          note.caption || 'Voice note'
+        }}</span>
+        <span class="tw:text-micro tw:text-secondary">
+          Taken {{ note.createdAt?.formatDate ? note.createdAt.formatDate('datetime') : '—' }}
+        </span>
+      </div>
+      <BaseTooltip v-if="!readonly" content="Convert to text — appends to Auditor Notes">
+        <button
+          type="button"
+          class="tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:shrink-0 tw:flex tw:items-center"
+          :disabled="transcribingId === note.id"
+          aria-label="Convert voice note to text"
+          @click="transcribeNote(note)"
+        >
+          <BaseSpinner v-if="transcribingId === note.id" size="xs" />
+          <IconFileText v-else :size="14" />
+        </button>
+      </BaseTooltip>
+      <BaseTooltip v-if="!readonly" content="Delete voice note">
+        <button
+          type="button"
+          class="tw:text-red-600 tw:hover:bg-red-50 tw:rounded tw:p-1 tw:cursor-pointer tw:bg-transparent tw:border-0 tw:shrink-0 tw:flex tw:items-center"
+          aria-label="Delete voice note"
+          @click="removeNote(note)"
+        >
+          <IconTrash :size="14" />
+        </button>
+      </BaseTooltip>
     </div>
 
     <!-- Recorder -->
     <div v-if="!readonly" class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
       <BaseButton
-        v-if="!recording && !recordedBlob"
+        v-if="!recording && !saving"
         variant="outline"
         size="sm"
         @click="startRecording"
@@ -245,28 +315,16 @@ onUnmounted(() => {
         </span>
         <BaseButton variant="danger" size="sm" @click="stopRecording">
           <template #icon><IconPlayerStopFilled :size="15" /></template>
-          Stop
+          Stop &amp; save
         </BaseButton>
       </template>
 
-      <template v-else>
-        <audio :src="recordedUrl" controls class="tw:h-8" />
-        <BaseButton
-          variant="primary"
-          size="sm"
-          :loading="saving"
-          :disabled="saving"
-          @click="saveRecording"
-        >
-          <template #icon
-            ><IconLoader2 v-if="saving" :size="15" class="tw:animate-spin"
-          /></template>
-          Save
-        </BaseButton>
-        <BaseButton variant="outline" size="sm" :disabled="saving" @click="clearRecorded">
-          Discard
-        </BaseButton>
-      </template>
+      <span
+        v-else-if="saving"
+        class="tw:inline-flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
+      >
+        <BaseSpinner size="xs" /> Saving voice note…
+      </span>
     </div>
 
     <p v-else-if="!voiceNotes.length" class="tw:text-xs tw:text-secondary tw:italic">

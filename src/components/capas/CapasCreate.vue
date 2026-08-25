@@ -4,9 +4,11 @@ import { IconInfoCircle, IconCategory, IconBell, IconSitemap } from '@tabler/ico
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
+import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 import { useActiveWorkflowEntries } from '@/composables/useActiveWorkflowEntries.js'
 import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
+import { capaPriorityFromNcSeverity } from '@/utils/qualityEscalation.js'
 import { required, requiredWhen } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 
@@ -14,6 +16,12 @@ const router = useRouter()
 const route = useRoute()
 const toast = useToast()
 const saving = ref(false)
+const workflowPickerRef = ref(null)
+// The person raising the CAPA. Fed to the reviewer picker as the smart
+// default: any step whose candidate pool includes the initiator is
+// pre-assigned to them — the same rule CapaWorkflowDraftPreview applies on
+// the CAPA page, so picking here changes nothing except WHEN you're asked.
+const initiatorId = computed(() => currentSession.value?.userId ?? null)
 // Server-side save failure — surfaced persistently in the form footer.
 const submitError = ref('')
 
@@ -82,13 +90,14 @@ const form = ref({
   description: '',
   siteId: null,
   departmentId: null,
+  // Shared quality classification — inherited from the source NC / event.
+  categoryId: null,
   typeId: null,
   // Source kind — a CapaSource id (NC / INTERNAL_AUDIT / …). When the CAPA
   // was spawned from a specific row, `sourceId` below points at it.
   sourceType: presetNcId.value ? 'NC' : null,
   priorityId: 'MEDIUM',
   initiatedAt: DateTime.now(),
-  dueDate: null,
   ownerId: currentSession.value?.userId ?? null,
   // Optional pointer to the originating row when source_type maps to a known
   // table (e.g. source_type='NC' → source_id = a Nonconformance id).
@@ -103,6 +112,7 @@ const form = ref({
   // Per-record cc recipients (notification engine).
   notifyGroupIds: [],
   notifyUserIds: [],
+  notifyEmails: [],
 })
 
 // ── Workflow — two-screen wizard, same as NC (user decision 2026-08-14) ─────
@@ -164,6 +174,9 @@ const { allowLeave } = useUnsavedChangesGuard(isDirty)
 watch(sourceFinding, (f) => {
   if (!f) return
   if (!form.value.title) {
+    // Findings genuinely have no title — only findingNumber + description
+    // (models/auditFinding.js) — so unlike the NC path below there is no own
+    // title to prefer, and the number stays the default.
     form.value.title = `CAPA for Finding ${f.findingNumber || ''}`.trim()
   }
   if (!form.value.description) form.value.description = f.description ?? ''
@@ -177,13 +190,37 @@ watch(sourceFinding, (f) => {
   }
 })
 
-// When the source NC loads, seed the title / site / department so
-// the user doesn't have to retype the context.
+// When the source NC loads, carry its context down so the CAPA opens already
+// describing the same problem (2026-08-18). A CAPA raised from an NC is the
+// next step on one quality event, not a fresh record — retyping the problem
+// statement invites a second, subtly different account of it in the file.
+//
+// Every field is seeded only when still empty, so a user who typed something
+// before the live query resolved keeps what they typed. Priority can't use
+// that test (it ships defaulted to MEDIUM, so "empty" is unreadable), hence
+// the one-shot flag: sourceNc is a live query and re-fires on any syncBus
+// tick, which would otherwise reset a priority the user had just changed.
+const ncSeeded = ref(false)
 watch(sourceNc, (nc) => {
-  if (!nc) return
-  if (!form.value.title) form.value.title = `CAPA for ${nc.ncNumber || nc.title}`
+  if (!nc || ncSeeded.value) return
+  ncSeeded.value = true
+  // The NC's OWN title, not "CAPA for NC-001". The CAPA has its own number and
+  // already shows a "Linked to Nonconformance NC-001" chip plus a real FK, so
+  // restating the NC number in the title added nothing and cost the one thing a
+  // title is for — saying what the problem IS. A register of "CAPA for NC-001,
+  // CAPA for NC-002…" is unreadable (reported 2026-08-18).
+  if (!form.value.title) form.value.title = nc.title || `CAPA for ${nc.ncNumber}`
+  // The NC's description IS the problem statement the CAPA answers.
+  if (richTextIsEmpty(form.value.description) && nc.description) {
+    form.value.description = nc.description
+  }
   if (!form.value.siteId) form.value.siteId = nc.siteId
   if (!form.value.departmentId) form.value.departmentId = nc.departmentId
+  // Shared quality classification — one category the whole chain long.
+  if (!form.value.categoryId && nc.categoryId) form.value.categoryId = nc.categoryId
+  // CAPA has no severity of its own; "how bad" becomes "how urgent" here.
+  // Mirrors capaPriorityFromNcSeverity() in the backend's ncCapaCreateService.
+  if (nc.severityId) form.value.priorityId = capaPriorityFromNcSeverity(nc.severityId)
   if (!form.value.rootCauseCategoryId && nc.rootCauseCategoryId) {
     form.value.rootCauseCategoryId = nc.rootCauseCategoryId
   }
@@ -237,7 +274,27 @@ const navSections = computed(() => [
 // Per-field rules live on each <BaseField :rules> (see validators.js). The
 // workflow is picked on its own screen before this form is reachable, so this
 // check is a safety net only — it bounces the user back to the workflow screen.
+/** Rich text is "empty" as `<p></p>`, so test the text, not the markup. */
+function richTextIsEmpty(html) {
+  return !String(html ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+}
+
 function validate() {
+  // The problem statement is what the whole CAPA answers; a CAPA raised
+  // without one cannot be investigated or reviewed meaningfully.
+  if (richTextIsEmpty(form.value.description)) {
+    screen.value = 'details'
+    return [
+      {
+        id: 'capa-description',
+        label: 'Problem Statement',
+        message: 'Describe the problem this CAPA addresses.',
+      },
+    ]
+  }
   if (!form.value.workflowVersionId) {
     screen.value = 'workflow'
     return [
@@ -248,24 +305,32 @@ function validate() {
 }
 
 // Fires only after validate() passes. Runs the async custom-fields check
-// (which surfaces its own inline errors), then creates the DRAFT — no
-// reviewer picker here anymore: step assignments happen on the CAPA page's
-// draft plan, and the workflow starts when the owner clicks Start CAPA there.
+// (which surfaces its own inline errors), then opens the per-step reviewer
+// dialog — NC parity, requested 2026-08-18. The CAPA is still created as a
+// DRAFT: the picks land in `pending_reviewers` and the workflow starts when
+// the owner clicks Start CAPA on the CAPA page, where the draft plan shows
+// these assignments pre-filled and still editable.
 async function onSubmit() {
   if ((await customFieldsRef.value?.validate()) === false) return
 
-  await handleCreate()
+  workflowPickerRef.value.submit()
 }
 
 function goBack() {
   router.push(getCompanyPath('/capas'))
 }
 
-async function handleCreate() {
+async function handleReviewersConfirmed(reviewers) {
+  await handleCreate(reviewers)
+}
+
+async function handleCreate(reviewers) {
   saving.value = true
   submitError.value = ''
   try {
-    const response = await post('/v1/services/capas', { ...form.value }) // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+    // `reviewers` is parked in capa.pending_reviewers by createCapaRecord and
+    // consumed by submitCapaForReview at Start CAPA.
+    const response = await post('/v1/services/capas', { ...form.value, reviewers }) // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
     if (presetFindingIds.value.length && response.capa?.id) {
       try {
         // Link every selected finding to the new CAPA (N findings → 1 CAPA).
@@ -299,7 +364,7 @@ async function handleCreate() {
     toast.notify({
       type: 'positive',
       message:
-        'CAPA created as a draft — assign step reviewers, then Start CAPA to start the workflow.',
+        'CAPA created as a draft with your step assignments — review the plan, then Start CAPA to start the workflow.',
     })
     allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/capas/${response.capa.id}`))
@@ -361,8 +426,8 @@ async function handleCreate() {
               {{ selectedWorkflowLabel || 'Workflow selected' }}
             </p>
             <p class="tw:text-xs tw:text-secondary">
-              The CAPA is created as a draft — assign step reviewers and start the workflow with
-              Start CAPA on the CAPA page.
+              You'll assign a user to each step on submit. The CAPA is created as a draft — start
+              the workflow with Start CAPA on the CAPA page.
             </p>
           </div>
           <!-- Hidden when only one workflow exists — nothing to change to. -->
@@ -374,6 +439,20 @@ async function handleCreate() {
           >
             Change
           </BaseButton>
+          <!-- Submit-time per-step reviewer dialog (NC parity, 2026-08-18) —
+               select suppressed, the workflow was chosen on screen 1. The picks
+               are parked in pending_reviewers; the CAPA still opens as DRAFT. -->
+          <WorkflowReviewerPickerDialog
+            ref="workflowPickerRef"
+            v-model="form.workflowVersionId"
+            hideSelect
+            :module="CAPA_MODULE"
+            :isSupplierFacing="form.isSupplierFacing"
+            :supplierId="form.supplierId"
+            :ownerId="form.ownerId"
+            :preferUserId="initiatorId"
+            @submit="handleReviewersConfirmed"
+          />
         </div>
 
         <BaseForm
@@ -422,7 +501,7 @@ async function handleCreate() {
               <!-- "Problem Statement", not "Description" (2026-08-17): this
                  field is what the CAPA is answering, and naming it plainly
                  gets a better-written one. -->
-              <BaseField label="Problem Statement">
+              <BaseField label="Problem Statement" required>
                 <div class="create-capa-editor">
                   <BaseRichTextEditor
                     v-model="form.description"
@@ -475,6 +554,12 @@ async function handleCreate() {
                   />
                 </template>
               </BaseField>
+              <!-- Shared quality classification (Quality Event / NC / CAPA).
+                   Pre-filled when this CAPA came from an NC or an escalated
+                   event, so the chain keeps one classification end to end. -->
+              <BaseField label="Category" optional>
+                <EventCategorySelectMenu v-model="form.categoryId" />
+              </BaseField>
               <BaseField
                 id="capa-type"
                 label="CAPA Type"
@@ -522,9 +607,6 @@ async function handleCreate() {
                 <template #default="field">
                   <BaseDateField v-bind="field" v-model="form.initiatedAt" mode="date" />
                 </template>
-              </BaseField>
-              <BaseField label="Due date" optional>
-                <BaseDateField v-model="form.dueDate" mode="date" />
               </BaseField>
               <BaseField
                 id="capa-owner"
@@ -585,13 +667,14 @@ async function handleCreate() {
             <NotificationCcField
               v-model:groupIds="form.notifyGroupIds"
               v-model:userIds="form.notifyUserIds"
+              v-model:emails="form.notifyEmails"
             />
           </FormSection>
 
           <!-- (Workflow lives on its own screen now — see screen 1 above.) -->
           <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
-            Supplier-facing CAPAs default non-approval steps to the supplier's first portal user —
-            review the assignments on the CAPA page before opening.
+            Supplier-facing CAPAs draw non-approval steps from this supplier's portal users;
+            approval steps stay internal. You'll pick each one on submit.
           </p>
         </BaseForm>
       </template>

@@ -10,6 +10,7 @@
  * Self-hides when the record has no audit origin (origin === null).
  */
 import {
+  IconLock,
   IconClipboardCheck,
   IconAlertTriangle,
   IconChevronDown,
@@ -18,6 +19,8 @@ import {
   IconLink,
 } from '@tabler/icons-vue'
 import { get } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
   // 'Capa' | 'Nonconformance' | 'ChangeRequest'
@@ -26,6 +29,16 @@ const props = defineProps({
 })
 
 const origin = ref(undefined) // undefined = loading, null = none, object = loaded
+
+// EXTERNAL (certification) audits live in the Auditee module.
+const auditPath = computed(() =>
+  getCompanyPath(
+    origin.value?.audit?.programTypeId === 'EXTERNAL'
+      ? `/auditee/${origin.value.audit.id}`
+      : `/audits/instances/${origin.value?.audit?.id}`,
+  ),
+)
+const canOpenAudit = computed(() => isAllowed(['audit_management:read']))
 const error = ref(null)
 // Collapsed by default — the findings + evidence list can be large.
 const expanded = ref(false)
@@ -85,9 +98,21 @@ watch(() => [props.entityType, props.entityId], load, { immediate: true })
           >
         </div>
         <div class="tw:text-sm tw:text-secondary">
-          <span class="tw:font-medium tw:text-primary">{{
-            origin.audit.auditNumber || 'Audit'
-          }}</span>
+          <!-- Navigable when the viewer can read the audit module; otherwise a
+               lock explains WHY there is no link instead of a dead click. -->
+          <RouterLink
+            v-if="canOpenAudit"
+            :to="auditPath"
+            class="tw:font-medium tw:text-primary tw:hover:underline"
+            @click.stop
+          >
+            {{ origin.audit.auditNumber || 'Audit' }} →
+          </RouterLink>
+          <BaseTooltip v-else content="You don't have access to the Audits module">
+            <span class="tw:font-medium tw:text-primary tw:inline-flex tw:items-center tw:gap-1">
+              {{ origin.audit.auditNumber || 'Audit' }} <IconLock :size="12" />
+            </span>
+          </BaseTooltip>
           <template v-if="origin.audit.standardName"> · {{ origin.audit.standardName }}</template>
           <template v-if="origin.audit.standardVersion">
             (v{{ origin.audit.standardVersion }})</template

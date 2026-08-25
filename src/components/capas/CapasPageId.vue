@@ -1,11 +1,16 @@
 <script setup>
 import { buildCapaBanners, buildCapaSections, buildCapaActions } from './capaDetailConfig.js'
-import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
-import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
+import {
+  canOpenClose as gateCanOpenClose,
+  canSubmitClose as gateCanSubmitClose,
+  closeBlockedReason as gateCloseBlockedReason,
+  closeSubmitBlockedReason as gateCloseSubmitBlockedReason,
+} from './capaCloseGates.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -35,6 +40,13 @@ const loading = computed(() => capa.value === undefined)
 // Status alone is not authorization: without this, a role scoped to capa
 // write=Own could type into another user's CAPA and the RLS UPDATE policy would
 // silently match 0 rows (edit looked accepted, never persisted).
+//
+// That last clause used to read `isOwner.value`, which fixed the phantom save by
+// pinning EVERY user to the narrowest tier — a role granted capa:update at site
+// or tenant still could not touch a colleague's CAPA. Ownership is custodianship,
+// not exclusivity (backend utils/recordAccess.js), so the gate is now custodian
+// OR whatever the matrix actually grants, mirroring authz.scope_allowed. The
+// phantom save itself is fixed at its source in directSaveStrategy.js.
 const canUpdate = computed(() => isAllowed(['capa:update']))
 const isEditable = computed(
   () =>
@@ -42,7 +54,7 @@ const isEditable = computed(
     capa.value.statusId !== 'CLOSED' &&
     capa.value.statusId !== 'CANCELLED' &&
     canUpdate.value &&
-    isOwner.value,
+    (isOwner.value || isAllowedOnRecord('capa:update', capa.value)),
 )
 
 const toast = useToast()
@@ -75,28 +87,12 @@ const showEsignDialog = ref(false)
 const pendingEsignAction = ref(null)
 
 // ─── Close-CAPA additional state ─────────────────────────────────────────────
-// Industry-standard effectiveness-check presets (days from close). 90 is the
-// default per ISO 13485 / 21 CFR 820.100 practice — long enough to observe
-// the corrective action's effect, short enough to keep cycle time reasonable.
-const EC_PRESETS = [
-  { label: '30 days', days: 30 },
-  { label: '60 days', days: 60 },
-  { label: '90 days', days: 90 },
-  { label: '180 days', days: 180 },
-  { label: '365 days', days: 365 },
-]
-const closeEcPresetDays = ref(90)
-const closeEcCustomDate = ref(null) // DateTime | null — when set, overrides the preset
+// The effectiveness-check presets and date picker lived here until 2026-08-18.
+// Closing no longer schedules a check — the workflow's DELAY step owns it — so
+// only the closure comments remain.
 const closeComments = ref('')
 
-// Effective EC date: custom calendar pick if set, else "today + preset days".
-const closeEffectivenessDate = computed(() => {
-  if (closeEcCustomDate.value) return closeEcCustomDate.value
-  if (closeEcPresetDays.value == null) return null
-  return DateTime.now().plus({ days: closeEcPresetDays.value }).startOf('day')
-})
-
-// `incompleteStepCount`, `canClose`, `closeDisabledReason` are defined
+// `incompleteStepCount`, the close gates and their reasons are defined
 // further down after `allWorkflowInstanceStepIds` is declared (TDZ).
 
 // Build a flat list of related entity ids so the audit dialog covers the
@@ -165,19 +161,27 @@ const incompleteStepCount = useLiveQueryWithDeps(
 
   { models: ['WorkflowInstanceStep'], initial: 0 },
 )
-const canClose = computed(() => incompleteStepCount.value === 0 && !!closeEffectivenessDate.value)
+// The two close gates, kept pure + tested in capaCloseGates.js — see that file
+// for why they must stay separate (a control that opens a form must not be
+// gated on that form's contents).
+const canOpenClose = computed(() =>
+  gateCanOpenClose({ incompleteStepCount: incompleteStepCount.value }),
+)
 
-// Why the "Sign & Close" action is blocked — surfaced as the submit button's
-// native tooltip via BaseDialogFooter's `submitTitle`.
-const closeDisabledReason = computed(() => {
-  if (incompleteStepCount.value > 0) {
-    return `${incompleteStepCount.value} workflow step${
-      incompleteStepCount.value === 1 ? '' : 's'
-    } still open. Complete or skip them first.`
-  }
-  if (!closeEffectivenessDate.value) return 'Pick an effectiveness check date.'
-  return ''
-})
+const closeGateState = computed(() => ({
+  incompleteStepCount: incompleteStepCount.value,
+  comments: closeComments.value,
+}))
+
+const canSubmitClose = computed(() => gateCanSubmitClose(closeGateState.value))
+
+/** Header "Close CAPA" tooltip — workflow only. */
+const closeBlockedReason = computed(() =>
+  gateCloseBlockedReason({ incompleteStepCount: incompleteStepCount.value }),
+)
+
+/** "Sign & Close" tooltip — surfaced via BaseDialogFooter's `submitTitle`. */
+const closeDisabledReason = computed(() => gateCloseSubmitBlockedReason(closeGateState.value))
 
 function openPrintView() {
   if (!capa.value?.id) return
@@ -198,12 +202,6 @@ const isOwner = computed(() => {
 
 function openCloseDialog() {
   saveError.value = null
-  // Seed the EC preset from the CAPA's planning preference (default 90).
-  // If the saved interval is one of the standard chips we pre-select that
-  // chip; otherwise we leave it on the preference value (the chip row
-  // won't highlight, but the resulting date still computes correctly).
-  closeEcPresetDays.value = capa.value?.ecIntervalDays ?? 90
-  closeEcCustomDate.value = null
   closeComments.value = ''
   showCloseDialog.value = true
 }
@@ -215,7 +213,7 @@ function openCloseDialog() {
 // input into the PIN field (verified in a real browser, not a test-only
 // artifact).
 function handleCloseCapa() {
-  if (!canClose.value) return
+  if (!canSubmitClose.value) return
   saveError.value = null
   showCloseDialog.value = false
   pendingEsignAction.value = 'close'
@@ -249,7 +247,6 @@ async function onEsignVerified({ method, provider, token }) {
     saveError.value = null
     try {
       await post(`/v1/services/capas/${props.id}/close`, {
-        effectivenessCheckAt: closeEffectivenessDate.value.toISO(),
         comments: closeComments.value.trim() || null,
         method,
         provider: provider || null,
@@ -331,12 +328,6 @@ async function handleDeleteDraft() {
   }
 }
 
-const isOverdue = computed(() => {
-  if (!capa.value?.dueDate) return false
-  if (capa.value.statusId === 'CLOSED') return false
-  return capa.value.dueDate < DateTime.now()
-})
-
 const workflowInstance = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -366,10 +357,17 @@ const capaBanners = computed(() => buildCapaBanners(capa.value, { isEditable: is
 const capaActions = computed(() =>
   buildCapaActions(
     {
-      isOwner: isOwner.value,
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // no longer a bypass — it makes the `own` scope tier match — so an owner
+      // still needs capa:close to see Close CAPA, and a non-owner who holds it
+      // in scope now does. Cancel is an 'update' action server-side.
+      canStart: isAllowedOnRecord('capa:update', capa.value),
+      canCloseCapa: isAllowedOnRecord('capa:close', capa.value),
+      canCancel: isAllowedOnRecord('capa:update', capa.value),
+      canDelete: isAllowedOnRecord('capa:delete', capa.value),
       statusId: capa.value?.statusId,
-      canClose: canClose.value,
-      closeDisabledReason: closeDisabledReason.value,
+      canClose: canOpenClose.value,
+      closeDisabledReason: closeBlockedReason.value,
       canCreateChangeRequest: canCreateChangeRequest.value,
       canUpdate: canUpdate.value,
       saving: saving.value,
@@ -419,12 +417,19 @@ const capaDetailConfig = computed(() =>
     notFoundDescription="This CAPA could not be found."
   >
     <template #title>
+      <!-- The editor matches the rendered title's width and weight (2026-08-18):
+           at the default input size a long CAPA title scrolled inside a box a
+           third the width of the text it replaced, so you edited blind. Enter
+           commits, Escape reverts to the read-only row. -->
       <BaseTextInput
         v-if="editingTitle && isEditable"
         v-model="capa.title"
         placeholder="CAPA title"
         autofocus
-        class="tw:mb-2"
+        class="tw:mb-2 tw:w-full"
+        inputClass="tw:text-base tw:font-semibold"
+        @keyup.enter="editingTitle = false"
+        @keyup.escape="editingTitle = false"
         @blur="editingTitle = false"
       />
       <BaseClickableRow
@@ -535,19 +540,6 @@ const capaDetailConfig = computed(() =>
       />
     </template>
 
-    <template v-if="capa" #section-effectiveness>
-      <!-- Effectiveness Check (post-closure follow-up) -->
-      <CapaEffectivenessCheckCard :capaId="id" :isOwner="isOwner" />
-
-      <!-- External access — read-only panel populated by workflow-
-           step assignment (autoShareSupplierUsers). The product
-           decision (2026-05-29) is that supplier visibility on CAPA
-           is workflow-driven, not manual. See SharedWithPanel.vue.
-           Only relevant on supplier-facing CAPAs — external access is
-           only ever granted on those, so hide the section otherwise. -->
-      <SharedWithPanel v-if="capa?.isSupplierFacing" entityType="Capa" :entityId="id" />
-    </template>
-
     <template v-if="capa" #rail>
       <!-- 1. General — number, status, priority, type, source, initiated.
            Responsive grid: pairs up two-per-row when the rail is wide enough,
@@ -572,6 +564,13 @@ const capaDetailConfig = computed(() =>
           </BaseDetailField>
           <BaseDetailField label="Source">
             <CapaSourceBadgeById v-if="capa.sourceType" :sourceId="capa.sourceType" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <!-- Shared quality classification — same taxonomy as Quality Events
+               and NCs, inherited from whichever record this CAPA came from. -->
+          <BaseDetailField label="Category">
+            <EventCategorySelectMenu v-if="isEditable" v-model="capa.categoryId" />
+            <EventCategoryBadgeById v-else-if="capa.categoryId" :categoryId="capa.categoryId" />
             <BaseText v-else color="secondary">—</BaseText>
           </BaseDetailField>
           <BaseDetailField
@@ -610,6 +609,9 @@ const capaDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
+      <!-- External sharing — who outside the company can read this. -->
+      <RecordShareCard entityType="Capa" :entityId="capa.id" module="capa" :record="capa" />
+
       <!-- 3. Workflow — below People (same placement as NC, 2026-08-12).
            While DRAFT the owner picks / switches the workflow here (the
            default template is auto-picked at create); once opened it shows
@@ -629,19 +631,8 @@ const capaDetailConfig = computed(() =>
         "
       />
 
-      <!-- 4. Schedule — due, verified, closed -->
+      <!-- 4. Schedule — verified, closed -->
       <BaseRailCard title="Schedule">
-        <BaseDetailField label="Due">
-          <BaseDateField v-if="isEditable" v-model="capa.dueDate" mode="date" class="tw:w-full" />
-          <BaseText
-            v-else
-            variant="body"
-            weight="medium"
-            :class="isOverdue ? 'tw:text-red-600' : ''"
-          >
-            {{ capa.dueDate?.formatDate('date') || '—' }}
-          </BaseText>
-        </BaseDetailField>
         <BaseDetailField
           v-if="capa.verifiedAt"
           label="Verified"
@@ -654,15 +645,17 @@ const capaDetailConfig = computed(() =>
         />
       </BaseRailCard>
 
-      <!-- 5. Notify (cc) — groups/people emailed + in-app on status change -->
-      <BaseRailCard title="Notify (cc)">
-        <NotificationCcField
-          v-model:groupIds="capa.notifyGroupIds"
-          v-model:userIds="capa.notifyUserIds"
-          :editable="isEditable"
-          hint=""
-        />
-      </BaseRailCard>
+      <!-- 5. Notifications — cc list, the rules that also apply, and when anything last went out -->
+      <RecordNotificationsCard
+        v-model:groupIds="capa.notifyGroupIds"
+        v-model:userIds="capa.notifyUserIds"
+        v-model:emails="capa.notifyEmails"
+        entityType="Capa"
+        :entityId="capa.id"
+        :siteId="capa.siteId"
+        :departmentId="capa.departmentId"
+        :editable="isEditable"
+      />
 
       <!-- (Workflow template link moved into the dedicated Workflow rail
            card below People — 2026-08-12.) -->
@@ -706,44 +699,13 @@ const capaDetailConfig = computed(() =>
         </div>
       </div>
 
-      <!-- Gate 2: effectiveness check date -->
-      <BaseField label="Effectiveness Check Date" required>
-        <p class="tw:text-xs tw:text-secondary tw:mb-2">
-          When should the corrective action's effectiveness be verified? Industry standard is 90
-          days from close.
-        </p>
-        <div class="tw:flex tw:flex-wrap tw:gap-2 tw:mb-3">
-          <button
-            v-for="preset in EC_PRESETS"
-            :key="preset.days"
-            type="button"
-            class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
-            :class="
-              !closeEcCustomDate && closeEcPresetDays === preset.days
-                ? 'tw:bg-primary tw:text-white tw:border-primary'
-                : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
-            "
-            @click="
-              () => {
-                closeEcPresetDays = preset.days
-                closeEcCustomDate = null
-              }
-            "
-          >
-            {{ preset.label }}
-          </button>
-        </div>
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <span class="tw:text-xs tw:text-secondary">Or pick a specific date:</span>
-          <BaseDateField v-model="closeEcCustomDate" mode="date" />
-        </div>
-        <p v-if="closeEffectivenessDate" class="tw:text-xs tw:text-secondary tw:mt-2">
-          Will schedule for: <strong>{{ closeEffectivenessDate.formatDate('date') }}</strong>
-        </p>
-      </BaseField>
-
+      <!-- The effectiveness-check date is gone from this dialog (2026-08-18).
+           Closing no longer schedules a check: the workflow's DELAY step owns
+           that, and it must already be scheduled or skipped before the record
+           can close (stepBlocksClose), so asking again here was a second answer
+           to a question already settled. -->
       <!-- Optional closure comments -->
-      <BaseField v-slot="{ id: fieldId }" label="Closure Comments" optional>
+      <BaseField v-slot="{ id: fieldId }" label="Closure Comments" required>
         <BaseTextarea
           :id="fieldId"
           v-model="closeComments"
@@ -770,8 +732,8 @@ const capaDetailConfig = computed(() =>
         submitLabel="Sign & Close CAPA"
         submitVariant="danger"
         :loading="closing"
-        :disabled="!canClose"
-        :submitTitle="canClose ? undefined : closeDisabledReason"
+        :disabled="!canSubmitClose"
+        :submitTitle="canSubmitClose ? undefined : closeDisabledReason"
         @cancel="close"
         @submit="handleCloseCapa"
       />

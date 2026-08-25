@@ -6,7 +6,7 @@ import {
 } from './changeRequestDetailConfig.js'
 import { IconAlertTriangle } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { currentSession, isAllowed, canUseAi } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
@@ -53,8 +53,16 @@ const isOwner = computed(() => {
 const canUpdate = computed(() => isAllowed(['change_control:update']))
 const canDelete = computed(() => isAllowed(['change_control:delete']))
 
+// Custodian OR whatever the permission matrix grants at this record's scope —
+// see authz.scope_allowed and the note in CapasPageId. (The DRAFT-only clause is
+// a lifecycle rule, not an access rule: a CR under review is edited through its
+// workflow steps, not the detail form.)
 const isEditable = computed(
-  () => cr.value && cr.value.statusId === 'DRAFT' && canUpdate.value && isOwner.value,
+  () =>
+    cr.value &&
+    cr.value.statusId === 'DRAFT' &&
+    canUpdate.value &&
+    (isOwner.value || isAllowedOnRecord('change_control:update', cr.value)),
 )
 
 const toast = useToast()
@@ -64,8 +72,11 @@ const toast = useToast()
 // dialogs, so a failed INLINE field save (title/description/rail) was silent to
 // the user. Surface it as a toast — pessimistic saves mean a failure persisted
 // nothing.
+// `enabled` must track isEditable exactly. When it restated the gate by hand,
+// widening isEditable would have rendered an editable field whose autosave never
+// fired — typing that vanishes with no error at all, worse than a failed save.
 const { saveError } = useAutoSave(cr, {
-  enabled: () => cr.value?.statusId === 'DRAFT' && isOwner.value,
+  enabled: isEditable,
   onError: (e) => toast.error(e?.message || 'Failed to save change request'),
 })
 
@@ -275,7 +286,13 @@ const changeRequestSections = computed(() => buildChangeRequestSections(cr.value
 const changeRequestActions = computed(() =>
   buildChangeRequestActions(
     {
-      isOwner: isOwner.value,
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // no longer a bypass — it makes the `own` scope tier match. Cancel is an
+      // 'update' action server-side.
+      canOpen: isAllowedOnRecord('change_control:update', cr.value),
+      canCloseCr: isAllowedOnRecord('change_control:close', cr.value),
+      canCancel: isAllowedOnRecord('change_control:update', cr.value),
+      canDeleteCr: isAllowedOnRecord('change_control:delete', cr.value),
       canDelete: canDelete.value,
       statusId: cr.value?.statusId,
       canClose: canClose.value,
@@ -565,15 +582,25 @@ const changeRequestDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- 3. Notify (cc) — groups/people emailed + in-app on status change -->
-      <BaseRailCard title="Notify (cc)">
-        <NotificationCcField
-          v-model:groupIds="cr.notifyGroupIds"
-          v-model:userIds="cr.notifyUserIds"
-          :editable="isEditable"
-          hint=""
-        />
-      </BaseRailCard>
+      <!-- External sharing — who outside the company can read this. -->
+      <RecordShareCard
+        entityType="ChangeRequest"
+        :entityId="cr.id"
+        module="change_control"
+        :record="cr"
+      />
+
+      <!-- 3. Notifications — cc list, the rules that also apply, and when anything last went out -->
+      <RecordNotificationsCard
+        v-model:groupIds="cr.notifyGroupIds"
+        v-model:userIds="cr.notifyUserIds"
+        v-model:emails="cr.notifyEmails"
+        entityType="ChangeRequest"
+        :entityId="cr.id"
+        :siteId="cr.siteId"
+        :departmentId="cr.departmentId"
+        :editable="isEditable"
+      />
 
       <!-- 4. Schedule -->
       <BaseRailCard title="Schedule">

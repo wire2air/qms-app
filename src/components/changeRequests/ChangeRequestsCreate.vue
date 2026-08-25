@@ -108,6 +108,7 @@ const form = ref({
   // Per-record cc recipients (notification engine).
   notifyGroupIds: [],
   notifyUserIds: [],
+  notifyEmails: [],
 })
 
 // Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
@@ -121,21 +122,55 @@ const { allowLeave } = useUnsavedChangesGuard(isDirty)
 
 // Seed title + site + department from the originating record so the
 // owner doesn't have to retype context.
+// Same treatment for a CR raised straight off an NC — it had the identical
+// "Change from NC-001" title and no guard against the live query re-firing.
+const ncSeeded = ref(false)
 watch(sourceNc, (nc) => {
-  if (!nc) return
-  if (!form.value.title) {
-    form.value.title = `Change from NC ${nc.ncNumber || nc.title}`
+  if (!nc || ncSeeded.value) return
+  ncSeeded.value = true
+  if (!form.value.title) form.value.title = nc.title || `Change from NC ${nc.ncNumber}`
+  if (richTextIsEmpty(form.value.description) && nc.description) {
+    form.value.description = nc.description
   }
   if (!form.value.siteId) form.value.siteId = nc.siteId
   if (!form.value.departmentId) form.value.departmentId = nc.departmentId
 })
+/** Rich text is "empty" as `<p></p>`, so test the text, not the markup. */
+function richTextIsEmpty(html) {
+  return !String(html ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+}
+
+// A CR raised from a CAPA carries the CAPA's context down, the same way a CAPA
+// raised from an NC does. It is the next step on one quality event, not a fresh
+// record — retyping the problem invites a second, subtly different account of
+// it in the file.
+//
+// The one-shot flag matters: sourceCapa is a live query and re-fires on any
+// syncBus tick. Most fields are guarded by an "only if empty" test, but
+// priority ships defaulted to MEDIUM, so "empty" is unreadable there and a
+// re-fire would silently reset a priority the user had just changed.
+const capaSeeded = ref(false)
 watch(sourceCapa, (capa) => {
-  if (!capa) return
-  if (!form.value.title) {
-    form.value.title = `Change from CAPA ${capa.capaNumber || capa.title}`
+  if (!capa || capaSeeded.value) return
+  capaSeeded.value = true
+  // The CAPA's OWN title, not "Change from CAPA CAPA-001". The CR has its own
+  // number and shows a linked-record chip, so restating the CAPA number added
+  // nothing and cost the one thing a title is for — saying what the change IS.
+  // A register reading "Change from CAPA-001, Change from CAPA-002…" is
+  // unreadable, which is why CAPA-from-NC dropped the same pattern.
+  if (!form.value.title) form.value.title = capa.title || `Change from CAPA ${capa.capaNumber}`
+  // The CAPA's description is the problem this change answers.
+  if (richTextIsEmpty(form.value.description) && capa.description) {
+    form.value.description = capa.description
   }
   if (!form.value.siteId) form.value.siteId = capa.siteId
   if (!form.value.departmentId) form.value.departmentId = capa.departmentId
+  // Straight across — both use the same LOW/MEDIUM/HIGH scale, so unlike
+  // NC → CAPA there is no severity-to-urgency translation to do.
+  if (capa.priorityId) form.value.priorityId = capa.priorityId
 })
 watch(sourceFinding, (f) => {
   if (!f) return
@@ -226,9 +261,7 @@ const navSections = computed(() => [
 function validate() {
   if (!form.value.workflowVersionId) {
     screen.value = 'workflow'
-    return [
-      { id: 'cr-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' },
-    ]
+    return [{ id: 'cr-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' }]
   }
   return []
 }
@@ -330,266 +363,278 @@ function goBack() {
       <!-- Screen 2 — the CR details form, with a context strip recalling the
            chosen workflow (Change returns to screen 1, data intact). -->
       <template v-else>
-      <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
-        <FormProgressNav :sections="navSections" />
-      </div>
-
-      <div
-        class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
-      >
-        <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
-        <div class="tw:min-w-0 tw:flex-1">
-          <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-            {{ selectedWorkflowLabel || 'Workflow selected' }}
-          </p>
-          <p class="tw:text-xs tw:text-secondary">
-            The change request is created as a draft — assign step reviewers and submit it for
-            approval from the CR page.
-          </p>
+        <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
+          <FormProgressNav :sections="navSections" />
         </div>
-        <!-- Hidden when only one workflow exists — nothing to change to. -->
-        <BaseButton v-if="!singleWorkflow" variant="outline" size="sm" @click="screen = 'workflow'">
-          Change
-        </BaseButton>
-      </div>
 
-      <BaseForm
-        class="tw:py-6"
-        :validate="validate"
-        :dirty="isDirty"
-        :loading="saving"
-        :submitError="submitError"
-        submitLabel="Create Draft"
-        @submit="onSubmit"
-        @cancel="goBack"
-      >
-        <!-- Basic information -->
-        <FormSection id="cr-basic" title="Basic information" :icon="IconInfoCircle">
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <BaseField
-              id="cr-title"
-              label="Title"
-              required
-              :value="form.title"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseTextInput
-                  v-bind="field"
-                  v-model="form.title"
-                  placeholder="Short summary of the change"
-                />
-              </template>
-            </BaseField>
-            <BaseField label="Description">
-              <div class="create-cr-editor">
-                <BaseRichTextEditor
-                  v-model="form.description"
-                  placeholder="What is being changed and why?"
-                />
-              </div>
-            </BaseField>
-          </div>
-        </FormSection>
-
-        <!-- Admin-defined custom fields. Self-hides when none configured. -->
-        <CustomFieldsCreateSection
-          ref="customFieldsRef"
-          v-model="customFieldsData"
-          entityType="ChangeRequest"
-        />
-
-        <!-- Classification -->
-        <FormSection id="cr-classification" title="Classification" :icon="IconCategory">
-          <BaseFieldRow :columns="2">
-            <BaseField
-              id="cr-change-type"
-              label="Change Type"
-              required
-              :value="form.changeTypeId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <ChangeTypeSelectMenu v-bind="field" v-model="form.changeTypeId" :required="true" />
-              </template>
-            </BaseField>
-            <BaseField label="Classification" optional>
-              <BaseSelect
-                v-model="form.classification"
-                :options="CLASSIFICATIONS"
-                optionLabel="name"
-                optionValue="id"
-                nullLabel="— Select classification —"
-              />
-            </BaseField>
-            <BaseField label="Planned or Emergency" optional>
-              <BaseSelect
-                v-model="form.changeNature"
-                :options="CHANGE_NATURES"
-                optionLabel="name"
-                optionValue="id"
-                nullLabel="— Select —"
-              />
-            </BaseField>
-            <BaseField label="Temporary or Permanent" optional>
-              <BaseSelect
-                v-model="form.changeDuration"
-                :options="CHANGE_DURATIONS"
-                optionLabel="name"
-                optionValue="id"
-                nullLabel="— Select —"
-              />
-            </BaseField>
-            <BaseField label="Regulatory Impact" optional>
-              <BaseSelect
-                v-model="form.regulatoryImpact"
-                :options="YES_NO_OPTIONS"
-                optionLabel="name"
-                optionValue="id"
-                nullLabel="— Select —"
-              />
-            </BaseField>
-            <BaseField label="Customer Notification Required" optional>
-              <BaseSelect
-                v-model="form.customerNotificationRequired"
-                :options="YES_NO_OPTIONS"
-                optionLabel="name"
-                optionValue="id"
-                nullLabel="— Select —"
-              />
-            </BaseField>
-            <BaseField
-              id="cr-priority"
-              label="Priority"
-              required
-              :value="form.priorityId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <ChangeRequestPrioritySelectMenu
-                  v-bind="field"
-                  v-model="form.priorityId"
-                  :required="true"
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="cr-site"
-              label="Site"
-              required
-              :value="form.siteId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="cr-department"
-              label="Department"
-              required
-              :value="form.departmentId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <DepartmentSelectMenu
-                  v-bind="field"
-                  v-model="form.departmentId"
-                  :siteId="form.siteId"
-                  required
-                />
-              </template>
-            </BaseField>
-            <BaseField
-              id="cr-owner"
-              label="Responsible party"
-              required
-              hint="Drives the change request to closure. You remain the initiator."
-              :value="form.ownerId"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
-              </template>
-            </BaseField>
-            <BaseField
-              id="cr-initiated"
-              label="Initiated"
-              required
-              :value="form.initiatedAt"
-              :rules="[required()]"
-            >
-              <template #default="field">
-                <BaseDateField v-bind="field" v-model="form.initiatedAt" mode="date" />
-              </template>
-            </BaseField>
-            <BaseField label="Target Implementation Date" optional>
-              <BaseDateField v-model="form.targetImplementationDate" mode="date" />
-            </BaseField>
-            <BaseField label="Due Date" optional>
-              <BaseDateField v-model="form.dueDate" mode="date" />
-            </BaseField>
-          </BaseFieldRow>
-        </FormSection>
-
-        <!-- Context (optional) -->
-        <FormSection
-          id="cr-context"
-          title="Context"
-          :icon="IconFileDescription"
-          optional
-          collapsible
-          :defaultOpen="false"
+        <div
+          class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
         >
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <BaseField label="Reason for Change">
-              <div class="create-cr-editor">
-                <BaseRichTextEditor
-                  v-model="form.reasonForChange"
-                  placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
-                />
-              </div>
-            </BaseField>
-            <BaseField label="Business Justification">
-              <div class="create-cr-editor">
-                <BaseRichTextEditor
-                  v-model="form.businessJustification"
-                  placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
-                />
-              </div>
-            </BaseField>
-            <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
-              <BaseSwitch v-model="form.requiresEffectivenessCheck" />
-              <div>
-                <div class="tw:text-sm tw:font-semibold tw:text-on-main">
-                  Requires effectiveness check
-                </div>
-                <div class="tw:text-xs tw:text-secondary">
-                  Track post-implementation verification. CAPA-style — recommended for MAJOR or
-                  CRITICAL changes.
-                </div>
-              </div>
-            </label>
+          <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+          <div class="tw:min-w-0 tw:flex-1">
+            <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ selectedWorkflowLabel || 'Workflow selected' }}
+            </p>
+            <p class="tw:text-xs tw:text-secondary">
+              The change request is created as a draft — assign step reviewers and submit it for
+              approval from the CR page.
+            </p>
           </div>
-        </FormSection>
+          <!-- Hidden when only one workflow exists — nothing to change to. -->
+          <BaseButton
+            v-if="!singleWorkflow"
+            variant="outline"
+            size="sm"
+            @click="screen = 'workflow'"
+          >
+            Change
+          </BaseButton>
+        </div>
 
-        <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
-        <FormSection
-          id="cr-notify"
-          title="Notify (cc)"
-          :icon="IconBell"
-          optional
-          collapsible
-          :defaultOpen="false"
+        <BaseForm
+          class="tw:py-6"
+          :validate="validate"
+          :dirty="isDirty"
+          :loading="saving"
+          :submitError="submitError"
+          submitLabel="Create Draft"
+          @submit="onSubmit"
+          @cancel="goBack"
         >
-          <NotificationCcField
-            v-model:groupIds="form.notifyGroupIds"
-            v-model:userIds="form.notifyUserIds"
+          <!-- Basic information -->
+          <FormSection id="cr-basic" title="Basic information" :icon="IconInfoCircle">
+            <div class="tw:flex tw:flex-col tw:gap-3">
+              <BaseField
+                id="cr-title"
+                label="Title"
+                required
+                :value="form.title"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.title"
+                    placeholder="Short summary of the change"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Description">
+                <div class="create-cr-editor">
+                  <BaseRichTextEditor
+                    v-model="form.description"
+                    placeholder="What is being changed and why?"
+                  />
+                </div>
+              </BaseField>
+            </div>
+          </FormSection>
+
+          <!-- Admin-defined custom fields. Self-hides when none configured. -->
+          <CustomFieldsCreateSection
+            ref="customFieldsRef"
+            v-model="customFieldsData"
+            entityType="ChangeRequest"
           />
-        </FormSection>
 
-        <!-- (Workflow lives on its own screen now — see screen 1 above.) -->
-      </BaseForm>
+          <!-- Classification -->
+          <FormSection id="cr-classification" title="Classification" :icon="IconCategory">
+            <BaseFieldRow :columns="2">
+              <BaseField
+                id="cr-change-type"
+                label="Change Type"
+                required
+                :value="form.changeTypeId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <ChangeTypeSelectMenu
+                    v-bind="field"
+                    v-model="form.changeTypeId"
+                    :required="true"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Classification" optional>
+                <BaseSelect
+                  v-model="form.classification"
+                  :options="CLASSIFICATIONS"
+                  optionLabel="name"
+                  optionValue="id"
+                  nullLabel="— Select classification —"
+                />
+              </BaseField>
+              <BaseField label="Planned or Emergency" optional>
+                <BaseSelect
+                  v-model="form.changeNature"
+                  :options="CHANGE_NATURES"
+                  optionLabel="name"
+                  optionValue="id"
+                  nullLabel="— Select —"
+                />
+              </BaseField>
+              <BaseField label="Temporary or Permanent" optional>
+                <BaseSelect
+                  v-model="form.changeDuration"
+                  :options="CHANGE_DURATIONS"
+                  optionLabel="name"
+                  optionValue="id"
+                  nullLabel="— Select —"
+                />
+              </BaseField>
+              <BaseField label="Regulatory Impact" optional>
+                <BaseSelect
+                  v-model="form.regulatoryImpact"
+                  :options="YES_NO_OPTIONS"
+                  optionLabel="name"
+                  optionValue="id"
+                  nullLabel="— Select —"
+                />
+              </BaseField>
+              <BaseField label="Customer Notification Required" optional>
+                <BaseSelect
+                  v-model="form.customerNotificationRequired"
+                  :options="YES_NO_OPTIONS"
+                  optionLabel="name"
+                  optionValue="id"
+                  nullLabel="— Select —"
+                />
+              </BaseField>
+              <BaseField
+                id="cr-priority"
+                label="Priority"
+                required
+                :value="form.priorityId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <ChangeRequestPrioritySelectMenu
+                    v-bind="field"
+                    v-model="form.priorityId"
+                    :required="true"
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="cr-site"
+                label="Site"
+                required
+                :value="form.siteId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="cr-department"
+                label="Department"
+                required
+                :value="form.departmentId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <DepartmentSelectMenu
+                    v-bind="field"
+                    v-model="form.departmentId"
+                    :siteId="form.siteId"
+                    required
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="cr-owner"
+                label="Responsible party"
+                required
+                hint="Drives the change request to closure. You remain the initiator."
+                :value="form.ownerId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="cr-initiated"
+                label="Initiated"
+                required
+                :value="form.initiatedAt"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseDateField v-bind="field" v-model="form.initiatedAt" mode="date" />
+                </template>
+              </BaseField>
+              <BaseField label="Target Implementation Date" optional>
+                <BaseDateField v-model="form.targetImplementationDate" mode="date" />
+              </BaseField>
+              <BaseField label="Due Date" optional>
+                <BaseDateField v-model="form.dueDate" mode="date" />
+              </BaseField>
+            </BaseFieldRow>
+          </FormSection>
+
+          <!-- Context — expanded by default (2026-08-18). Reason for Change and
+             Business Justification are the two fields a reviewer actually reads
+             to decide; behind a collapsed header they were being skipped. Still
+             collapsible and still optional, just not hidden. -->
+          <FormSection
+            id="cr-context"
+            title="Context"
+            :icon="IconFileDescription"
+            optional
+            collapsible
+          >
+            <div class="tw:flex tw:flex-col tw:gap-4">
+              <BaseField label="Reason for Change">
+                <div class="create-cr-editor">
+                  <BaseRichTextEditor
+                    v-model="form.reasonForChange"
+                    placeholder="What's driving this change? (audit finding, regulatory update, NC, supplier change, etc.)"
+                  />
+                </div>
+              </BaseField>
+              <BaseField label="Business Justification">
+                <div class="create-cr-editor">
+                  <BaseRichTextEditor
+                    v-model="form.businessJustification"
+                    placeholder="Why is this change worth the effort? Cost / quality / compliance impact."
+                  />
+                </div>
+              </BaseField>
+              <label class="tw:flex tw:items-center tw:gap-3 tw:cursor-pointer">
+                <BaseSwitch v-model="form.requiresEffectivenessCheck" />
+                <div>
+                  <div class="tw:text-sm tw:font-semibold tw:text-on-main">
+                    Requires effectiveness check
+                  </div>
+                  <div class="tw:text-xs tw:text-secondary">
+                    Track post-implementation verification. CAPA-style — recommended for MAJOR or
+                    CRITICAL changes.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </FormSection>
+
+          <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+          <FormSection
+            id="cr-notify"
+            title="Notify (cc)"
+            :icon="IconBell"
+            optional
+            collapsible
+            :defaultOpen="false"
+          >
+            <NotificationCcField
+              v-model:groupIds="form.notifyGroupIds"
+              v-model:userIds="form.notifyUserIds"
+              v-model:emails="form.notifyEmails"
+            />
+          </FormSection>
+
+          <!-- (Workflow lives on its own screen now — see screen 1 above.) -->
+        </BaseForm>
       </template>
     </div>
   </BasePage>

@@ -58,7 +58,12 @@ async function submit() {
     <div class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Name</BaseText>
-        <BaseTextInput v-model="name" placeholder="e.g. Process Deviation" autofocus @keyup.enter="submit" />
+        <BaseTextInput
+          v-model="name"
+          placeholder="e.g. Process Deviation"
+          autofocus
+          @keyup.enter="submit"
+        />
       </div>
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Color</BaseText>
@@ -66,7 +71,13 @@ async function submit() {
       </div>
     </div>
     <template #footer="{ close }">
-      <BaseDialogFooter submitLabel="Create" :loading="saving" :disabled="!name.trim()" @cancel="close" @submit="submit" />
+      <BaseDialogFooter
+        submitLabel="Create"
+        :loading="saving"
+        :disabled="!name.trim()"
+        @cancel="close"
+        @submit="submit"
+      />
     </template>
   </BaseDialog>
 </template>

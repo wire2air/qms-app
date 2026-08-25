@@ -395,13 +395,47 @@ export default defineComponent({
             ),
           ])
 
-        // Rich text + inline file/image attachments packed into a single string
-        // (RichTextAttachments). One field replaces the textEditor+file pair.
-        case 'richTextAttachment':
+        // Rich text plus its attachments. One field replaces the
+        // textEditor+file pair.
+        //
+        // TWO payload keys, not one packed string. It used to write
+        //
+        //     "<html>\n[qms-attachments]::[{assetId,name}…]"
+        //
+        // so the attachment list could not be queried, reported on, or read by
+        // print/export without parsing a marker out of a text column — the file
+        // was a real cloud asset, but the REFERENCE to it was a substring.
+        //
+        // A field named `investigation` now writes `investigation` (the html)
+        // and `investigation_attachments` (the list). Plural, because it is a
+        // list and a singular name invites `payload.x_attachment.name` coming
+        // back undefined.
+        //
+        // RichTextAttachments already had this mode — built for document
+        // sections, whose attachments column gates submit and feeds the
+        // controlled PDF. DynamicForm simply never passed it, so every other
+        // user of the type was stuck with the packed string. Old records still
+        // read correctly: the component falls back to the marker when the
+        // separate key is empty.
+        case 'richTextAttachment': {
+          const attachmentsPath = `${scope.path}_attachments`
           return h('div', { class: 'tw:flex tw:flex-col' }, [
             fieldLabelRow(field),
-            h(RichTextAttachments, inputFieldProps, richTextToolbarSlots()),
+            h(
+              RichTextAttachments,
+              {
+                ...inputFieldProps,
+                separateAttachments: true,
+                attachments: getProp(modelValue.value, attachmentsPath) ?? [],
+                'onUpdate:attachments': (val) => {
+                  if (!modelValue.value) modelValue.value = {}
+                  setProp(modelValue.value, attachmentsPath, val, true)
+                },
+              },
+              richTextToolbarSlots(),
+            ),
           ])
+        }
 
         case 'date': {
           const isDisabled = props.disabled || field.disabled

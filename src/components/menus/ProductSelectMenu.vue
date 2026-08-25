@@ -1,5 +1,6 @@
 <script setup>
 import { IconPlus } from '@tabler/icons-vue'
+import { IndexedDB, syncBus } from '@syncEngine/index'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -69,8 +70,40 @@ function openCreateDialog(closePopover) {
   showCreateDialog.value = true
 }
 
-function onProductCreated(newProduct) {
+async function onProductCreated(newProduct) {
   if (!newProduct?.id) return
+
+  // The dialog wrote a Product; this menu reads ProductOption — a VIEW, and
+  // the sync push only maps the `products` table back to the Product model,
+  // so the new row reaches this list only on the next full reload. Until
+  // then the selection points at an id the options don't carry and the
+  // control renders blank — "the item list emptied out".
+  //
+  // A server refetch is not available for views (PostGraphile generates no
+  // singular accessor without a primary key), so the option row is built
+  // from the Product just created — the projection is a strict subset of
+  // its fields — and written the same way the socket subscriber would.
+  // Best-effort, and PLAIN values only: `newProduct` is a reactive model
+  // instance, and neither a Vue proxy nor a Luxon DateTime survives the
+  // structured clone IndexedDB does — a naive put throws DataCloneError and
+  // would take the selection assignment below down with it.
+  try {
+    const iso = (v) => (v?.toISO ? v.toISO() : (v ?? new Date().toISOString()))
+    await IndexedDB.put('productOptions', {
+      id: newProduct.id,
+      companyId: newProduct.companyId,
+      name: newProduct.name,
+      sku: newProduct.sku ?? '',
+      statusId: newProduct.statusId ?? 'ACTIVE',
+      createdAt: iso(newProduct.createdAt),
+      updatedAt: iso(newProduct.updatedAt),
+    })
+    syncBus.emit({ modelName: 'ProductOption', modelId: newProduct.id, action: 'update', type: 'sync' })
+  } catch (err) {
+    // The option list refreshes on the next reload either way; the selection
+    // below must not depend on this succeeding.
+    console.warn(`productOptions upsert after create failed: ${err?.message}`)
+  }
 
   if (props.multiple) {
     const arr = Array.isArray(modelValue.value) ? modelValue.value : []
