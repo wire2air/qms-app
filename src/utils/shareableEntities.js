@@ -14,6 +14,8 @@ export const SHAREABLE_ENTITIES = {
   Complaint: 'Complaint',
   InspectionLot: 'QC Inspection',
   QualityEvent: 'Quality Event',
+  Document: 'Document',
+  AuditInstance: 'Audit Records Package',
 }
 
 export const SHAREABLE_ENTITY_TYPES = Object.keys(SHAREABLE_ENTITIES)

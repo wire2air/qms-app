@@ -48,6 +48,7 @@ declare module 'vue' {
     AuditeeCreateDialog: typeof import('./src/components/auditee/AuditeeCreateDialog.vue')['default']
     AuditeeHome: typeof import('./src/components/auditee/AuditeeHome.vue')['default']
     AuditeeReportsPanel: typeof import('./src/components/auditee/AuditeeReportsPanel.vue')['default']
+    AuditeeSharePanel: typeof import('./src/components/auditee/AuditeeSharePanel.vue')['default']
     AuditEvidenceLinkDialog: typeof import('./src/components/audits/AuditEvidenceLinkDialog.vue')['default']
     AuditEvidencePanel: typeof import('./src/components/audits/AuditEvidencePanel.vue')['default']
     AuditEvidenceUploadDialog: typeof import('./src/components/audits/AuditEvidenceUploadDialog.vue')['default']

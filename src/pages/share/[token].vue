@@ -62,6 +62,40 @@ function displayValue(item) {
   return item.value
 }
 
+// ── Audit Records Package: the manifest, and the item being read ───────────
+const packageRecord = computed(() => (record.value?.kind === 'package' ? record.value : null))
+const openedItem = ref(null) // projection of the item being read
+const openedItemMeta = ref(null) // {label, reference} for the back header
+const loadingItem = ref(false)
+
+async function openPackageItem(item) {
+  if (loadingItem.value) return
+  loadingItem.value = true
+  try {
+    const data = await get(`/v1/share/${token.value}/items/${item.id}`)
+    openedItem.value = data.record
+    openedItemMeta.value = item
+    window.scrollTo({ top: 0 })
+  } catch (err) {
+    error.value = err?.response?.data?.message || 'This record is no longer available.'
+  } finally {
+    loadingItem.value = false
+  }
+}
+
+function closePackageItem() {
+  openedItem.value = null
+  openedItemMeta.value = null
+}
+
+// What the record layout below renders: the opened package item, or the
+// single shared record — one template serves both shapes.
+const shownRecord = computed(() => openedItem.value || (packageRecord.value ? null : record.value))
+
+function printPage() {
+  window.print()
+}
+
 const viewerImage = ref(null)
 
 function openImage(event) {
@@ -221,20 +255,75 @@ onMounted(load)
           <p v-if="error" class="tw:mt-3 tw:text-center tw:text-sm tw:text-red-600">{{ error }}</p>
         </div>
 
-        <!-- The record -->
-        <div v-else-if="record">
+        <!-- Audit Records Package: the manifest until an item is opened -->
+        <div v-else-if="packageRecord && !openedItem">
           <div class="tw:mb-6 tw:border-b tw:border-input-border tw:pb-4">
             <BaseText color="secondary" class="tw:text-xs tw:uppercase tw:tracking-wide">
-              {{ record.label }}
+              {{ packageRecord.label }}
+            </BaseText>
+            <h1 class="tw:mt-1 tw:text-2xl tw:font-semibold">{{ packageRecord.reference }}</h1>
+            <p v-if="packageRecord.title" class="tw:mt-1 tw:text-secondary">
+              {{ packageRecord.title }}
+            </p>
+          </div>
+          <p class="tw:mb-3 tw:text-sm tw:text-secondary">
+            {{ packageRecord.items.length }} record{{ packageRecord.items.length === 1 ? '' : 's' }}
+            shared with you — open any of them below. Your verification covers the whole package.
+          </p>
+          <ul class="tw:flex tw:flex-col tw:divide-y tw:divide-input-border tw:rounded-xl tw:border tw:border-input-border">
+            <li v-for="item in packageRecord.items" :key="item.id">
+              <button
+                type="button"
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer hover:tw:bg-black/5"
+                :disabled="loadingItem"
+                @click="openPackageItem(item)"
+              >
+                <span class="tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary tw:w-28 tw:shrink-0">
+                  {{ item.label }}
+                </span>
+                <span class="tw:min-w-0 tw:flex-1">
+                  <span class="tw:font-medium">{{ item.reference || '—' }}</span>
+                  <span v-if="item.title && item.title !== item.reference" class="tw:text-secondary">
+                    · {{ item.title }}</span
+                  >
+                </span>
+                <span class="tw:text-primary tw:text-sm tw:shrink-0">Open →</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- The record (a single share, or an opened package item) -->
+        <div v-else-if="shownRecord">
+          <div v-if="openedItem" class="tw:mb-4 tw:flex tw:items-center tw:gap-2 tw:print:hidden">
+            <button
+              type="button"
+              class="tw:text-sm tw:text-primary hover:tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="closePackageItem"
+            >
+              ← All shared records
+            </button>
+            <span class="tw:flex-1" />
+            <button
+              type="button"
+              class="tw:text-sm tw:text-primary hover:tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="printPage"
+            >
+              Print
+            </button>
+          </div>
+          <div class="tw:mb-6 tw:border-b tw:border-input-border tw:pb-4">
+            <BaseText color="secondary" class="tw:text-xs tw:uppercase tw:tracking-wide">
+              {{ shownRecord.label }}
             </BaseText>
             <h1 class="tw:mt-1 tw:text-2xl tw:font-semibold">
-              {{ record.reference }}
+              {{ shownRecord.reference }}
             </h1>
-            <p v-if="record.title" class="tw:mt-1 tw:text-secondary">{{ record.title }}</p>
+            <p v-if="shownRecord.title" class="tw:mt-1 tw:text-secondary">{{ shownRecord.title }}</p>
           </div>
 
           <div class="tw:flex tw:flex-col tw:gap-6">
-            <section v-for="section in record.sections" :key="section.title">
+            <section v-for="section in shownRecord.sections" :key="section.title">
               <h2
                 class="tw:mb-2 tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
               >
@@ -284,14 +373,14 @@ onMounted(load)
                re-checks the link and the verified session on every request — so
                revoking the link kills these in the same instant, with no copies
                to clean up. -->
-          <section v-if="record.attachments?.length" class="tw:mt-6">
+          <section v-if="shownRecord.attachments?.length" class="tw:mt-6">
             <h2
               class="tw:mb-2 tw:text-xs tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary"
             >
               Attachments
             </h2>
             <ul class="tw:flex tw:flex-col tw:gap-1.5">
-              <li v-for="f in record.attachments" :key="f.url">
+              <li v-for="f in shownRecord.attachments" :key="f.url">
                 <a
                   :href="f.url"
                   target="_blank"

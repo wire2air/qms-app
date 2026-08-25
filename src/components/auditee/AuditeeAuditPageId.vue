@@ -30,6 +30,7 @@ import {
   IconCertificate,
   IconNotes,
   IconShieldCheck,
+  IconShare,
   IconUpload,
   IconTrash,
 } from '@tabler/icons-vue'
@@ -317,6 +318,7 @@ const detailConfig = computed(() =>
         mode: 'panel',
         lazy: false,
       },
+      { value: 'share', label: 'Share', icon: IconShare, mode: 'panel', lazy: false },
     ],
   }),
 )
@@ -529,6 +531,12 @@ const detailConfig = computed(() =>
           :typeFilter="['OFI']"
           defaultTypeId="OFI"
         />
+      </FormSection>
+    </template>
+
+    <template v-if="auditInstance" #tab-share>
+      <FormSection title="Share with Auditor" :icon="IconShare">
+        <AuditeeSharePanel :auditInstance="auditInstance" :readonly="!canUpdate" />
       </FormSection>
     </template>
 
