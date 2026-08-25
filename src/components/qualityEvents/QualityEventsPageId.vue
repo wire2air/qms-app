@@ -216,7 +216,6 @@ watch(
     // Normalize date fields for BaseDateField rendering.
     const occ = toDateTime(e.occurrenceDate)
     if (occ && !DateTime.isDateTime(e.occurrenceDate)) e.occurrenceDate = occ.startOf('day')
-
   },
   { immediate: true },
 )

@@ -121,8 +121,6 @@ const showImportDialog = ref(false)
       :mobileCards="false"
       searchable
       selectable
-      columnManager
-      densitySelector
       filterable
       exportManager
       exportFilename="products.csv"

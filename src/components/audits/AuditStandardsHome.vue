@@ -32,7 +32,9 @@ function openDetail(id) {
 const standards = useLiveQuery(
   async (db) => {
     const results = await db.AuditStandard.where().exec()
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
   { models: ['AuditStandard'], initial: [] },
 )
@@ -102,8 +104,6 @@ const columns = [
     :mobileCards="false"
     searchable
     filterable
-    densitySelector
-    columnManager
     exportManager
     exportFilename="audit-standards.csv"
     persistKey="audits:standards"
@@ -139,10 +139,7 @@ const columns = [
       >
         {{ row.name }}
       </RouterLink>
-      <BaseBadge
-        v-if="row.statusId === 'ARCHIVED'"
-        class="tw:ml-2 tw:bg-gray-200 tw:text-gray-600"
-      >
+      <BaseBadge v-if="row.statusId === 'ARCHIVED'" class="tw:ml-2 tw:bg-gray-200 tw:text-gray-600">
         Archived
       </BaseBadge>
       <div
@@ -181,7 +178,9 @@ const columns = [
     </template>
 
     <template #body-cell-createdAt="{ row }">
-      <span class="tw:text-xs tw:text-secondary">{{ row.createdAt ? row.createdAt.formatDate('date') : '—' }}</span>
+      <span class="tw:text-xs tw:text-secondary">{{
+        row.createdAt ? row.createdAt.formatDate('date') : '—'
+      }}</span>
     </template>
 
     <template #body-cell-actions="{ row }">
@@ -201,7 +200,10 @@ const columns = [
   <!-- 'Duplicate & open' navigates from inside the dialog; plain 'Duplicate'
        stays here and the new row syncs into the list automatically. -->
   <AuditStandardCloneDialog v-model="showCloneDialog" :standard="cloneTarget" />
-  <AuditStandardImportDialog v-model="showImportDialog" @created="(s) => s?.id && openDetail(s.id)" />
+  <AuditStandardImportDialog
+    v-model="showImportDialog"
+    @created="(s) => s?.id && openDetail(s.id)"
+  />
   <AuditStandardAiGenerateDialog
     v-model="showAiGenerateDialog"
     @created="(s) => s?.id && openDetail(s.id)"

@@ -47,7 +47,13 @@ const columns = [
   },
   { name: 'in', label: 'In', field: 'inputTokens', align: 'right', filterType: 'number' },
   { name: 'out', label: 'Out', field: 'outputTokens', align: 'right', filterType: 'number' },
-  { name: 'duration', label: 'Duration', field: 'durationMs', align: 'right', filterType: 'number' },
+  {
+    name: 'duration',
+    label: 'Duration',
+    field: 'durationMs',
+    align: 'right',
+    filterType: 'number',
+  },
   { name: 'cost', label: 'Cost', field: 'costUsd', align: 'right', filterType: 'number' },
 ]
 
@@ -84,8 +90,6 @@ function statusClass(s) {
     :loading="loading"
     manualPagination
     :total="total"
-    densitySelector
-    columnManager
     exportManager
     exportFilename="ai-usage-recent-calls.csv"
     persistKey="aiUsage:jobs"
@@ -96,7 +100,9 @@ function statusClass(s) {
     </template>
 
     <template #body-cell-when="{ row }">
-      <span class="tw:text-secondary tw:text-xs tw:whitespace-nowrap">{{ fmtTime(row.createdAt) }}</span>
+      <span class="tw:text-secondary tw:text-xs tw:whitespace-nowrap">{{
+        fmtTime(row.createdAt)
+      }}</span>
     </template>
 
     <template #body-cell-user="{ row }">

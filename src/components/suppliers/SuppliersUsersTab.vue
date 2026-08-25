@@ -133,8 +133,6 @@ async function cancelInvite(u) {
       rowKey="id"
       :mobileCards="false"
       searchable
-      densitySelector
-      columnManager
       exportManager
       exportFilename="supplier-users.csv"
       persistKey="suppliers:users"

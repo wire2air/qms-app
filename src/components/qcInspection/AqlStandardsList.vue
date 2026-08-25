@@ -110,8 +110,6 @@ async function saveCell(cell) {
       :mobileCards="false"
       searchable
       filterable
-      densitySelector
-      columnManager
       exportManager
       exportFilename="aql-standards.csv"
       persistKey="qcInspection:aqlStandards"
@@ -172,12 +170,14 @@ async function saveCell(cell) {
       </div>
 
       <!-- How to read this table — AQL/severity pairing + Ac/Re + arrows. -->
-      <div class="tw:px-5 tw:py-2.5 tw:border-b tw:border-divider tw:text-xs tw:text-secondary tw:flex tw:flex-col tw:gap-1">
+      <div
+        class="tw:px-5 tw:py-2.5 tw:border-b tw:border-divider tw:text-xs tw:text-secondary tw:flex tw:flex-col tw:gap-1"
+      >
         <p>
           <strong class="tw:text-on-main">AQL %</strong> = worst tolerable percent defective for a
-          defect class. {{ AQL_PAIRING_SUMMARY }}
-          <strong class="tw:text-on-main">Ac</strong> = accept the lot at ≤ this many defects;
-          <strong class="tw:text-on-main">Re</strong> = reject at ≥ this many.
+          defect class. {{ AQL_PAIRING_SUMMARY }} <strong class="tw:text-on-main">Ac</strong> =
+          accept the lot at ≤ this many defects; <strong class="tw:text-on-main">Re</strong> =
+          reject at ≥ this many.
         </p>
         <p class="tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
           Cells showing
@@ -232,7 +232,8 @@ async function saveCell(cell) {
                     :title="
                       (c.arrowDirection === 'UP'
                         ? 'Use the first plan at a larger code letter (bigger sample). '
-                        : 'Use the first plan at a smaller code letter (smaller sample). ') + arrowHelp
+                        : 'Use the first plan at a smaller code letter (smaller sample). ') +
+                      arrowHelp
                     "
                   >
                     <IconArrowDown v-if="c.arrowDirection === 'UP'" :size="14" />

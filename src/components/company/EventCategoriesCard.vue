@@ -184,9 +184,9 @@ async function handleRestore(row) {
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
       <template #subtitle>
-        One classification shared by Quality Events, Nonconformances and CAPAs — it carries down
-        the escalation chain, so a category picked on an event stays with the NC and CAPA it
-        becomes. Scoped to this company.
+        One classification shared by Quality Events, Nonconformances and CAPAs — it carries down the
+        escalation chain, so a category picked on an event stays with the NC and CAPA it becomes.
+        Scoped to this company.
       </template>
       <template #actions>
         <BaseButton v-if="canConfigure" variant="primary" size="sm" @click="openAdd">
@@ -213,8 +213,6 @@ async function handleRestore(row) {
         hidePagination
         searchable
         filterable
-        densitySelector
-        columnManager
         exportManager
         exportFilename="event-categories.csv"
         persistKey="lookups:eventCategories"
@@ -280,7 +278,9 @@ async function handleRestore(row) {
 
           <div v-if="!editing">
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+              >
                 Code <span class="tw:text-red-500">*</span>
               </p>
               <button

@@ -48,8 +48,20 @@ const columns = [
     filterType: 'select',
     filterOptions: TRIGGER_OPTIONS,
   },
-  { name: 'conditions', label: 'Conditions', field: conditionCount, align: 'center', filterType: 'number' },
-  { name: 'actionSummary', label: 'Actions', field: actionSummary, align: 'left', filterType: false },
+  {
+    name: 'conditions',
+    label: 'Conditions',
+    field: conditionCount,
+    align: 'center',
+    filterType: 'number',
+  },
+  {
+    name: 'actionSummary',
+    label: 'Actions',
+    field: actionSummary,
+    align: 'left',
+    filterType: false,
+  },
   { name: 'active', label: 'Active', field: 'isActive', align: 'center', filterType: false },
   { name: 'actions', label: '', field: 'actions', align: 'right', filterType: false },
 ]
@@ -73,7 +85,15 @@ async function toggleActive(rule) {
 }
 
 async function onDelete(rule) {
-  if (!(await confirm({ title: 'Delete rule', message: `Delete "${rule.name}"?`, okLabel: 'Delete', danger: true }))) return
+  if (
+    !(await confirm({
+      title: 'Delete rule',
+      message: `Delete "${rule.name}"?`,
+      okLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return
   try {
     await rule.delete()
     toast.success('Rule deleted')
@@ -106,8 +126,6 @@ async function onDelete(rule) {
       :mobileCards="false"
       searchable
       filterable
-      densitySelector
-      columnManager
       exportManager
       exportFilename="automation-rules.csv"
       persistKey="automationRules:list"
@@ -122,7 +140,9 @@ async function onDelete(rule) {
       </template>
 
       <template #body-cell-object="{ row }">
-        <span class="tw:text-secondary">{{ OBJECT_BY_VALUE[row.objectType]?.label || row.objectType }}</span>
+        <span class="tw:text-secondary">{{
+          OBJECT_BY_VALUE[row.objectType]?.label || row.objectType
+        }}</span>
       </template>
 
       <template #body-cell-trigger="{ row }">

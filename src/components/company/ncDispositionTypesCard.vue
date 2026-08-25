@@ -241,8 +241,6 @@ const showDeactivated = ref(false)
         hidePagination
         searchable
         filterable
-        densitySelector
-        columnManager
         exportManager
         exportFilename="nc-dispositions.csv"
         persistKey="lookups:ncDispositions"
@@ -322,7 +320,9 @@ const showDeactivated = ref(false)
 
           <div v-if="!editing">
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+              >
                 Code <span class="tw:text-red-500">*</span>
                 <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
                   (auto-derived from name)

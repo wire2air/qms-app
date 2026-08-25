@@ -131,7 +131,7 @@ async function handleSave(close) {
       sourceType: form.value.sourceType || 'MANUAL',
       inspectionLotId: form.value.inspectionLotId || null,
       occurrenceDate: form.value.occurrenceDate
-        ? form.value.occurrenceDate.toFormat?.('yyyy-LL-dd') ?? form.value.occurrenceDate
+        ? (form.value.occurrenceDate.toFormat?.('yyyy-LL-dd') ?? form.value.occurrenceDate)
         : null,
       anonymousSubmission: form.value.anonymousSubmission,
     })
@@ -150,7 +150,11 @@ async function handleSave(close) {
   <BaseDialog v-model="open" :title="title" maxWidth="xl">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <BaseField v-slot="{ id: fieldId }" label="Title" required>
-        <BaseTextInput :id="fieldId" v-model="form.title" placeholder="Short summary of the observation" />
+        <BaseTextInput
+          :id="fieldId"
+          v-model="form.title"
+          placeholder="Short summary of the observation"
+        />
       </BaseField>
 
       <BaseField label="Issue" required>
@@ -171,11 +175,7 @@ async function handleSave(close) {
           <EventSeveritySelectMenu v-model="form.severityId" :required="true" />
         </BaseField>
         <BaseField label="Site / Location" required>
-          <SiteSelectMenu
-            v-model="form.siteId"
-            :required="true"
-            nullLabel="— Select site —"
-          />
+          <SiteSelectMenu v-model="form.siteId" :required="true" nullLabel="— Select site —" />
         </BaseField>
         <BaseField label="Department">
           <DepartmentSelectMenu
@@ -207,7 +207,9 @@ async function handleSave(close) {
       <BaseField label="Anonymous submission">
         <div class="tw:flex tw:items-center tw:gap-2">
           <BaseSwitch v-model="form.anonymousSubmission" />
-          <span class="tw:text-xs tw:text-secondary">Hide the reporter's identity on this event</span>
+          <span class="tw:text-xs tw:text-secondary"
+            >Hide the reporter's identity on this event</span
+          >
         </div>
       </BaseField>
     </div>

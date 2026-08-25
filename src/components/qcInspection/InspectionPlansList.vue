@@ -137,8 +137,6 @@ async function deletePlan(id) {
     :mobileCards="false"
     searchable
     filterable
-    densitySelector
-    columnManager
     exportManager
     exportFilename="inspection-plans.csv"
     persistKey="qcInspection:inspectionPlans"
@@ -181,7 +179,9 @@ async function deletePlan(id) {
     <template #body-cell-active="{ row }">
       <span
         class="tw:text-caption tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-        :class="row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-200 tw:text-gray-600'"
+        :class="
+          row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-200 tw:text-gray-600'
+        "
         >{{ row.active ? 'ACTIVE' : 'INACTIVE' }}</span
       >
     </template>

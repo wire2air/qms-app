@@ -142,8 +142,6 @@ function goEdit(id) {
       :mobileCards="false"
       searchable
       filterable
-      densitySelector
-      columnManager
       exportManager
       exportFilename="log-book-assignments.csv"
       persistKey="formAssignment:list"

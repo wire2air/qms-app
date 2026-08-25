@@ -221,8 +221,6 @@ async function handleRestore(row) {
         hidePagination
         searchable
         filterable
-        densitySelector
-        columnManager
         exportManager
         exportFilename="event-severities.csv"
         persistKey="lookups:eventSeverities"
@@ -288,7 +286,9 @@ async function handleRestore(row) {
 
           <div v-if="!editing">
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+              >
                 Code <span class="tw:text-red-500">*</span>
               </p>
               <button

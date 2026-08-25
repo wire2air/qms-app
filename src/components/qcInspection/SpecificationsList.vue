@@ -93,8 +93,6 @@ function openSpec(id) {
     :mobileCards="false"
     searchable
     filterable
-    densitySelector
-    columnManager
     exportManager
     exportFilename="specifications.csv"
     persistKey="qcInspection:specifications"
@@ -114,9 +112,7 @@ function openSpec(id) {
         class="tw:font-medium tw:text-on-main tw:hover:text-primary"
       >
         {{ row.name }}
-        <span v-if="row.code" class="tw:text-xs tw:text-secondary">
-          · {{ row.code }}</span
-        >
+        <span v-if="row.code" class="tw:text-xs tw:text-secondary"> · {{ row.code }}</span>
       </RouterLink>
     </template>
 

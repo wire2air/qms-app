@@ -67,7 +67,13 @@ const uomCode = (id) => uoms.value.find((u) => u.id === id)?.code || ''
 
 const columns = [
   { name: 'rsNumber', label: 'SAMPLE #', field: 'rsNumber', align: 'left', sortable: true },
-  { name: 'product', label: 'ITEM', field: 'productId', align: 'left', exportValue: (row) => productName(row.productId) },
+  {
+    name: 'product',
+    label: 'ITEM',
+    field: 'productId',
+    align: 'left',
+    exportValue: (row) => productName(row.productId),
+  },
   { name: 'lotNumber', label: 'LOT #', field: 'lotNumber', align: 'left', sortable: true },
   {
     name: 'sampleType',
@@ -83,14 +89,16 @@ const columns = [
     label: 'QTY',
     field: 'quantity',
     align: 'left',
-    exportValue: (row) => (row.quantity != null ? `${row.quantity} ${uomCode(row.uomId)}`.trim() : ''),
+    exportValue: (row) =>
+      row.quantity != null ? `${row.quantity} ${uomCode(row.uomId)}`.trim() : '',
   },
   {
     name: 'location',
     label: 'LOCATION',
     field: 'storageLocationId',
     align: 'left',
-    exportValue: (row) => [locationName(row.storageLocationId), row.position].filter(Boolean).join(' / '),
+    exportValue: (row) =>
+      [locationName(row.storageLocationId), row.position].filter(Boolean).join(' / '),
   },
   {
     name: 'retainUntil',
@@ -122,8 +130,16 @@ const exportColumns = [
   ...columns,
   { name: 'batchNumber', label: 'BATCH #', exportValue: (row) => row.batchNumber || '' },
   { name: 'sealState', label: 'SEAL', exportValue: (row) => row.sealState || '' },
-  { name: 'storageConditions', label: 'CONDITIONS', exportValue: (row) => row.storageConditions || '' },
-  { name: 'expiryDate', label: 'EXPIRY', exportValue: (row) => (row.expiryDate ? row.expiryDate.formatDate('date') : '') },
+  {
+    name: 'storageConditions',
+    label: 'CONDITIONS',
+    exportValue: (row) => row.storageConditions || '',
+  },
+  {
+    name: 'expiryDate',
+    label: 'EXPIRY',
+    exportValue: (row) => (row.expiryDate ? row.expiryDate.formatDate('date') : ''),
+  },
 ]
 
 function openSample(id) {
@@ -147,8 +163,6 @@ function openRegisterPrint() {
       :mobileCards="false"
       searchable
       filterable
-      densitySelector
-      columnManager
       exportManager
       :exportColumns="exportColumns"
       exportFilename="retain-samples.csv"
@@ -198,7 +212,9 @@ function openRegisterPrint() {
       </template>
       <template #body-cell-location="{ row }">
         <span class="tw:truncate">
-          {{ [locationName(row.storageLocationId), row.position].filter(Boolean).join(' / ') || '—' }}
+          {{
+            [locationName(row.storageLocationId), row.position].filter(Boolean).join(' / ') || '—'
+          }}
         </span>
       </template>
       <template #body-cell-retainUntil="{ row }">
