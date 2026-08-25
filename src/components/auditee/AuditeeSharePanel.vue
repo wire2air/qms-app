@@ -40,10 +40,12 @@ function toggle(t, id, label) {
   else selected.value[k] = { entityType: t, entityId: id, label }
 }
 
+// ── Shared context: site + department scope BOTH pickers ────────────────────
+const siteId = ref(null)
+const departmentId = ref(null)
+
 // ── Documents (effective only) ──────────────────────────────────────────────
 const docSearch = ref('')
-const docSiteId = ref(null)
-const docDepartmentId = ref(null)
 
 const documents = useLiveQuery((db) => db.Document.where().exec(), {
   models: ['Document'],
@@ -64,8 +66,8 @@ const filteredDocuments = computed(() => {
   const q = docSearch.value.trim().toLowerCase()
   return documents.value
     .filter((d) => d.statusId !== 'ARCHIVED' && effectiveDocIds.value.has(d.id))
-    .filter((d) => !docSiteId.value || d.siteId === docSiteId.value || d.appliesAllSites)
-    .filter((d) => !docDepartmentId.value || d.departmentId === docDepartmentId.value)
+    .filter((d) => !siteId.value || d.siteId === siteId.value || d.appliesAllSites)
+    .filter((d) => !departmentId.value || d.departmentId === departmentId.value)
     .filter(
       (d) =>
         !q ||
@@ -84,6 +86,19 @@ const RECORD_TABS = [
 ]
 const recordTab = ref('Capa')
 const recordSearch = ref('')
+
+// Status filter (CAPA/NC/QE share the unified lifecycle). Default CLOSED: an
+// audit package is evidence the loop CLOSES — open work is shared knowingly.
+const STATUS_OPTIONS = [
+  { id: 'CLOSED', name: 'Closed' },
+  { id: 'OPEN', name: 'Open' },
+  { id: 'DRAFT', name: 'Draft' },
+  { id: 'ALL', name: 'All statuses' },
+]
+const recordStatus = ref('CLOSED')
+const statusFilterApplies = computed(() =>
+  ['Capa', 'Nonconformance', 'QualityEvent'].includes(recordTab.value),
+)
 
 const capas = useLiveQuery((db) => db.Capa.where().exec(), { models: ['Capa'], initial: [] })
 const ncs = useLiveQuery((db) => db.Nonconformance.where().exec(), {
@@ -105,6 +120,14 @@ const filteredRecords = computed(() => {
   const q = recordSearch.value.trim().toLowerCase()
   return (RECORD_SOURCES[cfg.id]?.value || [])
     .filter((r) => r.statusId !== 'CANCELLED')
+    .filter(
+      (r) =>
+        !statusFilterApplies.value ||
+        recordStatus.value === 'ALL' ||
+        r.statusId === recordStatus.value,
+    )
+    .filter((r) => !siteId.value || r.siteId === siteId.value)
+    .filter((r) => !departmentId.value || r.departmentId === departmentId.value)
     .filter(
       (r) =>
         !q ||
@@ -207,6 +230,14 @@ const STATUS_CLASS = {
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-5">
+    <!-- Context: scopes BOTH pickers — you are assembling evidence for one
+         site/department's audit. -->
+    <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+      <BaseText variant="overline" class="tw:mr-1">Context</BaseText>
+      <SiteSelectMenu v-model="siteId" class="tw:w-48" />
+      <DepartmentSelectMenu v-model="departmentId" :siteId="siteId" class="tw:w-48" />
+    </div>
+
     <!-- Pickers -->
     <div class="tw:grid tw:grid-cols-1 tw:xl:grid-cols-2 tw:gap-4">
       <!-- Documents -->
@@ -221,8 +252,6 @@ const STATUS_CLASS = {
           >
             <template #icon><IconSearch :size="14" /></template>
           </BaseTextInput>
-          <SiteSelectMenu v-model="docSiteId" class="tw:w-40" />
-          <DepartmentSelectMenu v-model="docDepartmentId" :siteId="docSiteId" class="tw:w-40" />
         </div>
         <div class="tw:max-h-72 tw:overflow-y-auto tw:flex tw:flex-col tw:divide-y tw:divide-divider">
           <label
@@ -252,6 +281,12 @@ const STATUS_CLASS = {
         <BaseText variant="overline">Quality Records</BaseText>
         <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
           <BaseInlineSelect v-model="recordTab" :items="RECORD_TABS.map((t) => ({ id: t.id, name: t.label }))" :required="true" />
+          <BaseInlineSelect
+            v-if="statusFilterApplies"
+            v-model="recordStatus"
+            :items="STATUS_OPTIONS"
+            :required="true"
+          />
           <BaseTextInput
             v-model="recordSearch"
             size="sm"

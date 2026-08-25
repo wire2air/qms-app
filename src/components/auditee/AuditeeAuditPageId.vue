@@ -307,6 +307,7 @@ const detailConfig = computed(() =>
         mode: 'panel',
         lazy: false,
       },
+      { value: 'share', label: 'Share', icon: IconShare, mode: 'panel', lazy: false },
       { value: 'reports', label: 'Reports', icon: IconFileTypePdf, mode: 'panel', lazy: false },
       { value: 'summary', label: 'Summary', icon: IconNotes, mode: 'panel', lazy: false },
       { value: 'findings', label: 'Findings', icon: IconBolt, mode: 'panel', lazy: false },
@@ -318,7 +319,6 @@ const detailConfig = computed(() =>
         mode: 'panel',
         lazy: false,
       },
-      { value: 'share', label: 'Share', icon: IconShare, mode: 'panel', lazy: false },
     ],
   }),
 )
