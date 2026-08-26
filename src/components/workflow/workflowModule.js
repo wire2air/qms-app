@@ -207,6 +207,14 @@ export function formModuleFor(moduleKey, displayName) {
     recordResourceFk: 'recordId',
     resourceModel: { modelName: 'Record' },
     workflowVersionModuleId: 'FORM',
+    // Promotion registers the moduleKey as an authz module with per-role
+    // grants, so the matrix applies to these steps like any record module —
+    // without this, steps were assignee-only and a reopened effectiveness
+    // check was dead for everyone else, the owner included (2026-08-26).
+    authzModule: moduleKey,
+    // records.owner_user_id, not the built-ins' ownerId — scopeAllows needs
+    // to know where the custodian lives for the own-scope tier.
+    scopeOwnerField: 'ownerUserId',
     getStepFormContextFields: () => ({}),
   }
 }

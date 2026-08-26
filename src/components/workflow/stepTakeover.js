@@ -106,6 +106,11 @@ export function pickActionableTask({
 export function mayActOnStepType({ module, record, stepType }) {
   const permission = permissionForStep(module?.authzModule, stepType)
   if (!permission || !record) return false
+  // Generic module records keep their custodian on ownerUserId, not ownerId —
+  // the descriptor says so; the built-ins omit it and get the default.
+  if (module?.scopeOwnerField) {
+    return isAllowedOnRecord(permission, record, { ownerField: module.scopeOwnerField })
+  }
   return isAllowedOnRecord(permission, record)
 }
 
