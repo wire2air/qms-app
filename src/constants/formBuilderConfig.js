@@ -535,6 +535,20 @@ export const OPTIONS_TYPES = new Set(['select', 'radio', 'optionGroup'])
 // is that badge's id prop; `model` + `labelFields` resolve the display label when
 // sealing the payload. Keep in sync with the entity triads under
 // components/menus + components/badges.
+/**
+ * Which lookup entities can be FILTERED by a sibling lookup field (cascading
+ * lookups, 2026-08-26): child entity → { parent entity → the filter prop the
+ * child's select menu accepts }. Only pairs the data model actually supports
+ * are listed — the builder offers a parent picker exactly when an entry
+ * exists here.
+ */
+export const LOOKUP_CASCADES = {
+  department: { site: 'siteId' },
+  user: { site: 'siteId', department: 'departmentId' },
+  equipment: { site: 'siteId', department: 'departmentId' },
+  product: { supplier: 'supplierId' },
+}
+
 export const LOOKUP_ENTITIES = [
   {
     value: 'product',

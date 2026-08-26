@@ -11,6 +11,8 @@ import {
 } from '@/constants/formBuilderConfig'
 
 const props = defineProps({
+  // Sibling lookup fields for cascading config (see ConfigLookup).
+  siblingLookups: { type: Array, default: () => [] },
   path: {
     type: String,
     default: null,
@@ -237,7 +239,11 @@ function updateRowColClass(value) {
         <ConfigOptions v-if="hasOptions" v-model:field="field" />
 
         <!-- Lookup (entity-backed) Settings -->
-        <ConfigLookup v-if="field.type === 'lookup'" v-model:field="field" />
+        <ConfigLookup
+          v-if="field.type === 'lookup'"
+          v-model:field="field"
+          :siblingLookups="siblingLookups"
+        />
 
         <!-- File Settings -->
         <ConfigFile v-if="field.type === 'file'" v-model:field="field" />

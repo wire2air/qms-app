@@ -4,6 +4,12 @@ import { IndexedDB, syncBus } from '@syncEngine/index'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
+  // Restrict to items supplied by this supplier (Item↔Supplier M2M);
+  // null = no filter.
+  supplierId: {
+    type: String,
+    default: null,
+  },
   required: {
     type: Boolean,
     default: false,
@@ -30,10 +36,17 @@ const modelValue = defineModel({
 // ProductOption projection (view `product_options`) — id / sku / name only, so
 // the picker resolves for users without products:read. Item CREATION below
 // still goes through Product and still requires products:create.
-const products = useLiveQuery(async (db) => db.ProductOption.where().exec(), {
-  models: ['ProductOption'],
-  initial: [],
-})
+const products = useLiveQueryWithDeps(
+  [() => props.supplierId],
+  async (db, [supplierId]) => {
+    const rows = await db.ProductOption.where().exec()
+    if (!supplierId) return rows
+    const links = await db.ProductSupplier.where('supplierId', supplierId).exec()
+    const allowed = new Set(links.map((l) => l.productId))
+    return rows.filter((p) => allowed.has(p.id))
+  },
+  { models: ['ProductOption', 'ProductSupplier'], initial: [] },
+)
 
 // Ids currently selected — kept visible in the list even if inactive, so the
 // dropdown doesn't drop an existing selection (BaseSelect clears a value

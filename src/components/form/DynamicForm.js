@@ -42,6 +42,7 @@ import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
 import EquipmentSelectMenu from '@/components/menus/EquipmentSelectMenu.vue'
 import CountrySelectMenu from '@/components/menus/CountrySelectMenu.vue'
 import RegionSelectMenu from '@/components/menus/RegionSelectMenu.vue'
+import { LOOKUP_CASCADES } from '@/constants/formBuilderConfig'
 
 // Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
 const LOOKUP_MENUS = {
@@ -560,8 +561,24 @@ export default defineComponent({
             ])
           }
           const Menu = LOOKUP_MENUS[field.lookupEntity || 'product']
+          // Cascading lookup (2026-08-26): when the author picked a parent
+          // field, narrow this menu's options by the parent's CURRENT value —
+          // e.g. Department options filtered by the chosen Site. The prop name
+          // comes from LOOKUP_CASCADES keyed on (child entity, parent entity);
+          // an empty parent applies no filter (full list).
+          const cascadeProps = {}
+          if (field.parentField && field.lookupEntity) {
+            const parentDef = (props.fields || []).find((f) => f.name === field.parentField)
+            const propName =
+              parentDef?.lookupEntity &&
+              LOOKUP_CASCADES[field.lookupEntity]?.[parentDef.lookupEntity]
+            if (propName) {
+              const parentValue = modelValue.value?.[field.parentField]
+              cascadeProps[propName] = parentValue || null
+            }
+          }
           const control = Menu
-            ? h(Menu, commonProps)
+            ? h(Menu, { ...commonProps, ...cascadeProps })
             : h(
                 'div',
                 { class: 'tw:text-sm tw:text-red-500' },

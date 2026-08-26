@@ -91,6 +91,23 @@ const jsonContent = computed({
   set: () => {},
 })
 
+
+// Sibling lookup fields (name/label/entity), flattened across containers —
+// the candidates a cascading lookup can filter by (ConfigLookup).
+function collectLookupFields(fields, out = []) {
+  for (const f of fields || []) {
+    if (f?.type === 'lookup' && f.name && f.lookupEntity && f.lookupEntity !== 'optionSet') {
+      out.push({ name: f.name, label: f.label, lookupEntity: f.lookupEntity })
+    }
+    if (Array.isArray(f?.fields)) collectLookupFields(f.fields, out)
+    if (Array.isArray(f?.children)) collectLookupFields(f.children, out)
+  }
+  return out
+}
+const siblingLookups = computed(() =>
+  collectLookupFields(schema.value?.fields || schema.value || []),
+)
+
 // Watch schema changes and emit
 watch(
   schema,
@@ -472,6 +489,7 @@ async function handleAiChatApply({ proposal, onApplied }) {
                 :path="selectedFieldPath"
                 :showSectionPlacement="showSectionPlacement"
                 :showScoring="showScoring"
+                :siblingLookups="siblingLookups"
               />
             </div>
           </aside>

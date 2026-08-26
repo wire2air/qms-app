@@ -173,7 +173,13 @@ const supportsRequired = computed(
 // convert cleanly (checklist, input table, RCA, …) — those simply don't show
 // the picker rather than offering a lossy switch.
 const kindId = computed(() => fieldKindId(props.field))
-const kindOptions = FIELD_KIND_OPTIONS.map((k) => ({ id: k.id, name: k.label }))
+// Canvas shows COMPACT labels — "Lookup (Item, Supplier, Site…)" overflowed
+// the w-40 in-place type select over the neighbouring card (reported
+// 2026-08-26). The palette keeps the descriptive label.
+const kindOptions = FIELD_KIND_OPTIONS.map((k) => ({
+  id: k.id,
+  name: k.label.replace(/\s*\(.*\)\s*$/, ''),
+}))
 
 // Initialize sortable for nested children dropzone
 watch(
@@ -337,7 +343,7 @@ function beginEdit(which) {
         <!-- Change the field's type in place. Only offered for kinds that
              convert cleanly (see FIELD_KIND_OPTIONS) — a Checklist or Input
              Table has structure nothing else can hold. -->
-        <div v-if="kindId" class="tw:w-40 tw:shrink-0" @click.stop @mousedown.stop>
+        <div v-if="kindId" class="tw:w-40 tw:shrink-0 tw:overflow-hidden" @click.stop @mousedown.stop>
           <BaseSelect
             :modelValue="kindId"
             :options="kindOptions"
