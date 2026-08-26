@@ -120,12 +120,6 @@ const stepRoles = computed({
     field.value.routing = { ...(field.value.routing || {}), roles: v, assigneeRole: undefined }
   },
 })
-// BaseSelectMenu renders the selected value via its #button slot — resolve the
-// chosen option's label for these plain (non-entity) selects.
-function optionLabel(items, id) {
-  return items.find((o) => o.id === id)?.name || ''
-}
-
 // When the admin picks an RCA / Risk template, embed a snapshot of the
 // template content onto the field definition. The runtime FE field
 // components (RcaField, RiskAssessmentField) prefer the embedded
@@ -273,25 +267,28 @@ function updateRowColClass(value) {
                order) when a record is Started. -->
           <div class="tw:mt-3 tw:flex tw:flex-col tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
             <label class="tw:text-sm tw:font-medium tw:text-on-main">Workflow setting</label>
+            <!-- Was <BaseSelectMenu> — a component that does not exist, so
+                 Vue rendered NOTHING and the label sat over an empty gap
+                 (reported 2026-08-26). BaseSelect is the real primitive. -->
             <BaseField label="Step type">
-              <BaseSelectMenu v-model="stepType" :items="STEP_TYPES">
-                <template #button="{ selected }">
-                  <span class="tw:truncate tw:text-sm tw:text-on-main">
-                    {{ optionLabel(STEP_TYPES, selected) }}
-                  </span>
-                </template>
-              </BaseSelectMenu>
+              <BaseSelect
+                v-model="stepType"
+                :options="STEP_TYPES"
+                optionLabel="name"
+                optionValue="id"
+                :required="true"
+              />
             </BaseField>
 
             <template v-if="stepType === 'APPROVAL'">
               <BaseField label="Approval rule">
-                <BaseSelectMenu v-model="approvalRule" :items="APPROVAL_RULES">
-                  <template #button="{ selected }">
-                    <span class="tw:truncate tw:text-sm tw:text-on-main">
-                      {{ optionLabel(APPROVAL_RULES, selected) }}
-                    </span>
-                  </template>
-                </BaseSelectMenu>
+                <BaseSelect
+                  v-model="approvalRule"
+                  :options="APPROVAL_RULES"
+                  optionLabel="name"
+                  optionValue="id"
+                  :required="true"
+                />
               </BaseField>
               <p class="tw:text-xs tw:text-secondary">
                 The assignee gets Approve / Reject when the step is initiated.
