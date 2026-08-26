@@ -1,13 +1,9 @@
 // PW-J3 · Owner closes with e-signature (TC-10) — P0.
-// CAPA's close gate is thinner than NCR's 5-gate walk: the controller
-// (backend/api/controllers/capas.js closeCapa) enforces exactly 2 —
-// open workflow steps, and a valid (future) effectiveness-check date. The
-// UI's action-bar "Close CAPA" button only ever surfaces gate 1: the EC-date
-// ref defaults to a valid 90-day-out value at component mount (CapasPageId.vue
-// closeEcPresetDays = ref(90)), not just when the dialog opens, so
-// closeDisabledReason's "Pick an effectiveness check date" branch is
-// unreachable through the UI. Gate 2 is still real at the API layer, so it's
-// asserted directly against the endpoint below.
+// One gate since the effectiveness-check retirement: open workflow steps.
+// Close no longer schedules a follow-up check — the workflow's DELAY step owns
+// effectiveness (see PW-J4) — so this journey pins BOTH halves: the gate
+// blocks and then clears, and closing mints NO legacy
+// capa_effectiveness_checks row.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
@@ -69,12 +65,12 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
       { timeoutMs: 30_000, label: 'CAPA CLOSED' },
     )
 
-    // Effectiveness check auto-scheduled by close, ~90 days out (default preset).
-    const ecRow = sqlRow(
-      `SELECT status_id, due_at > NOW() + INTERVAL '80 days' FROM capa_effectiveness_checks WHERE capa_id = '${capa.id}'`,
+    // The built-in effectiveness check is retired: closing schedules NOTHING.
+    // (The DELAY-step mechanism is the successor — PW-J4 covers it.)
+    const ecCount = sqlValue(
+      `SELECT count(*) FROM capa_effectiveness_checks WHERE capa_id = '${capa.id}'`,
     )
-    expect(ecRow[0]).toBe('PENDING')
-    expect(ecRow[1]).toBe('t')
+    expect(Number(ecCount), 'close mints no legacy effectiveness check').toBe(0)
 
     // Part-11 signature — exactly one row, subject = this CAPA, meaning CLOSED.
     const sigCount = sqlValue(
@@ -91,12 +87,12 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
     expect(auditRow[1]).toContain('corrective action verified')
   })
 
-  test('a past effectiveness-check date is rejected 400 (gate 2, API-only — unreachable via the UI)', async ({
+  test('a legacy effectivenessCheckAt payload is inert: close succeeds, nothing is scheduled', async ({
     page,
     browser,
   }) => {
     test.setTimeout(150_000)
-    const title = uniqueTitle('J3-pastdate')
+    const title = uniqueTitle('J3-legacyec')
     await createCapa(page, title)
     const capa = findCapaByTitle(title)
     await openCapa(page, capa.id)
@@ -114,20 +110,25 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
       { timeoutMs: 30_000, label: 'workflow finished' },
     )
 
+    // An old client (or a replayed request) still sending the retired field
+    // must not resurrect the legacy scheduler — the close succeeds on its own
+    // terms and no capa_effectiveness_checks row appears.
     const res = await page.request.post(`/api/v1/services/capas/${capa.id}/close`, {
       data: {
         effectivenessCheckAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        comments: 'E2E gate probe — past date',
+        comments: 'E2E close — legacy field ignored',
         method: 'PIN',
         token: '12345678',
         provider: null,
       },
     })
-    expect(res.status()).toBe(400)
-    const body = await res.json().catch(() => null)
-    expect(body?.error?.message ?? '').toMatch(/must be in the future/i)
+    expect(res.status(), 'close succeeds; the retired field is ignored').toBe(200)
 
-    const stillPending = sqlValue(`SELECT 1 FROM capas WHERE id = '${capa.id}' AND status_id = 'PENDING'`)
-    expect(stillPending, 'rejected close must not mutate status').toBe('1')
+    const closed = sqlValue(`SELECT 1 FROM capas WHERE id = '${capa.id}' AND status_id = 'CLOSED'`)
+    expect(closed, 'CAPA closed').toBe('1')
+    const ecCount = sqlValue(
+      `SELECT count(*) FROM capa_effectiveness_checks WHERE capa_id = '${capa.id}'`,
+    )
+    expect(Number(ecCount), 'no legacy check row from the retired field').toBe(0)
   })
 })

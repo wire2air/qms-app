@@ -78,7 +78,10 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Close CAPA',
       variant: 'primary',
       priority: 100,
-      visible: !!canCloseCapa && statusId === 'PENDING',
+      // OPEN, not the retired 'PENDING' — the unified record statuses
+      // (2026-08-20) renamed the active state, and a gate on the old id made
+      // Close unreachable on every CAPA (caught by e2e CAPA-J3, 2026-08-26).
+      visible: !!canCloseCapa && statusId === 'OPEN',
       disabled: !canClose || !!closing,
       loading: !!closing,
       title: closeDisabledReason || undefined,
@@ -89,7 +92,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Cancel CAPA',
       variant: 'secondary',
       priority: 60,
-      visible: !!canCancel && statusId === 'PENDING',
+      visible: !!canCancel && statusId === 'OPEN',
       disabled: !!cancelling,
       loading: !!cancelling,
       onSelect: handlers.openCancel,

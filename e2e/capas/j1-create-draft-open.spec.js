@@ -7,11 +7,11 @@ import { findCapaByTitle, sqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
-  test('create CAPA (DRAFT) → Open CAPA (PENDING), workflow instantiated', async ({ page }) => {
+  test('create CAPA (DRAFT) → Start CAPA (OPEN), workflow instantiated', async ({ page }) => {
     const title = uniqueTitle('J1')
     const counterBefore = Number(
       sqlValue(
-        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = 'CAPA-HQ-QA'`,
+        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = 'CAPA'`,
       ) || 0,
     )
 
@@ -20,12 +20,13 @@ test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
     const capa = findCapaByTitle(title)
     expect(capa, 'CAPA row exists').toBeTruthy()
     expect(capa.statusId).toBe('DRAFT')
-    expect(capa.capaNumber).toMatch(/^CAPA-HQ-QA-\d{3,}$/)
+    // Flat per-company numbering since ncCapaCreateService (site/dept prefixes dropped).
+    expect(capa.capaNumber).toMatch(/^CAPA-\d{3,}$/)
     await expect(page.getByText(capa.capaNumber).first()).toBeVisible()
 
     const counterAfter = Number(
       sqlValue(
-        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = 'CAPA-HQ-QA'`,
+        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = 'CAPA'`,
       ) || 0,
     )
     expect(counterAfter, 'counter incremented').toBeGreaterThan(counterBefore)
@@ -33,7 +34,8 @@ test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
     await openCapa(page, capa.id)
 
     const statusAfterOpen = sqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}'`)
-    expect(statusAfterOpen).toBe('PENDING')
+    // Unified record statuses (2026-08-20): the active state is OPEN.
+    expect(statusAfterOpen).toBe('OPEN')
 
     const wfInstanceCount = sqlValue(
       `SELECT count(*) FROM workflow_instances WHERE resource_type = 'Capa' AND resource_id = '${capa.id}'`,
@@ -55,9 +57,12 @@ test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
     const pendingReviewers = sqlValue(`SELECT pending_reviewers::text FROM capas WHERE id = '${capa.id}'`)
     expect(pendingReviewers).toBe('{}')
 
+    // The submit is audited by the table trigger as an attributed UPDATE (the
+    // bespoke SUBMIT_FOR_REVIEW action row was retired with the audit-trigger
+    // consolidation) — what matters is that the status flip is attributable.
     const auditRows = sqlValue(
-      `SELECT count(*) FROM audit_logs WHERE entity_type = 'Capas' AND entity_id = '${capa.id}' AND action = 'SUBMIT_FOR_REVIEW' AND performed_by IS NOT NULL`,
+      `SELECT count(*) FROM audit_logs WHERE entity_type = 'Capas' AND entity_id = '${capa.id}' AND action = 'UPDATE' AND performed_by IS NOT NULL`,
     )
-    expect(Number(auditRows), 'attributed SUBMIT_FOR_REVIEW audit row exists for this CAPA').toBeGreaterThan(0)
+    expect(Number(auditRows), 'attributed UPDATE audit row exists for this CAPA').toBeGreaterThan(0)
   })
 })

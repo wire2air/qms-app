@@ -363,7 +363,9 @@ const capaActions = computed(() =>
       // in scope now does. Cancel is an 'update' action server-side.
       canStart: isAllowedOnRecord('capa:update', capa.value),
       canCloseCapa: isAllowedOnRecord('capa:close', capa.value),
-      canCancel: isAllowedOnRecord('capa:update', capa.value),
+      // Cancel maps to `close` on the server (controllers/capas.js) — gating
+      // the button on update offered it to users whose cancel then 403s.
+      canCancel: isAllowedOnRecord('capa:close', capa.value),
       canDelete: isAllowedOnRecord('capa:delete', capa.value),
       statusId: capa.value?.statusId,
       canClose: canOpenClose.value,

@@ -122,9 +122,12 @@ test.describe('PW-J4 · reviewer picker → workflow instantiation', () => {
       stepPicker(page, TEMPLATE.step1.name),
       USERS.reviewer.name,
     )
-    expect(step1Candidates, "step 1's candidates are exactly its role pool").toEqual([
-      USERS.reviewer.name,
-    ])
+    // The Reviewer role carries TWO members since seed §31b (Riley is the
+    // reassignment target CAPA-J8 needs) — the pool is exactly those two.
+    expect(
+      step1Candidates.slice().sort(),
+      "step 1's candidates are exactly its role pool",
+    ).toEqual([USERS.reviewer2.name, USERS.reviewer.name].sort())
     const step2Candidates = await pickReviewer(
       page,
       stepPicker(page, TEMPLATE.step2.name),

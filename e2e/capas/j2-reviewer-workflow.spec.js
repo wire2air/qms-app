@@ -44,10 +44,10 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     expect(step1Status).toBe('APPROVED')
 
     const capaStatus = sqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}'`)
-    expect(capaStatus, 'CAPA stays PENDING mid-workflow').toBe('PENDING')
+    expect(capaStatus, 'CAPA stays OPEN mid-workflow').toBe('OPEN')
   })
 
-  test('approver rejects step 2 (APPROVAL) -> CAPA reverts PENDING to DRAFT', async ({
+  test('approver rejects step 2 (APPROVAL) -> CAPA reverts OPEN to DRAFT', async ({
     browser,
   }) => {
     test.setTimeout(150_000)

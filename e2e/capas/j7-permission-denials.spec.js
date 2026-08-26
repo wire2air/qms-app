@@ -5,7 +5,7 @@ import { createCapa, uniqueTitle } from '../fixtures/capas.js'
 import { findCapaByTitle } from '../fixtures/db.js'
 
 test.describe('PW-J7 · permission denials + cross-tenant isolation', () => {
-  test('a reviewer (capa:read only) cannot submit-for-review a CAPA they do not own -> 403', async ({
+  test('a read-only user (capa:read only) cannot submit-for-review a CAPA they do not own -> 403', async ({
     browser,
   }) => {
     test.setTimeout(60_000)
@@ -16,13 +16,17 @@ test.describe('PW-J7 · permission denials + cross-tenant isolation', () => {
     const capa = findCapaByTitle(title)
     await ownerCtx.close()
 
-    const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
-    const res = await reviewerCtx.request.post(
+    // `auditor`, not `reviewer`: the Reviewer role holds capa:update since
+    // seed §31a (the 2026-08-19 access model demands the verb of assignees
+    // too), so it can legitimately submit now. The auditor stays the tenant's
+    // read-only persona.
+    const auditorCtx = await browser.newContext({ storageState: AUTH.auditor })
+    const res = await auditorCtx.request.post(
       `/api/v1/services/capas/${capa.id}/submitForReview`,
       { data: {} },
     )
     expect(res.status()).toBe(403)
-    await reviewerCtx.close()
+    await auditorCtx.close()
   })
 
   test('a user with no capa permission is redirected to /no-access', async ({ browser }) => {

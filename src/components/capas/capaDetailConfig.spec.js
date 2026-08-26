@@ -29,8 +29,8 @@ describe('buildCapaBanners', () => {
     expect(ro.tone).toBe('neutral')
     expect(ro.message.toLowerCase()).toContain('cancelled')
   })
-  it('no read-only banner when editable (PENDING)', () => {
-    const b = buildCapaBanners({ statusId: 'PENDING' }, { isEditable: true })
+  it('no read-only banner when editable (OPEN)', () => {
+    const b = buildCapaBanners({ statusId: 'OPEN' }, { isEditable: true })
     expect(b.some((x) => x.id === 'read-only')).toBe(false)
   })
   it('no QC-origin banner (CAPA uses RecordLineagePanel not banners)', () => {
@@ -45,7 +45,7 @@ describe('buildCapaSections', () => {
     expect(s.map((x) => x.id)).toEqual(['details', 'workflow'])
   })
   it('all sections have a label', () => {
-    const s = buildCapaSections({ statusId: 'PENDING' })
+    const s = buildCapaSections({ statusId: 'OPEN' })
     s.forEach((section) => expect(section.label).toBeTruthy())
   })
   it('all sections are always visible (no gating)', () => {
@@ -104,14 +104,14 @@ describe('buildCapaActions', () => {
     expect(a.find((x) => x.id === 'delete').visible).toBe(true)
   })
 
-  it('shows close (primary) and cancel when PENDING; open not visible', () => {
+  it('shows close (primary) and cancel when OPEN; start not visible', () => {
     const a = buildCapaActions(
       {
         canStart: true,
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
@@ -132,7 +132,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: false,
         closeDisabledReason: '2 steps still open.',
         canCreateChangeRequest: false,
@@ -153,7 +153,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
@@ -239,7 +239,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: false,
         canCancel: false,
         canDelete: false,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: false,
         closeDisabledReason: '',
         canCreateChangeRequest: true,
@@ -275,7 +275,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
@@ -296,7 +296,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
