@@ -1,6 +1,7 @@
 <script setup>
-import { IconForms } from '@tabler/icons-vue'
+import { IconForms, IconPrinter } from '@tabler/icons-vue'
 import { currentSession, canUseAi } from '@/utils/currentSession'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import DynamicForm from '@/components/form/DynamicForm.js'
 
@@ -93,6 +94,15 @@ watch(
 // Close — owner validates owner-level sections, then flips Complete → Closed.
 const closing = ref(false)
 const closeError = ref('')
+function openPrintView() {
+  if (!record.value?.id) return
+  // Centralised print: /<companyCode>/print?module=ModuleRecord&id=… —
+  // dispatched via components/print/modules/index.js → ModuleRecordPrint.vue,
+  // one entry for every promoted form module.
+  const params = new URLSearchParams({ module: 'ModuleRecord', id: record.value.id })
+  window.open(getCompanyPath(`/print?${params.toString()}`), '_blank', 'noopener,noreferrer')
+}
+
 async function closeRecord() {
   if (closing.value) return
   const valid = await ownerFormRef.value?.validate?.()
@@ -113,6 +123,10 @@ async function closeRecord() {
   <BasePage v-if="record" width="wide">
     <PageHeader :icon="IconForms" :title="record.recordNumber">
       <template #actions>
+        <BaseButton variant="outline" size="sm" @click="openPrintView">
+          <template #icon><IconPrinter :size="16" /></template>
+          Print
+        </BaseButton>
         <template v-if="isDraft && hasRoutedSections">
           <BaseButton variant="outline" size="sm" @click="showShareSupplier = true">
             Share with supplier

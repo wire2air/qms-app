@@ -51,6 +51,9 @@ export const printModules = {
   // Change Control, Quality Events, Documents, Audits, QC lots, Submissions).
   // Takes ?entity= + ?scope=current|all; see composables/useListPrint.js.
   RecordList: () => import('./RecordListPrint.vue'),
+  // Admin-defined module records (Deviation, …) — ONE entry for every
+  // promoted form module: the record's template supplies the layout.
+  ModuleRecord: () => import('./ModuleRecordPrint.vue'),
 }
 
 export function resolveModule(name) {

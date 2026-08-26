@@ -67,7 +67,9 @@ const optionSetIds = computed(() => {
   function collect(fields) {
     for (const f of fields) {
       if (f.optionSetId && !f.optionSet) ids.add(f.optionSetId)
+      // Module templates nest under `fields`; documents/log books use `children`.
       if (f.children) collect(f.children)
+      else if (f.fields) collect(f.fields)
       if (f.template) collect(f.template)
     }
   }
@@ -263,6 +265,16 @@ function isSectionField(field) {
   return field.type === 'section'
 }
 
+// A container's children: `children` for document / log-book schemas,
+// `fields` for form-builder module templates. Same tree, two spellings —
+// without the alias a module template's sections silently render EMPTY
+// (caught by the module-record print, 2026-08-26).
+function childrenOf(field) {
+  if (Array.isArray(field.children) && field.children.length) return field.children
+  if (Array.isArray(field.fields)) return field.fields
+  return field.children || []
+}
+
 function isRepeaterField(field) {
   return field.type === 'repeater'
 }
@@ -307,13 +319,13 @@ function getVisibleFields(fields) {
   for (const field of fields) {
     if (field.hidden) continue // "Hide field" — omit from the readonly/submitted view
     if (isSectionField(field)) {
-      if (field.children?.length) {
+      if (childrenOf(field).length) {
         result.push(field)
       }
     } else if (isRepeaterField(field)) {
       result.push(field)
     } else if (isLayoutContainer(field)) {
-      if (field.children?.length) result.push(field)
+      if (childrenOf(field).length) result.push(field)
     } else if (isSeparatorField(field)) {
       result.push(field)
     } else if (isInstructionsField(field)) {
@@ -396,7 +408,7 @@ function getChecklistColumnLabel(col) {
           >
             {{ field.label }}
           </div>
-          <FormSchemaReadonlyView :fields="field.children" :values="getContainerValues(field)" />
+          <FormSchemaReadonlyView :fields="childrenOf(field)" :values="getContainerValues(field)" />
         </div>
       </template>
 
@@ -404,7 +416,7 @@ function getChecklistColumnLabel(col) {
       <template v-else-if="isLayoutContainer(field)">
         <div class="tw:col-span-3">
           <FormSchemaReadonlyView
-            :fields="field.children || []"
+            :fields="childrenOf(field)"
             :values="getContainerValues(field)"
           />
         </div>
