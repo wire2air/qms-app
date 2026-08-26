@@ -33,9 +33,17 @@ const dashboardId = computed(() => String(route.params.id ?? ''))
 // first result lands. The template distinguishes undefined (still loading) from
 // null (genuinely not found / not readable) — collapsing the two would flash
 // "Dashboard not found" on every navigation.
+//
+// ⚠️ The `?? null` is what makes that distinction real, and it was missing
+// until 2026-08-24. `findByPk` answers a MISSING ROW with `undefined`, which is
+// the same value this composable uses for "still loading" — so the
+// `dashboard === null` branch below was unreachable, and an unknown id fell
+// through to the widgets branch and rendered "No widgets yet — the owner has
+// not added any tiles", i.e. a confident description of a dashboard that does
+// not exist. Two different states must not share one value.
 const dashboard = useLiveQueryWithDeps(
   [() => dashboardId.value],
-  async (db, [id]) => (id ? await db.AnalyticsDashboard.findByPk(id) : null),
+  async (db, [id]) => (id ? ((await db.AnalyticsDashboard.findByPk(id)) ?? null) : null),
   { models: 'AnalyticsDashboard' },
 )
 

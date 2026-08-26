@@ -11,7 +11,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    '__popoverProbe.spec': typeof import('./src/components/analytics/__popover-probe.spec.js')['default']
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
     ActiveSessions: typeof import('./src/components/security/ActiveSessions.vue')['default']
     AddRecordDialog: typeof import('./src/components/records/AddRecordDialog.vue')['default']

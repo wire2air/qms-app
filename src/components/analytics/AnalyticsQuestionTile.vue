@@ -154,9 +154,19 @@ const {
 
 // ── series-shaped charts ────────────────────────────────────────────────────
 
-/** A withheld bucket is `null`, never 0. BaseChart draws it as a gap. */
+/**
+ * A withheld bucket is `null`, never 0. BaseChart draws it as a gap.
+ *
+ * ⚠️ `{ zone: 'utc' }` is load-bearing — see the long note on the same function
+ * in AnalyticsMetricWidget.vue. A bucket is a Postgres DATE with no timezone;
+ * Luxon parses local, ApexCharts renders UTC, so without this every point slid
+ * one day backwards for anyone ahead of UTC (IST showed 2026-08-01 as 31 Jul).
+ */
 function pointOf(p) {
-  return { x: DateTime.fromISO(p.bucket).toMillis(), y: p.suppressed ? null : p.value }
+  return {
+    x: DateTime.fromISO(p.bucket, { zone: 'utc' }).toMillis(),
+    y: p.suppressed ? null : p.value,
+  }
 }
 
 function bucketLabel(iso) {

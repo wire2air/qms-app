@@ -145,8 +145,23 @@ const {
  * ApexCharts is given epoch-millisecond x values with `xaxis.type: 'datetime'`
  * so it formats the axis itself — no hand-rolled date formatting (CLAUDE.md #10).
  */
+// ⚠️ `{ zone: 'utc' }` is load-bearing, and it was missing until 2026-08-24.
+// A bucket is `analytics_rollup.period_start`, a Postgres DATE — a calendar day
+// with NO timezone. Luxon's fromISO defaults to the LOCAL zone, and ApexCharts'
+// datetime axis renders in UTC (its `datetimeUTC` default is true, and nothing
+// here overrides it). So the value was written local and read back as UTC:
+//
+//   "2026-08-01" --local(IST +05:30)--> 2026-08-01T00:00+05:30
+//                --rendered as UTC-->   2026-07-31T18:30Z   → axis says 31 Jul
+//
+// Every bucket slid a day backwards for anyone AHEAD of UTC, which is why the
+// whole team could look at these charts and not see it. Parsing as UTC makes
+// the two ends agree; a date with no zone must not be given one on the way in.
 function pointOf(p) {
-  return { x: DateTime.fromISO(p.bucket).toMillis(), y: p.suppressed ? null : p.value }
+  return {
+    x: DateTime.fromISO(p.bucket, { zone: 'utc' }).toMillis(),
+    y: p.suppressed ? null : p.value,
+  }
 }
 
 const chartSeries = computed(() => {
@@ -178,7 +193,10 @@ const chartSeries = computed(() => {
   for (const key of tail) {
     for (const p of bySeries.get(key)) {
       if (p.suppressed) continue
-      const x = DateTime.fromISO(p.bucket).toMillis()
+      // Same UTC rule as pointOf() above — and here it must match EXACTLY,
+      // because this millis value is the Map key the folded "Other" series is
+      // keyed by. A different parse would bucket the tail a day off the head.
+      const x = DateTime.fromISO(p.bucket, { zone: 'utc' }).toMillis()
       otherByBucket.set(x, (otherByBucket.get(x) ?? 0) + (p.value ?? 0))
     }
   }

@@ -71,6 +71,22 @@ export function useListReorder(containerRef, getList, opts = {}) {
   }
 
   useSortable(containerRef, [], {
+    // ⚠️ REQUIRED, and it was missing until 2026-08-24. useSortable's
+    // `watchElement` defaults to FALSE, and in that mode it binds via
+    // `tryOnMounted` — ONCE, at mount, to whatever the ref holds then.
+    //
+    // Every consumer here renders its list behind a `v-else` that loses to an
+    // empty state while the rows are still arriving (DashboardDetail's widgets
+    // start as `initial: []`, so "No widgets yet" is what is mounted). So the
+    // container element does not exist at mount, Sortable is handed null,
+    // `initSortable` returns immediately, and NO Sortable is ever constructed.
+    // The rows appear a moment later and nothing rebinds.
+    //
+    // The failure is silent and it is partial, which is why it survived: the
+    // grip still renders (it is only a button), and the keyboard path below
+    // still works because that listener attaches from a post-flush watcher —
+    // the very pattern useSortable skips by default. Only mouse drag was dead.
+    watchElement: true,
     ...(handle ? { handle } : {}),
     ...(filter ? { filter, preventOnFilter: false } : {}),
     ...(draggable ? { draggable } : {}),

@@ -118,9 +118,15 @@ watch(
 // until the first result lands, so the template can tell "still loading" from
 // null, "genuinely not found or not readable by you". Collapsing the two would
 // flash "Report not found" on every navigation.
+//
+// ⚠️ The `?? null` is what makes that distinction real, and it was missing
+// until 2026-08-24 — the same defect DashboardDetail.vue carried. `findByPk`
+// answers a MISSING ROW with `undefined`, the same value that means "still
+// loading" here, so the `report === null` branch was unreachable and an unknown
+// id rendered "This report has no sections yet" plus a live Schedules tab.
 const report = useLiveQueryWithDeps(
   [() => reportId.value],
-  async (db, [id]) => (id ? await db.AnalyticsReport.findByPk(id) : null),
+  async (db, [id]) => (id ? ((await db.AnalyticsReport.findByPk(id)) ?? null) : null),
   { models: 'AnalyticsReport' },
 )
 

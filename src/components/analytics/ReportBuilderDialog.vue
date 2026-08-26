@@ -77,8 +77,20 @@ watch(
           // Deep-copied. Editing the live SyncEngine object in place would
           // mutate what the list is rendering, so a cancelled edit would still
           // show its changes until the next sync.
-          definition: structuredClone(
-            props.report.definition?.sections ? props.report.definition : blankDefinition(),
+          //
+          // ⚠️ NOT structuredClone, and it was until 2026-08-24. `props.report`
+          // is a live SyncEngine row, so `.definition` arrives wrapped in a Vue
+          // reactive Proxy — and structuredClone refuses a Proxy outright:
+          //   DataCloneError: #<Object> could not be cloned
+          // It throws inside a watcher, so nothing caught it and nothing
+          // rendered: the Edit button simply did nothing, with the error only in
+          // the console. A definition is plain JSON by construction (periodToken
+          // + sections of title/metricKeys/breakdown), so the round-trip is
+          // total — and it is the clone the form builder already uses.
+          definition: JSON.parse(
+            JSON.stringify(
+              props.report.definition?.sections ? props.report.definition : blankDefinition(),
+            ),
           ),
         }
       : blank()
