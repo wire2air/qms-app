@@ -28,6 +28,43 @@ const confirmingRevoke = ref(false)
  * Read from the synced table rather than a count on the link, because "who
  * opened it and when" is the question, and a counter cannot answer it.
  */
+// Package manifest (Audit Records Package rows) — what exactly the link
+// exposes, resolved to numbers/titles.
+const packageItems = useLiveQueryWithDeps(
+  [() => (props.row.entityType === 'AuditInstance' ? props.row.id : null)],
+  async (db, [linkId]) => {
+    if (!linkId) return []
+    return db.RecordShareLinkItem.where('recordShareLinkId', linkId).exec()
+  },
+  { models: ['RecordShareLinkItem'], initial: [] },
+)
+const PKG_ITEM_MODELS = {
+  Document: { model: 'Document', numberField: 'docNumber', label: 'Document' },
+  Capa: { model: 'Capa', numberField: 'capaNumber', label: 'CAPA' },
+  Nonconformance: { model: 'Nonconformance', numberField: 'ncNumber', label: 'NC' },
+  QualityEvent: { model: 'QualityEvent', numberField: 'eventNumber', label: 'Quality Event' },
+  ChangeRequest: { model: 'ChangeRequest', numberField: 'crNumber', label: 'Change Request' },
+}
+const packageResolved = useLiveQueryWithDeps(
+  [() => packageItems.value.map((i) => `${i.entityType}:${i.entityId}`).join(',')],
+  async (db, [csv]) => {
+    const out = []
+    for (const pair of (csv || '').split(',').filter(Boolean)) {
+      const [entityType, entityId] = pair.split(':')
+      const cfg = PKG_ITEM_MODELS[entityType]
+      const rec = cfg ? await db[cfg.model]?.findByPk(entityId) : null
+      out.push({
+        key: pair,
+        label: cfg?.label || entityType,
+        reference: rec?.[cfg?.numberField] || null,
+        title: rec?.title || null,
+      })
+    }
+    return out
+  },
+  { initial: [] },
+)
+
 const views = useLiveQueryWithDeps(
   [() => props.row.id],
   async (db, [shareLinkId]) =>
@@ -97,6 +134,34 @@ async function revoke() {
           </dd>
         </div>
       </dl>
+
+      <div v-if="props.row.entityType === 'AuditInstance' && packageResolved.length">
+        <BaseText variant="overline" class="tw:mb-1 tw:block">
+          Package contents ({{ packageResolved.length }})
+        </BaseText>
+
+        <ul
+          class="tw:m-0 tw:flex tw:flex-col tw:divide-y tw:divide-divider tw:rounded-lg tw:border tw:border-divider tw:p-0"
+        >
+          <li
+            v-for="it in packageResolved"
+            :key="it.key"
+            class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-1.5 tw:text-sm tw:list-none"
+          >
+            <span
+              class="tw:w-28 tw:shrink-0 tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary"
+            >
+              {{ it.label }}
+            </span>
+
+            <span class="tw:min-w-0 tw:truncate">
+              <span class="tw:font-medium">{{ it.reference || '—' }}</span>
+
+              <template v-if="it.title"> · {{ it.title }}</template>
+            </span>
+          </li>
+        </ul>
+      </div>
 
       <div>
         <BaseText color="secondary" class="tw:mb-2 tw:text-xs tw:uppercase tw:tracking-wide">
