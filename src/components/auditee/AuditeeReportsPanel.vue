@@ -486,6 +486,8 @@ const KIND_CLASS = {
           <BaseTextarea
             v-model="review.summary"
             :rows="4"
+            autosize
+            :maxRows="14"
             placeholder="What the report concluded…"
           />
           <p class="tw:text-xs tw:text-secondary tw:mt-1">

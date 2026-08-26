@@ -91,6 +91,13 @@ const summaryReports = useLiveQueryWithDeps(
   { models: ['AuditReport'], initial: [] },
 )
 const summaryBuffers = ref({})
+// What the textarea SHOWS: the local draft the user is typing (so autosize
+// reacts per keystroke), falling back to the synced row. The buffers above
+// remain the debounced save queue.
+const summaryDrafts = ref({})
+function summaryValue(r) {
+  return summaryDrafts.value[r.id] ?? (r.notes || '')
+}
 const savingSummaryId = ref(null)
 const debouncedSummarySave = useDebounceFn(async () => {
   const entries = Object.entries(summaryBuffers.value)
@@ -109,6 +116,7 @@ const debouncedSummarySave = useDebounceFn(async () => {
   }
 }, 800)
 function stageSummary(reportId, notes) {
+  summaryDrafts.value[reportId] = notes
   summaryBuffers.value[reportId] = notes
   debouncedSummarySave()
 }
@@ -414,6 +422,7 @@ const detailConfig = computed(() =>
           v-if="isEditable"
           v-model="agendaNotes"
           :rows="4"
+          autosize
           placeholder="Preparation notes — who meets the auditor, room bookings, opening meeting time…"
           @update:modelValue="debouncedAgenda"
         />
@@ -482,10 +491,14 @@ const detailConfig = computed(() =>
                 Saving…
               </BaseText>
             </div>
+            <!-- Autosize (min 10 rows): the summary grows with its content —
+                 a fixed box hid text behind an unscrollable clip (user report
+                 2026-08-26). -->
             <BaseTextarea
               v-if="isEditable"
-              :modelValue="r.notes || ''"
-              :rows="4"
+              :modelValue="summaryValue(r)"
+              :rows="10"
+              autosize
               placeholder="What this report concluded — accept the AI draft on the Reports tab, or write your own."
               @update:modelValue="(v) => stageSummary(r.id, v)"
             />
