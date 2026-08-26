@@ -85,6 +85,7 @@ const STEP_TYPES = [
   { id: 'NONE', name: 'Not a step' },
   { id: 'ACTION', name: 'Action — assignee completes this section' },
   { id: 'APPROVAL', name: 'Approval — assignee signs off' },
+  { id: 'DELAY', name: 'Delay — wait, then verify (effectiveness check)' },
 ]
 const APPROVAL_RULES = [
   { id: 'ALL', name: 'All — every approver must approve' },
@@ -108,6 +109,23 @@ const approvalRule = computed({
   get: () => field.value?.routing?.approvalRule || 'ALL',
   set: (v) => {
     field.value.routing = { ...(field.value.routing || {}), approvalRule: v }
+  },
+})
+const delayDays = computed({
+  get: () => field.value?.routing?.delayDays ?? 30,
+  set: (v) => {
+    field.value.routing = {
+      ...(field.value.routing || {}),
+      delayDays: Math.max(1, Number(v) || 30),
+    }
+  },
+})
+const capturesEffectiveness = computed({
+  // Default ON — a delay whose completion records no verdict is rarely what
+  // a quality module wants (mirrors CAPA's effectiveness-as-delay).
+  get: () => field.value?.routing?.capturesEffectiveness !== false,
+  set: (v) => {
+    field.value.routing = { ...(field.value.routing || {}), capturesEffectiveness: !!v }
   },
 })
 const stepRoles = computed({
@@ -297,6 +315,20 @@ function updateRowColClass(value) {
             <p v-else-if="stepType === 'ACTION'" class="tw:text-xs tw:text-secondary">
               This section's fields are editable for the assignee when the step is initiated.
             </p>
+
+            <template v-if="stepType === 'DELAY'">
+              <BaseField label="Wait (days)">
+                <BaseTextInput v-model.number="delayDays" type="number" min="1" />
+              </BaseField>
+              <BaseCheckbox v-model="capturesEffectiveness">
+                Capture an effectiveness verdict on completion
+              </BaseCheckbox>
+              <p class="tw:text-xs tw:text-secondary">
+                The step parks until the wait elapses, then the assignee completes it — recording
+                whether the actions were effective when the verdict is on. Same machinery as the
+                CAPA effectiveness check.
+              </p>
+            </template>
 
             <BaseField v-if="stepType !== 'NONE'" label="Roles (optional)">
               <RoleSelectMenu v-model="stepRoles" multiple />
