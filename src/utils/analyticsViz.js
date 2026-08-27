@@ -332,3 +332,47 @@ export function clampQuestion(metric, draft = {}) {
   }
   return { ...draft, viz, dimension }
 }
+
+/**
+ * A readable name for a breakdown segment.
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * metric_breakdown resolves `label` by following the FOREIGN KEY on the
+ * dimension column, so a dimension with no FK gets NULL and every consumer falls
+ * back to the raw stored value. That is how the Insights panel came to tell a
+ * quality manager "APPROVED stands out on Electronic signatures captured".
+ *
+ * The FK is missing for a good reason and should stay missing: signatures.meaning
+ * is written through a `meaningOverride` parameter, so its value set is open. A
+ * lookup table plus an FK would turn an unlisted meaning into a FAILED INSERT at
+ * e-signature time, on Part 11 evidence. Constraining that to tidy up a caption
+ * would be a bad trade.
+ *
+ * So this is fixed where it belongs — at the point of display.
+ *
+ * ── WHY IT IS DELIBERATELY TIMID ────────────────────────────────────────────
+ * It only touches strings that are unambiguously machine codes: all-caps, and
+ * either purely alphabetic or underscore-separated. Anything else is returned
+ * untouched, because the alternative is mangling real data. A site named
+ * "Site A" keeps its capital A; a UUID stays a UUID; and `ISO9001` — all-caps
+ * but carrying digits with no underscore — is left alone rather than being
+ * "corrected" to the worse-reading `Iso9001`.
+ *
+ * Known limitation, left unhandled on purpose: a code containing a domain
+ * acronym would lose it — `CAPA_REVIEW` reads back as "Capa review". No live
+ * dimension value contains one (the real ones are statuses and severities:
+ * APPROVED, CLOSED, MINOR, CRITICAL), so an acronym allow-list would be
+ * machinery built for a hypothetical, and a list like that rots quietly. If one
+ * ever appears, this is where it goes.
+ *
+ * @param {string|null|undefined} value
+ * @returns {string|null}
+ */
+export function segmentLabel(value) {
+  if (value === null || value === undefined) return null
+  const text = String(value)
+  const isCode = /^[A-Z]+$/.test(text) || /^[A-Z0-9]+(_[A-Z0-9]+)+$/.test(text)
+  if (!isCode) return text
+  const words = text.toLowerCase().split('_').join(' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}

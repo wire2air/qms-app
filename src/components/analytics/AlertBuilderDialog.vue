@@ -71,7 +71,7 @@ import {
   normaliseBands,
   severityRank,
 } from '@/utils/analyticsAlerts.js'
-import { dimensionOptionsFor } from '@/utils/analyticsViz.js'
+import { dimensionOptionsFor, segmentLabel } from '@/utils/analyticsViz.js'
 import { useMetricBreakdown } from '@/composables/useAnalytics.js'
 import { currentSession, isAllowed } from '@/utils/currentSession'
 import { IconAlertTriangle, IconPlus, IconTrash, IconUsers } from '@tabler/icons-vue'
@@ -254,7 +254,7 @@ const dimensionValueOptions = computed(() => {
     .filter((r) => !r.isResidual && !r.suppressed && r.dimensionValue !== null)
     .map((r) => ({
       value: String(r.dimensionValue),
-      label: r.label || String(r.dimensionValue),
+      label: r.label || segmentLabel(r.dimensionValue) || String(r.dimensionValue),
     }))
   // A saved slice that has since fallen below the min-cell threshold, or out of
   // the top 200, is not in the list any more. Keeping it selectable is the

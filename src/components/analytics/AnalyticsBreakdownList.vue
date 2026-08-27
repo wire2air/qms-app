@@ -11,6 +11,7 @@
  *  - a WITHHELD row — its value is suppressed for small-cell protection, so it
  *    reads as "Withheld", never as 0, and never leads anywhere.
  */
+import { segmentLabel } from '@/utils/analyticsViz.js'
 import { IconArrowRight, IconEyeOff } from '@tabler/icons-vue'
 import { formatMetricValue, isDrillable, drillLocation } from '@/utils/analyticsFormat.js'
 
@@ -61,7 +62,7 @@ const items = computed(() =>
               :color="item.isResidual ? 'secondary' : 'default'"
               class="tw:truncate"
             >
-              {{ item.label || item.dimensionValue || '—' }}
+              {{ item.label || segmentLabel(item.dimensionValue) || '—' }}
             </BaseText>
             <IconEyeOff
               v-if="item.suppressed"
