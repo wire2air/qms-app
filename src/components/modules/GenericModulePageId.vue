@@ -4,6 +4,7 @@ import { currentSession, canUseAi } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import DynamicForm from '@/components/form/DynamicForm.js'
+import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
 
 const props = defineProps({
   moduleKey: { type: String, required: true },
@@ -35,17 +36,21 @@ const isStarted = computed(() => !!record.value?.workflowInstanceId && !isDraft.
 // Unified parent statuses (2026-08-26): Draft / Open / Closed / Cancelled.
 const isTerminal = computed(() => status.value === 'CLOSED' || status.value === 'CANCELLED')
 
-// The close gate is the WORKFLOW, not a status: every task done = instance
-// COMPLETED. Reopening a step flips it back to IN_PROGRESS and correctly
-// re-blocks Close.
-const workflowDone = useLiveQueryWithDeps(
+// The close gate is the WORKFLOW, not a status: no step may still BLOCK
+// (deferred DELAY steps — effectiveness checks armed with a wake date — are
+// the exception: they outlive the close and fire after, same as CAPA).
+// Reopening a step re-blocks Close automatically.
+const blockingStepCount = useLiveQueryWithDeps(
   [() => record.value?.workflowInstanceId],
   async (db, [id]) => {
-    if (!id) return false
-    const wi = await db.WorkflowInstance.findByPk(id)
-    return wi?.statusId === 'COMPLETED'
+    if (!id) return 0
+    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', id).exec()
+    return countStepsBlockingClose(steps)
   },
-  { models: ['WorkflowInstance'], initial: false },
+  { models: ['WorkflowInstanceStep'], initial: 0 },
+)
+const workflowDone = computed(
+  () => !!record.value?.workflowInstanceId && blockingStepCount.value === 0,
 )
 const readyToClose = computed(() => status.value === 'OPEN' && workflowDone.value)
 

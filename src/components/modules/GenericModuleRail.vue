@@ -45,18 +45,6 @@ watch(
 </script>
 
 <template>
-  <!-- External sharing — same card as CAPA/NC; the authz module is the
-       record's own moduleKey (promoted modules carry manage_access since
-       2026-08-27). -->
-  <RecordShareCard
-    v-if="record"
-    entityType="Record"
-    :entityId="record.id"
-    :module="record.moduleKey"
-    :record="record"
-    scopeOwnerField="ownerUserId"
-  />
-
   <BaseRailCard v-if="record" title="Details">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:text-sm">
       <div class="tw:flex tw:flex-col tw:gap-1">
@@ -98,4 +86,17 @@ watch(
       <div v-if="saving" class="tw:text-xs tw:text-secondary">Saving…</div>
     </div>
   </BaseRailCard>
+
+  <!-- External sharing — same card as CAPA/NC; the authz module is the
+       record's own moduleKey (promoted modules carry manage_access since
+       2026-08-27). Below Details (user request 2026-08-27): the envelope is
+       what you consult constantly, sharing is occasional. -->
+  <RecordShareCard
+    v-if="record"
+    entityType="Record"
+    :entityId="record.id"
+    :module="record.moduleKey"
+    :record="record"
+    scopeOwnerField="ownerUserId"
+  />
 </template>
