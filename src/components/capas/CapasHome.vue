@@ -1,4 +1,11 @@
 <script setup>
+// `embedded` lets a host page (CapasHomeTabs) own the real PageHeader while this
+// component keeps its own actions row. Without it the tab shell and the list
+// would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import { humanizeFilter } from '@/composables/useListPrint.js'
 import { IconAlertCircle, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -171,6 +178,7 @@ async function onDeleteCapa(row) {
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="CAPAs"
     subtitle="Track corrective and preventive actions through to verification."
     :state="list.state.value"

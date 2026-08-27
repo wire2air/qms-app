@@ -102,10 +102,14 @@ export function useListLayout(o = {}) {
   // ---- URL sync: hydrate FIRST (before the page-reset watcher exists, so the
   // hydrate mutation doesn't clobber the page restored from the query) ----
   let router = null
+  // Hoisted alongside `router`: the writer below reads the CURRENT query to
+  // merge into, so it needs the route object too, not just at hydrate time.
+  let activeRoute = null
   if (syncUrl) {
     const route = o.route ?? useRoute()
     router = o.router ?? useRouter()
     if (route && router) {
+      activeRoute = route
       Object.assign(filters.value, queryToFilters(route.query, defaults))
       const p = Number(route.query.page)
       if (Number.isInteger(p) && p > 1) page.value = p
@@ -129,15 +133,39 @@ export function useListLayout(o = {}) {
     { deep: true },
   )
 
+  // The query keys this instance OWNS. Anything else in the URL belongs to
+  // someone else and must survive our writes untouched.
+  const ownedKeys = new Set([...Object.keys(defaults), 'page', 'sort'])
+
   // Push state → query (registered after hydrate so it never fights the URL).
+  //
+  // MERGE, never replace. This used to write `router.replace({ query })` with
+  // only its own keys, which silently erased every other query param on the
+  // route the moment any filter changed. That is not theoretical:
+  //   - a `?tab=` written by a host page vanished as soon as the user filtered,
+  //     bouncing them out of the tab they were on;
+  //   - taskInstancesHome had to turn syncUrl OFF entirely because these writes
+  //     clobbered its `taskKindId` (its header still records that);
+  //   - two list layouts on one route could not coexist at all.
+  //
+  // Owned keys are still fully authoritative — a filter returned to its default
+  // is DELETED rather than left behind, so an untouched view keeps a clean URL
+  // and a cleared filter never lingers. Everything unowned is carried through.
   if (router) {
     watch(
       [filters, page, sortBy, descending],
       () => {
-        const query = filtersToQuery(filters.value, defaults)
-        if (page.value > 1) query.page = String(page.value)
+        const mine = filtersToQuery(filters.value, defaults)
+        if (page.value > 1) mine.page = String(page.value)
         const encodedSort = encodeSort(sortBy.value, descending.value)
-        if (encodedSort) query.sort = encodedSort
+        if (encodedSort) mine.sort = encodedSort
+
+        const query = {}
+        for (const [k, v] of Object.entries(activeRoute?.query ?? {})) {
+          if (!ownedKeys.has(k)) query[k] = v
+        }
+        Object.assign(query, mine)
+
         Promise.resolve(router.replace({ query })).catch(() => {})
       },
       { deep: true },

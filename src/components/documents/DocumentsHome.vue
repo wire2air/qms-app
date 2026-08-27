@@ -1,4 +1,11 @@
 <script setup>
+// `embedded` lets a host page (DocumentsHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import { humanizeFilter } from '@/composables/useListPrint.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -149,6 +156,7 @@ function navigateToDetail(row) {
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="Documents"
     :icon="IconFileDescription"
     subtitle="Manage controlled documents, versions, and approvals."

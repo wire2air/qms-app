@@ -114,6 +114,31 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Analytics / QMS Intelligence. Two things make this project unlike the
+      // others.
+      //
+      // First, it needs a WORKER ROUND-TRIP before it can assert anything:
+      // `metric_catalog()` only returns metrics that already have rollup rows the
+      // reader may see, so `fixtures/analytics.js` enqueues
+      // `refresh_analytics_rollup` and waits. A hand-written rollup row would let
+      // every downstream assertion pass while the refresh path was broken.
+      //
+      // Second, roughly half of it is deliberately NOT UI steps. The module's
+      // central claim is that one stored question yields a different correct
+      // answer per reader, and a screen can only ever show one reader's answer at
+      // a time — so the comparison happens under `app_user` via metric_value()
+      // while the UI tests assert that a tile renders the figure it was handed.
+      //
+      // ANL-A1/A2/A3 are regression tests for a defect class nothing else in the
+      // toolchain can see: children handed to a Vue slot that does not exist are
+      // discarded silently, which shipped a dead Save button and five invisible
+      // empty-state actions past eslint, the build and the layout guard.
+      name: 'analytics',
+      testMatch: /analytics\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Credential-layer journeys. Unlike every other project these mostly issue
       // raw pre-auth HTTP rather than driving the UI, and several deliberately
       // lock accounts — which is why they use throwaway personas (e2e-seed.sql

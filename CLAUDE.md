@@ -18,6 +18,7 @@
 | Need                        | Use                                                              |
 | --------------------------- | --------------------------------------------------------------- |
 | Read one/many records       | `useLiveQueryWithDeps([() => id], (db,[id]) => db.Model…)`       |
+| Read a server-computed aggregate (analytics) | `useServerQuery` / `useGraphQLQuery` — the ONE SyncEngine exception, see rule #4 |
 | Create / update / delete    | `useLiveMutation` (create) · `instance.save()` · `.delete()`    |
 | A new model                 | decorator class in `models/` (`@ClientModel`, `@Property`)      |
 | Show entity as badge/select | `XBadge` / `XBadgeById` / `XSelectMenu` in `src/components/`     |
@@ -44,6 +45,11 @@ Non-negotiable in new and touched code. Migration sections below show what to re
 2. **Icons are NOT auto-imported.** Always use `@tabler/icons-vue` and import explicitly: `import { IconTrash } from '@tabler/icons-vue'`. Never `@heroicons/vue`, `@material-design-icons`, or any other icon library.
 3. **No Quasar in new code.** Don't use `Q*` components or their `W*` wrappers (`WBtn`, `WInput`, etc.). Replace existing usage when you touch a file. See [Migration: Quasar → Tailwind](#migration-quasar--tailwind). Entity-lookup `W*` components (the ones that wrap an entity select) are still allowed until explicitly migrated.
 4. **No axios composables for entity CRUD. No provide/inject for data.** Don't import `get`/`post`/`put`/`del` from `@/api` to read or mutate a SyncEngine-modeled record — use `useLiveQuery` + `useLiveMutation` instead. Don't write `provideX()` / `useX()` data-fetching composables. Don't pass full objects as props — components receive an `id` and query/mutate via the syncEngine. **Exception — action RPCs.** Verb-shaped endpoints that aren't entity CRUD (e.g. `POST /v1/services/.../launch`, `POST /v1/services/.../cancel`, `POST /v1/services/.../verify`, secret-return endpoints like `POST /v1/services/ai/pats`) may use `post`/`put`/`del` from `@/api` directly. The test: _is the server response a synced model record, or just an action outcome?_ If the latter, action-RPC is correct. Tag the import with `// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.` See [Migration: axios → syncEngine](#migration-axios--provideinject--syncengine).
+   **Exception — analytics reads (the only non-SyncEngine read path).** Metric values, series, breakdowns and the metric catalog are **server-computed aggregates, not records**. They go straight to GraphQL through `useServerQuery` / `useServerQueryWithDeps` / `useGraphQLQuery` (`src/composables/useServerQuery.js`, which reuses the same `graphqlRequest` client the syncEngine uses) and are **never written to IndexedDB**. Three reasons, all load-bearing:
+   1. **There is no record to cache.** They are `SETOF` results of Postgres functions over a rollup — no primary key, no sync event, nothing for `syncBus` to invalidate.
+   2. **They are scope-dependent.** The server applies the caller's _effective access scope_ while computing, so the same metric key legitimately returns a **different number for a different viewer**. IndexedDB is per-company, not per-user, so a cached aggregate would cross a scope boundary on a shared device.
+   3. **Freshness is part of the contract.** Every tile renders `computedAt` + tier; a silently stale IDB copy would contradict the timestamp printed next to it.
+   Anything that genuinely _is_ a record — saved dashboards, report definitions, alerts — stays on the SyncEngine like everything else. Don't widen this exception: if you're tempted, the test is "does this have a primary key the sync service can broadcast?"
 5. **`function` keyword.** Define functions with `function foo() {}`, not `const foo = () => {}`.
 6. **`defineModel` for v-model.** Don't use the computed-getter/setter pattern.
 7. **Tailwind has a `tw:` prefix.** Always: `tw:flex tw:gap-4 tw:rounded-lg`.

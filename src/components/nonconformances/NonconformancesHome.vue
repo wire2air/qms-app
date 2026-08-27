@@ -1,4 +1,11 @@
 <script setup>
+// `embedded` lets a host page (NonconformancesHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import { humanizeFilter } from '@/composables/useListPrint.js'
 import { IconAlertCircle, IconAlertTriangle, IconCircleCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -169,6 +176,7 @@ async function onDeleteNc(row) {
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="Nonconformances"
     subtitle="Track, investigate and close nonconformances."
     :state="list.state.value"
