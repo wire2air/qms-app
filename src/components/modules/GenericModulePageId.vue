@@ -1,6 +1,6 @@
 <script setup>
-import { IconForms, IconPrinter } from '@tabler/icons-vue'
-import { currentSession, canUseAi } from '@/utils/currentSession'
+import { IconForms, IconPrinter, IconTrash } from '@tabler/icons-vue'
+import { currentSession, canUseAi, isAllowedOnRecord } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import DynamicForm from '@/components/form/DynamicForm.js'
@@ -10,6 +10,9 @@ const props = defineProps({
   moduleKey: { type: String, required: true },
   id: { type: String, required: true },
 })
+
+const route = useRoute()
+const router = useRouter()
 
 const record = useLiveQueryWithDeps(
   [() => props.id],
@@ -66,6 +69,23 @@ const ownerEditable = computed(() => isOwner.value && !isTerminal.value)
 
 const showStart = ref(false)
 const showShareSupplier = ref(false)
+
+// Create-page "Create" lands here with ?start=1: open the Start dialog as soon
+// as the draft is in, then strip the flag so a refresh doesn't re-fire it.
+// A draft has no schemaSnapshot, so the routed-section check needs the live
+// template — wait for it before deciding, and open only AFTER the query strip
+// (dialogs close on route change).
+watch(
+  [record, template, () => route.query.start],
+  async ([r, t, start]) => {
+    if (!start || !r) return
+    if (!r.schemaSnapshot && !t) return
+    const wantsStart = r.statusId === 'DRAFT' && hasRoutedSections.value
+    await router.replace({ query: { ...route.query, start: undefined } })
+    if (wantsStart) showStart.value = true
+  },
+  { immediate: true },
+)
 const title = computed(
   () => template.value?.moduleConfig?.displayName || template.value?.title || 'Record',
 )
@@ -125,6 +145,81 @@ function openPrintView() {
   window.open(getCompanyPath(`/print?${params.toString()}`), '_blank', 'noopener,noreferrer')
 }
 
+// ─── Delete draft (DRAFT-only) ──────────────────────────────────────────────
+// Drafts carry no record number (minted at Start), so deleting one leaves no
+// gap in the register. Past Draft the record is controlled — Cancel instead.
+const canDelete = computed(
+  () => isDraft.value && isAllowedOnRecord(`${props.moduleKey}:update`, record.value),
+)
+const showDeleteDialog = ref(false)
+const deleting = ref(false)
+const deleteError = ref('')
+
+async function handleDeleteDraft() {
+  if (!record.value || record.value.statusId !== 'DRAFT' || deleting.value) return
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await record.value.delete()
+    showDeleteDialog.value = false
+    router.push(getCompanyPath(`/m/${props.moduleKey}`))
+  } catch (e) {
+    deleteError.value = e?.message || 'Failed to delete draft'
+  } finally {
+    deleting.value = false
+  }
+}
+
+// ─── Cancel (OPEN-only; controlled) ─────────────────────────────────────────
+// An Open record is controlled: abandoning it requires a REQUIRED reason and
+// an e-signature (PIN), mirroring the CAPA/NC/CR cancel. The verb decides who
+// may — same `<key>:update` the rest of the page runs on.
+const canCancel = computed(
+  () => status.value === 'OPEN' && isAllowedOnRecord(`${props.moduleKey}:update`, record.value),
+)
+const showCancelDialog = ref(false)
+const showCancelEsign = ref(false)
+const cancelling = ref(false)
+const cancelReason = ref('')
+const cancelReasonError = ref('')
+const cancelError = ref('')
+
+function openCancelDialog() {
+  cancelReason.value = ''
+  cancelReasonError.value = ''
+  cancelError.value = ''
+  showCancelDialog.value = true
+}
+
+function handleCancelClick() {
+  if (!cancelReason.value.trim()) {
+    cancelReasonError.value = 'A cancel reason is required'
+    return
+  }
+  cancelReasonError.value = ''
+  showCancelDialog.value = false
+  showCancelEsign.value = true
+}
+
+async function onCancelEsignVerified({ method, provider, token }) {
+  showCancelEsign.value = false
+  cancelling.value = true
+  try {
+    await post(`/v1/services/form-modules/records/${props.id}/cancel`, {
+      method,
+      provider,
+      token,
+      reason: cancelReason.value.trim(),
+    })
+    showCancelDialog.value = false
+  } catch (e) {
+    cancelError.value = e?.message || 'Failed to cancel'
+    showCancelDialog.value = true
+  } finally {
+    cancelling.value = false
+  }
+}
+
 async function closeRecord() {
   if (closing.value) return
   const valid = await ownerFormRef.value?.validate?.()
@@ -143,7 +238,7 @@ async function closeRecord() {
 
 <template>
   <BasePage v-if="record" width="wide">
-    <PageHeader :icon="IconForms" :title="record.recordNumber">
+    <PageHeader :icon="IconForms" :title="record.recordNumber || 'Draft'">
       <template #actions>
         <BaseButton variant="outline" size="sm" @click="openPrintView">
           <template #icon><IconPrinter :size="16" /></template>
@@ -155,6 +250,13 @@ async function closeRecord() {
           </BaseButton>
           <BaseButton variant="primary" size="sm" @click="showStart = true"> Start </BaseButton>
         </template>
+        <BaseButton v-if="canDelete" variant="outline" size="sm" @click="showDeleteDialog = true">
+          <template #icon><IconTrash :size="16" /></template>
+          Delete
+        </BaseButton>
+        <BaseButton v-if="canCancel" variant="outline" size="sm" @click="openCancelDialog">
+          Cancel Record
+        </BaseButton>
         <BaseButton
           v-if="readyToClose && isOwner"
           variant="primary"
@@ -241,5 +343,63 @@ async function closeRecord() {
       :templateId="record.templateId"
       :moduleKey="moduleKey"
     />
+
+    <!-- Delete draft -->
+    <BaseDialog v-model="showDeleteDialog" title="Delete Draft" maxWidth="md">
+      <p class="tw:text-sm tw:text-on-main tw:mb-3">
+        Delete this draft? Drafts have no record number yet, so nothing is lost from the register.
+      </p>
+      <div
+        v-if="deleteError"
+        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
+      >
+        {{ deleteError }}
+      </div>
+      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
+        <BaseButton variant="outline" :disabled="deleting" @click="showDeleteDialog = false">
+          Cancel
+        </BaseButton>
+        <BaseButton variant="danger" :disabled="deleting" @click="handleDeleteDraft">
+          {{ deleting ? 'Deleting…' : 'Delete' }}
+        </BaseButton>
+      </div>
+    </BaseDialog>
+
+    <!-- Cancel record (reason + e-signature) -->
+    <BaseDialog v-model="showCancelDialog" :title="`Cancel ${title}`" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-on-main">
+          Cancelling permanently terminates this record. It stays in the register and audit log;
+          you cannot re-open it.
+        </p>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" required :error="cancelReasonError">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="cancelReason"
+            :rows="3"
+            placeholder="Why is this record being cancelled?"
+            @input="cancelReasonError = ''"
+          />
+        </BaseField>
+        <p
+          v-if="cancelError"
+          class="tw:text-xs tw:text-red-600 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded-md tw:p-2"
+        >
+          {{ cancelError }}
+        </p>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          cancelLabel="Back"
+          submitLabel="Sign &amp; Cancel"
+          submitVariant="danger"
+          :loading="cancelling"
+          :disabled="!cancelReason.trim()"
+          @cancel="close"
+          @submit="handleCancelClick"
+        />
+      </template>
+    </BaseDialog>
+    <WorkflowInstanceEsignAuthDialog v-model="showCancelEsign" @verified="onCancelEsignVerified" />
   </BasePage>
 </template>

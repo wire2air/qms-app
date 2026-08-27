@@ -174,7 +174,7 @@ function effectivenessLabel(v) {
   return null
 }
 
-const identifier = computed(() => record.value?.recordNumber ?? '')
+const identifier = computed(() => record.value?.recordNumber ?? 'Draft')
 
 const auditEntities = computed(() => {
   const out = []
@@ -204,7 +204,7 @@ onMounted(() => {
 <template>
   <PrintLayout :status="record?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="qp-num">{{ record?.recordNumber }}</div>
+      <div class="qp-num">{{ record?.recordNumber || 'Draft' }}</div>
       <h1 class="qp-title">{{ moduleName }}</h1>
       <table class="qp-meta">
         <tbody>

@@ -230,16 +230,27 @@ const moduleNavItems = computed(() =>
     to: getCompanyPath(`/m/${t.internalName}`),
   })),
 )
-// Suppliers don't hold `<key>:read`; RLS already scopes moduleTemplates to the
-// modules they have a shared record of, so list the modules they can see with
-// no permission gate.
-const supplierModuleNavItems = computed(() =>
-  (moduleTemplates.value || []).map((t) => ({
-    label: t.moduleConfig?.displayName || t.title,
-    icon: IconForms,
-    to: getCompanyPath(`/m/${t.internalName}`),
-  })),
+// Suppliers don't hold `<key>:read`, and form templates are tenant-public —
+// every ACTIVE module template syncs to a supplier's IDB, so listing templates
+// would light up every module for every supplier (leak, 2026-08-27). What RLS
+// actually scopes for portal users is the RECORDS table (shared / task-assigned
+// rows only), so the nav is driven by that: a module appears once the supplier
+// can see at least one of its records.
+const supplierVisibleRecords = useLiveQueryWithDeps(
+  [() => isSupplier.value],
+  async (db, [supplier]) => (supplier ? db.Record.where().exec() : []),
+  { initial: [], models: ['Record'] },
 )
+const supplierModuleNavItems = computed(() => {
+  const visibleModules = new Set((supplierVisibleRecords.value || []).map((r) => r.moduleKey))
+  return (moduleTemplates.value || [])
+    .filter((t) => visibleModules.has(t.internalName))
+    .map((t) => ({
+      label: t.moduleConfig?.displayName || t.title,
+      icon: IconForms,
+      to: getCompanyPath(`/m/${t.internalName}`),
+    }))
+})
 
 // Navigation items
 const navItems = computed(() => {

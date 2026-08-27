@@ -32,13 +32,18 @@ const hasDraftFields = computed(() => fields.value.length > 0)
 
 const formData = ref({})
 const formRef = ref(null)
-const saving = ref(false)
+// Which button is in flight — 'draft' | 'start' | null. One at a time.
+const savingMode = ref(null)
 
-async function create() {
-  if (!template.value || saving.value) return
+// Two exits (user request 2026-08-27): "Save as Draft" parks the record
+// (no number yet — numbers mint at Start), "Create" lands on the detail page
+// with the Start dialog already open, so the record goes straight into its
+// workflow.
+async function create(startAfter) {
+  if (!template.value || savingMode.value) return
   const valid = await formRef.value?.validate?.()
   if (valid === false) return
-  saving.value = true
+  savingMode.value = startAfter ? 'start' : 'draft'
   try {
     const res = await post('/v1/services/form-modules/records', {
       templateId: template.value.id,
@@ -46,9 +51,11 @@ async function create() {
       ...(supplierId.value ? { supplierId: supplierId.value } : {}),
     })
     const record = res?.record ?? res
-    router.push(getCompanyPath(`/m/${props.moduleKey}/${record.id}`))
+    router.push(
+      getCompanyPath(`/m/${props.moduleKey}/${record.id}${startAfter ? '?start=1' : ''}`),
+    )
   } finally {
-    saving.value = false
+    savingMode.value = null
   }
 }
 
@@ -66,7 +73,22 @@ function cancel() {
       <GenericModuleWorkflowPreview :schema="template.schema" />
       <div class="tw:flex tw:justify-end tw:gap-2">
         <BaseButton variant="outline" @click="cancel">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" @click="create">Create</BaseButton>
+        <BaseButton
+          variant="outline"
+          :loading="savingMode === 'draft'"
+          :disabled="!!savingMode"
+          @click="create(false)"
+        >
+          Save as Draft
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="savingMode === 'start'"
+          :disabled="!!savingMode"
+          @click="create(true)"
+        >
+          Create
+        </BaseButton>
       </div>
     </div>
   </BasePage>

@@ -32,7 +32,9 @@ export class Record extends BaseModel {
   // '' lands in the column: PostGraphile's UUID scalar rejects it at variable
   // coercion (HTTP 400), and documentTypeId (a varchar FK) violates its FK.
   @Property({ type: String }) documentTypeId = null
-  @Property({ type: String, required: true }) recordNumber = ''
+  // Nullable since 2026-08-27: numbers mint at Start, so drafts carry none
+  // (and deleting a draft leaves no gap in the register).
+  @Property({ type: String }) recordNumber = null
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Object }) payload = null
   @Property({ type: String }) submissionIp = ''
