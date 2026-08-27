@@ -41,8 +41,9 @@ const props = defineProps({
 const emit = defineEmits(['submit'])
 const open = defineModel({ type: Boolean, default: false })
 
-// "Schedule Task" is the user-facing name for the DELAY step type (renamed
-// 2026-08-13 — DB value stays DELAY). It reads as an optional follow-up, not
+// "Effectiveness Check" is the user-facing name for the DELAY step type
+// (renamed 2026-08-28; DB value stays DELAY) — the functionality is built
+// around the effectiveness-check flow. It reads as a deferred verify, not
 // a required "effectiveness check" — that's just the canonical example,
 // carried in the tooltip-registry help copy.
 const scheduleTaskHelp = useTooltipData().getFromTooltipData('workflow.scheduleTask', 'tooltip')
@@ -66,12 +67,12 @@ const STEP_TYPES = [
   },
   {
     id: 'DELAY',
-    label: 'Schedule Task',
+    label: 'Effectiveness Check',
     sublabel: 'Follow-up',
     icon: IconClockPause,
     blurb:
       'Want a follow-up later? Waits a set number of days, then assigns its task — e.g. an Effectiveness check.',
-    defaultName: 'Scheduled Task',
+    defaultName: 'Effectiveness Check',
     namePlaceholder: 'e.g. Effectiveness Check',
     helpTooltip: true,
   },
@@ -131,9 +132,12 @@ function finish() {
   emit('submit', {
     stepType: stepType.value,
     name: name.value.trim() || typeMeta.defaultName,
-    // Approval steps are comment-only; a Schedule Task step's evidence form is
-    // added later in the editor if it needs one.
+    // Approval steps are comment-only; an Effectiveness Check's evidence form
+    // is added later in the editor if it needs one.
     formSchema: stepType.value === 'ACTION' ? standardTaskForm() : [],
+    // The type is PRESENTED as an Effectiveness Check, so the verdict capture
+    // defaults ON (2026-08-28) — authors switch it off for a plain wait.
+    ...(stepType.value === 'DELAY' ? { capturesEffectiveness: true } : {}),
     roleIds: [...roleIds.value],
   })
   open.value = false

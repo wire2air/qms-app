@@ -76,7 +76,7 @@ const STEP_TYPE_HELP = [
       'Example: "QA Approval" — the Quality Manager reviews and signs off with a CFR 21 Part 11 e-signature.',
   },
   {
-    label: 'Schedule Task',
+    label: 'Effectiveness Check',
     icon: IconClockPause,
     purpose:
       'A follow-up task that activates on a schedule instead of immediately: the step waits a set number of days (or until a date) after the previous step completes, then assigns its task. The record owner can reschedule or skip it on each record.',

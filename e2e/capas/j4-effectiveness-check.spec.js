@@ -95,10 +95,18 @@ test.describe('PW-J4 · effectiveness as a deferred DELAY step', () => {
     await verdictPage.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
     await expect(verdictPage.getByText('Was it effective?')).toBeVisible({ timeout: 30_000 })
     await verdictPage.getByRole('radio', { name: 'Effective', exact: true }).click()
+    // The verdict is a controlled decision (2026-08-28): a supporting comment
+    // is REQUIRED and the completion is e-signed even though the template
+    // never flipped the step's own esign flag.
+    await verdictPage
+      .getByPlaceholder(/What supports this verdict/)
+      .fill('Recurrence check clean for 30 days — spot audits found no repeats.')
     await clickWhenReady(
       verdictPage,
       verdictPage.getByRole('button', { name: 'Mark Complete' }).first(),
     )
+    await verdictPage.locator('input[type="password"]').first().fill('12345678')
+    await verdictPage.getByRole('button', { name: /^Sign\b/i }).last().click()
     await verdictCtx.close()
 
     // The verdict is first-class on the step, and the workflow is done.
@@ -107,6 +115,13 @@ test.describe('PW-J4 · effectiveness as a deferred DELAY step', () => {
         WHERE id = '${stepId}' AND status_id = 'APPROVED' AND effectiveness_outcome = 'EFFECTIVE'`,
       { timeoutMs: 45_000, label: 'EFFECTIVE recorded on the step' },
     )
+    // The forced e-sign left a Part-11 row against the verdict task.
+    const sigCount = sqlValue(
+      `SELECT count(*) FROM signatures s
+        JOIN task_instances ti ON ti.id = s.task_instance_id
+       WHERE ti.source_id = '${stepId}'`,
+    )
+    expect(Number(sigCount), 'verdict e-signature recorded').toBeGreaterThanOrEqual(1)
     const wf = sqlRow(`
       SELECT wi.status_id FROM workflow_instances wi
       WHERE wi.resource_type = 'Capa' AND wi.resource_id = '${capa.id}'`)

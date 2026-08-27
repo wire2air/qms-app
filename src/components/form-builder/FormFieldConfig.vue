@@ -122,7 +122,7 @@ const STEP_TYPES = [
   { id: 'NONE', name: 'Not a step' },
   { id: 'ACTION', name: 'Action — assignee completes this section' },
   { id: 'APPROVAL', name: 'Approval — assignee signs off' },
-  { id: 'DELAY', name: 'Delay — wait, then verify (effectiveness check)' },
+  { id: 'DELAY', name: 'Effectiveness Check — wait, then verify' },
 ]
 const APPROVAL_RULES = [
   { id: 'ALL', name: 'All — every approver must approve' },

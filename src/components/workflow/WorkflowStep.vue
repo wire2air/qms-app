@@ -42,6 +42,7 @@ import {
   onBehalfOfLabel,
 } from '@/components/workflow/stepTakeover.js'
 import { currentSession } from '@/utils/currentSession.js'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
 import WorkflowStepForm from '@/components/workflow/WorkflowStepForm.vue'
@@ -243,11 +244,20 @@ watch(
 const effectivenessMissing = computed(
   () => capturesEffectiveness.value && !effectivenessOutcome.value,
 )
+// The verdict is a controlled decision (2026-08-28): reasoning is REQUIRED
+// and the completion is e-signed regardless of the step's own flag.
+const verdictComment = ref('')
+const verdictCommentMissing = computed(
+  () => capturesEffectiveness.value && !verdictComment.value.trim(),
+)
 
-const completeDisabled = computed(() => childrenBlock.value || effectivenessMissing.value)
+const completeDisabled = computed(
+  () => childrenBlock.value || effectivenessMissing.value || verdictCommentMissing.value,
+)
 const completeDisabledReason = computed(() => {
   if (childrenBlock.value) return 'All sub-tasks must be completed before advancing'
   if (effectivenessMissing.value) return 'Record the effectiveness outcome first'
+  if (verdictCommentMissing.value) return 'Add a comment supporting the verdict'
   return ''
 })
 
@@ -258,7 +268,10 @@ const stepInstructions = computed(() => (instanceStep.value?.description ?? '').
 
 // ─── Mark Complete (Complete & Advance) ──────────────────────────────────────
 const requireEsignature = computed(
-  () => !!(instanceStep.value?.requireEsignature ?? stepDefinition.value?.requireEsignature),
+  () =>
+    !!(instanceStep.value?.requireEsignature ?? stepDefinition.value?.requireEsignature) ||
+    // Effectiveness verdicts are always e-signed (server enforces the same).
+    capturesEffectiveness.value,
 )
 
 const showEsignDialog = ref(false)
@@ -307,7 +320,10 @@ async function submitCompleteAndAdvance(esign = null) {
       await formRef.value?.submit(
         esign,
         capturesEffectiveness.value
-          ? { effectivenessOutcome: effectivenessOutcome.value }
+          ? {
+              effectivenessOutcome: effectivenessOutcome.value,
+              comment: verdictComment.value.trim(),
+            }
           : null,
       )
     } else {
@@ -315,7 +331,10 @@ async function submitCompleteAndAdvance(esign = null) {
         action: 'COMPLETE_AND_ADVANCE',
         outcomeId: 'COMPLETE_AND_ADVANCE',
         ...(capturesEffectiveness.value
-          ? { effectivenessOutcome: effectivenessOutcome.value }
+          ? {
+              effectivenessOutcome: effectivenessOutcome.value,
+              comment: verdictComment.value.trim(),
+            }
           : {}),
       }
       if (esign?.method) body.method = esign.method
@@ -324,10 +343,40 @@ async function submitCompleteAndAdvance(esign = null) {
       await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
       toast.success(isApprovalStep.value ? 'Step approved' : 'Step completed')
     }
+    // NOT_EFFECTIVE → the verdict-giver decides what happens to the host
+    // record: re-open it, or spawn a linked follow-up.
+    if (capturesEffectiveness.value && effectivenessOutcome.value === 'NOT_EFFECTIVE') {
+      showFollowUpDialog.value = true
+    }
   } catch (e) {
     toast.error(e?.message || 'Failed to complete step')
   } finally {
     completing.value = false
+  }
+}
+
+// ─── NOT_EFFECTIVE follow-up ────────────────────────────────────────────────
+const showFollowUpDialog = ref(false)
+const followUpBusy = ref(false)
+const router = useRouter()
+
+async function chooseFollowUp(choice) {
+  if (followUpBusy.value) return
+  followUpBusy.value = true
+  try {
+    const res = await post(
+      `/v1/services/workflowInstanceSteps/${props.instanceStepId}/effectivenessFollowUp`,
+      { choice },
+    )
+    toast.success(res?.message || 'Done')
+    showFollowUpDialog.value = false
+    if (res?.created?.id && res?.created?.urlPath) {
+      router.push(getCompanyPath(`/${res.created.urlPath}/${res.created.id}`))
+    }
+  } catch (e) {
+    toast.error(e?.message || 'Follow-up failed')
+  } finally {
+    followUpBusy.value = false
   }
 }
 
@@ -405,22 +454,47 @@ async function handleSchedule() {
   }
 }
 
-// Skip dialog (owner, pre-fire)
+// Skip dialog (owner, pre- or post-fire). Skipping a scheduled check is a
+// CONTROLLED act (2026-08-28): reason required + PIN e-signature.
 const showSkipDialog = ref(false)
+const showSkipEsign = ref(false)
 const skipping = ref(false)
+const skipReason = ref('')
+const skipReasonError = ref('')
 
-async function handleSkipDelay() {
+function openSkipDialog() {
+  skipReason.value = ''
+  skipReasonError.value = ''
+  showSkipDialog.value = true
+}
+
+function onSkipSubmit() {
+  if (!skipReason.value.trim()) {
+    skipReasonError.value = 'A reason is required to skip this check'
+    return
+  }
+  skipReasonError.value = ''
+  showSkipDialog.value = false
+  showSkipEsign.value = true
+}
+
+async function onSkipEsignVerified({ method, provider, token }) {
+  showSkipEsign.value = false
   if (skipping.value) return
   skipping.value = true
   try {
     await post(delayApiPath.value, {
       workflowInstanceStepId: props.instanceStepId,
       intent: 'SKIP',
+      comment: skipReason.value.trim(),
+      method,
+      token,
+      provider,
     })
-    toast.success('Delay step skipped')
-    showSkipDialog.value = false
+    toast.success('Check skipped')
   } catch (e) {
-    toast.error(e?.message || 'Failed to skip delay step')
+    toast.error(e?.message || 'Failed to skip this step')
+    showSkipDialog.value = true
   } finally {
     skipping.value = false
   }
@@ -736,8 +810,8 @@ function activityLabel(statusId) {
         <button
           v-if="canSkipDelay"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary tw:hover:underline tw:cursor-pointer tw:font-medium"
-          title="Skip this delay step — the check isn't needed; advance the workflow"
-          @click="showSkipDialog = true"
+          title="Skip this check — it isn't needed; advance the workflow"
+          @click="openSkipDialog"
         >
           <IconCalendarX :size="14" />
           Skip
@@ -909,10 +983,56 @@ function activityLabel(statusId) {
         }}
       </div>
       <BaseText v-else color="secondary" class="tw:text-sm">Not yet recorded</BaseText>
+      <BaseField
+        v-if="canActOnStep"
+        v-slot="{ id: fieldId }"
+        label="Verdict comment"
+        required
+        class="tw:mt-1"
+      >
+        <BaseTextarea
+          :id="fieldId"
+          v-model="verdictComment"
+          :rows="2"
+          placeholder="What supports this verdict — evidence, data, observations?"
+        />
+      </BaseField>
       <BaseCaption>
-        Recorded against the step itself, so it reports on the record list.
+        Recorded against the step itself, so it reports on the record list. The verdict is
+        e-signed with your comment.
       </BaseCaption>
     </div>
+
+    <!-- NOT_EFFECTIVE follow-up: what happens to the host record -->
+    <BaseDialog v-model="showFollowUpDialog" title="Check Failed — What Next?" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-on-main">
+          The effectiveness check recorded <strong>Not effective</strong>. Choose how to follow
+          up on this record:
+        </p>
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <BaseButton
+            variant="outline"
+            :disabled="followUpBusy"
+            @click="chooseFollowUp('REOPEN')"
+          >
+            Re-open this record — continue the corrective work on it
+          </BaseButton>
+          <BaseButton
+            variant="outline"
+            :disabled="followUpBusy"
+            @click="chooseFollowUp('CREATE_LINKED')"
+          >
+            Create a linked follow-up — a fresh record referencing this one
+          </BaseButton>
+        </div>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="outline" :disabled="followUpBusy" @click="close">
+          Just record the outcome
+        </BaseButton>
+      </template>
+    </BaseDialog>
 
     <WorkflowStepForm
       ref="formRef"
@@ -1061,32 +1181,41 @@ function activityLabel(statusId) {
     </BaseDialog>
 
     <!-- Skip delay dialog (owner, pre-fire) -->
-    <BaseDialog v-model="showSkipDialog" title="Skip Delay Step" maxWidth="md">
+    <BaseDialog v-model="showSkipDialog" title="Skip Effectiveness Check" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <div
           class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
         >
           <IconCalendarX :size="16" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
           <div class="tw:text-sm tw:text-amber-900">
-            Skips this delay step and advances the workflow to the next step.
+            Skips this check and advances the workflow to the next step.
             <template v-if="instanceStep?.statusId === 'IN_PROGRESS'">
               The open effectiveness-check task will be cancelled.
             </template>
-            Use this when the deferred check (e.g. an effectiveness check) isn't needed for this
-            record.
+            Skipping is signed and audit-logged with your reason.
           </div>
         </div>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" required :error="skipReasonError">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="skipReason"
+            :rows="3"
+            placeholder="Why is this check not needed?"
+            @input="skipReasonError = ''"
+          />
+        </BaseField>
       </div>
       <template #footer="{ close }">
         <BaseDialogFooter
-          submitLabel="Skip Step"
+          submitLabel="Sign &amp; Skip"
           :loading="skipping"
-          :disabled="skipping"
+          :disabled="skipping || !skipReason.trim()"
           @cancel="close"
-          @submit="handleSkipDelay"
+          @submit="onSkipSubmit"
         />
       </template>
     </BaseDialog>
+    <WorkflowInstanceEsignAuthDialog v-model="showSkipEsign" @verified="onSkipEsignVerified" />
 
     <!-- Extend delay dialog -->
     <BaseDialog v-model="showExtendDialog" title="Extend Delay" maxWidth="md">

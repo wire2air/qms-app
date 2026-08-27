@@ -157,8 +157,12 @@ export function ensureDelayTemplates() {
   // a confusing mid-journey timeout. Roles are the piece most likely to be
   // missing (they depend on the seed having run); a non-PUBLISHED version means
   // the self-heal above could not run because live instances still point at it.
+  // DISTINCT steps, not rows: the tail template is shared with the capas
+  // suite, whose seed binds an extra role to the effectiveness step — what
+  // this guard must guarantee is that EVERY step has a pool, not that nobody
+  // else added one.
   const bound = sqlValue(
-    `SELECT count(*) FROM workflow_step_roles wsr
+    `SELECT count(DISTINCT wsr.step_id) FROM workflow_step_roles wsr
        JOIN workflow_steps ws ON ws.id = wsr.step_id
       WHERE ws.workflow_version_id IN (${q(t.versionId)}, ${q(m.versionId)})
         AND wsr.deleted_at IS NULL`,

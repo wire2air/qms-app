@@ -35,6 +35,8 @@ export class Record extends BaseModel {
   // Nullable since 2026-08-27: numbers mint at Start, so drafts carry none
   // (and deleting a draft leaves no gap in the register).
   @Property({ type: String }) recordNumber = null
+  // The record this one was spawned FROM (a NOT_EFFECTIVE follow-up clone).
+  @Property({ type: String }) sourceRecordId = null
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Object }) payload = null
   @Property({ type: String }) submissionIp = ''

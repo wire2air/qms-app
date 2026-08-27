@@ -174,10 +174,16 @@ test.describe('PW-J9 · DELAY step schedule / skip / extend', () => {
 
     await gotoCapaWorkflow(page, capaId)
     await clickWhenReady(page, page.getByRole('button', { name: 'Skip', exact: true }).first())
-    await expect(page.getByRole('heading', { name: 'Skip Delay Step' })).toBeVisible({
+    // Controlled skip (2026-08-28): reason required, then PIN e-signature.
+    await expect(page.getByRole('heading', { name: 'Skip Effectiveness Check' })).toBeVisible({
       timeout: 10_000,
     })
-    await page.getByRole('button', { name: 'Skip Step', exact: true }).click()
+    await page
+      .getByPlaceholder('Why is this check not needed?')
+      .fill('J9 — check made redundant by the follow-up ACTION step.')
+    await page.getByRole('button', { name: 'Sign & Skip' }).click()
+    await page.locator('input[type="password"]').first().fill('12345678')
+    await page.getByRole('button', { name: /^Sign\b/i }).last().click()
 
     await waitForDelayStep(capaId, `wis.status_id = 'SKIPPED'`, 'delay step skipped')
 
