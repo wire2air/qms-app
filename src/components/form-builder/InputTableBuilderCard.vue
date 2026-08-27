@@ -182,7 +182,10 @@ function saveColumn() {
 // here because respondents add them at fill time — the builder only defines
 // the columns.
 const columnsRef = ref(null)
-useListReorder(columnsRef, () => props.field?.columns, { filter: 'button' })
+// The live array is template[0].children — NOT field.columns, which is the
+// CHECKLIST's shape this line was copied from. With the wrong getter the chip
+// visually moved and the schema never changed (user report 2026-08-27).
+useListReorder(columnsRef, () => props.field?.template?.[0]?.children, { filter: 'button' })
 
 function removeColumn(i) {
   columnsHost().children.splice(i, 1)
