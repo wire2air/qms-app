@@ -1,6 +1,11 @@
 <script setup>
 import { IconBolt, IconPencil, IconTrash } from '@tabler/icons-vue'
-import { OBJECT_BY_VALUE, ACTION_LABEL, AUTOMATION_TRIGGERS } from '@/utils/automationObjects'
+import {
+  OBJECT_BY_VALUE,
+  ACTION_LABEL,
+  AUTOMATION_TRIGGERS,
+  buildModuleAutomationObject,
+} from '@/utils/automationObjects'
 
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -24,13 +29,30 @@ function openEdit(rule) {
 
 const triggerLabel = Object.fromEntries(AUTOMATION_TRIGGERS.map((t) => [t.value, t.label]))
 
-const OBJECT_OPTIONS = Object.entries(OBJECT_BY_VALUE).map(([value, o]) => ({
-  value,
-  label: o?.label || value,
+// Built-ins + every ACTIVE promoted module (2026-08-28) — same merged registry
+// the rule builder offers, so module rules list and filter like the rest.
+const moduleTemplates = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where().exec()).filter(
+      (t) => t.isModule && t.internalName && t.statusId === 'ACTIVE',
+    ),
+  { models: ['FormTemplate'], initial: [] },
+)
+const objectByValue = computed(() => ({
+  ...OBJECT_BY_VALUE,
+  ...Object.fromEntries(
+    moduleTemplates.value.map((t) => {
+      const o = buildModuleAutomationObject(t)
+      return [o.value, o]
+    }),
+  ),
 }))
+const OBJECT_OPTIONS = computed(() =>
+  Object.entries(objectByValue.value).map(([value, o]) => ({ value, label: o?.label || value })),
+)
 const TRIGGER_OPTIONS = AUTOMATION_TRIGGERS.map((t) => ({ value: t.value, label: t.label }))
 
-const columns = [
+const columns = computed(() => [
   { name: 'name', label: 'Rule', field: 'name', align: 'left', sortable: true },
   {
     name: 'object',
@@ -38,7 +60,7 @@ const columns = [
     field: 'objectType',
     align: 'left',
     filterType: 'select',
-    filterOptions: OBJECT_OPTIONS,
+    filterOptions: OBJECT_OPTIONS.value,
   },
   {
     name: 'trigger',
@@ -64,7 +86,7 @@ const columns = [
   },
   { name: 'active', label: 'Active', field: 'isActive', align: 'center', filterType: false },
   { name: 'actions', label: '', field: 'actions', align: 'right', filterType: false },
-]
+])
 
 function actionSummary(rule) {
   const list = Array.isArray(rule.actions) ? rule.actions : []
@@ -141,7 +163,7 @@ async function onDelete(rule) {
 
       <template #body-cell-object="{ row }">
         <span class="tw:text-secondary">{{
-          OBJECT_BY_VALUE[row.objectType]?.label || row.objectType
+          objectByValue[row.objectType]?.label || row.objectType
         }}</span>
       </template>
 

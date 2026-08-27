@@ -379,3 +379,39 @@ const MODULE_ALLOWED_ACTIONS = [
   'CREATE_TASK',
 ]
 export const MODULE_ACTIONS = ACTION_TYPES.filter((a) => MODULE_ALLOWED_ACTIONS.includes(a.value))
+
+/**
+ * Full object-registry entry for a PROMOTED form module, so the global rule
+ * builder (/automation-rules) offers it in the Record Type dropdown next to
+ * the built-ins (user request 2026-08-28). The rule's objectType is the
+ * module_key — exactly what the per-template Automation tab writes and what
+ * the worker's records-table side effect + scheduled sweep already evaluate.
+ *
+ * Fields = the module's own form fields (payload-hoisted keys) + the shared
+ * first-class columns; buildModuleEvalRow spreads the raw record row, so
+ * site/department/supplier conditions all evaluate. supplierField stays null:
+ * the worker's MODULE_CFG has no supplier resolution for ACTIONS (conditions
+ * on supplier_id still work).
+ */
+export function buildModuleAutomationObject(template) {
+  const moduleConfig = template.moduleConfig || null
+  return {
+    value: template.internalName,
+    label: moduleConfig?.displayName || template.title || template.internalName,
+    isModule: true,
+    supplierField: null,
+    siteField: 'site_id',
+    departmentField: 'department_id',
+    // Module statuses come from the unified four (the builder's own
+    // statusOptions), not a statusModel lookup — record_statuses is shared
+    // with document records and carries their extra states.
+    statusModel: null,
+    allowedActions: MODULE_ALLOWED_ACTIONS,
+    fields: [
+      ...moduleAutomationFields(template.schema || [], moduleConfig),
+      { key: 'site_id', label: 'Site', type: 'lookup', lookup: 'Site' },
+      { key: 'department_id', label: 'Department', type: 'lookup', lookup: 'Department' },
+      { key: 'supplier_id', label: 'Supplier', type: 'lookup', lookup: 'Supplier' },
+    ],
+  }
+}
