@@ -38,6 +38,7 @@ export function buildChangeRequestActions(gates = {}, handlers = {}) {
     cancelling,
     opening,
     deleting,
+    closeDisabledReason,
   } = gates
 
   const notTerminal = !['DRAFT', 'CLOSED', 'CANCELLED'].includes(statusId)
@@ -45,7 +46,7 @@ export function buildChangeRequestActions(gates = {}, handlers = {}) {
   return [
     {
       id: 'open',
-      label: 'Submit for Approval',
+      label: 'Open Change Request',
       variant: 'primary',
       priority: 100,
       visible: !!canOpen && statusId === 'DRAFT',
@@ -58,9 +59,13 @@ export function buildChangeRequestActions(gates = {}, handlers = {}) {
       label: 'Close',
       variant: 'danger',
       priority: 90,
-      visible: !!canCloseCr && !!canClose,
+      // CAPA parity (2026-08-28): the button stays VISIBLE on any OPEN CR the
+      // verb allows, and DISABLES with the reason while workflow steps still
+      // block (deferred effectiveness checks excepted) — instead of vanishing.
+      visible: !!canCloseCr && statusId === 'OPEN',
       disabled: !canClose || !!closing,
       loading: !!closing,
+      title: closeDisabledReason || undefined,
       onSelect: handlers.openClose,
     },
     {

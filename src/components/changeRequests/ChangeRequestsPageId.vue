@@ -7,6 +7,7 @@ import {
 import { IconAlertTriangle } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
+import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
@@ -33,7 +34,7 @@ const cr = useLiveQueryWithDeps(
 watch(
   cr,
   (c) => {
-    if (c?.id) visitTrail({ type: 'CR', id: c.id, label: c.crNumber, path: route.path })
+    if (c?.id) visitTrail({ type: 'CR', id: c.id, label: c.crNumber || 'Draft CR', path: route.path })
   },
   { immediate: true },
 )
@@ -41,7 +42,7 @@ const loading = computed(() => cr.value === undefined)
 
 const breadcrumbs = computed(() => [
   { label: 'Change Control', to: getCompanyPath('/change-requests') },
-  { label: cr.value?.crNumber || cr.value?.title || 'Loading…' },
+  { label: cr.value?.crNumber || cr.value?.title || 'Draft' },
 ])
 
 // Co-author model: the Responsible Party (ownerId) OR the Initiator (createdBy)
@@ -172,11 +173,15 @@ const closeComments = ref('')
 
 const closeBlockedReason = computed(() => {
   if (!cr.value) return null
-  // Unified statuses (2026-08-26): OPEN is the only closable state; the
-  // server additionally enforces the all-tasks gate (open steps → 409 with
-  // the count), which the close dialog surfaces.
+  // Unified statuses (2026-08-26): OPEN is the only closable state.
   if (cr.value.statusId !== 'OPEN') {
     return `Cannot close from status ${cr.value.statusId} — use Cancel for pre-approval abandonment.`
+  }
+  // The all-tasks gate (2026-08-28): every workflow step must be completed
+  // before Close — deferred effectiveness checks excepted. Mirrors the
+  // server's countOpenStepsForClose, so the button disables instead of 409ing.
+  if (incompleteStepCount.value > 0) {
+    return `${incompleteStepCount.value} workflow step(s) must be completed before this Change Request can be closed.`
   }
   return null
 })
@@ -268,6 +273,20 @@ const allWfStepIds = useLiveQueryWithDeps(
 
   { models: ['WorkflowInstanceStep'], initial: [] },
 )
+
+// Steps still blocking Close — deferred DELAY steps (effectiveness checks
+// armed with a wake date) are the exception, same predicate as CAPA and
+// module records (delayStepClose.js). The server enforces the same gate;
+// this keeps the button honest instead of letting it 409.
+const incompleteStepCount = useLiveQueryWithDeps(
+  [() => allWfStepIds.value.join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return 0
+    const steps = await Promise.all(idsStr.split(',').map((id) => db.WorkflowInstanceStep.findByPk(id)))
+    return countStepsBlockingClose(steps.filter(Boolean))
+  },
+  { models: ['WorkflowInstanceStep'], initial: 0 },
+)
 const auditIncludeEntities = computed(() => [
   { entityType: 'ChangeRequests', entityIds: [props.id] },
   { entityType: 'WorkflowInstances', entityIds: allWfInstanceIds.value },
@@ -295,6 +314,7 @@ const changeRequestActions = computed(() =>
       canDelete: canDelete.value,
       statusId: cr.value?.statusId,
       canClose: canClose.value,
+      closeDisabledReason: closeBlockedReason.value,
       closing: closing.value,
       cancelling: cancelling.value,
       opening: opening.value,
@@ -360,7 +380,7 @@ const changeRequestDetailConfig = computed(() =>
     </template>
 
     <template v-if="cr" #meta>
-      <span class="">{{ cr.crNumber }}</span>
+      <span class="">{{ cr.crNumber || 'Draft' }}</span>
       <template v-if="cr.changeTypeId">
         · <ChangeTypeBadgeById :changeTypeId="cr.changeTypeId"
       /></template>
@@ -467,7 +487,7 @@ const changeRequestDetailConfig = computed(() =>
         <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
           <BaseDetailField label="CR number">
             <BaseText variant="body" weight="medium" class="tw:break-words">
-              {{ cr.crNumber || '—' }}
+              {{ cr.crNumber || 'Draft' }}
             </BaseText>
           </BaseDetailField>
           <BaseDetailField label="Status">
@@ -638,7 +658,7 @@ const changeRequestDetailConfig = computed(() =>
   </BaseDetailLayout>
 
   <!-- Submit-for-Approval dialog -->
-  <BaseDialog v-model="showOpenDialog" title="Submit for Approval" maxWidth="md">
+  <BaseDialog v-model="showOpenDialog" title="Open Change Request" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
       <p class="tw:text-sm tw:text-on-main">
         Submitting starts the approval workflow and makes this Change Request a
@@ -658,7 +678,7 @@ const changeRequestDetailConfig = computed(() =>
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter
-        submitLabel="Submit for Approval"
+        submitLabel="Open Change Request"
         :loading="opening"
         @cancel="close"
         @submit="handleOpenCr"

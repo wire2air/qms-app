@@ -27,8 +27,9 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     const cr = findCrByTitle(title)
     expect(cr, 'CR row exists').toBeTruthy()
     expect(cr.statusId).toBe('DRAFT')
-    // Flat per-company numbering (site/dept prefixes dropped).
-    expect(cr.crNumber, 'CR number minted on create').toMatch(/^CR-\d{3,}$/)
+    // Deferred numbering (2026-08-28): drafts carry NO number — it mints at
+    // submit, so a deleted draft never gaps the register.
+    expect(cr.crNumber, 'drafts are numberless').toBeFalsy()
 
     await assignDraftReviewers(page, cr.id)
     await submitCrForApproval(page, cr.id)
@@ -37,6 +38,11 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
       'OPEN',
     )
+    // Flat per-company numbering (site/dept prefixes dropped), minted by submit.
+    expect(
+      sqlValue(`SELECT cr_number FROM change_requests WHERE id = '${cr.id}'`),
+      'CR number minted at submit',
+    ).toMatch(/^CR-\d{3,}$/)
     expect(
       sqlValue(`SELECT submitted_at IS NOT NULL FROM change_requests WHERE id = '${cr.id}'`),
     ).toBe('t')

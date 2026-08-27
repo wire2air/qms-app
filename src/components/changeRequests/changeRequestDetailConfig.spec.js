@@ -116,12 +116,15 @@ describe('buildChangeRequestActions', () => {
     expect(visible).not.toContain('open')
   })
 
-  it('hides close when canClose=false', () => {
+  it('keeps close VISIBLE but disabled (with the reason) when canClose=false — CAPA parity', () => {
     const a = buildChangeRequestActions(
-      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'OPEN', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'OPEN', canClose: false, closeDisabledReason: '2 workflow step(s) must be completed before this Change Request can be closed.', opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
-    expect(a.find((x) => x.id === 'close').visible).toBe(false)
+    const close = a.find((x) => x.id === 'close')
+    expect(close.visible).toBe(true)
+    expect(close.disabled).toBe(true)
+    expect(close.title).toMatch(/must be completed/)
   })
 
   it('hides every lifecycle action from a user who holds none of the verbs', () => {
