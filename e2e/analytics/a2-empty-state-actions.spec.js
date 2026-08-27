@@ -18,7 +18,14 @@
 // screen is an existence oracle for other people's private work.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ANALYTICS } from '../fixtures/cast.js'
-import { ensureRollup, gotoAnalytics, gotoDashboards, dashboardByName, uniqueName } from '../fixtures/analytics.js'
+import {
+  createDashboardViaUi,
+  ensureRollup,
+  gotoAnalytics,
+  gotoDashboards,
+  dashboardByName,
+  uniqueName,
+} from '../fixtures/analytics.js'
 
 test.use({ storageState: AUTH.author })
 
@@ -31,8 +38,7 @@ test.describe('ANL-A2 · empty-state actions render and work', () => {
     const name = uniqueName('ANL-A2 board')
     await gotoDashboards(page)
 
-    await page.getByLabel('New dashboard').fill(name)
-    await page.getByRole('button', { name: /^create$/i }).click()
+    await createDashboardViaUi(page, name)
 
     const board = await expect
       .poll(() => dashboardByName(name), { timeout: 20_000, message: 'dashboard row appears' })

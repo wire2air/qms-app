@@ -157,6 +157,33 @@ export function uniqueName(prefix) {
 }
 
 /**
+ * Create a dashboard through the page's own inline form.
+ *
+ * ⚠️ The Create button is scoped to the SECTION holding the "New dashboard"
+ * field, and that is not fussiness. The app chrome carries a global quick-action
+ * button whose accessible name is also exactly "Create", so a bare
+ * `getByRole('button', { name: /^create$/i })` matches two elements and fails
+ * strict mode — which is how this broke on 2026-08-27, in two specs at once,
+ * without either of them changing. Anchoring to the labelled field means the
+ * locator says what a person means: the Create next to the box I just typed in.
+ *
+ * (Worth noting separately: two same-named buttons on one screen is a real
+ * problem for anyone tabbing through with a screen reader, who hears "Create"
+ * twice with nothing to tell them apart. That is a product fix, not a test one.)
+ *
+ * @param {import('@playwright/test').Page} page  already on /analytics/dashboards
+ * @param {string} name
+ */
+export async function createDashboardViaUi(page, name) {
+  await page.getByLabel('New dashboard').fill(name)
+  await page
+    .locator('section')
+    .filter({ has: page.getByLabel('New dashboard') })
+    .getByRole('button', { name: /^create$/i })
+    .click()
+}
+
+/**
  * Drive the real New-report dialog to completion.
  *
  * ⚠️ The submit control is `BaseDialogFooter`'s OWN button, reached by its
@@ -167,6 +194,15 @@ export function uniqueName(prefix) {
  * what makes that regression fail here instead of shipping: on 2026-08-18 the
  * live dialog showed "Save" while its source said "Create report", and pressing
  * it did nothing at all.
+ */
+/*
+ * ⚠️ `metricKeys` is a misnomer and costs everyone who uses it a run: the values
+ * are matched against the OPTION TEXT in the picker, so they must be metric
+ * LABELS (ANALYTICS.METRIC_LABEL, "NCs Raised") and not metric keys
+ * (ANALYTICS.METRIC, "ncr.raised"). Passing the key waits 25s for an option that
+ * will never appear. Kept under the old name because renaming a parameter used
+ * by every analytics spec is a bigger change than the confusion warrants — but
+ * it is written down here now.
  */
 export async function createReportViaUi(
   page,

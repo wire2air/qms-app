@@ -8,7 +8,13 @@
 // of PNGs per state is the cheapest standing defence against that recurring.
 import { test, expect } from '../../../video/fixtures/videoTest.js'
 import { AUTH, ANALYTICS } from '../../fixtures/cast.js'
-import { dashboardByName, ensureRollup, gotoAnalytics, uniqueName } from '../../fixtures/analytics.js'
+import {
+  createDashboardViaUi,
+  dashboardByName,
+  ensureRollup,
+  gotoAnalytics,
+  uniqueName,
+} from '../../fixtures/analytics.js'
 import { shooter } from '../../fixtures/screenshots.js'
 
 const shot = shooter('analytics')
@@ -77,8 +83,7 @@ test.describe.serial('Analytics screenshots', () => {
     // settles against the app's sync socket (ANL trap #1).
     const name = uniqueName('S1 empty board')
     await gotoAnalytics(page, '/dashboards')
-    await page.getByLabel('New dashboard').fill(name)
-    await page.getByRole('button', { name: /^create$/i }).click()
+    await createDashboardViaUi(page, name)
 
     await expect
       .poll(() => dashboardByName(name), { timeout: 20_000, message: 'dashboard row appears' })
