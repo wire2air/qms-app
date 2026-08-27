@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
     ActiveSessions: typeof import('./src/components/security/ActiveSessions.vue')['default']
+    AddFieldDialog: typeof import('./src/components/form-builder/AddFieldDialog.vue')['default']
     AddRecordDialog: typeof import('./src/components/records/AddRecordDialog.vue')['default']
     AdvancedImage: typeof import('./src/components/editor/extensions/image/advancedImage.js')['default']
     AiFieldPreviewList: typeof import('./src/components/ai/AiFieldPreviewList.vue')['default']
@@ -818,6 +819,7 @@ declare module 'vue' {
     ModuleAiEvaluationCard: typeof import('./src/components/modules/ModuleAiEvaluationCard.vue')['default']
     ModuleBadge: typeof import('./src/components/badges/ModuleBadge.vue')['default']
     ModuleBadgeById: typeof import('./src/components/badges/ModuleBadgeById.vue')['default']
+    ModuleRecordPrint: typeof import('./src/components/print/modules/ModuleRecordPrint.vue')['default']
     Modules: typeof import('./src/components/print/modules/index.js')['default']
     ModuleSelectMenu: typeof import('./src/components/menus/ModuleSelectMenu.vue')['default']
     MyTrainingDetailConfig: typeof import('./src/components/myTraining/myTrainingDetailConfig.js')['default']
