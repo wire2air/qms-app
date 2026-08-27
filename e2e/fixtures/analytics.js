@@ -108,11 +108,27 @@ export function metricValueAs(userId, { metricKey = ANALYTICS.METRIC, from, to, 
 }
 
 /** The rows `metric_breakdown()` returns for the fact month, as `{ label: value }`. */
+/**
+ * A metric's breakdown, resolved as one person.
+ *
+ * ⚠️ `p_min_cell` is 5, and it was 0 until 2026-08-27 — which quietly made this
+ * helper a view of the data THE PRODUCT NEVER SERVES. Both the UI
+ * (useAnalytics.js defaults pMinCell to 5) and the report exporter ask with 5,
+ * and at 5 the seeded severity mix collapses: Minor stands alone and the 2-row
+ * Critical and Major segments are suppressed into a residual. At 0 this returned
+ * them as plain numbers no reader is ever shown.
+ *
+ * A spec comparing a rendered breakdown against that would have been asserting
+ * agreement with a query the product does not make — passing while the small-cell
+ * guard was broken, or failing because it was working. Changed rather than merely
+ * documented because nothing called this yet; the trap was worth removing before
+ * somebody stepped in it.
+ */
 export function breakdownAs(userId, dimension = 'severity') {
   const res = sqlAsAppUser(
     `SELECT dimension_value || '=' || value::text
        FROM public.metric_breakdown(${q(ANALYTICS.METRIC)}, ${q(dimension)},
-            ${q(ANALYTICS.FACT_MONTH.start)}, ${q(ANALYTICS.FACT_MONTH.end)}, 25, 0, 'contribution')
+            ${q(ANALYTICS.FACT_MONTH.start)}, ${q(ANALYTICS.FACT_MONTH.end)}, 25, 5, 'contribution')
       WHERE dimension_value IS NOT NULL AND is_residual IS NOT TRUE;`,
     { userId, companyId: COMPANY_ID },
   )
