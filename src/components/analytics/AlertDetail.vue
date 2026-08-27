@@ -62,7 +62,13 @@ const alertId = computed(() => String(route.params.id ?? ''))
 // navigation.
 const alert = useLiveQueryWithDeps(
   [() => alertId.value],
-  async (db, [id]) => (id ? await db.AnalyticsAlert.findByPk(id) : null),
+  // ⚠️ The `?? null` is what makes the comment above TRUE, and it was missing
+  // until 2026-08-27 — the third instance of this defect, after DashboardDetail
+  // and ReportDetail. `findByPk` answers a MISSING ROW with `undefined`, which
+  // is the same value this composable uses for "still loading", so the
+  // `alert === null` branch was unreachable and an unknown id sat forever on
+  // the loading state instead of saying the alert does not exist.
+  async (db, [id]) => (id ? ((await db.AnalyticsAlert.findByPk(id)) ?? null) : null),
   { models: 'AnalyticsAlert' },
 )
 
