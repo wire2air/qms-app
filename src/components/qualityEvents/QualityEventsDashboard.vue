@@ -1,10 +1,5 @@
 <script setup>
-import {
-  IconInbox,
-  IconCalendarMonth,
-  IconArrowUpRight,
-  IconCircleCheck,
-} from '@tabler/icons-vue'
+import { IconInbox, IconCalendarMonth, IconArrowUpRight, IconCircleCheck } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 

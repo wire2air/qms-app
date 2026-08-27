@@ -26,6 +26,7 @@ day to day) and **Settings** (administration and configuration).
 | **Training** | Training library, assignments, verification, and the training matrix |
 | **Suppliers & Items** | Suppliers, the supplier portal, and the item master |
 | **Forms & Workflows** | Form templates, the form builder, and configurable workflows |
+| **Analytics & Reporting** | Cross-module KPIs, trends, dashboards, scheduled reports, and alerts — and [what every metric counts](KB/analytics/metric-definitions) |
 | **Administration** | Users, roles, groups, sites, departments, option sets, notifications, audit logs, API keys, settings |
 | **AI Assistant** | Drafting, PDF import, summaries, the Ask AI chat, similar-record detection, and AI access and usage |
 

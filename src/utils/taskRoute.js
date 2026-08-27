@@ -60,6 +60,14 @@ export async function resolveTaskInstanceRoute(db, t) {
     case 'FieldRecord':
       return `/inspections-logs/records?recordId=${t.entityId}`
     default:
+      // The inbox is a fine landing spot, but arriving there because a host type
+      // was never registered is indistinguishable from arriving there on purpose
+      // (RFI tasks do). Say which type it was, so the missing case above is
+      // findable instead of being absorbed silently.
+      console.warn(
+        `[taskRoute] no host-entity route for task entityType "${t.entityType}" — ` +
+          'falling back to the task inbox; add a case here AND to the backend entityRouteSegment',
+      )
       return '/task-instances'
   }
 }

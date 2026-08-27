@@ -255,8 +255,7 @@ const navSections = computed(() => [
     icon: IconInfoCircle,
     // Containment moved out of this section (2026-08-23), so it no longer
     // gates the tick here.
-    status:
-      form.value.title && richTextFilled(form.value.description) ? 'complete' : null,
+    status: form.value.title && richTextFilled(form.value.description) ? 'complete' : null,
   },
   {
     id: 'nc-classification',
@@ -729,11 +728,7 @@ async function handleReviewersConfirmed(reviewers) {
               <!-- Labeled "Item" per the Item-Master UI convention (DB stays
                  products) — also keeps the label distinct from the progress
                  nav's "Product" chip. -->
-              <BaseField
-                id="nc-product-item"
-                label="Item"
-                optional
-              >
+              <BaseField id="nc-product-item" label="Item" optional>
                 <template #default="field">
                   <ProductSelectMenu
                     v-bind="field"

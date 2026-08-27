@@ -114,8 +114,6 @@ function rowMenuItems(row) {
     :mobileCards="false"
     searchable
     selectable
-    columnManager
-    densitySelector
     filterable
     exportManager
     exportFilename="shared-records.csv"

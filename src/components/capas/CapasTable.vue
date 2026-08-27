@@ -1,14 +1,56 @@
 <script setup>
-import { IconEdit, IconTrash } from '@tabler/icons-vue'
+import {
+  IconEdit,
+  IconTrash,
+  IconCircleDot,
+  IconAlertTriangle,
+  IconTag,
+  IconBuildingFactory2,
+  IconCalendar,
+} from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
   rows: { type: Array, default: () => [] },
   canUpdate: { type: Boolean, default: false },
   canDelete: { type: Boolean, default: false },
+  // Copy for the in-card empty state (the page's filters produced no rows).
+  // The table stays mounted when empty so its filter controls remain reachable.
+  emptyLabel: { type: String, default: null },
 })
 
 const emit = defineEmits(['delete', 'edit'])
+
+// Quick views, rendered in the table toolbar's #tabs slot.
+const activeFilter = defineModel('activeFilter', { type: String, default: 'all_open' })
+// Query-level filters (applied upstream in CapasHome, before the rows reach this
+// table) — the cascading menu lives in the toolbar's #toolbar-filters slot,
+// beside DataTable's own column-filter trigger.
+const filters = defineModel('filters', { type: Object, default: () => ({}) })
+
+const filterPills = [
+  // 'All' means no lifecycle filter at all — closed and cancelled records
+  // included. Every other pill narrows to some subset of open, so without
+  // this there was no way to see the whole register in one list.
+  { value: 'all', label: 'All' },
+  { value: 'all_open', label: 'All open' },
+  { value: 'mine', label: 'My CAPAs' },
+  { value: 'critical', label: 'Critical' },
+  { value: 'high', label: 'High' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+
+// The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
+// every non-empty value in the object it's given, so handing it the whole filter
+// bag made it report the quick view (`activeFilter`) as an active filter.
+const MENU_GROUPS = ['statusId', 'priorityId', 'typeId', 'supplierId', 'createdAt']
+const menuFilters = computed(() =>
+  Object.fromEntries(MENU_GROUPS.map((k) => [k, filters.value?.[k] ?? null])),
+)
+function onMenuFilters(next) {
+  filters.value = { ...filters.value, ...next }
+}
 
 const priorityDotClass = {
   CRITICAL: 'tw:bg-red-500',
@@ -17,17 +59,25 @@ const priorityDotClass = {
   LOW: 'tw:bg-green-500',
 }
 
-// Option sources for the advanced filter's entity-column dropdowns.
-const capaPriorities = useLiveQuery((db) => db.CapaPriority.where().exec(), {
-  models: ['CapaPriority'],
-  initial: [],
-})
-const capaStatuses = useLiveQuery((db) => db.CapaStatus.where().exec(), {
+// Option sources, shared by the filter menu and the advanced filter's
+// entity-column dropdowns (ordered so both read in the configured order).
+const capaPriorities = useLiveQuery(
+  (db) => db.CapaPriority.where().orderBy('displayOrder').exec(),
+  {
+    models: ['CapaPriority'],
+    initial: [],
+  },
+)
+const capaStatuses = useLiveQuery((db) => db.CapaStatus.where().orderBy('displayOrder').exec(), {
   models: ['CapaStatus'],
   initial: [],
 })
-const capaTypes = useLiveQuery((db) => db.CapaType.where().exec(), {
+const capaTypes = useLiveQuery((db) => db.CapaType.where().orderBy('displayOrder').exec(), {
   models: ['CapaType'],
+  initial: [],
+})
+const suppliers = useLiveQuery((db) => db.Supplier.where('statusId', 'APPROVED').exec(), {
+  models: ['Supplier'],
   initial: [],
 })
 // Effectiveness check, from the real capa_effectiveness_checks rows.
@@ -137,6 +187,41 @@ function selectOpts(list) {
   return list.map((x) => ({ value: x.id, label: x.name }))
 }
 
+// Descriptor tree for the cascading filter menu (each dimension → a submenu of
+// its values; `group` is the selection bucket key on the filter model).
+const filterItems = computed(() => [
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: selectOpts(capaStatuses.value),
+  },
+  {
+    id: 'priorityId',
+    label: 'Priority',
+    icon: IconAlertTriangle,
+    group: 'priorityId',
+    options: selectOpts(capaPriorities.value),
+  },
+  {
+    id: 'typeId',
+    label: 'Type',
+    icon: IconTag,
+    group: 'typeId',
+    options: selectOpts(capaTypes.value),
+  },
+  {
+    id: 'supplierId',
+    label: 'Supplier',
+    icon: IconBuildingFactory2,
+    group: 'supplierId',
+    searchable: true,
+    options: selectOpts(suppliers.value),
+  },
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+])
+
 const columns = computed(() => {
   const filterCfg = {
     priority: { filterType: 'select', filterOptions: selectOpts(capaPriorities.value) },
@@ -204,15 +289,28 @@ function rowMenuItems(row) {
     :rows="rows"
     :columns="columns"
     rowKey="id"
+    :noDataLabel="emptyLabel"
     :mobileCards="false"
     searchable
-    columnManager
-    densitySelector
-    filterable
     exportManager
     exportFilename="capas.csv"
     persistKey="capas"
   >
+    <!-- Query-level filter menu -->
+    <template #toolbar-filters>
+      <BaseFilterMenu
+        :modelValue="menuFilters"
+        :items="filterItems"
+        iconOnly
+        @update:modelValue="onMenuFilters"
+      />
+    </template>
+
+    <!-- Quick views -->
+    <template #tabs>
+      <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
+    </template>
+
     <template #body-cell-capaNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`/capas/${row.id}`)"

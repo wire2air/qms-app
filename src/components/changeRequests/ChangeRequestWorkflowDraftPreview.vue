@@ -102,22 +102,22 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
         class="tw:flex tw:flex-col tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:@2xl:flex-row tw:@2xl:items-center"
       >
         <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-3">
-        <span
-          class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
-        >
-          {{ idx + 1 }}
-        </span>
-        <div class="tw:flex-1 tw:min-w-0">
-          <div class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-            {{ step.name }}
-          </div>
-          <div
-            v-if="step.description"
-            class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:line-clamp-2"
+          <span
+            class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
           >
-            {{ step.description }}
+            {{ idx + 1 }}
+          </span>
+          <div class="tw:flex-1 tw:min-w-0">
+            <div class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ step.name }}
+            </div>
+            <div
+              v-if="step.description"
+              class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:line-clamp-2"
+            >
+              {{ step.description }}
+            </div>
           </div>
-        </div>
         </div>
         <div class="tw:w-full tw:shrink-0 tw:@2xl:w-72">
           <UserSelectMenu

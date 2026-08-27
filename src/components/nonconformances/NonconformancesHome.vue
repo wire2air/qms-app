@@ -1,11 +1,13 @@
 <script setup>
+// `embedded` lets a host page (NonconformancesHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import { humanizeFilter } from '@/composables/useListPrint.js'
-import {
-  IconAlertCircle,
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconClipboardList,
-} from '@tabler/icons-vue'
+import { IconAlertCircle, IconAlertTriangle, IconCircleCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
@@ -174,15 +176,11 @@ async function onDeleteNc(row) {
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="Nonconformances"
     subtitle="Track, investigate and close nonconformances."
     :state="list.state.value"
-    :emptyIcon="IconClipboardList"
-    :emptyTitle="
-      list.hasActiveFilters.value
-        ? 'No nonconformances match your filters'
-        : 'No nonconformances yet'
-    "
+    contentOwnsEmpty
   >
     <template #title>
       <span class="tw:inline-flex tw:items-center tw:gap-2">
@@ -227,14 +225,18 @@ async function onDeleteNc(row) {
         </button>
       </div>
 
-      <NonconformancesFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <NonconformancesFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <NonconformancesTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
       :rows="ncs"
+      :emptyLabel="
+        list.hasActiveFilters.value
+          ? 'No nonconformances match your filters'
+          : 'No nonconformances yet'
+      "
       :canUpdate="canUpdate"
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/nonconformances/${row.id}`))"

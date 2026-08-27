@@ -26,6 +26,9 @@ import {
   IconKey,
   IconRobot,
   IconChartBar,
+  IconCompass,
+  IconLayoutDashboard,
+  IconFileAnalytics,
   IconUserCircle,
   IconLogout,
   IconChevronDown,
@@ -58,6 +61,7 @@ import {
   IconTestPipe,
   IconHelpCircle,
   IconBell,
+  IconBellRinging,
   IconListDetails,
   IconEye,
   IconWorld,
@@ -318,6 +322,64 @@ const navItems = computed(() => {
       label: 'My Tasks',
       icon: IconCheckbox,
       to: getCompanyPath('/task-instances'),
+    },
+    {
+      // Cross-module reporting (the seeded `reports_dashboards` module). Sits
+      // above the record modules because it is the surface people land on to
+      // decide which record module to open, not another record list.
+      //
+      // `permissions` also drives the COMMERCIAL gate: isNavItemEntitled()
+      // takes the module id from the first permission, so an un-entitled
+      // tenant loses the entry — and, because a group header auto-hides when
+      // every child is filtered away, that gate now covers the whole subtree
+      // without being repeated per row.
+      //
+      // This was a plain entry while it had one destination; Phase 6 gave it
+      // three, which is the condition the earlier note set for promoting it.
+      // Every child carries reports_dashboards:read — editing a dashboard needs
+      // more than that, but WHICH dashboard decides it, and a nav guard cannot
+      // know that. Ownership is enforced on the row by RLS; duplicating it here
+      // would only create somewhere for the two rules to disagree.
+      label: 'Analytics',
+      icon: IconChartBar,
+      permissions: ['reports_dashboards:read'],
+      children: [
+        {
+          label: 'Overview',
+          permissions: ['reports_dashboards:read'],
+          icon: IconChartBar,
+          to: getCompanyPath('/analytics'),
+        },
+        {
+          label: 'Dashboards',
+          permissions: ['reports_dashboards:read'],
+          icon: IconLayoutDashboard,
+          to: getCompanyPath('/analytics/dashboards'),
+        },
+        {
+          label: 'Reports',
+          permissions: ['reports_dashboards:read'],
+          icon: IconFileAnalytics,
+          to: getCompanyPath('/analytics/reports'),
+        },
+        {
+          label: 'Data Explorer',
+          permissions: ['reports_dashboards:read'],
+          icon: IconCompass,
+          to: getCompanyPath('/analytics/explore'),
+        },
+        {
+          // `read` like its siblings. Naming somebody OTHER than yourself as a
+          // recipient needs `manage`, but that is a per-row rule the write
+          // policies enforce (`OR recipients <@ ARRAY[me]`) — anybody may
+          // author an alert that mails only them, so the nav must not hide the
+          // page from them.
+          label: 'Alerts',
+          permissions: ['reports_dashboards:read'],
+          icon: IconBellRinging,
+          to: getCompanyPath('/analytics/alerts'),
+        },
+      ],
     },
     // Admin-defined modules (data-driven).
     ...moduleNavItems.value,

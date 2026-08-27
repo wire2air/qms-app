@@ -1,5 +1,12 @@
 <script setup>
-import { IconDotsVertical, IconEye, IconArchive } from '@tabler/icons-vue'
+import {
+  IconDotsVertical,
+  IconEye,
+  IconArchive,
+  IconFileText,
+  IconBuilding,
+  IconCircleDot,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -11,9 +18,34 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Copy for the in-card empty state (the page's filters produced no rows).
+  // The table stays mounted when empty so the quick views remain reachable.
+  emptyLabel: {
+    type: String,
+    default: null,
+  },
 })
 
 const emit = defineEmits(['view'])
+
+// Quick views (rendered in the table toolbar's #tabs slot). A document's real
+// state is its VERSIONS' state, so these read "has an effective version" /
+// "latest version is mid-approval" rather than the document row's own statusId
+// — see applyActiveFilter in DocumentsHome. 'All' leads because a controlled-
+// document register is normally read whole.
+const activeFilter = defineModel('activeFilter', { type: String, default: 'all' })
+// Query-level filters (applied upstream in DocumentsHome, before the rows reach
+// this table) — the cascading menu lives in the toolbar's #toolbar-filters slot,
+// beside DataTable's own column-filter trigger.
+const filters = defineModel('filters', { type: Object, default: () => ({}) })
+const filterPills = [
+  { value: 'all', label: 'All' },
+  { value: 'effective', label: 'Effective' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'mine', label: 'Mine' },
+  { value: 'archived', label: 'Archived' },
+]
 
 const toast = useToast()
 
@@ -63,6 +95,52 @@ const departments = useLiveQuery((db) => db.Department.where().exec(), {
   initial: [],
 })
 const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+const documentTypes = useLiveQuery((db) => db.DocumentType.where().orderBy('displayOrder').exec(), {
+  models: ['DocumentType'],
+  initial: [],
+})
+const versionStatuses = useLiveQuery(
+  (db) => db.DocumentVersionStatus.where().orderBy('displayOrder').exec(),
+  { models: ['DocumentVersionStatus'], initial: [] },
+)
+
+// The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
+// every non-empty value in the object it's given, so handing it the whole filter
+// bag made it report the quick view (`activeFilter: 'all'`) as an active filter.
+const MENU_GROUPS = ['documentTypeId', 'departmentId', 'statusId']
+const menuFilters = computed(() =>
+  Object.fromEntries(MENU_GROUPS.map((k) => [k, filters.value?.[k] ?? []])),
+)
+function onMenuFilters(next) {
+  filters.value = { ...filters.value, ...next }
+}
+
+// Descriptor tree for the cascading filter menu.
+const filterItems = computed(() => [
+  {
+    id: 'documentTypeId',
+    label: 'Type',
+    icon: IconFileText,
+    group: 'documentTypeId',
+    searchable: true,
+    options: documentTypes.value.map((t) => ({ value: t.id, label: t.name })),
+  },
+  {
+    id: 'departmentId',
+    label: 'Department',
+    icon: IconBuilding,
+    group: 'departmentId',
+    searchable: true,
+    options: departments.value.map((d) => ({ value: d.id, label: d.name })),
+  },
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: versionStatuses.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+])
 function selectOpts(list) {
   return list.map((x) => ({ value: x.id, label: x.name }))
 }
@@ -189,15 +267,28 @@ function onObsoleted() {
     :rows="rows"
     :columns="columns"
     :loading="loading"
+    :noDataLabel="emptyLabel"
     :mobileCards="false"
     searchable
-    columnManager
-    densitySelector
-    filterable
     exportManager
     exportFilename="documents.csv"
     persistKey="documents"
   >
+    <!-- Query-level filter menu -->
+    <template #toolbar-filters>
+      <BaseFilterMenu
+        :modelValue="menuFilters"
+        :items="filterItems"
+        iconOnly
+        @update:modelValue="onMenuFilters"
+      />
+    </template>
+
+    <!-- Quick views -->
+    <template #tabs>
+      <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
+    </template>
+
     <!-- Doc Number Column -->
     <template #body-cell-docNumber="{ row }">
       <BaseBadge>{{ row.docNumber }}</BaseBadge>

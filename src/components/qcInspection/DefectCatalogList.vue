@@ -95,8 +95,6 @@ async function removeDefect(d) {
     :mobileCards="false"
     searchable
     filterable
-    densitySelector
-    columnManager
     exportManager
     exportFilename="tests.csv"
     persistKey="qcInspection:defectCatalog"
@@ -135,7 +133,9 @@ async function removeDefect(d) {
     <template #body-cell-status="{ row }">
       <span
         class="tw:text-micro tw:font-semibold tw:px-2 tw:py-0.5 tw:rounded-full"
-        :class="row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-100 tw:text-gray-500'"
+        :class="
+          row.active ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-gray-100 tw:text-gray-500'
+        "
       >
         {{ row.active ? 'Active' : 'Inactive' }}
       </span>

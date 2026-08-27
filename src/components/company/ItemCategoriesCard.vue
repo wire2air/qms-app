@@ -9,10 +9,13 @@ const { confirm } = useConfirm()
 
 const isOwner = computed(() => !!currentSession.value?.isOwner)
 
-const itemCategories = useLiveQuery(async (db) => db.ItemCategory.where().orderBy('displayOrder', 'asc').exec(), {
-  models: ['ItemCategory'],
-  initial: [],
-})
+const itemCategories = useLiveQuery(
+  async (db) => db.ItemCategory.where().orderBy('displayOrder', 'asc').exec(),
+  {
+    models: ['ItemCategory'],
+    initial: [],
+  },
+)
 
 const deactivated = useLiveQuery(
   async (db) => {
@@ -160,7 +163,9 @@ const showDeactivated = ref(false)
 </script>
 
 <template>
-  <div class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar">
+  <div
+    class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
+  >
     <div
       class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
     >
@@ -194,8 +199,6 @@ const showDeactivated = ref(false)
         hidePagination
         searchable
         filterable
-        densitySelector
-        columnManager
         exportManager
         exportFilename="item-categories.csv"
         persistKey="lookups:itemCategories"
@@ -262,7 +265,9 @@ const showDeactivated = ref(false)
 
           <div v-if="!editing">
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-              <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+              >
                 Code <span class="tw:text-red-500">*</span>
                 <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
                   (auto-derived from name)
@@ -305,7 +310,12 @@ const showDeactivated = ref(false)
 
           <BaseField label="Display Order" :value="form.displayOrder">
             <template #default="field">
-              <BaseTextInput v-bind="field" v-model.number="form.displayOrder" type="number" :min="0" />
+              <BaseTextInput
+                v-bind="field"
+                v-model.number="form.displayOrder"
+                type="number"
+                :min="0"
+              />
             </template>
           </BaseField>
         </div>

@@ -65,6 +65,62 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/analytics/': RouteRecordInfo<
+      '/analytics/',
+      '/analytics',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/alerts/': RouteRecordInfo<
+      '/analytics/alerts/',
+      '/analytics/alerts',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/alerts/[id]': RouteRecordInfo<
+      '/analytics/alerts/[id]',
+      '/analytics/alerts/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/analytics/dashboards/': RouteRecordInfo<
+      '/analytics/dashboards/',
+      '/analytics/dashboards',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/dashboards/[id]': RouteRecordInfo<
+      '/analytics/dashboards/[id]',
+      '/analytics/dashboards/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/analytics/explore': RouteRecordInfo<
+      '/analytics/explore',
+      '/analytics/explore',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/reports/': RouteRecordInfo<
+      '/analytics/reports/',
+      '/analytics/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/reports/[id]': RouteRecordInfo<
+      '/analytics/reports/[id]',
+      '/analytics/reports/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/api-keys': RouteRecordInfo<
       '/api-keys',
       '/api-keys',
@@ -839,6 +895,54 @@ declare module 'vue-router/auto-routes' {
     'src/pages/ai-usage.vue': {
       routes:
         | '/ai-usage'
+      views:
+        | never
+    }
+    'src/pages/analytics/index.vue': {
+      routes:
+        | '/analytics/'
+      views:
+        | never
+    }
+    'src/pages/analytics/alerts/index.vue': {
+      routes:
+        | '/analytics/alerts/'
+      views:
+        | never
+    }
+    'src/pages/analytics/alerts/[id].vue': {
+      routes:
+        | '/analytics/alerts/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/dashboards/index.vue': {
+      routes:
+        | '/analytics/dashboards/'
+      views:
+        | never
+    }
+    'src/pages/analytics/dashboards/[id].vue': {
+      routes:
+        | '/analytics/dashboards/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/explore.vue': {
+      routes:
+        | '/analytics/explore'
+      views:
+        | never
+    }
+    'src/pages/analytics/reports/index.vue': {
+      routes:
+        | '/analytics/reports/'
+      views:
+        | never
+    }
+    'src/pages/analytics/reports/[id].vue': {
+      routes:
+        | '/analytics/reports/[id]'
       views:
         | never
     }

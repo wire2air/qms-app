@@ -1,4 +1,11 @@
 <script setup>
+// `embedded` lets a host page (TrainingInstancesHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import { IconSchool, IconCircleCheck, IconClock, IconChartBar } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers'
@@ -52,6 +59,7 @@ const STATUS_PILLS = [
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="Training Matrix"
     :icon="IconSchool"
     subtitle="Track launched trainings and assignee progress."

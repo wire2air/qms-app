@@ -612,12 +612,7 @@ const capaDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- External sharing — who outside the company can read this. -->
-      <RecordShareCard
-        entityType="Capa"
-        :entityId="capa.id"
-        module="capa"
-        :record="capa"
-      />
+      <RecordShareCard entityType="Capa" :entityId="capa.id" module="capa" :record="capa" />
 
       <!-- 3. Workflow — below People (same placement as NC, 2026-08-12).
            While DRAFT the owner picks / switches the workflow here (the

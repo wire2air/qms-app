@@ -11,9 +11,21 @@ const targetType = ref('Nonconformance')
 // Targets wired today. (Customer Complaint escalation is deferred — its create
 // needs customer + SLA context that doesn't map to an internal observation.)
 const TARGETS = [
-  { value: 'Nonconformance', label: 'Nonconformance (NC)', help: 'Raise a formal nonconformance from this event.' },
-  { value: 'Capa', label: 'CAPA', help: 'Open a corrective/preventive action (source: Internal Observation).' },
-  { value: 'ChangeRequest', label: 'Change Request', help: 'Initiate a change request from this event.' },
+  {
+    value: 'Nonconformance',
+    label: 'Nonconformance (NC)',
+    help: 'Raise a formal nonconformance from this event.',
+  },
+  {
+    value: 'Capa',
+    label: 'CAPA',
+    help: 'Open a corrective/preventive action (source: Internal Observation).',
+  },
+  {
+    value: 'ChangeRequest',
+    label: 'Change Request',
+    help: 'Initiate a change request from this event.',
+  },
 ]
 
 watch(open, (v) => {
@@ -41,8 +53,8 @@ async function handleEscalate(close) {
     <div class="tw:flex tw:flex-col tw:gap-2 tw:p-1">
       <p class="tw:text-sm tw:text-secondary">
         Spawn a formal record from this event. The new record is created as a DRAFT, linked back to
-        this event, and the event is marked <strong>Escalated</strong>. You can refine the new record
-        afterwards.
+        this event, and the event is marked <strong>Escalated</strong>. You can refine the new
+        record afterwards.
       </p>
       <div class="tw:flex tw:flex-col tw:gap-2 tw:mt-2">
         <div

@@ -221,6 +221,18 @@ import { EventSeverity } from './eventSeverity'
 import { EventNote } from './eventNote'
 import { EventAttachment } from './eventAttachment'
 import { AutomationRule } from './automationRule'
+import { AnalyticsDashboard } from './analyticsDashboard'
+import { AnalyticsWidget } from './analyticsWidget'
+import { AnalyticsReport } from './analyticsReport'
+// Phase 8 — scheduled delivery + thresholds. Each model's header records the
+// grants and the updated_at index it was verified against; both are load-bearing
+// (an unindexed syncField is silently unsyncable, and a missing grant turns an
+// affordance into a permanent 403).
+import { AnalyticsReportSchedule } from './analyticsReportSchedule'
+import { AnalyticsReportRun } from './analyticsReportRun'
+import { AnalyticsAlert } from './analyticsAlert'
+import { AnalyticsAlertEvent } from './analyticsAlertEvent'
+import { AnalyticsInsight } from './analyticsInsight'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -452,4 +464,12 @@ export const db = {
   EventNote,
   EventAttachment,
   AutomationRule,
+  AnalyticsDashboard,
+  AnalyticsWidget,
+  AnalyticsReport,
+  AnalyticsReportSchedule,
+  AnalyticsReportRun,
+  AnalyticsAlert,
+  AnalyticsAlertEvent,
+  AnalyticsInsight,
 }

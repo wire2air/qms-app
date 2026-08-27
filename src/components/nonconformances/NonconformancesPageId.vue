@@ -325,8 +325,7 @@ const showConvertDialog = ref(false)
 const convertSupplierId = ref(null)
 const converting = ref(false)
 const canConvertToSupplier = computed(
-  () =>
-    nc.value && !nc.value.isSupplierFacing && nc.value.statusId === 'OPEN' && isOwner.value,
+  () => nc.value && !nc.value.isSupplierFacing && nc.value.statusId === 'OPEN' && isOwner.value,
 )
 function openConvertDialog() {
   convertSupplierId.value = nc.value?.supplierId ?? null
@@ -1057,12 +1056,7 @@ const ncDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- External sharing — who outside the company can read this. -->
-      <RecordShareCard
-        entityType="Nonconformance"
-        :entityId="nc.id"
-        module="ncr"
-        :record="nc"
-      />
+      <RecordShareCard entityType="Nonconformance" :entityId="nc.id" module="ncr" :record="nc" />
 
       <!-- 4. Workflow — below People (user decision 2026-08-12).
            While DRAFT the owner picks / switches the workflow here (the old
@@ -1121,8 +1115,6 @@ const ncDetailConfig = computed(() =>
         :departmentId="nc.departmentId"
         :editable="isEditable"
       />
-
-
 
       <!-- Workflow detail component (steps, reassign, send-back, record viewer) -->
     </template>

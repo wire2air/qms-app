@@ -90,4 +90,43 @@ describe('useListLayout — URL sync', () => {
     const lastCall = router.replace.mock.calls.at(-1)[0]
     expect(lastCall.query).toEqual({ search: 'widget' }) // page reset to 1 → omitted; statusId default → omitted
   })
+
+  // The writer used to replace the whole query object, which erased every param
+  // it did not own. That broke real things: a host page's `?tab=` disappeared as
+  // soon as the user filtered, and taskInstancesHome had to disable syncUrl
+  // entirely because these writes clobbered its `taskKindId`.
+  it('preserves query params it does not own', async () => {
+    const route = { query: { tab: 'insights', taskKindId: 'TRAINING' } }
+    const router = { replace: vi.fn(() => Promise.resolve()) }
+    const { api } = harness({
+      filters: { search: '', statusId: null },
+      syncUrl: true,
+      route,
+      router,
+    })
+    api.filters.value.search = 'widget'
+    await nextTick()
+    expect(router.replace.mock.calls.at(-1)[0].query).toEqual({
+      tab: 'insights',
+      taskKindId: 'TRAINING',
+      search: 'widget',
+    })
+  })
+
+  // Merging must not turn owned keys into append-only state: a filter returned
+  // to its default has to LEAVE the URL, or clearing a filter would silently
+  // keep filtering.
+  it('deletes an owned key when its filter returns to the default', async () => {
+    const route = { query: { tab: 'insights', search: 'widget' } }
+    const router = { replace: vi.fn(() => Promise.resolve()) }
+    const { api } = harness({
+      filters: { search: '', statusId: null },
+      syncUrl: true,
+      route,
+      router,
+    })
+    api.filters.value.search = ''
+    await nextTick()
+    expect(router.replace.mock.calls.at(-1)[0].query).toEqual({ tab: 'insights' })
+  })
 })

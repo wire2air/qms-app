@@ -9,6 +9,7 @@ import {
   COL_CLASS_OPTIONS,
   DATETIME_MODE_OPTIONS,
 } from '@/constants/formBuilderConfig'
+import { REPORTABLE_TYPES } from '@/utils/reportingKey'
 
 const props = defineProps({
   // Sibling lookup fields for cascading config (see ConfigLookup).
@@ -30,6 +31,20 @@ const props = defineProps({
   showScoring: {
     type: Boolean,
     default: false,
+  },
+  // Surface the per-field "Report on this field" sub-panel (stored on
+  // field.reporting). Independent of showScoring on purpose: scoring is a
+  // module-template feature, whereas projecting an answer into analytics is
+  // meaningful on any form whose records are kept.
+  showReporting: {
+    type: Boolean,
+    default: false,
+  },
+  // Reporting keys already used by OTHER fields on this template, so the panel
+  // can refuse a clash while the author is typing rather than at save.
+  takenKeys: {
+    type: Array,
+    default: () => [],
   },
 })
 
@@ -63,6 +78,28 @@ const SCORABLE_TYPES = new Set([
   'file',
 ])
 const isScorable = computed(() => props.showScoring && SCORABLE_TYPES.has(field.value?.type))
+
+// Input types whose answer resolves to exactly one typed value (number / text /
+// date / boolean) and can therefore be projected into analytics. Repeating and
+// tabular types are excluded — one row per (record, key) has no honest reading
+// of a repeater, and projecting its first row would quietly answer a different
+// question than the author asked. The set is defined once in
+// utils/reportingKey.js and mirrored from the backend's isReportableType.
+//
+// A field inside a REPEATING GROUP is excluded: a repeater holds one answer per
+// row and the projection stores one value per record, so there is nothing single
+// to record. The backend refuses it too — but it must not be offered here in the
+// first place, because a tickbox that saves cleanly and then measures nothing is
+// worse than one that is absent. The repeater's own children live under a
+// `.template.` path segment, which is the only signal this panel has for where
+// it sits in the tree.
+const insideRepeater = computed(() => String(props.path || '').includes('.template.'))
+const isReportable = computed(
+  () =>
+    props.showReporting &&
+    !insideRepeater.value &&
+    REPORTABLE_TYPES.has(field.value?.type),
+)
 
 // Heading field settings — segmented-control options.
 const HEADING_SIZES = [
@@ -542,6 +579,13 @@ function updateRowColClass(value) {
 
       <!-- Scoring (module templates only) -->
       <ConfigFieldScoring v-if="isScorable" v-model:field="field" />
+
+      <!-- Analytics: project this answer into a metric -->
+      <ConfigFieldReporting
+        v-if="isReportable"
+        v-model:field="field"
+        :takenKeys="takenKeys"
+      />
 
       <!-- Styling -->
       <ConfigStyling v-model:field="field" />

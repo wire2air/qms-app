@@ -1,4 +1,11 @@
 <script setup>
+// `embedded` lets a host page (ChangeRequestsHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
 import { humanizeFilter } from '@/composables/useListPrint.js'
 import { IconAlertCircle, IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
@@ -123,14 +130,11 @@ function onCreate() {
 
 <template>
   <BaseListLayout
+    :embedded="embedded"
     title="Change Control"
     subtitle="Plan, approve, implement, and verify the effectiveness of controlled changes."
     :state="list.state.value"
-    :emptyTitle="
-      list.hasActiveFilters.value
-        ? 'No change requests match your filters'
-        : 'No change requests yet'
-    "
+    contentOwnsEmpty
   >
     <template #actions>
       <ListPrintButton
@@ -149,13 +153,17 @@ function onCreate() {
     </template>
 
     <template #filters>
-      <ChangeRequestsFilterToolbar
-        v-model:filters="list.filters.value"
-        v-model:activeFilter="list.filters.value.activeFilter"
-      />
+      <ChangeRequestsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
     <ChangeRequestsTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
+      :emptyLabel="
+        list.hasActiveFilters.value
+          ? 'No change requests match your filters'
+          : 'No change requests yet'
+      "
       :rows="changeRequests"
       :canUpdate="canUpdate"
       @edit="(row) => router.push(getCompanyPath(`/change-requests/${row.id}`))"

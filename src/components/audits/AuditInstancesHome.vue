@@ -155,10 +155,10 @@ const allInstances = useLiveQuery(
     return results
       .filter((a) => a.programTypeId !== 'EXTERNAL')
       .sort(
-      (a, b) =>
-        (b.scheduledDate?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0) -
-        (a.scheduledDate?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0),
-    )
+        (a, b) =>
+          (b.scheduledDate?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0) -
+          (a.scheduledDate?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0),
+      )
   },
   { models: ['AuditInstance'], initial: [] },
 )
@@ -181,8 +181,6 @@ const instances = computed(() => applyActiveFilter(allInstances.value, activeFil
       :mobileCards="false"
       searchable
       filterable
-      densitySelector
-      columnManager
       exportManager
       exportFilename="audits.csv"
       persistKey="audits:instances"

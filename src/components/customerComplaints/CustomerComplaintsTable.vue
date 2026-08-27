@@ -19,6 +19,10 @@ const props = defineProps({
   // agent `assignedTo`. When true the ASSIGNED column resolves the owner (with
   // assignedTo as fallback) and is labelled OWNER.
   ownerAsAssignee: { type: Boolean, default: false },
+  // Copy for the in-card empty state (the page's filters produced no rows).
+  // Pages that set `contentOwnsEmpty` keep the table mounted when empty so the
+  // controls in its toolbar (search, quick views) stay reachable.
+  emptyLabel: { type: String, default: null },
 })
 
 defineEmits(['open', 'export'])
@@ -34,7 +38,14 @@ const selected = defineModel('selected', { type: Array, default: () => [] })
 const ALL_COLUMNS = [
   { name: 'complaintNumber', label: 'TICKET', field: 'complaintNumber', sortable: true },
   { name: 'subject', label: 'SUBJECT', field: 'subject', sortable: true },
-  { name: 'customer', label: 'CUSTOMER', field: 'customerName', sortable: true },
+  {
+    name: 'customer',
+    label: 'CUSTOMER',
+    field: 'customerName',
+    sortable: true,
+    // The cell renders name + email, so free-text search must match both.
+    searchValue: (row) => [row.customerName, row.customerEmail].filter(Boolean).join(' '),
+  },
   { name: 'source', label: 'SOURCE', field: 'sourceId' },
   { name: 'priority', label: 'PRIORITY', field: 'priorityId' },
   { name: 'sentiment', label: 'SENTIMENT', field: 'sentiment' },
@@ -118,15 +129,24 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     :selectable="selectable"
     rowKey="id"
     searchable
-    filterable
-    densitySelector
-    columnManager
     exportManager
     :exportColumns="exportColumns"
     :exportFormats="exportFormats"
+    :noDataLabel="emptyLabel"
     persistKey="customerComplaints"
     @export="(payload) => $emit('export', payload)"
   >
+    <!-- Toolbar pass-throughs: each consumer page supplies its own quick views
+         and filter control, since this table is shared by the support list and
+         the QA complaints list. -->
+    <template v-if="$slots.tabs" #tabs><slot name="tabs" /></template>
+    <template v-if="$slots['toolbar-filters']" #toolbar-filters>
+      <slot name="toolbar-filters" />
+    </template>
+    <template v-if="$slots['bulk-actions']" #bulk-actions="scope">
+      <slot name="bulk-actions" v-bind="scope" />
+    </template>
+
     <template #body-cell-complaintNumber="{ row }">
       <RouterLink
         :to="getCompanyPath(`${detailBasePath}/${row.id}`)"

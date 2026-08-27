@@ -185,8 +185,6 @@ function openLot(id) {
       :mobileCards="false"
       searchable
       filterable
-      densitySelector
-      columnManager
       exportManager
       :exportColumns="exportColumns"
       exportFilename="inspections.csv"
