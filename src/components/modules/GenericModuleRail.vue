@@ -99,4 +99,17 @@ watch(
     :record="record"
     scopeOwnerField="ownerUserId"
   />
+
+  <!-- Supplier PORTAL access — read grants for supplier users, any status,
+       CLOSED included (user request 2026-08-27). Distinct from the draft-time
+       "Share with supplier" (workflow routing) and from the email link above.
+       entityType = the moduleKey: records_sel matches shared_with_user rows
+       against records.module_key. -->
+  <SupplierPortalShareCard
+    v-if="record?.moduleKey"
+    :entityType="record.moduleKey"
+    :entityId="record.id"
+    :module="record.moduleKey"
+    :supplierId="record.supplierId || null"
+  />
 </template>

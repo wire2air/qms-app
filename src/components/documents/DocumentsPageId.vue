@@ -817,9 +817,14 @@ const documentDetailConfig = computed(() =>
         :reviewMode="hasActiveTaskOnSelected"
         :activeTab="activeContentTab"
       />
-      <!-- Read-only external-access panel — populated by workflow-step
-           assignment via autoShareSupplierUsers. See SharedWithPanel.vue. -->
-      <SharedWithPanel entityType="Document" :entityId="props.id" />
+      <!-- Supplier portal access — grant/revoke portal visibility for
+           supplier users, any status (user request 2026-08-27). Supersedes
+           the read-only SharedWithPanel: same rows, plus the controls. -->
+      <SupplierPortalShareCard
+        entityType="Document"
+        :entityId="props.id"
+        module="document_control"
+      />
       <!-- Collaborator's own task — self-hides unless the viewer has one open. -->
       <DocumentCollaboratorTaskCard :documentId="props.id" />
     </template>

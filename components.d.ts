@@ -1085,6 +1085,7 @@ declare module 'vue' {
     SupplierCertificateTypeSelectMenu: typeof import('./src/components/menus/SupplierCertificateTypeSelectMenu.vue')['default']
     SupplierDetailConfig: typeof import('./src/components/suppliers/supplierDetailConfig.js')['default']
     'SupplierDetailConfig.spec': typeof import('./src/components/suppliers/supplierDetailConfig.spec.js')['default']
+    SupplierPortalShareCard: typeof import('./src/components/share/SupplierPortalShareCard.vue')['default']
     SupplierRiskLevelBadge: typeof import('./src/components/badges/SupplierRiskLevelBadge.vue')['default']
     SupplierRiskLevelSelectMenu: typeof import('./src/components/menus/SupplierRiskLevelSelectMenu.vue')['default']
     SuppliersAssetRequestDialog: typeof import('./src/components/suppliers/SuppliersAssetRequestDialog.vue')['default']
