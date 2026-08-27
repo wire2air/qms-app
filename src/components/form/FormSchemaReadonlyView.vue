@@ -3,14 +3,7 @@ import { IconStarFilled, IconStar } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getFormComponent } from './formComponentRegistry.js'
 import { LOOKUP_ENTITY_BY_VALUE } from '@/constants/formBuilderConfig'
-import ProductBadgeById from '@/components/badges/ProductBadgeById.vue'
-import SupplierBadgeById from '@/components/badges/SupplierBadgeById.vue'
-import SiteBadgeById from '@/components/badges/SiteBadgeById.vue'
-import DepartmentBadgeById from '@/components/badges/DepartmentBadgeById.vue'
-import UserBadgeById from '@/components/badges/UserBadgeById.vue'
-import EquipmentBadgeById from '@/components/badges/EquipmentBadgeById.vue'
-import CountryBadgeById from '@/components/badges/CountryBadgeById.vue'
-import RegionBadgeById from '@/components/badges/RegionBadgeById.vue'
+import { LOOKUP_BADGES, LOOKUP_ID_PROPS } from '@/components/menus/lookupMenus.js'
 
 const props = defineProps({
   fields: { type: Array, required: true },
@@ -18,28 +11,7 @@ const props = defineProps({
 })
 
 // Entity badges for readonly `lookup` fields (resolve the stored id live).
-const LOOKUP_BADGES = {
-  product: ProductBadgeById,
-  supplier: SupplierBadgeById,
-  site: SiteBadgeById,
-  department: DepartmentBadgeById,
-  user: UserBadgeById,
-  equipment: EquipmentBadgeById,
-  country: CountryBadgeById,
-  region: RegionBadgeById,
-}
-// BadgeById id-prop per entity (SiteBadgeById wants siteId, …).
-const LOOKUP_ID_PROPS = {
-  product: 'productId',
-  supplier: 'supplierId',
-  site: 'siteId',
-  department: 'departmentId',
-  user: 'userId',
-  equipment: 'equipmentId',
-  country: 'countryId',
-  region: 'regionId',
-}
-
+// THE shared maps — see lookupMenus.js; the parity spec keeps them honest.
 function isLookupField(field) {
   return field.type === 'lookup'
 }

@@ -10,14 +10,7 @@
  * host only passes the parent's entity + current value and stays free of
  * app-layer imports.
  */
-import ProductSelectMenu from '@/components/menus/ProductSelectMenu.vue'
-import SupplierSelectMenu from '@/components/menus/SupplierSelectMenu.vue'
-import SiteSelectMenu from '@/components/menus/SiteSelectMenu.vue'
-import DepartmentSelectMenu from '@/components/menus/DepartmentSelectMenu.vue'
-import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
-import EquipmentSelectMenu from '@/components/menus/EquipmentSelectMenu.vue'
-import CountrySelectMenu from '@/components/menus/CountrySelectMenu.vue'
-import RegionSelectMenu from '@/components/menus/RegionSelectMenu.vue'
+import { LOOKUP_MENUS } from '@/components/menus/lookupMenus.js'
 import { LOOKUP_CASCADES } from '@/constants/formBuilderConfig'
 
 const props = defineProps({
@@ -31,18 +24,7 @@ const props = defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-const MENUS = {
-  product: ProductSelectMenu,
-  supplier: SupplierSelectMenu,
-  site: SiteSelectMenu,
-  department: DepartmentSelectMenu,
-  user: UserSelectMenu,
-  equipment: EquipmentSelectMenu,
-  country: CountrySelectMenu,
-  region: RegionSelectMenu,
-}
-
-const Menu = computed(() => MENUS[props.entity] || null)
+const Menu = computed(() => LOOKUP_MENUS[props.entity] || null)
 
 // e.g. child department + parent site → { siteId: <parentValue> }. An unknown
 // pair applies no filter — same forgiving rule as the form level.

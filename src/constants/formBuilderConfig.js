@@ -624,6 +624,42 @@ export const LOOKUP_ENTITIES = [
     model: 'Region',
     labelFields: ['name'],
   },
+  {
+    value: 'uom',
+    label: 'Unit of Measure',
+    selectMenu: 'UomSelectMenu',
+    badgeById: 'UomBadgeById',
+    idProp: 'uomId',
+    model: 'Uom',
+    labelFields: ['name'],
+  },
+  {
+    value: 'shift',
+    label: 'Shift',
+    selectMenu: 'ShiftSelectMenu',
+    badgeById: 'ShiftBadgeById',
+    idProp: 'shiftId',
+    model: 'Shift',
+    labelFields: ['name'],
+  },
+  {
+    value: 'productionLine',
+    label: 'Production Line',
+    selectMenu: 'ProductionLineSelectMenu',
+    badgeById: 'ProductionLineBadgeById',
+    idProp: 'productionLineId',
+    model: 'ProductionLine',
+    labelFields: ['name'],
+  },
+  {
+    value: 'employeeTitle',
+    label: 'Employee Title',
+    selectMenu: 'EmployeeTitleSelectMenu',
+    badgeById: 'EmployeeTitleBadgeById',
+    idProp: 'employeeTitleId',
+    model: 'EmployeeTitle',
+    labelFields: ['name'],
+  },
 ]
 export const LOOKUP_ENTITY_BY_VALUE = Object.fromEntries(LOOKUP_ENTITIES.map((e) => [e.value, e]))
 export const NO_LABEL_TYPES = new Set(['row', 'column', 'instructions', 'header'])

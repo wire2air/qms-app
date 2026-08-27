@@ -2,6 +2,7 @@ import { defineComponent, ref, computed, h, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useVModels } from '@vueuse/core'
 import { getProp, injectMultipleProps, setProp } from '@shared/composables/object.js'
+import { LOOKUP_MENUS } from '@/components/menus/lookupMenus.js'
 import {
   IconStar,
   IconStarFilled,
@@ -34,27 +35,10 @@ import BaseUploader from '@/components/common/BaseUploader.vue'
 import { required, email as emailValidator, helpers } from '@vuelidate/validators'
 import { getFormComponent } from './formComponentRegistry.js'
 import { fieldWidthSpan } from '@/constants/formBuilderConfig'
-import ProductSelectMenu from '@/components/menus/ProductSelectMenu.vue'
-import SupplierSelectMenu from '@/components/menus/SupplierSelectMenu.vue'
-import SiteSelectMenu from '@/components/menus/SiteSelectMenu.vue'
-import DepartmentSelectMenu from '@/components/menus/DepartmentSelectMenu.vue'
-import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
-import EquipmentSelectMenu from '@/components/menus/EquipmentSelectMenu.vue'
-import CountrySelectMenu from '@/components/menus/CountrySelectMenu.vue'
-import RegionSelectMenu from '@/components/menus/RegionSelectMenu.vue'
 import { LOOKUP_CASCADES } from '@/constants/formBuilderConfig'
 
 // Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
-const LOOKUP_MENUS = {
-  product: ProductSelectMenu,
-  supplier: SupplierSelectMenu,
-  site: SiteSelectMenu,
-  department: DepartmentSelectMenu,
-  user: UserSelectMenu,
-  equipment: EquipmentSelectMenu,
-  country: CountrySelectMenu,
-  region: RegionSelectMenu,
-}
+// THE shared map — every lookup surface renders from it; see lookupMenus.js.
 
 function safeRegExp(src) {
   try {
