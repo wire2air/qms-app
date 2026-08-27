@@ -2,7 +2,6 @@
 // Reusable reason-capture dialog for platform credential support ops
 // (password reset / unlock / MFA reset). Collects a mandatory reason and emits
 // it; the parent performs the actual API call. Every op is audited server-side.
-import { useToast } from '@shared/composables/useToast.js'
 
 defineProps({
   title: { type: String, default: 'Confirm action' },
@@ -13,8 +12,8 @@ defineProps({
 const emit = defineEmits(['confirm'])
 const show = defineModel({ type: Boolean, default: false })
 
-const toast = useToast()
 const reason = ref('')
+const reasonError = ref('')
 const busy = ref(false)
 
 watch(show, (open) => {
@@ -26,7 +25,7 @@ watch(show, (open) => {
 
 async function confirm() {
   if (!reason.value.trim()) {
-    toast.notify({ type: 'negative', message: 'A reason is required' })
+    reasonError.value = 'A reason is required'
     return
   }
   busy.value = true
@@ -49,7 +48,9 @@ async function confirm() {
         :rows="2"
         :required="true"
         placeholder="e.g. Verified caller identity for support ticket #1234"
+        @input="reasonError = ''"
       />
+      <p v-if="reasonError" class="tw:text-xs tw:text-bad">{{ reasonError }}</p>
     </div>
     <template #footer="{ close }">
       <BaseButton variant="secondary" :disabled="busy" @click="close">Cancel</BaseButton>

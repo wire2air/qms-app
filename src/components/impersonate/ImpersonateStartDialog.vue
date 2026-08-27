@@ -5,7 +5,6 @@
 // offered only to admin-tier+ and is re-checked server-side. The reason + mode
 // are recorded in the immutable platform audit trail.
 import { IconEye, IconPencil, IconAlertTriangle } from '@tabler/icons-vue'
-import { useToast } from '@shared/composables/useToast.js'
 import { hasPlatformRole } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -13,8 +12,8 @@ const props = defineProps({
 })
 const show = defineModel({ type: Boolean, default: false })
 
-const toast = useToast()
 const reason = ref('')
+const reasonError = ref('')
 const mode = ref('readonly')
 
 const canWrite = computed(() => hasPlatformRole('admin'))
@@ -35,7 +34,7 @@ watch(show, (open) => {
 function start() {
   if (!props.user) return
   if (!reason.value.trim()) {
-    toast.notify({ type: 'negative', message: 'A reason is required' })
+    reasonError.value = 'A reason is required'
     return
   }
   const returnUrl = window.location.pathname
@@ -67,7 +66,9 @@ function start() {
         :rows="2"
         :required="true"
         placeholder="e.g. Investigating support ticket #1234"
+        @input="reasonError = ''"
       />
+      <p v-if="reasonError" class="tw:text-xs tw:text-bad">{{ reasonError }}</p>
 
       <BaseSelect
         v-model="mode"

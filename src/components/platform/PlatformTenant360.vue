@@ -202,6 +202,7 @@ const legalHoldBusy = ref(false)
 const legalHoldDialog = ref(false)
 const purgeDialog = ref(false)
 const purgeForm = ref({ reason: '', delayHours: 72, confirmCode: '' })
+const purgeReasonError = ref('')
 const purgeBusy = ref(false)
 
 const legalHold = computed(() => blast.value?.company?.legalHold)
@@ -262,7 +263,7 @@ function openPurgeDialog() {
 async function onRequestPurge() {
   const f = purgeForm.value
   if (!f.reason.trim()) {
-    toast.notify({ type: 'negative', message: 'A reason is required' })
+    purgeReasonError.value = 'A reason is required'
     return
   }
   if (!purgeConfirmOk.value) {
@@ -350,7 +351,7 @@ function onStatusUpdated(newStatus) {
           <div class="tw:grid tw:grid-cols-2 tw:gap-6 tw:md:grid-cols-4">
             <div>
               <p class="tw:text-secondary tw:text-xs tw:mb-1">Code</p>
-              <p class="tw:font-mono tw:text-on-main">{{ company.code }}</p>
+              <p class="tw:text-on-main">{{ company.code }}</p>
             </div>
             <div>
               <p class="tw:text-secondary tw:text-xs tw:mb-1">Status</p>
@@ -645,7 +646,8 @@ function onStatusUpdated(newStatus) {
               only after a second operator approves and the cooling-off window elapses.
             </p>
           </div>
-          <BaseTextarea v-model="purgeForm.reason" label="Reason" :rows="2" :required="true" />
+          <BaseTextarea v-model="purgeForm.reason" label="Reason" :rows="2" :required="true" @input="purgeReasonError = ''" />
+          <p v-if="purgeReasonError" class="tw:text-xs tw:text-bad">{{ purgeReasonError }}</p>
           <BaseTextInput
             v-model="purgeForm.delayHours"
             type="number"

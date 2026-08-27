@@ -159,7 +159,7 @@ async function handleSeed() {
               optionValue="id"
               placeholder="Select a tenant…"
             />
-            <p v-if="selectedCompany" class="tw:font-mono tw:text-xs tw:text-secondary tw:mt-1">
+            <p v-if="selectedCompany" class="tw:text-xs tw:text-secondary tw:mt-1">
               {{ selectedCompany.code }}
             </p>
           </div>
@@ -272,7 +272,7 @@ async function handleSeed() {
           }}</span>
           into
           <span class="tw:font-semibold">{{ selectedCompany?.name }}</span>
-          <span class="tw:font-mono tw:text-xs tw:text-secondary"
+          <span class="tw:text-xs tw:text-secondary"
             >({{ selectedCompany?.code }})</span
           >?
         </p>

@@ -34,6 +34,7 @@ const canCreate = computed(
 )
 const showCreate = ref(false)
 const newName = ref('')
+const nameError = ref('')
 const newCode = ref('')
 const saving = ref(false)
 
@@ -58,7 +59,7 @@ async function submitCreate() {
   const name = newName.value.trim()
   const code = (newCode.value.trim() || slugify(name)).toUpperCase()
   if (!name) {
-    toast.warning('Name is required')
+    nameError.value = 'Name is required'
     return
   }
   saving.value = true
@@ -119,7 +120,8 @@ async function submitCreate() {
     <div class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Name</BaseText>
-        <BaseTextInput v-model="newName" placeholder="e.g. Each (ea)" autofocus @keyup.enter="submitCreate" />
+        <BaseTextInput v-model="newName" placeholder="e.g. Each (ea)" autofocus @input="nameError = ''" @keyup.enter="submitCreate" />
+        <p v-if="nameError" class="tw:text-xs tw:text-bad">{{ nameError }}</p>
       </div>
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Code (optional)</BaseText>

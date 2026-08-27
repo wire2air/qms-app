@@ -30,6 +30,7 @@ const dispositionTypes = useLiveQuery(
 const canCreate = computed(() => props.allowCreate && isAllowed(['nc_disposition_types:manage']))
 const showCreate = ref(false)
 const newName = ref('')
+const nameError = ref('')
 const saving = ref(false)
 
 function slugify(text) {
@@ -51,7 +52,7 @@ function openCreate(closePopover) {
 async function submitCreate() {
   const name = newName.value.trim()
   if (!name) {
-    toast.warning('Name is required')
+    nameError.value = 'Name is required'
     return
   }
   saving.value = true
@@ -121,7 +122,8 @@ async function submitCreate() {
   <BaseDialog v-model="showCreate" title="New disposition" maxWidth="sm">
     <div class="tw:flex tw:flex-col tw:gap-1">
       <BaseText as="div" variant="overline">Name</BaseText>
-      <BaseTextInput v-model="newName" placeholder="e.g. Use As Is" autofocus @keyup.enter="submitCreate" />
+      <BaseTextInput v-model="newName" placeholder="e.g. Use As Is" autofocus @input="nameError = ''" @keyup.enter="submitCreate" />
+      <p v-if="nameError" class="tw:text-xs tw:text-bad">{{ nameError }}</p>
       <p class="tw:mt-1 tw:text-xs tw:text-secondary">
         New dispositions are treated as adverse by default. Adjust the adverse / cost flags in
         Lookups → NC Dispositions.

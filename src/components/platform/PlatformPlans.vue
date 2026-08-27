@@ -26,6 +26,8 @@ const moduleCount = computed(() => modules.value.length)
 // ── Create ───────────────────────────────────────────────────────────────────
 const createDialog = ref(false)
 const createForm = ref({ id: '', name: '', description: '', entitlesAllModules: false })
+const createNameError = ref('')
+const editNameError = ref('')
 const creating = ref(false)
 
 // ── Edit ─────────────────────────────────────────────────────────────────────
@@ -61,7 +63,7 @@ async function handleCreate() {
     return
   }
   if (!f.name.trim()) {
-    toast.notify({ type: 'negative', message: 'Name is required' })
+    createNameError.value = 'Name is required'
     return
   }
   creating.value = true
@@ -95,7 +97,7 @@ function openEdit(plan) {
 async function handleEdit() {
   const f = editForm.value
   if (!f.name.trim()) {
-    toast.notify({ type: 'negative', message: 'Name is required' })
+    editNameError.value = 'Name is required'
     return
   }
   savingEdit.value = true
@@ -159,7 +161,7 @@ function moduleLabel(plan) {
                   Inactive
                 </BaseBadge>
               </div>
-              <p class="tw:font-mono tw:text-xs tw:text-secondary tw:mt-0.5">{{ plan.id }}</p>
+              <p class="tw:text-xs tw:text-secondary tw:mt-0.5">{{ plan.id }}</p>
             </div>
             <BaseButton
               v-if="canManage"
@@ -203,7 +205,9 @@ function moduleLabel(plan) {
           label="Name"
           placeholder="Starter"
           :required="true"
+          @input="createNameError = ''"
         />
+        <p v-if="createNameError" class="tw:text-xs tw:text-bad">{{ createNameError }}</p>
         <BaseTextarea v-model="createForm.description" label="Description" :rows="2" />
         <BaseSwitch v-model="createForm.entitlesAllModules" label="Entitle all modules" />
         <p class="tw:text-xs tw:text-secondary">
@@ -222,7 +226,13 @@ function moduleLabel(plan) {
     <!-- Edit -->
     <BaseDialog v-if="editForm" v-model="editDialog" :title="`Edit ${editForm.name}`">
       <div class="tw:flex tw:flex-col tw:gap-4">
-        <BaseTextInput v-model="editForm.name" label="Name" :required="true" />
+        <BaseTextInput
+          v-model="editForm.name"
+          label="Name"
+          :required="true"
+          @input="editNameError = ''"
+        />
+        <p v-if="editNameError" class="tw:text-xs tw:text-bad">{{ editNameError }}</p>
         <BaseTextarea v-model="editForm.description" label="Description" :rows="2" />
         <div class="tw:flex tw:items-center tw:gap-6">
           <BaseSwitch v-model="editForm.isActive" label="Active" />

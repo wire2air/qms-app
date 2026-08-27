@@ -68,6 +68,7 @@ const canCreate = computed(
 )
 const showCreate = ref(false)
 const newName = ref('')
+const nameError = ref('')
 const saving = ref(false)
 const toast = useToast()
 
@@ -103,7 +104,7 @@ function openCreate(closePopover) {
 async function submitCreate() {
   const name = newName.value.trim()
   if (!name) {
-    toast.warning('Name is required')
+    nameError.value = 'Name is required'
     return
   }
   saving.value = true
@@ -155,7 +156,8 @@ async function submitCreate() {
   <BaseDialog v-model="showCreate" :title="createLabel" maxWidth="sm">
     <div class="tw:flex tw:flex-col tw:gap-1">
       <BaseText as="div" variant="overline">Name</BaseText>
-      <BaseTextInput v-model="newName" placeholder="Enter a name" autofocus @keyup.enter="submitCreate" />
+      <BaseTextInput v-model="newName" placeholder="Enter a name" autofocus @input="nameError = ''" @keyup.enter="submitCreate" />
+      <p v-if="nameError" class="tw:text-xs tw:text-bad">{{ nameError }}</p>
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter

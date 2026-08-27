@@ -138,7 +138,7 @@ const reasonCfg = computed(() => {
       </template>
       <template #body-cell-tenant="{ row }">
         <div class="tw:font-medium tw:text-on-main">{{ row.tenant }}</div>
-        <div class="tw:font-mono tw:text-xs tw:text-secondary">{{ row.tenantCode }}</div>
+        <div class="tw:text-xs tw:text-secondary">{{ row.tenantCode }}</div>
       </template>
       <template #body-cell-requester="{ row }">
         <span class="tw:text-sm tw:text-secondary">{{ row.requester }}</span>

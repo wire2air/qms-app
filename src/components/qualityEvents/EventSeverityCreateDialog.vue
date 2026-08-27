@@ -12,6 +12,7 @@ const show = defineModel({ type: Boolean, default: false })
 const toast = useToast()
 
 const name = ref('')
+const nameError = ref('')
 const color = ref('#f59e0b')
 const saving = ref(false)
 
@@ -28,7 +29,7 @@ function slugify(text) {
 async function submit() {
   const trimmed = name.value.trim()
   if (!trimmed) {
-    toast.warning('Name is required')
+    nameError.value = 'Name is required'
     return
   }
   saving.value = true
@@ -59,7 +60,8 @@ async function submit() {
     <div class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Name</BaseText>
-        <BaseTextInput v-model="name" placeholder="e.g. Critical" autofocus @keyup.enter="submit" />
+        <BaseTextInput v-model="name" placeholder="e.g. Critical" autofocus @input="nameError = ''" @keyup.enter="submit" />
+        <p v-if="nameError" class="tw:text-xs tw:text-bad">{{ nameError }}</p>
       </div>
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Color</BaseText>

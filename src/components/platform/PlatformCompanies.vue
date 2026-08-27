@@ -92,7 +92,7 @@ function rowMenuItems(row) {
       </template>
 
       <template #body-cell-code="{ row }">
-        <span class="tw:text-sm tw:text-secondary tw:font-mono">{{ row.code }}</span>
+        <span class="tw:text-sm tw:text-secondary">{{ row.code }}</span>
       </template>
 
       <template #body-cell-status="{ row }">

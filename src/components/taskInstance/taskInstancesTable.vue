@@ -1173,7 +1173,7 @@ defineExpose({ exportCsv })
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ moduleLabelFor(row) }}
               </span>
-              <span class="tw:text-micro tw:text-secondary tw:font-mono tw:tracking-tight">
+              <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
                 {{ moduleRecordFor(row)?.record?.recordNumber || '—' }}
               </span>
             </template>

@@ -87,12 +87,12 @@ onMounted(load)
         <span class="tw:text-sm tw:text-secondary">{{ row.target }}</span>
       </template>
       <template #body-cell-detail="{ row }">
-        <span class="tw:line-clamp-1 tw:max-w-xs tw:text-xs tw:text-secondary tw:font-mono">
+        <span class="tw:line-clamp-1 tw:max-w-xs tw:text-xs tw:text-secondary">
           {{ row.detail }}
         </span>
       </template>
       <template #body-cell-ipAddress="{ row }">
-        <span class="tw:text-xs tw:text-secondary tw:font-mono">{{ row.ipAddress }}</span>
+        <span class="tw:text-xs tw:text-secondary">{{ row.ipAddress }}</span>
       </template>
     </DataTable>
   </BasePage>

@@ -3,7 +3,6 @@
 // ADMIN_EMAILS env allowlist). View = support; grant/revoke = owner. Every
 // change is audited (PLATFORM_ADMIN_GRANT / _REVOKE).
 import { IconUserShield, IconUserPlus, IconTrash } from '@tabler/icons-vue'
-import { useToast } from '@shared/composables/useToast.js'
 import { useConfirm } from '@shared/composables/useConfirm.js'
 import {
   listPlatformAdmins,
@@ -13,7 +12,6 @@ import {
 } from '@/api/platform.js'
 import { hasPlatformRole } from '@/utils/currentSession.js'
 
-const toast = useToast()
 const { confirm } = useConfirm()
 
 const rows = ref([])
@@ -22,6 +20,7 @@ const canManage = computed(() => hasPlatformRole('owner'))
 
 const grantDialog = ref(false)
 const grantForm = ref({ email: '', role: 'support' })
+const grantEmailError = ref('')
 const granting = ref(false)
 
 const columns = [
@@ -59,7 +58,7 @@ function openGrant() {
 
 async function handleGrant() {
   if (!grantForm.value.email.trim()) {
-    toast.notify({ type: 'negative', message: 'Email is required' })
+    grantEmailError.value = 'Email is required'
     return
   }
   granting.value = true
@@ -141,7 +140,9 @@ async function onRevoke(row) {
           label="User email"
           placeholder="operator@yourcompany.com"
           :required="true"
+          @input="grantEmailError = ''"
         />
+        <p v-if="grantEmailError" class="tw:text-xs tw:text-bad">{{ grantEmailError }}</p>
         <BaseSelect
           v-model="grantForm.role"
           label="Role"
