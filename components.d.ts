@@ -808,6 +808,7 @@ declare module 'vue' {
     LoggingDashboard: typeof import('./src/components/inspectionsLogs/LoggingDashboard.vue')['default']
     LoginForm: typeof import('./src/components/auth/LoginForm.vue')['default']
     LoginHistory: typeof import('./src/components/security/LoginHistory.vue')['default']
+    LookupSelectByEntity: typeof import('./src/components/menus/LookupSelectByEntity.vue')['default']
     LookupsHome: typeof import('./src/components/company/LookupsHome.vue')['default']
     MainHeader: typeof import('./src/components/layout/MainHeader.vue')['default']
     MainSidebar: typeof import('./src/components/layout/MainSidebar.vue')['default']

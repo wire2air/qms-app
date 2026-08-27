@@ -28,6 +28,18 @@ const LOOKUP_BADGES = {
   country: CountryBadgeById,
   region: RegionBadgeById,
 }
+// BadgeById id-prop per entity (SiteBadgeById wants siteId, …).
+const LOOKUP_ID_PROPS = {
+  product: 'productId',
+  supplier: 'supplierId',
+  site: 'siteId',
+  department: 'departmentId',
+  user: 'userId',
+  equipment: 'equipmentId',
+  country: 'countryId',
+  region: 'regionId',
+}
+
 function isLookupField(field) {
   return field.type === 'lookup'
 }
@@ -573,7 +585,17 @@ function getChecklistColumnLabel(col) {
                   :key="col.value || col.label"
                   class="tw:px-3 tw:py-2 tw:text-on-main"
                 >
-                  <span v-if="checklistCellDisplay(field, rowIndex, col) != null">
+                  <!-- Lookup cells store an entity id — resolve it to a badge
+                       instead of printing the UUID (2026-08-27). -->
+                  <component
+                    :is="LOOKUP_BADGES[col.lookupEntity || 'product']"
+                    v-if="col.inputType === 'lookup' && checklistCellDisplay(field, rowIndex, col)"
+                    v-bind="{
+                      [LOOKUP_ID_PROPS[col.lookupEntity || 'product'] || 'productId']:
+                        checklistCellDisplay(field, rowIndex, col),
+                    }"
+                  />
+                  <span v-else-if="checklistCellDisplay(field, rowIndex, col) != null">
                     {{ checklistCellDisplay(field, rowIndex, col) }}
                   </span>
                   <span v-else class="tw:text-secondary">—</span>

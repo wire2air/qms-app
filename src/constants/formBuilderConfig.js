@@ -794,6 +794,9 @@ export const CHECKLIST_COLUMN_TYPE_VALUES = [
   'select',
   'date',
   'time',
+  // Entity lookups as cells (user request 2026-08-27), with per-row
+  // cascading between lookup columns.
+  'lookup',
 ]
 export const COLUMN_INPUT_TYPES = typeOptions(CHECKLIST_COLUMN_TYPE_VALUES)
 
