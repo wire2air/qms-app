@@ -387,6 +387,13 @@ function updateRowColClass(value) {
             </div>
             <BaseTextInput v-model="field.addLabel" label="Add Button Label" />
             <BaseTextInput v-model="field.itemLabel" label="Item Label" />
+            <!-- The fixed "Product 1 / Product 2" first column. Off = the
+                 table starts straight at the data columns. -->
+            <BaseCheckbox
+              :modelValue="field.showRowLabels !== false"
+              label="Show row label column"
+              @update:modelValue="(v) => (field.showRowLabels = v)"
+            />
           </div>
         </template>
 

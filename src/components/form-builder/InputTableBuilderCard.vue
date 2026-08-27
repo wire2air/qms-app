@@ -192,7 +192,10 @@ const addRowLabel = computed(() => props.field.addLabel || 'Add row')
 </script>
 
 <template>
-  <div class="tw:mt-2" @click.stop @mousedown.stop>
+  <!-- Clicks BUBBLE to the canvas card so clicking the table selects it and
+       opens the Field Settings panel (user report 2026-08-27: it never
+       opened). The column-manager buttons stop their own clicks. -->
+  <div class="tw:mt-2">
     <!-- WYSIWYG preview — identical to the live form / Preview panel. -->
     <div class="tw:pointer-events-none">
       <DynamicForm v-model="previewData" :fields="previewFields" />

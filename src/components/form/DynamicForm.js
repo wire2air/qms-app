@@ -851,18 +851,24 @@ export default defineComponent({
         return a
       }
 
+      // The fixed row-label column ("Product 1", …). Authors can turn it off
+      // in the field settings when the rows need no running label
+      // (user request 2026-08-27).
+      const showRowLabels = field.showRowLabels !== false
       const headerCells = [
-        h(
-          'th',
-          {
-            class: cx(
-              'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5 tw:w-px tw:whitespace-nowrap',
-              ts.headerClass,
-              ts.headerCellClass,
-            ),
-          },
-          '',
-        ),
+        showRowLabels
+          ? h(
+              'th',
+              {
+                class: cx(
+                  'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5 tw:w-px tw:whitespace-nowrap',
+                  ts.headerClass,
+                  ts.headerCellClass,
+                ),
+              },
+              '',
+            )
+          : null,
         ...columns.map((col) =>
           h(
             'th',
@@ -881,16 +887,18 @@ export default defineComponent({
 
       const bodyRows = items.map((item, i) => {
         const cells = [
-          h(
-            'td',
-            {
-              class: cx(
-                'tw:px-2 tw:py-1.5 tw:text-sm tw:text-on-main tw:whitespace-nowrap tw:align-middle',
-                ts.cellClass,
-              ),
-            },
-            `${field.itemLabel || 'Item'} ${i + 1}`,
-          ),
+          showRowLabels
+            ? h(
+                'td',
+                {
+                  class: cx(
+                    'tw:px-2 tw:py-1.5 tw:text-sm tw:text-on-main tw:whitespace-nowrap tw:align-middle',
+                    ts.cellClass,
+                  ),
+                },
+                `${field.itemLabel || 'Item'} ${i + 1}`,
+              )
+            : null,
           ...columns.map((col, ci) =>
             // label blanked — the column header carries it, not each cell.
             h('td', { class: cx('tw:px-2 tw:py-1.5 tw:align-top', ts.cellClass) }, [
