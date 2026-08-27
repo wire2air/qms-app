@@ -38,8 +38,9 @@ const saveError = ref('')
 //     roles live on `RoleOnWorkflowInstanceStep` keyed by the instance
 //     step's id.
 // Read both; whichever returns rows is the source. The dialog forwards
-// these ids as `roleIds` in the addChildStep payload (backend schema
-// requires min 1).
+// these ids as `roleIds` in the addChildStep payload — EMPTY is legal
+// (a step whose reviewers were picked at submit has no role pool, and an
+// empty pool means every active internal user).
 const parentInstanceStep = useLiveQueryWithDeps(
   [() => props.parentInstanceStepId],
 

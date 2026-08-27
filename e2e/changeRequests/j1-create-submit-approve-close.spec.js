@@ -27,7 +27,8 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     const cr = findCrByTitle(title)
     expect(cr, 'CR row exists').toBeTruthy()
     expect(cr.statusId).toBe('DRAFT')
-    expect(cr.crNumber, 'CR number minted on create').toMatch(/^CR-.+-\d{3,}$/)
+    // Flat per-company numbering (site/dept prefixes dropped).
+    expect(cr.crNumber, 'CR number minted on create').toMatch(/^CR-\d{3,}$/)
 
     await assignDraftReviewers(page, cr.id)
     await submitCrForApproval(page, cr.id)
