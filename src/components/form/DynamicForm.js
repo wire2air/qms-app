@@ -217,6 +217,25 @@ export default defineComponent({
       return true
     }
 
+    /**
+     * First field definition with this name, anywhere in the schema —
+     * containers (children / fields) and repeater templates included. Names
+     * are unique per scope by construction (uniqueFieldName /
+     * uniqueColumnName), so first-match is the right answer.
+     */
+    function findFieldDefByName(fields, name) {
+      for (const f of fields || []) {
+        if (!f || typeof f !== 'object') continue
+        if (f.name === name && f.type !== 'row' && f.type !== 'column') return f
+        const nested = f.children || f.fields || f.template
+        if (Array.isArray(nested)) {
+          const hit = findFieldDefByName(nested, name)
+          if (hit) return hit
+        }
+      }
+      return null
+    }
+
     function getFieldScope(data) {
       const { path } = data
 
@@ -568,13 +587,20 @@ export default defineComponent({
           // an empty parent applies no filter (full list).
           const cascadeProps = {}
           if (field.parentField && field.lookupEntity) {
-            const parentDef = (props.fields || []).find((f) => f.name === field.parentField)
+            const parentDef = findFieldDefByName(props.fields, field.parentField)
             const propName =
               parentDef?.lookupEntity &&
               LOOKUP_CASCADES[field.lookupEntity]?.[parentDef.lookupEntity]
             if (propName) {
-              const parentValue = modelValue.value?.[field.parentField]
-              cascadeProps[propName] = parentValue || null
+              // SIBLING scope, not the form root: inside an input-table row
+              // the parent column's value lives on the ROW object
+              // (table.3.site), so swap the last path segment — which also
+              // reduces to the flat key on a top-level field (2026-08-27).
+              const p = String(scope?.path ?? field.name ?? '')
+              const parentPath = p.includes('.')
+                ? `${p.slice(0, p.lastIndexOf('.') + 1)}${field.parentField}`
+                : field.parentField
+              cascadeProps[propName] = getProp(modelValue.value, parentPath) || null
             }
           }
           const control = Menu

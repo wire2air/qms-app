@@ -754,6 +754,8 @@ export const FIELD_TYPE_LABELS = Object.freeze({
   datetime: 'Date / time',
   date: 'Date',
   time: 'Time',
+  // Same word the field-kind dropdown uses (parentheticals stripped there).
+  lookup: 'Lookup',
   // Offered nowhere; named so existing columns don't display as something else.
   radio: 'Radio (legacy)',
 })
@@ -806,6 +808,9 @@ export const INPUT_TABLE_COLUMN_TYPE_VALUES = [
   'datetime',
   'checkbox',
   'toggle',
+  // Entity lookups as columns (user request 2026-08-27) — with per-row
+  // cascading via parentField, same as form-level lookups.
+  'lookup',
 ]
 export const INPUT_TABLE_COLUMN_TYPES = typeOptions(INPUT_TABLE_COLUMN_TYPE_VALUES, 'type')
 
