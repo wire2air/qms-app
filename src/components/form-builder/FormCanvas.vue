@@ -1,7 +1,8 @@
 <script setup>
-import { IconCirclePlus } from '@tabler/icons-vue'
+import { IconCirclePlus, IconPlus } from '@tabler/icons-vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
 import FormCanvasField from './FormCanvasField.vue'
+import AddFieldDialog from './AddFieldDialog.vue'
 
 const props = defineProps({
   fields: {
@@ -38,6 +39,12 @@ const props = defineProps({
   emptyDescription: {
     type: String,
     default: 'Drag fields from the sidebar or click to add.',
+  },
+  // The trailing Add-field button. MiniFormBuilder turns it off — it renders
+  // its own (same picker, its own placement).
+  showAddButton: {
+    type: Boolean,
+    default: true,
   },
 })
 
@@ -108,6 +115,29 @@ function onMoveField(payload) {
 function onAddField(payload) {
   emit('addField', payload.fieldType, payload.parentPath, payload.index)
 }
+
+// ── Click-to-insert (user request 2026-08-26) ───────────────────────────────
+// Dropping a drag exactly in the gap is fiddly; every card carries an
+// "insert above" chip and the canvas ends with an Add-field button. Both open
+// the same picker the MiniFormBuilder uses, then add at the remembered spot.
+const showAddDialog = ref(false)
+const pendingInsert = ref(null) // { parentPath, index } | null = append at end
+
+function onInsertField(payload) {
+  pendingInsert.value = payload
+  showAddDialog.value = true
+}
+
+function openAppendDialog() {
+  pendingInsert.value = { parentPath: null, index: props.fields.length }
+  showAddDialog.value = true
+}
+
+function onPickType(type) {
+  const target = pendingInsert.value ?? { parentPath: null, index: props.fields.length }
+  emit('addField', type, target.parentPath, target.index)
+  pendingInsert.value = null
+}
 </script>
 
 <template>
@@ -146,8 +176,23 @@ function onAddField(payload) {
       @duplicate="onDuplicateField"
       @moveField="onMoveField"
       @addField="onAddField"
+      @insertField="onInsertField"
     />
   </div>
+
+  <!-- After the last element, like the flow builder's Add Step — OUTSIDE the
+       sortable container so it never enters SortableJS's index math. -->
+  <button
+    v-if="showAddButton"
+    type="button"
+    class="tw:mt-3 tw:flex tw:w-full tw:items-center tw:justify-center tw:gap-2 tw:rounded-xl tw:border-2 tw:border-dashed tw:border-divider tw:py-2.5 tw:text-secondary tw:transition-colors tw:hover:border-primary tw:hover:text-primary"
+    @click="openAppendDialog"
+  >
+    <IconPlus :size="18" />
+    <span class="tw:text-sm tw:font-bold">Add field</span>
+  </button>
+
+  <AddFieldDialog v-model="showAddDialog" @pick="onPickType" />
 </template>
 
 <style lang="scss" scoped>

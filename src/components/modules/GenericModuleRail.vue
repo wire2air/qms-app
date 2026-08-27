@@ -45,6 +45,18 @@ watch(
 </script>
 
 <template>
+  <!-- External sharing — same card as CAPA/NC; the authz module is the
+       record's own moduleKey (promoted modules carry manage_access since
+       2026-08-27). -->
+  <RecordShareCard
+    v-if="record"
+    entityType="Record"
+    :entityId="record.id"
+    :module="record.moduleKey"
+    :record="record"
+    scopeOwnerField="ownerUserId"
+  />
+
   <BaseRailCard v-if="record" title="Details">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:text-sm">
       <div class="tw:flex tw:flex-col tw:gap-1">

@@ -100,6 +100,8 @@ const RECORD_TABS = [
     numberField: 'eventNumber',
   },
   { id: 'ChangeRequest', label: 'Change Control', model: 'ChangeRequest', numberField: 'crNumber' },
+  // Admin-defined module records (Deviation, …) — user request 2026-08-26.
+  { id: 'Record', label: 'Modules', model: 'Record', numberField: 'recordNumber' },
 ]
 const recordTab = ref('Capa')
 const recordSearch = ref('')
@@ -113,8 +115,10 @@ const STATUS_OPTIONS = [
   { id: 'ALL', name: 'All statuses' },
 ]
 const recordStatus = ref('CLOSED')
+// Every type here speaks the unified Draft/Open/Closed/Cancelled vocabulary
+// since 2026-08-26 (Change Requests and module records included).
 const statusFilterApplies = computed(() =>
-  ['Capa', 'Nonconformance', 'QualityEvent'].includes(recordTab.value),
+  ['Capa', 'Nonconformance', 'QualityEvent', 'ChangeRequest', 'Record'].includes(recordTab.value),
 )
 
 // Period filter: an auditor asks "CAPAs closed in FY25" — so the range reads
@@ -156,7 +160,37 @@ const crs = useLiveQuery((db) => db.ChangeRequest.where().exec(), {
   models: ['ChangeRequest'],
   initial: [],
 })
-const RECORD_SOURCES = { Capa: capas, Nonconformance: ncs, QualityEvent: qes, ChangeRequest: crs }
+// Module records share the polymorphic `records` table with form submissions —
+// moduleKey is the discriminator, and it doubles as the row's display context
+// (there is no title column on the envelope).
+const moduleRecords = useLiveQuery(
+  async (db) => {
+    const rows = await db.Record.where().exec()
+    // Plain display objects, NOT the pooled instances — the envelope has no
+    // title column, and decorating the shared reactive instance would leak the
+    // synthetic field into every other consumer of the pool.
+    return rows
+      .filter((r) => r.moduleKey)
+      .map((r) => ({
+        id: r.id,
+        recordNumber: r.recordNumber,
+        title: r.moduleKey.replaceAll('_', ' '),
+        statusId: r.statusId,
+        siteId: r.siteId,
+        departmentId: r.departmentId,
+        createdAt: r.createdAt,
+        closedAt: r.completedAt,
+      }))
+  },
+  { models: ['Record'], initial: [] },
+)
+const RECORD_SOURCES = {
+  Capa: capas,
+  Nonconformance: ncs,
+  QualityEvent: qes,
+  ChangeRequest: crs,
+  Record: moduleRecords,
+}
 
 const filteredRecords = computed(() => {
   const cfg = RECORD_TABS.find((t) => t.id === recordTab.value)
@@ -266,6 +300,7 @@ const detailItems = useLiveQueryWithDeps(
 const ITEM_MODELS = {
   Document: { model: 'Document', numberField: 'docNumber', label: 'Document' },
   Capa: { model: 'Capa', numberField: 'capaNumber', label: 'CAPA' },
+  Record: { model: 'Record', numberField: 'recordNumber', label: 'Module record' },
   Nonconformance: { model: 'Nonconformance', numberField: 'ncNumber', label: 'NC' },
   QualityEvent: { model: 'QualityEvent', numberField: 'eventNumber', label: 'Quality Event' },
   ChangeRequest: { model: 'ChangeRequest', numberField: 'crNumber', label: 'Change Request' },

@@ -44,6 +44,7 @@ const PKG_ITEM_MODELS = {
   Nonconformance: { model: 'Nonconformance', numberField: 'ncNumber', label: 'NC' },
   QualityEvent: { model: 'QualityEvent', numberField: 'eventNumber', label: 'Quality Event' },
   ChangeRequest: { model: 'ChangeRequest', numberField: 'crNumber', label: 'Change Request' },
+  Record: { model: 'Record', numberField: 'recordNumber', label: 'Module record' },
 }
 const packageResolved = useLiveQueryWithDeps(
   [() => packageItems.value.map((i) => `${i.entityType}:${i.entityId}`).join(',')],

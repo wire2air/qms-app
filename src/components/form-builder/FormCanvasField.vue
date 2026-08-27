@@ -5,6 +5,7 @@ import {
   IconGripHorizontal,
   IconCirclePlus,
   IconInfoCircle,
+  IconPlus,
   IconSettings,
 } from '@tabler/icons-vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
@@ -59,6 +60,7 @@ const emit = defineEmits([
   'duplicate',
   'moveField',
   'addField',
+  'insertField',
 ])
 
 const childrenDropzoneRef = ref(null)
@@ -112,6 +114,26 @@ const layoutTypeLabel = computed(
 const hasChildren = computed(() => Boolean(props.field.children || props.field.template))
 
 const children = computed(() => props.field.children || props.field.template || [])
+
+// Where THIS card sits, split for insert-before: everything up to the last
+// path segment is the parent, the last segment is our index. Root cards have
+// no parent ("2" → parentPath null, index 2).
+const ownParentPath = computed(() => {
+  const i = props.path.lastIndexOf('.')
+  return i === -1 ? null : props.path.slice(0, i)
+})
+const ownIndex = computed(() => {
+  const i = props.path.lastIndexOf('.')
+  return Number(props.path.slice(i + 1))
+})
+
+function requestInsertBefore() {
+  emit('insertField', { parentPath: ownParentPath.value, index: ownIndex.value })
+}
+
+function requestInsertIntoChildren() {
+  emit('insertField', { parentPath: props.path, index: children.value.length })
+}
 
 const childrenKey = computed(() => (props.field.template ? 'template' : 'children'))
 
@@ -280,6 +302,21 @@ function beginEdit(which) {
     >
       <IconGripHorizontal :size="16" />
     </button>
+
+    <!-- Insert BEFORE this field — the click alternative to dropping a drag
+         exactly in the gap (user report 2026-08-26: the drop zone is easy to
+         miss). Hover-revealed at the top-left corner; works between sections
+         too, since a section is just another card in this list. -->
+    <BaseTooltip content="Insert a field above">
+      <button
+        type="button"
+        class="tw:absolute tw:-top-2.5 tw:left-2 tw:flex tw:size-5 tw:items-center tw:justify-center tw:rounded-full tw:border tw:border-divider tw:bg-card tw:text-secondary tw:opacity-0 tw:shadow-sm tw:transition-opacity tw:hover:border-primary tw:hover:text-primary tw:group-hover:opacity-100 tw:z-raised"
+        :aria-label="`Insert a field above ${field.label || field.name || field.type}`"
+        @click.stop="requestInsertBefore"
+      >
+        <IconPlus :size="13" />
+      </button>
+    </BaseTooltip>
 
     <!-- Layout containers keep a slim, editable title (it renders on the live
          form for sections) — no big icon box or type chrome. Leaf fields have
@@ -515,6 +552,7 @@ function beginEdit(which) {
           @duplicate="$emit('duplicate', $event)"
           @moveField="$emit('moveField', $event)"
           @addField="$emit('addField', $event)"
+          @insertField="$emit('insertField', $event)"
         />
 
         <div
@@ -527,6 +565,18 @@ function beginEdit(which) {
           </BaseText>
         </div>
       </div>
+
+      <!-- Click-to-add INTO this container — deliberately OUTSIDE the
+           dropzone div: SortableJS has no draggable filter here, so an
+           element inside the container would join its index math. -->
+      <button
+        type="button"
+        class="tw:mt-1.5 tw:flex tw:w-full tw:items-center tw:justify-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-dashed tw:border-divider tw:py-1.5 tw:text-xs tw:font-medium tw:text-secondary tw:transition-colors tw:hover:border-primary tw:hover:text-primary"
+        @click.stop="requestInsertIntoChildren"
+      >
+        <IconPlus :size="14" />
+        Add field
+      </button>
     </div>
     <!-- Footer — every action for this field in one row, Google Forms style
          (user request 2026-08-15): purpose tooltip + status badges on the

@@ -143,6 +143,7 @@ watch(showSettingsDialog, (open) => {
       :isDragging="isDragging"
       :group="dragGroup"
       :bordered="false"
+      :showAddButton="false"
       emptyDescription="No fields yet — use “Add field” below."
       class="tw:min-h-40!"
       @addField="addField"
