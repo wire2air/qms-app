@@ -22,7 +22,10 @@ const template = useLiveQueryWithDeps(
   { models: ['FormTemplate'] },
 )
 
-const fields = computed(() => template.value?.schema || [])
+// The record's FROZEN form once started (snapshot stamped at Start); the live
+// template only while DRAFT — so a later design change never rewrites what an
+// existing record shows (user report 2026-08-27).
+const fields = computed(() => record.value?.schemaSnapshot || template.value?.schema || [])
 // Routed sections are filled by their workflow assignees; everything else is
 // owner-level (filled at Draft and reviewed at close).
 const isRoutedSection = (f) => f.type === 'section' && f.routing && f.routing.type

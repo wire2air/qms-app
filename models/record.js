@@ -44,6 +44,9 @@ export class Record extends BaseModel {
   @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   @Property({ type: Array }) notifyGroupIds = []
   @Property({ type: String }) moduleKey = ''
+  // The form as it looked at Start — null while DRAFT (drafts track the live
+  // template). Rendering prefers this so design changes never rewrite records.
+  @Property({ type: Object }) schemaSnapshot = null
   @Property({ type: String }) siteId = null
   @Property({ type: String }) departmentId = null
   @Property({ type: DateTime }) dueDate = null

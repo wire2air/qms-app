@@ -37,7 +37,8 @@ const template = useLiveQueryWithDeps(
 )
 
 const isRoutedSection = (f) => f.type === 'section' && f.routing && f.routing.type
-const schema = computed(() => template.value?.schema || [])
+// Frozen at Start when the record has a snapshot; the live template otherwise.
+const schema = computed(() => record.value?.schemaSnapshot || template.value?.schema || [])
 const ownerFields = computed(() => schema.value.filter((f) => !isRoutedSection(f)))
 
 const moduleName = computed(
