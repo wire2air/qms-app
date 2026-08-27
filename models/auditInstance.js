@@ -40,6 +40,8 @@ export class AuditInstance extends BaseModel {
   // mutation from ever carrying statusId (the detail page already changes status
   // only through the REST start/cancel/submit actions).
   @Property({ type: String, required: true, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
+  // SCHEDULED | IN_PROGRESS | REVIEW | COMPLETE — execution detail while OPEN
+  @Property({ type: String }) executionPhase = 'SCHEDULED'
   @Property({ type: DateTime }) scheduledDate = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) startedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)

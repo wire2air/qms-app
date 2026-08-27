@@ -192,8 +192,9 @@ function auditTone(a) {
   if (a.programTypeId === 'EXTERNAL') return a.planned ? 'certificationPlanned' : 'certification'
   if (a.planned) return 'planned'
   if (a.statusId === 'CANCELLED') return 'cancelled'
-  if (['COMPLETED', 'CLOSED'].includes(a.statusId)) return 'done'
-  if (['IN_PROGRESS', 'REVIEW'].includes(a.statusId)) return 'inflight'
+  if (a.statusId === 'CLOSED') return 'done'
+  if (a.statusId === 'OPEN' && ['IN_PROGRESS', 'REVIEW'].includes(a.executionPhase))
+    return 'inflight'
   // DRAFT / SCHEDULED: past due once the scheduled date has passed unstarted.
   const due = a.scheduledDate?.toMillis ? a.scheduledDate.toMillis() : null
   if (due != null && due < startOfToday()) return 'pastdue'

@@ -76,7 +76,7 @@ const users = useLiveQuery(async (db) => db.User.where().exec(), { models: ['Use
 
 const activePrograms = computed(() => programs.value.filter((p) => p.active).length)
 
-const IN_FLIGHT_STATUSES = new Set(['DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'REVIEW'])
+const IN_FLIGHT_STATUSES = new Set(['DRAFT', 'OPEN'])
 const inFlightAudits = computed(
   () => instances.value.filter((i) => IN_FLIGHT_STATUSES.has(i.statusId)).length,
 )
@@ -95,7 +95,9 @@ const auditsDueIn30d = computed(() => {
     if (!dt) return false
     // Counted: SCHEDULED audits within 30d (DRAFT means not yet
     // committed; past CLOSED / CANCELLED audits don't qualify).
-    if (!['SCHEDULED', 'DRAFT'].includes(i.statusId)) return false
+    const upcoming =
+      i.statusId === 'DRAFT' || (i.statusId === 'OPEN' && i.executionPhase === 'SCHEDULED')
+    if (!upcoming) return false
     return dt >= today && dt <= horizon
   }).length
 })
@@ -179,7 +181,9 @@ const upcomingAudits = computed(() => {
   return instances.value
     .filter((i) => {
       if (!i.scheduledDate) return false
-      if (!['DRAFT', 'SCHEDULED'].includes(i.statusId)) return false
+      const notStarted =
+        i.statusId === 'DRAFT' || (i.statusId === 'OPEN' && i.executionPhase === 'SCHEDULED')
+      if (!notStarted) return false
       const dt = i.scheduledDate.startOf?.('day') ?? null
       return dt && dt >= today
     })

@@ -148,7 +148,7 @@ export function findAuditByScope(scope) {
 export function auditRow(auditInstanceId) {
   const row = sqlRow(
     `SELECT status_id, coalesce(released_at::text,''), coalesce(completed_at::text,''),
-            coalesce(workflow_instance_id::text,'')
+            coalesce(workflow_instance_id::text,''), execution_phase
        FROM audit_instances WHERE id = '${auditInstanceId}'`,
   )
   if (!row) return null
@@ -157,6 +157,7 @@ export function auditRow(auditInstanceId) {
     releasedAt: row[1] || null,
     completedAt: row[2] || null,
     workflowInstanceId: row[3] || null,
+    executionPhase: row[4],
   }
 }
 

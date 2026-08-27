@@ -107,6 +107,8 @@ declare module 'vue' {
     AuditLogsList: typeof import('./src/components/auditLog/AuditLogsList.vue')['default']
     AuditOfiPanel: typeof import('./src/components/audits/AuditOfiPanel.vue')['default']
     AuditOriginPanel: typeof import('./src/components/audits/AuditOriginPanel.vue')['default']
+    AuditPhaseBadge: typeof import('./src/components/badges/AuditPhaseBadge.vue')['default']
+    AuditPhaseBadgeById: typeof import('./src/components/badges/AuditPhaseBadgeById.vue')['default']
     AuditProgramCreateDialog: typeof import('./src/components/audits/AuditProgramCreateDialog.vue')['default']
     AuditProgramDetailConfig: typeof import('./src/components/audits/auditProgramDetailConfig.js')['default']
     'AuditProgramDetailConfig.spec': typeof import('./src/components/audits/auditProgramDetailConfig.spec.js')['default']

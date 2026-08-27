@@ -20,13 +20,15 @@ describe('buildAuditInstanceBanners', () => {
     expect(b.find((x) => x.id === 'read-only')?.title).toBe('Cancelled')
   })
 
-  it('info banner when REVIEW', () => {
-    const b = buildAuditInstanceBanners({ statusId: 'REVIEW' })
+  it('info banner while the close-out review phase is running', () => {
+    const b = buildAuditInstanceBanners({ statusId: 'OPEN', executionPhase: 'REVIEW' })
     expect(b.find((x) => x.id === 'in-review')?.tone).toBe('info')
   })
 
-  it('no banner while IN_PROGRESS', () => {
-    expect(buildAuditInstanceBanners({ statusId: 'IN_PROGRESS' })).toEqual([])
+  it('no banner while OPEN in fieldwork', () => {
+    expect(buildAuditInstanceBanners({ statusId: 'OPEN', executionPhase: 'IN_PROGRESS' })).toEqual(
+      [],
+    )
   })
 })
 
@@ -111,7 +113,7 @@ describe('buildAuditInstanceActions', () => {
   })
 
   it('Delete only when canDelete and not CLOSED', () => {
-    expect(visibleIds({ canDelete: true, statusId: 'IN_PROGRESS' })).toContain('delete')
+    expect(visibleIds({ canDelete: true, statusId: 'OPEN' })).toContain('delete')
     expect(visibleIds({ canDelete: true, statusId: 'CLOSED' })).not.toContain('delete')
   })
 

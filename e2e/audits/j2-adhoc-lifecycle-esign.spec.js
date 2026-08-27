@@ -1,8 +1,8 @@
 // PW-J2 · Full ad-hoc audit lifecycle with e-signed close-out (MTC-06/07/08).
 //
-// create (SCHEDULED) → start (IN_PROGRESS) → score both leaf clauses, one of
+// create (OPEN/Scheduled) → start (OPEN/In-Progress) → score both leaf clauses, one of
 // them MAJOR_NC → auto-finding raised → close the finding → submit for close-out
-// (REVIEW) → reviewer completes step 1 → approver e-signs step 2 → CLOSED.
+// (OPEN/Review) → reviewer completes step 1 → approver e-signs step 2 → CLOSED.
 //
 // The two close-out gates are asserted on the way through, because they are the
 // module's only real submit guards: every LEAF clause must carry a verdict
@@ -29,7 +29,7 @@ import { sqlValue, waitForSqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J2 · ad-hoc audit, executed and closed with an e-signature', () => {
-  test('SCHEDULED → IN_PROGRESS → REVIEW → CLOSED, auto-finding raised and resolved', async ({
+  test('OPEN: Scheduled → In Progress → Review, then CLOSED — auto-finding raised and resolved', async ({
     page,
     browser,
   }) => {
@@ -42,7 +42,7 @@ test.describe('PW-J2 · ad-hoc audit, executed and closed with an e-signature', 
 
     const scope = uniqueScope('J2')
     const audit = await createAdHocAudit(page, scope)
-    expect(audit.statusId, 'ad-hoc audits are created SCHEDULED, not DRAFT').toBe('SCHEDULED')
+    expect(audit.statusId, 'ad-hoc audits are created OPEN, not DRAFT').toBe('OPEN')
     expect(audit.auditNumber).toMatch(/^AUD-\d{4}-\d{4}$/)
     expect(
       Number(
@@ -54,7 +54,7 @@ test.describe('PW-J2 · ad-hoc audit, executed and closed with an e-signature', 
     ).toBe(3)
 
     await startAudit(page)
-    expect(auditRow(audit.id).statusId).toBe('IN_PROGRESS')
+    expect(auditRow(audit.id).executionPhase ?? auditRow(audit.id).execution_phase).toBe('IN_PROGRESS')
 
     // Gate 1 — nothing assessed yet, so the submit CTA is disabled and says why.
     // Explicit timeouts: `startAudit` and the scoring steps can leave a
@@ -97,9 +97,12 @@ test.describe('PW-J2 · ad-hoc audit, executed and closed with an e-signature', 
     )
 
     await submitForCloseOut(page, audit.id)
-    expect(auditRow(audit.id).statusId, 'submit hands the audit to the workflow engine').toBe(
-      'REVIEW',
-    )
+    const submitted = auditRow(audit.id)
+    expect(submitted.statusId, 'submit keeps the audit OPEN').toBe('OPEN')
+    expect(
+      submitted.executionPhase ?? submitted.execution_phase,
+      'submit hands the audit to the workflow engine',
+    ).toBe('REVIEW')
     expect(
       Number(
         sqlValue(
