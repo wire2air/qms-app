@@ -10,7 +10,7 @@ import {
 import { findCrByTitle, sqlValue } from '../fixtures/db.js'
 
 test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
-  test('a reviewer (change_control:read only) cannot submit a CR they do not own → 403', async ({
+  test('a read-only user (change_control:read only) cannot submit a CR they do not own → 403', async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -21,13 +21,16 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     const cr = findCrByTitle(title)
     await ownerCtx.close()
 
-    const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
-    const res = await reviewerCtx.request.post(
+    // `auditor`, not `reviewer`: the Reviewer role holds change_control:update
+    // since the 2026-08-27 seed backfill (the verb decides, for assignees
+    // too), so it may legitimately submit. The auditor stays read-only.
+    const auditorCtx = await browser.newContext({ storageState: AUTH.auditor })
+    const res = await auditorCtx.request.post(
       `/api/v1/services/changeRequests/${cr.id}/submitForReview`,
       { data: {} },
     )
     expect(res.status(), 'read-only grant cannot drive the lifecycle').toBe(403)
-    await reviewerCtx.close()
+    await auditorCtx.close()
 
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe('DRAFT')
   })
