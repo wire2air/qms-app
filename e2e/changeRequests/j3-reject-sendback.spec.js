@@ -19,7 +19,7 @@ import { findCrByTitle, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 import { clickWhenReady } from '../fixtures/documents.js'
 
 test.describe('PW-J3 · reject + send-back', () => {
-  test('approver rejects the APPROVAL step → CR reverts UNDER_REVIEW to DRAFT', async ({
+  test('approver rejects the APPROVAL step → CR reverts OPEN to DRAFT', async ({
     browser,
   }) => {
     test.setTimeout(180_000)
@@ -145,7 +145,7 @@ test.describe('PW-J3 · reject + send-back', () => {
     await ctx2.close()
 
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'UNDER_REVIEW',
+      'OPEN',
     )
     expect(
       Number(
@@ -207,7 +207,7 @@ test.describe('PW-J3 · reject + send-back', () => {
     // Lightweight by design: the CR status and the workflow instance are
     // untouched, and the reviewer's original task is still actionable.
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'UNDER_REVIEW',
+      'OPEN',
     )
     expect(
       sqlValue(

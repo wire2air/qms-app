@@ -11,7 +11,6 @@ const filterPills = [
   { value: 'all', label: 'All' },
   { value: 'all_open', label: 'All open' },
   { value: 'mine', label: 'Mine' },
-  { value: 'awaiting_approval', label: 'Awaiting approval' },
   { value: 'urgent', label: 'Urgent' },
   { value: 'closed', label: 'Closed' },
 ]

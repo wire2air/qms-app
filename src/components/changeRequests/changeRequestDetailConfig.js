@@ -40,7 +40,7 @@ export function buildChangeRequestActions(gates = {}, handlers = {}) {
     deleting,
   } = gates
 
-  const notTerminal = !['DRAFT', 'CLOSED', 'REJECTED', 'CANCELLED'].includes(statusId)
+  const notTerminal = !['DRAFT', 'CLOSED', 'CANCELLED'].includes(statusId)
 
   return [
     {

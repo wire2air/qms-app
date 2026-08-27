@@ -17,7 +17,7 @@ import { findCrByTitle, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · the full CR lifecycle', () => {
-  test('create CR (DRAFT) → Submit for Approval (UNDER_REVIEW), workflow instantiated', async ({
+  test('create CR (DRAFT) → Submit for Approval (OPEN), workflow instantiated', async ({
     page,
   }) => {
     test.setTimeout(90_000)
@@ -32,8 +32,9 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     await assignDraftReviewers(page, cr.id)
     await submitCrForApproval(page, cr.id)
 
+    // Unified statuses (2026-08-26): submit lands the CR at OPEN.
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'UNDER_REVIEW',
+      'OPEN',
     )
     expect(
       sqlValue(`SELECT submitted_at IS NOT NULL FROM change_requests WHERE id = '${cr.id}'`),
@@ -64,7 +65,7 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     )
   })
 
-  test('reviewer → approver → implementation completes the workflow, CR becomes APPROVED', async ({
+  test('reviewer → approver → implementation completes the workflow, CR stays OPEN', async ({
     page,
     browser,
   }) => {
@@ -75,17 +76,20 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     await assignDraftReviewers(page, cr.id)
     await submitCrForApproval(page, cr.id)
 
-    // Gate: an UNDER_REVIEW CR cannot be closed — close is post-approval only.
-    await expectCloseRejected(page, cr.id, /Cannot close from status UNDER_REVIEW/i)
+    // Gate: while workflow steps are open the CR cannot be closed — the
+    // all-tasks rule (the phase statuses are gone; the workflow is the gate).
+    await expectCloseRejected(page, cr.id, /workflow step.*still open/i)
 
     await completeReviewerStep(browser, cr.id)
     await completeApproverStep(browser, cr.id)
     await completeImplementationStep(page, cr.id)
 
-    // Last root step done → instance COMPLETED → handler.onComplete → APPROVED.
+    // Last root step done → instance COMPLETED → handler stamps approvedAt;
+    // the CR STAYS OPEN (phases live on the workflow now).
     await waitForSqlValue(
-      `SELECT count(*) FROM change_requests WHERE id = '${cr.id}' AND status_id = 'APPROVED'`,
-      { timeoutMs: 45_000, label: 'CR APPROVED' },
+      `SELECT count(*) FROM change_requests
+        WHERE id = '${cr.id}' AND status_id = 'OPEN' AND approved_at IS NOT NULL`,
+      { timeoutMs: 45_000, label: 'workflow finished, CR still OPEN' },
     )
     expect(
       sqlValue(`SELECT approved_at IS NOT NULL FROM change_requests WHERE id = '${cr.id}'`),
@@ -109,7 +113,7 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     ).toBeGreaterThan(0)
   })
 
-  test('owner closes an APPROVED CR with e-signature → CLOSED + Part-11 ledger row', async ({
+  test('owner closes a finished OPEN CR with e-signature → CLOSED + Part-11 ledger row', async ({
     page,
     browser,
   }) => {
@@ -123,8 +127,9 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     await completeApproverStep(browser, cr.id)
     await completeImplementationStep(page, cr.id)
     await waitForSqlValue(
-      `SELECT count(*) FROM change_requests WHERE id = '${cr.id}' AND status_id = 'APPROVED'`,
-      { timeoutMs: 45_000, label: 'CR APPROVED' },
+      `SELECT count(*) FROM change_requests
+        WHERE id = '${cr.id}' AND status_id = 'OPEN' AND approved_at IS NOT NULL`,
+      { timeoutMs: 45_000, label: 'workflow finished, CR still OPEN' },
     )
 
     await page.goto(`/change-requests/${cr.id}`)
@@ -178,8 +183,9 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     await completeApproverStep(browser, cr.id)
     await completeImplementationStep(page, cr.id)
     await waitForSqlValue(
-      `SELECT count(*) FROM change_requests WHERE id = '${cr.id}' AND status_id = 'APPROVED'`,
-      { timeoutMs: 45_000, label: 'CR APPROVED' },
+      `SELECT count(*) FROM change_requests
+        WHERE id = '${cr.id}' AND status_id = 'OPEN' AND approved_at IS NOT NULL`,
+      { timeoutMs: 45_000, label: 'workflow finished, CR still OPEN' },
     )
 
     const closeRes = await page.request.post(`/api/v1/services/changeRequests/${cr.id}/close`, {

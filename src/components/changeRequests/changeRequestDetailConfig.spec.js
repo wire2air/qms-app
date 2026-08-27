@@ -39,8 +39,8 @@ describe('buildChangeRequestBanners', () => {
     expect(b.some((x) => x.id === 'read-only')).toBe(false)
   })
 
-  it('no read-only banner when editable (UNDER_REVIEW)', () => {
-    const b = buildChangeRequestBanners({ statusId: 'UNDER_REVIEW' }, { isEditable: true })
+  it('no read-only banner when editable (OPEN)', () => {
+    const b = buildChangeRequestBanners({ statusId: 'OPEN' }, { isEditable: true })
     expect(b.some((x) => x.id === 'read-only')).toBe(false)
   })
 
@@ -57,7 +57,7 @@ describe('buildChangeRequestSections', () => {
   })
 
   it('all sections have a label', () => {
-    const s = buildChangeRequestSections({ statusId: 'UNDER_REVIEW' })
+    const s = buildChangeRequestSections({ statusId: 'OPEN' })
     s.forEach((section) => expect(section.label).toBeTruthy())
   })
 
@@ -107,7 +107,7 @@ describe('buildChangeRequestActions', () => {
 
   it('shows close and cancel under review when the user holds the close verb', () => {
     const a = buildChangeRequestActions(
-      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'OPEN', canClose: true, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     const visible = a.filter((x) => x.visible).map((x) => x.id)
@@ -118,7 +118,7 @@ describe('buildChangeRequestActions', () => {
 
   it('hides close when canClose=false', () => {
     const a = buildChangeRequestActions(
-      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'OPEN', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'close').visible).toBe(false)
@@ -147,7 +147,7 @@ describe('buildChangeRequestActions', () => {
 
   it('close is disabled and loading while closing=true', () => {
     const a = buildChangeRequestActions(
-      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: true, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'OPEN', canClose: true, opening: false, closing: true, cancelling: false, deleting: false },
       handlers,
     )
     const close = a.find((x) => x.id === 'close')
@@ -157,7 +157,7 @@ describe('buildChangeRequestActions', () => {
 
   it('cancel is disabled and loading while cancelling=true', () => {
     const a = buildChangeRequestActions(
-      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'UNDER_REVIEW', canClose: true, opening: false, closing: false, cancelling: true, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'OPEN', canClose: true, opening: false, closing: false, cancelling: true, deleting: false },
       handlers,
     )
     const cancel = a.find((x) => x.id === 'cancel')
@@ -193,17 +193,17 @@ describe('buildChangeRequestActions', () => {
     expect(a.find((x) => x.id === 'cancel').visible).toBe(false)
   })
 
-  it('cancel is not visible for REJECTED status (terminal)', () => {
+  it('cancel is not visible for CANCELLED status (terminal)', () => {
     const a = buildChangeRequestActions(
-      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'REJECTED', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'CANCELLED', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'cancel').visible).toBe(false)
   })
 
-  it('cancel is visible for IN_IMPLEMENTATION (non-terminal)', () => {
+  it('cancel is visible for OPEN (non-terminal)', () => {
     const a = buildChangeRequestActions(
-      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'IN_IMPLEMENTATION', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
+      { canOpen: true, canCloseCr: true, canCancel: true, canDeleteCr: true, canDelete: false, statusId: 'OPEN', canClose: false, opening: false, closing: false, cancelling: false, deleting: false },
       handlers,
     )
     expect(a.find((x) => x.id === 'cancel').visible).toBe(true)

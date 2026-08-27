@@ -172,11 +172,10 @@ const closeComments = ref('')
 
 const closeBlockedReason = computed(() => {
   if (!cr.value) return null
-  if (
-    !['APPROVED', 'IN_IMPLEMENTATION', 'PENDING_EFFECTIVENESS', 'ON_HOLD'].includes(
-      cr.value.statusId,
-    )
-  ) {
+  // Unified statuses (2026-08-26): OPEN is the only closable state; the
+  // server additionally enforces the all-tasks gate (open steps → 409 with
+  // the count), which the close dialog surfaces.
+  if (cr.value.statusId !== 'OPEN') {
     return `Cannot close from status ${cr.value.statusId} — use Cancel for pre-approval abandonment.`
   }
   return null

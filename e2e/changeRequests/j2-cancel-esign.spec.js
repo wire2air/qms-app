@@ -12,7 +12,7 @@ import { findCrByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/db
 
 test.use({ storageState: AUTH.author })
 
-test.describe('PW-J2 · cancel an UNDER_REVIEW CR', () => {
+test.describe('PW-J2 · cancel an OPEN CR', () => {
   test('owner cancels — workflow aborted, e-signed, reason recorded', async ({ page }) => {
     test.setTimeout(120_000)
     const title = uniqueTitle('J2')
@@ -112,7 +112,7 @@ test.describe('PW-J2 · cancel an UNDER_REVIEW CR', () => {
 
     // The CR is untouched — a rejected cancel must not half-apply.
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'UNDER_REVIEW',
+      'OPEN',
     )
   })
 })

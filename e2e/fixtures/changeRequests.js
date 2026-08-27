@@ -91,7 +91,8 @@ export async function submitCrForApproval(page, crId) {
     timeout: 10_000,
   })
   await page.getByRole('button', { name: 'Submit for Approval' }).last().click()
-  await expectStatusEventually(page, /under review/i)
+  // Unified statuses: the active state chip reads Open.
+  await expectStatusEventually(page, /^Open$/)
 }
 
 /**

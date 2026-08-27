@@ -29,7 +29,7 @@ const RECORD_PILLS = [
 ]
 const PILL_VALUES = new Set(RECORD_PILLS.map((p) => p.value))
 const OPEN_STATUSES = ['DRAFT', 'PENDING', 'OPEN']
-const CLOSED_STATUSES = ['COMPLETE', 'APPROVED', 'CLOSED', 'REJECTED']
+const CLOSED_STATUSES = ['COMPLETE', 'APPROVED', 'CLOSED', 'REJECTED', 'CANCELLED']
 
 const activeFilter = ref(PILL_VALUES.has(route.query.view) ? route.query.view : 'all')
 watch(

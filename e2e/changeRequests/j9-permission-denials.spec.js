@@ -57,7 +57,7 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     await approverCtx.close()
 
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'UNDER_REVIEW',
+      'OPEN',
     )
   })
 

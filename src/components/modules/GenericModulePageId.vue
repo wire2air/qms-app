@@ -31,9 +31,23 @@ const hasRoutedSections = computed(() => fields.value.some(isRoutedSection))
 
 const status = computed(() => record.value?.statusId)
 const isDraft = computed(() => status.value === 'DRAFT')
-const isComplete = computed(() => status.value === 'COMPLETE')
 const isStarted = computed(() => !!record.value?.workflowInstanceId && !isDraft.value)
-const isTerminal = computed(() => status.value === 'CLOSED' || status.value === 'REJECTED')
+// Unified parent statuses (2026-08-26): Draft / Open / Closed / Cancelled.
+const isTerminal = computed(() => status.value === 'CLOSED' || status.value === 'CANCELLED')
+
+// The close gate is the WORKFLOW, not a status: every task done = instance
+// COMPLETED. Reopening a step flips it back to IN_PROGRESS and correctly
+// re-blocks Close.
+const workflowDone = useLiveQueryWithDeps(
+  [() => record.value?.workflowInstanceId],
+  async (db, [id]) => {
+    if (!id) return false
+    const wi = await db.WorkflowInstance.findByPk(id)
+    return wi?.statusId === 'COMPLETED'
+  },
+  { models: ['WorkflowInstance'], initial: false },
+)
+const readyToClose = computed(() => status.value === 'OPEN' && workflowDone.value)
 
 const currentUserId = computed(() => currentSession.value?.userId)
 const isOwner = computed(() =>
@@ -48,10 +62,10 @@ const title = computed(
   () => template.value?.moduleConfig?.displayName || template.value?.title || 'Record',
 )
 
-// Scoring — live preview while editable, sealed result once COMPLETE/terminal.
+// Scoring — live preview while editable, sealed once the workflow is done.
 const moduleScoring = computed(() => template.value?.moduleConfig?.scoring || null)
 const sealedScoring = computed(() =>
-  isComplete.value || isTerminal.value ? record.value?.scoringResult || null : null,
+  workflowDone.value || isTerminal.value ? record.value?.scoringResult || null : null,
 )
 
 // Owner-level section answers — autosave while editable.
@@ -134,7 +148,7 @@ async function closeRecord() {
           <BaseButton variant="primary" size="sm" @click="showStart = true"> Start </BaseButton>
         </template>
         <BaseButton
-          v-if="isComplete && isOwner"
+          v-if="readyToClose && isOwner"
           variant="primary"
           size="sm"
           :loading="closing"

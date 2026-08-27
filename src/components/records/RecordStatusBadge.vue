@@ -42,6 +42,10 @@ const statusConfig = {
     class: 'tw:bg-green-100 tw:text-green-700',
     icon: IconLock,
   },
+  CANCELLED: {
+    class: 'tw:bg-gray-200 tw:text-gray-600',
+    icon: IconCircleX,
+  },
   APPROVED: {
     class: 'tw:bg-green-100 tw:text-green-700',
     icon: IconCircleCheck,
