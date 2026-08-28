@@ -24,7 +24,10 @@ const DELAY_TEMPLATE_STEP = 'e2ef5003-0000-4000-8000-000000000002'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J10 · NOT_EFFECTIVE re-opens the host', () => {
-  test('failed verdict (comment + PIN) → follow-up → CAPA re-opened', async ({
+  // DORMANT with the UI (2026-08-28): the Modify Corrective Action card is
+  // hidden while ADVANCED_EFFECTIVENESS_DECISIONS is off in WorkflowStep.vue.
+  // The journey stays intact — unskip it when the flag flips back on.
+  test.skip('failed verdict (comment + PIN) → follow-up → CAPA re-opened', async ({
     page,
     browser,
   }) => {

@@ -239,6 +239,13 @@ const capturesEffectiveness = computed(() => !!instanceStep.value?.capturesEffec
 const isBuiltInHost = computed(() =>
   ['capas', 'nonconformances', 'changeRequests'].includes(props.module.apiPath),
 )
+// DORMANT (user decision 2026-08-28): Modify Corrective Action (re-open +
+// restart) and Escalate (spawn linked CAPA / record clone) widen the testing
+// surface, so they are hidden for now — a NOT_EFFECTIVE outcome is recorded
+// with justification and the user raises any follow-up CAPA manually. The
+// whole path (service, endpoint, guards, e2e journeys) stays built and
+// verified; flip this to re-offer the cards.
+const ADVANCED_EFFECTIVENESS_DECISIONS = false
 const effectivenessDecision = ref(null)
 const effectivenessDecisions = computed(() => [
   {
@@ -269,9 +276,13 @@ const effectivenessDecisions = computed(() => [
   {
     value: 'CLOSE_JUSTIFIED',
     label: 'Close with Justification',
-    blurb: 'Accept the outcome — record Not Effective with your justification and finish.',
+    blurb:
+      'The corrective action did not hold — record Not Effective with your justification and finish. Raise a follow-up CAPA manually if further action is needed.',
   },
-])
+].filter(
+  (opt) =>
+    ADVANCED_EFFECTIVENESS_DECISIONS || !['REOPEN', 'ESCALATE'].includes(opt.value),
+))
 
 function onDecisionPick(value) {
   if (value === 'EXTEND') {
