@@ -704,7 +704,10 @@ function getStepStatusClass(statusId) {
 
 function getStatusLabel(statusId) {
   if (!statusId) return '—'
-  if (statusId === 'APPROVED') return 'Completed'
+  // 'Approved' is the APPROVAL-step word; a task or effectiveness check that
+  // reaches the same terminal status reads 'Completed' (2026-08-28, matches
+  // TaskInstanceStatusBadgeById).
+  if (statusId === 'APPROVED') return isApprovalStep.value ? 'Approved' : 'Completed'
   if (statusId === 'SKIPPED') return 'Skipped'
   // SCHEDULED is the DELAY step's parked state, which it enters BEFORE anyone
   // picks a date — delay_until is null until then. Rendering the raw status
@@ -788,7 +791,8 @@ function activityLabel(statusId) {
   return (
     {
       REJECTED: 'Rejected',
-      APPROVED: 'Approved',
+      // Same rule as getStatusLabel: only an APPROVAL step 'approves'.
+      APPROVED: isApprovalStep.value ? 'Approved' : 'Completed',
       CANCELLED: 'Cancelled',
       REASSIGNED: 'Reassigned',
       SENT_BACK: 'Sent back',
