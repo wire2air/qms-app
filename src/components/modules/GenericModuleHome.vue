@@ -177,8 +177,14 @@ function fieldValueOptions(field) {
 }
 
 const KIND_ICONS = { lookup: IconForms, date: IconCalendar }
+// Free text and numbers are the search box's job — a distinct-values checkbox
+// list for them is noise (user 2026-08-28). Filter dimensions are the fields
+// with a bounded value set, plus dates.
+const FILTERABLE_KINDS = new Set(['enum', 'boolean', 'lookup', 'date'])
 const filterItems = computed(() => [
-  ...configuredFields.value.map((f) => ({
+  ...configuredFields.value
+    .filter((f) => FILTERABLE_KINDS.has(f.kind))
+    .map((f) => ({
     id: `pf_${f.name}`,
     label: f.label || f.name,
     icon: KIND_ICONS[f.kind] ?? IconForms,
@@ -186,7 +192,7 @@ const filterItems = computed(() => [
     ...(f.kind === 'date'
       ? { type: 'date' }
       : { options: fieldValueOptions(f), searchable: fieldValueOptions(f).length > 8 }),
-  })),
+    })),
   { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
 ])
 const columns = computed(() => [

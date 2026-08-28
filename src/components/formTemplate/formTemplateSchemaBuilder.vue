@@ -95,11 +95,15 @@ function cancelEditTitle() {
 
     <!-- Form Builder -->
     <template v-else-if="template">
+      <!-- showReporting DORMANT 2026-08-28: the per-field "Report on this
+           field" toggle (analytics projection) confused authors next to the
+           Configure View flow that owns the record-list columns. Machinery
+           intact — flip to true to resurface metric authoring. -->
       <FormBuilder
         :title="builderTitle"
         :initialSchema="initialSchema"
         :showScoring="!!template.isModule"
-        :showReporting="true"
+        :showReporting="false"
         @save="saveSchema"
       >
         <template #title>

@@ -15,6 +15,7 @@ import {
   IconNotebook,
   IconClipboardText,
   IconX,
+  IconForms,
 } from '@tabler/icons-vue'
 import { get } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { companyCode } from '@/utils/currentSession'
@@ -33,8 +34,15 @@ const TYPE_META = {
     icon: IconClipboardText,
     to: (row) => `/inspections-logs/records?recordId=${row.entityId}`,
   },
+  // Promoted form modules — the API resolves moduleKey per hit; the row's
+  // title already carries the module's display name.
+  Record: {
+    label: 'Module records',
+    icon: IconForms,
+    to: (row) => (row.moduleKey ? `/m/${row.moduleKey}/${row.entityId}` : null),
+  },
 }
-const TYPE_ORDER = ['Document', 'Nonconformance', 'Capa', 'LogBook', 'FieldRecord']
+const TYPE_ORDER = ['Document', 'Nonconformance', 'Capa', 'LogBook', 'FieldRecord', 'Record']
 
 const router = useRouter()
 const rootEl = ref(null)
