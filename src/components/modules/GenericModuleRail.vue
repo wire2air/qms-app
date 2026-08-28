@@ -1,9 +1,9 @@
 <script setup>
-// Envelope fields for a module record, in the right rail: Initiator (fixed —
-// the creator) and Owner. Site / Department / Due date left the rail
-// 2026-08-28: authors add those as FORM fields where a module needs them, and
-// a DB trigger mirrors the first site/department lookup answer onto the
-// record's first-class columns so scoped access and automation keep working.
+// First-class envelope for a module record: Initiator (fixed — the creator),
+// Owner, Site, Department. These are RECORD columns, not form fields — scoped
+// access, automation and notifications key on them, and a module author may
+// never add equivalents to the form. They're collected on the create page and
+// live here for edit/view. (Record due date has no UI — removed 2026-08-23.)
 const props = defineProps({
   recordId: { type: String, required: true },
   editable: { type: Boolean, default: true },
@@ -32,6 +32,8 @@ watch(
   () =>
     record.value && [
       record.value.ownerUserId,
+      record.value.siteId,
+      record.value.departmentId,
     ],
   () => {
     if (isFirst.value) {
@@ -56,6 +58,20 @@ watch(
         <p class="tw:text-xs tw:font-medium tw:text-secondary">Owner</p>
         <UserSelectMenu v-if="editable" v-model="record.ownerUserId" kind="INTERNAL" />
         <UserBadgeById v-else-if="record.ownerUserId" :userId="record.ownerUserId" />
+        <span v-else class="tw:text-secondary">—</span>
+      </div>
+
+      <div class="tw:flex tw:flex-col tw:gap-1">
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Site</p>
+        <SiteSelectMenu v-if="editable" v-model="record.siteId" />
+        <SiteBadgeById v-else-if="record.siteId" :siteId="record.siteId" />
+        <span v-else class="tw:text-secondary">—</span>
+      </div>
+
+      <div class="tw:flex tw:flex-col tw:gap-1">
+        <p class="tw:text-xs tw:font-medium tw:text-secondary">Department</p>
+        <DepartmentSelectMenu v-if="editable" v-model="record.departmentId" />
+        <DepartmentBadgeById v-else-if="record.departmentId" :departmentId="record.departmentId" />
         <span v-else class="tw:text-secondary">—</span>
       </div>
 

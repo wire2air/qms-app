@@ -31,6 +31,11 @@ const fields = computed(() => (template.value?.schema || []).filter((f) => !isRo
 const hasDraftFields = computed(() => fields.value.length > 0)
 
 const formData = ref({})
+// First-class envelope, collected at create (rendered as its own block — never
+// injected into the dynamic form). Scoped access, automation and notifications
+// key on these record columns; after create they live in the right rail.
+const siteId = ref(null)
+const departmentId = ref(null)
 const formRef = ref(null)
 // Which button is in flight — 'draft' | 'start' | null. One at a time.
 const savingMode = ref(null)
@@ -48,6 +53,8 @@ async function create(startAfter) {
     const res = await post('/v1/services/form-modules/records', {
       templateId: template.value.id,
       payload: formData.value,
+      siteId: siteId.value,
+      departmentId: departmentId.value,
       ...(supplierId.value ? { supplierId: supplierId.value } : {}),
     })
     const record = res?.record ?? res
@@ -68,6 +75,20 @@ function cancel() {
   <BasePage width="narrow" :fullHeight="false">
     <PageHeader :icon="IconForms" :title="`New ${title}`" />
     <div v-if="template" class="tw:flex tw:flex-col tw:gap-4">
+      <!-- Record details — the first-class envelope, its own card so it never
+           collides with whatever fields the author put on the form. -->
+      <div class="tw:rounded-xl tw:border tw:border-divider tw:bg-card tw:p-4">
+        <BaseText variant="overline" class="tw:block tw:mb-3">Record details</BaseText>
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+          <BaseField label="Site">
+            <SiteSelectMenu v-model="siteId" />
+          </BaseField>
+          <BaseField label="Department">
+            <DepartmentSelectMenu v-model="departmentId" />
+          </BaseField>
+        </div>
+      </div>
+
       <DynamicForm v-if="hasDraftFields" ref="formRef" v-model="formData" :fields="fields" />
       <!-- Read-only preview of the steps that will fire on Start. -->
       <GenericModuleWorkflowPreview :schema="template.schema" />
