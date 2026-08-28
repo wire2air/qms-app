@@ -201,6 +201,7 @@ declare module 'vue' {
     BaseDateFilter: typeof import('./resource/js/shared/components/BaseDateFilter.vue')['default']
     'BaseDateFilter.spec': typeof import('./resource/js/shared/components/BaseDateFilter.spec.js')['default']
     'BaseDateFilter.stories': typeof import('./resource/js/shared/components/BaseDateFilter.stories.js')['default']
+    BaseDateRangeFilter: typeof import('./resource/js/shared/components/BaseDateRangeFilter.vue')['default']
     BaseDescriptionItem: typeof import('./resource/js/shared/components/BaseDescriptionItem.vue')['default']
     'BaseDescriptionItem.spec': typeof import('./resource/js/shared/components/BaseDescriptionItem.spec.js')['default']
     BaseDescriptionList: typeof import('./resource/js/shared/components/BaseDescriptionList.vue')['default']

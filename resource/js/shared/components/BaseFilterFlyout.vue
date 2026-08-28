@@ -200,7 +200,10 @@ function onKeydown(e) {
         placement="right-start"
         @close="dateNode = null"
       >
-        <BaseDateFilter
+        <!-- Calendar-first (2026-08-28) — the operator editor (BaseDateFilter)
+             read as jargon in a register menu; it lives on in the analytics
+             advanced editor. Same token model, so applied filters carry over. -->
+        <BaseDateRangeFilter
           :modelValue="ctx?.getValue?.(dateNode.group) ?? null"
           @update:modelValue="(t) => ctx?.setValue?.(dateNode.group, t)"
         />

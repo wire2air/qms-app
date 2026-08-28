@@ -85,7 +85,7 @@ describe('BaseFilterMenu (cascading)', () => {
     expect(w.emitted('update:modelValue').at(-1)[0]).toEqual({ priority: 'HIGH' })
   })
 
-  it('opens a BaseDateFilter panel for a type:date node and writes a token', async () => {
+  it('opens the calendar date panel for a type:date node and a preset writes a token', async () => {
     const items = [{ id: 'created', label: 'Created', group: 'createdAt', type: 'date' }]
     const w = mount(BaseFilterMenu, { attachTo: document.body, props: { items, modelValue: {} } })
     mounted.push(w)
@@ -93,6 +93,17 @@ describe('BaseFilterMenu (cascading)', () => {
     await nextTick()
     rowByText('Created').click()
     await nextTick()
-    expect(document.body.querySelector('select[data-op]')).not.toBeNull()
+    // The calendar-first panel (BaseDateRangeFilter, 2026-08-28): preset
+    // buttons + a range calendar, no operator <select>.
+    const preset = [...document.body.querySelectorAll('button')].find(
+      (b) => b.textContent.trim() === 'Last 7 days',
+    )
+    expect(preset).toBeTruthy()
+    preset.click()
+    await nextTick()
+    const token = w.emitted('update:modelValue').at(-1)[0].createdAt
+    expect(token.operator).toBe('relative')
+    expect(token.relative).toEqual({ dir: 'past', unit: 'day', count: 7 })
+    expect(token.presetId).toBe('last_7_days')
   })
 })
