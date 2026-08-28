@@ -9,30 +9,56 @@ describe('buildInspectionLotSections', () => {
   })
 })
 
+// Unified statuses (2026-08-28): the parent status is OPEN throughout
+// execution; gates key off inspectionPhase. Check-in doubles as Start.
 describe('buildInspectionLotActions', () => {
+  // `print` is always visible — the probes assert the STATUS-driven set.
   const visibleIds = (gates) =>
     buildInspectionLotActions(gates, {})
-      .filter((a) => a.visible)
+      .filter((a) => a.visible && a.id !== 'print')
       .map((a) => a.id)
 
-  it('PENDING (canExecute) → Start + Edit', () => {
-    expect(visibleIds({ canExecute: true, statusId: 'PENDING' }).sort()).toEqual(['edit', 'start'])
+  it('OPEN/PENDING (canExecute, not checked in) → Check in', () => {
+    expect(
+      visibleIds({ canExecute: true, statusId: 'OPEN', inspectionPhase: 'PENDING' }),
+    ).toEqual(['check-in'])
   })
 
-  it('IN_PROGRESS (canExecute) → Complete + Edit', () => {
-    expect(visibleIds({ canExecute: true, statusId: 'IN_PROGRESS' }).sort()).toEqual([
-      'complete',
-      'edit',
-    ])
+  it('OPEN/IN_PROGRESS as the active inspector → Check out + Complete + Edit', () => {
+    expect(
+      visibleIds({
+        canExecute: true,
+        statusId: 'OPEN',
+        inspectionPhase: 'IN_PROGRESS',
+        isActiveInspector: true,
+      }).sort(),
+    ).toEqual(['check-out', 'complete', 'edit'])
   })
 
-  it('COMPLETED (canDispose) → Submit only', () => {
-    expect(visibleIds({ canDispose: true, statusId: 'COMPLETED' })).toEqual(['submit'])
+  it('OPEN/COMPLETED (canDispose) → Submit only', () => {
+    expect(
+      visibleIds({ canDispose: true, statusId: 'OPEN', inspectionPhase: 'COMPLETED' }),
+    ).toEqual(['submit'])
   })
 
-  it('Submit hidden without canDispose; Edit/Start hidden without canExecute', () => {
-    expect(visibleIds({ statusId: 'COMPLETED' })).toEqual([])
-    expect(visibleIds({ statusId: 'PENDING' })).toEqual([])
+  it('Reopen offers on UNDER_REVIEW / HOLD phases, and on CLOSED only when the disposition was adverse', () => {
+    expect(
+      visibleIds({ canDispose: true, statusId: 'OPEN', inspectionPhase: 'UNDER_REVIEW' }),
+    ).toContain('reopen')
+    expect(
+      visibleIds({ canDispose: true, statusId: 'OPEN', inspectionPhase: 'HOLD' }),
+    ).toContain('reopen')
+    expect(
+      visibleIds({ canDispose: true, statusId: 'CLOSED', dispositionAdverse: true }),
+    ).toContain('reopen')
+    expect(
+      visibleIds({ canDispose: true, statusId: 'CLOSED', dispositionAdverse: false }),
+    ).not.toContain('reopen')
+  })
+
+  it('Submit hidden without canDispose; execution actions hidden without canExecute', () => {
+    expect(visibleIds({ statusId: 'OPEN', inspectionPhase: 'COMPLETED' })).toEqual([])
+    expect(visibleIds({ statusId: 'OPEN', inspectionPhase: 'PENDING' })).toEqual([])
   })
 
   it('Submit is the primary action', () => {
@@ -40,9 +66,20 @@ describe('buildInspectionLotActions', () => {
   })
 
   it('wires handlers to onSelect', () => {
-    const handlers = { submit: vi.fn(), start: vi.fn(), complete: vi.fn(), edit: vi.fn() }
+    const handlers = {
+      print: vi.fn(),
+      submit: vi.fn(),
+      checkIn: vi.fn(),
+      checkOut: vi.fn(),
+      complete: vi.fn(),
+      edit: vi.fn(),
+      reopen: vi.fn(),
+      createEvent: vi.fn(),
+    }
     const a = buildInspectionLotActions({}, handlers)
-    a.forEach((d) => d.onSelect())
-    Object.values(handlers).forEach((fn) => expect(fn).toHaveBeenCalled())
+    a.forEach((d) => d.onSelect?.())
+    ;['submit', 'checkIn', 'checkOut', 'complete', 'edit', 'reopen', 'createEvent'].forEach((k) =>
+      expect(handlers[k]).toHaveBeenCalled(),
+    )
   })
 })

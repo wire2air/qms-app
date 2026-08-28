@@ -806,6 +806,8 @@ declare module 'vue' {
     InspectionLotDispositionAction: typeof import('./src/components/qcInspection/InspectionLotDispositionAction.vue')['default']
     InspectionLotHistory: typeof import('./src/components/qcInspection/InspectionLotHistory.vue')['default']
     InspectionLotImportDialog: typeof import('./src/components/qcInspection/InspectionLotImportDialog.vue')['default']
+    InspectionLotPhaseBadge: typeof import('./src/components/badges/InspectionLotPhaseBadge.vue')['default']
+    InspectionLotPhaseBadgeById: typeof import('./src/components/badges/InspectionLotPhaseBadgeById.vue')['default']
     InspectionLotPrint: typeof import('./src/components/print/modules/InspectionLotPrint.vue')['default']
     InspectionLotRail: typeof import('./src/components/qcInspection/InspectionLotRail.vue')['default']
     InspectionLotReopenDialog: typeof import('./src/components/qcInspection/InspectionLotReopenDialog.vue')['default']

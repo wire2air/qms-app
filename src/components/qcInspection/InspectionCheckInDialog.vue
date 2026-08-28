@@ -70,7 +70,7 @@ async function onSubmit() {
     // Checking in begins the inspection for every type — there is no separate
     // Start action. Start a not-yet-started lot so the inspector can capture /
     // collect straight away.
-    if (props.lot?.statusId === 'PENDING') {
+    if (props.lot?.statusId === 'OPEN' && props.lot?.inspectionPhase === 'PENDING') {
       await post(`/v1/services/qcInspection/lots/${props.lotId}/start`, {})
     }
     toast.success('Checked in — inspection started; you are the inspector')

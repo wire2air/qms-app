@@ -52,7 +52,7 @@ test.describe('PW-J2 — in-process lifecycle', () => {
     // unbounded under load. PW-J1 and PW-J3 cover the real grid interaction on
     // incoming lots, where it is deterministic.
     await completeLotViaRest(page, lot.id, { collect: true })
-    expect(findLotByNumber(lot.lotNumber).statusId, 'in-process lot completes').toBe('COMPLETED')
+    expect(findLotByNumber(lot.lotNumber).phase, 'in-process lot completes').toBe('COMPLETED')
     await ctx.close()
   })
 
@@ -80,7 +80,7 @@ test.describe('PW-J2 — in-process lifecycle', () => {
     expect(body?.error?.message ?? '', 'the refusal names the retain requirement').toMatch(
       /RETAIN_SAMPLE_REQUIRED|retain sample/i,
     )
-    expect(findLotByNumber(lot.lotNumber).statusId, 'lot stays COMPLETED').toBe('COMPLETED')
+    expect(findLotByNumber(lot.lotNumber).phase, 'lot stays COMPLETED').toBe('COMPLETED')
 
     // The same call with a waiver comment is accepted — the gate is a
     // documented deviation, not a hard block.
@@ -88,7 +88,7 @@ test.describe('PW-J2 — in-process lifecycle', () => {
       data: { retainWaiverComment: 'E2E — pilot batch, no retain required per SOP-123.' },
     })
     expect(waived.ok(), 'a waiver comment unblocks the submit').toBeTruthy()
-    await waitForSqlValue(`SELECT status_id = 'UNDER_REVIEW' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'UNDER_REVIEW' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'waived lot moves UNDER_REVIEW',
     })
@@ -115,7 +115,7 @@ test.describe('PW-J2 — in-process lifecycle', () => {
     const qa = await qaCtx.newPage()
     const res = await qa.request.post(`/api/v1/services/qcInspection/lots/${lot.id}/submit`, { data: {} })
     expect(res.ok(), 'retain sample present → no waiver needed').toBeTruthy()
-    await waitForSqlValue(`SELECT status_id = 'UNDER_REVIEW' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'UNDER_REVIEW' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'lot moves UNDER_REVIEW',
     })

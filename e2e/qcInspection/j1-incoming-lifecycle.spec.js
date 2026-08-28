@@ -28,7 +28,8 @@ test.describe('PW-J1 — incoming inspection lifecycle', () => {
     const inspector = await inspectorCtx.newPage()
 
     const lot = await createLotViaRest(inspector, {})
-    expect(lot.statusId, 'a new lot starts PENDING').toBe('PENDING')
+    expect(lot.statusId, 'a new lot is OPEN').toBe('OPEN')
+    expect(lot.phase, 'a new lot starts in the PENDING phase').toBe('PENDING')
 
     await checkInLotViaRest(inspector, lot.id)
 
@@ -37,7 +38,7 @@ test.describe('PW-J1 — incoming inspection lifecycle', () => {
     await recordResults(inspector, { length: 12.5, visualPass: false, label: 'Legible' })
 
     await waitForSqlValue(
-      `SELECT status_id = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`,
+      `SELECT inspection_phase = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`,
       { timeoutMs: 30_000, label: 'lot moved to IN_PROGRESS on first result' },
     )
     expect(
@@ -52,7 +53,7 @@ test.describe('PW-J1 — incoming inspection lifecycle', () => {
     })
 
     await completeLot(inspector)
-    await waitForSqlValue(`SELECT status_id = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'lot COMPLETED',
     })
@@ -70,7 +71,7 @@ test.describe('PW-J1 — incoming inspection lifecycle', () => {
     const qa = await qaCtx.newPage()
 
     await submitForDisposition(qa, lot.id)
-    expect(findLotByNumber(lot.lotNumber).statusId, 'lot is UNDER_REVIEW').toBe('UNDER_REVIEW')
+    expect(findLotByNumber(lot.lotNumber).phase, 'lot is UNDER_REVIEW').toBe('UNDER_REVIEW')
 
     await qaCtx.close()
   })

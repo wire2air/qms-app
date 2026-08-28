@@ -24,12 +24,12 @@ test.describe('PW-J7 — reopen a completed lot', () => {
     const lot = await createLotViaRest(inspector, {})
     await checkInLotViaRest(inspector, lot.id)
     await recordResults(inspector, { length: 10.0, visualPass: true, label: 'Legible' })
-    await waitForSqlValue(`SELECT status_id = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'results recorded',
     })
     await completeLot(inspector)
-    await waitForSqlValue(`SELECT status_id = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'lot COMPLETED',
     })
@@ -40,7 +40,7 @@ test.describe('PW-J7 — reopen a completed lot', () => {
       data: { reason: 'E2E — inspector attempt' },
     })
     expect(asInspector.status(), 'execute alone cannot reopen').toBe(403)
-    expect(findLotByNumber(lot.lotNumber).statusId, 'lot stays COMPLETED').toBe('COMPLETED')
+    expect(findLotByNumber(lot.lotNumber).phase, 'lot stays COMPLETED').toBe('COMPLETED')
     await inspectorCtx.close()
 
     const qaCtx = await browser.newContext({ storageState: AUTH.qcApprover })
@@ -54,12 +54,12 @@ test.describe('PW-J7 — reopen a completed lot', () => {
       data: { reason: 'E2E — too early' },
     })
     expect(tooEarly.ok(), 'a COMPLETED lot cannot be reopened').toBeFalsy()
-    expect((await tooEarly.json())?.error?.message ?? '').toMatch(/Cannot reopen a COMPLETED lot/)
+    expect((await tooEarly.json())?.error?.message ?? '').toMatch(/Cannot reopen this lot \(OPEN\/COMPLETED\)/)
 
     // Submit it into review, which IS a reopenable state.
     const submitted = await qa.request.post(`/api/v1/services/qcInspection/lots/${lot.id}/submit`, { data: {} })
     expect(submitted.ok(), `submit failed: ${await submitted.text()}`).toBeTruthy()
-    await waitForSqlValue(`SELECT status_id = 'UNDER_REVIEW' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'UNDER_REVIEW' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'lot UNDER_REVIEW',
     })
@@ -70,7 +70,7 @@ test.describe('PW-J7 — reopen a completed lot', () => {
     expect(asQa.ok(), `QA reopen failed: ${await asQa.text()}`).toBeTruthy()
 
     const after = findLotByNumber(lot.lotNumber)
-    expect(after.statusId, 'lot returns to an open state').not.toBe('UNDER_REVIEW')
+    expect(after.phase, 'lot returns to an open state').not.toBe('UNDER_REVIEW')
     expect(
       Number(
         sqlValue(
@@ -91,13 +91,22 @@ test.describe('PW-J10 — printed inspection report', () => {
     const lot = await createLotViaRest(page, {})
     await checkInLotViaRest(page, lot.id)
     await recordResults(page, { length: 12.5, visualPass: false, label: 'Legible' })
-    await waitForSqlValue(`SELECT status_id = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'results recorded',
     })
 
     await openLot(page, lot.id)
-    await page.getByRole('button', { name: 'Print report' }).click()
+    // Print may sit in the action overflow when many status actions render.
+    const printBtn = page.getByRole('button', { name: 'Print report' })
+    if (await printBtn.isVisible().catch(() => false)) {
+      await printBtn.click()
+    } else {
+      await page.getByRole('button', { name: /More actions|⋮/ }).last().click().catch(async () => {
+        await page.locator('button:has(svg)').last().click()
+      })
+      await page.getByRole('menuitem', { name: 'Print report' }).or(printBtn).first().click()
+    }
 
     // The print surface renders in-page before handing off to the browser's
     // print dialog, so its content is assertable. Verify the fields that make

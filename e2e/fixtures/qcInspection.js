@@ -29,7 +29,7 @@ export function uniqueLotNumber(tag) {
 /** Inspection lot by exact lot_number (E2E lot numbers are unique per run). */
 export function findLotByNumber(lotNumber) {
   const row = sqlRow(
-    `SELECT id, lot_number, status_id, quality_state, nc_id, inspection_point
+    `SELECT id, lot_number, status_id, quality_state, nc_id, inspection_point, inspection_phase
        FROM inspection_lots WHERE lot_number = ${quote(lotNumber)}
       ORDER BY created_at DESC LIMIT 1`,
   )
@@ -41,6 +41,9 @@ export function findLotByNumber(lotNumber) {
     qualityState: row[3] || null,
     ncId: row[4] || null,
     inspectionPoint: row[5],
+    // Execution detail (unified statuses 2026-08-28): the parent status is
+    // OPEN throughout execution; PENDING/IN_PROGRESS/… ride this phase.
+    phase: row[6],
   }
 }
 
@@ -241,7 +244,10 @@ export async function disposeRetainSample(
  */
 export async function openLot(page, lotId) {
   await page.goto(`/qc-inspection/lots/${lotId}`)
-  await expect(page.getByRole('button', { name: 'Print report' })).toBeVisible({ timeout: 30_000 })
+  // Readiness = the rail's GENERAL card rendered. (Print report used to be
+  // the sentinel, but it can sit in the action overflow depending on how many
+  // status-driven actions are visible.)
+  await expect(page.getByText('Inspection point')).toBeVisible({ timeout: 30_000 })
 }
 
 /**
@@ -265,11 +271,14 @@ export async function checkInLotViaRest(page, lotId) {
 
   // A REST write lands in Postgres immediately, but the page reads the lot from
   // IndexedDB — which only catches up when the sync service broadcasts and the
-  // syncEngine refetches. If this tab already cached the pre-check-in lot (any
-  // journey that visited the page first, e.g. to add a retain sample), a single
-  // goto can render the stale "No inspector is checked in" state forever.
-  // Reload until the writable surface appears.
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  // syncEngine refetches. Confirm the write in SQL first (so a failure here
+  // reads as the sync gap it is), then reload with breathing room until the
+  // writable surface appears.
+  await waitForSqlValue(
+    `SELECT assigned_to IS NOT NULL FROM inspection_lots WHERE id = ${quote(lotId)}`,
+    { timeoutMs: 15_000, label: 'check-in landed in Postgres' },
+  )
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     await page.goto(`/qc-inspection/lots/${lotId}`)
     const ready = await page
       .getByRole('button', { name: 'Save results' })
@@ -277,6 +286,7 @@ export async function checkInLotViaRest(page, lotId) {
       .then(() => true)
       .catch(() => false)
     if (ready) return
+    await page.waitForTimeout(3_000)
   }
   throw new Error(`checkInLotViaRest: lot ${lotId} never became writable in the UI`)
 }
@@ -373,7 +383,7 @@ export async function completeLotViaRest(
 
   const complete = await page.request.post(`/api/v1/services/qcInspection/lots/${lotId}/complete`, { data: {} })
   expect(complete.ok(), `complete failed: ${await complete.text()}`).toBeTruthy()
-  await waitForSqlValue(`SELECT status_id = 'COMPLETED' FROM inspection_lots WHERE id = ${quote(lotId)}`, {
+  await waitForSqlValue(`SELECT inspection_phase = 'COMPLETED' FROM inspection_lots WHERE id = ${quote(lotId)}`, {
     timeoutMs: 30_000,
     label: 'lot COMPLETED (via REST)',
   })
@@ -495,7 +505,7 @@ export async function submitForDisposition(page, lotId, { waiverComment = null, 
   }
   if (onDialog) await onDialog(page)
   await page.getByRole('button', { name: 'Submit for Disposition' }).click()
-  await waitForSqlValue(`SELECT status_id = 'UNDER_REVIEW' FROM inspection_lots WHERE id = ${quote(lotId)}`, {
+  await waitForSqlValue(`SELECT inspection_phase = 'UNDER_REVIEW' FROM inspection_lots WHERE id = ${quote(lotId)}`, {
     timeoutMs: 45_000,
     label: 'lot submitted for review',
   })

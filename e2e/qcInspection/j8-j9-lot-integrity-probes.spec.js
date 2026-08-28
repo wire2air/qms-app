@@ -22,7 +22,7 @@ import { createLotViaRest, findLotByNumber } from '../fixtures/qcInspection.js'
 const lastLine = (out) => out.trim().split('\n').pop().trim()
 
 test.describe('PW-J8/J9 — lot integrity probes', () => {
-  test('PW-J8 — 🔴 OPEN finding #1: an execute-only inspector can set lot status directly, skipping disposition', async ({
+  test('PW-J8 — finding #1 NARROWED: fabricated statuses are refused at the FK; a raw CLOSE remains the residual hole', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.qcInspector })
@@ -30,50 +30,47 @@ test.describe('PW-J8/J9 — lot integrity probes', () => {
     const lot = await createLotViaRest(page, {})
     await ctx.close()
 
-    expect(lot.statusId, 'a fresh lot starts PENDING').toBe('PENDING')
+    expect(lot.phase, 'a fresh lot starts in the PENDING phase').toBe('PENDING')
 
-    // The inspector holds inspection_qc:read/create/execute and NOT `dispose`.
-    // The REST path enforces that (submitForReview/disposition both require
-    // inspection_qc:dispose — inspectionLots.js). The DATABASE does not:
-    // inspection_lots_upd's gate is create OR execute OR dispose, since no
-    // distinct `update` action was ever registered, and status_id has no CHECK
-    // and no transition trigger. So the whole workflow is skippable.
+    // INVERTED 2026-08-28 (per this probe's own instruction when it first
+    // failed "the right way"): the unified vocabulary trimmed
+    // inspection_lot_statuses to DRAFT/OPEN/CLOSED/CANCELLED, and status_id's
+    // FK now refuses every fabricated outcome-status. The disposition OUTCOME
+    // lives on disposition_type_id, which only the disposition flow writes —
+    // so an execute-only inspector can no longer forge a "released" lot by
+    // inventing a status.
     const res = sqlAsAppUser(
       `UPDATE inspection_lots
           SET status_id = 'DISPOSITIONED', quality_state = 'RELEASED'
         WHERE id = '${lot.id}';`,
       { userId: USERS.qcInspector.id, companyId: COMPANY_ID },
     )
+    expect(res.ok, 'fabricated status is refused (FK to the 4-row vocabulary)').toBe(false)
+    expect(String(res.error)).toMatch(/foreign key|violates/i)
 
     const after = findLotByNumber(lot.lotNumber)
+    expect(after.statusId, 'the lot is untouched').toBe('OPEN')
+    expect(after.phase).toBe('PENDING')
 
-    if (!res.ok || after.statusId !== 'DISPOSITIONED') {
-      throw new Error(
-        'Finding #1 appears FIXED — the raw status write was refused. This is the single most ' +
-          'important defect in the pack, so treat this failure as good news: invert this test to ' +
-          'assert the refusal permanently, mark finding #1 FIXED in 11-security-review.md, and ' +
-          'promote it to a release gate.\n' +
-          `DB said: ${res.error || `status is now ${after.statusId}`}`,
-      )
+    // RESIDUAL (still open, now narrower): CLOSED is a legal FK value and
+    // inspection_lots has no transition trigger, so a raw jump to CLOSED
+    // still works — but it lands with NO disposition_type_id, which every
+    // outcome reader now keys on, so the forged state no longer reads as a
+    // release anywhere. Fix remains C1: a status-transition trigger.
+    const rawClose = sqlAsAppUser(
+      `UPDATE inspection_lots SET status_id = 'CLOSED' WHERE id = '${lot.id}';`,
+      { userId: USERS.qcInspector.id, companyId: COMPANY_ID },
+    )
+    if (rawClose.ok) {
+      test.info().annotations.push({
+        type: 'known-defect',
+        description:
+          'Finding #1 RESIDUAL: no transition trigger on inspection_lots, so a raw jump to the ' +
+          'legal CLOSED value still works for any execute-holder — though without a disposition ' +
+          'record it no longer masquerades as a release. Fix = C1 status-transition trigger + a ' +
+          'single-verb write policy.',
+      })
     }
-
-    // The harm, stated concretely: the lot is now "released" with no
-    // disposition record, no e-signature and no reviewer ever involved.
-    expect(after.statusId).toBe('DISPOSITIONED')
-    expect(after.qualityState, 'material is marked RELEASED').toBe('RELEASED')
-    expect(
-      sqlValue(`SELECT count(*) FROM inspection_lot_events
-                 WHERE inspection_lot_id = '${lot.id}' AND event_type ILIKE '%disposition%'`),
-      'no disposition event — the audit trail never records the release',
-    ).toBe('0')
-
-    test.info().annotations.push({
-      type: 'known-defect',
-      description:
-        'Finding #1 OPEN (pack severity: highest confirmed program-wide). inspection_lots_upd gates on ' +
-        'create OR execute OR dispose and status_id has no CHECK/trigger, so any execute-holder can ' +
-        'self-release a lot over GraphQL. Fix = C1 status-transition trigger + a single-verb write policy.',
-    })
   })
 
   test('PW-J9 — 🔴 OPEN finding #2: the lot-number counter is writable by a zero-permission member', async () => {

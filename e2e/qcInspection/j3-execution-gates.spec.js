@@ -35,7 +35,7 @@ test.describe('PW-J3 — execution gates', () => {
       data: { results: [{ characteristicId: null, valueNumeric: 10 }] },
     })
     expect(res.ok(), 'server refuses results with no checked-in inspector').toBeFalsy()
-    expect(findLotByNumber(lot.lotNumber).statusId, 'lot stays PENDING').toBe('PENDING')
+    expect(findLotByNumber(lot.lotNumber).phase, 'lot stays PENDING').toBe('PENDING')
 
     // After check-in the same surface becomes writable.
     await checkInLot(page, lot.id)
@@ -49,7 +49,7 @@ test.describe('PW-J3 — execution gates', () => {
     const lot = await createLotViaRest(inspector, {})
     await checkInLot(inspector, lot.id)
     await recordResults(inspector, { length: 10.0, visualPass: true, label: 'Legible' })
-    await waitForSqlValue(`SELECT status_id = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'results recorded',
     })
@@ -107,7 +107,7 @@ test.describe('PW-J3 — execution gates', () => {
     expect(noResults.ok(), 'complete with zero results is refused').toBeFalsy()
     const body = await noResults.json().catch(() => null)
     expect(body?.error?.message ?? '', 'the refusal names the unscored count').toMatch(/Cannot complete: .*not recorded/)
-    expect(findLotByNumber(lot.lotNumber).statusId, 'lot is not completed').not.toBe('COMPLETED')
+    expect(findLotByNumber(lot.lotNumber).phase, 'lot is not completed').not.toBe('COMPLETED')
 
     // Score only ONE of the three characteristics — still incomplete.
     await recordResults(page, { length: 10.0 })
@@ -117,13 +117,13 @@ test.describe('PW-J3 — execution gates', () => {
     })
     const partial = await page.request.post(`/api/v1/services/qcInspection/lots/${lot.id}/complete`, { data: {} })
     expect(partial.ok(), 'complete with a partially scored sample is refused').toBeFalsy()
-    expect(findLotByNumber(lot.lotNumber).statusId, 'still not completed').not.toBe('COMPLETED')
+    expect(findLotByNumber(lot.lotNumber).phase, 'still not completed').not.toBe('COMPLETED')
 
     // Score the rest — now it completes.
     await recordResults(page, { visualPass: true, label: 'Legible' })
     await page.getByRole('button', { name: 'Complete', exact: true }).click()
     await page.getByRole('button', { name: 'Complete', exact: true }).last().click()
-    await waitForSqlValue(`SELECT status_id = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`, {
+    await waitForSqlValue(`SELECT inspection_phase = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`, {
       timeoutMs: 30_000,
       label: 'fully scored lot completes',
     })

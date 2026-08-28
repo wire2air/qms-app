@@ -18,21 +18,23 @@ export function buildInspectionLotSections(_lot) {
  *  There is no separate Start — checking in starts the inspection.
  */
 // Lots a QA manager may reopen for re-inspection (mirrors the backend
-// REOPENABLE_STATUSES): awaiting disposition or after a failing disposition.
-const REOPENABLE_STATUSES = new Set([
-  'UNDER_REVIEW',
-  'REJECTED',
-  'HOLD',
-  'REWORK',
-  'RETURN_TO_SUPPLIER',
-])
+// isReopenable): awaiting disposition, quarantined, or CLOSED with an
+// adverse disposition (the caller resolves `dispositionAdverse`).
+const REOPENABLE_PHASES = new Set(['UNDER_REVIEW', 'HOLD'])
 
-// Statuses during which someone actively inspects (so check-in/out applies).
-const INSPECTABLE_STATUSES = new Set(['PENDING', 'IN_PROGRESS'])
+// Phases during which someone actively inspects (so check-in/out applies).
+// The parent status is OPEN throughout execution — unified 2026-08-28.
+const INSPECTABLE_PHASES = new Set(['PENDING', 'IN_PROGRESS'])
 
 export function buildInspectionLotActions(gates = {}, handlers = {}) {
   const { canExecute, canDispose, canCreateEvent, canRetain, statusId, acting, creatingEvent } = gates
-  const { isActiveInspector, hasInspector } = gates
+  const { isActiveInspector, hasInspector, inspectionPhase, dispositionAdverse } = gates
+  const isOpen = statusId === 'OPEN'
+  const openPhase = (p) => isOpen && inspectionPhase === p
+  const inspectable = isOpen && INSPECTABLE_PHASES.has(inspectionPhase)
+  const reopenable =
+    (isOpen && REOPENABLE_PHASES.has(inspectionPhase)) ||
+    (statusId === 'CLOSED' && !!dispositionAdverse)
   return [
     {
       // Submit for QA disposition — terminal action once the lot is COMPLETED.
@@ -40,7 +42,7 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       label: 'Submit for QA Disposition',
       variant: 'primary',
       priority: 100,
-      visible: !!canDispose && statusId === 'COMPLETED',
+      visible: !!canDispose && openPhase('COMPLETED'),
       onSelect: handlers.submit,
     },
     {
@@ -50,7 +52,7 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       label: hasInspector ? 'Take over (check in)' : 'Check in',
       variant: 'primary',
       priority: 90,
-      visible: !!canExecute && INSPECTABLE_STATUSES.has(statusId) && !isActiveInspector,
+      visible: !!canExecute && inspectable && !isActiveInspector,
       loading: !!acting,
       onSelect: handlers.checkIn,
     },
@@ -60,7 +62,7 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       label: 'Check out (end shift)',
       variant: 'outline',
       priority: 90,
-      visible: !!canExecute && INSPECTABLE_STATUSES.has(statusId) && !!isActiveInspector,
+      visible: !!canExecute && inspectable && !!isActiveInspector,
       loading: !!acting,
       onSelect: handlers.checkOut,
     },
@@ -70,7 +72,7 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       label: 'Complete',
       variant: 'secondary',
       priority: 85,
-      visible: !!canExecute && statusId === 'IN_PROGRESS' && !!isActiveInspector,
+      visible: !!canExecute && openPhase('IN_PROGRESS') && !!isActiveInspector,
       loading: !!acting,
       onSelect: handlers.complete,
     },
@@ -82,7 +84,7 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       priority: 80,
       visible:
         !!canExecute &&
-        ['DRAFT', 'PENDING', 'IN_PROGRESS'].includes(statusId) &&
+        (statusId === 'DRAFT' || inspectable) &&
         !!isActiveInspector,
       onSelect: handlers.edit,
     },
@@ -91,7 +93,7 @@ export function buildInspectionLotActions(gates = {}, handlers = {}) {
       label: 'Reopen for Re-inspection',
       variant: 'outline',
       priority: 60,
-      visible: !!canDispose && REOPENABLE_STATUSES.has(statusId),
+      visible: !!canDispose && reopenable,
       onSelect: handlers.reopen,
     },
     {

@@ -30,7 +30,10 @@ const saveError = ref(null)
 const isEdit = computed(() => Boolean(props.editLot))
 // IN_PROGRESS edits can only touch logistics — the spec snapshot is frozen.
 const identityLocked = computed(
-  () => isEdit.value && props.editLot.statusId !== 'PENDING' && props.editLot.statusId !== 'DRAFT',
+  () =>
+    isEdit.value &&
+    props.editLot.statusId !== 'DRAFT' &&
+    !(props.editLot.statusId === 'OPEN' && props.editLot.inspectionPhase === 'PENDING'),
 )
 
 const POINTS = [

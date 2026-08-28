@@ -1,21 +1,12 @@
 <script setup>
 const props = defineProps({ statusId: { type: String, default: null } })
+// Unified parent vocabulary (2026-08-28). Execution detail renders via
+// InspectionLotPhaseBadgeById; the disposition outcome via its type badge.
 const STATUS_MAP = {
   DRAFT: { id: 'DRAFT', name: 'Draft' },
-  PENDING: { id: 'PENDING', name: 'Pending' },
-  IN_PROGRESS: { id: 'IN_PROGRESS', name: 'In Progress' },
-  COMPLETED: { id: 'COMPLETED', name: 'Completed' },
-  UNDER_REVIEW: { id: 'UNDER_REVIEW', name: 'Under Review' },
-  // Terminal disposition outcomes
-  RELEASED: { id: 'RELEASED', name: 'Released' },
-  USE_AS_IS: { id: 'USE_AS_IS', name: 'Use as-is' },
-  REGRADE: { id: 'REGRADE', name: 'Regrade' },
-  REWORK: { id: 'REWORK', name: 'Rework' },
-  RETURN_TO_SUPPLIER: { id: 'RETURN_TO_SUPPLIER', name: 'Return to Supplier' },
-  REJECTED: { id: 'REJECTED', name: 'Rejected' },
-  HOLD: { id: 'HOLD', name: 'On Hold' },
-  APPROVED: { id: 'APPROVED', name: 'Approved' },
+  OPEN: { id: 'OPEN', name: 'Open' },
   CLOSED: { id: 'CLOSED', name: 'Closed' },
+  CANCELLED: { id: 'CANCELLED', name: 'Cancelled' },
 }
 const status = computed(
   () => STATUS_MAP[props.statusId] || (props.statusId ? { id: props.statusId, name: props.statusId } : null),
