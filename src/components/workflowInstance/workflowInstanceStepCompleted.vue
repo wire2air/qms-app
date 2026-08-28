@@ -72,7 +72,7 @@ const usersMap = useLiveQueryWithDeps(
           <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
             {{ usersMap[task.assignedTo]?.firstName }} {{ usersMap[task.assignedTo]?.lastName }}
           </p>
-          <TaskInstanceStatusBadgeById :statusId="task.statusId" />
+          <TaskInstanceStatusBadgeById :statusId="task.statusId" :stepType="instanceStep?.stepType" />
         </div>
       </div>
     </div>

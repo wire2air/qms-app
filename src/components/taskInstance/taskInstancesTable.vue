@@ -973,7 +973,7 @@ defineExpose({ exportCsv })
             v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
             :statusId="getTrainingAssigneeEntry(row).assignee.status"
           />
-          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
+          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :task="row" :module="row.entityType" />
         </div>
         <div class="tw:mt-2 tw:text-caption">
           <span v-if="row.completedAt" class="tw:text-green-600 tw:font-medium">
@@ -1306,7 +1306,7 @@ defineExpose({ exportCsv })
             v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
             :statusId="getTrainingAssigneeEntry(row).assignee.status"
           />
-          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :module="row.entityType" />
+          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :task="row" :module="row.entityType" />
         </template>
 
         <!-- Created -->

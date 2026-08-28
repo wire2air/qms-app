@@ -17,7 +17,7 @@ const modelValue = defineModel({
 
 const items = computed(() => [
   { id: 'ASSIGNED', name: 'Assigned' },
-  { id: 'APPROVED', name: 'Approved' },
+  { id: 'APPROVED', name: 'Approved / Completed' },
   { id: 'REJECTED', name: 'Rejected' },
   { id: 'CHANGES_REQUESTED', name: 'Changes Requested' },
 ])

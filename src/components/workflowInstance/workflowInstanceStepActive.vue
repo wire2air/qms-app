@@ -150,7 +150,7 @@ const usersMap = useLiveQueryWithDeps(
             </BaseText>
           </div>
         </div>
-        <TaskInstanceStatusBadgeById class="tw:shrink-0" :statusId="task.statusId" />
+        <TaskInstanceStatusBadgeById class="tw:shrink-0" :statusId="task.statusId" :stepType="instanceStep?.stepType" />
       </div>
     </div>
 
