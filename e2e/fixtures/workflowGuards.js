@@ -13,6 +13,11 @@
 //   3. the disposable reviewer-less TEMPLATE PW-J15 needs, which cannot be
 //      authored through the UI without becoming visible to every other suite's
 //      workflow picker (see `seedReviewerlessTemplate` for why it is INACTIVE).
+//   4. (added 2026-08-28) the TAKEOVER trail — `audit_logs.performed_by`,
+//      `signatures.proxy_session_user_id` and the TASK_ACTED_BY_OTHER notice.
+//      Since the 2026-08-19 assignee-verb rule a permitted non-assignee may act
+//      on someone else's step, and the whole safety argument for allowing that
+//      is that it is ATTRIBUTED and REPORTED. PW-J17 pins all three.
 //
 // Owned by the PW-J14…J18 specs only. `fixtures/workflow.js` and
 // `fixtures/cast.js` are owned elsewhere and are imported, never edited.
@@ -101,14 +106,78 @@ export function assignmentsOnStep(instanceStepId) {
  */
 export function signaturesForTask(taskId) {
   const out = sql(
-    `SELECT id, user_id, meaning, coalesce(comments,'')
+    `SELECT id, user_id, meaning, coalesce(comments,''), coalesce(proxy_session_user_id::text,'')
        FROM signatures WHERE task_instance_id = ${q(taskId)} ORDER BY created_at`,
   )
   if (!out) return []
   return out.split('\n').map((line) => {
-    const [id, userId, meaning, comments] = line.split('|')
-    return { id, userId, meaning, comments: comments || null }
+    const [id, userId, meaning, comments, proxySessionUserId] = line.split('|')
+    return {
+      id,
+      userId,
+      meaning,
+      comments: comments || null,
+      // Added 2026-08-28 for PW-J17's takeover case. Since the assignee-verb
+      // rule (2026-08-19) a permitted NON-assignee may complete someone else's
+      // step; `signatures.user_id` is then the ACTOR and this column names whose
+      // task it was. Part 11 needs both — who signed, and on whose behalf. NULL
+      // (rendered here as null, not '') is the correct value for an ordinary
+      // self-signed step, so callers must distinguish the two.
+      proxySessionUserId: proxySessionUserId || null,
+    }
   })
+}
+
+/**
+ * Every audit row the DB trigger wrote for one task, newest first.
+ *
+ * `audit_logs.entity_type` is the PLURALISED model name ('TaskInstances'), not
+ * the singular `sourceType`/`entityType` string used on `task_instances` itself
+ * — getting that wrong returns zero rows and every attribution assertion built
+ * on it passes vacuously.
+ *
+ * `performed_by` comes from the `app.current_user_id` GUC that
+ * `requireCompanyAccess` sets transaction-locally, so it names whoever actually
+ * made the request — which on a takeover is the ACTOR, not the assignee. That is
+ * the property PW-J17 asserts.
+ */
+export function auditRowsForTask(taskId) {
+  const out = sql(
+    `SELECT action, coalesce(performed_by::text,'')
+       FROM audit_logs
+      WHERE entity_type = 'TaskInstances' AND entity_id = ${q(taskId)}
+      ORDER BY performed_at DESC`,
+  )
+  if (!out) return []
+  return out.split('\n').map((line) => {
+    const [action, performedBy] = line.split('|')
+    return { action, performedBy: performedBy || null }
+  })
+}
+
+/**
+ * Wait for the "someone else actioned your task" notice to reach an assignee.
+ *
+ * `notifyAssigneeOfTakeover` enqueues a graphile job inside the request's own
+ * transaction; the `notifications` row is written later by the worker's
+ * `send_notification` task. So this has to be a BARRIER — reading the count
+ * straight after the 200 is indistinguishable from "the worker has not caught
+ * up yet", and a spec built on that goes green the day the worker gets slower.
+ *
+ * Deliberately keyed on (recipient, type, task) rather than on the message text:
+ * the copy is a product decision and will be reworded; who was told, about what,
+ * and why is the control.
+ */
+export async function waitForTakeoverNotice(assigneeUserId, taskInstanceId, timeoutMs = 60_000) {
+  await waitForSqlValue(
+    `SELECT count(*) FROM notifications
+      WHERE deleted_at IS NULL
+        AND user_id = ${q(assigneeUserId)}
+        AND notification_type_id = 'TASK_ACTED_BY_OTHER'
+        AND resource_type = 'TaskInstance'
+        AND resource_id = ${q(taskInstanceId)}`,
+    { timeoutMs, label: `TASK_ACTED_BY_OTHER notice to ${assigneeUserId} for task ${taskInstanceId}` },
+  )
 }
 
 /** Total signatures across every task of every step of one workflow instance. */

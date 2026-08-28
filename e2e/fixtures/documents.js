@@ -76,6 +76,39 @@ export async function selectFirstOption(page, fieldLabel) {
 }
 
 /**
+ * Wait for "Create Document" to land on the new document's detail page — and
+ * say WHY when it doesn't.
+ *
+ * The bare `expect(page).toHaveURL(...)` this replaces reported the failure as
+ * "42 × unexpected value http://…/documents/create", which reads like a stuck
+ * validation and is not: `createDocument` is a `useLiveMutation`, and that
+ * wrapper CATCHES every error, raises a toast and returns `undefined`. Its
+ * caller (`persist()` in DocumentsCreate.vue) then guards on `if (doc)`, so a
+ * mid-flight failure skips the success toast AND `router.push` while the
+ * document — and whatever sections got pushed before the throw — are already
+ * committed. Three of the eight documents failures on 2026-08-28 (PW-J1's
+ * completeness-gate case, PW-J5, PW-J7) were this, all with a half-written
+ * document sitting in app-db. Surfacing the toast turns that into one line.
+ */
+async function expectCreateNavigated(page) {
+  try {
+    await expect(page).toHaveURL(/\/documents\/(?!create)[0-9a-f-]{36}/, { timeout: 20_000 })
+  } catch {
+    // BaseToast renders role="alert" only for type=error (everything else is
+    // role="status", which also matches every skeleton loader on the page).
+    const said = (await page.getByRole('alert').allTextContents().catch(() => []))
+      .map((t) => t.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+    throw new Error(
+      `Create Document did not navigate — still on ${page.url()}. ` +
+        (said.length
+          ? `The app reported: ${said.join(' | ')}`
+          : 'The app reported nothing at all — useLiveMutation swallowed the error and persist() skipped the redirect, leaving a half-written document behind.'),
+    )
+  }
+}
+
+/**
  * Create a document from the seeded SOP template with the seeded approval
  * workflow. Ends on the new document's detail page. Returns the title.
  *
@@ -183,6 +216,30 @@ export async function createSopDocument(page, title, opts = {}) {
   expect(wf, 'the document runs ITS OWN template approval flow').toBe(
     FIXTURES.sopTemplateApprovalWorkflow,
   )
+
+  // …and the other half is the section clone. Sections are written one row at a
+  // time through the SyncEngine push queue (`DocumentsCreate.createDocument`
+  // loops `docSection.save()`), and nothing downstream waits for them, so a
+  // single-shot count right after create — which is exactly what PW-J1 did —
+  // races the queue and passes or fails by timing. Worse, the loop is inside the
+  // swallowed mutation: when one save throws, the earlier sections stay
+  // committed and the rest are simply never written. app-db on 2026-08-28 holds
+  // documents created from the 3-section SOP template carrying 2, 1 and 0
+  // sections (`E2E J1-gate 1787931517726` has Purpose + Scope and no Procedure).
+  //
+  // Barrier on the TEMPLATE's own section count rather than a literal 3, so this
+  // tracks the seed instead of drifting from it. HAVING (no GROUP BY) yields no
+  // row until the clone is complete, which is what waitForSqlValue treats as
+  // "not ready" — a plain count(*) would read "1" as ready and wave it through.
+  await waitForSqlValue(
+    `SELECT count(*) FROM document_sections ds
+       JOIN documents d ON d.id = ds.document_id
+      WHERE d.title = '${title}' AND ds.deleted_at IS NULL
+      HAVING count(*) >= (SELECT jsonb_array_length(sections) FROM document_templates
+                           WHERE name = '${FIXTURES.sopTemplateName}' AND deleted_at IS NULL
+                           ORDER BY created_at LIMIT 1)`,
+    { timeoutMs: 20_000, label: `every ${FIXTURES.sopTemplateName} section cloned onto "${title}"` },
+  )
   return title
 }
 
@@ -252,10 +309,25 @@ export async function submitForReview(page, opts = {}) {
     if (onTrainingGate) await onTrainingGate(page)
     await trainingGate.click()
   }
-  // A collaborator reminder may also interpose; proceed if present.
-  const collabGate = page.getByRole('button', { name: /submit anyway|proceed|continue/i })
+  // A collaborator reminder may also interpose — "Has the collaborator
+  // finished?", raised whenever `openCollaboratorTasks.length` is non-zero
+  // (DocumentsPageId.handleSubmitForReview). Its confirm button is labelled
+  // "Submit for review", NOT any of "submit anyway / proceed / continue", so the
+  // old regex could never match it and the dialog would sit there until the
+  // workflow-preview assertion below timed out. The copy the gate DOES own is
+  // its heading, so anchor on that and take the primary button inside the same
+  // headlessui panel.
+  //
+  // Deliberately NOT `getByRole('button', { name: /submit for review/i })`: that
+  // also matches the action-bar trigger this helper just clicked, which is still
+  // on the page, so a "gate present?" probe would answer yes on every document
+  // and the click would re-fire the whole submit.
+  // The portal is also the right scope for the click: the action-bar trigger
+  // lives in the page, never inside #headlessui-portal-root.
+  const portal = page.locator('#headlessui-portal-root')
+  const collabGate = portal.getByText(/still (has|have) an open task on this document/i).first()
   if (await collabGate.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await collabGate.click()
+    await portal.getByRole('button', { name: /^submit for review$/i }).last().click()
   }
 
   // Workflow preview dialog — identified by its per-step reviewer helper text.
@@ -270,7 +342,15 @@ export async function submitForReview(page, opts = {}) {
   const pickerCount = await pickers.count()
   for (let i = 0; i < pickerCount; i++) {
     const combo = pickers.nth(i)
-    await combo.scrollIntoViewIfNeeded()
+    // Best-effort scroll. `locator.click()` scrolls the target into view on its
+    // own, so this only ever bought a nicer trace — but it threw hard on
+    // 2026-08-28 (PW-J2): "Protocol error (DOM.scrollIntoViewIfNeeded): Cannot
+    // find context with specified id", i.e. the execution context went away
+    // mid-action because the dialog re-rendered under it while the reviewer
+    // candidates streamed in from IndexedDB. Failing the run on a cosmetic
+    // scroll is the wrong trade; the click that follows re-resolves the element
+    // and does the scrolling anyway.
+    await combo.scrollIntoViewIfNeeded().catch(() => {})
     const wanted = reviewersByStep[i]
     // Scope to THIS combobox's own panel — a page-wide getByRole('listbox')
     // also matches the previous step's panel while it is still open (see below).
@@ -328,6 +408,32 @@ export async function expectStatusEventually(page, pattern, { timeout = 40_000 }
 /** Navigate to a document, bounded and without waiting on the live sync socket. */
 export async function gotoDoc(page, documentId) {
   await page.goto(`/documents/${documentId}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+}
+
+/**
+ * Navigate to a document detail page and wait for it to actually RENDER.
+ *
+ * `page.goto` returns as soon as the shell is up; the record body stays a wall
+ * of `role="status"` skeletons until the SyncEngine has the Document row in this
+ * context's IndexedDB. A fresh `browser.newContext()` bootstraps every model
+ * from scratch, so on the slower personas that is comfortably longer than the
+ * 25s default action timeout — which is how C6 failed on 2026-08-28: 25s of
+ * "waiting for getByRole('button', { name: /more actions/i })" against a page
+ * that was still all skeletons.
+ *
+ * The overflow menu is the right readiness anchor: DetailActionBar always
+ * buckets at least Print/Reports/Revision History/Audit Log/Export, so >3 are
+ * always visible and the ⋯ trigger always exists once the record renders — for
+ * every persona, at every status. If it never appears, the record did not
+ * render at all, and the usual reason is that this persona has no RLS read path
+ * to it (see documents_sel), not a slow page.
+ */
+export async function openDocumentDetail(page, documentId, { timeout = 60_000 } = {}) {
+  await page.goto(`/documents/${documentId}`)
+  await expect(
+    page.getByRole('button', { name: 'More actions' }),
+    'the document detail rendered for this persona (no RLS read path ⇒ skeletons for ever)',
+  ).toBeVisible({ timeout })
 }
 
 /**

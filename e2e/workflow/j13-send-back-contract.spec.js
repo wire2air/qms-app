@@ -167,6 +167,14 @@ test.describe('PW-J13 · F-03 send-back', () => {
     const ctx = await browser.newContext({ storageState: AUTH.approver })
     let res
     try {
+      // Since 2026-08-19 this call needs TWO things of Adam, not one. He is the
+      // step's assignee (unchanged) AND `assertCanActOnStep` now asks the matrix
+      // for `change_control:approve`, of the assignee too — an assignment routes
+      // work, it does not confer the verb. He holds it at tenant scope
+      // (e2e-seed.sql §17), so nothing here changes; but if that grant is ever
+      // pulled, this test fails with a 403 whose message is about roles rather
+      // than about send-back, and the failure will look like an F-03 regression
+      // when it is not. PW-J17 pins that gate directly.
       // The documented contract (schemas/workflowInstanceSchemas.js), driven as
       // the assignee. Change Approval requires an e-signature, and step 3 of
       // handleWorkflowAction gates EVERY outcome on it — a send-back from a

@@ -63,22 +63,45 @@ test.describe('PW-J1 · owner raises an NC, it opens for review', () => {
     // audit_logs uses the table-derived plural entity_type ('Nonconformances'),
     // distinct from task_instances' singular 'Nonconformance' — verified live.
     // The point of this assertion is ATTRIBUTION — that opening the NC is
-    // recorded against a real user, not that the row carries a particular verb.
+    // recorded against a real user — but the ACTION is load-bearing too, and it
+    // has now moved twice in one day.
     //
-    // It used to look for action = 'UNDER_REVIEW'. Status-named audit actions no
-    // longer exist for NC: the unified-status work left the raise writing a plain
-    // `nc.update({ statusId: 'OPEN' })`, which the audit hook records as UPDATE.
-    // Renaming the expected action to 'OPEN' (the obvious edit) is just as wrong —
-    // a raised NC produces exactly CREATE + UPDATE and nothing else. Assert both,
-    // and assert they are attributed, which is what the test was always for.
-    const attributed = sqlValue(
-      `SELECT count(DISTINCT action) FROM audit_logs
+    // ~~CREATE + UPDATE~~. The previous repair reasoned that "status-named audit
+    // actions no longer exist for NC", and for about three hours that was true:
+    // the unified-status migration renamed UNDER_REVIEW -> OPEN on the record
+    // while the audit registry's actionMap kept its key on the retired word, so
+    // every raise fell through to a generic UPDATE. That was the DEFECT, not the
+    // contract. qms `839d02b0` (2026-08-28) rekeyed
+    // worker/services/audit/registry/modules/nonconformances.js to
+    // `OPEN: AUDIT_ACTIONS.UNDER_REVIEW` — the same fix that restored CAPA's
+    // SUBMIT_FOR_REVIEW — so the semantic action is written again.
+    //
+    // The map keys on the NEW status id and emits the OLD action name on
+    // purpose: the status vocabulary is what the migration changed; the Part-11
+    // action vocabulary (AUDIT_ACTIONS.UNDER_REVIEW = 'UNDER_REVIEW') was not
+    // touched, and renaming it would orphan every historical row. So the id
+    // written to audit_logs.action is 'UNDER_REVIEW' even though no NC is ever
+    // in an UNDER_REVIEW status any more. Verified against app-db: an NC raised
+    // after the rekey carries exactly CREATE + UNDER_REVIEW; one raised before
+    // it carries CREATE + UPDATE.
+    //
+    // Asserted as two separate counts rather than one count(DISTINCT ...) = 2 so
+    // a regression names WHICH row went missing instead of reporting "1, wanted 2".
+    const createRows = sqlValue(
+      `SELECT count(*) FROM audit_logs
         WHERE entity_type = 'Nonconformances' AND entity_id = '${nc.id}'
-          AND action IN ('CREATE','UPDATE') AND performed_by IS NOT NULL`,
+          AND action = 'CREATE' AND performed_by IS NOT NULL`,
+    )
+    expect(Number(createRows), 'the raise is audited as an attributed CREATE').toBeGreaterThan(0)
+
+    const openRows = sqlValue(
+      `SELECT count(*) FROM audit_logs
+        WHERE entity_type = 'Nonconformances' AND entity_id = '${nc.id}'
+          AND action = 'UNDER_REVIEW' AND performed_by IS NOT NULL`,
     )
     expect(
-      Number(attributed),
-      'the raise is audited as an attributed CREATE and an attributed UPDATE (the open transition)',
-    ).toBe(2)
+      Number(openRows),
+      'the DRAFT->OPEN transition is audited under its own semantic action, not a generic UPDATE',
+    ).toBeGreaterThan(0)
   })
 })

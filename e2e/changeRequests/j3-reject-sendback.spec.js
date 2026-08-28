@@ -43,7 +43,38 @@ test.describe('PW-J3 · reject + send-back', () => {
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
     const approverPage = await approverCtx.newPage()
     await approverPage.goto(`/change-requests/${cr.id}`, { waitUntil: 'domcontentloaded' })
-    await clickWhenReady(approverPage, approverPage.getByRole('button', { name: 'More actions' }))
+    // Anchor the menu to the STEP CARD, never to a bare role+name lookup.
+    // BaseMenu hard-codes aria-label="More actions" on EVERY trigger it renders
+    // (resource/js/shared/components/BaseMenu.vue), and this page can show more
+    // than one: DetailActionBar mints one whenever the record's own actions
+    // overflow `maxVisible`, and each workflow step card mints its own
+    // (WorkflowStepActionsMenu, which is where Reject / Send Back live). Role +
+    // name therefore cannot separate them, and clickWhenReady resolves its
+    // locator with `.first()` — pure DOM order, so it opened the header menu,
+    // which carries neither item, and the run died on the menuitem lookup.
+    //
+    // Worse, whether it fails at all depends on the SIGNED-IN USER: the approver
+    // holds no change_control:update/close, so their record bar has only
+    // Print + Audit Log and never overflows — one "More actions" on the page,
+    // green run. The reviewer DOES hold update, so their bar gains Cancel and
+    // the ordering flips. A locator that passes or fails on the persona's
+    // permission set is not a locator.
+    //
+    // WorkflowStep.vue renders the step's inline Approve / Mark Complete and its
+    // WorkflowStepActionsMenu in the SAME header row, button first — so the next
+    // More-actions trigger in document order after the step's own action button
+    // is always that step's menu. Same fault and same fix as CAPA PW-J2.
+    // `.first()` on the anchor is deliberate: the card renders a SECOND
+    // Approve/Mark Complete below the form (added 2026-08-16), and the header
+    // one is the one the menu follows.
+    const stepMenu = approverPage
+      .getByRole('button', { name: 'Approve', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
+    // Menus open downward without flipping, so a low trigger can land its panel
+    // off-screen; centre it first.
+    await stepMenu.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await clickWhenReady(approverPage, stepMenu)
     await approverPage.getByRole('menuitem', { name: 'Reject' }).click()
     const reason = approverPage.getByPlaceholder('Why are you rejecting?')
     await expect(reason).toBeVisible({ timeout: 10_000 })
@@ -114,7 +145,38 @@ test.describe('PW-J3 · reject + send-back', () => {
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
     const approverPage = await approverCtx.newPage()
     await approverPage.goto(`/change-requests/${cr.id}`, { waitUntil: 'domcontentloaded' })
-    await clickWhenReady(approverPage, approverPage.getByRole('button', { name: 'More actions' }))
+    // Anchor the menu to the STEP CARD, never to a bare role+name lookup.
+    // BaseMenu hard-codes aria-label="More actions" on EVERY trigger it renders
+    // (resource/js/shared/components/BaseMenu.vue), and this page can show more
+    // than one: DetailActionBar mints one whenever the record's own actions
+    // overflow `maxVisible`, and each workflow step card mints its own
+    // (WorkflowStepActionsMenu, which is where Reject / Send Back live). Role +
+    // name therefore cannot separate them, and clickWhenReady resolves its
+    // locator with `.first()` — pure DOM order, so it opened the header menu,
+    // which carries neither item, and the run died on the menuitem lookup.
+    //
+    // Worse, whether it fails at all depends on the SIGNED-IN USER: the approver
+    // holds no change_control:update/close, so their record bar has only
+    // Print + Audit Log and never overflows — one "More actions" on the page,
+    // green run. The reviewer DOES hold update, so their bar gains Cancel and
+    // the ordering flips. A locator that passes or fails on the persona's
+    // permission set is not a locator.
+    //
+    // WorkflowStep.vue renders the step's inline Approve / Mark Complete and its
+    // WorkflowStepActionsMenu in the SAME header row, button first — so the next
+    // More-actions trigger in document order after the step's own action button
+    // is always that step's menu. Same fault and same fix as CAPA PW-J2.
+    // `.first()` on the anchor is deliberate: the card renders a SECOND
+    // Approve/Mark Complete below the form (added 2026-08-16), and the header
+    // one is the one the menu follows.
+    const stepMenu = approverPage
+      .getByRole('button', { name: 'Approve', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
+    // Menus open downward without flipping, so a low trigger can land its panel
+    // off-screen; centre it first.
+    await stepMenu.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await clickWhenReady(approverPage, stepMenu)
     await approverPage.getByRole('menuitem', { name: 'Reject' }).click()
     const reason = approverPage.getByPlaceholder('Why are you rejecting?')
     await expect(reason).toBeVisible({ timeout: 10_000 })
@@ -189,7 +251,19 @@ test.describe('PW-J3 · reject + send-back', () => {
     const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
     const reviewerPage = await reviewerCtx.newPage()
     await reviewerPage.goto(`/change-requests/${cr.id}`, { waitUntil: 'domcontentloaded' })
-    await clickWhenReady(reviewerPage, reviewerPage.getByRole('button', { name: 'More actions' }))
+    // Same anchor-to-the-step-card fix as the two reject tests above, with the
+    // one difference that matters: step 1 is an ACTION step, so
+    // WorkflowStep.vue's completeActionLabel is 'Mark Complete', not 'Approve'
+    // — the anchor is per step TYPE. (And the reviewer holds change_control:update
+    // since seed §33, so their record action bar carries Cancel as well and DOES
+    // overflow: this is the persona where a bare `getByRole('button', { name:
+    // 'More actions' })` picks the wrong menu.)
+    const stepMenu = reviewerPage
+      .getByRole('button', { name: 'Mark Complete', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
+    await stepMenu.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await clickWhenReady(reviewerPage, stepMenu)
     await reviewerPage.getByRole('menuitem', { name: 'Send Back' }).click()
     const reason = reviewerPage.getByPlaceholder('Why are you sending this back to the owner?')
     await expect(reason).toBeVisible({ timeout: 10_000 })

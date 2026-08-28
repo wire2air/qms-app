@@ -10,9 +10,27 @@
 // The DB-level fixes are covered by 39 integration/worker tests. What this
 // project adds is the half those cannot reach: **the UI control itself.** F-02's
 // bypass was `<QualityEventStatusSelectMenu v-model="event.statusId">` behind a
-// 600 ms debounced autosave, offering all seven statuses. The guard now refuses
-// two of them at the database — these journeys prove that refusal actually
-// reaches the user, and, just as importantly, that the other five still work.
+// 600 ms debounced autosave, offering every status the module had.
+//
+// ~~"all seven statuses … refuses two of them … the other five still work"~~ —
+// that arithmetic is two changes out of date, and the numbers were the whole
+// point of the sentence:
+//
+//   • `20260823100000-unified-record-statuses` collapsed the vocabulary to FOUR
+//     (DRAFT / OPEN / CLOSED / CANCELLED). UNDER_REVIEW and AWAITING_DECISION
+//     both folded into OPEN — they were stages of doing the work, not distinct
+//     states of the record — and the retired lookup rows were DELETED, so they
+//     are not merely unreachable, they violate `quality_events_status_id_fkey`.
+//   • ESCALATED went the same way for a different reason (2026-08-18): escalation
+//     spawns a downstream record but does not resolve the event, so it is a
+//     `record_links` row, not a status. `src/utils/qualityEventStatuses.js` is
+//     the frontend's copy of the same four.
+//
+// So the guard refuses exactly ONE (CLOSED, the only entry in the trigger's
+// `v_gated`), holds CLOSED and CANCELLED terminal, and DELIBERATELY allows every
+// other move — because the dropdown is the only writer DRAFT and CANCELLED have.
+// These journeys prove the refusal reaches the user AND that the states the
+// dropdown solely owns still move; QE-J2's header carries the full guard shape.
 import { expect } from '@playwright/test'
 import { sql, sqlValue, sqlAsAppUser } from './db.js'
 import { COMPANY_ID, QUALITY_EVENTS } from './cast.js'

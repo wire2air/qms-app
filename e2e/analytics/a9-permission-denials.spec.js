@@ -40,13 +40,35 @@ test.describe('ANL-A9 · denials', () => {
     })
 
     test('typing the URL does not produce the module', async ({ page }) => {
-      await gotoAnalytics(page)
       // Whatever the shell chooses to render — a redirect or a refusal — it must
-      // not be the command centre. Asserting the ABSENCE of the module rather than
-      // the presence of a particular error page keeps this from breaking every
-      // time the denial UI is restyled.
-      await expect(page.getByRole('button', { name: /new report/i })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: /change the reporting period/i })).toHaveCount(0)
+      // not be the module. Asserting the ABSENCE of the surface rather than the
+      // presence of a particular error page keeps this from breaking every time
+      // the denial UI is restyled.
+      //
+      // ⚠️ EACH PROBE IS RUN ON THE ROUTE THAT WOULD ACTUALLY RENDER IT, which
+      // it was not until 2026-08-28. Both assertions used to be made against
+      // /analytics alone — and AnalyticsHome has no "New report" button at any
+      // permission level (it lives on ReportsHome, and always has), so that half
+      // matched nothing whether the guard worked or not. A locator that cannot
+      // match is a green assertion guarding nothing; the fix is to ask it where
+      // the button exists.
+      await gotoAnalytics(page)
+      await expect(
+        page.getByRole('button', { name: /change the reporting period/i }),
+        'the command centre renders the filter bar for anyone who reaches it',
+      ).toHaveCount(0)
+
+      await gotoAnalytics(page, '/reports')
+      await expect(
+        page.getByRole('button', { name: /new report/i }),
+        'ReportsHome renders this unconditionally — reaching it at all is the defect',
+      ).toHaveCount(0)
+      // The guard (permissionGuard.js) treats `analytics` as an ADMIN subtree,
+      // so list AND detail are gated on reports_dashboards:read. Probing a
+      // detail route as well is what would catch that classification being
+      // relaxed to a record module, where only the bare list is guarded.
+      await gotoAnalytics(page, `/reports/${ANALYTICS.sharedReport.id}`)
+      await expect(page.getByText(ANALYTICS.sharedReport.name)).toHaveCount(0)
     })
 
     test('the metric layer returns no row — which is not a zero', async () => {

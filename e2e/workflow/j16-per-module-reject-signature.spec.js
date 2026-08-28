@@ -37,6 +37,18 @@
 // template, so a `workflows_templates:update` holder cannot flip
 // `require_esignature = false` on the published step and make the signature
 // requirement evaporate — step 2b of the first test pins that.
+//
+// ── One thing 2026-08-19 did NOT change, deliberately ───────────────────────
+// The assignee-verb rule widened the COMPLETE path only. API-15 now lets any
+// user the matrix permits act on a step (`assertCanActOnStep`), assignee or
+// not — but REJECT and SEND-BACK on these per-module endpoints are still
+// ASSIGNEE-ONLY: `executeRejectStepTask` filters `assignedTo: user.id` on the
+// task lookup and answers `'You have no ASSIGNED task on this step to reject'`,
+// and the route carries no `enforcePermission` at all. So every probe in this
+// file is driven by the step's own assignee and none of them is measuring a
+// permission — which is exactly what makes this file about SIGNATURES and
+// PW-J17 about ACCESS. If that asymmetry is ever closed, the failure surfaces
+// there, not here; do not "harmonise" these two files.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ESIGN_PIN, USERS } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'

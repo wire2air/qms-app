@@ -70,7 +70,35 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
     const approverPage = await approverCtx.newPage()
     await approverPage.goto(`/nonconformances/${nc.id}`, { waitUntil: 'domcontentloaded' })
-    const moreActions = approverPage.getByRole('button', { name: 'More actions' })
+    // TWO buttons on this page carry the accessible name "More actions", and
+    // `BaseMenu` hard-codes `aria-label="More actions"` on every trigger it
+    // renders, so role+name cannot tell them apart:
+    //
+    //   1. the record header's overflow (`DetailActionBar` — Convert to
+    //      supplier-facing / Audit Log), which is FIRST in DOM order, and
+    //   2. the step card's (`WorkflowStepActionsMenu` — Approve / Reject).
+    //
+    // ~~`getByRole('button', { name: 'More actions' })`~~ therefore resolves to
+    // two elements. The bare `.evaluate()` below it was a STRICT-MODE VIOLATION
+    // that threw before anything was clicked, and `clickWhenReady` (which takes
+    // `.first()` internally) would have opened the header menu — no Reject in
+    // it, so the next line sat there until timeout. Whether `.first()` lands on
+    // the right trigger is pure DOM order; it is not a tie-break.
+    //
+    // Both existed before 2026-08-19 too, but only for the ASSIGNEE. The
+    // takeover rule (stepTakeover.js `pickActionableTask`) now renders the step
+    // menu for anyone the matrix covers, so this page grew a second trigger for
+    // more personas, not fewer.
+    //
+    // Anchor on the step's OWN Approve button and take the next More-actions
+    // trigger after it in document order — the idiom CAPA PW-J2 settled on, and
+    // the same shape as comboboxAfterLabel in fixtures/documents.js. `exact:
+    // true` because "Approve" is a substring of the "AA Adam Approver User"
+    // profile-menu button in the header (see completeApproverStep).
+    const moreActions = approverPage
+      .getByRole('button', { name: 'Approve', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
     // Centre the trigger before opening its menu. The approval step sits at the
     // bottom of a 1280x720 viewport and the actions menu opens DOWNWARD without
     // flipping when there is no room, so the menu renders below the fold: the

@@ -89,17 +89,35 @@ test.describe('PW-J14 · F-15 Approvals Inbox gating', () => {
     // the row matches nothing. If that action is ever added, this assertion goes
     // red — correctly, because the CONTROLs below would then be measuring a
     // permitted user rather than an unpermitted one.
-    const workflowGrants = Number(
-      sqlValue(
-        `SELECT count(*) FROM authz.role_module_permissions rmp
-           JOIN roles_on_users ru ON ru.role_id = rmp.role_id AND ru.company_id = rmp.company_id
-          WHERE rmp.company_id = '${COMPANY_ID}' AND rmp.module_id LIKE 'workflow%'`,
-      ),
-    )
-    expect(
-      workflowGrants,
-      'no E2E persona holds any workflows_* permission (see the note above if this fails)',
-    ).toBe(0)
+    //
+    // ⚠️ SCOPE CHANGED 2026-08-28. This used to count workflows_* grants across
+    // the WHOLE tenant and assert zero. That stopped being true, legitimately:
+    // creating a document template now also mints that template's approval
+    // workflow (`ensureTemplateApprovalWorkflow`), which writes through
+    // `workflows_ins` and therefore needs `workflows_templates:create` — so the
+    // seed grants exactly that, to the Doc Controller role, or PW-J8 never
+    // navigates off /document-templates/create (e2e-seed.sql §7, lines 145-175).
+    // Carla is not a persona any CONTROL below drives, so a tenant-wide count
+    // was measuring the wrong thing: what has to stay true is that the two
+    // personas these CONTROLs actually use hold NOTHING on workflows_*. Asserted
+    // per-persona now, which is both narrower and sharper — a grant landing on
+    // Rita or Noah trips it, and a grant landing on someone irrelevant does not.
+    for (const [name, userId] of [
+      ['reviewer', USERS.reviewer.id],
+      ['noAccess', USERS.noAccess.id],
+    ]) {
+      expect(
+        Number(
+          sqlValue(
+            `SELECT count(*) FROM authz.role_module_permissions rmp
+               JOIN roles_on_users ru ON ru.role_id = rmp.role_id AND ru.company_id = rmp.company_id
+              WHERE rmp.company_id = '${COMPANY_ID}' AND ru.user_id = '${userId}'
+                AND rmp.module_id LIKE 'workflow%'`,
+          ),
+        ),
+        `${name} holds no workflows_* permission (see the note above if this fails)`,
+      ).toBe(0)
+    }
 
     // The zero-grant persona used by the strongest CONTROL. Structural: they
     // hold no role at all, so no future catalog change can quietly give them one.
@@ -149,9 +167,16 @@ test.describe('PW-J14 · F-15 Approvals Inbox gating', () => {
   test('CONTROL: an ordinary reviewer with no template grant still reaches the inbox', async ({
     browser,
   }) => {
-    // `reviewer` holds document_control/ncr/capa/change_control/audit_* READ and
-    // nothing else — the exact persona doc 19 protects. Blocking them here is
-    // what would break the notification deep link in production.
+    // `reviewer` holds RECORD-module grants only — read across
+    // document_control/ncr/capa/change_control/audit_*, plus `capa:update` and
+    // `change_control:update` since the 2026-08-19 assignee-verb rule made an
+    // assignment stop conferring the verb (e2e-seed.sql §32/§33). What she still
+    // holds NOTHING of is `workflows_*`, which is the only thing this CONTROL
+    // turns on — she is the exact persona doc 19 protects, and blocking her here
+    // is what would break the notification deep link in production.
+    // (The stale version of this comment said "and nothing else", which stopped
+    // being true when the verb backfill landed and would have sent the next
+    // reader looking for a grant regression that is not one.)
     const ctx = await browser.newContext({ storageState: AUTH.reviewer })
     try {
       const page = await ctx.newPage()

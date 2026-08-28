@@ -82,7 +82,18 @@ test.describe('PW-J10 · close gate with a deferred DELAY step', () => {
     const res = await closeRequest(page, capaId, 'E2E — must be refused while the delay is un-armed.')
     expect(res.status(), 'the server refuses the close').toBe(409)
     expect(await errorMessage(res)).toMatch(/1 workflow step still open/i)
-    expect(capaStatus(capaId), 'and the record did not move').toBe('PENDING')
+    // 'PENDING' until migration 20260823100000 (unified record statuses): NC,
+    // CAPA and Quality Event now share one vocabulary — DRAFT / OPEN / CLOSED /
+    // CANCELLED — and `capa_statuses.PENDING` was RENAMED to `OPEN` (the row was
+    // moved, not added alongside, so the old id no longer exists at all).
+    // `capas.js:184` sets OPEN on submitForReview, which is the state
+    // `openDelayCapa` leaves this record in. ChangeRequest was excluded from
+    // that migration, which is why the CR-carried journeys in this project still
+    // read 'UNDER_REVIEW' — do not "align" them.
+    expect(capaStatus(capaId), 'and the record did not move').toBe('OPEN')
+    // NOT a record status: `workflow_instances.status_id`, untouched by the
+    // unified-status migration (the coupling runs one way — the workflow sets
+    // the record's word, never the reverse).
     expect(instanceOfCapa(capaId).statusId).toBe('IN_PROGRESS')
   })
 
@@ -145,6 +156,11 @@ test.describe('PW-J10 · close gate with a deferred DELAY step', () => {
     expect(survivor.delayUntilEpoch, 'and keeps the exact wake time it was armed with').toBe(
       delay.delayUntilEpoch,
     )
+    // PENDING here is `users_on_workflow_instance_steps.status_id` — the engine's
+    // own ledger vocabulary, NOT a record status. Migration 20260823100000
+    // renamed `capa_statuses.PENDING` to OPEN and left every workflow table
+    // alone, so this string is still correct and must not be swept along with
+    // the record-status rename above.
     expect(assignmentStatusesOn(survivor.id), 'its assignment is not cancelled either').toEqual({
       PENDING: 1,
     })

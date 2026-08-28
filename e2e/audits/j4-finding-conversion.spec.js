@@ -82,9 +82,29 @@ test.describe('PW-J4 · a finding converts into corrective action', () => {
       { timeoutMs: 30_000, label: 'finding ↔ CAPA lineage link' },
     )
     // The linked chip surfaces in the collapsed row, not just the expanded one.
+    //
+    // Anchored on the CAPA's NUMBER, not the word "CAPA". The chip used to be a
+    // bare "CAPA" label; AuditFindingLinkedChip now live-queries the target and
+    // renders its code + live status ("CAPA-014 OPEN") so an auditor sees
+    // remediation progress at a glance. Meanwhile "CAPA" as loose text is all
+    // over this panel — the bulk bar's "Create CAPA"/"Attach to CAPA" buttons,
+    // the "+ New CAPA" and "Link CAPA" pills on every unlinked finding, the
+    // "CAPA / Response" heading — so `getByText('CAPA').first()` was green
+    // whether or not anything had been linked at all. It proved nothing.
+    //
+    // The title attribute is the chip's own (`Open linked ${kind}`), which
+    // separates it from the "Link CAPA" pill that also mentions the number
+    // nowhere. Scoped to the collapsed row: this is the assertion that the chip
+    // is surfaced WITHOUT expanding, which is the whole point of the check.
     await page.reload()
     await openAuditTab(page, 'Findings')
-    await expect(page.getByText('CAPA').first()).toBeVisible({ timeout: 30_000 })
+    await expect(
+      page.getByRole('button', { name: new RegExp(existingCapa.capaNumber) }),
+      'the collapsed finding row carries a chip naming the linked CAPA',
+    ).toHaveCount(1)
+    await expect(
+      page.locator('button[title="Open linked CAPA"]').first(),
+    ).toBeVisible({ timeout: 30_000 })
 
     // ── 2. Deep-link a brand-new CAPA off the second finding.
     await expandFinding(page, minorFinding.findingNumber)
