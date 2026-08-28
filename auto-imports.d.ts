@@ -6,6 +6,8 @@
 // biome-ignore lint: disable
 export {}
 declare global {
+  const EFFECTIVENESS_FILTER_OPTIONS: typeof import('./src/composables/useEffectivenessRollup.js').EFFECTIVENESS_FILTER_OPTIONS
+  const EFFECTIVENESS_STATE_LABELS: typeof import('./src/composables/useEffectivenessRollup.js').EFFECTIVENESS_STATE_LABELS
   const EffectScope: typeof import('vue').EffectScope
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
@@ -79,6 +81,7 @@ declare global {
   const isChecked: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isChecked
   const isDateNode: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isDateNode
   const isDefined: typeof import('@vueuse/core').isDefined
+  const isEffectivenessOverdue: typeof import('./src/composables/useEffectivenessRollup.js').isEffectivenessOverdue
   const isGroupableStep: typeof import('./src/composables/useWorkflowStepGrouping.js').isGroupableStep
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
@@ -90,6 +93,7 @@ declare global {
   const markRaw: typeof import('vue').markRaw
   const matchChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').matchChord
   const matchPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').matchPattern
+  const matchesEffectivenessFilter: typeof import('./src/composables/useEffectivenessRollup.js').matchesEffectivenessFilter
   const morphHeaderVariant: typeof import('./resource/js/shared/composables/detailVariantHelpers.js').morphHeaderVariant
   const nextTick: typeof import('vue').nextTick
   const normalizeChord: typeof import('./resource/js/shared/composables/hotkeyHelpers.js').normalizeChord
@@ -262,6 +266,7 @@ declare global {
   const useDocuments: typeof import('./src/composables/useDocuments.js').useDocuments
   const useDraggable: typeof import('@vueuse/core').useDraggable
   const useDropZone: typeof import('@vueuse/core').useDropZone
+  const useEffectivenessIndex: typeof import('./src/composables/useEffectivenessRollup.js').useEffectivenessIndex
   const useElementBounding: typeof import('@vueuse/core').useElementBounding
   const useElementByPoint: typeof import('@vueuse/core').useElementByPoint
   const useElementHover: typeof import('@vueuse/core').useElementHover

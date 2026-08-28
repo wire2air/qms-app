@@ -1,7 +1,17 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { IconForms, IconPlus, IconTrash } from '@tabler/icons-vue'
+import {
+  IconForms,
+  IconPlus,
+  IconTrash,
+  IconFileText,
+  IconAlertCircle,
+  IconCircleCheck,
+  IconCalendar,
+  IconTargetArrow,
+} from '@tabler/icons-vue'
 import { isAllowed, isAllowedOnRecord } from '@/utils/currentSession.js'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
 import {
   useEffectivenessIndex,
   matchesEffectivenessFilter,
@@ -37,16 +47,52 @@ const title = computed(
   () => template.value?.moduleConfig?.displayName || template.value?.title || 'Module',
 )
 
-// ─── Effectiveness rollup (2026-08-28) ──────────────────────────────────────
-// Module workflow instances key resourceType by the module key; the rollup
-// columns answer "has a check / where does it stand" without step digging.
+// ─── List header parity with the CAPA register (user 2026-08-28) ───────────
+// KPI strip, quick-view pills, and a compact filter menu (effectiveness +
+// created date) — the same primitives CapasHome/CapasTable use.
+const kpiItems = computed(() => {
+  const all = records.value
+  const count = (statusId) => all.filter((r) => r.statusId === statusId).length
+  return [
+    { key: 'draft', label: 'Draft', value: count('DRAFT'), icon: IconFileText, color: 'secondary' },
+    { key: 'open', label: 'Open', value: count('OPEN'), icon: IconAlertCircle, color: 'blue' },
+    { key: 'closed', label: 'Closed', value: count('CLOSED'), icon: IconCircleCheck, color: 'green' },
+  ]
+})
+
+const QUICK_PILLS = [
+  { value: 'all', label: 'All' },
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'OPEN', label: 'Open' },
+  { value: 'CLOSED', label: 'Closed' },
+]
+const quickView = ref('all')
+
+// Effectiveness (three buckets) + created date, in the toolbar's filter menu.
 const effectivenessIndex = useEffectivenessIndex(() => props.moduleKey)
-const effectivenessFilter = ref(null)
+const menuFilters = ref({ effectiveness: [], createdAt: null })
+const filterItems = [
+  {
+    id: 'effectiveness',
+    label: 'Effectiveness',
+    icon: IconTargetArrow,
+    group: 'effectiveness',
+    options: EFFECTIVENESS_FILTER_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+  },
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+]
+
 const filteredRecords = computed(() => {
-  if (!effectivenessFilter.value) return records.value
-  return records.value.filter((r) =>
-    matchesEffectivenessFilter(effectivenessIndex.value.get(r.id), [effectivenessFilter.value]),
-  )
+  let rows = records.value
+  if (quickView.value !== 'all') rows = rows.filter((r) => r.statusId === quickView.value)
+  const { effectiveness, createdAt } = menuFilters.value
+  if (effectiveness?.length) {
+    rows = rows.filter((r) =>
+      matchesEffectivenessFilter(effectivenessIndex.value.get(r.id), effectiveness),
+    )
+  }
+  if (createdAt) rows = rows.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+  return rows
 })
 function effectivenessCell(row) {
   const wi = effectivenessIndex.value.get(row.id)
@@ -119,19 +165,14 @@ async function handleDelete() {
       </template>
     </PageHeader>
 
+    <BaseStatStrip :items="kpiItems" />
+
     <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable>
+      <template #tabs>
+        <BaseQuickFilterPills v-model="quickView" :pills="QUICK_PILLS" ariaLabel="Quick views" />
+      </template>
       <template #toolbar-filters>
-        <div class="tw:w-44">
-          <BaseSelect
-            v-model="effectivenessFilter"
-            :options="EFFECTIVENESS_FILTER_OPTIONS"
-            optionLabel="label"
-            optionValue="value"
-            nullLabel="Effectiveness: all"
-            clearable
-            size="sm"
-          />
-        </div>
+        <BaseFilterMenu v-model="menuFilters" :items="filterItems" iconOnly />
       </template>
       <template #body-cell-recordNumber="{ row }">
         <RouterLink

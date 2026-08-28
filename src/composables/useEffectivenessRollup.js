@@ -6,17 +6,14 @@
 // The SQL twin for reporting is the `record_effectiveness_rollup` view.
 import { DateTime } from 'luxon'
 
-/** Menu options — values are FILTER buckets, not raw states (a bucket may
- *  cover several states, e.g. Pending = not fired yet in any form). */
+/** Menu options — three buckets, kept deliberately small (user 2026-08-28):
+ *  Pending covers every LIVE shape (parked, scheduled, fired-awaiting-verdict);
+ *  the two verdicts stand alone. Skipped/cancelled/no-check aren't filterable —
+ *  they're the absence of a story. */
 export const EFFECTIVENESS_FILTER_OPTIONS = [
-  { value: 'ANY_CHECK', label: 'Has a check' },
-  { value: 'PENDING', label: 'Pending (not fired)' },
-  { value: 'AWAITING_VERDICT', label: 'Verdict due' },
-  { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'PENDING', label: 'Pending check' },
   { value: 'EFFECTIVE', label: 'Effective' },
   { value: 'NOT_EFFECTIVE', label: 'Not effective' },
-  { value: 'SKIPPED', label: 'Skipped' },
-  { value: 'NO_CHECK', label: 'No check' },
 ]
 
 export const EFFECTIVENESS_STATE_LABELS = {
@@ -31,7 +28,7 @@ export const EFFECTIVENESS_STATE_LABELS = {
   CANCELLED: 'Cancelled',
 }
 
-const PENDING_STATES = ['PENDING', 'AWAITING_SCHEDULING', 'SCHEDULED']
+const LIVE_STATES = ['PENDING', 'AWAITING_SCHEDULING', 'SCHEDULED', 'AWAITING_VERDICT']
 const DUE_BEARING_STATES = ['SCHEDULED', 'AWAITING_VERDICT']
 
 /**
@@ -77,10 +74,7 @@ export function matchesEffectivenessFilter(instance, selected) {
   if (!selected?.length) return true
   const state = instance?.effectivenessState ?? 'NONE'
   return selected.some((value) => {
-    if (value === 'ANY_CHECK') return state !== 'NONE'
-    if (value === 'NO_CHECK') return state === 'NONE'
-    if (value === 'PENDING') return PENDING_STATES.includes(state)
-    if (value === 'OVERDUE') return isEffectivenessOverdue(instance)
+    if (value === 'PENDING') return LIVE_STATES.includes(state)
     return state === value
   })
 }
