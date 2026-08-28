@@ -275,9 +275,9 @@ const effectivenessDecisions = computed(() => [
   },
   {
     value: 'CLOSE_JUSTIFIED',
-    label: 'Close with Justification',
+    label: 'Not Effective — Close Check',
     blurb:
-      'The corrective action did not hold — record Not Effective with your justification and finish. Raise a follow-up CAPA manually if further action is needed.',
+      'The corrective action did not hold — record Not Effective with your justification and complete this check only. The record itself is not closed; raise a follow-up CAPA manually if further action is needed.',
   },
 ].filter(
   (opt) =>
