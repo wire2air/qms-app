@@ -124,7 +124,7 @@ const customSummary = computed(() => {
 
 <template>
   <!-- Preset list — reads like any other value submenu. -->
-  <div v-if="view === 'presets'" class="tw:w-56 tw:p-0.5">
+  <div v-if="view === 'presets'" class="tw:w-56 tw:p-1">
     <button
       v-for="p in PRESETS"
       :key="p.id"
@@ -167,7 +167,7 @@ const customSummary = computed(() => {
   </div>
 
   <!-- Custom range — calendar + readout + Apply / Reset. -->
-  <div v-else class="tw:w-72 tw:p-2 tw:flex tw:flex-col tw:gap-2">
+  <div v-else class="tw:w-80 tw:p-3 tw:flex tw:flex-col tw:gap-2">
     <div class="tw:flex tw:items-center tw:gap-1">
       <button
         type="button"

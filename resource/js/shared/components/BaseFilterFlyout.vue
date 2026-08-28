@@ -161,7 +161,9 @@ function onKeydown(e) {
         />
       </div>
 
-      <div class="tw:max-h-80 tw:overflow-y-auto tw:p-1">
+      <!-- Slot-hosting panels (the date panel) size to their content — the
+           node-list cap squashed the calendar into a scroll trap. -->
+      <div :class="hostsSlot ? 'tw:max-h-[85vh] tw:overflow-y-auto' : 'tw:max-h-80 tw:overflow-y-auto tw:p-1'">
         <template v-for="node in filtered" :key="node.id || node.type">
           <hr v-if="node.type === 'divider'" class="tw:my-1 tw:border-divider" />
           <div

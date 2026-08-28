@@ -4,6 +4,7 @@ import {
   IconForms,
   IconPlus,
   IconTrash,
+  IconX,
   IconFileText,
   IconAlertCircle,
   IconCircleCheck,
@@ -176,6 +177,75 @@ function fieldValueOptions(field) {
     .map((v) => ({ value: v, label: String(v) }))
 }
 
+// ── Applied-filter tokens (the CAPA/NC pattern): removable chips + Clear all.
+const DATE_PRESET_LABELS = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  last_7_days: 'Last 7 days',
+  last_30_days: 'Last 30 days',
+  this_month: 'This month',
+  last_month: 'Last month',
+  this_quarter: 'This quarter',
+  this_year: 'This year',
+}
+function dateTokenLabel(t) {
+  if (t?.presetId) return DATE_PRESET_LABELS[t.presetId] ?? 'Custom'
+  if (t?.operator === 'between') {
+    const s = t.value ? DateTime.fromISO(t.value) : null
+    const e = t.value2 ? DateTime.fromISO(t.value2) : null
+    if (s && e && s.hasSame(e, 'day')) return s.formatDate('date')
+    return `${s?.formatDate('date') ?? '—'} – ${e?.formatDate('date') ?? '—'}`
+  }
+  return 'Custom'
+}
+function removeGroup(g) {
+  menuFilters.value = { ...menuFilters.value, [g]: null }
+}
+function removeGroupValue(g, v) {
+  menuFilters.value = {
+    ...menuFilters.value,
+    [g]: (menuFilters.value[g] || []).filter((x) => x !== v),
+  }
+}
+function clearAllFilters() {
+  menuFilters.value = {}
+}
+function fieldValueLabel(f, v) {
+  return fieldValueOptions(f).find((o) => o.value === v)?.label ?? String(v)
+}
+const filterChips = computed(() => {
+  const chips = []
+  for (const f of configuredFields.value) {
+    const g = `pf_${f.name}`
+    const sel = menuFilters.value[g]
+    if (f.kind === 'date') {
+      if (sel) {
+        chips.push({
+          key: g,
+          label: `${f.label}: ${dateTokenLabel(sel)}`,
+          remove: () => removeGroup(g),
+        })
+      }
+    } else if (Array.isArray(sel)) {
+      for (const v of sel) {
+        chips.push({
+          key: `${g}:${v}`,
+          label: `${f.label}: ${fieldValueLabel(f, v)}`,
+          remove: () => removeGroupValue(g, v),
+        })
+      }
+    }
+  }
+  if (menuFilters.value.createdAt) {
+    chips.push({
+      key: 'createdAt',
+      label: `Created: ${dateTokenLabel(menuFilters.value.createdAt)}`,
+      remove: () => removeGroup('createdAt'),
+    })
+  }
+  return chips
+})
+
 const KIND_ICONS = { lookup: IconForms, date: IconCalendar }
 // Free text and numbers are the search box's job — a distinct-values checkbox
 // list for them is noise (user 2026-08-28). Filter dimensions are the fields
@@ -262,6 +332,35 @@ async function handleDelete() {
     </PageHeader>
 
     <BaseStatStrip :items="kpiItems" />
+
+    <!-- Applied-filter token bar — removable chips + Clear all, as on CAPA/NC. -->
+    <div v-if="filterChips.length" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
+      <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+        Filters
+      </span>
+      <span
+        v-for="chip in filterChips"
+        :key="chip.key"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+      >
+        {{ chip.label }}
+        <button
+          type="button"
+          class="tw:rounded tw:p-0.5 tw:hover:text-bad"
+          :aria-label="`Remove filter ${chip.label}`"
+          @click="chip.remove()"
+        >
+          <IconX :size="12" />
+        </button>
+      </span>
+      <button
+        type="button"
+        class="tw:ms-1 tw:text-xs tw:font-medium tw:text-secondary tw:hover:text-primary"
+        @click="clearAllFilters"
+      >
+        Clear all
+      </button>
+    </div>
 
     <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable>
       <template #tabs>
