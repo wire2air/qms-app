@@ -70,6 +70,26 @@ function blank() {
   }
 }
 
+/**
+ * True while the form is being filled from an existing row.
+ *
+ * ⚠ Load-bearing. The two watchers below clear dependent fields when the module
+ * or the source table changes, which is right when a PERSON changes them and
+ * wrong when the form is merely being populated: seeding an existing metric
+ * moves sourceTable from null to its saved value, which looks identical to a
+ * user picking it, and the reset then wiped the saved filters and groupBy.
+ *
+ * The failure was almost invisible, which is why it survived a build, four lints
+ * and a full unit run. `timeField` came back anyway — BaseSelect's autoFill
+ * re-picks the first option on a required single select, and the first date
+ * field happened to be the saved one — so the dialog looked correctly populated.
+ * Only `Split by`, a multiple select with no autoFill, stayed visibly empty, and
+ * the next Save would have written the emptied definition back. Found by
+ * comparing a screenshot against the stored row: groupBy was ["status_id"] in
+ * the database and blank on screen.
+ */
+const seeding = ref(false)
+
 // Re-seed on open, so cancelling and reopening does not resurrect the abandoned
 // draft. JSON round-trip rather than structuredClone: `props.metric` is a live
 // SyncEngine row and its `definition` arrives wrapped in a Vue reactive Proxy,
@@ -80,6 +100,13 @@ watch(
   () => [open.value, props.metric?.id],
   () => {
     if (!open.value) return
+    seeding.value = true
+    // Cleared on the next tick, AFTER the reset watchers have flushed for this
+    // change. Clearing it synchronously would leave them firing against a form
+    // that is already seeded, which is the bug this flag exists for.
+    nextTick(() => {
+      seeding.value = false
+    })
     form.value = props.metric
       ? {
           name: props.metric.name ?? '',
@@ -156,12 +183,14 @@ function asOption(f) {
 watch(
   () => form.value.moduleId,
   () => {
+    if (seeding.value) return
     form.value.definition = blankDefinition()
   },
 )
 watch(
   () => form.value.definition.sourceTable,
   () => {
+    if (seeding.value) return
     form.value.definition.timeField = null
     form.value.definition.filters = []
     form.value.definition.groupBy = []
