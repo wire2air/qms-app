@@ -1,21 +1,24 @@
 <script setup>
 /**
- * BaseDateRangeFilter — calendar-first date filter for the register filter
- * menus (CAPA / NC / modules …). Replaces the operator-driven BaseDateFilter
- * INSIDE the cascading menu (2026-08-28): the on/before/after operator picker
- * read as jargon, so here it's a preset list plus a range calendar — click a
- * start day, click an end day; the same day twice filters to that one day.
+ * BaseDateRangeFilter — the register menus' date panel (2026-08-28).
  *
- * Emits the SAME token shape BaseDateFilter does ({ operator, value, value2,
- * relative, presetId }), so matchesDateFilter / resolveDateFilter and filters
- * already saved in URLs keep working unchanged. Rolling presets emit `relative`
- * tokens (they re-evaluate every run — "Last 7 days" stays last 7 days);
- * calendar-anchored picks emit a concrete `between`. The analytics advanced
- * editor keeps BaseDateFilter — operators are its point.
+ * Two views, Grafana-style (user request): the default is a compact PRESET
+ * list — rows like any other filter submenu — and a "Custom range…" row that
+ * swaps to a range calendar with a from/to readout and Apply / Reset. Presets
+ * commit immediately and close the menu; Apply commits the calendar range.
+ *
+ * Emits the SAME token shape as the operator editor ({ operator, value,
+ * value2, relative, presetId }), so matchesDateFilter / resolveDateFilter and
+ * filters saved in URLs keep working. Rolling presets emit `relative` tokens
+ * ("Last 7 days" re-evaluates every run); calendar-anchored picks emit a
+ * concrete `between`. BaseDateFilter lives on in the analytics advanced
+ * editor, where operators are the point.
  */
 import { DateTime } from 'luxon'
+import { IconCheck, IconChevronLeft, IconChevronRight } from '@tabler/icons-vue'
 
 const model = defineModel({ type: Object, default: null })
+const ctx = inject('filterMenuCtx', null)
 
 function betweenTok(a, b) {
   return { operator: 'between', value: a.toISODate(), value2: b.toISODate() }
@@ -67,100 +70,134 @@ const PRESETS = [
   },
 ]
 
+const view = ref('presets') // 'presets' | 'custom'
 const activePresetId = computed(() => model.value?.presetId ?? null)
+const hasCustomRange = computed(() => model.value?.operator === 'between' && !model.value.presetId)
 
 function pickPreset(p) {
-  // Toggling the active preset off clears the filter — same affordance as the
-  // quick-view pills.
-  if (activePresetId.value === p.id) {
-    model.value = null
-    return
-  }
   model.value = { ...p.token(DateTime.now()), presetId: p.id }
+  ctx?.requestClose?.()
 }
 
-// The calendar reflects only concrete ranges; a preset pick highlights its chip
-// instead. Setting a range from the calendar always produces a `between`.
-const calRange = computed({
-  get: () => {
-    const t = model.value
-    if (t?.operator !== 'between' || t.presetId) return null
-    const s = t.value ? DateTime.fromISO(t.value) : null
-    const e = t.value2 ? DateTime.fromISO(t.value2) : null
-    return s || e ? { start: s, end: e } : null
-  },
-  set: (v) => {
-    if (!v?.start && !v?.end) {
-      model.value = null
-      return
-    }
-    const s = v.start ?? v.end
-    const e = v.end ?? v.start
-    model.value = betweenTok(s < e ? s : e, s < e ? e : s)
-  },
-})
-
-const summary = computed(() => {
+// ── Custom range (uncommitted until Apply) ──────────────────────────────────
+const pending = ref(null)
+function openCustom() {
   const t = model.value
-  if (!t) return null
-  if (t.presetId) return PRESETS.find((p) => p.id === t.presetId)?.label ?? null
-  if (t.operator === 'between') {
-    const s = t.value ? DateTime.fromISO(t.value) : null
-    const e = t.value2 ? DateTime.fromISO(t.value2) : null
-    if (s && e && s.hasSame(e, 'day')) return s.formatDate('date')
-    if (s && e) return `${s.formatDate('date')} – ${e.formatDate('date')}`
-    return null
-  }
-  // A token from the operator-based editor (old URLs) — applied but not
-  // representable here; the user can clear it and pick again.
-  return 'Custom filter'
+  pending.value =
+    hasCustomRange.value && t.value
+      ? { start: DateTime.fromISO(t.value), end: t.value2 ? DateTime.fromISO(t.value2) : null }
+      : null
+  view.value = 'custom'
+}
+
+function fmt(dt) {
+  return dt ? dt.formatDate('date') : '—'
+}
+const pendingLabel = computed(() => {
+  const p = pending.value
+  if (!p?.start && !p?.end) return 'Pick a start day, then an end day'
+  return `${fmt(p?.start)}  →  ${fmt(p?.end ?? p?.start)}`
 })
 
-function clear() {
+function applyCustom() {
+  const p = pending.value
+  if (!p?.start && !p?.end) return
+  const s = p.start ?? p.end
+  const e = p.end ?? p.start
+  model.value = betweenTok(s < e ? s : e, s < e ? e : s)
+  ctx?.requestClose?.()
+}
+
+function resetFilter() {
+  pending.value = null
   model.value = null
 }
+
+const customSummary = computed(() => {
+  if (!hasCustomRange.value) return null
+  const s = model.value.value ? DateTime.fromISO(model.value.value) : null
+  const e = model.value.value2 ? DateTime.fromISO(model.value.value2) : null
+  if (s && e && s.hasSame(e, 'day')) return fmt(s)
+  return `${fmt(s)} – ${fmt(e)}`
+})
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-2 tw:p-2 tw:w-72">
-    <!-- Presets -->
-    <div class="tw:grid tw:grid-cols-2 tw:gap-1">
-      <button
-        v-for="p in PRESETS"
-        :key="p.id"
-        type="button"
-        class="tw:rounded-md tw:px-2 tw:py-1 tw:text-xs tw:font-medium tw:text-left tw:transition-colors"
-        :class="
-          activePresetId === p.id
-            ? 'tw:bg-primary tw:text-on-primary'
-            : 'tw:text-on-main tw:hover:bg-main-hover'
-        "
-        @click="pickPreset(p)"
-      >
-        {{ p.label }}
-      </button>
-    </div>
-
-    <div class="tw:border-t tw:border-divider tw:pt-2">
-      <p class="tw:text-micro tw:text-secondary tw:mb-1">
-        Or pick a range — start day, then end day.
-      </p>
-      <BaseCalendar v-model="calRange" selectionMode="range" />
-    </div>
-
-    <!-- Applied readout + clear -->
-    <div
-      v-if="summary"
-      class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:border-t tw:border-divider tw:pt-2"
+  <!-- Preset list — reads like any other value submenu. -->
+  <div v-if="view === 'presets'" class="tw:w-56 tw:p-0.5">
+    <button
+      v-for="p in PRESETS"
+      :key="p.id"
+      type="button"
+      class="tw:flex tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:px-2.5 tw:py-1.5 tw:text-sm tw:text-on-main tw:hover:bg-main-hover"
+      @click="pickPreset(p)"
     >
-      <span class="tw:text-xs tw:font-medium tw:text-on-main tw:truncate">{{ summary }}</span>
+      <span>{{ p.label }}</span>
+      <IconCheck v-if="activePresetId === p.id" :size="14" class="tw:text-primary tw:shrink-0" />
+    </button>
+
+    <hr class="tw:my-1 tw:border-divider" />
+    <button
+      type="button"
+      class="tw:flex tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:px-2.5 tw:py-1.5 tw:text-sm tw:text-on-main tw:hover:bg-main-hover"
+      @click="openCustom"
+    >
+      <span class="tw:flex tw:flex-col tw:items-start tw:min-w-0">
+        Custom range…
+        <span v-if="customSummary" class="tw:text-micro tw:text-secondary tw:truncate">
+          {{ customSummary }}
+        </span>
+      </span>
+      <span class="tw:flex tw:items-center tw:gap-1 tw:shrink-0">
+        <IconCheck v-if="hasCustomRange" :size="14" class="tw:text-primary" />
+        <IconChevronRight :size="14" class="tw:text-secondary" />
+      </span>
+    </button>
+
+    <template v-if="model">
+      <hr class="tw:my-1 tw:border-divider" />
       <button
         type="button"
-        class="tw:text-xs tw:font-medium tw:text-secondary tw:hover:text-bad tw:shrink-0"
-        @click="clear"
+        class="tw:w-full tw:rounded-lg tw:px-2.5 tw:py-1.5 tw:text-left tw:text-sm tw:text-secondary tw:hover:bg-main-hover tw:hover:text-bad"
+        @click="resetFilter"
       >
-        Clear
+        Clear filter
       </button>
+    </template>
+  </div>
+
+  <!-- Custom range — calendar + readout + Apply / Reset. -->
+  <div v-else class="tw:w-72 tw:p-2 tw:flex tw:flex-col tw:gap-2">
+    <div class="tw:flex tw:items-center tw:gap-1">
+      <button
+        type="button"
+        class="tw:flex tw:items-center tw:gap-0.5 tw:rounded-md tw:px-1.5 tw:py-1 tw:text-xs tw:font-medium tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
+        @click="view = 'presets'"
+      >
+        <IconChevronLeft :size="14" />
+        Presets
+      </button>
+      <span class="tw:ml-auto tw:text-xs tw:font-medium tw:text-on-main">{{ pendingLabel }}</span>
+    </div>
+
+    <BaseCalendar v-model="pending" selectionMode="range" />
+
+    <div class="tw:flex tw:items-center tw:justify-between tw:border-t tw:border-divider tw:pt-2">
+      <button
+        type="button"
+        class="tw:text-xs tw:font-medium tw:text-secondary tw:hover:text-bad"
+        @click="resetFilter"
+      >
+        Reset
+      </button>
+      <BaseButton
+        variant="primary"
+        size="sm"
+        :disabled="!pending?.start && !pending?.end"
+        @click="applyCustom"
+      >
+        Apply
+      </BaseButton>
     </div>
   </div>
 </template>
