@@ -4,7 +4,6 @@
 // (platform admins exempt) — so a reason is mandatory for non-active states.
 // Audited server-side as COMPANY_SET_STATUS.
 import { IconAlertTriangle } from '@tabler/icons-vue'
-import { useToast } from '@shared/composables/useToast.js'
 import { setCompanyStatus, COMPANY_STATUSES } from '@/api/platform.js'
 
 const props = defineProps({
@@ -13,9 +12,9 @@ const props = defineProps({
 const emit = defineEmits(['updated'])
 const show = defineModel({ type: Boolean, default: false })
 
-const toast = useToast()
 const status = ref(null)
 const reason = ref('')
+const reasonError = ref('')
 const saving = ref(false)
 
 // Non-active states gate the whole tenant — require an operator reason.
@@ -32,7 +31,7 @@ watch(show, (open) => {
 async function handleSave() {
   if (!props.company || !status.value) return
   if (isRestrictive.value && !reason.value.trim()) {
-    toast.notify({ type: 'negative', message: 'A reason is required for this status' })
+    reasonError.value = 'A reason is required for this status'
     return
   }
   saving.value = true
@@ -65,7 +64,9 @@ async function handleSave() {
         :rows="3"
         :required="isRestrictive"
         placeholder="Why is this tenant's status changing? (visible in the platform audit trail)"
+        @input="reasonError = ''"
       />
+      <p v-if="reasonError" class="tw:text-xs tw:text-bad">{{ reasonError }}</p>
 
       <div
         v-if="isRestrictive"

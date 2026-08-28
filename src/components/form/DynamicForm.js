@@ -2,6 +2,7 @@ import { defineComponent, ref, computed, h, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useVModels } from '@vueuse/core'
 import { getProp, injectMultipleProps, setProp } from '@shared/composables/object.js'
+import { LOOKUP_MENUS } from '@/components/menus/lookupMenus.js'
 import {
   IconStar,
   IconStarFilled,
@@ -34,26 +35,10 @@ import BaseUploader from '@/components/common/BaseUploader.vue'
 import { required, email as emailValidator, helpers } from '@vuelidate/validators'
 import { getFormComponent } from './formComponentRegistry.js'
 import { fieldWidthSpan } from '@/constants/formBuilderConfig'
-import ProductSelectMenu from '@/components/menus/ProductSelectMenu.vue'
-import SupplierSelectMenu from '@/components/menus/SupplierSelectMenu.vue'
-import SiteSelectMenu from '@/components/menus/SiteSelectMenu.vue'
-import DepartmentSelectMenu from '@/components/menus/DepartmentSelectMenu.vue'
-import UserSelectMenu from '@/components/menus/UserSelectMenu.vue'
-import EquipmentSelectMenu from '@/components/menus/EquipmentSelectMenu.vue'
-import CountrySelectMenu from '@/components/menus/CountrySelectMenu.vue'
-import RegionSelectMenu from '@/components/menus/RegionSelectMenu.vue'
+import { LOOKUP_CASCADES } from '@/constants/formBuilderConfig'
 
 // Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
-const LOOKUP_MENUS = {
-  product: ProductSelectMenu,
-  supplier: SupplierSelectMenu,
-  site: SiteSelectMenu,
-  department: DepartmentSelectMenu,
-  user: UserSelectMenu,
-  equipment: EquipmentSelectMenu,
-  country: CountrySelectMenu,
-  region: RegionSelectMenu,
-}
+// THE shared map — every lookup surface renders from it; see lookupMenus.js.
 
 function safeRegExp(src) {
   try {
@@ -214,6 +199,25 @@ export default defineComponent({
         return field.condition(modelValue.value)
       }
       return true
+    }
+
+    /**
+     * First field definition with this name, anywhere in the schema —
+     * containers (children / fields) and repeater templates included. Names
+     * are unique per scope by construction (uniqueFieldName /
+     * uniqueColumnName), so first-match is the right answer.
+     */
+    function findFieldDefByName(fields, name) {
+      for (const f of fields || []) {
+        if (!f || typeof f !== 'object') continue
+        if (f.name === name && f.type !== 'row' && f.type !== 'column') return f
+        const nested = f.children || f.fields || f.template
+        if (Array.isArray(nested)) {
+          const hit = findFieldDefByName(nested, name)
+          if (hit) return hit
+        }
+      }
+      return null
     }
 
     function getFieldScope(data) {
@@ -560,8 +564,31 @@ export default defineComponent({
             ])
           }
           const Menu = LOOKUP_MENUS[field.lookupEntity || 'product']
+          // Cascading lookup (2026-08-26): when the author picked a parent
+          // field, narrow this menu's options by the parent's CURRENT value —
+          // e.g. Department options filtered by the chosen Site. The prop name
+          // comes from LOOKUP_CASCADES keyed on (child entity, parent entity);
+          // an empty parent applies no filter (full list).
+          const cascadeProps = {}
+          if (field.parentField && field.lookupEntity) {
+            const parentDef = findFieldDefByName(props.fields, field.parentField)
+            const propName =
+              parentDef?.lookupEntity &&
+              LOOKUP_CASCADES[field.lookupEntity]?.[parentDef.lookupEntity]
+            if (propName) {
+              // SIBLING scope, not the form root: inside an input-table row
+              // the parent column's value lives on the ROW object
+              // (table.3.site), so swap the last path segment — which also
+              // reduces to the flat key on a top-level field (2026-08-27).
+              const p = String(scope?.path ?? field.name ?? '')
+              const parentPath = p.includes('.')
+                ? `${p.slice(0, p.lastIndexOf('.') + 1)}${field.parentField}`
+                : field.parentField
+              cascadeProps[propName] = getProp(modelValue.value, parentPath) || null
+            }
+          }
           const control = Menu
-            ? h(Menu, commonProps)
+            ? h(Menu, { ...commonProps, ...cascadeProps })
             : h(
                 'div',
                 { class: 'tw:text-sm tw:text-red-500' },
@@ -808,18 +835,24 @@ export default defineComponent({
         return a
       }
 
+      // The fixed row-label column ("Product 1", …). Authors can turn it off
+      // in the field settings when the rows need no running label
+      // (user request 2026-08-27).
+      const showRowLabels = field.showRowLabels !== false
       const headerCells = [
-        h(
-          'th',
-          {
-            class: cx(
-              'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5 tw:w-px tw:whitespace-nowrap',
-              ts.headerClass,
-              ts.headerCellClass,
-            ),
-          },
-          '',
-        ),
+        showRowLabels
+          ? h(
+              'th',
+              {
+                class: cx(
+                  'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5 tw:w-px tw:whitespace-nowrap',
+                  ts.headerClass,
+                  ts.headerCellClass,
+                ),
+              },
+              '',
+            )
+          : null,
         ...columns.map((col) =>
           h(
             'th',
@@ -838,16 +871,18 @@ export default defineComponent({
 
       const bodyRows = items.map((item, i) => {
         const cells = [
-          h(
-            'td',
-            {
-              class: cx(
-                'tw:px-2 tw:py-1.5 tw:text-sm tw:text-on-main tw:whitespace-nowrap tw:align-middle',
-                ts.cellClass,
-              ),
-            },
-            `${field.itemLabel || 'Item'} ${i + 1}`,
-          ),
+          showRowLabels
+            ? h(
+                'td',
+                {
+                  class: cx(
+                    'tw:px-2 tw:py-1.5 tw:text-sm tw:text-on-main tw:whitespace-nowrap tw:align-middle',
+                    ts.cellClass,
+                  ),
+                },
+                `${field.itemLabel || 'Item'} ${i + 1}`,
+              )
+            : null,
           ...columns.map((col, ci) =>
             // label blanked — the column header carries it, not each cell.
             h('td', { class: cx('tw:px-2 tw:py-1.5 tw:align-top', ts.cellClass) }, [

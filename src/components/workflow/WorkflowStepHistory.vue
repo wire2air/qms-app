@@ -22,6 +22,7 @@
  * Tasks give us "who held it and when"; audit gives us "what was done and was
  * it signed". Neither alone answers the question.
  */
+import { DateTime } from 'luxon'
 import {
   IconUserPlus,
   IconArrowsExchange,
@@ -226,12 +227,21 @@ const timeline = computed(() => {
     }
     const ev = AUDIT_EVENTS[a.action]
     if (ev) {
+      // The reason and the new wake date are the substance of a delay act —
+      // without them the entry said only WHO (user report 2026-08-28).
+      const nv = a.newValueJson || {}
+      const bits = []
+      if (nv.comment) bits.push(nv.comment)
+      if (nv.newDelayUntil) {
+        const d = DateTime.fromISO(String(nv.newDelayUntil))
+        if (d.isValid) bits.push(`until ${d.toLocaleString(DateTime.DATE_MED)}`)
+      }
       out.push({
         at: a.performedAt,
         kind: ev.kind,
         label: ev.label,
         who: userName(a.performedBy),
-        note: null,
+        note: bits.join(' — ') || null,
       })
     }
   }

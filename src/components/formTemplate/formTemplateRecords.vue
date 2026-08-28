@@ -99,7 +99,8 @@ function extractTemplateLeafFields(templateItems) {
       if (item.type === 'separator') return
       if (['section', 'row', 'column'].includes(item.type)) {
         const newPath = item.name ? [...path, item.name] : path
-        if (item.children) walk(item.children, newPath)
+        const kids = item.children || item.fields
+        if (kids) walk(kids, newPath)
         return
       }
       if (item.type === 'repeater') return
@@ -123,7 +124,8 @@ const schemaFields = computed(() => {
       const newDataPath = item.name ? (dataPath ? `${dataPath}.${item.name}` : item.name) : dataPath
 
       if (['section', 'row', 'column'].includes(item.type)) {
-        if (item.children) extractFields(item.children, newDataPath)
+        const kids = item.children || item.fields
+        if (kids) extractFields(kids, newDataPath)
         return
       }
 
@@ -163,7 +165,8 @@ const exportSchemaFields = computed(() => {
 
       if (['section', 'row', 'column'].includes(item.type)) {
         const newLabelParts = item.label ? [...labelParts, item.label] : labelParts
-        if (item.children) extractFields(item.children, newDataPath, newLabelParts)
+        const kids = item.children || item.fields
+        if (kids) extractFields(kids, newDataPath, newLabelParts)
         return
       }
 
@@ -681,7 +684,7 @@ async function handleExport(format) {
         <span v-else class="tw:text-secondary">-</span>
       </template>
 
-      <template #body-cell="{ row, column }">
+      <template #body-cell="{ row, col: column }">
         <template v-if="column.fieldType === 'repeater'">
           <BaseClickableRow
             v-for="(preview, idx) in [

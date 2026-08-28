@@ -5,7 +5,9 @@ import {
   IconGripHorizontal,
   IconCirclePlus,
   IconInfoCircle,
+  IconPlus,
   IconSettings,
+  IconRoute,
 } from '@tabler/icons-vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
 import {
@@ -59,9 +61,20 @@ const emit = defineEmits([
   'duplicate',
   'moveField',
   'addField',
+  'insertField',
+  'hoistChildren',
 ])
 
 const childrenDropzoneRef = ref(null)
+
+// Approval and Effectiveness Check sections are SELF-CONTAINED steps (user
+// 2026-08-28): the sign-off / verdict panel is the whole step, so they carry
+// no form fields — the canvas offers no dropzone and no add-field for them.
+const isSelfContainedStep = computed(
+  () =>
+    props.field?.type === 'section' &&
+    ['APPROVAL', 'DELAY'].includes(props.field?.routing?.type),
+)
 
 // Click-to-edit for a layout container's title (section/row/column), which is
 // the only place a container's label surfaces now that leaf fields render
@@ -90,6 +103,18 @@ const headerAlignClass = computed(
 
 const LAYOUT_TYPES = new Set(['section', 'row', 'column', 'repeater'])
 
+// Chip label when this section is also a workflow step ('FILL' = legacy ACTION).
+const WORKFLOW_STEP_CHIP = {
+  ACTION: 'Workflow step · Action',
+  FILL: 'Workflow step · Action',
+  APPROVAL: 'Workflow step · Approval',
+  DELAY: 'Workflow step · Effectiveness check',
+}
+const workflowStepChip = computed(
+  () =>
+    (props.field?.type === 'section' && WORKFLOW_STEP_CHIP[props.field?.routing?.type]) || null,
+)
+
 const isLayoutField = computed(() => LAYOUT_TYPES.has(props.field.type))
 
 // An Input Table is a repeater flagged with widget: 'inputTable'. It's edited by
@@ -112,6 +137,26 @@ const layoutTypeLabel = computed(
 const hasChildren = computed(() => Boolean(props.field.children || props.field.template))
 
 const children = computed(() => props.field.children || props.field.template || [])
+
+// Where THIS card sits, split for insert-before: everything up to the last
+// path segment is the parent, the last segment is our index. Root cards have
+// no parent ("2" → parentPath null, index 2).
+const ownParentPath = computed(() => {
+  const i = props.path.lastIndexOf('.')
+  return i === -1 ? null : props.path.slice(0, i)
+})
+const ownIndex = computed(() => {
+  const i = props.path.lastIndexOf('.')
+  return Number(props.path.slice(i + 1))
+})
+
+function requestInsertBefore() {
+  emit('insertField', { parentPath: ownParentPath.value, index: ownIndex.value })
+}
+
+function requestInsertIntoChildren() {
+  emit('insertField', { parentPath: props.path, index: children.value.length })
+}
 
 const childrenKey = computed(() => (props.field.template ? 'template' : 'children'))
 
@@ -173,7 +218,13 @@ const supportsRequired = computed(
 // convert cleanly (checklist, input table, RCA, …) — those simply don't show
 // the picker rather than offering a lossy switch.
 const kindId = computed(() => fieldKindId(props.field))
-const kindOptions = FIELD_KIND_OPTIONS.map((k) => ({ id: k.id, name: k.label }))
+// Canvas shows COMPACT labels — "Lookup (Item, Supplier, Site…)" overflowed
+// the w-40 in-place type select over the neighbouring card (reported
+// 2026-08-26). The palette keeps the descriptive label.
+const kindOptions = FIELD_KIND_OPTIONS.map((k) => ({
+  id: k.id,
+  name: k.label.replace(/\s*\(.*\)\s*$/, ''),
+}))
 
 // Initialize sortable for nested children dropzone
 watch(
@@ -275,6 +326,21 @@ function beginEdit(which) {
       <IconGripHorizontal :size="16" />
     </button>
 
+    <!-- Insert BEFORE this field — the click alternative to dropping a drag
+         exactly in the gap (user report 2026-08-26: the drop zone is easy to
+         miss). Hover-revealed at the top-left corner; works between sections
+         too, since a section is just another card in this list. -->
+    <BaseTooltip content="Insert a field above">
+      <button
+        type="button"
+        class="tw:absolute tw:-top-2.5 tw:left-2 tw:flex tw:size-5 tw:items-center tw:justify-center tw:rounded-full tw:border tw:border-divider tw:bg-card tw:text-secondary tw:opacity-0 tw:shadow-sm tw:transition-opacity tw:hover:border-primary tw:hover:text-primary tw:group-hover:opacity-100 tw:z-raised"
+        :aria-label="`Insert a field above ${field.label || field.name || field.type}`"
+        @click.stop="requestInsertBefore"
+      >
+        <IconPlus :size="13" />
+      </button>
+    </BaseTooltip>
+
     <!-- Layout containers keep a slim, editable title (it renders on the live
          form for sections) — no big icon box or type chrome. Leaf fields have
          no header at all; they render WYSIWYG below. Input Tables render their
@@ -302,6 +368,15 @@ function beginEdit(which) {
         </span>
         <span class="tw:text-micro tw:uppercase tw:tracking-wide tw:text-secondary/60">
           {{ layoutTypeLabel }}
+        </span>
+        <!-- The section doubles as a workflow step — say so without opening
+             the properties panel (user request 2026-08-28). -->
+        <span
+          v-if="workflowStepChip"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-primary/10 tw:px-2 tw:py-0.5 tw:text-micro tw:font-medium tw:text-primary"
+        >
+          <IconRoute :size="11" />
+          {{ workflowStepChip }}
         </span>
       </template>
     </div>
@@ -337,7 +412,7 @@ function beginEdit(which) {
         <!-- Change the field's type in place. Only offered for kinds that
              convert cleanly (see FIELD_KIND_OPTIONS) — a Checklist or Input
              Table has structure nothing else can hold. -->
-        <div v-if="kindId" class="tw:w-40 tw:shrink-0" @click.stop @mousedown.stop>
+        <div v-if="kindId" class="tw:w-40 tw:shrink-0 tw:overflow-hidden" @click.stop @mousedown.stop>
           <BaseSelect
             :modelValue="kindId"
             :options="kindOptions"
@@ -485,9 +560,39 @@ function beginEdit(which) {
       </div>
     </div>
 
+    <!-- Self-contained step sections: no dropzone, no add-field — plus a
+         rescue for fields already trapped inside (they render nowhere). -->
+    <div v-if="isSelfContainedStep" class="tw:mt-3">
+      <div
+        class="tw:rounded-xl tw:border tw:border-dashed tw:border-divider tw:bg-main/50 tw:p-3 tw:text-xs tw:text-secondary"
+      >
+        {{
+          field.routing.type === 'DELAY'
+            ? 'Effectiveness Check — self-contained. The verdict panel is the whole step; it carries no form fields.'
+            : 'Approval — self-contained. The assignee approves or rejects; it carries no form fields.'
+        }}
+      </div>
+      <div
+        v-if="children.length"
+        class="tw:mt-1.5 tw:flex tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-amber-800"
+      >
+        <span>
+          {{ children.length }} field{{ children.length === 1 ? '' : 's' }} trapped here —
+          never shown anywhere.
+        </span>
+        <button
+          type="button"
+          class="tw:shrink-0 tw:font-semibold tw:underline tw:hover:text-amber-900"
+          @click.stop="$emit('hoistChildren', path)"
+        >
+          Move out
+        </button>
+      </div>
+    </div>
+
     <!-- Children for layout fields (Input Tables manage columns via their own
          card, so they don't expose the nested drop zone). -->
-    <div v-if="isLayoutField && hasChildren && !isInputTable" class="tw:mt-3">
+    <div v-else-if="isLayoutField && hasChildren && !isInputTable" class="tw:mt-3">
       <div
         ref="childrenDropzoneRef"
         class="tw:min-h-20 tw:p-3 tw:bg-main/50 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-xl tw:flex tw:flex-wrap tw:content-start tw:gap-2 tw:transition-all"
@@ -509,6 +614,8 @@ function beginEdit(which) {
           @duplicate="$emit('duplicate', $event)"
           @moveField="$emit('moveField', $event)"
           @addField="$emit('addField', $event)"
+          @insertField="$emit('insertField', $event)"
+          @hoistChildren="$emit('hoistChildren', $event)"
         />
 
         <div
@@ -521,6 +628,18 @@ function beginEdit(which) {
           </BaseText>
         </div>
       </div>
+
+      <!-- Click-to-add INTO this container — deliberately OUTSIDE the
+           dropzone div: SortableJS has no draggable filter here, so an
+           element inside the container would join its index math. -->
+      <button
+        type="button"
+        class="tw:mt-1.5 tw:flex tw:w-full tw:items-center tw:justify-center tw:gap-1.5 tw:rounded-lg tw:border tw:border-dashed tw:border-divider tw:py-1.5 tw:text-xs tw:font-medium tw:text-secondary tw:transition-colors tw:hover:border-primary tw:hover:text-primary"
+        @click.stop="requestInsertIntoChildren"
+      >
+        <IconPlus :size="14" />
+        Add field
+      </button>
     </div>
     <!-- Footer — every action for this field in one row, Google Forms style
          (user request 2026-08-15): purpose tooltip + status badges on the

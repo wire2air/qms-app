@@ -40,9 +40,10 @@ const AUDIT_PILLS = [
   { value: 'closed', label: 'Closed' },
 ]
 const PILL_VALUES = new Set(AUDIT_PILLS.map((p) => p.value))
-// Anything not yet finished. Mirrors STATUS_FILTER_OPTIONS minus the terminals.
-const OPEN_STATUSES = ['DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'REVIEW', 'REJECTED']
-const CLOSED_STATUSES = ['COMPLETED', 'CLOSED', 'CANCELLED']
+// Unified parent statuses (2026-08-28): anything not yet finished vs done.
+// Scheduled / in-progress detail lives on executionPhase while OPEN.
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
+const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
 
 const activeFilter = ref(PILL_VALUES.has(route.query.view) ? route.query.view : 'all')
 watch(
@@ -59,8 +60,12 @@ function applyActiveFilter(rows, af) {
   const userId = currentSession.value?.userId
   const now = DateTime.now()
   if (af === 'open') return rows.filter((r) => OPEN_STATUSES.includes(r.statusId))
-  if (af === 'scheduled') return rows.filter((r) => r.statusId === 'SCHEDULED')
-  if (af === 'in_progress') return rows.filter((r) => r.statusId === 'IN_PROGRESS')
+  if (af === 'scheduled')
+    return rows.filter((r) => r.statusId === 'OPEN' && r.executionPhase === 'SCHEDULED')
+  if (af === 'in_progress')
+    return rows.filter(
+      (r) => r.statusId === 'OPEN' && ['IN_PROGRESS', 'REVIEW'].includes(r.executionPhase),
+    )
   if (af === 'mine') return rows.filter((r) => r.leadAuditorUserId === userId)
   // Overdue = scheduled in the past and still not finished. A completed audit
   // that ran late is not outstanding work and must not show here.
@@ -74,11 +79,7 @@ function applyActiveFilter(rows, af) {
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'DRAFT', label: 'Draft' },
-  { value: 'SCHEDULED', label: 'Scheduled' },
-  { value: 'IN_PROGRESS', label: 'In Progress' },
-  { value: 'REVIEW', label: 'In Review' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'OPEN', label: 'Open' },
   { value: 'CLOSED', label: 'Closed' },
   { value: 'CANCELLED', label: 'Cancelled' },
 ]

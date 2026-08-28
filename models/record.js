@@ -32,7 +32,11 @@ export class Record extends BaseModel {
   // '' lands in the column: PostGraphile's UUID scalar rejects it at variable
   // coercion (HTTP 400), and documentTypeId (a varchar FK) violates its FK.
   @Property({ type: String }) documentTypeId = null
-  @Property({ type: String, required: true }) recordNumber = ''
+  // Nullable since 2026-08-27: numbers mint at Start, so drafts carry none
+  // (and deleting a draft leaves no gap in the register).
+  @Property({ type: String }) recordNumber = null
+  // The record this one was spawned FROM (a NOT_EFFECTIVE follow-up clone).
+  @Property({ type: String }) sourceRecordId = null
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: Object }) payload = null
   @Property({ type: String }) submissionIp = ''
@@ -44,6 +48,9 @@ export class Record extends BaseModel {
   @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   @Property({ type: Array }) notifyGroupIds = []
   @Property({ type: String }) moduleKey = ''
+  // The form as it looked at Start — null while DRAFT (drafts track the live
+  // template). Rendering prefers this so design changes never rewrite records.
+  @Property({ type: Object }) schemaSnapshot = null
   @Property({ type: String }) siteId = null
   @Property({ type: String }) departmentId = null
   @Property({ type: DateTime }) dueDate = null

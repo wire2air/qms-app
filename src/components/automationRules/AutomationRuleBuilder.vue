@@ -2,15 +2,13 @@
 import { IconPlus, IconTrash } from '@tabler/icons-vue'
 import {
   AUTOMATION_OBJECTS,
+  buildModuleAutomationObject,
   AUTOMATION_TRIGGERS,
-  fieldsForObject,
-  operatorsForField,
   actionsForObject,
   NO_VALUE_OPERATORS,
   LIST_OPERATORS,
   MODULE_ACTIONS,
   moduleOperatorsForField,
-  OBJECT_BY_VALUE,
 } from '@/utils/automationObjects'
 import { required } from '@shared/components/form/validators.js'
 
@@ -23,6 +21,25 @@ const props = defineProps({
 const emit = defineEmits(['saved'])
 const open = defineModel({ type: Boolean, default: false })
 const isModuleMode = computed(() => !!props.fixedObjectType)
+
+// Promoted form modules join the built-in registry (2026-08-28): one entry
+// per ACTIVE module template, keyed by module_key — the same objectType the
+// per-template Automation tab writes and the worker already evaluates.
+const moduleTemplates = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where().exec()).filter(
+      (t) => t.isModule && t.internalName && t.statusId === 'ACTIVE',
+    ),
+  { models: ['FormTemplate'], initial: [] },
+)
+const allObjects = computed(() => [
+  ...AUTOMATION_OBJECTS,
+  ...moduleTemplates.value.map(buildModuleAutomationObject),
+])
+const objectByValue = computed(() =>
+  Object.fromEntries(allObjects.value.map((o) => [o.value, o])),
+)
+const currentObject = computed(() => objectByValue.value[draft.value.objectType])
 const toast = useToast()
 const saving = ref(false)
 const formRef = ref(null)
@@ -94,10 +111,12 @@ watch(existing, () => {
 })
 
 const fields = computed(() =>
-  isModuleMode.value ? props.moduleFields || [] : fieldsForObject(draft.value.objectType),
+  isModuleMode.value ? props.moduleFields || [] : (currentObject.value?.fields ?? []),
 )
 const availableActions = computed(() =>
-  isModuleMode.value ? MODULE_ACTIONS : actionsForObject(draft.value.objectType),
+  isModuleMode.value || currentObject.value?.isModule
+    ? MODULE_ACTIONS
+    : actionsForObject(draft.value.objectType),
 )
 
 // BaseSelect maps via optionLabel/optionValue; the source arrays already carry
@@ -115,11 +134,10 @@ const recordStatuses = useLiveQuery((db) => db.RecordStatus.where().exec(), {
   models: ['RecordStatus'],
   initial: [],
 })
-// Module records only use this lifecycle subset (DRAFT → PENDING → COMPLETE →
-// CLOSED, REJECTED; OPEN is legacy). The other record_statuses — Approved /
-// Review / Obsolete — belong to document records, so exclude them. Listed in
-// lifecycle order; label comes from the seeded status.
-const MODULE_STATUS_IDS = ['DRAFT', 'OPEN', 'PENDING', 'COMPLETE', 'CLOSED', 'REJECTED']
+// The unified module lifecycle (2026-08-26): DRAFT → OPEN → CLOSED, with
+// CANCELLED as the abandon exit. The other record_statuses — Approved /
+// Review / Obsolete — belong to document records, so exclude them.
+const MODULE_STATUS_IDS = ['DRAFT', 'OPEN', 'CLOSED', 'CANCELLED']
 const statusOptions = computed(() =>
   MODULE_STATUS_IDS.map((id) => recordStatuses.value.find((s) => s.id === id))
     .filter(Boolean)
@@ -143,7 +161,7 @@ function fieldFor(key) {
  * hardcoded here; adding a status or a site shows up without a code change.
  */
 const objectStatuses = useLiveQueryWithDeps(
-  [() => OBJECT_BY_VALUE[draft.value.objectType]?.statusModel],
+  [() => objectByValue.value[draft.value.objectType]?.statusModel],
   async (db, [modelName]) => {
     if (!modelName || !db[modelName]) return []
     const rows = await db[modelName].where().exec()
@@ -175,7 +193,8 @@ const lookupOptions = useLiveQueryWithDeps(
 function optionsForField(field) {
   if (field?.options?.length) return field.options
   // Admin-defined modules share one lifecycle; keep their existing source.
-  if (isModuleMode.value && field?.key === 'status_id') return statusOptions.value
+  if ((isModuleMode.value || currentObject.value?.isModule) && field?.key === 'status_id')
+    return statusOptions.value
   if (field?.key === 'status_id') return objectStatuses.value
   if (field?.lookup) return lookupOptions.value[field.lookup] ?? []
   return []
@@ -211,9 +230,7 @@ function removeCondition(i) {
   draft.value.conditions.splice(i, 1)
 }
 function operatorsFor(fieldKey) {
-  return isModuleMode.value
-    ? moduleOperatorsForField(props.moduleFields, fieldKey)
-    : operatorsForField(draft.value.objectType, fieldKey)
+  return moduleOperatorsForField(fields.value, fieldKey)
 }
 function onFieldChange(cond) {
   cond.operator = operatorsFor(cond.field)[0]?.value || 'is'
@@ -358,7 +375,7 @@ async function onValidSubmit() {
           <BaseField v-if="!isModuleMode" label="Object">
             <BaseSelect
               v-model="draft.objectType"
-              :options="AUTOMATION_OBJECTS"
+              :options="allObjects"
               :required="true"
               :searchable="false"
             />

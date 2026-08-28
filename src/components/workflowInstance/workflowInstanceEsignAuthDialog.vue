@@ -45,8 +45,14 @@ function resetFields() {
 }
 
 watch(show, async (val) => {
-  if (!val) return
-  resetFields()
+  if (!val) {
+    // Reset on CLOSE, not open: wiping on open runs a tick after the dialog
+    // is already visible and interactable, which raced (and beat) fast typing
+    // — an automation-speed fill landed, then vanished, leaving Sign disabled
+    // (found live 2026-08-28). Closed-state reset has no such window.
+    resetFields()
+    return
+  }
   hasPin.value = null
   await fetchStatus()
   mode.value = hasPin.value ? 'enter' : 'set'

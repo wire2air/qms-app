@@ -83,8 +83,9 @@ test.describe.serial('CR screenshots · create → approve → implement → clo
     // ── Step 3 (implementation, owned by the author) → APPROVED ────────────
     await completeImplementationStep(page, cr.id)
     await waitForSqlValue(
-      `SELECT status_id FROM change_requests WHERE id = '${cr.id}' AND status_id = 'APPROVED'`,
-      { timeoutMs: 90_000, label: 'CR APPROVED' },
+      `SELECT status_id FROM change_requests
+        WHERE id = '${cr.id}' AND status_id = 'OPEN' AND approved_at IS NOT NULL`,
+      { timeoutMs: 90_000, label: 'workflow finished, CR still OPEN' },
     )
     await expect(async () => {
       await page.reload({ waitUntil: 'domcontentloaded' })

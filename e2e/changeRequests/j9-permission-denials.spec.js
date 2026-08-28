@@ -84,7 +84,7 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     await approverCtx.close()
 
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'UNDER_REVIEW',
+      'OPEN',
     )
   })
 
@@ -117,9 +117,9 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     expect(res.status(), 'own-scope update does not reach a peer’s record').toBe(403)
     await ownCtx.close()
 
-    expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'UNDER_REVIEW',
-    )
+    // Unified record statuses (2026-08-28, all eight record types): a
+    // submitted CR is OPEN — UNDER_REVIEW left the vocabulary.
+    expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe('OPEN')
   })
 
   test('a user with no change_control permission is redirected to /no-access', async ({

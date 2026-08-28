@@ -55,7 +55,11 @@ const canCreateDocTemplate = computed(() => isAllowed(['document_templates:creat
 const showWorkflowCreate = ref(false)
 
 // ── Sources ──────────────────────────────────────────────────────────────────
-const workflows = useLiveQuery((db) => db.Workflow.where().exec(), {
+// moduleId 'FORM' = workflows SYNTHESIZED from a form module's sections at
+// record Start — one per start, frozen runtime artifacts. The form template
+// IS their source of truth; showing them here invited editing dead copies
+// (user confusion 2026-08-26).
+const workflows = useLiveQuery((db) => db.Workflow.where().exec().then((rows) => rows.filter((w) => w.moduleId !== 'FORM')), {
   models: ['Workflow'],
   initial: [],
 })

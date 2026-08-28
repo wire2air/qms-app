@@ -190,10 +190,21 @@ const anyRequiresInstrument = computed(() =>
   characteristics.value.some((c) => c.requiresInstrument),
 )
 
-// Adverse outcomes that may warrant a nonconformance.
-const ADVERSE_STATUSES = ['REWORK', 'RETURN_TO_SUPPLIER', 'REJECTED', 'HOLD']
-const isUnderReview = computed(() => lot.value?.statusId === 'UNDER_REVIEW')
-const isAdverse = computed(() => ADVERSE_STATUSES.includes(lot.value?.statusId))
+const isUnderReview = computed(
+  () => lot.value?.statusId === 'OPEN' && lot.value?.inspectionPhase === 'UNDER_REVIEW',
+)
+// Adverse = the recorded disposition is adverse (or the lot is quarantined) —
+// the OUTCOME lives on the disposition type since the unified statuses.
+const dispositionType = useLiveQueryWithDeps(
+  [() => lot.value?.dispositionTypeId],
+  async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
+)
+const isAdverse = computed(
+  () =>
+    !!dispositionType.value?.isAdverse ||
+    (lot.value?.statusId === 'OPEN' && lot.value?.inspectionPhase === 'HOLD'),
+)
 
 // Capture mode: 'LOT' (one value per characteristic) or 'SAMPLE' (a value per
 // sampled unit). SAMPLE needs a resolved sample size (from a sampling plan).
@@ -341,7 +352,8 @@ const canCollect = computed(
     isInProcess.value &&
     canExecute.value &&
     isActiveInspector.value &&
-    lot.value?.statusId === 'IN_PROGRESS',
+    lot.value?.statusId === 'OPEN' &&
+    lot.value?.inspectionPhase === 'IN_PROGRESS',
 )
 
 // Collection cadence — drive off the plan's interval + the last collected time.
@@ -392,7 +404,12 @@ const cadence = computed(() => {
 // Per-sample data was actually captured (any result on a unit beyond #1).
 const hasPerSampleResults = computed(() => results.value.some((r) => (r.sampleIndex ?? 1) > 1))
 const canSampleCapture = computed(() => (lot.value?.sampleSize ?? 0) > 1)
-const isCapturing = computed(() => ['DRAFT', 'PENDING', 'IN_PROGRESS'].includes(lot.value?.statusId))
+const isCapturing = computed(
+  () =>
+    lot.value?.statusId === 'DRAFT' ||
+    (lot.value?.statusId === 'OPEN' &&
+      ['PENDING', 'IN_PROGRESS'].includes(lot.value?.inspectionPhase)),
+)
 // Render the per-sample data sheet when in SAMPLE mode; a FROZEN lot with
 // per-sample results also keeps its data sheet (read-only) regardless of how
 // captureMode reads back. While actively capturing, the toggle drives the view
@@ -715,6 +732,8 @@ const inspectionLotActions = computed(() =>
       canCreateEvent: canCreateEvent.value,
       canRetain: canRetain.value,
       statusId: lot.value?.statusId,
+      inspectionPhase: lot.value?.inspectionPhase,
+      dispositionAdverse: isAdverse.value,
       acting: acting.value,
       creatingEvent: creatingEvent.value,
       isActiveInspector: isActiveInspector.value,

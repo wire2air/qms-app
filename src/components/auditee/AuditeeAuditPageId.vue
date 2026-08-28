@@ -30,6 +30,7 @@ import {
   IconCertificate,
   IconNotes,
   IconShieldCheck,
+  IconShare,
   IconUpload,
   IconTrash,
 } from '@tabler/icons-vue'
@@ -54,9 +55,7 @@ const loading = computed(() => auditInstance.value === undefined)
 
 const canUpdate = computed(() => isAllowed(['audit_management:update']))
 const isEditable = computed(
-  () =>
-    canUpdate.value &&
-    !['COMPLETED', 'CLOSED', 'CANCELLED'].includes(auditInstance.value?.statusId),
+  () => canUpdate.value && !['CLOSED', 'CANCELLED'].includes(auditInstance.value?.statusId),
 )
 
 const tab = ref('info')
@@ -90,6 +89,13 @@ const summaryReports = useLiveQueryWithDeps(
   { models: ['AuditReport'], initial: [] },
 )
 const summaryBuffers = ref({})
+// What the textarea SHOWS: the local draft the user is typing (so autosize
+// reacts per keystroke), falling back to the synced row. The buffers above
+// remain the debounced save queue.
+const summaryDrafts = ref({})
+function summaryValue(r) {
+  return summaryDrafts.value[r.id] ?? (r.notes || '')
+}
 const savingSummaryId = ref(null)
 const debouncedSummarySave = useDebounceFn(async () => {
   const entries = Object.entries(summaryBuffers.value)
@@ -108,17 +114,18 @@ const debouncedSummarySave = useDebounceFn(async () => {
   }
 }, 800)
 function stageSummary(reportId, notes) {
+  summaryDrafts.value[reportId] = notes
   summaryBuffers.value[reportId] = notes
   debouncedSummarySave()
 }
 
 // ── Lifecycle (simple flips — no close-out workflow in the auditee flow) ────
 const transitioning = ref(false)
-async function setStatus(statusId, okMsg) {
+async function setStatus(updates, okMsg) {
   if (!auditInstance.value?.id || transitioning.value) return
   transitioning.value = true
   try {
-    await patch(`/v1/services/auditInstances/${auditInstance.value.id}`, { statusId })
+    await patch(`/v1/services/auditInstances/${auditInstance.value.id}`, updates)
     toast.success(okMsg)
     showCancelDialog.value = false
   } catch (e) {
@@ -272,9 +279,12 @@ const detailConfig = computed(() =>
         variant: 'primary',
         priority: 50,
         visible:
-          isEditable.value && ['DRAFT', 'SCHEDULED'].includes(auditInstance.value?.statusId),
+          isEditable.value &&
+          (auditInstance.value?.statusId === 'DRAFT' ||
+            auditInstance.value?.executionPhase === 'SCHEDULED'),
         loading: transitioning.value,
-        onSelect: () => setStatus('IN_PROGRESS', 'Audit started'),
+        onSelect: () =>
+          setStatus({ statusId: 'OPEN', executionPhase: 'IN_PROGRESS' }, 'Audit started'),
       },
       {
         id: 'complete',
@@ -282,10 +292,14 @@ const detailConfig = computed(() =>
         icon: IconClipboardCheck,
         variant: 'secondary',
         priority: 40,
-        visible: isEditable.value && auditInstance.value?.statusId === 'IN_PROGRESS',
+        visible:
+          isEditable.value &&
+          auditInstance.value?.statusId === 'OPEN' &&
+          auditInstance.value?.executionPhase === 'IN_PROGRESS',
         loading: transitioning.value,
-        // Server-gated: refuses while any finding is still open.
-        onSelect: () => setStatus('COMPLETED', 'Audit completed'),
+        // Server-gated: refuses while any finding is still open. Certification
+        // audits close directly — no close-out workflow (unified: → CLOSED).
+        onSelect: () => setStatus({ statusId: 'CLOSED' }, 'Audit completed'),
       },
       {
         id: 'cancel',
@@ -306,6 +320,7 @@ const detailConfig = computed(() =>
         mode: 'panel',
         lazy: false,
       },
+      { value: 'share', label: 'Share', icon: IconShare, mode: 'panel', lazy: false },
       { value: 'reports', label: 'Reports', icon: IconFileTypePdf, mode: 'panel', lazy: false },
       { value: 'summary', label: 'Summary', icon: IconNotes, mode: 'panel', lazy: false },
       { value: 'findings', label: 'Findings', icon: IconBolt, mode: 'panel', lazy: false },
@@ -412,6 +427,7 @@ const detailConfig = computed(() =>
           v-if="isEditable"
           v-model="agendaNotes"
           :rows="4"
+          autosize
           placeholder="Preparation notes — who meets the auditor, room bookings, opening meeting time…"
           @update:modelValue="debouncedAgenda"
         />
@@ -480,10 +496,14 @@ const detailConfig = computed(() =>
                 Saving…
               </BaseText>
             </div>
+            <!-- Autosize (min 10 rows): the summary grows with its content —
+                 a fixed box hid text behind an unscrollable clip (user report
+                 2026-08-26). -->
             <BaseTextarea
               v-if="isEditable"
-              :modelValue="r.notes || ''"
-              :rows="4"
+              :modelValue="summaryValue(r)"
+              :rows="10"
+              autosize
               placeholder="What this report concluded — accept the AI draft on the Reports tab, or write your own."
               @update:modelValue="(v) => stageSummary(r.id, v)"
             />
@@ -529,6 +549,12 @@ const detailConfig = computed(() =>
           :typeFilter="['OFI']"
           defaultTypeId="OFI"
         />
+      </FormSection>
+    </template>
+
+    <template v-if="auditInstance" #tab-share>
+      <FormSection title="Share with Auditor" :icon="IconShare">
+        <AuditeeSharePanel :auditInstance="auditInstance" :readonly="!canUpdate" />
       </FormSection>
     </template>
 
@@ -664,7 +690,7 @@ const detailConfig = computed(() =>
       <BaseButton
         variant="danger"
         :isLoading="transitioning"
-        @click="setStatus('CANCELLED', 'Audit cancelled')"
+        @click="setStatus({ statusId: 'CANCELLED' }, 'Audit cancelled')"
       >
         Cancel audit
       </BaseButton>

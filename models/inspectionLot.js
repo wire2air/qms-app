@@ -16,6 +16,8 @@ export class InspectionLot extends BaseModel {
   @Property({ type: String, required: true }) inspectionPoint = 'INCOMING'
   @Property({ type: String }) source = 'MANUAL'
   @Property({ type: String }) statusId = 'DRAFT'
+  // PENDING → IN_PROGRESS → COMPLETED → UNDER_REVIEW → DISPOSED (or HOLD)
+  @Property({ type: String }) inspectionPhase = 'PENDING'
   @Property({ type: String }) productId = /** @type {String} */ (null)
   @Property({ type: String }) supplierId = /** @type {String} */ (null)
   @Property({ type: String }) templateId = /** @type {String} */ (null)

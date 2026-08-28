@@ -42,7 +42,7 @@ function seedProbeRows(tag) {
        program_type_id, status_id, scheduled_date, scope, created_by)
     VALUES
       ('${COMPANY_ID}', 'AUD-J10-${tag}', '${AUDIT_STANDARD.id}', '${AUDIT_STANDARD.effectiveVersionId}',
-       '[]'::jsonb, 'INTERNAL', 'IN_PROGRESS', CURRENT_DATE, 'PW-J10 probe ${tag}', '${USERS.author.id}')
+       '[]'::jsonb, 'INTERNAL', 'OPEN', CURRENT_DATE, 'PW-J10 probe ${tag}', '${USERS.author.id}')
     RETURNING id`)
   const findingId = sqlValue(`
     INSERT INTO audit_findings

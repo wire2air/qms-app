@@ -150,7 +150,7 @@ const columns = computed(() => {
         :to="getCompanyPath(`/change-requests/${row.id}`)"
         class="tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
       >
-        {{ row.crNumber || '—' }}
+        {{ row.crNumber || 'Draft' }}
       </RouterLink>
     </template>
 

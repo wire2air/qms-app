@@ -500,7 +500,7 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                   />
                   <span
                     v-if="m.publicRead"
-                    class="tw:block tw:text-[11px] tw:font-normal tw:text-secondary"
+                    class="tw:block tw:text-caption tw:font-normal tw:text-secondary"
                   >
                     Reference data — available to everyone; levels control authoring
                   </span>

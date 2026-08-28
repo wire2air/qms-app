@@ -3,14 +3,7 @@ import { IconStarFilled, IconStar } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getFormComponent } from './formComponentRegistry.js'
 import { LOOKUP_ENTITY_BY_VALUE } from '@/constants/formBuilderConfig'
-import ProductBadgeById from '@/components/badges/ProductBadgeById.vue'
-import SupplierBadgeById from '@/components/badges/SupplierBadgeById.vue'
-import SiteBadgeById from '@/components/badges/SiteBadgeById.vue'
-import DepartmentBadgeById from '@/components/badges/DepartmentBadgeById.vue'
-import UserBadgeById from '@/components/badges/UserBadgeById.vue'
-import EquipmentBadgeById from '@/components/badges/EquipmentBadgeById.vue'
-import CountryBadgeById from '@/components/badges/CountryBadgeById.vue'
-import RegionBadgeById from '@/components/badges/RegionBadgeById.vue'
+import { LOOKUP_BADGES, LOOKUP_ID_PROPS } from '@/components/menus/lookupMenus.js'
 
 const props = defineProps({
   fields: { type: Array, required: true },
@@ -18,16 +11,7 @@ const props = defineProps({
 })
 
 // Entity badges for readonly `lookup` fields (resolve the stored id live).
-const LOOKUP_BADGES = {
-  product: ProductBadgeById,
-  supplier: SupplierBadgeById,
-  site: SiteBadgeById,
-  department: DepartmentBadgeById,
-  user: UserBadgeById,
-  equipment: EquipmentBadgeById,
-  country: CountryBadgeById,
-  region: RegionBadgeById,
-}
+// THE shared maps — see lookupMenus.js; the parity spec keeps them honest.
 function isLookupField(field) {
   return field.type === 'lookup'
 }
@@ -67,7 +51,9 @@ const optionSetIds = computed(() => {
   function collect(fields) {
     for (const f of fields) {
       if (f.optionSetId && !f.optionSet) ids.add(f.optionSetId)
+      // Module templates nest under `fields`; documents/log books use `children`.
       if (f.children) collect(f.children)
+      else if (f.fields) collect(f.fields)
       if (f.template) collect(f.template)
     }
   }
@@ -263,6 +249,16 @@ function isSectionField(field) {
   return field.type === 'section'
 }
 
+// A container's children: `children` for document / log-book schemas,
+// `fields` for form-builder module templates. Same tree, two spellings —
+// without the alias a module template's sections silently render EMPTY
+// (caught by the module-record print, 2026-08-26).
+function childrenOf(field) {
+  if (Array.isArray(field.children) && field.children.length) return field.children
+  if (Array.isArray(field.fields)) return field.fields
+  return field.children || []
+}
+
 function isRepeaterField(field) {
   return field.type === 'repeater'
 }
@@ -307,13 +303,13 @@ function getVisibleFields(fields) {
   for (const field of fields) {
     if (field.hidden) continue // "Hide field" — omit from the readonly/submitted view
     if (isSectionField(field)) {
-      if (field.children?.length) {
+      if (childrenOf(field).length) {
         result.push(field)
       }
     } else if (isRepeaterField(field)) {
       result.push(field)
     } else if (isLayoutContainer(field)) {
-      if (field.children?.length) result.push(field)
+      if (childrenOf(field).length) result.push(field)
     } else if (isSeparatorField(field)) {
       result.push(field)
     } else if (isInstructionsField(field)) {
@@ -396,7 +392,7 @@ function getChecklistColumnLabel(col) {
           >
             {{ field.label }}
           </div>
-          <FormSchemaReadonlyView :fields="field.children" :values="getContainerValues(field)" />
+          <FormSchemaReadonlyView :fields="childrenOf(field)" :values="getContainerValues(field)" />
         </div>
       </template>
 
@@ -404,7 +400,7 @@ function getChecklistColumnLabel(col) {
       <template v-else-if="isLayoutContainer(field)">
         <div class="tw:col-span-3">
           <FormSchemaReadonlyView
-            :fields="field.children || []"
+            :fields="childrenOf(field)"
             :values="getContainerValues(field)"
           />
         </div>
@@ -561,7 +557,17 @@ function getChecklistColumnLabel(col) {
                   :key="col.value || col.label"
                   class="tw:px-3 tw:py-2 tw:text-on-main"
                 >
-                  <span v-if="checklistCellDisplay(field, rowIndex, col) != null">
+                  <!-- Lookup cells store an entity id — resolve it to a badge
+                       instead of printing the UUID (2026-08-27). -->
+                  <component
+                    :is="LOOKUP_BADGES[col.lookupEntity || 'product']"
+                    v-if="col.inputType === 'lookup' && checklistCellDisplay(field, rowIndex, col)"
+                    v-bind="{
+                      [LOOKUP_ID_PROPS[col.lookupEntity || 'product'] || 'productId']:
+                        checklistCellDisplay(field, rowIndex, col),
+                    }"
+                  />
+                  <span v-else-if="checklistCellDisplay(field, rowIndex, col) != null">
                     {{ checklistCellDisplay(field, rowIndex, col) }}
                   </span>
                   <span v-else class="tw:text-secondary">—</span>

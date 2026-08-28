@@ -81,17 +81,18 @@ export async function assignDraftReviewers(page, crId, { expectedSteps = 3 } = {
   )
 }
 
-/** Owner submits a DRAFT CR for approval (action → confirm dialog → submitForReview). */
+/** Owner opens a DRAFT CR (action → confirm dialog → submitForReview). */
 export async function submitCrForApproval(page, crId) {
   await page.goto(`/change-requests/${crId}`)
-  await clickWhenReady(page, page.getByRole('button', { name: 'Submit for Approval' }))
-  // Anchor on the dialog heading — "Submit for Approval" also matches the
+  await clickWhenReady(page, page.getByRole('button', { name: 'Open Change Request' }))
+  // Anchor on the dialog heading — "Open Change Request" also matches the
   // action-bar button that opened it and the dialog's own footer button.
-  await expect(page.getByRole('heading', { name: 'Submit for Approval' })).toBeVisible({
+  await expect(page.getByRole('heading', { name: 'Open Change Request' })).toBeVisible({
     timeout: 10_000,
   })
-  await page.getByRole('button', { name: 'Submit for Approval' }).last().click()
-  await expectStatusEventually(page, /under review/i)
+  await page.getByRole('button', { name: 'Open Change Request' }).last().click()
+  // Unified statuses: the active state chip reads Open.
+  await expectStatusEventually(page, /^Open$/)
 }
 
 /**

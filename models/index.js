@@ -210,6 +210,7 @@ import { RecordLink } from './recordLink'
 import { AuditReport } from './auditReport'
 import { DocumentReview } from './documentReview'
 import { RecordShareLink } from './recordShareLink'
+import { RecordShareLinkItem } from './recordShareLinkItem'
 import { RecordShareLinkView } from './recordShareLinkView'
 import { NotificationRule } from './notificationRule'
 import { EntityFieldSet } from './entityFieldSet'
@@ -457,6 +458,7 @@ export const db = {
   AuditReport,
   DocumentReview,
   RecordShareLink,
+  RecordShareLinkItem,
   RecordShareLinkView,
   NotificationRule,
   EntityFieldSet,

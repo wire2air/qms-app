@@ -47,7 +47,7 @@ const breadcrumbs = computed(() => [
 const canUpdate = computed(() => isAllowed(['complaints:update']))
 const canConvert = computed(() => isAllowed(['complaints:update']) && isAllowed(['ncr:create']))
 
-const isTerminal = computed(() => ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.value?.statusId))
+const isTerminal = computed(() => ['CLOSED', 'CANCELLED'].includes(complaint.value?.statusId))
 const isEditable = computed(() => complaint.value && !isTerminal.value && canUpdate.value)
 
 // The complaint narrative is only editable for manually-entered complaints —
@@ -684,7 +684,7 @@ const complaintDetailConfig = computed(() =>
         :record="complaint"
         moduleId="COMPLAINT"
         resourceType="Complaint"
-        :canChange="complaint.statusId === 'NEW' && isEditable"
+        :canChange="!workflowInstance && isEditable"
         changeHint="You can switch workflows before the QA review starts — step assignments reset on change."
       />
 

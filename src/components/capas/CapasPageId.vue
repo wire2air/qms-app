@@ -363,7 +363,9 @@ const capaActions = computed(() =>
       // in scope now does. Cancel is an 'update' action server-side.
       canStart: isAllowedOnRecord('capa:update', capa.value),
       canCloseCapa: isAllowedOnRecord('capa:close', capa.value),
-      canCancel: isAllowedOnRecord('capa:update', capa.value),
+      // Cancel maps to `close` on the server (controllers/capas.js) — gating
+      // the button on update offered it to users whose cancel then 403s.
+      canCancel: isAllowedOnRecord('capa:close', capa.value),
       canDelete: isAllowedOnRecord('capa:delete', capa.value),
       statusId: capa.value?.statusId,
       canClose: canOpenClose.value,
@@ -631,18 +633,10 @@ const capaDetailConfig = computed(() =>
         "
       />
 
-      <!-- 4. Schedule — verified, closed -->
-      <BaseRailCard title="Schedule">
-        <BaseDetailField
-          v-if="capa.verifiedAt"
-          label="Verified"
-          :value="capa.verifiedAt.formatDate('dateTime')"
-        />
-        <BaseDetailField
-          v-if="capa.closedAt"
-          label="Closed"
-          :value="capa.closedAt.formatDate('dateTime')"
-        />
+      <!-- 4. Schedule — closed date only; workflow/effectiveness state lives in
+           the Workflow card. Hidden entirely while the CAPA is open. -->
+      <BaseRailCard v-if="capa.closedAt" title="Schedule">
+        <BaseDetailField label="Closed" :value="capa.closedAt.formatDate('dateTime')" />
       </BaseRailCard>
 
       <!-- 5. Notifications — cc list, the rules that also apply, and when anything last went out -->

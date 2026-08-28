@@ -36,22 +36,36 @@ test.describe.serial('QC screenshots · lot lifecycle', () => {
 
     // ── The QC workspace tabs the inspector may read ───────────────────────
     await gotoQcTab(page, 'lots')
-    await expect(page.getByRole('tab', { name: /lots/i }).first()).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText('Inspection queue')).toBeVisible({ timeout: 30_000 })
     await shot(page, 'list-lots')
 
     await gotoQcTab(page, 'retain-samples')
-    await expect(page.getByRole('tab', { name: /retain/i }).first()).toBeVisible({
+    await expect(page.getByText(/retain/i).first()).toBeVisible({
       timeout: 30_000,
     })
     await shot(page, 'list-retain-samples')
 
+    // Specifications is permission-gated (inspection_spec:read) and the
+    // inspector cast member does not hold it — the tab filters out and the
+    // page falls back to Inspections. Capture it only when actually offered.
     await gotoQcTab(page, 'specifications')
-    await expect(page.getByText(QC.specification.name).first()).toBeVisible({ timeout: 30_000 })
-    await shot(page, 'list-specifications')
+    const specVisible = await page
+      .getByText(QC.specification.name)
+      .first()
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false)
+    if (specVisible) {
+      await shot(page, 'list-specifications')
+    } else {
+      test.info().annotations.push({
+        type: 'skipped-shot',
+        description: 'list-specifications: inspector lacks inspection_spec:read; tab not offered',
+      })
+    }
 
     // ── A fresh PENDING lot ────────────────────────────────────────────────
     const lot = await createLotViaRest(page, {})
-    expect(lot.statusId, 'a new lot starts PENDING').toBe('PENDING')
+    expect(lot.phase, 'a new lot starts in the PENDING phase').toBe('PENDING')
     await openLot(page, lot.id)
     await shot(page, 'lot-pending')
 
@@ -73,7 +87,7 @@ test.describe.serial('QC screenshots · lot lifecycle', () => {
       },
     })
     await waitForSqlValue(
-      `SELECT status_id = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`,
+      `SELECT inspection_phase = 'IN_PROGRESS' FROM inspection_lots WHERE id = '${lot.id}'`,
       { timeoutMs: 45_000, label: 'lot IN_PROGRESS on first result' },
     )
     await expect(page.getByText('REJECT (advisory)').first()).toBeVisible({ timeout: 30_000 })
@@ -90,7 +104,7 @@ test.describe.serial('QC screenshots · lot lifecycle', () => {
     // ── Completed, and the separation of duties it exposes ─────────────────
     await completeLot(page)
     await waitForSqlValue(
-      `SELECT status_id = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`,
+      `SELECT inspection_phase = 'COMPLETED' FROM inspection_lots WHERE id = '${lot.id}'`,
       { timeoutMs: 45_000, label: 'lot COMPLETED' },
     )
     await openLot(page, lot.id)
@@ -113,7 +127,7 @@ test.describe.serial('QC screenshots · lot lifecycle', () => {
         await shot(p, 'submit-for-disposition-dialog')
       },
     })
-    expect(findLotByNumber(lot.lotNumber).statusId, 'lot is UNDER_REVIEW').toBe('UNDER_REVIEW')
+    expect(findLotByNumber(lot.lotNumber).phase, 'lot is UNDER_REVIEW').toBe('UNDER_REVIEW')
     await openLot(qa, lot.id)
     await shot(qa, 'lot-under-review')
 

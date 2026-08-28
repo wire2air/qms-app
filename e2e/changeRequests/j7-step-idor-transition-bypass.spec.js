@@ -30,7 +30,7 @@ test.describe('PW-J7 · transition-guard + step IDOR', () => {
     expect(cr.statusId).toBe('DRAFT')
 
     // Self-approve / self-close attempts — the exact escalation CR-C1 blocks.
-    for (const target of ['APPROVED', 'CLOSED', 'CANCELLED', 'UNDER_REVIEW']) {
+    for (const target of ['OPEN', 'CLOSED', 'CANCELLED']) {
       const res = sqlAsAppUser(
         `UPDATE change_requests SET status_id = '${target}' WHERE id = '${cr.id}';`,
         asAuthor,
@@ -51,7 +51,7 @@ test.describe('PW-J7 · transition-guard + step IDOR', () => {
          (id, company_id, cr_number, title, status_id, change_type_id, priority_id,
           site_id, department_id, owner_id, initiated_at, created_by, updated_by, created_at, updated_at)
        SELECT gen_random_uuid(), '${COMPANY_ID}', 'CR-E2E-BYPASS-001', 'E2E J7 bypass insert',
-              'APPROVED', 'PROCESS', 'MEDIUM', s.id, d.id,
+              'CLOSED', 'PROCESS', 'MEDIUM', s.id, d.id,
               '${USERS.author.id}', NOW(), '${USERS.author.id}', '${USERS.author.id}', NOW(), NOW()
          FROM sites s, departments d
         WHERE s.company_id = '${COMPANY_ID}' AND d.company_id = '${COMPANY_ID}'

@@ -129,6 +129,14 @@ function ogToggle(rowIndex, col, opt) {
   handleValueChange(rowIndex, col.value, v)
 }
 
+// lookup column: the cell stores an entity id; LookupSelectByEntity picks the
+// right select menu and applies the row-scoped cascade (the parent COLUMN's
+// value in this same row narrows the options).
+function lookupParentCol(col) {
+  if (!col.parentColumn) return null
+  return (props.columns || []).find((c) => c.value === col.parentColumn) || null
+}
+
 defineExpose({ getRowValue, getCellValue, isCellSelected })
 </script>
 
@@ -324,6 +332,21 @@ defineExpose({ getRowValue, getCellValue, isCellSelected })
                     <span class="tw:text-sm tw:text-on-main">{{ rgLabel(opt) }}</span>
                   </label>
                 </div>
+              </template>
+
+              <!-- lookup (entity) — options narrowed by the parent column's
+                   value in THIS row, when the author configured one. -->
+              <template v-else-if="col.inputType === 'lookup'">
+                <LookupSelectByEntity
+                  :entity="col.lookupEntity || 'product'"
+                  :modelValue="getValue(rowIndex, col.value, null)"
+                  :disabled="disabled || readonly"
+                  :parentEntity="lookupParentCol(col)?.lookupEntity || null"
+                  :parentValue="
+                    col.parentColumn ? getValue(rowIndex, col.parentColumn, null) : null
+                  "
+                  @update:modelValue="handleValueChange(rowIndex, col.value, $event)"
+                />
               </template>
 
               <!-- select / dropdown -->

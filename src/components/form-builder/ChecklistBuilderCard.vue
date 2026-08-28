@@ -8,7 +8,13 @@
  * Mutates the shared field object (field.rows / field.columns) directly.
  */
 import { IconPlus, IconTrash, IconX, IconSparkles } from '@tabler/icons-vue'
-import { COLUMN_INPUT_TYPES, columnInputTypeLabel } from '@/constants/formBuilderConfig'
+import {
+  COLUMN_INPUT_TYPES,
+  columnInputTypeLabel,
+  LOOKUP_ENTITIES,
+  LOOKUP_CASCADES,
+  GROUP_TYPE_OPTIONS,
+} from '@/constants/formBuilderConfig'
 import { canUseAi } from '@/utils/currentSession'
 import { hydrateChecklistColumns, hydrateChecklistRows } from '@/utils/aiFormHydrate'
 import { tableStyleClasses, cx } from '@/utils/tableStyle'
@@ -74,21 +80,63 @@ function removeRow(i) {
 const showColDialog = ref(false)
 // Defaults to the safe multi-option column; 'radio' is no longer offered.
 const colDraft = ref({ label: '', inputType: 'optionGroup', options: [] })
+const COL_DRAFT_DEFAULTS = {
+  label: '',
+  inputType: 'optionGroup',
+  options: [],
+  // Dropdown / Multiple Choice: custom options OR a tenant Option Set
+  // (form-level parity, user request 2026-08-27).
+  useCustomOptions: true,
+  optionSetId: null,
+  // Multiple Choice flavor: one answer (radio) or several (checkboxes).
+  groupType: 'radio',
+  // Lookup columns: which company list + the sibling lookup column that
+  // narrows it per row.
+  lookupEntity: 'product',
+  parentColumn: null,
+}
 function openColDialog() {
-  colDraft.value = { label: '', inputType: 'optionGroup', options: [] }
+  colDraft.value = { ...COL_DRAFT_DEFAULTS, options: [] }
   showColDialog.value = true
 }
 // Option-bearing column types get their options right in this dialog — an
 // Option Group is meaningless without them (user feedback 2026-07-27).
-const draftNeedsOptions = computed(() =>
+const draftIsOptionType = computed(() =>
   ['optionGroup', 'select', 'dropdown'].includes(colDraft.value.inputType),
+)
+const draftNeedsOptions = computed(() => draftIsOptionType.value && colDraft.value.useCustomOptions)
+const draftIsLookup = computed(() => colDraft.value.inputType === 'lookup')
+
+const lookupEntityItems = LOOKUP_ENTITIES.map((e) => ({ id: e.value, name: e.label }))
+const groupTypeItems = GROUP_TYPE_OPTIONS.map((o) => ({ id: o.value, name: o.label }))
+
+// Sibling lookup columns that can NARROW the draft column, per the same
+// registry as the form level and the Input Table.
+const draftParentOptions = computed(() => {
+  if (!draftIsLookup.value) return []
+  const parents = LOOKUP_CASCADES[colDraft.value.lookupEntity] || {}
+  return (props.field.columns || [])
+    .filter((c) => c.inputType === 'lookup' && c.value && parents[c.lookupEntity])
+    .map((c) => ({ id: c.value, name: c.label || c.value }))
+})
+watch(
+  () => colDraft.value.lookupEntity,
+  () => {
+    if (!draftParentOptions.value.some((o) => o.id === colDraft.value.parentColumn)) {
+      colDraft.value.parentColumn = null
+    }
+  },
 )
 const draftCleanOptions = computed(() =>
   (colDraft.value.options || []).map((o) => String(o).trim()).filter(Boolean),
 )
 const canSaveColumn = computed(() => {
   if (!colDraft.value.label.trim()) return false
-  // A mutually-exclusive group needs at least two choices.
+  // Option-set-sourced columns need the set picked; a custom Multiple Choice
+  // needs at least two choices.
+  if (draftIsOptionType.value && !colDraft.value.useCustomOptions) {
+    return !!colDraft.value.optionSetId
+  }
   if (colDraft.value.inputType === 'optionGroup') return draftCleanOptions.value.length >= 2
   return true
 })
@@ -108,10 +156,23 @@ function saveColumn() {
   const existing = props.field.columns.map((c) => c.value)
   while (existing.includes(value)) value = `${base}_${n++}`
   const col = { label, value, inputType: colDraft.value.inputType }
-  if (draftNeedsOptions.value) col.options = draftCleanOptions.value
+  if (draftIsOptionType.value) {
+    if (colDraft.value.useCustomOptions) {
+      col.options = draftCleanOptions.value
+    } else {
+      // FK-only, like form-level fields: the Option Set stays tenant config
+      // and resolves at render time.
+      col.optionSetId = colDraft.value.optionSetId
+      col.options = []
+    }
+  }
   if (colDraft.value.inputType === 'optionGroup') {
-    col.groupType = 'radio' // radio (mutually exclusive) | checkbox (multi)
+    col.groupType = colDraft.value.groupType // radio (one answer) | checkbox (several)
     col.inline = true // horizontal default; vertical via field settings
+  }
+  if (draftIsLookup.value) {
+    col.lookupEntity = colDraft.value.lookupEntity
+    if (colDraft.value.parentColumn) col.parentColumn = colDraft.value.parentColumn
   }
   props.field.columns.push(col)
   showColDialog.value = false
@@ -357,6 +418,53 @@ function applyAiChecklist(result) {
             :required="true"
           />
         </div>
+        <!-- Lookup columns: entity + optional per-row cascade -->
+        <div v-if="draftIsLookup" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Company list</BaseText>
+          <BaseSelect
+            v-model="colDraft.lookupEntity"
+            :options="lookupEntityItems"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
+          <template v-if="draftParentOptions.length">
+            <BaseText as="div" variant="overline">Filter by column</BaseText>
+            <BaseSelect
+              v-model="colDraft.parentColumn"
+              :options="draftParentOptions"
+              optionLabel="name"
+              optionValue="id"
+              nullLabel="— No filter —"
+              :clearable="true"
+            />
+            <p class="tw:text-xs tw:text-secondary">
+              Options narrow by the chosen column's value in the same row — e.g. Department
+              filtered by that row's Site.
+            </p>
+          </template>
+        </div>
+
+        <!-- Multiple Choice flavor: one answer (radio) or several (checkboxes) -->
+        <div v-if="colDraft.inputType === 'optionGroup'" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Answers</BaseText>
+          <BaseSelect
+            v-model="colDraft.groupType"
+            :options="groupTypeItems"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
+        </div>
+
+        <!-- Dropdown / Multiple Choice: custom options OR a tenant Option Set -->
+        <div v-if="draftIsOptionType" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseCheckbox v-model="colDraft.useCustomOptions" label="Use Custom Options" />
+          <template v-if="!colDraft.useCustomOptions">
+            <OptionSetSelectMenu v-model="colDraft.optionSetId" :required="false" />
+          </template>
+        </div>
+
         <!-- Options editor for Dropdown / Option Group columns -->
         <div v-if="draftNeedsOptions" class="tw:flex tw:flex-col tw:gap-2">
           <BaseText as="div" variant="overline">Options</BaseText>

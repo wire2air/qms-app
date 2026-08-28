@@ -7,7 +7,9 @@ import {
   IconTag,
   IconBuildingFactory2,
   IconCalendar,
+  IconTargetArrow,
 } from '@tabler/icons-vue'
+import { EFFECTIVENESS_FILTER_OPTIONS } from '@/composables/useEffectivenessRollup.js'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -43,7 +45,7 @@ const filterPills = [
 // The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
 // every non-empty value in the object it's given, so handing it the whole filter
 // bag made it report the quick view (`activeFilter`) as an active filter.
-const MENU_GROUPS = ['statusId', 'severityId', 'typeId', 'supplierId', 'createdAt']
+const MENU_GROUPS = ['statusId', 'severityId', 'typeId', 'supplierId', 'createdAt', 'effectiveness']
 const menuFilters = computed(() =>
   Object.fromEntries(MENU_GROUPS.map((k) => [k, filters.value?.[k] ?? null])),
 )
@@ -112,6 +114,13 @@ const filterItems = computed(() => [
     options: selectOpts(suppliers.value),
   },
   { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+  {
+    id: 'effectiveness',
+    label: 'Effectiveness',
+    icon: IconTargetArrow,
+    group: 'effectiveness',
+    options: EFFECTIVENESS_FILTER_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+  },
 ])
 
 const columns = computed(() => {

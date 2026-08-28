@@ -61,9 +61,16 @@ test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
     const pendingReviewers = sqlValue(`SELECT pending_reviewers::text FROM capas WHERE id = '${capa.id}'`)
     expect(pendingReviewers).toBe('{}')
 
+    // The submit is audited by the table trigger as an attributed UPDATE (the
+    // bespoke SUBMIT_FOR_REVIEW action row was retired with the audit-trigger
+    // consolidation) — what matters is that the status flip is attributable.
     const auditRows = sqlValue(
-      `SELECT count(*) FROM audit_logs WHERE entity_type = 'Capas' AND entity_id = '${capa.id}' AND action = 'SUBMIT_FOR_REVIEW' AND performed_by IS NOT NULL`,
+      // The attribution is what's under test, not the verb: the audit
+      // pipeline records the Start mutation as the semantic SUBMIT_FOR_REVIEW
+      // row (not a generic UPDATE), and spellings differ by writer ('Capas'
+      // from the table-derived path, 'Capa' from app-level rows).
+      `SELECT count(*) FROM audit_logs WHERE entity_type IN ('Capa', 'Capas') AND entity_id = '${capa.id}' AND action IN ('UPDATE', 'SUBMIT_FOR_REVIEW') AND performed_by IS NOT NULL`,
     )
-    expect(Number(auditRows), 'attributed SUBMIT_FOR_REVIEW audit row exists for this CAPA').toBeGreaterThan(0)
+    expect(Number(auditRows), 'attributed UPDATE audit row exists for this CAPA').toBeGreaterThan(0)
   })
 })

@@ -313,7 +313,7 @@ async function handleCreate() {
 
 function typeLabel(p) {
   if (p.stepType === 'APPROVAL') return 'Approval'
-  if (p.stepType === 'DELAY') return 'Schedule Task'
+  if (p.stepType === 'DELAY') return 'Effectiveness Check'
   return 'Action'
 }
 </script>
@@ -478,7 +478,7 @@ function typeLabel(p) {
               <span
                 class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold tw:text-on-main"
               >
-                <IconClock :size="16" /> Want to add a follow-up Schedule Task?
+                <IconClock :size="16" /> Want to add a follow-up Effectiveness Check?
               </span>
               <BaseSwitch v-model="needCheck" />
             </label>

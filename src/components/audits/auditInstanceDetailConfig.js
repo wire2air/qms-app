@@ -35,7 +35,7 @@ export function buildAuditInstanceBanners(auditInstance) {
       title: s === 'CLOSED' ? 'Closed' : 'Cancelled',
       message: `This audit is ${s.toLowerCase()} and read-only.`,
     })
-  } else if (s === 'REVIEW') {
+  } else if (auditInstance.executionPhase === 'REVIEW') {
     banners.push({
       id: 'in-review',
       tone: 'info',

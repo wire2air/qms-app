@@ -38,7 +38,7 @@ function programRow(programId) {
 }
 
 test.describe('PW-J1 · a recurring program mints its own audit', () => {
-  test('EVERY_X_DAYS program → generator mints a SCHEDULED instance with the frozen clause list', async ({
+  test('EVERY_X_DAYS program → generator mints an OPEN (Scheduled-phase) instance with the frozen clause list', async ({
     page,
   }) => {
     test.setTimeout(180_000)
@@ -101,11 +101,11 @@ test.describe('PW-J1 · a recurring program mints its own audit', () => {
     )
 
     const instance = sqlRow(
-      `SELECT status_id, audit_number, scheduled_date::text, audit_standard_version_id,
+      `SELECT status_id || '/' || execution_phase, audit_number, scheduled_date::text, audit_standard_version_id,
               jsonb_array_length(requirement_schema), program_type_id
          FROM audit_instances WHERE id = '${instanceId}'`,
     )
-    expect(instance[0], 'generated audits land SCHEDULED').toBe('SCHEDULED')
+    expect(instance[0], 'generated audits land OPEN in the Scheduled phase').toBe('OPEN/SCHEDULED')
     expect(instance[1], 'audit number minted').toMatch(/^AUD-\d{4}$/)
     expect(instance[2], 'scheduled for the date the program was due').toBe(
       sqlValue(`SELECT (CURRENT_DATE - 1)::text`),

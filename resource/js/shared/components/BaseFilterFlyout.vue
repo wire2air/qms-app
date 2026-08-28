@@ -36,6 +36,8 @@ const loadingId = ref(null)
 const dateNode = ref(null)
 const dateAnchor = ref(null)
 
+const slots = useSlots()
+const hostsSlot = computed(() => !!slots.default)
 const enableSearch = computed(() => shouldSearch({}, props.nodes.length))
 const filtered = computed(() => searchNodes(props.nodes, search.value))
 const openNode = computed(() => props.nodes.find((n) => n.id === openId.value) || null)
@@ -142,7 +144,8 @@ function onKeydown(e) {
     <div
       ref="panelEl"
       role="menu"
-      class="tw:fixed tw:left-0 tw:top-0 tw:z-popover tw:w-60 tw:overflow-hidden tw:rounded-xl tw:border tw:border-divider tw:bg-card tw:shadow-floating tw:motion-safe:transition-opacity"
+      class="tw:fixed tw:left-0 tw:top-0 tw:z-popover tw:overflow-hidden tw:rounded-xl tw:border tw:border-divider tw:bg-card tw:shadow-floating tw:motion-safe:transition-opacity"
+      :class="hostsSlot ? 'tw:w-auto' : 'tw:w-60'"
       @keydown="onKeydown"
     >
       <div
@@ -158,7 +161,9 @@ function onKeydown(e) {
         />
       </div>
 
-      <div class="tw:max-h-80 tw:overflow-y-auto tw:p-1">
+      <!-- Slot-hosting panels (the date panel) size to their content — the
+           node-list cap squashed the calendar into a scroll trap. -->
+      <div :class="hostsSlot ? 'tw:max-h-[85vh] tw:overflow-y-auto' : 'tw:max-h-80 tw:overflow-y-auto tw:p-1'">
         <template v-for="node in filtered" :key="node.id || node.type">
           <hr v-if="node.type === 'divider'" class="tw:my-1 tw:border-divider" />
           <div
@@ -177,7 +182,12 @@ function onKeydown(e) {
             @hover="(ev) => onHover(node, ev)"
           />
         </template>
-        <p v-if="!filtered.length" class="tw:px-2 tw:py-3 tw:text-center tw:text-xs tw:text-secondary">
+        <!-- Not when hosting slotted content (the date panel): an empty node
+             list is the NORMAL state there, not a failed search. -->
+        <p
+          v-if="!filtered.length && !hostsSlot"
+          class="tw:px-2 tw:py-3 tw:text-center tw:text-xs tw:text-secondary"
+        >
           No matches
         </p>
         <slot />
@@ -200,7 +210,10 @@ function onKeydown(e) {
         placement="right-start"
         @close="dateNode = null"
       >
-        <BaseDateFilter
+        <!-- Calendar-first (2026-08-28) — the operator editor (BaseDateFilter)
+             read as jargon in a register menu; it lives on in the analytics
+             advanced editor. Same token model, so applied filters carry over. -->
+        <BaseDateRangeFilter
           :modelValue="ctx?.getValue?.(dateNode.group) ?? null"
           @update:modelValue="(t) => ctx?.setValue?.(dateNode.group, t)"
         />

@@ -4,9 +4,13 @@
 import { expect } from '@playwright/test'
 import { AUTH, USERS, ESIGN_PIN } from './cast.js'
 import { waitForSqlValue } from './db.js'
-import { selectFirstOption, expectStatusEventually, clickWhenReady } from './documents.js'
+import { selectFirstOption, selectOption, expectStatusEventually, clickWhenReady } from './documents.js'
 
 const CAPA_WORKFLOW_NAME = 'E2E CAPA Review & Approval'
+/** Two consecutive Reviewer ACTION steps + approval — seeded for CAPA-J8/J9. */
+export const GROUPED_CAPA_WORKFLOW_NAME = 'E2E CAPA Grouped Actions'
+/** ACTION + deferred effectiveness DELAY step — seeded for CAPA-J4 (§31e). */
+export const EFFECTIVENESS_CAPA_WORKFLOW_NAME = 'E2E CAPA Effectiveness Delay'
 
 /** Unique, greppable CAPA title for one test run. */
 export function uniqueTitle(tag) {
@@ -42,16 +46,38 @@ export async function createCapa(page, title, { priority = null, ...hooks } = {}
 /**
  * @param {object} [opts]
  * @param {string} [opts.priority]
+ * @param {string} [opts.workflowName] pick a specific workflow card on the
+ *   wizard's first screen (default: the standard two-step E2E workflow). §31
+ *   seeded a second ACTIVE CAPA workflow, so the gallery always shows now.
+ * @param {string} [opts.siteName] pick a specific Site by its visible name
+ *   (default: first option). CAPA-J9's out-of-site case needs Secondary Site.
+ * @param {string[]} [opts.reviewers] user display names to pick in the submit
+ *   time "Assign Step Reviewers" dialog, by step order. Default: Rita on step
+ *   1 only. Explicit because the Reviewer role has TWO members since §31
+ *   (Riley sorts before Rita), so the dialog's silent first-candidate default
+ *   would route step 1 to the wrong persona and strand every downstream
+ *   `completeReviewerStep` wait. Unpicked steps fall back to role expansion
+ *   at Open CAPA.
  * @param {(page) => Promise<void>} [opts.beforeSubmit] runs on the completed
  *   create form, just before Create CAPA. Inert by default. Exists so the
  *   screenshot specs can capture that state without duplicating this flow.
  */
-export async function fillCapaCreateForm(page, title, { priority = null, beforeSubmit } = {}) {
+export async function fillCapaCreateForm(
+  page,
+  title,
+  {
+    priority = null,
+    workflowName = CAPA_WORKFLOW_NAME,
+    siteName = null,
+    reviewers = [USERS.reviewer.name],
+    beforeSubmit,
+  } = {},
+) {
   // Workflow-first wizard (2026-08-14). With exactly ONE active CAPA
   // workflow screen 1 auto-skips straight to the details form; with several
-  // (other e2e projects can create CAPA templates in this shared tenant) the
-  // card gallery shows and we click ours. Wait for EITHER outcome.
-  const workflowCard = page.getByRole('button', { name: `Select workflow ${CAPA_WORKFLOW_NAME}` })
+  // (§31 seeds a second, and other e2e projects can create more) the card
+  // gallery shows and we click ours. Wait for EITHER outcome.
+  const workflowCard = page.getByRole('button', { name: `Select workflow ${workflowName}` })
   const titleInput = page.getByPlaceholder('Describe the CAPA…')
   await expect(workflowCard.or(titleInput).first()).toBeVisible({ timeout: 45_000 })
   if (await workflowCard.isVisible().catch(() => false)) {
@@ -91,7 +117,11 @@ export async function fillCapaCreateForm(page, title, { priority = null, beforeS
     await expect(problem).toContainText(PROBLEM_TEXT, { timeout: 1_000 })
   }).toPass({ timeout: 20_000 })
 
-  await selectFirstOption(page, 'Site')
+  if (siteName) {
+    await selectOption(page, 'Site', siteName)
+  } else {
+    await selectFirstOption(page, 'Site')
+  }
   await selectFirstOption(page, 'Department')
   await selectFirstOption(page, 'CAPA Type')
   await selectFirstOption(page, 'Source')
@@ -126,7 +156,13 @@ export async function fillCapaCreateForm(page, title, { priority = null, beforeS
   }).toPass({ timeout: 20_000 })
 
   await page.getByRole('button', { name: 'Create CAPA' }).click()
-  await confirmStepReviewers(page)
+
+  // Submit-time "Assign Step Reviewers" dialog (re-introduced 2026-08-18, NC
+  // parity). The picks are parked in pending_reviewers; the CAPA is still
+  // created as a DRAFT. EXPLICIT picks, not confirmStepReviewers' silent
+  // first-candidate: the Reviewer role has two members and Riley sorts before
+  // Rita, so the default would strand every downstream completeReviewerStep.
+  await confirmReviewerDialog(page, reviewers)
 
   await expect(page).toHaveURL(/\/capas\/(?!create)[0-9a-f-]{36}/, { timeout: 45_000 })
   await expect(page.getByText(title).first()).toBeVisible()
@@ -147,6 +183,36 @@ export async function fillCapaCreateForm(page, title, { priority = null, beforeS
  * single-select `UserSelectMenu`s that close themselves on pick, and it
  * submits with "Confirm".
  */
+export async function confirmReviewerDialog(page, reviewers = []) {
+  await expect(page.getByText('Assign Step Reviewers')).toBeVisible({ timeout: 15_000 })
+  // Each WorkflowStepReviewerSelect row carries one combobox, in step order.
+  // The options list is teleported to the body, so open a row's combobox and
+  // pick from the page-level listbox. Rows RE-RENDER as each step's candidate
+  // pool arrives from IDB, so a single click can land mid re-render and report
+  // "element is not stable" — click-until-options, the selectFirstByKeyboard
+  // pattern.
+  const body = page
+    .locator('div')
+    .filter({ has: page.getByText('Assign task to user for each workflow step') })
+    .last()
+  for (let i = 0; i < reviewers.length; i += 1) {
+    const name = reviewers[i]
+    if (!name) continue
+    const combo = body.getByRole('combobox').nth(i)
+    const option = page.getByRole('listbox').getByRole('option', { name }).first()
+    // The CLICK lives inside the retry too: the listbox re-renders as user
+    // rows stream in from IDB, and an option that was visible a tick ago can
+    // be mid-replacement at click time ("element is not stable").
+    await expect(async () => {
+      if (!(await option.isVisible().catch(() => false))) {
+        await combo.click({ timeout: 3_000 })
+      }
+      await option.click({ timeout: 2_000 })
+    }).toPass({ timeout: 30_000 })
+  }
+  await page.getByRole('button', { name: 'Confirm' }).click()
+}
+
 export async function confirmStepReviewers(page) {
   // role=dialog reports hidden for the headlessui wrapper — wait on the body
   // copy, then use the dialog only as a scope. (fixtures/esign.js, documents/22 §2.1)
@@ -252,23 +318,16 @@ export async function completeApproverStep(browser, capaId) {
 
 /**
  * Owner closes an OPEN CAPA with every workflow step already terminal.
- * The Close dialog's effectiveness-check date defaults to a 90-day preset
- * (already valid — see CapasPageId.vue closeEcPresetDays), so the only gate
- * a normal UI flow can hit is "workflow steps still open"; leave the date
- * untouched unless the caller wants to exercise a specific preset.
+ * The effectiveness-check date left this dialog on 2026-08-18 — the
+ * workflow's DELAY step owns scheduling now — so the only gate a normal UI
+ * flow can hit is "workflow steps still open". Closure comments are required.
  */
-export async function closeCapa(page, { comments = '', ecPresetDays = null } = {}) {
+export async function closeCapa(page, { comments = 'E2E close — verified.' } = {}) {
   await page.getByRole('button', { name: 'Close CAPA' }).click()
-  // "Close CAPA" also matches the action-bar button itself and the
-  // Effectiveness section's planning-mode label — anchor on the dialog
-  // heading specifically.
+  // "Close CAPA" also matches the action-bar button itself — anchor on the
+  // dialog heading specifically.
   await expect(page.getByRole('heading', { name: 'Close CAPA' })).toBeVisible({ timeout: 10_000 })
-  if (ecPresetDays) {
-    await page.getByRole('button', { name: `${ecPresetDays} days`, exact: true }).click()
-  }
-  if (comments) {
-    await page.getByPlaceholder('Summary of the corrective action and verification of completion').fill(comments)
-  }
+  await page.getByPlaceholder('Summary of the corrective action and verification of completion').fill(comments)
   const signBtn = page.getByRole('button', { name: 'Sign & Close CAPA' })
   await expect(signBtn).toBeEnabled({ timeout: 15_000 })
   await signBtn.click()

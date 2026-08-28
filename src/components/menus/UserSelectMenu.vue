@@ -55,6 +55,11 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // Restrict to users at a given site (null = no site filter).
+  siteId: {
+    type: String,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -63,8 +68,14 @@ const modelValue = defineModel({
 })
 
 const users = useLiveQueryWithDeps(
-  [() => props.kind, () => props.supplierId, () => props.includeInactive, () => props.departmentId],
-  async (db, [kind, supplierId, includeInactive, departmentId]) => {
+  [
+    () => props.kind,
+    () => props.supplierId,
+    () => props.includeInactive,
+    () => props.departmentId,
+    () => props.siteId,
+  ],
+  async (db, [kind, supplierId, includeInactive, departmentId, siteId]) => {
     const all = await db.User.where().exec()
     return all
       .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
@@ -73,6 +84,7 @@ const users = useLiveQueryWithDeps(
         kind === 'EXTERNAL_SUPPLIER' && supplierId ? u.supplierId === supplierId : true,
       )
       .filter((u) => (departmentId ? u.departmentId === departmentId : true))
+      .filter((u) => (siteId ? u.siteId === siteId : true))
       .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
 

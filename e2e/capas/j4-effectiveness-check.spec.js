@@ -1,113 +1,136 @@
-// PW-J4 · Effectiveness check verify (TC-12) — worker + step assignee.
+// PW-J4 · Effectiveness check — the DELAY-step successor (TC-12).
 //
-// ~~The CAPA's effectiveness check is a `capa_effectiveness_checks` row with a
-// card on the CAPA detail page, verified through a "Verify" button.~~ None of
-// that is reachable any more. On 2026-08-18 the effectiveness check became a
-// workflow DELAY step, and `buildCapaSections()` says so in as many words:
+// The close-time capa_effectiveness_checks scheduler is retired (PW-J3 pins
+// that closing mints no row). Effectiveness now lives IN the workflow: a DELAY
+// step with captures_effectiveness parks SCHEDULED when the workflow reaches
+// it, does NOT block closing the CAPA (a deferred check fires after close, by
+// design), and wakes via the worker's workflow_delay_step_activate job. The
+// woken step mints a task whose completion DEMANDS an effectiveness verdict —
+// recorded first-class on workflow_instance_steps.effectiveness_outcome.
 //
-//   "The Effectiveness section is gone (2026-08-18) … The record-based
-//    CapaEffectivenessCheck table, its endpoints and its card are still in the
-//    codebase but unreachable — kept only until the transition is done."
-//
-// The card still HAS its Verify button in source — which is why grepping for
-// it finds a hit and suggests nothing is wrong. `CapaEffectivenessCheckCard`
-// simply has no call site anywhere in `src/`; the only surviving mention is
-// that comment. The complete-dialog has exactly one mount left
-// (TaskInstanceCapaEffectivenessActions → TaskActionBar), and TaskActionBar is
-// never rendered on /capas/:id, so no page on develop can open it for a CAPA.
-//
-// So this journey now drives the live path: a DELAY step whose
-// `captures_effectiveness` flag turns it into the verdict gate. The subject is
-// unchanged — the worker wakes a parked check, the assignee records a verdict,
-// and the completion is e-signed — but every locator and every assertion had
-// to move from `capa_effectiveness_checks` onto the workflow's own tables.
-//
-// The seeded "E2E CAPA Review & Approval" workflow has no DELAY step at all
-// (ACTION + APPROVAL only), so this uses the delay fixture's `eff` template.
+// Thirty real days is not a test strategy: the wake is advanced in SQL (step
+// delay_until + the graphile job's run_at), which is exactly what the worker
+// would see thirty days from now.
 import { test, expect } from '../../video/fixtures/videoTest.js'
-import { AUTH, ESIGN_PIN } from '../fixtures/cast.js'
-import { clickWhenReady } from '../fixtures/documents.js'
+import { AUTH, USERS } from '../fixtures/cast.js'
 import {
-  ensureDelayTemplates,
-  reachScheduledDelay,
-  delayStepOf,
-  fireDelayNow,
-  gotoCapaWorkflow,
-  signatureCountOn,
-} from '../fixtures/workflowDelay.js'
-import { sqlRow, sqlValue, waitForSqlValue } from '../fixtures/db.js'
+  createCapa,
+  openCapa,
+  closeCapa,
+  uniqueTitle,
+  EFFECTIVENESS_CAPA_WORKFLOW_NAME,
+} from '../fixtures/capas.js'
+import { clickWhenReady } from '../fixtures/documents.js'
+import { findCapaByTitle, sql, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/db.js'
 
-const PIN_FIELD = 'Enter your e-signature PIN'
+const DELAY_TEMPLATE_STEP = 'e2ef5003-0000-4000-8000-000000000002'
 
 test.use({ storageState: AUTH.author })
 
-test.describe('PW-J4 · effectiveness check verify', () => {
-  test.beforeAll(() => ensureDelayTemplates())
-
-  test('worker wakes the parked check; the assignee records EFFECTIVE with an e-signature', async ({
+test.describe('PW-J4 · effectiveness as a deferred DELAY step', () => {
+  test('the check parks SCHEDULED, survives close, fires, and records the verdict', async ({
     page,
     browser,
   }) => {
     test.setTimeout(300_000)
 
-    const { capaId } = await reachScheduledDelay(page, browser, { template: 'eff', tag: 'J4' })
-    const delay = delayStepOf(capaId)
-    expect(delay, 'the CAPA runs a DELAY step').toBeTruthy()
+    const title = uniqueTitle('J4')
+    await createCapa(page, title, {
+      workflowName: EFFECTIVENESS_CAPA_WORKFLOW_NAME,
+      // Rita on both: the ACTION step now, the deferred check when it fires.
+      reviewers: [USERS.reviewer.name, USERS.reviewer.name],
+    })
+    const capa = findCapaByTitle(title)
+    await openCapa(page, capa.id)
 
-    // Park it in the past: the worker (JOB-01) flips SCHEDULED → IN_PROGRESS
-    // and mints the assignee's task. This replaces the old close-schedules-it
-    // dance, which created nothing at all once close stopped scheduling checks.
-    await fireDelayNow(page.request, capaId, delay.id)
+    // Rita completes the ACTION step; the DELAY step parks SCHEDULED with the
+    // template's 30-day default already applied.
+    const ritaCtx = await browser.newContext({ storageState: AUTH.reviewer })
+    const ritaPage = await ritaCtx.newPage()
+    await ritaPage.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
+    await clickWhenReady(ritaPage, ritaPage.getByRole('button', { name: 'Mark Complete' }).first())
+    await ritaCtx.close()
 
-    const ctx = await browser.newContext({ storageState: AUTH.approver })
-    const assigneePage = await ctx.newPage()
-    try {
-      await gotoCapaWorkflow(assigneePage, capaId)
-
-      // The verdict is inline on the step card, not in a dialog. It is a
-      // SegmentedControl: <button role="radio">, NOT <input type=radio> — so
-      // `check()` throws ("Not a checkbox or radio button") and only click()
-      // works. exact:true because 'Effective' is a substring of 'Not effective'.
-      await assigneePage.getByRole('radio', { name: 'Effective', exact: true }).click()
-
-      // Two "Mark Complete" buttons render (step header + card footer);
-      // clickWhenReady takes .first(). The label is derived from stepType —
-      // a DELAY step is not an APPROVAL step, so it is not "Approve".
-      await clickWhenReady(
-        assigneePage,
-        assigneePage.getByRole('button', { name: 'Mark Complete', exact: true }),
-      )
-
-      const pin = assigneePage.getByPlaceholder(PIN_FIELD)
-      await expect(pin, 'completing the verdict demands a credential').toBeVisible({
-        timeout: 15_000,
-      })
-      await pin.fill(ESIGN_PIN)
-      await assigneePage.getByRole('button', { name: 'Sign', exact: true }).click()
-
-      await waitForSqlValue(
-        `SELECT count(*) FROM workflow_instance_steps WHERE id = '${delay.id}' AND status_id = 'APPROVED'`,
-        { timeoutMs: 60_000, label: 'signed completion landed' },
-      )
-    } finally {
-      await assigneePage.close()
-      await ctx.close()
-    }
-
-    // The verdict lands on the STEP. `capa_effectiveness_checks` stays empty —
-    // nothing on this path writes it.
-    const step = sqlRow(
-      `SELECT status_id, effectiveness_outcome FROM workflow_instance_steps WHERE id = '${delay.id}'`,
+    await waitForSqlValue(
+      `SELECT count(*) FROM workflow_instance_steps wis
+        JOIN workflow_instances wi ON wi.id = wis.workflow_instance_id
+        WHERE wi.resource_type = 'Capa' AND wi.resource_id = '${capa.id}'
+          AND wis.step_id = '${DELAY_TEMPLATE_STEP}' AND wis.status_id = 'SCHEDULED'
+          AND wis.delay_until IS NOT NULL`,
+      { timeoutMs: 45_000, label: 'DELAY step parked SCHEDULED with a wake date' },
     )
-    expect(step[0]).toBe('APPROVED')
-    expect(step[1], 'the recorded verdict').toBe('EFFECTIVE')
 
-    const legacyRows = sqlValue(
-      `SELECT count(*) FROM capa_effectiveness_checks WHERE capa_id = '${capaId}'`,
+    // A deferred check does NOT block closing — that is the point of deferring
+    // it. The owner closes the CAPA with the check still parked.
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await closeCapa(page, { comments: 'E2E close — effectiveness deferred to the DELAY step.' })
+    await waitForSqlValue(
+      `SELECT count(*) FROM capas WHERE id = '${capa.id}' AND status_id = 'CLOSED'`,
+      { timeoutMs: 30_000, label: 'CAPA CLOSED with the check still SCHEDULED' },
     )
-    expect(Number(legacyRows), 'the record-based table is not on this path').toBe(0)
 
-    // Part-11: exactly one signature for the verdict.
-    expect(signatureCountOn(delay.id), 'one Part-11 signature row').toBe(1)
+    // Advance the clock: wake date into the past, worker job due now.
+    const stepId = sqlValue(`
+      SELECT wis.id FROM workflow_instance_steps wis
+      JOIN workflow_instances wi ON wi.id = wis.workflow_instance_id
+      WHERE wi.resource_type = 'Capa' AND wi.resource_id = '${capa.id}'
+        AND wis.step_id = '${DELAY_TEMPLATE_STEP}'`)
+    sql(`UPDATE workflow_instance_steps SET delay_until = NOW() - INTERVAL '1 minute' WHERE id = '${stepId}'`)
+    sql(`UPDATE graphile_worker._private_jobs SET run_at = NOW()
+          WHERE task_id = (SELECT id FROM graphile_worker._private_tasks WHERE identifier = 'workflow_delay_step_activate')
+            AND payload::text LIKE '%${stepId}%'`)
+
+    // The worker fires: step IN_PROGRESS, Rita's verdict task minted.
+    await waitForSqlValue(
+      `SELECT count(*) FROM task_instances
+        WHERE source_type = 'WorkflowInstanceStep' AND source_id = '${stepId}'
+          AND assigned_to = '${USERS.reviewer.id}' AND status_id = 'ASSIGNED'`,
+      { timeoutMs: 60_000, label: 'verdict task minted after the wake' },
+    )
+
+    // Rita records the verdict on the CLOSED CAPA. The card demands the
+    // first-class answer before Complete enables.
+    const verdictCtx = await browser.newContext({ storageState: AUTH.reviewer })
+    const verdictPage = await verdictCtx.newPage()
+    await verdictPage.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
+    await expect(verdictPage.getByText('Effectiveness decision')).toBeVisible({ timeout: 30_000 })
+    await verdictPage.getByRole('radio', { name: 'Effective', exact: true }).click()
+    // The verdict is a controlled decision (2026-08-28): a supporting comment
+    // is REQUIRED and the completion is e-signed even though the template
+    // never flipped the step's own esign flag.
+    await verdictPage
+      .getByPlaceholder(/What supports this decision/)
+      .fill('Recurrence check clean for 30 days — spot audits found no repeats.')
+    await clickWhenReady(
+      verdictPage,
+      verdictPage.getByRole('button', { name: 'Mark Complete' }).first(),
+    )
+    await verdictPage.locator('input[type="password"]').first().fill('12345678')
+    await verdictPage.getByRole('button', { name: /^Sign\b/i }).last().click()
+    await verdictCtx.close()
+
+    // The verdict is first-class on the step, and the workflow is done.
+    await waitForSqlValue(
+      `SELECT count(*) FROM workflow_instance_steps
+        WHERE id = '${stepId}' AND status_id = 'APPROVED' AND effectiveness_outcome = 'EFFECTIVE'`,
+      { timeoutMs: 45_000, label: 'EFFECTIVE recorded on the step' },
+    )
+    // The forced e-sign left a Part-11 row against the verdict task.
+    const sigCount = sqlValue(
+      `SELECT count(*) FROM signatures s
+        JOIN task_instances ti ON ti.id = s.task_instance_id
+       WHERE ti.source_id = '${stepId}'`,
+    )
+    expect(Number(sigCount), 'verdict e-signature recorded').toBeGreaterThanOrEqual(1)
+    const wf = sqlRow(`
+      SELECT wi.status_id FROM workflow_instances wi
+      WHERE wi.resource_type = 'Capa' AND wi.resource_id = '${capa.id}'`)
+    expect(wf[0], 'workflow completed after the deferred verdict').toBe('COMPLETED')
+
+    // And the legacy table stayed empty end to end.
+    const legacy = sqlValue(
+      `SELECT count(*) FROM capa_effectiveness_checks WHERE capa_id = '${capa.id}'`,
+    )
+    expect(Number(legacy), 'no legacy effectiveness-check row anywhere in the flow').toBe(0)
   })
 })

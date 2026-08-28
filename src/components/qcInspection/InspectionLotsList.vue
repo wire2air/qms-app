@@ -38,17 +38,9 @@ const LOT_PILLS = [
 ]
 const PILL_VALUES = new Set(LOT_PILLS.map((p) => p.value))
 
-// A lot is "closed" once it reaches a disposition outcome — those are terminal
-// and the lot is no longer QC's work.
-const CLOSED_STATUSES = [
-  'RELEASED',
-  'USE_AS_IS',
-  'REGRADE',
-  'REWORK',
-  'RETURN_TO_SUPPLIER',
-  'REJECTED',
-  'SCRAP',
-]
+// Unified parent statuses (2026-08-28): a dispositioned lot is CLOSED (the
+// OUTCOME lives on its disposition type); execution detail rides
+// inspectionPhase while OPEN.
 
 const activeFilter = ref(PILL_VALUES.has(route.query.view) ? route.query.view : 'all')
 watch(
@@ -62,14 +54,16 @@ watch(activeFilter, (v) => {
 })
 
 function applyActiveFilter(rows, af) {
+  const openPhase = (r, phases) => r.statusId === 'OPEN' && phases.includes(r.inspectionPhase)
   // Not yet started — the actual "what do I inspect next" queue.
-  if (af === 'queue') return rows.filter((r) => ['DRAFT', 'PENDING'].includes(r.statusId))
-  if (af === 'in_progress') return rows.filter((r) => r.statusId === 'IN_PROGRESS')
+  if (af === 'queue')
+    return rows.filter((r) => r.statusId === 'DRAFT' || openPhase(r, ['PENDING']))
+  if (af === 'in_progress') return rows.filter((r) => openPhase(r, ['IN_PROGRESS']))
   // Inspected but not yet dispositioned: the decision backlog.
   if (af === 'awaiting_disposition')
-    return rows.filter((r) => ['COMPLETED', 'UNDER_REVIEW'].includes(r.statusId))
-  if (af === 'on_hold') return rows.filter((r) => r.statusId === 'HOLD')
-  if (af === 'closed') return rows.filter((r) => CLOSED_STATUSES.includes(r.statusId))
+    return rows.filter((r) => openPhase(r, ['COMPLETED', 'UNDER_REVIEW']))
+  if (af === 'on_hold') return rows.filter((r) => openPhase(r, ['HOLD']))
+  if (af === 'closed') return rows.filter((r) => ['CLOSED', 'CANCELLED'].includes(r.statusId))
   return rows // 'all'
 }
 

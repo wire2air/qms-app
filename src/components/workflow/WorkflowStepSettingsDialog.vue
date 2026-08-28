@@ -76,7 +76,7 @@ const STEP_TYPE_HELP = [
       'Example: "QA Approval" — the Quality Manager reviews and signs off with a CFR 21 Part 11 e-signature.',
   },
   {
-    label: 'Schedule Task',
+    label: 'Effectiveness Check',
     icon: IconClockPause,
     purpose:
       'A follow-up task that activates on a schedule instead of immediately: the step waits a set number of days (or until a date) after the previous step completes, then assigns its task. The record owner can reschedule or skip it on each record.',
@@ -157,7 +157,8 @@ function setDelayDays(days) {
           class="tw:rounded-lg tw:bg-indigo-50 tw:border tw:border-indigo-200 tw:p-2.5 tw:text-micro tw:text-indigo-900 tw:leading-relaxed"
         >
           Optional. The record owner sets the actual activation date — or skips the step — when the
-          workflow reaches it. Leave blank to make the owner decide each time.
+          workflow reaches it. Leave blank to make the owner decide each time. On completion the
+          assignee records an Effective / Not effective verdict.
         </div>
         <BaseField
           v-slot="{ id: fieldId }"
@@ -225,28 +226,9 @@ function setDelayDays(days) {
             </span>
           </div>
         </BaseField>
-        <!-- Turns a plain deferred task into one that must reach a conclusion.
-             Labelled generically — a delay step is a deferred CHECK of any kind
-             (a CAPA effectiveness review, a post-implementation review on a
-             change, a follow-up on an NC), so the UI does not assume CAPA. The
-             stored field keeps the name `effectiveness_outcome`: that is the
-             QMS term of art (ISO 13485 §8.5.2) and it matches the built-in
-             CAPA check, so the two report identically. -->
-        <BaseField label="Verification outcome">
-          <label class="tw:flex tw:items-start tw:gap-3 tw:cursor-pointer tw:select-none">
-            <BaseSwitch v-model="step.capturesEffectiveness" :disabled="!canUpdate" />
-            <span>
-              <span class="tw:block tw:text-xs tw:font-semibold tw:text-on-main">
-                Require a verification result
-              </span>
-              <span class="tw:block tw:text-xs tw:text-secondary">
-                The assignee must answer “was it effective?” before this step can be
-                completed — not just leave a comment. Recorded on the step, so it reports
-                on the record list.
-              </span>
-            </span>
-          </label>
-        </BaseField>
+        <!-- (No verdict opt-out — an Effectiveness Check always records the
+             Effective / Not effective outcome; the engine forces
+             capturesEffectiveness for DELAY instance steps. 2026-08-28) -->
       </template>
 
       <!-- Compliance — inline on the panel for APPROVAL steps (it's core

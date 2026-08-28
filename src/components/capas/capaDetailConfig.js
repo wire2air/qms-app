@@ -78,11 +78,9 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Close CAPA',
       variant: 'primary',
       priority: 100,
-      // 'OPEN', not 'PENDING'. 20260823100000-unified-record-statuses retired
-      // PENDING from capa_statuses; this gate kept comparing to it, so Close
-      // rendered for nobody on any CAPA — 152 of them in the E2E tenant alone.
-      // The list page was migrated in the same window (CapasHome.vue
-      // OPEN_STATUSES); only this action bar was missed. See capa/22 §1.
+      // OPEN, not the retired 'PENDING' — the unified record statuses
+      // (2026-08-20) renamed the active state, and a gate on the old id made
+      // Close unreachable on every CAPA (caught by e2e CAPA-J3, 2026-08-26).
       visible: !!canCloseCapa && statusId === 'OPEN',
       disabled: !canClose || !!closing,
       loading: !!closing,

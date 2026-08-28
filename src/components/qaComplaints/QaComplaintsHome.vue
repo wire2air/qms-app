@@ -38,19 +38,10 @@ const VIEWS = [
   { value: 'open', label: 'Open' },
   { value: 'closed', label: 'Closed' },
 ]
-// Active (non-closed) states. UNDER_REVIEW / PENDING_APPROVAL are QMS-workflow
-// states — an owner reviewing before close — so they count as open, not limbo.
-const OPEN_STATUSES = [
-  'NEW',
-  'OPEN',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'WAITING_CUSTOMER',
-  'ON_HOLD',
-  'UNDER_REVIEW',
-  'PENDING_APPROVAL',
-]
-const CLOSED_STATUSES = ['CLOSED', 'CONVERTED_TO_NC']
+// Unified parent statuses (2026-08-28): active vs finished. Workflow phases
+// live on the steps, and conversion-to-NC is a record LINK, not a status.
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
+const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
 
 // Team ids the current user belongs to — drives the "QA Review" view.
 const myTeamIds = useLiveQuery(
@@ -98,11 +89,20 @@ const complaints = useLiveQueryWithDeps(
   { models: ['Complaint'], initial: [] },
 )
 
+// Conversion lineage lives in record_links (Complaint→Nonconformance).
+const convertedIds = useLiveQuery(
+  async (db) => {
+    const links = await db.RecordLink.where('fromType', 'Complaint').exec()
+    return new Set(links.filter((l) => l.toType === 'Nonconformance').map((l) => l.fromId))
+  },
+  { models: ['RecordLink'], initial: new Set() },
+)
+
 const stats = computed(() => {
   const all = allComplaints.value.filter((r) => !r.isSpam)
   const open = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
   const unassigned = open.filter((r) => !r.assignedTo)
-  const converted = all.filter((r) => r.statusId === 'CONVERTED_TO_NC')
+  const converted = all.filter((r) => convertedIds.value.has(r.id))
   return {
     total: all.length,
     open: open.length,

@@ -20,6 +20,10 @@ export const RECORD_REF = {
   // Findings live inside an audit — no standalone detail route.
   AuditFinding: { model: 'AuditFinding', numberField: 'findingNumber', label: 'Finding', path: null },
   TrainingInstance: { model: 'TrainingInstance', numberField: 'title', label: 'Training', path: (id) => `/training-instances/${id}` },
+  // Audit Records Packages anchor share links on the audit; the auditor page
+  // redirects EXTERNAL audits to /auditee/:id.
+  AuditInstance: { model: 'AuditInstance', numberField: 'auditNumber', label: 'Audit', path: (id) => `/audits/instances/${id}` },
+  Document: { model: 'Document', numberField: 'docNumber', label: 'Doc', path: (id) => `/documents/${id}` },
 }
 
 export function recordRefConfig(type) {

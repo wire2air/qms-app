@@ -13,15 +13,13 @@ const props = defineProps({
   showDot: { type: Boolean, default: false },
 })
 
+// Unified parent vocabulary (2026-08-28) — execution detail renders via
+// AuditPhaseBadgeById, not here.
 const STATUS_MAP = {
-  DRAFT:       { id: 'DRAFT',       name: 'Draft' },
-  SCHEDULED:   { id: 'SCHEDULED',   name: 'Scheduled' },
-  IN_PROGRESS: { id: 'IN_PROGRESS', name: 'In Progress' },
-  REVIEW:      { id: 'REVIEW',      name: 'Review' },
-  REJECTED:    { id: 'REJECTED',    name: 'Rejected' },
-  COMPLETED:   { id: 'COMPLETED',   name: 'Completed' },
-  CLOSED:      { id: 'CLOSED',      name: 'Closed' },
-  CANCELLED:   { id: 'CANCELLED',   name: 'Cancelled' },
+  DRAFT:     { id: 'DRAFT',     name: 'Draft' },
+  OPEN:      { id: 'OPEN',      name: 'Open' },
+  CLOSED:    { id: 'CLOSED',    name: 'Closed' },
+  CANCELLED: { id: 'CANCELLED', name: 'Cancelled' },
 }
 
 const status = computed(

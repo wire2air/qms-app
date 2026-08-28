@@ -204,6 +204,52 @@ const showEsignDialog = ref(false)
 const pendingChildId = ref(null)
 const completing = ref(null) // childId currently being completed (drives per-row disabled state)
 
+// ─── Dialog one-shot completion (user report 2026-08-27) ─────────────────────
+// The dialog used to show the form's own Submit + Save draft, where Submit
+// only saved the record — completing still needed the row's separate
+// "Complete & Advance". One trip now: the dialog renders Save draft +
+// Mark Complete, and Mark Complete drives save + submit + complete through
+// the form's autoApprove path (e-sign-gated here, since the form's own
+// button can't prompt for credentials).
+const dialogFormRef = ref(null)
+const dialogSubmitting = ref(false)
+const showDialogEsign = ref(false)
+
+function onDialogCompleteClick() {
+  if (!selectedChild.value || dialogSubmitting.value) return
+  if (requireEsignatureFor(selectedChild.value)) {
+    showDialogEsign.value = true
+  } else {
+    submitDialogForm()
+  }
+}
+
+function onDialogEsignVerified({ method, provider, token }) {
+  showDialogEsign.value = false
+  submitDialogForm({ method, provider, token })
+}
+
+async function submitDialogForm(esign = null) {
+  if (dialogSubmitting.value) return
+  dialogSubmitting.value = true
+  try {
+    await dialogFormRef.value?.submit(esign)
+  } finally {
+    dialogSubmitting.value = false
+  }
+}
+
+const dialogSavingDraft = ref(false)
+async function onDialogSaveDraft() {
+  if (dialogSavingDraft.value) return
+  dialogSavingDraft.value = true
+  try {
+    await dialogFormRef.value?.saveDraft()
+  } finally {
+    dialogSavingDraft.value = false
+  }
+}
+
 function onCompleteClick(child) {
   if (completing.value) return
   pendingChildId.value = child.id
@@ -443,10 +489,42 @@ function getRowClass(child) {
     <BaseDialog v-model="dialogOpen" :title="dialogTitle" maxWidth="2xl">
       <WorkflowStepForm
         v-if="selectedChildId"
+        ref="dialogFormRef"
         :module="CAPA_MODULE"
         :instanceStepId="selectedChildId"
         :resourceId="capaId"
+        :autoApprove="true"
+        :hideSubmit="true"
+        @done="dialogOpen = false"
       />
+      <!-- Save draft + Mark Complete on one row, the step-card pattern:
+           Mark Complete saves, submits AND completes the sub-task in one
+           trip (e-sign-gated when the step demands it). Only rendered while
+           the viewer holds the actionable task — the form itself renders
+           read-only otherwise and these buttons would be dead weight. -->
+      <div
+        v-if="selectedChildId && tasksByChildStepId[selectedChildId]"
+        class="tw:mt-4 tw:flex tw:justify-end tw:gap-2"
+      >
+        <BaseButton
+          variant="outline"
+          :disabled="dialogSavingDraft || dialogSubmitting"
+          :isLoading="dialogSavingDraft"
+          @click="onDialogSaveDraft"
+        >
+          Save draft
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :disabled="dialogSubmitting || dialogSavingDraft"
+          :isLoading="dialogSubmitting"
+          @click="onDialogCompleteClick"
+        >
+          <template #icon><IconCheck :size="16" /></template>
+          Mark Complete
+        </BaseButton>
+      </div>
+      <WorkflowInstanceEsignAuthDialog v-model="showDialogEsign" @verified="onDialogEsignVerified" />
     </BaseDialog>
 
     <CapaAddChildStepDialog

@@ -1,13 +1,9 @@
 // PW-J3 · Owner closes with e-signature (TC-10) — P0.
-// CAPA's close gate is thinner than NCR's 5-gate walk: the controller
-// (backend/api/controllers/capas.js closeCapa) enforces exactly 2 —
-// open workflow steps, and a valid (future) effectiveness-check date. The
-// UI's action-bar "Close CAPA" button only ever surfaces gate 1: the EC-date
-// ref defaults to a valid 90-day-out value at component mount (CapasPageId.vue
-// closeEcPresetDays = ref(90)), not just when the dialog opens, so
-// closeDisabledReason's "Pick an effectiveness check date" branch is
-// unreachable through the UI. Gate 2 is still real at the API layer, so it's
-// asserted directly against the endpoint below.
+// One gate since the effectiveness-check retirement: open workflow steps.
+// Close no longer schedules a follow-up check — the workflow's DELAY step owns
+// effectiveness (see PW-J4) — so this journey pins BOTH halves: the gate
+// blocks and then clears, and closing mints NO legacy
+// capa_effectiveness_checks row.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
@@ -117,7 +113,7 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
     browser,
   }) => {
     test.setTimeout(150_000)
-    const title = uniqueTitle('J3-pastdate')
+    const title = uniqueTitle('J3-legacyec')
     await createCapa(page, title)
     const capa = findCapaByTitle(title)
     await openCapa(page, capa.id)
@@ -135,6 +131,9 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
       { timeoutMs: 30_000, label: 'workflow finished' },
     )
 
+    // An old client (or a replayed request) still sending the retired field
+    // must not resurrect the legacy scheduler — the close succeeds on its own
+    // terms and no capa_effectiveness_checks row appears.
     const res = await page.request.post(`/api/v1/services/capas/${capa.id}/close`, {
       data: {
         effectivenessCheckAt: 'not-a-date',

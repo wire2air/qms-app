@@ -310,7 +310,7 @@ function auditHref(a) {
             :href="recordHref(r)"
             class="tw:flex tw:items-center tw:gap-1.5 tw:text-on-main tw:hover:text-primary tw:flex-1"
           >
-            <span class="tw:font-mono tw:text-xs tw:text-secondary">{{ r.recordNumber }}</span>
+            <span class="tw:text-xs tw:text-secondary">{{ r.recordNumber }}</span>
             <span class="tw:font-medium">{{ r.moduleKey }}</span>
             <IconExternalLink :size="12" class="tw:text-secondary" />
           </a>

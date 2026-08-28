@@ -42,6 +42,7 @@ import {
   onBehalfOfLabel,
 } from '@/components/workflow/stepTakeover.js'
 import { currentSession } from '@/utils/currentSession.js'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
 import WorkflowStepForm from '@/components/workflow/WorkflowStepForm.vue'
@@ -227,27 +228,91 @@ const takeoverAssigneeName = computed(() => {
 // so it is asked for HERE on the card rather than inside the step form. The
 // server refuses to complete such a step without it.
 const capturesEffectiveness = computed(() => !!instanceStep.value?.capturesEffectiveness)
-const EFFECTIVENESS_OPTIONS = [
-  { label: 'Effective', value: 'EFFECTIVE' },
-  { label: 'Not effective', value: 'NOT_EFFECTIVE' },
-]
-const effectivenessOutcome = ref(null)
-// Prefill when revisiting a step that already recorded one.
-watch(
-  () => instanceStep.value?.effectivenessOutcome,
-  (v) => {
-    if (v) effectivenessOutcome.value = v
-  },
-  { immediate: true },
+
+// ── The decision instrument (2026-08-28) ────────────────────────────────────
+// The check is a DECISION, not a form: one of five outcomes, each with its own
+// consequence. EFFECTIVE closes the check; EXTEND defers it (the extend
+// dialog); the other three record NOT_EFFECTIVE and execute their follow-up
+// ATOMICALLY with the verdict — re-open the host, escalate (host-aware: a new
+// CAPA for CAPA/NC/CR hosts, a record clone for module hosts), or accept the
+// outcome with justification.
+const isBuiltInHost = computed(() =>
+  ['capas', 'nonconformances', 'changeRequests'].includes(props.module.apiPath),
 )
+// DORMANT (user decision 2026-08-28): Modify Corrective Action (re-open +
+// restart) and Escalate (spawn linked CAPA / record clone) widen the testing
+// surface, so they are hidden for now — a NOT_EFFECTIVE outcome is recorded
+// with justification and the user raises any follow-up CAPA manually. The
+// whole path (service, endpoint, guards, e2e journeys) stays built and
+// verified; flip this to re-offer the cards.
+const ADVANCED_EFFECTIVENESS_DECISIONS = false
+const effectivenessDecision = ref(null)
+const effectivenessDecisions = computed(() => [
+  {
+    value: 'EFFECTIVE',
+    label: 'Effective',
+    blurb: 'The corrective action held — record the verdict and close the check.',
+  },
+  {
+    value: 'EXTEND',
+    label: 'Extend Monitoring',
+    blurb: 'Not enough evidence yet — push the check out and keep watching.',
+    disabled: !canExtendDelay.value,
+    disabledReason: 'No extensions left on this check',
+  },
+  {
+    value: 'REOPEN',
+    label: 'Modify Corrective Action',
+    blurb:
+      'The fix needs rework — re-open this record and restart its workflow, with the previous answers carried forward as drafts.',
+  },
+  {
+    value: 'ESCALATE',
+    label: isBuiltInHost.value ? 'Escalate to New CAPA' : 'Create Follow-up Record',
+    blurb: isBuiltInHost.value
+      ? 'Raise a linked CAPA for a fresh corrective cycle; this record stays as-is.'
+      : 'Spawn a linked follow-up record carrying all of this one’s form data.',
+  },
+  {
+    value: 'CLOSE_JUSTIFIED',
+    label: 'Not Effective — Close Check',
+    blurb:
+      'The corrective action did not hold — record Not Effective with your justification and complete this check only. The record itself is not closed; raise a follow-up CAPA manually if further action is needed.',
+  },
+].filter(
+  (opt) =>
+    ADVANCED_EFFECTIVENESS_DECISIONS || !['REOPEN', 'ESCALATE'].includes(opt.value),
+))
+
+function onDecisionPick(value) {
+  if (value === 'EXTEND') {
+    // Extending is a deferral, not a verdict — hand off to the extend dialog.
+    effectivenessDecision.value = null
+    openExtendDialog()
+  }
+}
+
+const effectivenessOutcome = computed(() => {
+  if (!effectivenessDecision.value) return null
+  return effectivenessDecision.value === 'EFFECTIVE' ? 'EFFECTIVE' : 'NOT_EFFECTIVE'
+})
 const effectivenessMissing = computed(
-  () => capturesEffectiveness.value && !effectivenessOutcome.value,
+  () => capturesEffectiveness.value && !effectivenessDecision.value,
+)
+// The verdict is a controlled decision (2026-08-28): reasoning is REQUIRED
+// and the completion is e-signed regardless of the step's own flag.
+const verdictComment = ref('')
+const verdictCommentMissing = computed(
+  () => capturesEffectiveness.value && !verdictComment.value.trim(),
 )
 
-const completeDisabled = computed(() => childrenBlock.value || effectivenessMissing.value)
+const completeDisabled = computed(
+  () => childrenBlock.value || effectivenessMissing.value || verdictCommentMissing.value,
+)
 const completeDisabledReason = computed(() => {
   if (childrenBlock.value) return 'All sub-tasks must be completed before advancing'
-  if (effectivenessMissing.value) return 'Record the effectiveness outcome first'
+  if (effectivenessMissing.value) return 'Pick an effectiveness decision first'
+  if (verdictCommentMissing.value) return 'Add a comment supporting the verdict'
   return ''
 })
 
@@ -258,7 +323,10 @@ const stepInstructions = computed(() => (instanceStep.value?.description ?? '').
 
 // ─── Mark Complete (Complete & Advance) ──────────────────────────────────────
 const requireEsignature = computed(
-  () => !!(instanceStep.value?.requireEsignature ?? stepDefinition.value?.requireEsignature),
+  () =>
+    !!(instanceStep.value?.requireEsignature ?? stepDefinition.value?.requireEsignature) ||
+    // Effectiveness verdicts are always e-signed (server enforces the same).
+    capturesEffectiveness.value,
 )
 
 const showEsignDialog = ref(false)
@@ -307,7 +375,13 @@ async function submitCompleteAndAdvance(esign = null) {
       await formRef.value?.submit(
         esign,
         capturesEffectiveness.value
-          ? { effectivenessOutcome: effectivenessOutcome.value }
+          ? {
+              effectivenessOutcome: effectivenessOutcome.value,
+              ...(effectivenessDecision.value !== 'EFFECTIVE'
+                ? { effectivenessDecision: effectivenessDecision.value }
+                : {}),
+              comment: verdictComment.value.trim(),
+            }
           : null,
       )
     } else {
@@ -315,14 +389,30 @@ async function submitCompleteAndAdvance(esign = null) {
         action: 'COMPLETE_AND_ADVANCE',
         outcomeId: 'COMPLETE_AND_ADVANCE',
         ...(capturesEffectiveness.value
-          ? { effectivenessOutcome: effectivenessOutcome.value }
+          ? {
+              effectivenessOutcome: effectivenessOutcome.value,
+              ...(effectivenessDecision.value !== 'EFFECTIVE'
+                ? { effectivenessDecision: effectivenessDecision.value }
+                : {}),
+              comment: verdictComment.value.trim(),
+            }
           : {}),
       }
       if (esign?.method) body.method = esign.method
       if (esign?.token) body.token = esign.token
       if (esign?.provider) body.provider = esign.provider
-      await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
-      toast.success(isApprovalStep.value ? 'Step approved' : 'Step completed')
+      const res = await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
+      if (res?.followUp?.message) {
+        toast.success(res.followUp.message)
+      } else {
+        toast.success(isApprovalStep.value ? 'Step approved' : 'Step completed')
+      }
+      // Escalation spawned a record — take the verdict-giver there.
+      if (res?.followUp?.created?.id && res?.followUp?.created?.urlPath) {
+        router.push(
+          getCompanyPath(`/${res.followUp.created.urlPath}/${res.followUp.created.id}`),
+        )
+      }
     }
   } catch (e) {
     toast.error(e?.message || 'Failed to complete step')
@@ -330,6 +420,8 @@ async function submitCompleteAndAdvance(esign = null) {
     completing.value = false
   }
 }
+
+const router = useRouter()
 
 // ─── Delay step (stepType DELAY) ─────────────────────────────────────────────
 // A DELAY step parks SCHEDULED when the workflow reaches it. Like a CAPA
@@ -405,22 +497,47 @@ async function handleSchedule() {
   }
 }
 
-// Skip dialog (owner, pre-fire)
+// Skip dialog (owner, pre- or post-fire). Skipping a scheduled check is a
+// CONTROLLED act (2026-08-28): reason required + PIN e-signature.
 const showSkipDialog = ref(false)
+const showSkipEsign = ref(false)
 const skipping = ref(false)
+const skipReason = ref('')
+const skipReasonError = ref('')
 
-async function handleSkipDelay() {
+function openSkipDialog() {
+  skipReason.value = ''
+  skipReasonError.value = ''
+  showSkipDialog.value = true
+}
+
+function onSkipSubmit() {
+  if (!skipReason.value.trim()) {
+    skipReasonError.value = 'A reason is required to skip this check'
+    return
+  }
+  skipReasonError.value = ''
+  showSkipDialog.value = false
+  showSkipEsign.value = true
+}
+
+async function onSkipEsignVerified({ method, provider, token }) {
+  showSkipEsign.value = false
   if (skipping.value) return
   skipping.value = true
   try {
     await post(delayApiPath.value, {
       workflowInstanceStepId: props.instanceStepId,
       intent: 'SKIP',
+      comment: skipReason.value.trim(),
+      method,
+      token,
+      provider,
     })
-    toast.success('Delay step skipped')
-    showSkipDialog.value = false
+    toast.success('Check skipped')
   } catch (e) {
-    toast.error(e?.message || 'Failed to skip delay step')
+    toast.error(e?.message || 'Failed to skip this step')
+    showSkipDialog.value = true
   } finally {
     skipping.value = false
   }
@@ -587,7 +704,10 @@ function getStepStatusClass(statusId) {
 
 function getStatusLabel(statusId) {
   if (!statusId) return '—'
-  if (statusId === 'APPROVED') return 'Completed'
+  // 'Approved' is the APPROVAL-step word; a task or effectiveness check that
+  // reaches the same terminal status reads 'Completed' (2026-08-28, matches
+  // TaskInstanceStatusBadgeById).
+  if (statusId === 'APPROVED') return isApprovalStep.value ? 'Approved' : 'Completed'
   if (statusId === 'SKIPPED') return 'Skipped'
   // SCHEDULED is the DELAY step's parked state, which it enters BEFORE anyone
   // picks a date — delay_until is null until then. Rendering the raw status
@@ -671,7 +791,8 @@ function activityLabel(statusId) {
   return (
     {
       REJECTED: 'Rejected',
-      APPROVED: 'Approved',
+      // Same rule as getStatusLabel: only an APPROVAL step 'approves'.
+      APPROVED: isApprovalStep.value ? 'Approved' : 'Completed',
       CANCELLED: 'Cancelled',
       REASSIGNED: 'Reassigned',
       SENT_BACK: 'Sent back',
@@ -736,8 +857,8 @@ function activityLabel(statusId) {
         <button
           v-if="canSkipDelay"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary tw:hover:underline tw:cursor-pointer tw:font-medium"
-          title="Skip this delay step — the check isn't needed; advance the workflow"
-          @click="showSkipDialog = true"
+          title="Skip this check — it isn't needed; advance the workflow"
+          @click="openSkipDialog"
         >
           <IconCalendarX :size="14" />
           Skip
@@ -897,20 +1018,76 @@ function activityLabel(statusId) {
       v-if="capturesEffectiveness"
       class="tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:p-3"
     >
-      <BaseLabel required>Was it effective?</BaseLabel>
-      <SegmentedControl
+      <BaseLabel required>Effectiveness decision</BaseLabel>
+      <div
         v-if="canActOnStep"
-        v-model="effectivenessOutcome"
-        :options="EFFECTIVENESS_OPTIONS"
-      />
+        role="radiogroup"
+        aria-label="Effectiveness decision"
+        class="tw:flex tw:flex-col tw:gap-1.5"
+      >
+        <!-- The RADIO is the accessible control (name + keyboard); the card
+             wrapper is mouse convenience only. -->
+        <div
+          v-for="opt in effectivenessDecisions"
+          :key="opt.value"
+          class="tw:flex tw:items-start tw:gap-3 tw:rounded-lg tw:border tw:p-2.5 tw:transition-colors"
+          :class="[
+            opt.disabled
+              ? 'tw:cursor-not-allowed tw:opacity-50 tw:border-divider'
+              : 'tw:cursor-pointer tw:hover:border-primary/50',
+            effectivenessDecision === opt.value
+              ? 'tw:border-primary tw:bg-primary/5'
+              : 'tw:border-divider tw:bg-main',
+          ]"
+          :title="opt.disabled ? opt.disabledReason : undefined"
+          @click="
+            !opt.disabled &&
+              ((effectivenessDecision = opt.value), onDecisionPick(opt.value))
+          "
+        >
+          <input
+            v-model="effectivenessDecision"
+            type="radio"
+            class="tw:mt-1 tw:accent-primary"
+            :name="`effectiveness-${instanceStepId}`"
+            :value="opt.value"
+            :aria-label="opt.label"
+            :disabled="opt.disabled"
+            @click.stop
+            @change="onDecisionPick(opt.value)"
+          />
+          <span class="tw:flex tw:flex-col tw:gap-0.5">
+            <span class="tw:text-sm tw:font-medium tw:text-on-main">{{ opt.label }}</span>
+            <span class="tw:text-xs tw:text-secondary">{{ opt.blurb }}</span>
+            <span v-if="opt.disabled && opt.disabledReason" class="tw:text-xs tw:text-amber-700">
+              {{ opt.disabledReason }}
+            </span>
+          </span>
+        </div>
+      </div>
       <div v-else-if="instanceStep.effectivenessOutcome" class="tw:text-sm tw:text-on-main">
         {{
           instanceStep.effectivenessOutcome === 'EFFECTIVE' ? 'Effective' : 'Not effective'
         }}
       </div>
       <BaseText v-else color="secondary" class="tw:text-sm">Not yet recorded</BaseText>
+      <BaseField
+        v-if="canActOnStep"
+        v-slot="{ id: fieldId }"
+        label="Decision comment"
+        required
+        class="tw:mt-1"
+      >
+        <BaseTextarea
+          :id="fieldId"
+          v-model="verdictComment"
+          :rows="2"
+          placeholder="What supports this decision — evidence, data, observations?"
+        />
+      </BaseField>
       <BaseCaption>
-        Recorded against the step itself, so it reports on the record list.
+        The verdict is recorded on the step itself and e-signed with your comment. A follow-up
+        decision executes together with the verdict.
       </BaseCaption>
     </div>
 
@@ -1061,32 +1238,41 @@ function activityLabel(statusId) {
     </BaseDialog>
 
     <!-- Skip delay dialog (owner, pre-fire) -->
-    <BaseDialog v-model="showSkipDialog" title="Skip Delay Step" maxWidth="md">
+    <BaseDialog v-model="showSkipDialog" title="Skip Effectiveness Check" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
         <div
           class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
         >
           <IconCalendarX :size="16" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
           <div class="tw:text-sm tw:text-amber-900">
-            Skips this delay step and advances the workflow to the next step.
+            Skips this check and advances the workflow to the next step.
             <template v-if="instanceStep?.statusId === 'IN_PROGRESS'">
               The open effectiveness-check task will be cancelled.
             </template>
-            Use this when the deferred check (e.g. an effectiveness check) isn't needed for this
-            record.
+            Skipping is signed and audit-logged with your reason.
           </div>
         </div>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" required :error="skipReasonError">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="skipReason"
+            :rows="3"
+            placeholder="Why is this check not needed?"
+            @input="skipReasonError = ''"
+          />
+        </BaseField>
       </div>
       <template #footer="{ close }">
         <BaseDialogFooter
-          submitLabel="Skip Step"
+          submitLabel="Sign &amp; Skip"
           :loading="skipping"
-          :disabled="skipping"
+          :disabled="skipping || !skipReason.trim()"
           @cancel="close"
-          @submit="handleSkipDelay"
+          @submit="onSkipSubmit"
         />
       </template>
     </BaseDialog>
+    <WorkflowInstanceEsignAuthDialog v-model="showSkipEsign" @verified="onSkipEsignVerified" />
 
     <!-- Extend delay dialog -->
     <BaseDialog v-model="showExtendDialog" title="Extend Delay" maxWidth="md">

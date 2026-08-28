@@ -34,7 +34,7 @@ describe('buildCapaBanners', () => {
     expect(ro.tone).toBe('neutral')
     expect(ro.message.toLowerCase()).toContain('cancelled')
   })
-  it('no read-only banner when editable (PENDING)', () => {
+  it('no read-only banner when editable (OPEN)', () => {
     const b = buildCapaBanners({ statusId: 'OPEN' }, { isEditable: true })
     expect(b.some((x) => x.id === 'read-only')).toBe(false)
   })
@@ -109,7 +109,7 @@ describe('buildCapaActions', () => {
     expect(a.find((x) => x.id === 'delete').visible).toBe(true)
   })
 
-  it('shows close (primary) and cancel when PENDING; open not visible', () => {
+  it('shows close (primary) and cancel when OPEN; start not visible', () => {
     const a = buildCapaActions(
       {
         canStart: true,

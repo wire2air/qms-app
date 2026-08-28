@@ -535,6 +535,20 @@ export const OPTIONS_TYPES = new Set(['select', 'radio', 'optionGroup'])
 // is that badge's id prop; `model` + `labelFields` resolve the display label when
 // sealing the payload. Keep in sync with the entity triads under
 // components/menus + components/badges.
+/**
+ * Which lookup entities can be FILTERED by a sibling lookup field (cascading
+ * lookups, 2026-08-26): child entity → { parent entity → the filter prop the
+ * child's select menu accepts }. Only pairs the data model actually supports
+ * are listed — the builder offers a parent picker exactly when an entry
+ * exists here.
+ */
+export const LOOKUP_CASCADES = {
+  department: { site: 'siteId' },
+  user: { site: 'siteId', department: 'departmentId' },
+  equipment: { site: 'siteId', department: 'departmentId' },
+  product: { supplier: 'supplierId' },
+}
+
 export const LOOKUP_ENTITIES = [
   {
     value: 'product',
@@ -608,6 +622,42 @@ export const LOOKUP_ENTITIES = [
     badgeById: 'RegionBadgeById',
     idProp: 'regionId',
     model: 'Region',
+    labelFields: ['name'],
+  },
+  {
+    value: 'uom',
+    label: 'Unit of Measure',
+    selectMenu: 'UomSelectMenu',
+    badgeById: 'UomBadgeById',
+    idProp: 'uomId',
+    model: 'Uom',
+    labelFields: ['name'],
+  },
+  {
+    value: 'shift',
+    label: 'Shift',
+    selectMenu: 'ShiftSelectMenu',
+    badgeById: 'ShiftBadgeById',
+    idProp: 'shiftId',
+    model: 'Shift',
+    labelFields: ['name'],
+  },
+  {
+    value: 'productionLine',
+    label: 'Production Line',
+    selectMenu: 'ProductionLineSelectMenu',
+    badgeById: 'ProductionLineBadgeById',
+    idProp: 'productionLineId',
+    model: 'ProductionLine',
+    labelFields: ['name'],
+  },
+  {
+    value: 'employeeTitle',
+    label: 'Employee Title',
+    selectMenu: 'EmployeeTitleSelectMenu',
+    badgeById: 'EmployeeTitleBadgeById',
+    idProp: 'employeeTitleId',
+    model: 'EmployeeTitle',
     labelFields: ['name'],
   },
 ]
@@ -740,6 +790,8 @@ export const FIELD_TYPE_LABELS = Object.freeze({
   datetime: 'Date / time',
   date: 'Date',
   time: 'Time',
+  // Same word the field-kind dropdown uses (parentheticals stripped there).
+  lookup: 'Lookup',
   // Offered nowhere; named so existing columns don't display as something else.
   radio: 'Radio (legacy)',
 })
@@ -778,6 +830,9 @@ export const CHECKLIST_COLUMN_TYPE_VALUES = [
   'select',
   'date',
   'time',
+  // Entity lookups as cells (user request 2026-08-27), with per-row
+  // cascading between lookup columns.
+  'lookup',
 ]
 export const COLUMN_INPUT_TYPES = typeOptions(CHECKLIST_COLUMN_TYPE_VALUES)
 
@@ -792,6 +847,9 @@ export const INPUT_TABLE_COLUMN_TYPE_VALUES = [
   'datetime',
   'checkbox',
   'toggle',
+  // Entity lookups as columns (user request 2026-08-27) — with per-row
+  // cascading via parentField, same as form-level lookups.
+  'lookup',
 ]
 export const INPUT_TABLE_COLUMN_TYPES = typeOptions(INPUT_TABLE_COLUMN_TYPE_VALUES, 'type')
 

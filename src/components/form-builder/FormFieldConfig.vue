@@ -12,6 +12,8 @@ import {
 import { REPORTABLE_TYPES } from '@/utils/reportingKey'
 
 const props = defineProps({
+  // Sibling lookup fields for cascading config (see ConfigLookup).
+  siblingLookups: { type: Array, default: () => [] },
   path: {
     type: String,
     default: null,
@@ -120,6 +122,7 @@ const STEP_TYPES = [
   { id: 'NONE', name: 'Not a step' },
   { id: 'ACTION', name: 'Action — assignee completes this section' },
   { id: 'APPROVAL', name: 'Approval — assignee signs off' },
+  { id: 'DELAY', name: 'Effectiveness Check — wait, then verify' },
 ]
 const APPROVAL_RULES = [
   { id: 'ALL', name: 'All — every approver must approve' },
@@ -145,6 +148,45 @@ const approvalRule = computed({
     field.value.routing = { ...(field.value.routing || {}), approvalRule: v }
   },
 })
+const delayDays = computed({
+  get: () => field.value?.routing?.delayDays ?? 30,
+  set: (v) => {
+    field.value.routing = {
+      ...(field.value.routing || {}),
+      delayDays: Math.max(1, Number(v) || 30),
+    }
+  },
+})
+// Optional positive-int routing number: blank/invalid clears the key.
+function routingIntSetter(key, min) {
+  return (v) => {
+    const n = v === '' || v == null ? NaN : Number(v)
+    field.value.routing = {
+      ...(field.value.routing || {}),
+      [key]: Number.isFinite(n) && n >= min ? Math.floor(n) : undefined,
+    }
+  }
+}
+const slaDays = computed({
+  get: () => field.value?.routing?.slaDays ?? null,
+  set: routingIntSetter('slaDays', 1),
+})
+const maxDelayExtensions = computed({
+  get: () => field.value?.routing?.maxDelayExtensions ?? null,
+  set: routingIntSetter('maxDelayExtensions', 0),
+})
+const requireComments = computed({
+  get: () => !!field.value?.routing?.requireComments,
+  set: (v) => {
+    field.value.routing = { ...(field.value.routing || {}), requireComments: !!v }
+  },
+})
+const requireEsignature = computed({
+  get: () => !!field.value?.routing?.requireEsignature,
+  set: (v) => {
+    field.value.routing = { ...(field.value.routing || {}), requireEsignature: !!v }
+  },
+})
 const stepRoles = computed({
   get: () => {
     const r = field.value?.routing
@@ -155,12 +197,6 @@ const stepRoles = computed({
     field.value.routing = { ...(field.value.routing || {}), roles: v, assigneeRole: undefined }
   },
 })
-// BaseSelectMenu renders the selected value via its #button slot — resolve the
-// chosen option's label for these plain (non-entity) selects.
-function optionLabel(items, id) {
-  return items.find((o) => o.id === id)?.name || ''
-}
-
 // When the admin picks an RCA / Risk template, embed a snapshot of the
 // template content onto the field definition. The runtime FE field
 // components (RcaField, RiskAssessmentField) prefer the embedded
@@ -274,7 +310,11 @@ function updateRowColClass(value) {
         <ConfigOptions v-if="hasOptions" v-model:field="field" />
 
         <!-- Lookup (entity-backed) Settings -->
-        <ConfigLookup v-if="field.type === 'lookup'" v-model:field="field" />
+        <ConfigLookup
+          v-if="field.type === 'lookup'"
+          v-model:field="field"
+          :siblingLookups="siblingLookups"
+        />
 
         <!-- File Settings -->
         <ConfigFile v-if="field.type === 'file'" v-model:field="field" />
@@ -304,25 +344,28 @@ function updateRowColClass(value) {
                order) when a record is Started. -->
           <div class="tw:mt-3 tw:flex tw:flex-col tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
             <label class="tw:text-sm tw:font-medium tw:text-on-main">Workflow setting</label>
+            <!-- Was <BaseSelectMenu> — a component that does not exist, so
+                 Vue rendered NOTHING and the label sat over an empty gap
+                 (reported 2026-08-26). BaseSelect is the real primitive. -->
             <BaseField label="Step type">
-              <BaseSelectMenu v-model="stepType" :items="STEP_TYPES">
-                <template #button="{ selected }">
-                  <span class="tw:truncate tw:text-sm tw:text-on-main">
-                    {{ optionLabel(STEP_TYPES, selected) }}
-                  </span>
-                </template>
-              </BaseSelectMenu>
+              <BaseSelect
+                v-model="stepType"
+                :options="STEP_TYPES"
+                optionLabel="name"
+                optionValue="id"
+                :required="true"
+              />
             </BaseField>
 
             <template v-if="stepType === 'APPROVAL'">
               <BaseField label="Approval rule">
-                <BaseSelectMenu v-model="approvalRule" :items="APPROVAL_RULES">
-                  <template #button="{ selected }">
-                    <span class="tw:truncate tw:text-sm tw:text-on-main">
-                      {{ optionLabel(APPROVAL_RULES, selected) }}
-                    </span>
-                  </template>
-                </BaseSelectMenu>
+                <BaseSelect
+                  v-model="approvalRule"
+                  :options="APPROVAL_RULES"
+                  optionLabel="name"
+                  optionValue="id"
+                  :required="true"
+                />
               </BaseField>
               <p class="tw:text-xs tw:text-secondary">
                 The assignee gets Approve / Reject when the step is initiated.
@@ -331,6 +374,58 @@ function updateRowColClass(value) {
             <p v-else-if="stepType === 'ACTION'" class="tw:text-xs tw:text-secondary">
               This section's fields are editable for the assignee when the step is initiated.
             </p>
+
+            <template v-if="stepType === 'DELAY'">
+              <BaseField label="Wait (days)">
+                <BaseTextInput v-model.number="delayDays" type="number" min="1" />
+              </BaseField>
+              <BaseField label="Max extensions">
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <BaseTextInput
+                    v-model="maxDelayExtensions"
+                    type="number"
+                    min="0"
+                    placeholder="1"
+                    inputClass="tw:w-24"
+                  />
+                  <span class="tw:text-xs tw:text-secondary">
+                    times the wake-up can be pushed out (blank = 1)
+                  </span>
+                </div>
+              </BaseField>
+              <p class="tw:text-xs tw:text-secondary">
+                The step parks until the wait elapses, then the assignee records whether the
+                actions were effective — the same machinery as the CAPA effectiveness check.
+              </p>
+              <p
+                v-if="field.children?.length"
+                class="tw:rounded-md tw:border tw:border-amber-200 tw:bg-amber-50 tw:p-2 tw:text-xs tw:text-amber-800"
+              >
+                This section contains {{ field.children.length }} field{{
+                  field.children.length === 1 ? '' : 's'
+                }}
+                that will never be shown: an Effectiveness Check carries no form — the verdict
+                panel is the whole step. Move them out of this section.
+              </p>
+            </template>
+
+            <BaseField v-if="stepType !== 'NONE'" label="Due within">
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <BaseTextInput
+                  v-model="slaDays"
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 5"
+                  inputClass="tw:w-24"
+                />
+                <span class="tw:text-xs tw:text-secondary">business days of activation</span>
+              </div>
+            </BaseField>
+
+            <template v-if="stepType !== 'NONE'">
+              <BaseCheckbox v-model="requireComments">Require comments</BaseCheckbox>
+              <BaseCheckbox v-model="requireEsignature">Require e-signature</BaseCheckbox>
+            </template>
 
             <BaseField v-if="stepType !== 'NONE'" label="Roles (optional)">
               <RoleSelectMenu v-model="stepRoles" multiple />
@@ -389,6 +484,13 @@ function updateRowColClass(value) {
             </div>
             <BaseTextInput v-model="field.addLabel" label="Add Button Label" />
             <BaseTextInput v-model="field.itemLabel" label="Item Label" />
+            <!-- The fixed "Product 1 / Product 2" first column. Off = the
+                 table starts straight at the data columns. -->
+            <BaseCheckbox
+              :modelValue="field.showRowLabels !== false"
+              label="Show row label column"
+              @update:modelValue="(v) => (field.showRowLabels = v)"
+            />
           </div>
         </template>
 

@@ -1,6 +1,5 @@
 <script setup>
 import {
-  IconFileImport,
   IconCirclePlus,
   IconChevronLeft,
   IconMessageCircle,
@@ -235,16 +234,27 @@ const moduleNavItems = computed(() =>
     to: getCompanyPath(`/m/${t.internalName}`),
   })),
 )
-// Suppliers don't hold `<key>:read`; RLS already scopes moduleTemplates to the
-// modules they have a shared record of, so list the modules they can see with
-// no permission gate.
-const supplierModuleNavItems = computed(() =>
-  (moduleTemplates.value || []).map((t) => ({
-    label: t.moduleConfig?.displayName || t.title,
-    icon: IconForms,
-    to: getCompanyPath(`/m/${t.internalName}`),
-  })),
+// Suppliers don't hold `<key>:read`, and form templates are tenant-public —
+// every ACTIVE module template syncs to a supplier's IDB, so listing templates
+// would light up every module for every supplier (leak, 2026-08-27). What RLS
+// actually scopes for portal users is the RECORDS table (shared / task-assigned
+// rows only), so the nav is driven by that: a module appears once the supplier
+// can see at least one of its records.
+const supplierVisibleRecords = useLiveQueryWithDeps(
+  [() => isSupplier.value],
+  async (db, [supplier]) => (supplier ? db.Record.where().exec() : []),
+  { initial: [], models: ['Record'] },
 )
+const supplierModuleNavItems = computed(() => {
+  const visibleModules = new Set((supplierVisibleRecords.value || []).map((r) => r.moduleKey))
+  return (moduleTemplates.value || [])
+    .filter((t) => visibleModules.has(t.internalName))
+    .map((t) => ({
+      label: t.moduleConfig?.displayName || t.title,
+      icon: IconForms,
+      to: getCompanyPath(`/m/${t.internalName}`),
+    }))
+})
 
 // Navigation items
 const navItems = computed(() => {
@@ -387,24 +397,14 @@ const navItems = computed(() => {
         },
       ],
     },
-    // Admin-defined modules (data-driven).
-    ...moduleNavItems.value,
     {
       label: 'Document Control',
       permissions: ['document_control:read'],
       icon: IconFileText,
       to: getCompanyPath('/documents'),
     },
-    {
-      // Migration aid, used heavily during onboarding and rarely after. Gated
-      // on CREATE rather than read so it stays out of the nav for everyone who
-      // only consumes documents — a bulk importer is not something most users
-      // should be invited to discover.
-      label: 'Bulk Import',
-      permissions: ['document_control:create'],
-      icon: IconFileImport,
-      to: getCompanyPath('/document-imports'),
-    },
+    // (Bulk Import moved out of the nav 2026-08-28 — it's a button beside
+    // Create Document on the register, where the importing actually starts.)
     {
       label: 'Nonconformances',
       permissions: ['ncr:read'],
@@ -441,6 +441,9 @@ const navItems = computed(() => {
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),
     },
+    // Admin-defined modules (data-driven) — with the record modules, after
+    // Change Control and before Audits (user 2026-08-28).
+    ...moduleNavItems.value,
     {
       // Submenu like QC Inspection / Inspections & Logs (user request
       // 2026-08-15): the page's ?tab= sections become nav children so an

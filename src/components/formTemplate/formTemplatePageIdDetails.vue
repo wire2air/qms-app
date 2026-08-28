@@ -1,7 +1,16 @@
 <script setup>
-import { IconArchive, IconEdit, IconCode, IconRocket, IconBolt, IconChartBar } from '@tabler/icons-vue'
+import {
+  IconArchive,
+  IconEdit,
+  IconCode,
+  IconRocket,
+  IconBolt,
+  IconChartBar,
+  IconLayoutColumns,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { eligibleListFields } from '@/utils/moduleListColumns.js'
 
 const props = defineProps({
   id: {
@@ -43,6 +52,22 @@ const showPromote = ref(false)
 
 // Auto-save for template fields
 useAutoSave(template, { onError: (err) => toast.error(err.message || 'Failed to save') })
+
+// ─── Record-list columns (modules) ──────────────────────────────────────────
+// Which form fields the module's record list shows as table columns. Only
+// short-value field types qualify (see eligibleListFields); the picks live on
+// moduleConfig.listColumns in selection order and each renders filterable.
+const showConfigureView = ref(false)
+const listFieldOptions = computed(() => eligibleListFields(template.value?.schema || []))
+const listColumns = computed({
+  get: () => template.value?.moduleConfig?.listColumns ?? [],
+  set: (v) => {
+    template.value.moduleConfig = {
+      ...(template.value.moduleConfig || {}),
+      listColumns: v ?? [],
+    }
+  },
+})
 
 // Site assignments (junction table — separate handler)
 const addSiteOnTemplate = useLiveMutation(async (db, { templateId, siteId }) => {
@@ -122,11 +147,18 @@ async function handleArchiveToggle() {
           <IconEdit :size="16" class="tw:mr-1" />
           Edit Template
         </BaseButton>
+        <!-- A promoted module's records live in ITS register (/m/<key>) with
+             the configured columns — the raw records mode is for plain forms. -->
         <BaseButton
+          v-if="!template.isModule"
           variant="outline"
           :to="getCompanyPath(`/templates/${template.id}?mode=records`)"
         >
           View records
+        </BaseButton>
+        <BaseButton v-if="template.isModule && canUpdate" variant="outline" @click="showConfigureView = true">
+          <IconLayoutColumns :size="16" class="tw:mr-1" />
+          Configure View
         </BaseButton>
         <BaseButton
           v-if="template.isModule"
@@ -168,6 +200,36 @@ async function handleArchiveToggle() {
       :templateId="template.id"
       :suggestedName="template.title"
     />
+
+    <!-- Configure View — which form fields the module's record list shows as
+         table columns (moduleConfig.listColumns, autosaved). -->
+    <BaseDialog v-model="showConfigureView" title="Configure View" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-secondary">
+          Choose the form fields the record list shows as columns, between Status and Created.
+          Fields with a bounded value set (choices, yes/no, lookups, dates) also become filter
+          dimensions; free text is covered by search.
+        </p>
+        <BaseField label="Table columns">
+          <BaseSelect
+            v-model="listColumns"
+            :options="listFieldOptions"
+            optionLabel="label"
+            optionValue="name"
+            multiple
+            clearable
+            placeholder="Number, Status and Created only"
+          />
+        </BaseField>
+        <p class="tw:text-caption tw:text-secondary">
+          Only short-value fields qualify — text, number, date, choices, yes/no and lookups.
+          Long text, tables, files and layout elements can't render in a cell.
+        </p>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="primary" @click="close">Done</BaseButton>
+      </template>
+    </BaseDialog>
 
     <!-- Main Content Area (Fields Preview) -->
     <div class="tw:grow tw:flex tw:flex-col tw:min-w-0 tw:overflow-hidden">

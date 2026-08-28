@@ -1,7 +1,9 @@
 <script setup>
-// Optional first-class envelope fields for a module record, in the right rail.
-// All optional; edits autosave straight onto the Record. Initiator is fixed
-// (the creator), so it's read-only.
+// First-class envelope for a module record: Initiator (fixed — the creator),
+// Owner, Site, Department. These are RECORD columns, not form fields — scoped
+// access, automation and notifications key on them, and a module author may
+// never add equivalents to the form. They're collected on the create page and
+// live here for edit/view. (Record due date has no UI — removed 2026-08-23.)
 const props = defineProps({
   recordId: { type: String, required: true },
   editable: { type: Boolean, default: true },
@@ -13,6 +15,7 @@ const record = useLiveQueryWithDeps(
   { models: ['Record'] },
 )
 
+const toast = useToast()
 const saving = ref(false)
 const isFirst = ref(true)
 const save = useDebounceFn(async () => {
@@ -20,6 +23,11 @@ const save = useDebounceFn(async () => {
   saving.value = true
   try {
     await record.value.save()
+  } catch (e) {
+    // Pessimistic saves fail loudly by design — a refused envelope edit
+    // (authz) must not die silently while the pooled instance keeps showing
+    // the phantom value.
+    toast.error(e?.message || 'Could not save record details')
   } finally {
     saving.value = false
   }
@@ -32,7 +40,6 @@ watch(
       record.value.ownerUserId,
       record.value.siteId,
       record.value.departmentId,
-      record.value.dueDate,
     ],
   () => {
     if (isFirst.value) {
@@ -69,21 +76,42 @@ watch(
 
       <div class="tw:flex tw:flex-col tw:gap-1">
         <p class="tw:text-xs tw:font-medium tw:text-secondary">Department</p>
-        <DepartmentSelectMenu v-if="editable" v-model="record.departmentId" />
+        <DepartmentSelectMenu
+          v-if="editable"
+          v-model="record.departmentId"
+          :siteId="record.siteId"
+        />
         <DepartmentBadgeById v-else-if="record.departmentId" :departmentId="record.departmentId" />
-        <span v-else class="tw:text-secondary">—</span>
-      </div>
-
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <p class="tw:text-xs tw:font-medium tw:text-secondary">Due date</p>
-        <BaseDateField v-if="editable" v-model="record.dueDate" mode="date" />
-        <span v-else-if="record.dueDate" class="tw:text-on-main">{{
-          record.dueDate.formatDate?.('date') ?? record.dueDate
-        }}</span>
         <span v-else class="tw:text-secondary">—</span>
       </div>
 
       <div v-if="saving" class="tw:text-xs tw:text-secondary">Saving…</div>
     </div>
   </BaseRailCard>
+
+  <!-- External sharing — same card as CAPA/NC; the authz module is the
+       record's own moduleKey (promoted modules carry manage_access since
+       2026-08-27). Below Details (user request 2026-08-27): the envelope is
+       what you consult constantly, sharing is occasional. -->
+  <RecordShareCard
+    v-if="record"
+    entityType="Record"
+    :entityId="record.id"
+    :module="record.moduleKey"
+    :record="record"
+    scopeOwnerField="ownerUserId"
+  />
+
+  <!-- Supplier PORTAL access — read grants for supplier users, any status,
+       CLOSED included (user request 2026-08-27). Distinct from the draft-time
+       "Share with supplier" (workflow routing) and from the email link above.
+       entityType = the moduleKey: records_sel matches shared_with_user rows
+       against records.module_key. -->
+  <SupplierPortalShareCard
+    v-if="record?.moduleKey"
+    :entityType="record.moduleKey"
+    :entityId="record.id"
+    :module="record.moduleKey"
+    :supplierId="record.supplierId || null"
+  />
 </template>

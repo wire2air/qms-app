@@ -407,7 +407,7 @@ async function handleSubmit(data) {
   // Training gate backstop (the backend also hard-rejects with
   // USER_NOT_TRAINED). Never let a blocked book reach submit.
   if (isTrainingBlocked.value) {
-    toast.error('You must complete the required training before logging entries in this book.')
+    toast.error('Training for this book is incomplete — finish it before logging entries.')
     return
   }
   // UTILITY templates keep the legacy SyncEngine path — they write to

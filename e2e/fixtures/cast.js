@@ -209,6 +209,23 @@ export const USERS = {
     email: 'qemanager@e2e.test',
     name: 'Quinn QeManager',
   },
+  // ── CAPA step grouping + matrix scope (e2e-seed.sql §31) ──────────────────
+  // Second member of the E2E Reviewer role — the target CAPA-J8 reassigns a
+  // grouped step to. The reassign dialog offers only the step's role members,
+  // and Rita was the sole one.
+  reviewer2: {
+    id: 'e2e10000-0000-4000-8000-000000000060',
+    email: 'reviewer2@e2e.test',
+    name: 'Riley Reviewer2',
+  },
+  // capa:read/update/approve at SITE scope (Primary Site), in NO workflow role,
+  // owns nothing. CAPA-J9's subject: the matrix alone admits them to records at
+  // their site — and shuts them out of records at any other.
+  capaSiteEditor: {
+    id: 'e2e10000-0000-4000-8000-000000000061',
+    email: 'capasiteeditor@e2e.test',
+    name: 'Sana SiteEditor',
+  },
   // ── Roles module (e2e-seed.sql §30) ───────────────────────────────────────
   // Before these four, the tenant seeded eleven roles and not one of them could
   // WRITE to a role — no `role_permission_management` grant existed anywhere in
@@ -324,6 +341,8 @@ export const AUTH = {
   qcAuthor: 'e2e/.auth/qcAuthor.json',
   retainCustodian: 'e2e/.auth/retainCustodian.json',
   qeManager: 'e2e/.auth/qeManager.json',
+  reviewer2: 'e2e/.auth/reviewer2.json',
+  capaSiteEditor: 'e2e/.auth/capaSiteEditor.json',
   roleAdmin: 'e2e/.auth/roleAdmin.json',
   umCreator: 'e2e/.auth/umCreator.json',
   umUpdater: 'e2e/.auth/umUpdater.json',

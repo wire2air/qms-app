@@ -23,21 +23,17 @@ const items = computed(() =>
     name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id,
   })),
 )
-
-function nameFor(id) {
-  return items.value.find((u) => u.id === id)?.name || ''
-}
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="items" :required="required" :disabled="!supplierId">
-    <template #button="{ selected }">
-      <span v-if="nameFor(selected)" class="tw:truncate tw:text-sm tw:text-on-main">
-        {{ nameFor(selected) }}
-      </span>
-      <span v-else class="tw:text-sm tw:text-placeholder">
-        {{ supplierId ? 'Select supplier user' : 'Select a supplier first' }}
-      </span>
-    </template>
-  </BaseSelectMenu>
+  <!-- Was <BaseSelectMenu> — nonexistent component, rendered nothing. -->
+  <BaseSelect
+    v-model="modelValue"
+    :options="items"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :disabled="!supplierId"
+    :nullLabel="supplierId ? 'Select supplier user' : 'Select a supplier first'"
+  />
 </template>

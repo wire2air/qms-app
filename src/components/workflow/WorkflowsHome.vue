@@ -40,7 +40,11 @@ const viewSwitches = [
 
 // Shared source query — lifted into the parent so the list shell can resolve
 // total/empty/loading state. Both view children render from the filtered rows.
-const workflows = useLiveQuery((db) => db.Workflow.where().exec(), {
+// moduleId 'FORM' = workflows SYNTHESIZED from a form module's sections at
+// record Start — one per start, frozen runtime artifacts, not templates.
+// Editing one changes nothing (the next start re-synthesizes from the form),
+// so they don't belong in a management list (user confusion 2026-08-26).
+const workflows = useLiveQuery((db) => db.Workflow.where().exec().then((rows) => rows.filter((w) => w.moduleId !== 'FORM')), {
   models: ['Workflow'],
 })
 

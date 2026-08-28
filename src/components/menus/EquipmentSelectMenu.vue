@@ -15,6 +15,9 @@ const props = defineProps({
   nullLabel: { type: String, default: '— All equipment —' },
   includeRetired: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  // Cascading filters (null = no filter).
+  siteId: { type: String, default: null },
+  departmentId: { type: String, default: null },
 })
 
 const modelValue = defineModel({
@@ -27,6 +30,8 @@ const equipment = useLiveQuery(
     const rows = await db.Equipment.where().exec()
     return rows
       .filter((e) => props.includeRetired || e.statusId !== 'RETIRED')
+      .filter((e) => (props.siteId ? e.siteId === props.siteId : true))
+      .filter((e) => (props.departmentId ? e.departmentId === props.departmentId : true))
       .map((e) => ({
         id: e.id,
         name: e.name,

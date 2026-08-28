@@ -7,7 +7,7 @@ defineProps({
 })
 
 import { humanizeFilter } from '@/composables/useListPrint.js'
-import { IconAlertCircle, IconClock, IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
+import { IconAlertCircle, IconShieldCheck, IconCircleCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
@@ -34,15 +34,9 @@ const list = useListLayout({
   syncUrl: true,
 })
 
-const OPEN_STATUSES = [
-  'DRAFT',
-  'UNDER_REVIEW',
-  'APPROVED',
-  'IN_IMPLEMENTATION',
-  'PENDING_EFFECTIVENESS',
-  'ON_HOLD',
-]
-const CLOSED_STATUSES = ['CLOSED', 'REJECTED', 'CANCELLED']
+// Unified parent statuses (2026-08-26): Draft / Open / Closed / Cancelled.
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
+const CLOSED_STATUSES = ['CLOSED', 'CANCELLED']
 
 function applyFilters(results, statusIds, priorityIds, changeTypeIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
@@ -59,7 +53,6 @@ function applyActiveFilter(results, af) {
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
-  if (af === 'awaiting_approval') return results.filter((r) => r.statusId === 'UNDER_REVIEW')
   if (af === 'urgent')
     return results.filter((r) => r.priorityId === 'URGENT' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => CLOSED_STATUSES.includes(r.statusId))
@@ -97,29 +90,22 @@ const stats = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const open = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
-  const awaitingApproval = all.filter((r) => r.statusId === 'UNDER_REVIEW')
   const urgentOpen = open.filter((r) => r.priorityId === 'URGENT')
   const closedThisMonth = all.filter(
     (r) => r.statusId === 'CLOSED' && r.closedAt && r.closedAt >= startOfMonth,
   )
   return {
     open: open.length,
-    awaitingApproval: awaitingApproval.length,
     urgentOpen: urgentOpen.length,
     closedThisMonth: closedThisMonth.length,
   }
 })
 
 // Compact KPI strip (list-page metrics bar) — matches the other QMS list pages.
+// "Awaiting approval" left with the status collapse (2026-08-26): the phase
+// lives on the workflow steps now, not the record status.
 const kpiItems = computed(() => [
   { key: 'open', label: 'Open CRs', value: stats.value.open, icon: IconAlertCircle, color: 'blue' },
-  {
-    key: 'awaiting',
-    label: 'Awaiting approval',
-    value: stats.value.awaitingApproval,
-    icon: IconClock,
-    color: 'amber',
-  },
   {
     key: 'urgent',
     label: 'Urgent open',

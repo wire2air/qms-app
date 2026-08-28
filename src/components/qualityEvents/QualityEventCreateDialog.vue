@@ -86,33 +86,26 @@ watch(
   },
 )
 
+// Per-field validation errors, anchored under their BaseFields. All fields are
+// checked in one pass so the user sees every gap at once, not one per click.
+const fieldErrors = ref({})
+
+function validateForm() {
+  const errs = {}
+  if (!form.value.title.trim()) errs.title = 'Title is required'
+  if (!hasRichTextContent(form.value.description)) errs.description = 'Issue is required'
+  if (!form.value.categoryId) errs.categoryId = 'Category is required'
+  if (!form.value.severityId) errs.severityId = 'Severity is required'
+  if (!form.value.siteId) errs.siteId = 'Site is required'
+  if ((form.value.sourceType || 'MANUAL') !== 'QC_INSPECTION' && !form.value.departmentId) {
+    errs.departmentId = 'Department is required'
+  }
+  fieldErrors.value = errs
+  return Object.keys(errs).length === 0
+}
+
 async function handleSave(close) {
-  if (!form.value.title.trim()) {
-    toast.warning('Title is required')
-    return
-  }
-  if (!hasRichTextContent(form.value.description)) {
-    toast.warning('Issue is required')
-    return
-  }
-  if (!form.value.categoryId) {
-    toast.warning('Category is required')
-    return
-  }
-  if (!form.value.severityId) {
-    toast.warning('Severity is required')
-    return
-  }
-  if (!form.value.siteId) {
-    toast.warning('Site is required')
-    return
-  }
-  if ((form.value.sourceType || 'MANUAL') !== 'QC_INSPECTION') {
-    if (!form.value.departmentId) {
-      toast.warning('Department is required')
-      return
-    }
-  }
+  if (!validateForm()) return
   saving.value = true
   try {
     // Action RPC (not entity CRUD) — server mints the EV-###### number.
@@ -149,7 +142,7 @@ async function handleSave(close) {
 <template>
   <BaseDialog v-model="open" :title="title" maxWidth="xl">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-      <BaseField v-slot="{ id: fieldId }" label="Title" required>
+      <BaseField v-slot="{ id: fieldId }" label="Title" required :error="fieldErrors.title">
         <BaseTextInput
           :id="fieldId"
           v-model="form.title"
@@ -157,7 +150,7 @@ async function handleSave(close) {
         />
       </BaseField>
 
-      <BaseField label="Issue" required>
+      <BaseField label="Issue" required :error="fieldErrors.description">
         <div class="issue-editor">
           <RichTextAttachments
             v-model="form.description"
@@ -168,16 +161,16 @@ async function handleSave(close) {
       </BaseField>
 
       <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
-        <BaseField label="Category" required>
+        <BaseField label="Category" required :error="fieldErrors.categoryId">
           <EventCategorySelectMenu v-model="form.categoryId" :required="true" />
         </BaseField>
-        <BaseField label="Severity" required>
+        <BaseField label="Severity" required :error="fieldErrors.severityId">
           <EventSeveritySelectMenu v-model="form.severityId" :required="true" />
         </BaseField>
-        <BaseField label="Site / Location" required>
+        <BaseField label="Site / Location" required :error="fieldErrors.siteId">
           <SiteSelectMenu v-model="form.siteId" :required="true" nullLabel="— Select site —" />
         </BaseField>
-        <BaseField label="Department">
+        <BaseField label="Department" :error="fieldErrors.departmentId">
           <DepartmentSelectMenu
             v-model="form.departmentId"
             :siteId="form.siteId"

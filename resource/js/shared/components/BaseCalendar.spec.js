@@ -40,7 +40,13 @@ describe('BaseCalendar', () => {
   })
 
   it('builds a range across two clicks (range mode)', async () => {
-    const w = mount(BaseCalendar, { props: { modelValue: { start: null, end: null }, selectionMode: 'range' } })
+    // Anchor the view: with a fully empty range the calendar opens on the
+    // CURRENT month, so clicking June cells worked only until August 2026
+    // ended (found 2026-08-28). A start-only range anchors June and still
+    // exercises the two-click build via the second/third clicks.
+    const w = mount(BaseCalendar, {
+      props: { modelValue: { start: DateTime.fromISO('2026-06-01'), end: null }, selectionMode: 'range' },
+    })
     await cell(w, '2026-06-10').trigger('click')
     await cell(w, '2026-06-14').trigger('click')
     const r = w.emitted('update:modelValue').at(-1)[0]

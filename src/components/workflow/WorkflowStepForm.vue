@@ -546,9 +546,12 @@ defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
           <template #icon><IconDeviceFloppy :size="16" /></template>
           {{ saving ? 'Saving…' : 'Save draft' }}
         </BaseButton>
-        <BaseButton v-if="!hideSubmit" variant="primary" :disabled="saving" @click="submitForm">
+        <!-- With autoApprove the click saves, submits AND completes the step
+             in one trip — say so (user report 2026-08-27: "Submit" next to
+             Save draft read as the same action). -->
+        <BaseButton v-if="!hideSubmit" variant="primary" :disabled="saving" @click="submitForm()">
           <template #icon><IconSend :size="16" /></template>
-          Submit
+          {{ autoApprove ? 'Mark Complete' : 'Submit' }}
         </BaseButton>
       </div>
     </template>

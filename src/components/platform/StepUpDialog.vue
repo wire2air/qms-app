@@ -4,13 +4,12 @@
 // the privileged action. Opened by useStepUp() on a 403 STEP_UP_REQUIRED.
 import { IconShieldLock } from '@tabler/icons-vue'
 import { platformStepUp } from '@/api/platform.js'
-import { useToast } from '@shared/composables/useToast.js'
 
 const emit = defineEmits(['verified'])
 const show = defineModel({ type: Boolean, default: false })
-const toast = useToast()
 
 const password = ref('')
+const passwordError = ref('')
 const busy = ref(false)
 
 watch(show, (v) => {
@@ -22,7 +21,7 @@ watch(show, (v) => {
 
 async function submit() {
   if (!password.value) {
-    toast.notify({ type: 'negative', message: 'Password is required' })
+    passwordError.value = 'Password is required'
     return
   }
   busy.value = true
@@ -50,7 +49,9 @@ async function submit() {
         label="Password"
         :required="true"
         @keyup.enter="submit"
+        @input="passwordError = ''"
       />
+      <p v-if="passwordError" class="tw:text-xs tw:text-bad">{{ passwordError }}</p>
     </div>
     <template #footer="{ close }">
       <BaseButton variant="secondary" :disabled="busy" @click="close">Cancel</BaseButton>

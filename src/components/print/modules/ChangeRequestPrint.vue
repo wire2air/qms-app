@@ -213,7 +213,7 @@ onMounted(() => {
 <template>
   <PrintLayout :status="cr?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="qp-num">{{ cr?.crNumber }}</div>
+      <div class="qp-num">{{ cr?.crNumber || 'Draft' }}</div>
       <h1 class="qp-title">{{ cr?.title }}</h1>
       <table class="qp-meta">
         <tbody>

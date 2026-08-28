@@ -187,6 +187,14 @@ export function useFormBuilder(initialSchema = []) {
     let newPath
     if (parentPath !== null) {
       const parent = getFieldByPath(schema.value, parentPath)
+      // Self-contained step sections (Approval / Effectiveness Check) carry no
+      // form — refuse inserts into them no matter which path asked (2026-08-28).
+      if (
+        parent?.type === 'section' &&
+        ['APPROVAL', 'DELAY'].includes(parent?.routing?.type)
+      ) {
+        return null
+      }
       if (parent) {
         // Inherit colClass from parent row if available
         if (parent.type === 'row' && parent.colClass) {
@@ -247,6 +255,26 @@ export function useFormBuilder(initialSchema = []) {
     if (selectedFieldPath.value === path) {
       selectedFieldPath.value = null
     }
+  }
+
+  /**
+   * Move a section's children OUT — inserted into the section's own container
+   * right after it (2026-08-28). Self-contained step sections (Approval /
+   * Effectiveness Check) carry no form, so fields trapped inside them render
+   * nowhere; this is the one-click rescue the canvas offers.
+   */
+  function hoistChildren(path) {
+    const section = getFieldByPath(schema.value, path)
+    const kids = section?.children
+    if (!kids?.length) return
+    saveToHistory()
+    const parts = String(path).split('.')
+    const idx = parseInt(parts.pop(), 10)
+    const container =
+      parts.length === 0 ? schema.value : getFieldByPath(schema.value, parts.join('.'))
+    if (!Array.isArray(container) || Number.isNaN(idx)) return
+    const moved = kids.splice(0, kids.length)
+    container.splice(idx + 1, 0, ...moved)
   }
 
   // Update a field's configuration - DEPRECATED in favor of direct mutation
@@ -468,6 +496,7 @@ export function useFormBuilder(initialSchema = []) {
     // Actions
     addField,
     removeField,
+    hoistChildren,
     updateField, // Deprecated but kept for compatibility
     moveField,
     selectField,

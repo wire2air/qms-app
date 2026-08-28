@@ -26,6 +26,8 @@ const props = defineProps({
   module: { type: String, required: true },
   /** The record itself — needed for the record-scope permission check. */
   record: { type: Object, default: null },
+  /** Custodian column when it is not `ownerId` (module records: ownerUserId). */
+  scopeOwnerField: { type: String, default: null },
 })
 
 const toast = useToast()
@@ -33,7 +35,13 @@ const email = ref('')
 const sending = ref(false)
 
 const canShare = computed(() =>
-  props.record ? isAllowedOnRecord(`${props.module}:manage_access`, props.record) : false,
+  props.record
+    ? isAllowedOnRecord(
+        `${props.module}:manage_access`,
+        props.record,
+        props.scopeOwnerField ? { ownerField: props.scopeOwnerField } : {},
+      )
+    : false,
 )
 
 const links = useLiveQueryWithDeps(

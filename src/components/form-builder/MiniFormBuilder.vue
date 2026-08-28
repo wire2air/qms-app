@@ -56,6 +56,21 @@ const {
   changeFieldKind,
 } = useFormBuilder(JSON.parse(JSON.stringify(props.initialSchema ?? [])))
 
+// Sibling lookup fields for cascading config (mirrors FormBuilder).
+function collectLookupFields(fields, out = []) {
+  for (const f of fields || []) {
+    if (f?.type === 'lookup' && f.name && f.lookupEntity && f.lookupEntity !== 'optionSet') {
+      out.push({ name: f.name, label: f.label, lookupEntity: f.lookupEntity })
+    }
+    if (Array.isArray(f?.fields)) collectLookupFields(f.fields, out)
+    if (Array.isArray(f?.children)) collectLookupFields(f.children, out)
+  }
+  return out
+}
+const siblingLookups = computed(() =>
+  collectLookupFields(schema.value?.fields || schema.value || []),
+)
+
 watch(
   schema,
   (s) => {
@@ -128,6 +143,7 @@ watch(showSettingsDialog, (open) => {
       :isDragging="isDragging"
       :group="dragGroup"
       :bordered="false"
+      :showAddButton="false"
       emptyDescription="No fields yet — use “Add field” below."
       class="tw:min-h-40!"
       @addField="addField"
@@ -210,6 +226,7 @@ watch(showSettingsDialog, (open) => {
         :path="selectedFieldPath"
         :showSectionPlacement="showSectionPlacement"
         :showScoring="showScoring"
+        :siblingLookups="siblingLookups"
       />
       <template #footer="{ close }">
         <BaseButton variant="primary" @click="close">Done</BaseButton>

@@ -9,7 +9,7 @@ defineProps({
 import { humanizeFilter } from '@/composables/useListPrint.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { IconFileDescription, IconPlus } from '@tabler/icons-vue'
+import { IconFileDescription, IconFileImport, IconPlus } from '@tabler/icons-vue'
 
 const router = useRouter()
 
@@ -177,6 +177,16 @@ function navigateToDetail(row) {
         :rows="documents"
         :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
       />
+      <!-- Migration aid (moved out of the sidebar 2026-08-28): create-gated so
+           document consumers aren't invited to discover a bulk importer. -->
+      <BaseButton
+        v-if="canCreate"
+        variant="outline"
+        :to="getCompanyPath('/document-imports')"
+      >
+        <IconFileImport :size="16" class="tw:mr-1" />
+        Bulk Import
+      </BaseButton>
       <BaseButton v-if="canCreate" @click="navigateToCreate">
         <IconPlus :size="16" class="tw:mr-1" />
         Create Document

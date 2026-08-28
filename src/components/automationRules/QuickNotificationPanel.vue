@@ -28,10 +28,28 @@
  * the builder later if they need different recipients.
  */
 import { IconBell } from '@tabler/icons-vue'
-import { AUTOMATION_OBJECTS, OBJECT_BY_VALUE } from '@/utils/automationObjects'
+import { AUTOMATION_OBJECTS, buildModuleAutomationObject } from '@/utils/automationObjects'
 
 const emit = defineEmits(['created'])
 const toast = useToast()
+
+// Promoted form modules join the built-ins (user 2026-08-28) — same live merge
+// the rule builder and the rules list use, so a new module shows up here the
+// moment its template goes ACTIVE.
+const moduleTemplates = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where().exec()).filter(
+      (t) => t.isModule && t.internalName && t.statusId === 'ACTIVE',
+    ),
+  { models: ['FormTemplate'], initial: [] },
+)
+const objects = computed(() => [
+  ...AUTOMATION_OBJECTS,
+  ...moduleTemplates.value.map(buildModuleAutomationObject),
+])
+const objectByValue = computed(() =>
+  Object.fromEntries(objects.value.map((o) => [o.value, o])),
+)
 
 const objectType = ref(AUTOMATION_OBJECTS[0]?.value ?? null)
 const pickedStatuses = ref([])
@@ -41,7 +59,7 @@ const siteIds = ref([])
 const departmentIds = ref([])
 const saving = ref(false)
 
-const selected = computed(() => OBJECT_BY_VALUE[objectType.value] ?? null)
+const selected = computed(() => objectByValue.value[objectType.value] ?? null)
 
 /**
  * The trigger checkboxes, derived from the record type's REAL statuses.
@@ -51,9 +69,18 @@ const selected = computed(() => OBJECT_BY_VALUE[objectType.value] ?? null)
  * vocabularies move (Quality Event's ESCALATED was removed 2026-08-18). Every
  * object names a status lookup table, so this list follows the data.
  */
+// Module records have no statusModel of their own — they share record_statuses,
+// trimmed to the unified four (the other rows belong to document records).
+const MODULE_STATUS_IDS = ['DRAFT', 'OPEN', 'CLOSED', 'CANCELLED']
 const statusOptions = useLiveQueryWithDeps(
-  [() => selected.value?.statusModel],
-  async (db, [modelName]) => {
+  [() => selected.value?.statusModel, () => selected.value?.isModule ?? false],
+  async (db, [modelName, isModule]) => {
+    if (isModule) {
+      const rows = await db.RecordStatus.where().exec()
+      return MODULE_STATUS_IDS.map((id) => rows.find((r) => r.id === id))
+        .filter(Boolean)
+        .map((r) => ({ value: r.id, label: r.name || r.id }))
+    }
     if (!modelName || !db[modelName]) return []
     const rows = await db[modelName].where().exec()
     return rows
@@ -179,7 +206,7 @@ async function save() {
       <BaseField label="Record type">
         <BaseSelect
           v-model="objectType"
-          :options="AUTOMATION_OBJECTS"
+          :options="objects"
           optionLabel="label"
           optionValue="value"
           :required="true"

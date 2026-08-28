@@ -6,6 +6,7 @@
  * when nothing is.
  */
 import { IconX } from '@tabler/icons-vue'
+import { EFFECTIVENESS_FILTER_OPTIONS } from '@/composables/useEffectivenessRollup.js'
 
 const filters = defineModel('filters', { type: Object, required: true })
 
@@ -21,7 +22,12 @@ const hasChips = computed(
     arr('priorityId').length ||
     arr('typeId').length ||
     arr('supplierId').length ||
+    arr('effectiveness').length ||
     filters.value.createdAt,
+)
+
+const EFFECTIVENESS_CHIP_LABELS = Object.fromEntries(
+  EFFECTIVENESS_FILTER_OPTIONS.map((o) => [o.value, o.label]),
 )
 
 function clearAll() {
@@ -31,6 +37,7 @@ function clearAll() {
     priorityId: [],
     typeId: [],
     supplierId: [],
+    effectiveness: [],
     createdAt: null,
   }
 }
@@ -73,6 +80,21 @@ function clearAll() {
       clearable
       @clear="removeValue('supplierId', id)"
     />
+    <span
+      v-for="v in arr('effectiveness')"
+      :key="`ef-${v}`"
+      class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+    >
+      Effectiveness: {{ EFFECTIVENESS_CHIP_LABELS[v] ?? v }}
+      <button
+        type="button"
+        class="tw:rounded tw:p-0.5 tw:hover:text-bad"
+        :aria-label="`Remove effectiveness filter ${EFFECTIVENESS_CHIP_LABELS[v] ?? v}`"
+        @click="removeValue('effectiveness', v)"
+      >
+        <IconX :size="12" />
+      </button>
+    </span>
     <span
       v-if="filters.createdAt"
       class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"

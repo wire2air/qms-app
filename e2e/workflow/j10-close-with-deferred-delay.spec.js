@@ -21,7 +21,7 @@
 // Test 1 pins that; test 2 pins the deferral; test 3 is the control that shows
 // the deferral, not the close path itself, is what keeps the instance alive.
 import { test, expect } from '../../video/fixtures/videoTest.js'
-import { AUTH, ESIGN_PIN, USERS } from '../fixtures/cast.js'
+import { AUTH, ESIGN_PIN } from '../fixtures/cast.js'
 import { sqlValue, waitForSqlValue } from '../fixtures/db.js'
 import { closeCapa } from '../fixtures/capas.js'
 import {

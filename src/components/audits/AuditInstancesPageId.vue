@@ -93,7 +93,8 @@ const isOwner = computed(() => !!currentSession.value?.isOwner)
 const isEditable = computed(
   () =>
     (canUpdate.value || isOwner.value) &&
-    !['CLOSED', 'CANCELLED', 'REVIEW'].includes(auditInstance.value?.statusId),
+    !['CLOSED', 'CANCELLED'].includes(auditInstance.value?.statusId) &&
+    auditInstance.value?.executionPhase !== 'REVIEW',
 )
 
 // #14/#16 — is the current user a shared auditee/supplier on this audit? They
@@ -174,19 +175,18 @@ const debouncedSave = useDebounceFn(async () => {
 
 
 // ─── Lifecycle button visibility / handlers ───────────────────────
-const canStart = computed(() => auditInstance.value?.statusId === 'SCHEDULED' && isEditable.value)
+// Unified statuses (2026-08-28): the parent status is DRAFT/OPEN/CLOSED/
+// CANCELLED; fieldwork start is a PHASE flip (SCHEDULED → IN_PROGRESS).
+const canStart = computed(
+  () => auditInstance.value?.executionPhase === 'SCHEDULED' && isEditable.value,
+)
 const canSubmitForCloseOut = computed(
   () =>
     !!auditInstance.value &&
     isEditable.value &&
-    ['DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'REJECTED'].includes(auditInstance.value.statusId),
+    ['DRAFT', 'OPEN'].includes(auditInstance.value.statusId),
 )
-const canCancel = computed(
-  () =>
-    !!auditInstance.value &&
-    isEditable.value &&
-    !['CLOSED', 'CANCELLED', 'REVIEW'].includes(auditInstance.value.statusId),
-)
+const canCancel = computed(() => !!auditInstance.value && isEditable.value)
 
 // Main-column tab (Information / Requirements / Findings).
 const tab = ref('info')
@@ -205,7 +205,9 @@ async function startAudit() {
   transitioning.value = true
   try {
     await patch(`/v1/services/auditInstances/${auditInstance.value.id}`, {
-      statusId: 'IN_PROGRESS',
+      // Both halves: a (legacy) DRAFT row goes OPEN, and fieldwork begins.
+      statusId: 'OPEN',
+      executionPhase: 'IN_PROGRESS',
     })
     toast.success('Audit started')
   } catch (e) {
@@ -452,6 +454,10 @@ const auditInstanceDetailConfig = computed(() =>
 
     <template #status>
       <AuditInstanceStatusBadgeById v-if="auditInstance" :statusId="auditInstance.statusId" />
+      <AuditPhaseBadgeById
+        v-if="auditInstance && auditInstance.statusId === 'OPEN'"
+        :phase="auditInstance.executionPhase"
+      />
     </template>
 
     <template v-if="auditInstance" #meta>
