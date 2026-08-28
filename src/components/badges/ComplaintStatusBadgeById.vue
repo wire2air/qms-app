@@ -1,17 +1,16 @@
 <script setup>
-// Enum-flavor: the 6 QMS complaint statuses are fixed, so resolve from a static
-// map (no ComplaintStatus IDB query needed).
+// Enum-flavor: the unified parent vocabulary (2026-08-28) — the same four
+// every other parent record speaks. Conversion-to-NC is a record LINK, not a
+// status, and renders where the link renders.
 const props = defineProps({
   statusId: { type: String, default: null },
 })
 
 const STATUS_MAP = {
-  NEW: { id: 'NEW', name: 'New' },
-  IN_PROGRESS: { id: 'IN_PROGRESS', name: 'In Progress' },
-  UNDER_REVIEW: { id: 'UNDER_REVIEW', name: 'Under Review' },
-  RESOLVED: { id: 'RESOLVED', name: 'Resolved' },
+  DRAFT: { id: 'DRAFT', name: 'Draft' },
+  OPEN: { id: 'OPEN', name: 'Open' },
   CLOSED: { id: 'CLOSED', name: 'Closed' },
-  CONVERTED_TO_NC: { id: 'CONVERTED_TO_NC', name: 'Converted to NC' },
+  CANCELLED: { id: 'CANCELLED', name: 'Cancelled' },
 }
 
 const status = computed(
