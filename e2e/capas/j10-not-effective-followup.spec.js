@@ -104,6 +104,23 @@ test.describe('PW-J10 · NOT_EFFECTIVE re-opens the host', () => {
         WHERE id = '${capa.id}' AND status_id = 'OPEN' AND closed_at IS NULL`,
       { timeoutMs: 30_000, label: 'CAPA re-opened with closed_at cleared' },
     )
+    // Re-opening RESTARTS the corrective cycle: a fresh IN_PROGRESS instance
+    // (new e-signature trail) with the first step's task minted for the same
+    // assignee — not an Open record over an all-complete workflow.
+    await waitForSqlValue(
+      `SELECT count(*) FROM workflow_instances
+        WHERE resource_type = 'Capa' AND resource_id = '${capa.id}' AND status_id = 'IN_PROGRESS'`,
+      { timeoutMs: 30_000, label: 'fresh workflow cycle IN_PROGRESS' },
+    )
+    await waitForSqlValue(
+      `SELECT count(*) FROM task_instances ti
+        JOIN workflow_instance_steps wis ON wis.id::text = ti.source_id
+        JOIN workflow_instances wi ON wi.id = wis.workflow_instance_id
+       WHERE wi.resource_type = 'Capa' AND wi.resource_id = '${capa.id}'
+         AND wi.status_id = 'IN_PROGRESS' AND ti.status_id = 'ASSIGNED'
+         AND ti.assigned_to = '${USERS.reviewer.id}'`,
+      { timeoutMs: 30_000, label: 'first step task re-minted for the prior assignee' },
+    )
     await ritaCtx.close()
   })
 
