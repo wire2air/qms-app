@@ -36,6 +36,15 @@ const COLUMN_KINDS = {
 // Containers whose CHILDREN hold their own scalar fields worth offering.
 const DESCEND_TYPES = new Set(['section', 'row', 'column'])
 
+// A section with a routing type is a WORKFLOW STEP's form, not the owner
+// form: its answers live on module_section_records (per step), never flat in
+// record.payload — and a DELAY (Effectiveness Check) section renders no form
+// at all. Offering its fields as columns produced permanently empty cells
+// (found 2026-08-28: a 'Comments' field inside an Effectiveness section).
+function isRoutedSection(n) {
+  return n?.type === 'section' && n?.routing?.type
+}
+
 /**
  * Flat list of column-eligible fields from a template schema, document order:
  * [{ name, label, kind, options?, lookupEntity? }].
@@ -57,7 +66,9 @@ export function eligibleListFields(schema) {
         }
         out.push(field)
       }
-      if (DESCEND_TYPES.has(n?.type) && Array.isArray(n?.children)) walk(n.children)
+      if (DESCEND_TYPES.has(n?.type) && !isRoutedSection(n) && Array.isArray(n?.children)) {
+        walk(n.children)
+      }
     }
   }
   walk(schema || [])

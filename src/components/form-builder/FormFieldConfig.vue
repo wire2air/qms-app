@@ -397,6 +397,16 @@ function updateRowColClass(value) {
                 The step parks until the wait elapses, then the assignee records whether the
                 actions were effective — the same machinery as the CAPA effectiveness check.
               </p>
+              <p
+                v-if="field.children?.length"
+                class="tw:rounded-md tw:border tw:border-amber-200 tw:bg-amber-50 tw:p-2 tw:text-xs tw:text-amber-800"
+              >
+                This section contains {{ field.children.length }} field{{
+                  field.children.length === 1 ? '' : 's'
+                }}
+                that will never be shown: an Effectiveness Check carries no form — the verdict
+                panel is the whole step. Move them out of this section.
+              </p>
             </template>
 
             <BaseField v-if="stepType !== 'NONE'" label="Due within">
