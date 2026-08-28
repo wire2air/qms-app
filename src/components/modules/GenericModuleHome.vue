@@ -2,6 +2,13 @@
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { IconForms, IconPlus, IconTrash } from '@tabler/icons-vue'
 import { isAllowed, isAllowedOnRecord } from '@/utils/currentSession.js'
+import {
+  useEffectivenessIndex,
+  matchesEffectivenessFilter,
+  isEffectivenessOverdue,
+  EFFECTIVENESS_FILTER_OPTIONS,
+  EFFECTIVENESS_STATE_LABELS,
+} from '@/composables/useEffectivenessRollup.js'
 
 const props = defineProps({ moduleKey: { type: String, required: true } })
 const router = useRouter()
@@ -30,9 +37,32 @@ const title = computed(
   () => template.value?.moduleConfig?.displayName || template.value?.title || 'Module',
 )
 
+// ─── Effectiveness rollup (2026-08-28) ──────────────────────────────────────
+// Module workflow instances key resourceType by the module key; the rollup
+// columns answer "has a check / where does it stand" without step digging.
+const effectivenessIndex = useEffectivenessIndex(() => props.moduleKey)
+const effectivenessFilter = ref(null)
+const filteredRecords = computed(() => {
+  if (!effectivenessFilter.value) return records.value
+  return records.value.filter((r) =>
+    matchesEffectivenessFilter(effectivenessIndex.value.get(r.id), [effectivenessFilter.value]),
+  )
+})
+function effectivenessCell(row) {
+  const wi = effectivenessIndex.value.get(row.id)
+  const state = wi?.effectivenessState ?? 'NONE'
+  if (state === 'NONE') return { label: '—', due: null, overdue: false }
+  return {
+    label: EFFECTIVENESS_STATE_LABELS[state] ?? state,
+    due: wi.effectivenessDueAt,
+    overdue: isEffectivenessOverdue(wi),
+  }
+}
+
 const columns = [
   { name: 'recordNumber', label: 'NUMBER', field: 'recordNumber', align: 'left', sortable: true },
   { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
+  { name: 'effectiveness', label: 'EFFECTIVENESS', field: 'id', align: 'left', sortable: false },
   { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'id', align: 'right', sortable: false },
 ]
@@ -89,7 +119,20 @@ async function handleDelete() {
       </template>
     </PageHeader>
 
-    <DataTable :rows="records" :columns="columns" rowKey="id" searchable>
+    <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable>
+      <template #toolbar-filters>
+        <div class="tw:w-44">
+          <BaseSelect
+            v-model="effectivenessFilter"
+            :options="EFFECTIVENESS_FILTER_OPTIONS"
+            optionLabel="label"
+            optionValue="value"
+            nullLabel="Effectiveness: all"
+            clearable
+            size="sm"
+          />
+        </div>
+      </template>
       <template #body-cell-recordNumber="{ row }">
         <RouterLink
           :to="getCompanyPath(`/m/${moduleKey}/${row.id}`)"
@@ -114,6 +157,19 @@ async function handleDelete() {
       </template>
       <template #body-cell-statusId="{ row }">
         <RecordStatusBadgeById :statusId="row.statusId" />
+      </template>
+      <template #body-cell-effectiveness="{ row }">
+        <span
+          v-if="effectivenessCell(row).label !== '—'"
+          class="tw:text-sm"
+          :class="effectivenessCell(row).overdue ? 'tw:text-red-700 tw:font-medium' : 'tw:text-on-main'"
+        >
+          {{ effectivenessCell(row).label
+          }}<template v-if="effectivenessCell(row).due">
+            · {{ effectivenessCell(row).due.formatDate('date') }}</template
+          >
+        </span>
+        <span v-else class="tw:text-sm tw:text-secondary">—</span>
       </template>
       <template #body-cell-createdAt="{ row }">
         {{ row.createdAt?.formatDate?.() ?? '—' }}

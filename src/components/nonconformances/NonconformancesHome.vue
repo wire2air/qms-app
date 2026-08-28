@@ -12,6 +12,10 @@ import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
+import {
+  useEffectivenessIndex,
+  matchesEffectivenessFilter,
+} from '@/composables/useEffectivenessRollup.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -36,6 +40,7 @@ const list = useListLayout({
     typeId: [],
     supplierId: route.query.supplierId ? [route.query.supplierId] : [],
     createdAt: null,
+    effectiveness: [],
     activeFilter: 'all_open',
   },
   total: () => ncs.value.length,
@@ -86,6 +91,10 @@ function applyActiveFilter(results, af) {
   return results
 }
 
+// resourceId → current workflow instance, for the effectiveness filter (reads
+// the trigger-maintained rollup columns — no step digging).
+const effectivenessIndex = useEffectivenessIndex(() => 'Nonconformance')
+
 const allNcs = useLiveQuery((db) => db.Nonconformance.where().exec(), {
   models: ['Nonconformance'],
   initial: [],
@@ -99,13 +108,20 @@ const ncs = useLiveQueryWithDeps(
     () => list.filters.value.activeFilter,
     () => list.filters.value.supplierId,
     () => list.filters.value.createdAt,
+    () => list.filters.value.effectiveness,
+    () => effectivenessIndex.value,
   ],
-  async (db, [statusIds, severityIds, typeIds, af, supplierIds, createdAt]) => {
+  async (db, [statusIds, severityIds, typeIds, af, supplierIds, createdAt, effectiveness]) => {
     let results = await db.Nonconformance.where().exec()
     results = applyFilters(results, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
     if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+    if (effectiveness?.length) {
+      results = results.filter((r) =>
+        matchesEffectivenessFilter(effectivenessIndex.value.get(r.id), effectiveness),
+      )
+    }
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )

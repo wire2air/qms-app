@@ -33,6 +33,10 @@ export class WorkflowInstance extends BaseModel {
   @Property({ type: Number, required: true }) currentStep = 1
   @Property({ type: DateTime }) startedAt = null
   @Property({ type: DateTime }) completedAt = null
+  // Effectiveness rollup — trigger-maintained server-side (2026-08-28); lists
+  // and reports read these instead of digging workflow_instance_steps.
+  @Property({ type: String }) effectivenessState = 'NONE'
+  @Property({ type: DateTime }) effectivenessDueAt = null
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) submittedBy = ''
   @Property({ type: String }) comment = ''

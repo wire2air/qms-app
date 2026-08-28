@@ -7,6 +7,10 @@ defineProps({
 })
 
 import { humanizeFilter } from '@/composables/useListPrint.js'
+import {
+  useEffectivenessIndex,
+  matchesEffectivenessFilter,
+} from '@/composables/useEffectivenessRollup.js'
 import { IconAlertCircle, IconCircleCheck, IconShieldCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -34,6 +38,7 @@ const list = useListLayout({
     typeId: [],
     supplierId: route.query.supplierId ? [route.query.supplierId] : [],
     createdAt: null,
+    effectiveness: [],
     activeFilter: 'all_open',
   },
   total: () => capas.value.length,
@@ -87,6 +92,10 @@ function applyActiveFilter(results, af) {
 
 const allCapas = useLiveQuery((db) => db.Capa.where().exec(), { models: ['Capa'], initial: [] })
 
+// resourceId → current workflow instance, for the effectiveness filter (reads
+// the trigger-maintained rollup columns — no step digging).
+const effectivenessIndex = useEffectivenessIndex(() => 'Capa')
+
 const capas = useLiveQueryWithDeps(
   [
     () => list.filters.value.statusId,
@@ -95,13 +104,20 @@ const capas = useLiveQueryWithDeps(
     () => list.filters.value.activeFilter,
     () => list.filters.value.supplierId,
     () => list.filters.value.createdAt,
+    () => list.filters.value.effectiveness,
+    () => effectivenessIndex.value,
   ],
-  async (db, [statusIds, priorityIds, typeIds, af, supplierIds, createdAt]) => {
+  async (db, [statusIds, priorityIds, typeIds, af, supplierIds, createdAt, effectiveness]) => {
     let results = await db.Capa.where().exec()
     results = applyFilters(results, statusIds, priorityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
     if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+    if (effectiveness?.length) {
+      results = results.filter((r) =>
+        matchesEffectivenessFilter(effectivenessIndex.value.get(r.id), effectiveness),
+      )
+    }
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
