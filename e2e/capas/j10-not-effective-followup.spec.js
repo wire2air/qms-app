@@ -77,21 +77,18 @@ test.describe('PW-J10 · NOT_EFFECTIVE re-opens the host', () => {
       { timeoutMs: 60_000, label: 'verdict task minted' },
     )
 
-    // Rita records NOT_EFFECTIVE — comment + PIN — then chooses Re-open.
+    // Rita picks the decision on the instrument itself — Modify Corrective
+    // Action — with her comment; the verdict AND the re-open execute together
+    // under one PIN (no post-verdict dialog).
     await ritaPage.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
-    await expect(ritaPage.getByText('Was it effective?')).toBeVisible({ timeout: 30_000 })
-    await ritaPage.getByRole('radio', { name: 'Not effective', exact: true }).click()
+    await expect(ritaPage.getByText('Effectiveness decision')).toBeVisible({ timeout: 30_000 })
+    await ritaPage.getByRole('radio', { name: 'Modify Corrective Action', exact: true }).click()
     await ritaPage
-      .getByPlaceholder(/What supports this verdict/)
+      .getByPlaceholder(/What supports this decision/)
       .fill('Recurrence found on line 2 — the fix did not hold.')
     await clickWhenReady(ritaPage, ritaPage.getByRole('button', { name: 'Mark Complete' }).first())
     await ritaPage.locator('input[type="password"]').first().fill('12345678')
     await ritaPage.getByRole('button', { name: /^Sign\b/i }).last().click()
-
-    await expect(ritaPage.getByText('Check Failed — What Next?')).toBeVisible({
-      timeout: 30_000,
-    })
-    await ritaPage.getByRole('button', { name: /Re-open this record/ }).click()
 
     // The verdict is on the step, and the host is OPEN again.
     await waitForSqlValue(
@@ -114,7 +111,7 @@ test.describe('PW-J10 · NOT_EFFECTIVE re-opens the host', () => {
     )
     await waitForSqlValue(
       `SELECT count(*) FROM task_instances ti
-        JOIN workflow_instance_steps wis ON wis.id::text = ti.source_id
+        JOIN workflow_instance_steps wis ON wis.id = ti.source_id
         JOIN workflow_instances wi ON wi.id = wis.workflow_instance_id
        WHERE wi.resource_type = 'Capa' AND wi.resource_id = '${capa.id}'
          AND wi.status_id = 'IN_PROGRESS' AND ti.status_id = 'ASSIGNED'
@@ -163,8 +160,18 @@ test.describe('PW-J10 · NOT_EFFECTIVE re-opens the host', () => {
       .getByPlaceholder('Why is this check not needed?')
       .fill('Process retired — the line this CAPA corrected was decommissioned.')
     await signSkip.click()
-    await page.locator('input[type="password"]').first().fill('12345678')
-    await page.getByRole('button', { name: /^Sign\b/i }).last().click()
+    // The esign dialog opens on the heels of the skip dialog closing; a fill
+    // that lands mid-handoff can be wiped by the remount. Retry the fill
+    // until the Sign button acknowledges it — humans type slower than any
+    // dialog settle, so this is automation-only hardening.
+    const pinBox = page.getByPlaceholder('Enter your e-signature PIN')
+    await expect(async () => {
+      await pinBox.fill('12345678')
+      await expect(page.getByRole('button', { name: 'Sign', exact: true })).toBeEnabled({
+        timeout: 1500,
+      })
+    }).toPass({ timeout: 20_000 })
+    await page.getByRole('button', { name: 'Sign', exact: true }).click()
 
     const stepId = sqlValue(`
       SELECT wis.id FROM workflow_instance_steps wis

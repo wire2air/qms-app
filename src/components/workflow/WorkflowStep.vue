@@ -228,21 +228,65 @@ const takeoverAssigneeName = computed(() => {
 // so it is asked for HERE on the card rather than inside the step form. The
 // server refuses to complete such a step without it.
 const capturesEffectiveness = computed(() => !!instanceStep.value?.capturesEffectiveness)
-const EFFECTIVENESS_OPTIONS = [
-  { label: 'Effective', value: 'EFFECTIVE' },
-  { label: 'Not effective', value: 'NOT_EFFECTIVE' },
-]
-const effectivenessOutcome = ref(null)
-// Prefill when revisiting a step that already recorded one.
-watch(
-  () => instanceStep.value?.effectivenessOutcome,
-  (v) => {
-    if (v) effectivenessOutcome.value = v
-  },
-  { immediate: true },
+
+// ── The decision instrument (2026-08-28) ────────────────────────────────────
+// The check is a DECISION, not a form: one of five outcomes, each with its own
+// consequence. EFFECTIVE closes the check; EXTEND defers it (the extend
+// dialog); the other three record NOT_EFFECTIVE and execute their follow-up
+// ATOMICALLY with the verdict — re-open the host, escalate (host-aware: a new
+// CAPA for CAPA/NC/CR hosts, a record clone for module hosts), or accept the
+// outcome with justification.
+const isBuiltInHost = computed(() =>
+  ['capas', 'nonconformances', 'changeRequests'].includes(props.module.apiPath),
 )
+const effectivenessDecision = ref(null)
+const effectivenessDecisions = computed(() => [
+  {
+    value: 'EFFECTIVE',
+    label: 'Effective',
+    blurb: 'The corrective action held — record the verdict and close the check.',
+  },
+  {
+    value: 'EXTEND',
+    label: 'Extend Monitoring',
+    blurb: 'Not enough evidence yet — push the check out and keep watching.',
+    disabled: !canExtendDelay.value,
+    disabledReason: 'No extensions left on this check',
+  },
+  {
+    value: 'REOPEN',
+    label: 'Modify Corrective Action',
+    blurb:
+      'The fix needs rework — re-open this record and restart its workflow, with the previous answers carried forward as drafts.',
+  },
+  {
+    value: 'ESCALATE',
+    label: isBuiltInHost.value ? 'Escalate to New CAPA' : 'Create Follow-up Record',
+    blurb: isBuiltInHost.value
+      ? 'Raise a linked CAPA for a fresh corrective cycle; this record stays as-is.'
+      : 'Spawn a linked follow-up record carrying all of this one’s form data.',
+  },
+  {
+    value: 'CLOSE_JUSTIFIED',
+    label: 'Close with Justification',
+    blurb: 'Accept the outcome — record Not Effective with your justification and finish.',
+  },
+])
+
+function onDecisionPick(value) {
+  if (value === 'EXTEND') {
+    // Extending is a deferral, not a verdict — hand off to the extend dialog.
+    effectivenessDecision.value = null
+    openExtendDialog()
+  }
+}
+
+const effectivenessOutcome = computed(() => {
+  if (!effectivenessDecision.value) return null
+  return effectivenessDecision.value === 'EFFECTIVE' ? 'EFFECTIVE' : 'NOT_EFFECTIVE'
+})
 const effectivenessMissing = computed(
-  () => capturesEffectiveness.value && !effectivenessOutcome.value,
+  () => capturesEffectiveness.value && !effectivenessDecision.value,
 )
 // The verdict is a controlled decision (2026-08-28): reasoning is REQUIRED
 // and the completion is e-signed regardless of the step's own flag.
@@ -256,7 +300,7 @@ const completeDisabled = computed(
 )
 const completeDisabledReason = computed(() => {
   if (childrenBlock.value) return 'All sub-tasks must be completed before advancing'
-  if (effectivenessMissing.value) return 'Record the effectiveness outcome first'
+  if (effectivenessMissing.value) return 'Pick an effectiveness decision first'
   if (verdictCommentMissing.value) return 'Add a comment supporting the verdict'
   return ''
 })
@@ -322,6 +366,9 @@ async function submitCompleteAndAdvance(esign = null) {
         capturesEffectiveness.value
           ? {
               effectivenessOutcome: effectivenessOutcome.value,
+              ...(effectivenessDecision.value !== 'EFFECTIVE'
+                ? { effectivenessDecision: effectivenessDecision.value }
+                : {}),
               comment: verdictComment.value.trim(),
             }
           : null,
@@ -333,6 +380,9 @@ async function submitCompleteAndAdvance(esign = null) {
         ...(capturesEffectiveness.value
           ? {
               effectivenessOutcome: effectivenessOutcome.value,
+              ...(effectivenessDecision.value !== 'EFFECTIVE'
+                ? { effectivenessDecision: effectivenessDecision.value }
+                : {}),
               comment: verdictComment.value.trim(),
             }
           : {}),
@@ -340,13 +390,18 @@ async function submitCompleteAndAdvance(esign = null) {
       if (esign?.method) body.method = esign.method
       if (esign?.token) body.token = esign.token
       if (esign?.provider) body.provider = esign.provider
-      await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
-      toast.success(isApprovalStep.value ? 'Step approved' : 'Step completed')
-    }
-    // NOT_EFFECTIVE → the verdict-giver decides what happens to the host
-    // record: re-open it, or spawn a linked follow-up.
-    if (capturesEffectiveness.value && effectivenessOutcome.value === 'NOT_EFFECTIVE') {
-      showFollowUpDialog.value = true
+      const res = await post(`/v1/services/taskInstances/${currentUserTask.value.id}/action`, body)
+      if (res?.followUp?.message) {
+        toast.success(res.followUp.message)
+      } else {
+        toast.success(isApprovalStep.value ? 'Step approved' : 'Step completed')
+      }
+      // Escalation spawned a record — take the verdict-giver there.
+      if (res?.followUp?.created?.id && res?.followUp?.created?.urlPath) {
+        router.push(
+          getCompanyPath(`/${res.followUp.created.urlPath}/${res.followUp.created.id}`),
+        )
+      }
     }
   } catch (e) {
     toast.error(e?.message || 'Failed to complete step')
@@ -355,30 +410,7 @@ async function submitCompleteAndAdvance(esign = null) {
   }
 }
 
-// ─── NOT_EFFECTIVE follow-up ────────────────────────────────────────────────
-const showFollowUpDialog = ref(false)
-const followUpBusy = ref(false)
 const router = useRouter()
-
-async function chooseFollowUp(choice) {
-  if (followUpBusy.value) return
-  followUpBusy.value = true
-  try {
-    const res = await post(
-      `/v1/services/workflowInstanceSteps/${props.instanceStepId}/effectivenessFollowUp`,
-      { choice },
-    )
-    toast.success(res?.message || 'Done')
-    showFollowUpDialog.value = false
-    if (res?.created?.id && res?.created?.urlPath) {
-      router.push(getCompanyPath(`/${res.created.urlPath}/${res.created.id}`))
-    }
-  } catch (e) {
-    toast.error(e?.message || 'Follow-up failed')
-  } finally {
-    followUpBusy.value = false
-  }
-}
 
 // ─── Delay step (stepType DELAY) ─────────────────────────────────────────────
 // A DELAY step parks SCHEDULED when the workflow reaches it. Like a CAPA
@@ -971,12 +1003,50 @@ function activityLabel(statusId) {
       v-if="capturesEffectiveness"
       class="tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:p-3"
     >
-      <BaseLabel required>Was it effective?</BaseLabel>
-      <SegmentedControl
+      <BaseLabel required>Effectiveness decision</BaseLabel>
+      <div
         v-if="canActOnStep"
-        v-model="effectivenessOutcome"
-        :options="EFFECTIVENESS_OPTIONS"
-      />
+        role="radiogroup"
+        aria-label="Effectiveness decision"
+        class="tw:flex tw:flex-col tw:gap-1.5"
+      >
+        <!-- The RADIO is the accessible control (name + keyboard); the card
+             wrapper is mouse convenience only. -->
+        <div
+          v-for="opt in effectivenessDecisions"
+          :key="opt.value"
+          class="tw:flex tw:items-start tw:gap-3 tw:rounded-lg tw:border tw:p-2.5 tw:transition-colors"
+          :class="[
+            opt.disabled
+              ? 'tw:cursor-not-allowed tw:opacity-50 tw:border-divider'
+              : 'tw:cursor-pointer tw:hover:border-primary/50',
+            effectivenessDecision === opt.value
+              ? 'tw:border-primary tw:bg-primary/5'
+              : 'tw:border-divider tw:bg-main',
+          ]"
+          :title="opt.disabled ? opt.disabledReason : undefined"
+          @click="
+            !opt.disabled &&
+              ((effectivenessDecision = opt.value), onDecisionPick(opt.value))
+          "
+        >
+          <input
+            v-model="effectivenessDecision"
+            type="radio"
+            class="tw:mt-1 tw:accent-primary"
+            :name="`effectiveness-${instanceStepId}`"
+            :value="opt.value"
+            :aria-label="opt.label"
+            :disabled="opt.disabled"
+            @click.stop
+            @change="onDecisionPick(opt.value)"
+          />
+          <span class="tw:flex tw:flex-col tw:gap-0.5">
+            <span class="tw:text-sm tw:font-medium tw:text-on-main">{{ opt.label }}</span>
+            <span class="tw:text-xs tw:text-secondary">{{ opt.blurb }}</span>
+          </span>
+        </div>
+      </div>
       <div v-else-if="instanceStep.effectivenessOutcome" class="tw:text-sm tw:text-on-main">
         {{
           instanceStep.effectivenessOutcome === 'EFFECTIVE' ? 'Effective' : 'Not effective'
@@ -986,7 +1056,7 @@ function activityLabel(statusId) {
       <BaseField
         v-if="canActOnStep"
         v-slot="{ id: fieldId }"
-        label="Verdict comment"
+        label="Decision comment"
         required
         class="tw:mt-1"
       >
@@ -994,45 +1064,14 @@ function activityLabel(statusId) {
           :id="fieldId"
           v-model="verdictComment"
           :rows="2"
-          placeholder="What supports this verdict — evidence, data, observations?"
+          placeholder="What supports this decision — evidence, data, observations?"
         />
       </BaseField>
       <BaseCaption>
-        Recorded against the step itself, so it reports on the record list. The verdict is
-        e-signed with your comment.
+        The verdict is recorded on the step itself and e-signed with your comment. A follow-up
+        decision executes together with the verdict.
       </BaseCaption>
     </div>
-
-    <!-- NOT_EFFECTIVE follow-up: what happens to the host record -->
-    <BaseDialog v-model="showFollowUpDialog" title="Check Failed — What Next?" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <p class="tw:text-sm tw:text-on-main">
-          The effectiveness check recorded <strong>Not effective</strong>. Choose how to follow
-          up on this record:
-        </p>
-        <div class="tw:flex tw:flex-col tw:gap-2">
-          <BaseButton
-            variant="outline"
-            :disabled="followUpBusy"
-            @click="chooseFollowUp('REOPEN')"
-          >
-            Re-open this record — continue the corrective work on it
-          </BaseButton>
-          <BaseButton
-            variant="outline"
-            :disabled="followUpBusy"
-            @click="chooseFollowUp('CREATE_LINKED')"
-          >
-            Create a linked follow-up — a fresh record referencing this one
-          </BaseButton>
-        </div>
-      </div>
-      <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="followUpBusy" @click="close">
-          Just record the outcome
-        </BaseButton>
-      </template>
-    </BaseDialog>
 
     <WorkflowStepForm
       ref="formRef"

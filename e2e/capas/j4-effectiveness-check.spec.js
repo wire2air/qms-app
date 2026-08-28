@@ -93,13 +93,13 @@ test.describe('PW-J4 · effectiveness as a deferred DELAY step', () => {
     const verdictCtx = await browser.newContext({ storageState: AUTH.reviewer })
     const verdictPage = await verdictCtx.newPage()
     await verdictPage.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
-    await expect(verdictPage.getByText('Was it effective?')).toBeVisible({ timeout: 30_000 })
+    await expect(verdictPage.getByText('Effectiveness decision')).toBeVisible({ timeout: 30_000 })
     await verdictPage.getByRole('radio', { name: 'Effective', exact: true }).click()
     // The verdict is a controlled decision (2026-08-28): a supporting comment
     // is REQUIRED and the completion is e-signed even though the template
     // never flipped the step's own esign flag.
     await verdictPage
-      .getByPlaceholder(/What supports this verdict/)
+      .getByPlaceholder(/What supports this decision/)
       .fill('Recurrence check clean for 30 days — spot audits found no repeats.')
     await clickWhenReady(
       verdictPage,
