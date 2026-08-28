@@ -2,23 +2,34 @@
  * Who may edit or delete a saved report — the CLIENT-SIDE MIRROR of
  * analytics_reports_update_rls / analytics_reports_delete_rls.
  *
- * ── WHY THIS DELEGATES INSTEAD OF RESTATING THE RULE ────────────────────────
- * The two policies were read off the live database before this file was
- * written, and they are character-for-character the same shape the dashboard
- * policies use:
+ * ── WHY THESE MOSTLY DELEGATE INSTEAD OF RESTATING THE RULE ─────────────────
+ * The policies were read off the live database before this file was written,
+ * and DELETE is character-for-character the shape the dashboard policies use.
+ * So `canDeleteDashboard` already expresses it, is_system guard included.
+ * Writing a second copy under a reports-flavoured name would give us two
+ * functions that are identical today and free to drift tomorrow — and the drift
+ * would be invisible, because a client-side affordance check that is WRONG does
+ * not throw. It just draws a button that 403s, or hides one that would have
+ * worked.
  *
- *   UPDATE: company AND entitled AND (owner_id = me OR is_owner OR manage)
- *   DELETE: company AND        (owner_id = me OR is_owner OR manage) AND NOT is_system
+ * ── WHERE REPORTS AND DASHBOARDS GENUINELY DIVERGE (2026-08-28) ─────────────
+ * UPDATE no longer matches, so canEditReport is no longer a pure delegation:
  *
- * So `canEditDashboard` / `canDeleteDashboard` already express exactly this
- * rule, including the is_system guard on delete. Writing a second copy under a
- * reports-flavoured name would give us two functions that are identical today
- * and free to drift tomorrow — and the drift would be invisible, because a
- * client-side affordance check that is WRONG does not throw. It just draws a
- * button that 403s, or hides one that would have worked.
+ *   reports    UPDATE: company AND entitled AND (owner OR is_owner OR manage) AND NOT is_system
+ *   dashboards UPDATE: company AND entitled AND (owner OR is_owner OR manage)
  *
- * These wrappers exist purely so calling code at a report site reads as being
- * about reports. They add no rule of their own.
+ * The guard was added by 20260828120000-system-reports-not-editable, closing
+ * QA-5. The pencil used to show on shipped reports while the bin did not, and
+ * the pencil WORKED — the edit saved, and the next release silently overwrote
+ * name, description and definition from the shipped values. A refusal says no;
+ * that said yes and discarded the work later. See the migration for the whole
+ * account.
+ *
+ * Dashboards deliberately keep the looser rule: their editable state is
+ * visibility, which the owner can see and reverse themselves, so DashboardSharingDialog
+ * warns instead of blocking. (A system dashboard's WIDGETS are rebuilt on
+ * release just as a report's definition is, and nothing guards those — same
+ * defect, different table, still open.)
  *
  * ── AND THEY ARE NOT THE ENFORCEMENT ────────────────────────────────────────
  * RLS is. These decide which buttons to DRAW. Hiding a button protects nothing;
@@ -27,11 +38,17 @@
 import { canDeleteDashboard, canEditDashboard, isOwnDashboard } from './analyticsDashboardAccess.js'
 
 /**
- * @param {{ ownerId?: string }|null} report
+ * Edit rights, plus the is_system guard that analytics_reports_update_rls gained
+ * on 2026-08-28 — so this draws the pencil exactly where the server would accept
+ * the write, and nowhere else. See the header for why shipped reports are
+ * excluded rather than merely warned about.
+ *
+ * @param {{ ownerId?: string, isSystem?: boolean }|null} report
  * @param {{ userId?: string|null, canManage?: boolean }} viewer
  */
 export function canEditReport(report, viewer) {
-  return canEditDashboard(report, viewer)
+  if (!canEditDashboard(report, viewer)) return false
+  return !report.isSystem
 }
 
 /**

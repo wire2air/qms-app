@@ -16,10 +16,15 @@ export function uniqueTitle(tag) {
 /**
  * Create a CAPA from the create page: fill required Classification fields
  * and submit. The workflow is auto-selected (default template — the single
- * ACTIVE CAPA workflow in E2ELAB is the implicit default) and there is NO
- * reviewer dialog anymore (flow change 2026-08-12): the CAPA is created as
- * a DRAFT, reviewers are assigned on the detail page's draft plan, and the
- * workflow starts on Open CAPA (unpicked steps fall back to role expansion).
+ * ACTIVE CAPA workflow in E2ELAB is the implicit default).
+ *
+ * ~~There is NO reviewer dialog anymore (flow change 2026-08-12).~~ True for
+ * six days. `5baf25fe` (2026-08-18) brought the per-step dialog BACK for NC
+ * parity: `onSubmit` now calls `workflowPickerRef.submit()` and the picks land
+ * in `capas.pending_reviewers`. The CAPA is still created as a DRAFT and the
+ * workflow still starts on Start CAPA, where those picks show pre-filled and
+ * remain editable — see `confirmStepReviewers` below.
+ *
  * Ends on the new CAPA's detail page (DRAFT). Returns the title.
  */
 export async function createCapa(page, title, { priority = null, ...hooks } = {}) {
@@ -53,7 +58,38 @@ export async function fillCapaCreateForm(page, title, { priority = null, beforeS
     await workflowCard.click()
   }
 
-  await titleInput.fill(title)
+  // Fill, then PROVE the value stuck — same discipline as fixtures/esign.js.
+  //
+  // Clicking the workflow card swaps screen 1 for screen 2, and this fill lands
+  // ~8ms later (per the trace). Playwright's stability check does not span a
+  // Vue remount: the input it filled is replaced by the freshly-mounted one,
+  // v-model never sees the value, and `fill()` reports success. PW-J2's second
+  // test then reached Create CAPA with an EMPTY title and died three steps on,
+  // waiting for a reviewer dialog that validation had already prevented.
+  await expect(async () => {
+    await titleInput.fill(title)
+    await expect(titleInput).toHaveValue(title, { timeout: 1_000 })
+  }).toPass({ timeout: 20_000 })
+
+  // Problem Statement became REQUIRED on 2026-08-17 (`e16960dd` — "CAPA:
+  // require the problem statement and closure comments"). It is a TipTap
+  // rich-text editor, not an input, so `fill()` has nothing to fill: click into
+  // the contenteditable and type.
+  //
+  // Missing this is what killed the whole project. Create CAPA stayed on
+  // /capas/create behind "Please fix 1 issue before continuing", every journey
+  // timed out on the same toHaveURL, and no `capas` row was written at all —
+  // 11 of the 14 CAPA tests, one cause, for eleven days.
+  const PROBLEM_TEXT = 'E2E problem statement — deviation observed during routine review.'
+  const problem = page.locator('.create-capa-editor [contenteditable="true"]').first()
+  await expect(problem).toBeVisible({ timeout: 15_000 })
+  // Same remount hazard as the title above, and a contenteditable cannot be
+  // asserted with toHaveValue — check its text instead.
+  await expect(async () => {
+    await problem.click()
+    await page.keyboard.insertText(PROBLEM_TEXT)
+    await expect(problem).toContainText(PROBLEM_TEXT, { timeout: 1_000 })
+  }).toPass({ timeout: 20_000 })
 
   await selectFirstOption(page, 'Site')
   await selectFirstOption(page, 'Department')
@@ -67,23 +103,108 @@ export async function fillCapaCreateForm(page, title, { priority = null, beforeS
 
   if (beforeSubmit) await beforeSubmit(page)
 
+  // Re-prove both required fields at SUBMIT time, not just at fill time.
+  //
+  // Asserting the value stuck immediately after filling is not enough: twice
+  // now the form has reached Create CAPA with Title AND Problem Statement
+  // empty while Site/Department/CAPA Type/Source — filled AFTER them — all
+  // survived. So something in the workflow-wizard's screen-1→screen-2
+  // transition wipes the two Basic-information fields a beat AFTER the
+  // post-fill assertion has already passed. The mechanism is NOT pinned; what
+  // is certain is the symptom, because the create page says it out loud:
+  // "Please fix 2 issues before continuing — Title is required / Problem
+  // Statement". Left unguarded it fails 30s later and three steps away, at a
+  // reviewer dialog that validation had already prevented from opening.
+  await expect(async () => {
+    if ((await titleInput.inputValue()) !== title) await titleInput.fill(title)
+    await expect(titleInput).toHaveValue(title, { timeout: 1_000 })
+    if (!(await problem.innerText()).includes(PROBLEM_TEXT)) {
+      await problem.click()
+      await page.keyboard.insertText(PROBLEM_TEXT)
+    }
+    await expect(problem).toContainText(PROBLEM_TEXT, { timeout: 1_000 })
+  }).toPass({ timeout: 20_000 })
+
   await page.getByRole('button', { name: 'Create CAPA' }).click()
+  await confirmStepReviewers(page)
 
   await expect(page).toHaveURL(/\/capas\/(?!create)[0-9a-f-]{36}/, { timeout: 45_000 })
   await expect(page.getByText(title).first()).toBeVisible()
   return title
 }
 
-/** Owner opens a DRAFT CAPA (Open CAPA → confirm dialog → submitForReview). */
+/**
+ * The submit-time per-step reviewer dialog (`WorkflowReviewerPickerDialog`,
+ * back on the CAPA create form since `5baf25fe` 2026-08-18). Assigns a user to
+ * every step and confirms. Only the first root step is `required`, but each
+ * step left empty is a step the workflow will have to role-expand later, so
+ * fill them all and keep the fixture deterministic.
+ *
+ * NOT the same dialog the documents suite drives. That one is titled "pick the
+ * reviewer(s) for each step", its pickers are MULTI-selects (a click, never
+ * Enter, and the panel has to be dismissed by hand) and it submits with
+ * "Submit for Review". This one is "Assign Step Reviewers", its pickers are
+ * single-select `UserSelectMenu`s that close themselves on pick, and it
+ * submits with "Confirm".
+ */
+export async function confirmStepReviewers(page) {
+  // role=dialog reports hidden for the headlessui wrapper — wait on the body
+  // copy, then use the dialog only as a scope. (fixtures/esign.js, documents/22 §2.1)
+  await expect(
+    page.getByText(/assign task to user for each workflow step/i),
+  ).toBeVisible({ timeout: 30_000 })
+  const dialog = page.getByRole('dialog').filter({ hasText: /assign task to user/i })
+
+  const pickers = dialog.getByRole('combobox')
+  const count = await pickers.count()
+  for (let i = 0; i < count; i++) {
+    const combo = pickers.nth(i)
+    await combo.scrollIntoViewIfNeeded()
+    // Scope to THIS combobox's own panel via aria-controls — a page-wide
+    // getByRole('listbox') also matches a neighbouring step's panel.
+    const listboxId = await combo.getAttribute('aria-controls')
+    const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
+    // Candidates load async (role expansion → IDB), and under load the popover
+    // can miss the first click: retry both conditions together.
+    await expect(async () => {
+      if (!(await listbox.isVisible().catch(() => false))) await combo.click()
+      await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
+    }).toPass({ timeout: 30_000 })
+    await listbox.getByRole('option').first().click()
+    // Single-select: BaseSelect.selectOption closes the popover itself.
+    await expect(listbox).toBeHidden({ timeout: 5_000 })
+  }
+
+  const confirm = dialog.getByRole('button', { name: 'Confirm', exact: true })
+  await expect(confirm).toBeEnabled({ timeout: 10_000 })
+  await confirm.click()
+}
+
+/**
+ * Owner starts a DRAFT CAPA (Start CAPA → confirm dialog → submitForReview).
+ *
+ * ~~Open CAPA~~ — relabelled **Start CAPA** by `b33322be` (2026-08-17) when the
+ * workflow rail card was shared across NC / CAPA / Change Control / Complaint.
+ */
 export async function openCapa(page, capaId) {
   await page.goto(`/capas/${capaId}`)
-  await page.getByRole('button', { name: 'Open CAPA' }).click()
-  // Anchor on the dialog title text (role=dialog reports hidden — see documents.js).
+  await page.getByRole('button', { name: 'Start CAPA' }).first().click()
+  // Anchor on the dialog body text (role=dialog reports hidden — see documents.js).
   await expect(page.getByText('Opening this CAPA starts the assigned workflow')).toBeVisible({
     timeout: 10_000,
   })
-  await page.getByRole('button', { name: 'Open CAPA' }).last().click()
-  await expectStatusEventually(page, /pending/i)
+  await page.getByRole('button', { name: 'Start CAPA' }).last().click()
+
+  // The DB is the source of truth for the transition; the chip follows by
+  // sync-back. ~~/pending/i~~ — PENDING was retired by
+  // 20260823100000-unified-record-statuses (capa/21 §1); the status is OPEN.
+  await waitForSqlValue(
+    `SELECT status_id FROM capas WHERE id = '${capaId}' AND status_id = 'OPEN'`,
+    { timeoutMs: 45_000, label: 'CAPA OPEN' },
+  )
+  // Anchored, not /open/i: a loose match also hits "Opening this CAPA…" in the
+  // dialog that may still be fading out, and "Open CAPAs" in the nav.
+  await expectStatusEventually(page, /^open$/i)
 }
 
 /**
@@ -130,7 +251,7 @@ export async function completeApproverStep(browser, capaId) {
 }
 
 /**
- * Owner closes a PENDING CAPA with every workflow step already terminal.
+ * Owner closes an OPEN CAPA with every workflow step already terminal.
  * The Close dialog's effectiveness-check date defaults to a 90-day preset
  * (already valid — see CapasPageId.vue closeEcPresetDays), so the only gate
  * a normal UI flow can hit is "workflow steps still open"; leave the date
@@ -163,7 +284,7 @@ export async function closeCapa(page, { comments = '', ecPresetDays = null } = {
   await signPinBtn.click()
 }
 
-/** Owner cancels a PENDING CAPA (the only status the UI's Cancel button targets). */
+/** Owner cancels an OPEN CAPA (the only status the UI's Cancel button targets). */
 export async function cancelCapa(page, { reason = 'E2E cancel — no longer needed.' } = {}) {
   await page.getByRole('button', { name: 'Cancel CAPA' }).click()
   // Anchor on the dialog heading — "Cancel CAPA" also matches the

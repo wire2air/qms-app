@@ -134,6 +134,14 @@ test.describe.serial('CR screenshots · create → approve → implement → clo
     await createCr(page, title)
     const cr = findCrByTitle(title)
 
+    // Cancel is not offered on a DRAFT. `changeRequestDetailConfig.js` gates it
+    // on `notTerminal`, and DRAFT is in that exclusion list alongside CLOSED /
+    // REJECTED / CANCELLED — so the button is not merely in an overflow menu,
+    // it is never rendered, and the click burned the full 25s actionTimeout.
+    // Submit first, exactly as PW-J2 ("cancel an UNDER_REVIEW CR") does.
+    await assignDraftReviewers(page, cr.id)
+    await submitCrForApproval(page, cr.id)
+
     await actionBarButton(page, 'Cancel').click()
     await expect(page.getByRole('heading', { name: 'Cancel Change Request' })).toBeVisible({
       timeout: 15_000,

@@ -106,7 +106,7 @@ test.describe('PW-J1 · a recurring program mints its own audit', () => {
          FROM audit_instances WHERE id = '${instanceId}'`,
     )
     expect(instance[0], 'generated audits land SCHEDULED').toBe('SCHEDULED')
-    expect(instance[1], 'audit number minted').toMatch(/^AUD-\d{4}-\d{4}$/)
+    expect(instance[1], 'audit number minted').toMatch(/^AUD-\d{4}$/)
     expect(instance[2], 'scheduled for the date the program was due').toBe(
       sqlValue(`SELECT (CURRENT_DATE - 1)::text`),
     )

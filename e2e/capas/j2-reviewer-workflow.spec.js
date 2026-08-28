@@ -4,7 +4,7 @@
 // WorkflowStepActionsMenu.vue) — see e2e/nonconformances/j2-reviewer-workflow.spec.js
 // for the underlying "reject" split: on the ACTION step (step 1, reviewer) it's
 // the lightweight Send-Back (does not terminate the workflow); the transition
-// that actually reverts PENDING -> DRAFT is /rejectStepTask on the APPROVAL
+// that actually reverts OPEN -> DRAFT is /rejectStepTask on the APPROVAL
 // step (step 2, approver) — capaHandler.onRejection.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
@@ -44,10 +44,10 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     expect(step1Status).toBe('APPROVED')
 
     const capaStatus = sqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}'`)
-    expect(capaStatus, 'CAPA stays PENDING mid-workflow').toBe('PENDING')
+    expect(capaStatus, 'CAPA stays OPEN mid-workflow').toBe('OPEN')
   })
 
-  test('approver rejects step 2 (APPROVAL) -> CAPA reverts PENDING to DRAFT', async ({
+  test('approver rejects step 2 (APPROVAL) -> CAPA reverts OPEN to DRAFT', async ({
     browser,
   }) => {
     test.setTimeout(150_000)
@@ -70,7 +70,29 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
     const approverPage = await approverCtx.newPage()
     await approverPage.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
-    await clickWhenReady(approverPage, approverPage.getByRole('button', { name: 'More actions' }))
+    // TWO buttons on this page carry the accessible name "More actions":
+    // the record header's (Link Nonconformance / Audit Log) and the step
+    // card's (`WorkflowStepActionsMenu` — Approve/Reject/Reassign/Cancel).
+    // `BaseMenu` hard-codes `aria-label="More actions"` on every trigger, so
+    // role+name cannot tell them apart, and `clickWhenReady` takes `.first()`
+    // — the header. That opened a menu with no Reject in it and the click sat
+    // there for 25s. Whether .first() lands on the right one is pure DOM
+    // order, which is why this passed one run and failed the next.
+    //
+    // Anchor on the step's own Approve button and take the next More-actions
+    // trigger after it in document order — same idiom as comboboxAfterLabel in
+    // fixtures/documents.js.
+    const stepMenu = approverPage
+      .getByRole('button', { name: 'Approve', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
+    // Centre it before opening: the approval step sits low in a 1280x720
+    // viewport and the menu opens DOWNWARD without flipping, so its items
+    // render below the fold and every click retries "outside of the viewport"
+    // until timeout. scrollIntoViewIfNeeded stops as soon as the TRIGGER is on
+    // screen, which is exactly where the menu has no room. (Same note as NC J2.)
+    await stepMenu.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await clickWhenReady(approverPage, stepMenu)
     await approverPage.getByRole('menuitem', { name: 'Reject' }).click()
     await expect(approverPage.getByPlaceholder('Why are you rejecting?')).toBeVisible({
       timeout: 10_000,

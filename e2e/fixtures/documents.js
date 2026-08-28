@@ -38,18 +38,26 @@ async function selectFirstByKeyboard(combo) {
   // ago while it is still animating shut — that reads as "already open", so the
   // click below gets skipped and the keystrokes land on nothing, silently
   // leaving the field unset (which then fails validation at submit).
-  const listboxId = await combo.getAttribute('aria-controls')
-  const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
-  const firstOption = listbox.getByRole('option').first()
   // Re-click only when the panel isn't open — a click while it IS open would
   // toggle it shut. Under load the popover can miss the first click entirely,
   // and separately its options arrive async from IDB, so the two conditions
   // need distinct handling rather than one blind wait.
+  //
+  // aria-controls is re-read INSIDE the loop. Read once outside, the id goes
+  // stale the moment the component re-renders (headlessui mints a new v-NN),
+  // and then it never recovers: `listbox.isVisible()` answers false against a
+  // dead id, so every retry clicks the combobox again — toggling the panel
+  // shut, open, shut — while `firstOption` is pinned to an element that no
+  // longer exists. The whole 30s budget burns and the failure reads
+  // "[id=v-22-listbox] option not found", which looks like an empty lookup
+  // table rather than a stale locator. Cost CAPA J5 and J7 a run each.
   await expect(async () => {
+    const listboxId = await combo.getAttribute('aria-controls')
+    const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
     if (!(await listbox.isVisible().catch(() => false))) {
       await combo.click()
     }
-    await expect(firstOption).toBeVisible({ timeout: 5_000 })
+    await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
   }).toPass({ timeout: 30_000 })
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')

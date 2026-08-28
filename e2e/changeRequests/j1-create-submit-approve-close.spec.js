@@ -27,7 +27,10 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     const cr = findCrByTitle(title)
     expect(cr, 'CR row exists').toBeTruthy()
     expect(cr.statusId).toBe('DRAFT')
-    expect(cr.crNumber, 'CR number minted on create').toMatch(/^CR-.+-\d{3,}$/)
+    // Flat CR-001, not CR-{SITE}-{DEPT}-001 — `369be68b` (2026-08-18) dropped
+    // the site/department segments across NC, CAPA, CR and AUD. The old regex
+    // demanded two hyphens; a flat number has one.
+    expect(cr.crNumber, 'CR number minted on create').toMatch(/^CR-\d{3,}$/)
 
     await assignDraftReviewers(page, cr.id)
     await submitCrForApproval(page, cr.id)

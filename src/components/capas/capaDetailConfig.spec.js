@@ -1,3 +1,8 @@
+// Status vocabulary: 'OPEN', not 'PENDING'. These cases asserted the action
+// gates against a status that 20260823100000-unified-record-statuses had
+// already retired, so this suite stayed green while Close and Cancel rendered
+// for nobody on any CAPA — the tests encoded the old world faithfully.
+// See docs/modules/capa/22-change-addendum-2026-08-28.md §1.
 import { describe, it, expect } from 'vitest'
 import { buildCapaBanners, buildCapaSections, buildCapaActions } from './capaDetailConfig.js'
 
@@ -30,7 +35,7 @@ describe('buildCapaBanners', () => {
     expect(ro.message.toLowerCase()).toContain('cancelled')
   })
   it('no read-only banner when editable (PENDING)', () => {
-    const b = buildCapaBanners({ statusId: 'PENDING' }, { isEditable: true })
+    const b = buildCapaBanners({ statusId: 'OPEN' }, { isEditable: true })
     expect(b.some((x) => x.id === 'read-only')).toBe(false)
   })
   it('no QC-origin banner (CAPA uses RecordLineagePanel not banners)', () => {
@@ -45,7 +50,7 @@ describe('buildCapaSections', () => {
     expect(s.map((x) => x.id)).toEqual(['details', 'workflow'])
   })
   it('all sections have a label', () => {
-    const s = buildCapaSections({ statusId: 'PENDING' })
+    const s = buildCapaSections({ statusId: 'OPEN' })
     s.forEach((section) => expect(section.label).toBeTruthy())
   })
   it('all sections are always visible (no gating)', () => {
@@ -111,7 +116,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
@@ -132,7 +137,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: false,
         closeDisabledReason: '2 steps still open.',
         canCreateChangeRequest: false,
@@ -153,7 +158,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
@@ -239,7 +244,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: false,
         canCancel: false,
         canDelete: false,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: false,
         closeDisabledReason: '',
         canCreateChangeRequest: true,
@@ -275,7 +280,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
@@ -296,7 +301,7 @@ describe('buildCapaActions', () => {
         canCloseCapa: true,
         canCancel: true,
         canDelete: true,
-        statusId: 'PENDING',
+        statusId: 'OPEN',
         canClose: true,
         closeDisabledReason: '',
         canCreateChangeRequest: false,
