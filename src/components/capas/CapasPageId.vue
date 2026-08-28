@@ -633,18 +633,10 @@ const capaDetailConfig = computed(() =>
         "
       />
 
-      <!-- 4. Schedule — verified, closed -->
-      <BaseRailCard title="Schedule">
-        <BaseDetailField
-          v-if="capa.verifiedAt"
-          label="Workflow completed"
-          :value="capa.verifiedAt.formatDate('dateTime')"
-        />
-        <BaseDetailField
-          v-if="capa.closedAt"
-          label="Closed"
-          :value="capa.closedAt.formatDate('dateTime')"
-        />
+      <!-- 4. Schedule — closed date only; workflow/effectiveness state lives in
+           the Workflow card. Hidden entirely while the CAPA is open. -->
+      <BaseRailCard v-if="capa.closedAt" title="Schedule">
+        <BaseDetailField label="Closed" :value="capa.closedAt.formatDate('dateTime')" />
       </BaseRailCard>
 
       <!-- 5. Notifications — cc list, the rules that also apply, and when anything last went out -->
