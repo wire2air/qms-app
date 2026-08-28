@@ -67,6 +67,14 @@ const isOwner = computed(() =>
 // The owner edits the owner-level sections until the record is closed/rejected.
 const ownerEditable = computed(() => isOwner.value && !isTerminal.value)
 
+// The MATRIX decides the envelope (rail Site/Department/Owner): the update
+// verb at the caller's scope, custodian on ownerUserId. Status alone offered
+// the rail editors to read-only viewers (reported 2026-08-28) — the save was
+// refused server-side, but the affordance lied.
+const canUpdateRecord = computed(() =>
+  isAllowedOnRecord(`${props.moduleKey}:update`, record.value, { ownerField: 'ownerUserId' }),
+)
+
 const showStart = ref(false)
 const showShareSupplier = ref(false)
 
@@ -149,7 +157,9 @@ function openPrintView() {
 // Drafts carry no record number (minted at Start), so deleting one leaves no
 // gap in the register. Past Draft the record is controlled — Cancel instead.
 const canDelete = computed(
-  () => isDraft.value && isAllowedOnRecord(`${props.moduleKey}:update`, record.value),
+  () =>
+    isDraft.value &&
+    isAllowedOnRecord(`${props.moduleKey}:update`, record.value, { ownerField: 'ownerUserId' }),
 )
 const showDeleteDialog = ref(false)
 const deleting = ref(false)
@@ -175,7 +185,9 @@ async function handleDeleteDraft() {
 // an e-signature (PIN), mirroring the CAPA/NC/CR cancel. The verb decides who
 // may — same `<key>:update` the rest of the page runs on.
 const canCancel = computed(
-  () => status.value === 'OPEN' && isAllowedOnRecord(`${props.moduleKey}:update`, record.value),
+  () =>
+    status.value === 'OPEN' &&
+    isAllowedOnRecord(`${props.moduleKey}:update`, record.value, { ownerField: 'ownerUserId' }),
 )
 const showCancelDialog = ref(false)
 const showCancelEsign = ref(false)
@@ -319,7 +331,7 @@ async function closeRecord() {
 
       <!-- Right rail: optional first-class fields + live/sealed score. -->
       <div class="tw:w-full tw:lg:w-72 tw:shrink-0 tw:flex tw:flex-col tw:gap-4">
-        <GenericModuleRail :recordId="id" :editable="!isTerminal" />
+        <GenericModuleRail :recordId="id" :editable="!isTerminal && canUpdateRecord" />
         <ScoringSummaryCard
           :schema="fields"
           :payload="livePayload"

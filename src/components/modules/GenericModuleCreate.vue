@@ -131,7 +131,7 @@ function cancel() {
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <p class="tw:text-xs tw:font-medium tw:text-secondary">Department</p>
-              <DepartmentSelectMenu v-model="departmentId" />
+              <DepartmentSelectMenu v-model="departmentId" :siteId="siteId" />
             </div>
           </div>
         </BaseRailCard>

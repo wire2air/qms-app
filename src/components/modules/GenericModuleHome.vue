@@ -307,7 +307,10 @@ function create() {
 // the register. Anything past Draft is controlled: Cancel (on the detail page,
 // reason + PIN) is the only way out.
 function canDeleteRow(row) {
-  return row.statusId === 'DRAFT' && isAllowedOnRecord(`${props.moduleKey}:update`, row)
+  return (
+    row.statusId === 'DRAFT' &&
+    isAllowedOnRecord(`${props.moduleKey}:update`, row, { ownerField: 'ownerUserId' })
+  )
 }
 
 const deleteTarget = ref(null)

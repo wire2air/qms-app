@@ -15,6 +15,7 @@ const record = useLiveQueryWithDeps(
   { models: ['Record'] },
 )
 
+const toast = useToast()
 const saving = ref(false)
 const isFirst = ref(true)
 const save = useDebounceFn(async () => {
@@ -22,6 +23,11 @@ const save = useDebounceFn(async () => {
   saving.value = true
   try {
     await record.value.save()
+  } catch (e) {
+    // Pessimistic saves fail loudly by design — a refused envelope edit
+    // (authz) must not die silently while the pooled instance keeps showing
+    // the phantom value.
+    toast.error(e?.message || 'Could not save record details')
   } finally {
     saving.value = false
   }
@@ -70,7 +76,11 @@ watch(
 
       <div class="tw:flex tw:flex-col tw:gap-1">
         <p class="tw:text-xs tw:font-medium tw:text-secondary">Department</p>
-        <DepartmentSelectMenu v-if="editable" v-model="record.departmentId" />
+        <DepartmentSelectMenu
+          v-if="editable"
+          v-model="record.departmentId"
+          :siteId="record.siteId"
+        />
         <DepartmentBadgeById v-else-if="record.departmentId" :departmentId="record.departmentId" />
         <span v-else class="tw:text-secondary">—</span>
       </div>
