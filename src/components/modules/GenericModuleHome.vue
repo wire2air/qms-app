@@ -266,7 +266,14 @@ const filterItems = computed(() => [
   { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
 ])
 const columns = computed(() => [
-  { name: 'recordNumber', label: 'NUMBER', field: 'recordNumber', align: 'left', sortable: true },
+  {
+    name: 'recordNumber',
+    label: 'NUMBER',
+    field: 'recordNumber',
+    align: 'left',
+    sortable: true,
+    exportValue: (row) => row.recordNumber || 'Draft',
+  },
   { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
   ...configuredFields.value.map((f) => ({
     name: `pf_${f.name}`,
@@ -275,7 +282,14 @@ const columns = computed(() => [
     align: 'left',
     sortable: true,
   })),
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+  {
+    name: 'createdAt',
+    label: 'CREATED',
+    field: 'createdAt',
+    align: 'left',
+    sortable: true,
+    exportValue: (row) => row.createdAt?.formatDate?.('date') ?? '',
+  },
   { name: 'actions', label: '', field: 'id', align: 'right', sortable: false },
 ])
 
@@ -362,7 +376,15 @@ async function handleDelete() {
       </button>
     </div>
 
-    <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable>
+    <DataTable
+      :rows="filteredRecords"
+      :columns="columns"
+      rowKey="id"
+      searchable
+      exportManager
+      :exportFilename="`${moduleKey}-records.csv`"
+      :persistKey="`m-${moduleKey}`"
+    >
       <template #tabs>
         <BaseQuickFilterPills v-model="quickView" :pills="QUICK_PILLS" ariaLabel="Quick views" />
       </template>
