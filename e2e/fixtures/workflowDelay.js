@@ -67,6 +67,19 @@ export const DELAY_TEMPLATES = {
     action1: 'e2ef5003-0000-4000-8000-000000000001',
     delay: 'e2ef5003-0000-4000-8000-000000000002',
   },
+  // DELAY is last AND captures an effectiveness verdict — PW-J4's shape.
+  //
+  // A separate template rather than a flag on `tail`: `captures_effectiveness`
+  // makes the step refuse to complete until a verdict is picked
+  // (WorkflowStep.vue completeDisabled — "Record the effectiveness outcome
+  // first"), which would have broken every existing PW-J9/PW-J10 completion.
+  eff: {
+    name: 'E2E Delay Fixture Workflow (effectiveness)',
+    workflowId: 'e2ef5001-0000-4000-8000-000000000003',
+    versionId: 'e2ef5002-0000-4000-8000-000000000003',
+    action1: 'e2ef5003-0000-4000-8000-000000000021',
+    delay: 'e2ef5003-0000-4000-8000-000000000022',
+  },
   // DELAY has a step after it — PW-J9's skip shape.
   mid: {
     name: 'E2E Delay Fixture Workflow (mid)',
@@ -93,10 +106,11 @@ export const MAX_DELAY_EXTENSIONS = 2
 export function ensureDelayTemplates() {
   const t = DELAY_TEMPLATES.tail
   const m = DELAY_TEMPLATES.mid
+  const e = DELAY_TEMPLATES.eff
 
-  const step = (id, versionId, name, order, type, esign, maxExt) =>
+  const step = (id, versionId, name, order, type, esign, maxExt, capturesEff = 'false') =>
     `(${q(id)}, ${q(versionId)}, ${q(name)}, ${order}, 'ALL', 5, false, ${esign}, '[]'::jsonb, ` +
-    `${q(COMPANY_ID)}, false, ${q(type)}, ${maxExt ?? 'NULL'}, NOW(), NOW())`
+    `${q(COMPANY_ID)}, false, ${q(type)}, ${maxExt ?? 'NULL'}, ${capturesEff}, NOW(), NOW())`
 
   const workflow = (id, name) =>
     `(${q(id)}, ${q(name)}, 'PW-J9 / PW-J10 fixture. Deliberately INACTIVE so it never appears in a ` +
@@ -110,30 +124,35 @@ export function ensureDelayTemplates() {
     -- when replacing is safe (and is also why workflow_instances' FK is
     -- ON DELETE RESTRICT).
     DELETE FROM workflow_versions v
-     WHERE v.id IN (${q(t.versionId)}, ${q(m.versionId)})
+     WHERE v.id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)})
        AND v.status_id IS DISTINCT FROM 'PUBLISHED'
        AND NOT EXISTS (SELECT 1 FROM workflow_instances wi WHERE wi.workflow_version_id = v.id);
 
     INSERT INTO workflows (id, name, description, module_id, company_id, status_id, is_default, created_at, updated_at)
     VALUES ${workflow(t.workflowId, t.name)},
-           ${workflow(m.workflowId, m.name)}
+           ${workflow(m.workflowId, m.name)},
+           ${workflow(e.workflowId, e.name)}
     ON CONFLICT (id) DO UPDATE SET status_id = 'INACTIVE', deleted_at = NULL;
 
     INSERT INTO workflow_versions (id, workflow_id, version_major, version_minor, version_label,
                                    status_id, company_id, is_current, created_at, updated_at)
     VALUES (${q(t.versionId)}, ${q(t.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW()),
-           (${q(m.versionId)}, ${q(m.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW())
+           (${q(m.versionId)}, ${q(m.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW()),
+           (${q(e.versionId)}, ${q(e.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW())
     ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO workflow_steps (id, workflow_version_id, name, step_order, approval_rule, sla_days,
                                 require_comments, require_esignature, form_schema, company_id,
-                                allow_child_steps, step_type, max_delay_extensions, created_at, updated_at)
+                                allow_child_steps, step_type, max_delay_extensions,
+                                captures_effectiveness, created_at, updated_at)
     VALUES ${[
       step(t.action1, t.versionId, 'Delay Review', 1, 'ACTION', 'false', null),
       step(t.delay, t.versionId, 'Effectiveness Wait', 2, 'DELAY', 'true', MAX_DELAY_EXTENSIONS),
       step(m.action1, m.versionId, 'Delay Review', 1, 'ACTION', 'false', null),
       step(m.delay, m.versionId, 'Effectiveness Wait', 2, 'DELAY', 'true', MAX_DELAY_EXTENSIONS),
       step(m.action3, m.versionId, 'Post-Delay Verification', 3, 'ACTION', 'false', null),
+      step(e.action1, e.versionId, 'Delay Review', 1, 'ACTION', 'false', null),
+      step(e.delay, e.versionId, 'Effectiveness Wait', 2, 'DELAY', 'true', MAX_DELAY_EXTENSIONS, 'true'),
     ].join(',\n      ')}
     ON CONFLICT (id) DO NOTHING;
 
@@ -144,13 +163,15 @@ export function ensureDelayTemplates() {
              (${q(t.delay)}::uuid,   'E2E Approver'),
              (${q(m.action1)}::uuid, 'E2E Reviewer'),
              (${q(m.delay)}::uuid,   'E2E Approver'),
-             (${q(m.action3)}::uuid, 'E2E Reviewer')
+             (${q(m.action3)}::uuid, 'E2E Reviewer'),
+             (${q(e.action1)}::uuid, 'E2E Reviewer'),
+             (${q(e.delay)}::uuid,   'E2E Approver')
            ) AS v(step_id, role_name)
       JOIN roles r ON r.name = v.role_name AND r.company_id = ${q(COMPANY_ID)} AND r.deleted_at IS NULL
     ON CONFLICT DO NOTHING;
 
     UPDATE workflow_versions SET status_id = 'PUBLISHED', updated_at = NOW()
-     WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}) AND status_id = 'DRAFT';
+     WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)}) AND status_id = 'DRAFT';
   `)
 
   // Fail loudly and early rather than letting a half-built template surface as
@@ -160,16 +181,16 @@ export function ensureDelayTemplates() {
   const bound = sqlValue(
     `SELECT count(*) FROM workflow_step_roles wsr
        JOIN workflow_steps ws ON ws.id = wsr.step_id
-      WHERE ws.workflow_version_id IN (${q(t.versionId)}, ${q(m.versionId)})
+      WHERE ws.workflow_version_id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)})
         AND wsr.deleted_at IS NULL`,
   )
-  expect(Number(bound), 'every fixture step has a role pool bound').toBe(5)
+  expect(Number(bound), 'every fixture step has a role pool bound').toBe(7)
 
   const published = sqlValue(
     `SELECT count(*) FROM workflow_versions
-      WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}) AND status_id = 'PUBLISHED'`,
+      WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)}) AND status_id = 'PUBLISHED'`,
   )
-  expect(Number(published), 'both fixture versions are PUBLISHED').toBe(2)
+  expect(Number(published), 'all three fixture versions are PUBLISHED').toBe(3)
 }
 
 // ─── Reading the engine's own tables ────────────────────────────────────────
@@ -455,20 +476,39 @@ export async function awaitCapaStatus(capaId, statusId) {
 /**
  * Arm the delay to fire immediately: schedule it at a date already in the past.
  *
- * `setDelayScheduleCore` accepts a past date by design ("a date already in the
- * past schedules a job that fires (and activates) immediately"), and the worker's
- * stale-job guard only skips jobs whose delay_until is still in the FUTURE. This
- * is the only way to observe the post-fire half of a DELAY step's life inside a
- * test — the alternative is waiting a day.
+ * ~~`setDelayScheduleCore` accepts a past date by design.~~ Not since
+ * `ccaec342` (2026-08-18, "Delay steps: validation, extend-to-a-date, and keep
+ * the work open"). A fixed date earlier than tomorrow is now refused outright:
+ *
+ *   "A delay step must activate on a future date — pick tomorrow or later."
+ *
+ * and the reasoning is sound — "a delay must actually delay", scheduling in the
+ * past fires immediately and the wait-then-verify semantics are silently lost.
+ * So the old one-call trick is gone, and with it PW-J9, PW-J10 and CAPA PW-J4:
+ * every one of them died on a 400 from this helper.
+ *
+ * Two steps now. SCHEDULE the earliest the API will accept — `delayDays: 1`,
+ * which takes the days branch and skips the calendar-day gate entirely — then
+ * pull the wake-up backwards ourselves. BOTH halves have to move: the step's
+ * own `delay_until`, and the graphile job's `run_at`. The job was queued with
+ * `runAt = delayUntil`, so moving only the column leaves it asleep until
+ * tomorrow and the barrier below times out. `graphile_worker.jobs` is a VIEW —
+ * write to `_private_jobs`.
  */
 export async function fireDelayNow(requester, capaId, instanceStepId) {
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
   const res = await delayStepAction(requester, capaId, {
     workflowInstanceStepId: instanceStepId,
     intent: 'SCHEDULE',
-    delayUntilDate: yesterday,
+    delayDays: 1,
   })
-  expect(res.status(), `SCHEDULE in the past — ${await res.text().catch(() => '')}`).toBe(200)
+  expect(res.status(), `SCHEDULE +1 day — ${await res.text().catch(() => '')}`).toBe(200)
+
+  const past = "NOW() - interval '1 minute'"
+  sql(`UPDATE workflow_instance_steps SET delay_until = ${past} WHERE id = ${q(instanceStepId)}`)
+  sql(
+    `UPDATE graphile_worker._private_jobs SET run_at = ${past}
+      WHERE key = ${q(`wf-delay-step:${instanceStepId}`)}`,
+  )
 
   // The worker (JOB-01) does the rest: SCHEDULED → IN_PROGRESS, assignments
   // PENDING → ASSIGNED, one task per assignee. Barrier on the TASK, not the

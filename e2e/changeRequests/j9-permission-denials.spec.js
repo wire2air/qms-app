@@ -10,7 +10,14 @@ import {
 import { findCrByTitle, sqlValue } from '../fixtures/db.js'
 
 test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
-  test('a reviewer (change_control:read only) cannot submit a CR they do not own → 403', async ({
+  // ~~a reviewer (change_control:read only)~~ — the Reviewer is not read-only
+  // any more. Completing step 1 (ACTION) requires `change_control:update` of
+  // the assignee since 2026-08-19, so the seed grants it (§33) and this probe
+  // would pass here for the wrong reason: it would prove the CR was not theirs,
+  // never that the verb was missing. The auditor holds `change_control:read`
+  // and nothing else, and is assigned to no step. Same move NC PW-J6 and CAPA
+  // PW-J7 had to make.
+  test('an auditor (change_control:read only) cannot submit a CR they do not own → 403', async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -21,13 +28,13 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     const cr = findCrByTitle(title)
     await ownerCtx.close()
 
-    const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
-    const res = await reviewerCtx.request.post(
+    const auditorCtx = await browser.newContext({ storageState: AUTH.auditor })
+    const res = await auditorCtx.request.post(
       `/api/v1/services/changeRequests/${cr.id}/submitForReview`,
       { data: {} },
     )
     expect(res.status(), 'read-only grant cannot drive the lifecycle').toBe(403)
-    await reviewerCtx.close()
+    await auditorCtx.close()
 
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe('DRAFT')
   })

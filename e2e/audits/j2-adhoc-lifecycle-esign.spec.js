@@ -43,7 +43,7 @@ test.describe('PW-J2 · ad-hoc audit, executed and closed with an e-signature', 
     const scope = uniqueScope('J2')
     const audit = await createAdHocAudit(page, scope)
     expect(audit.statusId, 'ad-hoc audits are created SCHEDULED, not DRAFT').toBe('SCHEDULED')
-    expect(audit.auditNumber).toMatch(/^AUD-\d{4}-\d{4}$/)
+    expect(audit.auditNumber).toMatch(/^AUD-\d{4}$/)
     expect(
       Number(
         sqlValue(

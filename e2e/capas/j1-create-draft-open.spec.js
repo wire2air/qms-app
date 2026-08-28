@@ -7,11 +7,17 @@ import { findCapaByTitle, sqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
-  test('create CAPA (DRAFT) → Open CAPA (PENDING), workflow instantiated', async ({ page }) => {
+  test('create CAPA (DRAFT) → Start CAPA (OPEN), workflow instantiated', async ({ page }) => {
     const title = uniqueTitle('J1')
+    // ~~prefix = 'CAPA-HQ-QA'~~ — CAPA numbering went FLAT (capa/21). The number
+    // is no longer scoped by site and department, so the counter row this
+    // journey has to watch is the bare `CAPA` prefix. The old row still exists
+    // (frozen at 367) and would have satisfied `counterAfter > counterBefore`
+    // never — it stopped moving the day the format changed.
+    const COUNTER_PREFIX = 'CAPA'
     const counterBefore = Number(
       sqlValue(
-        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = 'CAPA-HQ-QA'`,
+        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = '${COUNTER_PREFIX}'`,
       ) || 0,
     )
 
@@ -20,12 +26,12 @@ test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
     const capa = findCapaByTitle(title)
     expect(capa, 'CAPA row exists').toBeTruthy()
     expect(capa.statusId).toBe('DRAFT')
-    expect(capa.capaNumber).toMatch(/^CAPA-HQ-QA-\d{3,}$/)
+    expect(capa.capaNumber).toMatch(/^CAPA-\d{3,}$/)
     await expect(page.getByText(capa.capaNumber).first()).toBeVisible()
 
     const counterAfter = Number(
       sqlValue(
-        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = 'CAPA-HQ-QA'`,
+        `SELECT current_value FROM capa_counters WHERE company_id = 'e2e00001-0000-4000-8000-000000000001' AND prefix = '${COUNTER_PREFIX}'`,
       ) || 0,
     )
     expect(counterAfter, 'counter incremented').toBeGreaterThan(counterBefore)
@@ -33,7 +39,7 @@ test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
     await openCapa(page, capa.id)
 
     const statusAfterOpen = sqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}'`)
-    expect(statusAfterOpen).toBe('PENDING')
+    expect(statusAfterOpen).toBe('OPEN')
 
     const wfInstanceCount = sqlValue(
       `SELECT count(*) FROM workflow_instances WHERE resource_type = 'Capa' AND resource_id = '${capa.id}'`,

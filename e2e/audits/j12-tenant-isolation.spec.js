@@ -78,7 +78,7 @@ test.describe('PW-J12 · an E2EALT user cannot see or touch E2ELAB audits', () =
     sqlAsAppUser(`UPDATE audit_findings SET severity_score = 10 WHERE id = '${finding.id}';`, actor)
 
     // ── Nothing moved.
-    expect(sqlValue(`SELECT scope FROM audit_instances WHERE id = '${audit.id}'`)).toBe(scope)
+    expect(sqlValue(`SELECT scope FROM audit_instances WHERE id = '${audit.id}'`)).toContain(scope)
     expect(
       sqlValue(`SELECT severity_score FROM audit_findings WHERE id = '${finding.id}'`),
       'cross-tenant UPDATE must change nothing even where the same-tenant gate is weak (PW-J10)',

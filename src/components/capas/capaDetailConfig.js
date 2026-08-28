@@ -78,7 +78,12 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Close CAPA',
       variant: 'primary',
       priority: 100,
-      visible: !!canCloseCapa && statusId === 'PENDING',
+      // 'OPEN', not 'PENDING'. 20260823100000-unified-record-statuses retired
+      // PENDING from capa_statuses; this gate kept comparing to it, so Close
+      // rendered for nobody on any CAPA — 152 of them in the E2E tenant alone.
+      // The list page was migrated in the same window (CapasHome.vue
+      // OPEN_STATUSES); only this action bar was missed. See capa/22 §1.
+      visible: !!canCloseCapa && statusId === 'OPEN',
       disabled: !canClose || !!closing,
       loading: !!closing,
       title: closeDisabledReason || undefined,
@@ -89,7 +94,8 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Cancel CAPA',
       variant: 'secondary',
       priority: 60,
-      visible: !!canCancel && statusId === 'PENDING',
+      // 'OPEN' — same retired status as Close above.
+      visible: !!canCancel && statusId === 'OPEN',
       disabled: !!cancelling,
       loading: !!cancelling,
       onSelect: handlers.openCancel,
