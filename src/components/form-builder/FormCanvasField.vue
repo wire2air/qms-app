@@ -62,9 +62,19 @@ const emit = defineEmits([
   'moveField',
   'addField',
   'insertField',
+  'hoistChildren',
 ])
 
 const childrenDropzoneRef = ref(null)
+
+// Approval and Effectiveness Check sections are SELF-CONTAINED steps (user
+// 2026-08-28): the sign-off / verdict panel is the whole step, so they carry
+// no form fields — the canvas offers no dropzone and no add-field for them.
+const isSelfContainedStep = computed(
+  () =>
+    props.field?.type === 'section' &&
+    ['APPROVAL', 'DELAY'].includes(props.field?.routing?.type),
+)
 
 // Click-to-edit for a layout container's title (section/row/column), which is
 // the only place a container's label surfaces now that leaf fields render
@@ -550,9 +560,39 @@ function beginEdit(which) {
       </div>
     </div>
 
+    <!-- Self-contained step sections: no dropzone, no add-field — plus a
+         rescue for fields already trapped inside (they render nowhere). -->
+    <div v-if="isSelfContainedStep" class="tw:mt-3">
+      <div
+        class="tw:rounded-xl tw:border tw:border-dashed tw:border-divider tw:bg-main/50 tw:p-3 tw:text-xs tw:text-secondary"
+      >
+        {{
+          field.routing.type === 'DELAY'
+            ? 'Effectiveness Check — self-contained. The verdict panel is the whole step; it carries no form fields.'
+            : 'Approval — self-contained. The assignee approves or rejects; it carries no form fields.'
+        }}
+      </div>
+      <div
+        v-if="children.length"
+        class="tw:mt-1.5 tw:flex tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-amber-800"
+      >
+        <span>
+          {{ children.length }} field{{ children.length === 1 ? '' : 's' }} trapped here —
+          never shown anywhere.
+        </span>
+        <button
+          type="button"
+          class="tw:shrink-0 tw:font-semibold tw:underline tw:hover:text-amber-900"
+          @click.stop="$emit('hoistChildren', path)"
+        >
+          Move out
+        </button>
+      </div>
+    </div>
+
     <!-- Children for layout fields (Input Tables manage columns via their own
          card, so they don't expose the nested drop zone). -->
-    <div v-if="isLayoutField && hasChildren && !isInputTable" class="tw:mt-3">
+    <div v-else-if="isLayoutField && hasChildren && !isInputTable" class="tw:mt-3">
       <div
         ref="childrenDropzoneRef"
         class="tw:min-h-20 tw:p-3 tw:bg-main/50 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-xl tw:flex tw:flex-wrap tw:content-start tw:gap-2 tw:transition-all"
@@ -575,6 +615,7 @@ function beginEdit(which) {
           @moveField="$emit('moveField', $event)"
           @addField="$emit('addField', $event)"
           @insertField="$emit('insertField', $event)"
+          @hoistChildren="$emit('hoistChildren', $event)"
         />
 
         <div

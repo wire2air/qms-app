@@ -71,6 +71,7 @@ const {
   isDragging,
   addField,
   removeField,
+  hoistChildren,
   moveField,
   selectField,
   clearSelection,
@@ -467,6 +468,7 @@ async function handleAiChatApply({ proposal, onApplied }) {
                 @configureField="handleSelectField"
                 @changeFieldKind="changeFieldKind"
                 @removeField="removeField"
+                @hoistChildren="hoistChildren"
                 @duplicateField="duplicateField"
                 @moveField="moveField"
               />

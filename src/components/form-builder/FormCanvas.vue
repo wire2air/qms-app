@@ -56,6 +56,7 @@ const emit = defineEmits([
   'removeField',
   'duplicateField',
   'moveField',
+  'hoistChildren',
 ])
 
 const canvasRef = ref(null)
@@ -177,6 +178,7 @@ function onPickType(type) {
       @moveField="onMoveField"
       @addField="onAddField"
       @insertField="onInsertField"
+      @hoistChildren="(p) => emit('hoistChildren', p)"
     />
   </div>
 
