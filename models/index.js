@@ -232,6 +232,11 @@ import { AnalyticsReportRun } from './analyticsReportRun'
 import { AnalyticsAlert } from './analyticsAlert'
 import { AnalyticsAlertEvent } from './analyticsAlertEvent'
 import { AnalyticsInsight } from './analyticsInsight'
+// Custom metrics — a tenant's own metric definitions, plus the read-only field
+// vocabulary they are built from. The COMPILED counterpart in analytics_metrics
+// is deliberately not modelled: app_user holds SELECT on it and nothing more.
+import { AnalyticsCustomMetric } from './analyticsCustomMetric'
+import { AnalyticsModuleField } from './analyticsModuleField'
 // AI sidecar (see backend/ai/README.md, AI_PLAN.md §11). All AI models are
 // grouped here. Existing models stay AI-agnostic.
 import { AiPat } from './aiPat'
@@ -463,6 +468,8 @@ export const db = {
   EventAttachment,
   AutomationRule,
   AnalyticsDashboard,
+  AnalyticsCustomMetric,
+  AnalyticsModuleField,
   AnalyticsWidget,
   AnalyticsReport,
   AnalyticsReportSchedule,
