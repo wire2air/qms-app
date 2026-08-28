@@ -63,18 +63,34 @@ const QUICK_PILLS = [
 ]
 const quickView = ref('all')
 
-// Created date, in the toolbar's filter menu (field-level filters live on the
-// columns themselves — see `filterable` on the table).
-const menuFilters = ref({ createdAt: null })
-const filterItems = [
-  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
-]
+// The cascading filter menu, CAPA-style: each configured field is a dimension
+// listing its POSSIBLE VALUES as checkboxes — configured choices for choice
+// fields, entity names for lookups, and for free text/number the distinct
+// values that actually occur in the register. Date fields get a date submenu.
+const menuFilters = ref({})
 
 const filteredRecords = computed(() => {
   let rows = records.value
   if (quickView.value !== 'all') rows = rows.filter((r) => r.statusId === quickView.value)
-  const { createdAt } = menuFilters.value
-  if (createdAt) rows = rows.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+  if (menuFilters.value.createdAt) {
+    rows = rows.filter((r) => matchesDateFilter(r.createdAt, menuFilters.value.createdAt))
+  }
+  for (const f of configuredFields.value) {
+    const selected = menuFilters.value[`pf_${f.name}`]
+    if (f.kind === 'date') {
+      if (!selected) continue
+      rows = rows.filter((r) => {
+        const dt = DateTime.fromISO(String(r.payload?.[f.name] ?? ''))
+        return dt.isValid && matchesDateFilter(dt, selected)
+      })
+    } else if (Array.isArray(selected) && selected.length) {
+      rows = rows.filter((r) => {
+        const raw = r.payload?.[f.name]
+        if (Array.isArray(raw)) return raw.some((v) => selected.includes(v))
+        return selected.includes(raw)
+      })
+    }
+  }
   return rows
 })
 
@@ -132,69 +148,59 @@ function payloadCellValue(field, row) {
   return raw
 }
 
-const FILTER_TYPE_BY_KIND = {
-  string: 'text',
-  number: 'number',
-  date: 'date',
-  enum: 'select',
-  boolean: 'select',
-  lookup: 'select',
+/** Possible values for one field's filter dimension — raw payload values as
+ *  option values so matching needs no translation; labels resolved for display. */
+function fieldValueOptions(field) {
+  if (field.kind === 'boolean') {
+    return [
+      { value: true, label: 'Yes' },
+      { value: false, label: 'No' },
+    ]
+  }
+  if (field.kind === 'enum') return field.options ?? []
+  const seen = new Set()
+  for (const r of records.value) {
+    const raw = r.payload?.[field.name]
+    if (raw == null || raw === '') continue
+    for (const v of Array.isArray(raw) ? raw : [raw]) seen.add(v)
+  }
+  if (field.kind === 'lookup') {
+    const byId = lookupLabels.value[LOOKUP_ENTITY_BY_VALUE[field.lookupEntity]?.model] ?? {}
+    return [...seen]
+      .map((id) => ({ value: id, label: byId[id] ?? String(id) }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }
+  return [...seen]
+    .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+    .slice(0, 30)
+    .map((v) => ({ value: v, label: String(v) }))
 }
 
-function columnFilterCfg(field) {
-  const filterType = FILTER_TYPE_BY_KIND[field.kind] ?? 'text'
-  if (filterType !== 'select') return { filterType }
-  // Select filters compare the CELL value, which is already the display form.
-  if (field.kind === 'boolean') {
-    return { filterType, filterOptions: [{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }] }
-  }
-  if (field.kind === 'enum') {
-    return {
-      filterType,
-      filterOptions: (field.options ?? []).map((o) => ({ value: o.label, label: o.label })),
-    }
-  }
-  const model = LOOKUP_ENTITY_BY_VALUE[field.lookupEntity]?.model
-  const labels = Object.values(lookupLabels.value[model] ?? {})
-  return { filterType, filterOptions: labels.map((l) => ({ value: l, label: l })) }
-}
+const KIND_ICONS = { lookup: IconForms, date: IconCalendar }
+const filterItems = computed(() => [
+  ...configuredFields.value.map((f) => ({
+    id: `pf_${f.name}`,
+    label: f.label || f.name,
+    icon: KIND_ICONS[f.kind] ?? IconForms,
+    group: `pf_${f.name}`,
+    ...(f.kind === 'date'
+      ? { type: 'date' }
+      : { options: fieldValueOptions(f), searchable: fieldValueOptions(f).length > 8 }),
+  })),
+  { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
+])
 const columns = computed(() => [
-  {
-    name: 'recordNumber',
-    label: 'NUMBER',
-    field: 'recordNumber',
-    align: 'left',
-    sortable: true,
-    filterType: 'text',
-  },
-  {
-    name: 'statusId',
-    label: 'STATUS',
-    field: 'statusId',
-    align: 'left',
-    sortable: false,
-    filterType: 'select',
-    filterOptions: QUICK_PILLS.filter((p) => p.value !== 'all').concat([
-      { value: 'CANCELLED', label: 'Cancelled' },
-    ]),
-  },
+  { name: 'recordNumber', label: 'NUMBER', field: 'recordNumber', align: 'left', sortable: true },
+  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
   ...configuredFields.value.map((f) => ({
     name: `pf_${f.name}`,
     label: (f.label || f.name).toUpperCase(),
     field: (row) => payloadCellValue(f, row),
     align: 'left',
     sortable: true,
-    ...columnFilterCfg(f),
   })),
-  {
-    name: 'createdAt',
-    label: 'CREATED',
-    field: 'createdAt',
-    align: 'left',
-    sortable: true,
-    filterType: 'date',
-  },
-  { name: 'actions', label: '', field: 'id', align: 'right', sortable: false, filterType: false },
+  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+  { name: 'actions', label: '', field: 'id', align: 'right', sortable: false },
 ])
 
 // The matrix decides (module verbs are seeded at promotion, managed in the
@@ -251,7 +257,7 @@ async function handleDelete() {
 
     <BaseStatStrip :items="kpiItems" />
 
-    <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable filterable>
+    <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable>
       <template #tabs>
         <BaseQuickFilterPills v-model="quickView" :pills="QUICK_PILLS" ariaLabel="Quick views" />
       </template>
