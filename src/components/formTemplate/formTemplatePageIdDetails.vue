@@ -2,6 +2,7 @@
 import { IconArchive, IconEdit, IconCode, IconRocket, IconBolt, IconChartBar } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { eligibleListFields } from '@/utils/moduleListColumns.js'
 
 const props = defineProps({
   id: {
@@ -43,6 +44,21 @@ const showPromote = ref(false)
 
 // Auto-save for template fields
 useAutoSave(template, { onError: (err) => toast.error(err.message || 'Failed to save') })
+
+// ─── Record-list columns (modules) ──────────────────────────────────────────
+// Which form fields the module's record list shows as table columns. Only
+// short-value field types qualify (see eligibleListFields); the picks live on
+// moduleConfig.listColumns in selection order and each renders filterable.
+const listFieldOptions = computed(() => eligibleListFields(template.value?.schema || []))
+const listColumns = computed({
+  get: () => template.value?.moduleConfig?.listColumns ?? [],
+  set: (v) => {
+    template.value.moduleConfig = {
+      ...(template.value.moduleConfig || {}),
+      listColumns: v ?? [],
+    }
+  },
+})
 
 // Site assignments (junction table — separate handler)
 const addSiteOnTemplate = useLiveMutation(async (db, { templateId, siteId }) => {
@@ -299,6 +315,42 @@ async function handleArchiveToggle() {
                 </div>
               </BaseField>
             </div>
+          </div>
+
+          <!-- Record list columns (modules) — which form fields the record
+               register shows as table columns, between Status and Created. -->
+          <div
+            v-if="template.isModule"
+            class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider"
+          >
+            <BaseText as="h4" variant="overline" class="tw:block">Record List</BaseText>
+            <BaseField label="Table columns">
+              <BaseSelect
+                v-if="canUpdate"
+                v-model="listColumns"
+                :options="listFieldOptions"
+                optionLabel="label"
+                optionValue="name"
+                multiple
+                clearable
+                placeholder="Number, Status and Created only"
+              />
+              <div v-else class="tw:text-sm tw:text-on-main">
+                {{
+                  listColumns.length
+                    ? listFieldOptions
+                        .filter((f) => listColumns.includes(f.name))
+                        .map((f) => f.label)
+                        .join(', ')
+                    : '—'
+                }}
+              </div>
+              <p class="tw:text-caption tw:text-secondary tw:mt-1">
+                Only short-value fields qualify — text, number, date, choices, yes/no and
+                lookups. Long text, tables, files and layout elements can't render in a cell.
+                Each chosen column is filterable on the record list.
+              </p>
+            </BaseField>
           </div>
 
           <!-- JSON Configuration -->

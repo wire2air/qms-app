@@ -8,17 +8,12 @@ import {
   IconAlertCircle,
   IconCircleCheck,
   IconCalendar,
-  IconTargetArrow,
 } from '@tabler/icons-vue'
 import { isAllowed, isAllowedOnRecord } from '@/utils/currentSession.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
-import {
-  useEffectivenessIndex,
-  matchesEffectivenessFilter,
-  isEffectivenessOverdue,
-  EFFECTIVENESS_FILTER_OPTIONS,
-  EFFECTIVENESS_STATE_LABELS,
-} from '@/composables/useEffectivenessRollup.js'
+import { selectedListFields } from '@/utils/moduleListColumns.js'
+import { LOOKUP_ENTITY_BY_VALUE } from '@/constants/formBuilderConfig.js'
+import { DateTime } from 'luxon'
 
 const props = defineProps({ moduleKey: { type: String, required: true } })
 const router = useRouter()
@@ -68,50 +63,139 @@ const QUICK_PILLS = [
 ]
 const quickView = ref('all')
 
-// Effectiveness (three buckets) + created date, in the toolbar's filter menu.
-const effectivenessIndex = useEffectivenessIndex(() => props.moduleKey)
-const menuFilters = ref({ effectiveness: [], createdAt: null })
+// Created date, in the toolbar's filter menu (field-level filters live on the
+// columns themselves — see `filterable` on the table).
+const menuFilters = ref({ createdAt: null })
 const filterItems = [
-  {
-    id: 'effectiveness',
-    label: 'Effectiveness',
-    icon: IconTargetArrow,
-    group: 'effectiveness',
-    options: EFFECTIVENESS_FILTER_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-  },
   { id: 'createdAt', label: 'Created date', icon: IconCalendar, group: 'createdAt', type: 'date' },
 ]
 
 const filteredRecords = computed(() => {
   let rows = records.value
   if (quickView.value !== 'all') rows = rows.filter((r) => r.statusId === quickView.value)
-  const { effectiveness, createdAt } = menuFilters.value
-  if (effectiveness?.length) {
-    rows = rows.filter((r) =>
-      matchesEffectivenessFilter(effectivenessIndex.value.get(r.id), effectiveness),
-    )
-  }
+  const { createdAt } = menuFilters.value
   if (createdAt) rows = rows.filter((r) => matchesDateFilter(r.createdAt, createdAt))
   return rows
 })
-function effectivenessCell(row) {
-  const wi = effectivenessIndex.value.get(row.id)
-  const state = wi?.effectivenessState ?? 'NONE'
-  if (state === 'NONE') return { label: '—', due: null, overdue: false }
-  return {
-    label: EFFECTIVENESS_STATE_LABELS[state] ?? state,
-    due: wi.effectivenessDueAt,
-    overdue: isEffectivenessOverdue(wi),
+
+// ─── Configured payload columns (moduleConfig.listColumns, 2026-08-28) ──────
+// The module author picks which form fields the register shows; each pick
+// becomes a real DataTable column whose value reads off record.payload and
+// whose filterType follows the field kind — CAPA/NC-style column filtering.
+const configuredFields = computed(() =>
+  selectedListFields(template.value?.schema || [], template.value?.moduleConfig?.listColumns),
+)
+
+// UUID → display label per lookup entity used by the configured columns, so
+// lookup cells (and their filters/search/export) operate on names, not ids.
+const lookupModels = computed(() => [
+  ...new Set(
+    configuredFields.value
+      .filter((f) => f.kind === 'lookup' && f.lookupEntity)
+      .map((f) => LOOKUP_ENTITY_BY_VALUE[f.lookupEntity].model),
+  ),
+])
+const lookupLabels = useLiveQueryWithDeps(
+  [() => lookupModels.value.join(',')],
+  async (db, [modelsStr]) => {
+    if (!modelsStr) return {}
+    const out = {}
+    await Promise.all(
+      modelsStr.split(',').map(async (model) => {
+        const rows = await db[model].where().exec()
+        out[model] = Object.fromEntries(
+          rows.map((r) => [r.id, [r.firstName, r.lastName].filter(Boolean).join(' ') || r.name]),
+        )
+      }),
+    )
+    return out
+  },
+  { initial: {} },
+)
+
+function payloadCellValue(field, row) {
+  const raw = row.payload?.[field.name]
+  if (raw == null || raw === '') return ''
+  if (field.kind === 'lookup') {
+    const model = LOOKUP_ENTITY_BY_VALUE[field.lookupEntity]?.model
+    return lookupLabels.value[model]?.[raw] ?? ''
   }
+  if (field.kind === 'boolean') return raw ? 'Yes' : 'No'
+  if (field.kind === 'enum') {
+    const label = (v) => field.options?.find((o) => o.value === v)?.label ?? String(v)
+    return Array.isArray(raw) ? raw.map(label).join(', ') : label(raw)
+  }
+  if (field.kind === 'date') {
+    const dt = DateTime.fromISO(String(raw))
+    return dt.isValid ? dt.formatDate('date') : String(raw)
+  }
+  return raw
 }
 
-const columns = [
-  { name: 'recordNumber', label: 'NUMBER', field: 'recordNumber', align: 'left', sortable: true },
-  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: false },
-  { name: 'effectiveness', label: 'EFFECTIVENESS', field: 'id', align: 'left', sortable: false },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'id', align: 'right', sortable: false },
-]
+const FILTER_TYPE_BY_KIND = {
+  string: 'text',
+  number: 'number',
+  date: 'date',
+  enum: 'select',
+  boolean: 'select',
+  lookup: 'select',
+}
+
+function columnFilterCfg(field) {
+  const filterType = FILTER_TYPE_BY_KIND[field.kind] ?? 'text'
+  if (filterType !== 'select') return { filterType }
+  // Select filters compare the CELL value, which is already the display form.
+  if (field.kind === 'boolean') {
+    return { filterType, filterOptions: [{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }] }
+  }
+  if (field.kind === 'enum') {
+    return {
+      filterType,
+      filterOptions: (field.options ?? []).map((o) => ({ value: o.label, label: o.label })),
+    }
+  }
+  const model = LOOKUP_ENTITY_BY_VALUE[field.lookupEntity]?.model
+  const labels = Object.values(lookupLabels.value[model] ?? {})
+  return { filterType, filterOptions: labels.map((l) => ({ value: l, label: l })) }
+}
+const columns = computed(() => [
+  {
+    name: 'recordNumber',
+    label: 'NUMBER',
+    field: 'recordNumber',
+    align: 'left',
+    sortable: true,
+    filterType: 'text',
+  },
+  {
+    name: 'statusId',
+    label: 'STATUS',
+    field: 'statusId',
+    align: 'left',
+    sortable: false,
+    filterType: 'select',
+    filterOptions: QUICK_PILLS.filter((p) => p.value !== 'all').concat([
+      { value: 'CANCELLED', label: 'Cancelled' },
+    ]),
+  },
+  ...configuredFields.value.map((f) => ({
+    name: `pf_${f.name}`,
+    label: (f.label || f.name).toUpperCase(),
+    field: (row) => payloadCellValue(f, row),
+    align: 'left',
+    sortable: true,
+    ...columnFilterCfg(f),
+  })),
+  {
+    name: 'createdAt',
+    label: 'CREATED',
+    field: 'createdAt',
+    align: 'left',
+    sortable: true,
+    filterType: 'date',
+  },
+  { name: 'actions', label: '', field: 'id', align: 'right', sortable: false, filterType: false },
+])
 
 // The matrix decides (module verbs are seeded at promotion, managed in the
 // permissions UI). Suppliers and unverbed internal users see the list they can
@@ -167,7 +251,7 @@ async function handleDelete() {
 
     <BaseStatStrip :items="kpiItems" />
 
-    <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable>
+    <DataTable :rows="filteredRecords" :columns="columns" rowKey="id" searchable filterable>
       <template #tabs>
         <BaseQuickFilterPills v-model="quickView" :pills="QUICK_PILLS" ariaLabel="Quick views" />
       </template>
@@ -198,19 +282,6 @@ async function handleDelete() {
       </template>
       <template #body-cell-statusId="{ row }">
         <RecordStatusBadgeById :statusId="row.statusId" />
-      </template>
-      <template #body-cell-effectiveness="{ row }">
-        <span
-          v-if="effectivenessCell(row).label !== '—'"
-          class="tw:text-sm"
-          :class="effectivenessCell(row).overdue ? 'tw:text-red-700 tw:font-medium' : 'tw:text-on-main'"
-        >
-          {{ effectivenessCell(row).label
-          }}<template v-if="effectivenessCell(row).due">
-            · {{ effectivenessCell(row).due.formatDate('date') }}</template
-          >
-        </span>
-        <span v-else class="tw:text-sm tw:text-secondary">—</span>
       </template>
       <template #body-cell-createdAt="{ row }">
         {{ row.createdAt?.formatDate?.() ?? '—' }}
