@@ -13,7 +13,7 @@ import { findNcByTitle, sql, sqlValue, sqlRow, waitForSqlValue } from '../fixtur
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J5 · convert an internal NC to supplier-facing', () => {
-  test('owner converts an UNDER_REVIEW NC — reassignment + banner', async ({ page }) => {
+  test('owner converts an OPEN NC — reassignment + banner', async ({ page }) => {
     test.setTimeout(90_000)
     const title = uniqueTitle('J5')
     await raiseNc(page, title)
@@ -30,11 +30,11 @@ test.describe('PW-J5 · convert an internal NC to supplier-facing', () => {
     )
     expect(ncRow[0]).toBe('t')
     expect(ncRow[1]).toBe(SUPPLIER_IDS.withPortal)
-    expect(ncRow[2], 'status unchanged by conversion').toBe('UNDER_REVIEW')
+    expect(ncRow[2], 'status unchanged by conversion').toBe('OPEN')
 
     // UI banner. NOTE: a plain reload doesn't reliably pick this up — the
     // controller's own AuditLog.create() for this action uses entityType
-    // 'Nonconformance' (singular), unlike this same NC's CREATE/UNDER_REVIEW
+    // 'Nonconformance' (singular), unlike this same NC's CREATE/OPEN
     // rows which use the table-derived plural 'Nonconformances'; if the sync
     // service resolves entity_type -> table for the live socket broadcast,
     // that mismatch would silently drop the push (a real gap, flagged

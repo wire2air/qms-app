@@ -10,15 +10,20 @@ test.describe('PW-J4 · Nonconformances list — KPIs, quick pills, filters', ()
     test.setTimeout(60_000)
     await page.goto('/nonconformances')
 
-    // KPI strip. "Overdue" also matches the quick-filter pill further down the
-    // page — the KPI label renders first in DOM order, so .first() is the KPI.
-    for (const label of ['Open NCs', 'Overdue', 'Critical open', 'Closed this month']) {
+    // KPI strip. No "Overdue" tile: `94618bd9` / `e694297e` took the due date off
+    // NC, CAPA and Quality Event ("stop showing a due date nobody acts on"), and
+    // overdue was derived from it, so both the tile and its pill went with it.
+    // NonconformancesHome.vue now has zero references to overdue or dueDate.
+    for (const label of ['Open NCs', 'Critical open', 'Closed this month']) {
       await expect(page.getByText(label, { exact: true }).first()).toBeVisible({ timeout: 15_000 })
     }
 
-    // Quick-filter pills — "All open" is the default active pill.
+    // Quick-filter pills — "All open" is the default active pill. "All" was added
+    // alongside the Overdue removal: every other pill narrows to some subset of
+    // open, so without it there was no way to see the whole register at once
+    // (NonconformancesTable.vue:31-41).
     const pillGroup = page.getByRole('group', { name: 'Quick views' })
-    for (const label of ['All open', 'My NCs', 'Critical', 'Major', 'Overdue', 'Closed']) {
+    for (const label of ['All', 'All open', 'My NCs', 'Critical', 'Major', 'Closed']) {
       await expect(pillGroup.getByRole('button', { name: label, exact: true })).toBeVisible()
     }
     await expect(pillGroup.getByRole('button', { name: 'All open', exact: true })).toHaveAttribute(
@@ -39,7 +44,7 @@ test.describe('PW-J4 · Nonconformances list — KPIs, quick pills, filters', ()
       sqlValue(
         `SELECT count(*) FROM nonconformances
           WHERE company_id = '${COMPANY_ID}' AND owner_id = '${USERS.author.id}'
-            AND status_id IN ('DRAFT','UNDER_REVIEW') AND deleted_at IS NULL`,
+            AND status_id IN ('DRAFT','OPEN') AND deleted_at IS NULL`,
       ),
     )
     // DataTable paginates at 50 rows/page (this dev DB accumulates NC rows
@@ -66,7 +71,7 @@ test.describe('PW-J4 · Nonconformances list — KPIs, quick pills, filters', ()
       sqlValue(
         `SELECT count(*) FROM nonconformances
           WHERE company_id = '${COMPANY_ID}' AND severity_id = 'CRITICAL'
-            AND status_id IN ('DRAFT','UNDER_REVIEW') AND deleted_at IS NULL`,
+            AND status_id IN ('DRAFT','OPEN') AND deleted_at IS NULL`,
       ),
     )
     if (criticalExpected === 0) {

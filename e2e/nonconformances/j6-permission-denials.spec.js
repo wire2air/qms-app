@@ -9,7 +9,16 @@ import { findNcByTitle } from '../fixtures/db.js'
 // hardcoded http://…:4000 origin silently ignores that override.
 
 test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
-  test('a reviewer (ncr:read only) cannot submit-for-review an NC they do not own -> 403', async ({
+  // Uses the AUDITOR, not the reviewer. The reviewer is no longer a read-only
+  // persona: since 2026-08-19 an ACTION step assignee must hold `<module>:update`
+  // (workflowStepAccess.js), so the seed now grants ncReviewer `ncr:update` — and
+  // with it this probe returned 409, not 403, because the request got past the
+  // permission gate and failed on state instead. That is a weaker assertion
+  // wearing the same green tick.
+  //
+  // `auditor` holds `ncr:read` and nothing else, which is what this test has
+  // always meant by "read only". Same move the CR suite made for the same reason.
+  test('a read-only user (ncr:read) cannot submit-for-review an NC they do not own -> 403', async ({
     browser,
   }) => {
     test.setTimeout(60_000)
@@ -20,13 +29,13 @@ test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
     const nc = findNcByTitle(title)
     await ownerCtx.close()
 
-    const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
-    const res = await reviewerCtx.request.post(
+    const readOnlyCtx = await browser.newContext({ storageState: AUTH.auditor })
+    const res = await readOnlyCtx.request.post(
       `/api/v1/services/nonconformances/${nc.id}/submitForReview`,
       { data: {} },
     )
-    expect(res.status()).toBe(403)
-    await reviewerCtx.close()
+    expect(res.status(), await res.text().catch(() => '')).toBe(403)
+    await readOnlyCtx.close()
   })
 
   test('a user with no ncr permission is redirected to /no-access', async ({ browser }) => {
@@ -69,10 +78,10 @@ test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
     expect(res.status(), 'a different tenant company_id must 404, not leak the row').toBe(404)
     await altCtx.close()
 
-    // The NC is untouched (still UNDER_REVIEW from its auto-open, still
+    // The NC is untouched (still OPEN from its auto-open, still
     // owned by E2ELAB's author).
     const untouched = findNcByTitle(title)
-    expect(untouched.statusId).toBe('UNDER_REVIEW')
+    expect(untouched.statusId).toBe('OPEN')
     expect(untouched.id).toBe(nc.id)
   })
 })

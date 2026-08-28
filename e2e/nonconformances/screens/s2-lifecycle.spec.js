@@ -1,6 +1,6 @@
 // NCR screenshots · S2 — the record lifecycle.
 //   Create form (blank → filled → "Assign Step Reviewers"), the DRAFT detail,
-//   the Open-NC confirm, the UNDER_REVIEW record, the close-blocked action bar
+//   the Open-NC confirm, the OPEN record, the close-blocked action bar
 //   with its gate reason, the Disposition card once filled, the Approve & Close
 //   dialog + e-signature, and the CLOSED record. Details / Workflow /
 //   Disposition are anchor-nav sections, so one full-page capture carries them.
@@ -55,11 +55,11 @@ test.describe('NCR screenshots · raise → review → disposition → e-signed 
     const nc = findNcByTitle(title)
 
     // Create-and-open (2026-08-10): raiseNc lands on the record already
-    // UNDER_REVIEW — the DRAFT detail and the Open-NC confirm no longer
+    // OPEN — the DRAFT detail and the Open-NC confirm no longer
     // exist on this path (drafts remain only for QC-lot spawns).
     await waitForSqlValue(
-      `SELECT status_id FROM nonconformances WHERE id = '${nc.id}' AND status_id = 'UNDER_REVIEW'`,
-      { timeoutMs: 45_000, label: 'NC UNDER_REVIEW' },
+      `SELECT status_id FROM nonconformances WHERE id = '${nc.id}' AND status_id = 'OPEN'`,
+      { timeoutMs: 45_000, label: 'NC OPEN' },
     )
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('button', { name: 'Approve & Close' })).toBeVisible({

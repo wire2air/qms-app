@@ -16,7 +16,7 @@ export function uniqueTitle(tag) {
  * required fields (title, containment, classification, item), submit, and
  * confirm the auto-populated "Assign Step Reviewers" dialog. Create NC also
  * OPENS the NC (create-and-open, 2026-08-10) — the function ends on the new
- * NC's detail page with the workflow already running (UNDER_REVIEW).
+ * NC's detail page with the workflow already running (OPEN).
  * Returns the title.
  */
 /**
@@ -104,7 +104,7 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
 }
 
 // (openNc removed 2026-08-10: Create NC now opens the workflow in the same
-// action — raiseNc already ends UNDER_REVIEW. The detail page's Open NC
+// action — raiseNc already ends OPEN. The detail page's Open NC
 // button still exists for NCs that arrive as drafts, e.g. QC-lot spawns.)
 
 /**
@@ -251,7 +251,7 @@ export async function expectMarkCompleteRejected(page, ncId, expectedMessage) {
   expect(body?.error?.message ?? '', 'server gate message').toMatch(expectedMessage)
 }
 
-/** Owner converts an UNDER_REVIEW NC to supplier-facing. */
+/** Owner converts an OPEN NC to supplier-facing. */
 export async function convertToSupplierFacing(page, supplierName) {
   // Priority 20 — below the DetailActionBar's inline top-2, so it lives in the
   // "More actions" overflow menu, not as an inline button.

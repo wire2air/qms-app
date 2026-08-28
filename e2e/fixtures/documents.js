@@ -97,17 +97,43 @@ export async function createSopDocument(page, title, opts = {}) {
   // over the Department field below. No Documents spec asserts on the resulting
   // site, so company-wide is a safe choice here.
   // BaseCheckbox renders the real <input> as `sr-only` behind a styled <span>,
-  // so a normal check() is intercepted by that span. force:true targets the
-  // input directly; the assertion below is what proves the click actually took.
+  // so a normal check() is intercepted by that span.
+  //
+  // force:true on the input is NOT the answer, though it held for a while.
+  // Tailwind's `sr-only` is a 1x1 box with `margin: -1px`, so the input sits one
+  // pixel up-and-left of its <label> — its centre is OUTSIDE the label's box.
+  // A forced click there lands on whatever is behind it, the input never
+  // toggles, and Playwright reports "Clicking the checkbox did not change its
+  // state". It only ever passed on sub-pixel rounding, and a layout change in
+  // this window tipped it over — taking 13 of the 14 documents specs with it,
+  // since every journey routes through this helper.
+  //
+  // Click the visible label instead: that is what a person clicks, the browser
+  // forwards it to the associated control, and it does not depend on the
+  // geometry of a deliberately-invisible element. e2e/sites/j6 already does this.
+  // Guarded on isChecked() because a label click TOGGLES — it is not check().
   const allSites = page.getByLabel('All sites (company-wide)')
-  await allSites.check({ force: true })
+  if (!(await allSites.isChecked())) {
+    await page.getByText('All sites (company-wide)', { exact: true }).click()
+  }
   await expect(allSites).toBeChecked()
   await selectFirstOption(page, 'Department')
 
-  // The workflow picker is a clickable-row list, not a combobox.
-  await page
-    .getByRole('button', { name: `Select workflow ${FIXTURES.approvalWorkflowName}` })
-    .click()
+  // There is no workflow picker any more. The approval flow is INHERITED from
+  // the template and rendered read-only (DocumentsCreateProperties.vue: "the
+  // template is the single source of truth for how its documents get
+  // approved", 2026-08-15); WorkflowVersionSelect is no longer mounted by any
+  // documents component, so `Select workflow <name>` can never resolve.
+  //
+  // Wait for the inherited steps instead. That is the correct readiness gate,
+  // not just a substitute for the click: `form.workflowVersionId` is only
+  // populated once the template resolves, the field is `required` whenever a
+  // template is chosen, and Create Document is refused without it. It also pins
+  // the new behaviour — if the flow ever stops being inherited, this fails here
+  // rather than surfacing as a confusing validation error on submit.
+  await expect(page.getByText(FIXTURES.sopTemplateApprovalStep1, { exact: true })).toBeVisible({
+    timeout: 15_000,
+  })
 
   if (opts.beforeSubmit) await opts.beforeSubmit(page)
 
@@ -203,14 +229,32 @@ export async function submitForReview(page, opts = {}) {
     const combo = pickers.nth(i)
     await combo.scrollIntoViewIfNeeded()
     const wanted = reviewersByStep[i]
-    if (wanted) {
-      await combo.click()
-      await page.getByRole('listbox').getByRole('option', { name: wanted }).first().click()
-    } else {
-      // Keyboard nav is stable against the listbox open/candidate-load animation:
-      // ArrowDown highlights the first option, Enter selects it.
-      await selectFirstByKeyboard(combo)
-    }
+    // Scope to THIS combobox's own panel — a page-wide getByRole('listbox')
+    // also matches the previous step's panel while it is still open (see below).
+    const listboxId = await combo.getAttribute('aria-controls')
+    const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
+
+    // Open it, tolerating both a missed click and async candidate loading.
+    await expect(async () => {
+      if (!(await listbox.isVisible().catch(() => false))) await combo.click()
+      await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
+    }).toPass({ timeout: 30_000 })
+
+    // CLICK the option — do not use selectFirstByKeyboard here. This picker is a
+    // MULTI-select ("Select reviewer(s)…"); ArrowDown highlights a candidate but
+    // Enter does not commit it, so both steps silently stayed empty and Submit
+    // stayed disabled with "Pick at least one reviewer for <steps>". The
+    // single-selects on the create form (Department) do commit on Enter, which is
+    // why selectFirstByKeyboard is still correct for them.
+    const option = wanted
+      ? listbox.getByRole('option', { name: wanted }).first()
+      : listbox.getByRole('option').first()
+    await option.click()
+
+    // A multi-select panel does NOT auto-close after a pick, and an open panel
+    // sits over the next step's combobox. Close it before moving on.
+    await page.keyboard.press('Escape')
+    await expect(listbox).toBeHidden({ timeout: 5_000 })
   }
 
   const submitBtn = dialog.getByRole('button', { name: 'Submit for Review' })

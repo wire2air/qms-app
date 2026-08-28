@@ -388,6 +388,14 @@ export const LOG_BOOK = {
 export const FIXTURES = {
   sopTemplateName: 'E2E SOP Template', // PUBLISHED, prefix ESOP, 3 sections, training OFF
   approvalWorkflowName: 'E2E Document Approval', // step1 ACTION → Reviewer, step2 APPROVAL+e-sign → Approver
+  // A document's approval flow is INHERITED from its template (2026-08-15) —
+  // the create form no longer offers a workflow picker. Each template carries
+  // its own "<template> — Approval" workflow, so the flow the SOP journeys
+  // actually run is this one, NOT `approvalWorkflowName` above (which remains
+  // the seeded standalone workflow used elsewhere). The create form renders
+  // these two steps read-only; step 1's name is the readiness anchor.
+  sopTemplateApprovalStep1: 'Technical Review',
+  sopTemplateApprovalStep2: 'Approval',
   // NCR — reuses the same cast: author=ncOwner (ncr:create/read/update, owns via
   // nc.ownerId), reviewer=step-1 ACTION assignee (ncr:read), approver=step-2
   // APPROVAL+e-sign assignee (ncr:read/approve), auditor=ncr:read, noAccess=no

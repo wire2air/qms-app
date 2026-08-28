@@ -5,7 +5,7 @@
 // Send-Back — WorkflowStepActionsMenu.vue:145-166 — it does NOT terminate the
 // workflow or change the NC's status (reviewer's task stays ASSIGNED, a
 // SENT_BACK marker task is minted, the owner is notified). The transition that
-// actually reverts UNDER_REVIEW -> DRAFT is /rejectStepTask on the APPROVAL
+// actually reverts OPEN -> DRAFT is /rejectStepTask on the APPROVAL
 // step (step 2, approver) — nonconformanceHandler.onRejection. This spec tests
 // the real behavior for both.
 import { test, expect } from '../../video/fixtures/videoTest.js'
@@ -45,10 +45,10 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     expect(step1Status).toBe('APPROVED')
 
     const ncStatus = sqlValue(`SELECT status_id FROM nonconformances WHERE id = '${nc.id}'`)
-    expect(ncStatus, 'NC stays UNDER_REVIEW mid-workflow').toBe('UNDER_REVIEW')
+    expect(ncStatus, 'NC stays OPEN mid-workflow').toBe('OPEN')
   })
 
-  test('approver rejects step 2 (APPROVAL) -> NC reverts UNDER_REVIEW to DRAFT', async ({
+  test('approver rejects step 2 (APPROVAL) -> NC reverts OPEN to DRAFT', async ({
     browser,
   }) => {
     test.setTimeout(150_000)
@@ -70,7 +70,17 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
     const approverPage = await approverCtx.newPage()
     await approverPage.goto(`/nonconformances/${nc.id}`, { waitUntil: 'domcontentloaded' })
-    await clickWhenReady(approverPage, approverPage.getByRole('button', { name: 'More actions' }))
+    const moreActions = approverPage.getByRole('button', { name: 'More actions' })
+    // Centre the trigger before opening its menu. The approval step sits at the
+    // bottom of a 1280x720 viewport and the actions menu opens DOWNWARD without
+    // flipping when there is no room, so the menu renders below the fold: the
+    // "Reject" item resolves and reports visible+enabled+stable, then every click
+    // retries with "element is outside of the viewport" until the timeout.
+    // scrollIntoViewIfNeeded is not enough — it stops as soon as the trigger
+    // itself is on screen, which leaves it exactly where the menu has no room.
+    // (The menu not flipping is a real UI issue at this height, not a test one.)
+    await moreActions.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await clickWhenReady(approverPage, moreActions)
     await approverPage.getByRole('menuitem', { name: 'Reject' }).click()
     await expect(approverPage.getByPlaceholder('Why are you rejecting?')).toBeVisible({
       timeout: 10_000,
@@ -107,7 +117,7 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
 
     // Explicit audit trail for the rejection. Verified live: the generic audit
     // trigger writes the table-derived plural ('Nonconformances', see CREATE/
-    // UNDER_REVIEW rows in J1), but the handler's explicit AuditLog.create for
+    // OPEN rows in J1), but the handler's explicit AuditLog.create for
     // REJECT uses the module's singular entityName ('Nonconformance') instead —
     // a real (harmless) casing inconsistency between the two audit paths.
     const rejectAuditRows = sqlValue(
