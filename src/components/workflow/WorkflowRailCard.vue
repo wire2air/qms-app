@@ -79,6 +79,65 @@ const workflow = useLiveQueryWithDeps(
 
 const isRunning = computed(() => !!workflowInstance.value)
 
+// ── Effectiveness check status (2026-08-28) ─────────────────────────────────
+// When the workflow carries a captures_effectiveness DELAY step, the rail
+// tells its truth here — scheduled date, verdict, extensions — instead of a
+// misleading generic timestamp. Renders nothing when no such step exists.
+const effectivenessStep = useLiveQueryWithDeps(
+  [() => workflowInstance.value?.id],
+  async (db, [instanceId]) => {
+    if (!instanceId) return null
+    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', instanceId).exec()
+    const candidates = steps.filter(
+      (st) => st.capturesEffectiveness && st.stepType === 'DELAY' && !st.parentInstanceStepId,
+    )
+    if (!candidates.length) return null
+    // Latest instance-step per template step (send-back churn), newest wins.
+    return candidates.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )[0]
+  },
+  { models: ['WorkflowInstanceStep'], initial: null },
+)
+
+const effectivenessLine = computed(() => {
+  const st = effectivenessStep.value
+  if (!st) return null
+  if (st.effectivenessOutcome) {
+    const verdict = st.effectivenessOutcome === 'EFFECTIVE' ? 'Effective' : 'Not effective'
+    const when = st.completedAt?.formatDate?.('date')
+    return { tone: st.effectivenessOutcome === 'EFFECTIVE' ? 'good' : 'bad', text: when ? `${verdict} — ${when}` : verdict }
+  }
+  if (st.statusId === 'SKIPPED') return { tone: 'muted', text: 'Skipped' }
+  if (st.statusId === 'CANCELLED') return { tone: 'muted', text: 'Cancelled' }
+  if (st.statusId === 'SCHEDULED') {
+    return st.delayUntil
+      ? { tone: 'info', text: `Scheduled — fires ${st.delayUntil.formatDate?.('date')}` }
+      : { tone: 'warn', text: 'Awaiting scheduling' }
+  }
+  if (st.statusId === 'IN_PROGRESS') {
+    const due = st.delayUntil?.formatDate?.('date')
+    return { tone: 'info', text: due ? `Verdict pending — due ${due}` : 'Verdict pending' }
+  }
+  return { tone: 'muted', text: st.statusId }
+})
+
+const effectivenessExtensions = computed(() => {
+  const st = effectivenessStep.value
+  if (!st) return null
+  const used = st.delayExtensionCount ?? 0
+  if (!used) return null
+  return `Extensions used ${used}/${st.maxDelayExtensions ?? 1}`
+})
+
+const EFFECTIVENESS_TONES = {
+  good: 'tw:text-emerald-700',
+  bad: 'tw:text-red-700',
+  info: 'tw:text-on-main',
+  warn: 'tw:text-amber-700',
+  muted: 'tw:text-secondary',
+}
+
 /** "Default CAPA Workflow v1.0" — the name alone is ambiguous once a template
  *  has more than one version, and which version a record is on is exactly what
  *  you need to know when its steps do not match the current template. */
@@ -177,6 +236,20 @@ const selectedWorkflowVersionId = computed({
       >
         View workflow template →
       </RouterLink>
+
+      <!-- Effectiveness check — only when the running workflow carries one. -->
+      <div
+        v-if="effectivenessLine"
+        class="tw:mt-2 tw:flex tw:flex-col tw:gap-0.5 tw:border-t tw:border-divider tw:pt-2"
+      >
+        <BaseText color="secondary" class="tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide">
+          Effectiveness check
+        </BaseText>
+        <BaseText class="tw:text-sm" :class="EFFECTIVENESS_TONES[effectivenessLine.tone]">
+          {{ effectivenessLine.text }}
+        </BaseText>
+        <BaseCaption v-if="effectivenessExtensions">{{ effectivenessExtensions }}</BaseCaption>
+      </div>
     </div>
 
     <!-- Draft and the user may change it: one dropdown row, not a grid of

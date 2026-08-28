@@ -1055,6 +1055,9 @@ function activityLabel(statusId) {
           <span class="tw:flex tw:flex-col tw:gap-0.5">
             <span class="tw:text-sm tw:font-medium tw:text-on-main">{{ opt.label }}</span>
             <span class="tw:text-xs tw:text-secondary">{{ opt.blurb }}</span>
+            <span v-if="opt.disabled && opt.disabledReason" class="tw:text-xs tw:text-amber-700">
+              {{ opt.disabledReason }}
+            </span>
           </span>
         </div>
       </div>

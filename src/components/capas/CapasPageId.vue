@@ -637,7 +637,7 @@ const capaDetailConfig = computed(() =>
       <BaseRailCard title="Schedule">
         <BaseDetailField
           v-if="capa.verifiedAt"
-          label="Verified"
+          label="Workflow completed"
           :value="capa.verifiedAt.formatDate('dateTime')"
         />
         <BaseDetailField
