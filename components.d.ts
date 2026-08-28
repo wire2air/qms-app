@@ -11,7 +11,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    _pbase: typeof import('./src/components/analytics/_pbase.vue')['default']
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
     ActiveSessions: typeof import('./src/components/security/ActiveSessions.vue')['default']
     AddRecordDialog: typeof import('./src/components/records/AddRecordDialog.vue')['default']
@@ -518,6 +517,7 @@ declare module 'vue' {
     DashboardQcLots: typeof import('./src/components/dashboard/DashboardQcLots.vue')['default']
     DashboardQuickActions: typeof import('./src/components/dashboard/DashboardQuickActions.vue')['default']
     DashboardRecentAudits: typeof import('./src/components/dashboard/DashboardRecentAudits.vue')['default']
+    DashboardSharingDialog: typeof import('./src/components/analytics/DashboardSharingDialog.vue')['default']
     DashboardsHome: typeof import('./src/components/analytics/DashboardsHome.vue')['default']
     DashboardVisibilityBadge: typeof import('./src/components/badges/DashboardVisibilityBadge.vue')['default']
     DashboardVisibilityBadgeById: typeof import('./src/components/badges/DashboardVisibilityBadgeById.vue')['default']

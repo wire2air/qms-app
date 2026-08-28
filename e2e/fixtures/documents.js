@@ -136,11 +136,45 @@ export async function createSopDocument(page, title, opts = {}) {
     timeout: 15_000,
   })
 
+  // The form must have inherited THIS template — not merely *a* template.
+  //
+  // Observed 2026-08-28 (PW-J1, trace + DB): the form model held the seeded
+  // template's id (the CreateDocument mutation carries
+  // documentTemplateId=e2e50000-…-001) while everything DERIVED from that id
+  // came from an unrelated leftover, "E2E J8-tmpl 1785132235104" — its prefix
+  // (J835104), its single section, its approval workflow, and even the chip
+  // label rendered in the picker. The document was written with one template's
+  // id and another template's content and flow. See documents/23 §1.
+  //
+  // The prefix is the cheapest fingerprint of that mix-up, and asserting it
+  // here makes the defect fail at its origin instead of surfacing three
+  // assertions downstream as "expected >= 3 sections, received 1".
+  await expect(page.getByLabel('Document Prefix')).toHaveValue(FIXTURES.sopTemplatePrefix, {
+    timeout: 15_000,
+  })
+
   if (opts.beforeSubmit) await opts.beforeSubmit(page)
 
   await page.getByRole('button', { name: 'Create Document' }).click()
   await expect(page).toHaveURL(/\/documents\/(?!create)[0-9a-f-]{36}/, { timeout: 20_000 })
   await expect(page.getByText(title).first()).toBeVisible()
+
+  // The approval flow is the half of the inheritance the UI cannot show us.
+  // `inheritedVersionId` is "two live queries deep" and lands a beat after the
+  // prefix, so a document can be written with the right template and ANOTHER
+  // template's workflow — and the picker's own read-only step list cannot tell
+  // them apart, because every minted flow carries the same two step names.
+  // Seven such documents were found in the E2E tenant on 2026-08-28
+  // (documents/23 §1); nothing in the suite noticed. This does.
+  const wf = sqlValue(
+    `SELECT w.name FROM documents d
+       JOIN workflow_versions wv ON wv.id = d.workflow_version_id
+       JOIN workflows w ON w.id = wv.workflow_id
+      WHERE d.title = '${title}'`,
+  )
+  expect(wf, 'the document runs ITS OWN template approval flow').toBe(
+    FIXTURES.sopTemplateApprovalWorkflow,
+  )
   return title
 }
 
@@ -296,18 +330,56 @@ export async function gotoDoc(page, documentId) {
  * reloads as a fallback if it never shows. Bounded, so it fails fast rather than
  * consuming the whole test budget.
  */
-export async function clickWhenReady(page, locator, { perLoad = 20_000, reloads = 2 } = {}) {
+export async function clickWhenReady(
+  page,
+  locator,
+  { perLoad = 20_000, reloads = 2, until = null, untilTimeout = 10_000 } = {},
+) {
   const target = locator.first()
   for (let attempt = 0; attempt <= reloads; attempt++) {
     try {
       await expect(target).toBeVisible({ timeout: perLoad })
       await target.click()
-      return
+      if (!until) return
+      // Visible is not the same as WIRED. On a freshly loaded detail page the
+      // Approve button renders before the step-action handler can do anything
+      // with it (the task itself is still arriving from IDB), and the click is
+      // then a silent no-op: no dialog, no error, no state change. PW-J5 died
+      // exactly there — the trace shows the click landing 4.5s after `goto`,
+      // then nothing at all, and the run failed 30s later inside signWithPin
+      // on a PIN dialog that was never opened. Proving the click had an EFFECT
+      // (and re-clicking on a fresh load if it did not) is the only reliable
+      // gate; waiting longer before the first click is not, because the button
+      // is already visible.
+      const opened = await until
+        .first()
+        .waitFor({ state: 'visible', timeout: untilTimeout })
+        .then(() => true)
+        .catch(() => false)
+      if (opened) return
+      throw new Error('clickWhenReady: the click landed but `until` never appeared')
     } catch (err) {
       if (attempt === reloads) throw err
       await page.reload({ waitUntil: 'domcontentloaded' })
     }
   }
+}
+
+/**
+ * What a workflow step-action click (Approve / Reject) must produce: the
+ * headlessui dialog portal showing either the e-signature PIN field or the
+ * step's comment box.
+ *
+ * Anchored on the CONTENT, never on `getByRole('dialog')` — the headlessui
+ * wrapper reports zero-size/hidden to Playwright, so a dialog-role gate reads
+ * as "nothing opened" even when the dialog is on screen (see fixtures/esign.js
+ * and documents/22 §2.1). Scoped to the portal so it cannot match the
+ * page-level section-feedback textarea sitting behind the overlay.
+ */
+export function stepActionDialog(page) {
+  return page
+    .locator('#headlessui-portal-root')
+    .locator('input[placeholder="Enter your e-signature PIN"], textarea, [contenteditable="true"]')
 }
 
 /**
@@ -383,7 +455,9 @@ export async function driveToEffective(browser, docId, versionId) {
   await gotoDoc(reviewerPage, docId)
   // The reviewer's Approve action renders once the step-1 task syncs into this
   // context; reload-tolerant so a missed socket push doesn't stall the run.
-  await clickWhenReady(reviewerPage, reviewerPage.getByRole('button', { name: /^approve$/i }))
+  await clickWhenReady(reviewerPage, reviewerPage.getByRole('button', { name: /^approve$/i }), {
+    until: stepActionDialog(reviewerPage),
+  })
   // Step 1 is an e-signed APPROVAL step now (the approval flow lives on the
   // template — documents/21 §1), so the reviewer gets the PIN prompt too.
   //
@@ -392,11 +466,18 @@ export async function driveToEffective(browser, docId, versionId) {
   // therefore skipped the whole confirm silently, left the PIN dialog open, and
   // surfaced 45s later as "approver task created: 0" — pointing at the approver
   // when the reviewer was the one who never finished.
+  //
+  // fill(), NOT click()+keyboard.type(). The dialog is still animating in when
+  // the box first resolves, so a pointer click at its centre can land on the
+  // headlessui OVERLAY instead — which dismisses the dialog. The comment then
+  // goes nowhere, the PIN prompt never opens, and the run fails 30s later in
+  // signWithPin with the dialog already gone from the DOM (exactly what PW-J5's
+  // failure snapshot shows: no dialog, Approve still there, still IN_REVIEW).
+  // fill() focuses and sets the value without a mouse event at all.
   const dialogRoot = reviewerPage.locator('#headlessui-portal-root')
   const box = dialogRoot.locator('textarea, [contenteditable="true"]').first()
   if (await box.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true).catch(() => false)) {
-    await box.click()
-    await reviewerPage.keyboard.type('Reviewed by E2E — accurate.')
+    await box.fill('Reviewed by E2E — accurate.')
   }
   await signWithPin(reviewerPage)
   await waitForSqlValue(
@@ -411,7 +492,9 @@ export async function driveToEffective(browser, docId, versionId) {
   await gotoDoc(approverPage, docId)
   // The approver's Approve action renders only after the step-2 assignment syncs
   // into this context (the exact spot J5 stalled on before). Reload-tolerant.
-  await clickWhenReady(approverPage, approverPage.getByRole('button', { name: /^approve$/i }))
+  await clickWhenReady(approverPage, approverPage.getByRole('button', { name: /^approve$/i }), {
+    until: stepActionDialog(approverPage),
+  })
   const pin = approverPage.getByPlaceholder('Enter your e-signature PIN')
   await expect(pin).toBeVisible({ timeout: 10_000 })
   await pin.fill(ESIGN_PIN)

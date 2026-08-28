@@ -387,6 +387,13 @@ export const LOG_BOOK = {
 // Seeded fixtures the journeys rely on (E2ELAB).
 export const FIXTURES = {
   sopTemplateName: 'E2E SOP Template', // PUBLISHED, prefix ESOP, 3 sections, training OFF
+  // Fingerprint of the template a document must actually inherit — see the
+  // guard in createSopDocument (documents/23 §1).
+  sopTemplatePrefix: 'ESOP',
+  // The workflow that template MINTS, and the only flow a document created
+  // from it may run. Pinned because the create form has been observed handing
+  // documents a different template's flow (documents/23 §1).
+  sopTemplateApprovalWorkflow: 'E2E SOP Template — Approval',
   approvalWorkflowName: 'E2E Document Approval', // step1 ACTION → Reviewer, step2 APPROVAL+e-sign → Approver
   // A document's approval flow is INHERITED from its template (2026-08-15) —
   // the create form no longer offers a workflow picker. Each template carries

@@ -21,7 +21,14 @@
  */
 import { canEditDashboard, reindexPositions } from '@/utils/analyticsDashboardAccess.js'
 import { currentSession } from '@/utils/currentSession'
-import { IconChartBar, IconPlus, IconGripVertical, IconPencil, IconTrash } from '@tabler/icons-vue'
+import {
+  IconChartBar,
+  IconPlus,
+  IconGripVertical,
+  IconPencil,
+  IconTrash,
+  IconUsers,
+} from '@tabler/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -82,6 +89,12 @@ const viewer = computed(() => ({
 }))
 
 const canEdit = computed(() => canEditDashboard(dashboard.value, viewer.value))
+
+// ── sharing dialog ──────────────────────────────────────────────────────────
+// Gated by the same canEdit as every other write affordance here: the UPDATE
+// policy does not distinguish "change the visibility" from "move a tile", so
+// neither does the client.
+const sharingOpen = ref(false)
 
 // ── widget dialog ───────────────────────────────────────────────────────────
 const dialogOpen = ref(false)
@@ -171,6 +184,21 @@ function questionOf(w) {
     >
       <template #actions>
         <DashboardVisibilityBadgeById v-if="dashboard" :visibilityId="dashboard.visibility" />
+        <!--
+          The badge STAYS alongside this button rather than becoming the button.
+          A badge that is sometimes clickable and sometimes not is the worse
+          affordance: readers who cannot edit still need to see the state at a
+          glance, and a control needs a name a screen reader can announce.
+        -->
+        <BaseButton
+          v-if="dashboard && canEdit"
+          size="sm"
+          variant="outline"
+          @click="sharingOpen = true"
+        >
+          <IconUsers :size="14" aria-hidden="true" />
+          Sharing
+        </BaseButton>
         <BaseButton v-if="canEdit" size="sm" @click="addWidget">
           <IconPlus :size="14" aria-hidden="true" />
           Add widget
@@ -262,6 +290,13 @@ function questionOf(w) {
         :metricsLoading="metricsLoading"
         :widget="editing"
         :nextPosition="nextPosition"
+      />
+
+      <DashboardSharingDialog
+        v-if="dashboard"
+        v-model:open="sharingOpen"
+        :dashboard="dashboard"
+        :viewer="viewer"
       />
     </template>
   </BasePage>

@@ -7,7 +7,14 @@
 // reviewer step below.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ESIGN_PIN, USERS } from '../fixtures/cast.js'
-import { createSopDocument, fillAllSections, submitForReview, uniqueTitle } from '../fixtures/documents.js'
+import {
+  clickWhenReady,
+  createSopDocument,
+  fillAllSections,
+  stepActionDialog,
+  submitForReview,
+  uniqueTitle,
+} from '../fixtures/documents.js'
 import { findDocumentByTitle, versionsOf, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 import { signWithPin } from '../fixtures/esign.js'
 
@@ -40,9 +47,12 @@ test.describe('PW-J2 · review → e-signed approval → effective', () => {
     const reviewerCtx = await browser.newContext({ storageState: AUTH.reviewer })
     const reviewerPage = await reviewerCtx.newPage()
     await reviewerPage.goto(`/documents/${doc.id}`)
-    const completeBtn = reviewerPage.getByRole('button', { name: /^approve$/i }).first()
-    await expect(completeBtn).toBeVisible({ timeout: 20_000 })
-    await completeBtn.click()
+    // Gated on the dialog actually opening: a visible Approve button on a
+    // freshly loaded page can still be un-wired, and that click is a silent
+    // no-op (documents/23 §2).
+    await clickWhenReady(reviewerPage, reviewerPage.getByRole('button', { name: /^approve$/i }), {
+      until: stepActionDialog(reviewerPage),
+    })
 
     // Step 1 is now an E-SIGNED APPROVAL step, not a comment-only ACTION step.
     // The approval flow moved onto the document template (documents/21 §1), so a
@@ -62,11 +72,18 @@ test.describe('PW-J2 · review → e-signed approval → effective', () => {
     // `textarea, [contenteditable]` matches the section-feedback box behind the
     // modal ("Add feedback for this section…"), which is visible but sits under
     // the headlessui overlay — so the click is intercepted and retries to death.
+    // `isVisible()` is an IMMEDIATE check — its `timeout` is not wait-for-visible,
+    // so it answers false mid-animation and skips the comment silently. Wait.
     const dialogRoot = reviewerPage.locator('#headlessui-portal-root')
     const commentBox = dialogRoot.locator('textarea, [contenteditable="true"]').first()
-    if (await commentBox.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await commentBox.click()
-      await reviewerPage.keyboard.type('Reviewed by E2E — technically accurate.')
+    const hasComment = await commentBox
+      .waitFor({ state: 'visible', timeout: 3_000 })
+      .then(() => true)
+      .catch(() => false)
+    // fill(), not click()+type(): a pointer click on a still-animating dialog
+    // can land on the overlay and dismiss it (documents/23 §2).
+    if (hasComment) {
+      await commentBox.fill('Reviewed by E2E — technically accurate.')
     }
     await signWithPin(reviewerPage)
 
@@ -84,9 +101,9 @@ test.describe('PW-J2 · review → e-signed approval → effective', () => {
     const approverPage = await approverCtx.newPage()
     await approverPage.goto(`/documents/${doc.id}`)
 
-    const approveBtn = approverPage.getByRole('button', { name: /^approve$/i }).first()
-    await expect(approveBtn).toBeVisible({ timeout: 20_000 })
-    await approveBtn.click()
+    await clickWhenReady(approverPage, approverPage.getByRole('button', { name: /^approve$/i }), {
+      until: stepActionDialog(approverPage),
+    })
 
     // E-signature dialog ("Sign with your PIN"): anchor on the PIN input
     // directly (the headlessui dialog wrapper reports zero-size/hidden).
