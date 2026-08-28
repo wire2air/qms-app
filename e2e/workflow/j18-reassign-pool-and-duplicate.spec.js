@@ -51,6 +51,19 @@
 // `allowReassignOutcome()` therefore configures the outcome for the duration of
 // the test (and asserts the outcome gate on the way past, so that control is
 // pinned too rather than merely worked around).
+//
+// ── And a FOURTH, further ahead still (2026-08-19) ──────────────────────────
+// `assertCanActOnStep` now runs before any of the three, and it applies to the
+// ASSIGNEE too: an assignment routes work, it does not confer the verb. Every
+// probe below is driven as the step's own assignee (Rita, on the CR's step-1
+// ACTION step), so the verb it needs is `change_control:update` — granted by
+// e2e-seed.sql §33's verb backfill. Without that grant every probe here would
+// 403 before `reassignAction` was ever entered, and the pool/duplicate gates
+// this file exists to pin would go completely unexercised while the file stayed
+// plausible-looking. Nothing in this file needs changing for that rule, because
+// its actor is the assignee AND holds the verb — but that is now two facts, not
+// one, and `liveStepAndTask` below resolves the persona through the cast so a
+// seed change that repoints step 1 fails loudly rather than silently.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, ALT_USERS, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'

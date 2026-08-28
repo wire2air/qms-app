@@ -65,12 +65,20 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
       { timeoutMs: 30_000, label: 'CAPA CLOSED' },
     )
 
-    // The built-in effectiveness check is retired: closing schedules NOTHING.
-    // (The DELAY-step mechanism is the successor — PW-J4 covers it.)
+    // ~~Effectiveness check auto-scheduled by close, ~90 days out.~~ Close no
+    // longer schedules a record-based check: `closeCapa` dropped it when the
+    // effectiveness check became a workflow DELAY step (capa/21 §3, §4).
+    // Asking again at close was asking a second time about something the DELAY
+    // step had already settled, and creating a parallel check would have had
+    // the owner verify the same corrective action twice.
+    //
+    // This asserted the removed behaviour and crashed on it —
+    // `TypeError: Cannot read properties of null (reading '0')`, because
+    // sqlRow() returns null for no rows. Pin the CURRENT contract instead.
     const ecCount = sqlValue(
       `SELECT count(*) FROM capa_effectiveness_checks WHERE capa_id = '${capa.id}'`,
     )
-    expect(Number(ecCount), 'close mints no legacy effectiveness check').toBe(0)
+    expect(Number(ecCount), 'close does not create a record-based check any more').toBe(0)
 
     // Part-11 signature — exactly one row, subject = this CAPA, meaning CLOSED.
     const sigCount = sqlValue(
@@ -87,7 +95,20 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
     expect(auditRow[1]).toContain('corrective action verified')
   })
 
-  test('a legacy effectivenessCheckAt payload is inert: close succeeds, nothing is scheduled', async ({
+  // ~~a past effectiveness-check date is rejected 400 (gate 2)~~ — gate 2 no
+  // longer exists (capa/21 §4). `effectivenessCheckAt` went from required to
+  // `z.string().optional().nullable()` in closeCapaSchema and the controller
+  // only checks that it PARSES (`capas.js:342-345`, "must be a valid date").
+  // A past date now closes the CAPA with a 200.
+  //
+  // ⚠️ capa/21 §4 says the date "is still validated when sent … so an older
+  // client neither 400s nor writes a nonsense date". Half right: it is
+  // validated for parseability only. A nonsense *date* — yesterday — IS
+  // accepted and IS written to the CLOSE audit row. See capa/22.
+  //
+  // Retargeted at the validation that actually survives, so the endpoint keeps
+  // a negative test instead of losing one.
+  test('an unparseable effectiveness-check date is rejected 400 (a past one is not — gate 2 is gone)', async ({
     page,
     browser,
   }) => {
@@ -115,20 +136,18 @@ test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed c
     // terms and no capa_effectiveness_checks row appears.
     const res = await page.request.post(`/api/v1/services/capas/${capa.id}/close`, {
       data: {
-        effectivenessCheckAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        comments: 'E2E close — legacy field ignored',
+        effectivenessCheckAt: 'not-a-date',
+        comments: 'E2E gate probe — unparseable date',
         method: 'PIN',
         token: '12345678',
         provider: null,
       },
     })
-    expect(res.status(), 'close succeeds; the retired field is ignored').toBe(200)
+    expect(res.status()).toBe(400)
+    const body = await res.json().catch(() => null)
+    expect(body?.error?.message ?? '').toMatch(/valid date/i)
 
-    const closed = sqlValue(`SELECT 1 FROM capas WHERE id = '${capa.id}' AND status_id = 'CLOSED'`)
-    expect(closed, 'CAPA closed').toBe('1')
-    const ecCount = sqlValue(
-      `SELECT count(*) FROM capa_effectiveness_checks WHERE capa_id = '${capa.id}'`,
-    )
-    expect(Number(ecCount), 'no legacy check row from the retired field').toBe(0)
+    const stillOpen = sqlValue(`SELECT 1 FROM capas WHERE id = '${capa.id}' AND status_id = 'OPEN'`)
+    expect(stillOpen, 'rejected close must not mutate status').toBe('1')
   })
 })

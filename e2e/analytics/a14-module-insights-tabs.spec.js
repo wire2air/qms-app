@@ -29,6 +29,7 @@
 // which trains people to update the number without looking at why it moved.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH } from '../fixtures/cast.js'
+import { sql } from '../fixtures/db.js'
 import { ensureRollup } from '../fixtures/analytics.js'
 
 test.use({ storageState: AUTH.author })
@@ -80,9 +81,44 @@ function tiles(page) {
   return page.getByRole('button', { name: /how this is calculated/i })
 }
 
+/**
+ * Every metric name in the catalog, grouped by the module that owns it.
+ *
+ * Read from the database rather than written here for the same reason the
+ * header refuses to assert a tile COUNT: which metrics exist is a property of
+ * the migration set on the day, and a list typed into this file would stop
+ * covering a new one without anything saying so.
+ *
+ * `is_active` only — `metric_catalog()` narrows further (entitlement, the
+ * measured module's read, and `EXISTS (rollup)`), so this is a SUPERSET of what
+ * any tab can render. That is the right direction for both halves below: the
+ * positive one only needs ONE of these names on screen, and the negative one is
+ * strictly stronger for including metrics the tab could not have shown anyway.
+ *
+ * ⚠️ `sql()` returns pipe-separated columns. Safe here because no metric name
+ * or module id contains a pipe; do not extend this projection with anything
+ * free-text.
+ */
+function metricNamesByModule() {
+  const map = new Map()
+  for (const line of sql(
+    `SELECT module_id, name FROM public.analytics_metrics WHERE is_active ORDER BY module_id, id`,
+  ).split('\n')) {
+    const [moduleId, name] = line.trim().split('|')
+    if (!moduleId || !name) continue
+    if (!map.has(moduleId)) map.set(moduleId, [])
+    map.get(moduleId).push(name)
+  }
+  return map
+}
+
 test.describe('ANL-A14 · module Insights tabs', () => {
+  /** @type {Map<string, string[]>} */
+  let catalog = new Map()
+
   test.beforeAll(async () => {
     await ensureRollup()
+    catalog = metricNamesByModule()
   })
 
   for (const host of HOSTS) {
@@ -106,6 +142,45 @@ test.describe('ANL-A14 · module Insights tabs', () => {
       // And it resolved rather than failing quietly — a tile that cannot load
       // still renders a card.
       await expect(panel.getByText(/couldn't load/i)).toHaveCount(0)
+
+      // ── THE moduleId COLUMN, FINALLY ASSERTED (2026-08-28) ────────────────
+      // The header has always named this as reason #2 for the file existing —
+      // "a tab wired to the wrong moduleId renders perfectly and reports
+      // ANOTHER module's numbers" — and the HOSTS table has always carried the
+      // expected id. Nothing ever read it. Every assertion above is satisfied
+      // by a tab pointed at any module at all, so the file's own headline claim
+      // was the thing it did not check.
+      //
+      // ModuleInsightsTab passes `moduleId` straight to `useMetricCatalog`,
+      // which filters server-side, so the metric NAMES the panel prints are the
+      // observable consequence of that one prop. Names are unique across these
+      // four modules by construction ("CAPAs Raised" / "NCs Raised" / "Change
+      // Requests Raised"), which is what makes this checkable from outside.
+      const own = catalog.get(host.moduleId) ?? []
+      expect(own.length, `the catalog knows metrics for ${host.moduleId}`).toBeGreaterThan(0)
+
+      const shown = []
+      for (const metricName of own) {
+        if (await panel.getByText(metricName, { exact: true }).count()) shown.push(metricName)
+      }
+      expect(
+        shown.length,
+        `not one of ${host.moduleId}'s own metrics is on the ${host.label} tab`,
+      ).toBeGreaterThan(0)
+
+      // The half that catches a MIS-wiring rather than a broken one. A tab
+      // handed the wrong id still renders tiles, still resolves figures, and
+      // still passes every assertion above — it just answers a different
+      // question, on a screen a quality manager takes decisions from.
+      const foreign = HOSTS.filter((h) => h.moduleId !== host.moduleId)
+        .flatMap((h) => catalog.get(h.moduleId) ?? [])
+        .filter((n) => !own.includes(n))
+      for (const metricName of foreign) {
+        await expect(
+          panel.getByText(metricName, { exact: true }),
+          `"${metricName}" belongs to another module and is on the ${host.label} tab`,
+        ).toHaveCount(0)
+      }
 
       check()
     })

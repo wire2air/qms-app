@@ -30,7 +30,15 @@ test.describe.serial('CR screenshots · create → approve → implement → clo
 
     // ── List ───────────────────────────────────────────────────────────────
     await page.goto('/change-requests')
-    await expect(page.getByRole('button', { name: /create|new/i }).first()).toBeVisible({
+    // ⚠️ Anchored to the register heading, NOT to a Create button. `eb9aa84d`
+    // added a global quick-create trigger to the sidebar whose accessible name
+    // is also exactly "Create" (MainSidebar.vue:1147), and the sidebar renders
+    // INSIDE <main> before RouterView (App.vue:230-236) — so the previous
+    // `getByRole('button', { name: /create|new/i }).first()` resolved to the app
+    // chrome and went green whether or not this page had rendered at all.
+    // Same trap that broke two analytics specs on 2026-08-27; see the note on
+    // createDashboardViaUi in e2e/fixtures/analytics.js.
+    await expect(page.getByRole('heading', { name: 'Change Control Register' })).toBeVisible({
       timeout: 30_000,
     })
     await shot(page, 'list')
@@ -126,6 +134,14 @@ test.describe.serial('CR screenshots · create → approve → implement → clo
     const title = uniqueTitle('S1-cancel')
     await createCr(page, title)
     const cr = findCrByTitle(title)
+
+    // Cancel is not offered on a DRAFT. `changeRequestDetailConfig.js` gates it
+    // on `notTerminal`, and DRAFT is in that exclusion list alongside CLOSED /
+    // REJECTED / CANCELLED — so the button is not merely in an overflow menu,
+    // it is never rendered, and the click burned the full 25s actionTimeout.
+    // Submit first, exactly as PW-J2 ("cancel an UNDER_REVIEW CR") does.
+    await assignDraftReviewers(page, cr.id)
+    await submitCrForApproval(page, cr.id)
 
     await actionBarButton(page, 'Cancel').click()
     await expect(page.getByRole('heading', { name: 'Cancel Change Request' })).toBeVisible({

@@ -92,6 +92,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       label: 'Cancel CAPA',
       variant: 'secondary',
       priority: 60,
+      // 'OPEN' — same retired status as Close above.
       visible: !!canCancel && statusId === 'OPEN',
       disabled: !!cancelling,
       loading: !!cancelling,

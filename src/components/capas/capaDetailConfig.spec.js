@@ -1,3 +1,8 @@
+// Status vocabulary: 'OPEN', not 'PENDING'. These cases asserted the action
+// gates against a status that 20260823100000-unified-record-statuses had
+// already retired, so this suite stayed green while Close and Cancel rendered
+// for nobody on any CAPA — the tests encoded the old world faithfully.
+// See docs/modules/capa/22-change-addendum-2026-08-28.md §1.
 import { describe, it, expect } from 'vitest'
 import { buildCapaBanners, buildCapaSections, buildCapaActions } from './capaDetailConfig.js'
 

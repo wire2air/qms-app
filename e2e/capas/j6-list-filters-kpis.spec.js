@@ -19,12 +19,19 @@ test.describe('PW-J6 · CAPAs list — KPIs, quick pills, filters', () => {
 
     await page.goto('/capas')
 
-    // KPI strip — 'Overdue' left with the record-due-date UI (2026-08-23).
+    // KPI strip — THREE tiles, not four. ~~'Overdue'~~ is neither a KPI nor a
+    // pill on this page: `CapasHome.vue` kpiItems is [Open CAPAs, Critical
+    // open, Closed this month] and `CapasTable.vue` filterPills has no overdue
+    // entry. The old comment claimed the label "also matches the quick-filter
+    // pill further down the page" and leaned on .first() to disambiguate — it
+    // matched neither, so this asserted a tile that has never existed here.
     for (const label of ['Open CAPAs', 'Critical open', 'Closed this month']) {
       await expect(page.getByText(label, { exact: true }).first()).toBeVisible({ timeout: 15_000 })
     }
 
-    // Quick-filter pills — "All open" is the default active pill.
+    // Quick-filter pills — "All open" is the default active pill. 'All' (no
+    // lifecycle filter at all, closed and cancelled included) was added so the
+    // whole register is reachable in one list; every other pill narrows.
     const pillGroup = page.getByRole('group', { name: 'Quick views' })
     for (const label of ['All', 'All open', 'My CAPAs', 'Critical', 'High', 'Closed', 'Cancelled']) {
       await expect(pillGroup.getByRole('button', { name: label, exact: true })).toBeVisible()

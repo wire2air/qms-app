@@ -26,6 +26,7 @@ import {
   IconRobot,
   IconChartBar,
   IconCompass,
+  IconMathFunction,
   IconLayoutDashboard,
   IconFileAnalytics,
   IconUserCircle,
@@ -377,6 +378,22 @@ const navItems = computed(() => {
           permissions: ['reports_dashboards:read'],
           icon: IconBellRinging,
           to: getCompanyPath('/analytics/alerts'),
+        },
+        {
+          // `read`, not `manage`, and for the same reason the page itself reads
+          // that way: analytics_custom_metrics_select_rls is read-gated so
+          // anyone shown a figure can see the definition behind it. Creating and
+          // editing need `manage`, which the page enforces on its own controls —
+          // hiding the whole page from a reader would leave a custom metric on
+          // their dashboard that they cannot account for.
+          //
+          // Last in the group deliberately: this is the VOCABULARY the four
+          // items above consume, not another view of data, and a definitional
+          // tool belongs after the things that use it.
+          label: 'Metrics',
+          permissions: ['reports_dashboards:read'],
+          icon: IconMathFunction,
+          to: getCompanyPath('/analytics/metrics'),
         },
       ],
     },

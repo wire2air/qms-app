@@ -10,7 +10,14 @@ import {
 import { findCrByTitle, sqlValue } from '../fixtures/db.js'
 
 test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
-  test('a read-only user (change_control:read only) cannot submit a CR they do not own → 403', async ({
+  // ~~a reviewer (change_control:read only)~~ — the Reviewer is not read-only
+  // any more. Completing step 1 (ACTION) requires `change_control:update` of
+  // the assignee since 2026-08-19, so the seed grants it (§33) and this probe
+  // would pass here for the wrong reason: it would prove the CR was not theirs,
+  // never that the verb was missing. The auditor holds `change_control:read`
+  // and nothing else, and is assigned to no step. Same move NC PW-J6 and CAPA
+  // PW-J7 had to make.
+  test('an auditor (change_control:read only) cannot submit a CR they do not own → 403', async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -21,9 +28,6 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     const cr = findCrByTitle(title)
     await ownerCtx.close()
 
-    // `auditor`, not `reviewer`: the Reviewer role holds change_control:update
-    // since the 2026-08-27 seed backfill (the verb decides, for assignees
-    // too), so it may legitimately submit. The auditor stays read-only.
     const auditorCtx = await browser.newContext({ storageState: AUTH.auditor })
     const res = await auditorCtx.request.post(
       `/api/v1/services/changeRequests/${cr.id}/submitForReview`,
@@ -35,7 +39,27 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe('DRAFT')
   })
 
-  test('a non-owner with update permission cannot close another user’s CR → 403', async ({
+  // ~~a non-owner WITH update permission cannot close another user's CR~~ — the
+  // title was describing a gate that no longer exists, and the body never
+  // exercised the one it named.
+  //
+  // The approver holds change_control:read + approve and NO update, so
+  // `enforcePermission('change_control','update')` on the /cancel route
+  // (routes/changeRequests.js) refuses at the middleware layer and the request
+  // never reaches assertOwner. The old comment claimed the opposite —
+  // "owner-gated in the controller, independent of the route's
+  // enforcePermission" — which is exactly backwards, and made the test read as
+  // proof of an ownership rule it does not touch.
+  //
+  // Worse, the rule it claimed is no longer true. Since 2026-08-19
+  // (utils/recordAccess.js) custodianship supplies SCOPE, never a bypass, and
+  // the matrix decides for everyone: a user holding change_control:update at
+  // TENANT scope MAY cancel a CR they do not own — which is precisely what seed
+  // §33 handed the reviewer. Pointing this probe at "someone with update" would
+  // now assert a 200.
+  //
+  // So it splits in two, one per layer, and each names the layer it proves.
+  test('the route verb gate: a non-owner without change_control:update cannot cancel → 403', async ({
     browser,
   }) => {
     test.setTimeout(150_000)
@@ -48,9 +72,9 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     await submitCrForApproval(ownerPage, cr.id)
     await ownerCtx.close()
 
-    // The approver holds change_control:read+approve but is not the CR owner —
-    // close/cancel are owner-gated in the controller (assertOwner), independent
-    // of the route's enforcePermission.
+    // Approver = read + approve, no update. Refused by enforcePermission before
+    // the controller loads the record at all — an approval grant does not
+    // authorise abandoning the change.
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
     const res = await approverCtx.request.post(
       `/api/v1/services/changeRequests/${cr.id}/cancel`,
@@ -61,6 +85,40 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
 
     expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
       'OPEN',
+    )
+  })
+
+  test('the record scope gate: an OWN-scope holder cannot cancel a peer’s CR → 403', async ({
+    browser,
+  }) => {
+    test.setTimeout(150_000)
+    const ownerCtx = await browser.newContext({ storageState: AUTH.author })
+    const ownerPage = await ownerCtx.newPage()
+    const title = uniqueTitle('J9-ownscope')
+    await createCr(ownerPage, title)
+    const cr = findCrByTitle(title)
+    await assignDraftReviewers(ownerPage, cr.id)
+    await submitCrForApproval(ownerPage, cr.id)
+    await ownerCtx.close()
+
+    // `ownAuthor` holds change_control:create/read/update at OWN scope (seed
+    // §17), so unlike the approver above they sail through the route's
+    // enforcePermission — which checks the VERB only, never the record
+    // (permissionService.can() skips scopeAllowed when no record is supplied).
+    // The refusal has to come from the controller's assertOwner →
+    // assertCanActOnRecord → authz.scope_allowed(), whose own-tier requires the
+    // row's owner to BE the caller. This is the layer the old single test
+    // claimed to cover and never reached, and the only one that distinguishes
+    // "has the verb" from "has it over THIS record".
+    const ownCtx = await browser.newContext({ storageState: AUTH.ownAuthor })
+    const res = await ownCtx.request.post(`/api/v1/services/changeRequests/${cr.id}/cancel`, {
+      data: { reason: 'not my CR either', method: 'PIN', token: '12345678', provider: null },
+    })
+    expect(res.status(), 'own-scope update does not reach a peer’s record').toBe(403)
+    await ownCtx.close()
+
+    expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
+      'UNDER_REVIEW',
     )
   })
 

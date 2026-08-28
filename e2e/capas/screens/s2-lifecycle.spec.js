@@ -1,12 +1,33 @@
 // CAPA screenshots · S2 — the record lifecycle.
-//   Create form (blank → filled; the workflow is auto-selected and reviewers
-//   are assigned on the detail page's draft plan since 2026-08-12), the
-//   DRAFT detail, the Open-CAPA confirm, the PENDING record (Details /
-//   Workflow / Effectiveness are anchor-nav sections, so one full-page capture
-//   carries them), the close-blocked action bar, the e-signed Close dialog, the
-//   CLOSED record, the Audit Log dialog, and — on a second CAPA — the e-signed
-//   Cancel dialog.
+//   Create form (blank → filled), the DRAFT detail, the Start-CAPA confirm, the
+//   OPEN record (Details / Workflow are anchor-nav sections, so one full-page
+//   capture carries them), the close-blocked action bar, the e-signed Close
+//   dialog, the CLOSED record, the Audit Log dialog, and — on a second CAPA —
+//   the e-signed Cancel dialog.
 // Flow mirrors PW-J1 / PW-J3 / PW-J5.
+//
+// ── 2026-08-28: caught up with three product moves the journeys already have ──
+// The `screens` Playwright project matches `/screens/.*\.spec\.js$`, so this
+// file is NOT part of the `capas` project that `cbc15d2f` took to 13/14 — it
+// was left on the far side of every fix in that pass. Three of them land here:
+//
+//   1. ~~PENDING~~ → OPEN. `20260823100000-unified-record-statuses` remapped the
+//      rows AND deleted the lookup row, so the barrier below waited 45s for a
+//      status that cannot exist and then failed the whole capture run.
+//   2. ~~"Open CAPA"~~ → "Start CAPA", relabelled by `b33322be` (2026-08-17)
+//      when the workflow rail card was shared across NC / CAPA / Change Control
+//      / Complaint. `openCapa` in fixtures/capas.js was corrected; this file
+//      still typed the old label, and the confirm dialog's own button carries
+//      the same new label.
+//   3. Two "More actions" triggers now (see the Audit Log step).
+//
+// ~~"reviewers are assigned on the detail page's draft plan since 2026-08-12"~~
+// — the submit-time per-step reviewer dialog came BACK in `5baf25fe`
+// (2026-08-18). `createCapa` drives it via `confirmStepReviewers`, so this file
+// does not have to, but the description was wrong and would send the next
+// reader looking for a draft-plan surface that is not there.
+// The Effectiveness section is likewise gone (2026-08-18 — it is a workflow
+// DELAY step now, see PW-J4), so it is no longer one of the captured sections.
 import { test, expect } from '../../../video/fixtures/videoTest.js'
 import { AUTH, ESIGN_PIN, USERS } from '../../fixtures/cast.js'
 import {
@@ -46,20 +67,35 @@ test.describe.serial('CAPA screenshots · create → open → close / cancel', (
     await expect(page.getByText(capa.capaNumber).first()).toBeVisible({ timeout: 20_000 })
     await shot(page, 'detail-draft')
 
-    // ── Open CAPA confirm dialog ───────────────────────────────────────────
-    await page.getByRole('button', { name: 'Open CAPA' }).click()
+    // ── Start CAPA confirm dialog ──────────────────────────────────────────
+    // ~~'Open CAPA'~~ — relabelled 'Start CAPA' by `b33322be` (2026-08-17), on
+    // the trigger AND on the dialog's own confirm button. The dialog BODY copy
+    // still says "Opening this CAPA…", which is why the anchor below is
+    // unchanged; only the button labels moved.
+    await page.getByRole('button', { name: 'Start CAPA' }).first().click()
     await expect(page.getByText('Opening this CAPA starts the assigned workflow')).toBeVisible({
       timeout: 15_000,
     })
     await shot(page, 'open-capa-confirm')
-    await page.getByRole('button', { name: 'Open CAPA' }).last().click()
+    await page.getByRole('button', { name: 'Start CAPA' }).last().click()
 
-    await waitForSqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}' AND status_id = 'PENDING'`, {
+    // ~~status_id = 'PENDING'~~ — the post-submit status is OPEN since
+    // `20260823100000-unified-record-statuses`, which did not merely stop using
+    // PENDING: it remapped the rows and DELETED the lookup row, so this barrier
+    // was waiting on a value the foreign key can no longer hold. It could only
+    // ever time out, and it took the whole capture run down with it 45s in.
+    await waitForSqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}' AND status_id = 'OPEN'`, {
       timeoutMs: 45_000,
-      label: 'CAPA PENDING',
+      label: 'CAPA OPEN',
     })
     await page.reload({ waitUntil: 'domcontentloaded' })
+    // Close CAPA is gated on `statusId === 'OPEN'` in capaDetailConfig.js —
+    // it compared to the retired 'PENDING' until `cbc15d2f`, so this assertion
+    // would have failed on the product side even with the barrier fixed.
     await expect(page.getByRole('button', { name: 'Close CAPA' })).toBeVisible({ timeout: 30_000 })
+    // Filename kept as `detail-pending` deliberately: the screenshot is
+    // published under that name and renaming it orphans every reference to it.
+    // The STATE it captures is now called OPEN.
     await shot(page, 'detail-pending')
 
     // Close is gated while workflow steps are open — the button carries the
@@ -72,7 +108,27 @@ test.describe.serial('CAPA screenshots · create → open → close / cancel', (
     await shot(page, 'detail-close-blocked')
 
     // ── Audit Log dialog (overflow action) ─────────────────────────────────
-    await page.getByRole('button', { name: /more actions/i }).click()
+    // ~~`getByRole('button', { name: /more actions/i }).click()`~~ — that now
+    // matches TWO elements and throws on strict mode. `BaseMenu` hard-codes
+    // `aria-label="More actions"` on every trigger, and since the takeover rule
+    // (2026-08-19, stepTakeover.js `pickActionableTask`) the workflow step card
+    // renders its own menu for anyone the matrix covers rather than only the
+    // assignee. The author holds `capa:update` at tenant scope (e2e-seed §32),
+    // so the reviewer's ACTION task shows on the owner's page as an actionable
+    // takeover and mints a second trigger. Before that change this page had one.
+    //
+    // Anchor on the last INLINE header button and take the next More-actions
+    // trigger after it in document order. On an OPEN CAPA `bucketActions` keeps
+    // two inline — Close CAPA (100) and Cancel CAPA (60) — and pushes Print,
+    // Create Change Request and Audit Log into the overflow, so 'Cancel CAPA' is
+    // the element the header's own trigger follows. (Same idiom as PW-J2's step
+    // menu, anchored at the other end of the same action bar.)
+    const headerMenu = page
+      .getByRole('button', { name: 'Cancel CAPA', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
+    await headerMenu.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await headerMenu.click()
     await expect(page.getByRole('menuitem', { name: /audit log/i })).toBeVisible({ timeout: 10_000 })
     await shot(page, 'detail-more-actions-menu')
     await page.getByRole('menuitem', { name: /audit log/i }).click()

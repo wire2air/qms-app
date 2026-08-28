@@ -16,7 +16,7 @@ export function uniqueTitle(tag) {
  * required fields (title, containment, classification, item), submit, and
  * confirm the auto-populated "Assign Step Reviewers" dialog. Create NC also
  * OPENS the NC (create-and-open, 2026-08-10) — the function ends on the new
- * NC's detail page with the workflow already running (UNDER_REVIEW).
+ * NC's detail page with the workflow already running (OPEN).
  * Returns the title.
  */
 /**
@@ -56,9 +56,15 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
   // Description); an empty editor emits '<p></p>' and fails validation.
   await page.locator('.create-nc-editor [contenteditable="true"]').nth(1).fill('E2E containment: segregated affected units.')
 
-  // Pin Site/Department to the seeded pair the specs' counter assertions
-  // expect (NC number prefix NC-HQ-QA). first-option is no longer stable —
+  // Pin Site/Department to the seeded pair. first-option is no longer stable —
   // other e2e projects accumulate sites (e.g. 'Main Site') in this tenant.
+  //
+  // ~~"the NC number prefix NC-HQ-QA"~~ — numbering went FLAT in `369be68b`
+  // (2026-08-18): site and department came out of the identifier, so the
+  // counter key is the bare `NC` prefix and these two picks no longer steer it
+  // (PW-J1 watches `nc_counters ... prefix = 'NC'`). They still matter — both
+  // are REQUIRED to open, and both feed the site/department scope tiers — which
+  // is why they stay pinned rather than left to auto-fill.
   await selectOption(page, 'Site', 'Primary Site')
   await selectOption(page, 'Department', 'Quality')
   await selectFirstOption(page, 'NC Type')
@@ -104,7 +110,7 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
 }
 
 // (openNc removed 2026-08-10: Create NC now opens the workflow in the same
-// action — raiseNc already ends UNDER_REVIEW. The detail page's Open NC
+// action — raiseNc already ends OPEN. The detail page's Open NC
 // button still exists for NCs that arrive as drafts, e.g. QC-lot spawns.)
 
 /**
@@ -251,11 +257,35 @@ export async function expectMarkCompleteRejected(page, ncId, expectedMessage) {
   expect(body?.error?.message ?? '', 'server gate message').toMatch(expectedMessage)
 }
 
-/** Owner converts an UNDER_REVIEW NC to supplier-facing. */
+/** Owner converts an OPEN NC to supplier-facing. */
 export async function convertToSupplierFacing(page, supplierName) {
   // Priority 20 — below the DetailActionBar's inline top-2, so it lives in the
-  // "More actions" overflow menu, not as an inline button.
-  await page.getByRole('button', { name: /more actions/i }).click()
+  // "More actions" overflow menu, not as an inline button. (`bucketActions`
+  // keeps maxVisible-1 = 2 inline once anything overflows, so on an OPEN NC the
+  // inline pair is Approve & Close + Print and the overflow is Convert + Audit
+  // Log.)
+  //
+  // ~~`getByRole('button', { name: /more actions/i }).click()`~~ — that matched
+  // TWO elements and threw on strict mode. `BaseMenu` hard-codes
+  // `aria-label="More actions"` on every trigger, and since the takeover rule
+  // (2026-08-19, stepTakeover.js) the workflow step card renders its own menu
+  // for anyone the matrix covers — not just the assignee. The author holds
+  // `ncr:update` at tenant scope, so `scopeAllows` says yes and the reviewer's
+  // ACTION task shows up as an actionable takeover on the owner's own page.
+  // Worse than a hard failure, it is a RACE: the step card hydrates from
+  // IndexedDB a beat after the detail page paints, so the count is 1 or 2
+  // depending on timing.
+  //
+  // Anchor on the LAST inline header button ("Print", unique on this page —
+  // ncDetailConfig.js has exactly one) and take the very next More-actions
+  // trigger in document order. That is the header's own overflow by
+  // construction, not by DOM luck.
+  const headerMenu = page
+    .getByRole('button', { name: 'Print', exact: true })
+    .first()
+    .locator('xpath=following::button[@aria-label="More actions"][1]')
+  await headerMenu.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  await headerMenu.click()
   await page
     .getByRole('menuitem', { name: /convert to supplier-facing/i })
     .or(page.getByRole('button', { name: /convert to supplier-facing/i }))

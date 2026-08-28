@@ -11,7 +11,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    _pbase: typeof import('./src/components/analytics/_pbase.vue')['default']
     AcceptInvitationForm: typeof import('./src/components/auth/AcceptInvitationForm.vue')['default']
     ActiveSessions: typeof import('./src/components/security/ActiveSessions.vue')['default']
     AddFieldDialog: typeof import('./src/components/form-builder/AddFieldDialog.vue')['default']
@@ -511,6 +510,8 @@ declare module 'vue' {
     CustomFieldsCard: typeof import('./src/components/customFields/CustomFieldsCard.vue')['default']
     CustomFieldsCreateSection: typeof import('./src/components/customFields/CustomFieldsCreateSection.vue')['default']
     CustomFieldsHome: typeof import('./src/components/customFields/CustomFieldsHome.vue')['default']
+    CustomMetricBuilderDialog: typeof import('./src/components/analytics/CustomMetricBuilderDialog.vue')['default']
+    CustomMetricsHome: typeof import('./src/components/analytics/CustomMetricsHome.vue')['default']
     CustomPlanTableFields: typeof import('./src/components/qcInspection/CustomPlanTableFields.vue')['default']
     DashboardCapasDue: typeof import('./src/components/dashboard/DashboardCapasDue.vue')['default']
     DashboardCustomizeDialog: typeof import('./src/components/dashboard/DashboardCustomizeDialog.vue')['default']
@@ -523,6 +524,7 @@ declare module 'vue' {
     DashboardQcLots: typeof import('./src/components/dashboard/DashboardQcLots.vue')['default']
     DashboardQuickActions: typeof import('./src/components/dashboard/DashboardQuickActions.vue')['default']
     DashboardRecentAudits: typeof import('./src/components/dashboard/DashboardRecentAudits.vue')['default']
+    DashboardSharingDialog: typeof import('./src/components/analytics/DashboardSharingDialog.vue')['default']
     DashboardsHome: typeof import('./src/components/analytics/DashboardsHome.vue')['default']
     DashboardVisibilityBadge: typeof import('./src/components/badges/DashboardVisibilityBadge.vue')['default']
     DashboardVisibilityBadgeById: typeof import('./src/components/badges/DashboardVisibilityBadgeById.vue')['default']

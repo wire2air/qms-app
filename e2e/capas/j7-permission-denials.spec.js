@@ -5,7 +5,17 @@ import { createCapa, uniqueTitle } from '../fixtures/capas.js'
 import { findCapaByTitle } from '../fixtures/db.js'
 
 test.describe('PW-J7 · permission denials + cross-tenant isolation', () => {
-  test('a read-only user (capa:read only) cannot submit-for-review a CAPA they do not own -> 403', async ({
+  // ~~a reviewer (capa:read only)~~ — the REVIEWER is no longer a read-only
+  // persona. Since 2026-08-19 an ACTION-step assignee needs `<module>:update`
+  // to complete their own step (backend/api/utils/workflowStepAccess.js), so
+  // the seed grants the reviewer `capa:update` (e2e-seed §32) and this probe
+  // would have gone green for the wrong reason on that persona — proving only
+  // that the CAPA was not theirs, never that the verb was missing.
+  //
+  // The auditor is the honest stand-in: `capa:read` and nothing else, and no
+  // step assignment anywhere in the CAPA workflow. Same trap, same fix as
+  // NC PW-J6. See capa/22 §3.
+  test('an auditor (capa:read only) cannot submit-for-review a CAPA they do not own -> 403', async ({
     browser,
   }) => {
     test.setTimeout(60_000)
@@ -16,10 +26,6 @@ test.describe('PW-J7 · permission denials + cross-tenant isolation', () => {
     const capa = findCapaByTitle(title)
     await ownerCtx.close()
 
-    // `auditor`, not `reviewer`: the Reviewer role holds capa:update since
-    // seed §31a (the 2026-08-19 access model demands the verb of assignees
-    // too), so it can legitimately submit now. The auditor stays the tenant's
-    // read-only persona.
     const auditorCtx = await browser.newContext({ storageState: AUTH.auditor })
     const res = await auditorCtx.request.post(
       `/api/v1/services/capas/${capa.id}/submitForReview`,

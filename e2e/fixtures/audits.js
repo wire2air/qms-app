@@ -131,7 +131,7 @@ export function findAuditByScope(scope) {
   const row = sqlRow(
     `SELECT id, audit_number, status_id, program_type_id,
             coalesce(released_at::text,''), coalesce(completed_at::text,'')
-       FROM audit_instances WHERE scope = '${scope}' ORDER BY created_at DESC LIMIT 1`,
+       FROM audit_instances WHERE scope LIKE '%${scope}%' ORDER BY created_at DESC LIMIT 1`,
   )
   if (!row) return null
   return {
@@ -274,7 +274,13 @@ export async function createAdHocAudit(
   if (supplierName) await selectInDialog(page, 'Supplier', supplierName)
   if (auditeeName) await selectInDialog(page, 'Auditee', auditeeName)
 
-  await page.getByPlaceholder("What's in scope?").fill(scope)
+  // Scope became a TipTap rich-text editor on 2026-08-24 ("scope and objectives
+  // carry structure"). TipTap renders its hint through the Placeholder
+  // extension as `content: attr(data-placeholder)` — there is no placeholder
+  // ATTRIBUTE for getByPlaceholder to match, so `.fill()` here resolved
+  // nothing and every audit journey that creates an instance died on the next
+  // step. fillRichText (line 101 of this file) is the helper for exactly this.
+  await fillRichText(page, "What's in scope?", scope)
   await page.getByRole('button', { name: 'Create & open' }).click()
   await expect(page).toHaveURL(/\/audits\/instances\/[0-9a-f-]{36}/, { timeout: 45_000 })
 

@@ -5,7 +5,7 @@
 // Send-Back — WorkflowStepActionsMenu.vue:145-166 — it does NOT terminate the
 // workflow or change the NC's status (reviewer's task stays ASSIGNED, a
 // SENT_BACK marker task is minted, the owner is notified). The transition that
-// actually reverts UNDER_REVIEW -> DRAFT is /rejectStepTask on the APPROVAL
+// actually reverts OPEN -> DRAFT is /rejectStepTask on the APPROVAL
 // step (step 2, approver) — nonconformanceHandler.onRejection. This spec tests
 // the real behavior for both.
 import { test, expect } from '../../video/fixtures/videoTest.js'
@@ -45,10 +45,10 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     expect(step1Status).toBe('APPROVED')
 
     const ncStatus = sqlValue(`SELECT status_id FROM nonconformances WHERE id = '${nc.id}'`)
-    expect(ncStatus, 'NC stays UNDER_REVIEW mid-workflow').toBe('UNDER_REVIEW')
+    expect(ncStatus, 'NC stays OPEN mid-workflow').toBe('OPEN')
   })
 
-  test('approver rejects step 2 (APPROVAL) -> NC reverts UNDER_REVIEW to DRAFT', async ({
+  test('approver rejects step 2 (APPROVAL) -> NC reverts OPEN to DRAFT', async ({
     browser,
   }) => {
     test.setTimeout(150_000)
@@ -70,7 +70,45 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
     const approverPage = await approverCtx.newPage()
     await approverPage.goto(`/nonconformances/${nc.id}`, { waitUntil: 'domcontentloaded' })
-    await clickWhenReady(approverPage, approverPage.getByRole('button', { name: 'More actions' }))
+    // TWO buttons on this page carry the accessible name "More actions", and
+    // `BaseMenu` hard-codes `aria-label="More actions"` on every trigger it
+    // renders, so role+name cannot tell them apart:
+    //
+    //   1. the record header's overflow (`DetailActionBar` — Convert to
+    //      supplier-facing / Audit Log), which is FIRST in DOM order, and
+    //   2. the step card's (`WorkflowStepActionsMenu` — Approve / Reject).
+    //
+    // ~~`getByRole('button', { name: 'More actions' })`~~ therefore resolves to
+    // two elements. The bare `.evaluate()` below it was a STRICT-MODE VIOLATION
+    // that threw before anything was clicked, and `clickWhenReady` (which takes
+    // `.first()` internally) would have opened the header menu — no Reject in
+    // it, so the next line sat there until timeout. Whether `.first()` lands on
+    // the right trigger is pure DOM order; it is not a tie-break.
+    //
+    // Both existed before 2026-08-19 too, but only for the ASSIGNEE. The
+    // takeover rule (stepTakeover.js `pickActionableTask`) now renders the step
+    // menu for anyone the matrix covers, so this page grew a second trigger for
+    // more personas, not fewer.
+    //
+    // Anchor on the step's OWN Approve button and take the next More-actions
+    // trigger after it in document order — the idiom CAPA PW-J2 settled on, and
+    // the same shape as comboboxAfterLabel in fixtures/documents.js. `exact:
+    // true` because "Approve" is a substring of the "AA Adam Approver User"
+    // profile-menu button in the header (see completeApproverStep).
+    const moreActions = approverPage
+      .getByRole('button', { name: 'Approve', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
+    // Centre the trigger before opening its menu. The approval step sits at the
+    // bottom of a 1280x720 viewport and the actions menu opens DOWNWARD without
+    // flipping when there is no room, so the menu renders below the fold: the
+    // "Reject" item resolves and reports visible+enabled+stable, then every click
+    // retries with "element is outside of the viewport" until the timeout.
+    // scrollIntoViewIfNeeded is not enough — it stops as soon as the trigger
+    // itself is on screen, which leaves it exactly where the menu has no room.
+    // (The menu not flipping is a real UI issue at this height, not a test one.)
+    await moreActions.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await clickWhenReady(approverPage, moreActions)
     await approverPage.getByRole('menuitem', { name: 'Reject' }).click()
     await expect(approverPage.getByPlaceholder('Why are you rejecting?')).toBeVisible({
       timeout: 10_000,
@@ -107,7 +145,7 @@ test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the
 
     // Explicit audit trail for the rejection. Verified live: the generic audit
     // trigger writes the table-derived plural ('Nonconformances', see CREATE/
-    // UNDER_REVIEW rows in J1), but the handler's explicit AuditLog.create for
+    // OPEN rows in J1), but the handler's explicit AuditLog.create for
     // REJECT uses the module's singular entityName ('Nonconformance') instead —
     // a real (harmless) casing inconsistency between the two audit paths.
     const rejectAuditRows = sqlValue(

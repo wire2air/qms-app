@@ -6,7 +6,7 @@
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import { uniqueTitle } from '../fixtures/documents.js'
-import { sqlRow, sqlValue, waitForSqlValue } from '../fixtures/db.js'
+import { sql, sqlRow, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 
 const SEEDED_TEMPLATE = 'E2E SOP Template'
 const SEEDED_PREFIX = 'ESOP'
@@ -36,6 +36,29 @@ async function fillPrefix(page, prefix) {
 
 test.describe.serial('PW-J8 · document template lifecycle', () => {
   let name, prefix
+
+  // Put the template back. This spec is the only one in the suite that leaves a
+  // PUBLISHED row behind, and a PUBLISHED template is an option in every
+  // document create form for ever after — by 2026-08-28 the E2E tenant carried
+  // 40 of them against 3 real ones, and PW-J1 started creating documents that
+  // inherited a leftover's prefix, sections and approval workflow instead of
+  // the seeded SOP template's (documents/23 §1). Whatever the mechanism there,
+  // a test fixture that grows without bound every run is the wrong ground to
+  // debug it on. Soft-delete (paranoid models honour deleted_at) and bump
+  // updated_at so the delta sync actually carries the removal to clients.
+  test.afterAll(() => {
+    if (!name) return
+    sql(
+      `UPDATE document_templates SET deleted_at = NOW(), updated_at = NOW()
+        WHERE company_id = 'e2e00001-0000-4000-8000-000000000001'
+          AND name = '${name}' AND deleted_at IS NULL`,
+    )
+    sql(
+      `UPDATE workflows SET deleted_at = NOW(), updated_at = NOW()
+        WHERE company_id = 'e2e00001-0000-4000-8000-000000000001'
+          AND name = '${name} — Approval' AND deleted_at IS NULL`,
+    )
+  })
 
   test('controller creates a template → DRAFT', async ({ browser }) => {
     test.setTimeout(120_000)

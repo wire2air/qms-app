@@ -2,12 +2,17 @@
 //
 // Doc14 describes cancel as available on a "DRAFT/PENDING" CAPA — true at the
 // controller (backend/api/controllers/capas.js cancelCapa only rejects
-// CLOSED/CANCELLED), but the action-bar "Cancel CAPA" button is gated
-// `statusId === 'PENDING'` only (capaDetailConfig.js buildCapaActions) — a
-// DRAFT CAPA has no UI path to cancel, just Delete. This journey exercises
-// the PENDING path the UI actually offers; the DRAFT gap is a product
-// question (intentional — Delete already covers DRAFT removal — or a miss),
-// not something this suite can paper over with an API-only workaround.
+// CLOSED/CANCELLED), but the action-bar "Cancel CAPA" button is gated on a
+// single status in capaDetailConfig.js buildCapaActions — a DRAFT CAPA has no
+// UI path to cancel, just Delete. This journey exercises the path the UI
+// actually offers; the DRAFT gap is a product question (intentional — Delete
+// already covers DRAFT removal — or a miss), not something this suite can
+// paper over with an API-only workaround.
+//
+// ~~`statusId === 'PENDING'`~~ — that gate outlived its status. PENDING was
+// retired by 20260823100000-unified-record-statuses (capa/21 §1) while the
+// action bar kept comparing to it, so Cancel (and Close) rendered for NOBODY
+// on any CAPA. Corrected to 'OPEN' 2026-08-28; see capa/22 §1.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS } from '../fixtures/cast.js'
 import {
@@ -22,8 +27,8 @@ import { findCapaByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/
 
 test.use({ storageState: AUTH.author })
 
-test.describe('PW-J5 · cancel a PENDING CAPA', () => {
-  test('owner cancels a PENDING CAPA — workflow aborted, e-signed', async ({ page }) => {
+test.describe('PW-J5 · cancel an OPEN CAPA', () => {
+  test('owner cancels an OPEN CAPA — workflow aborted, e-signed', async ({ page }) => {
     test.setTimeout(90_000)
     const title = uniqueTitle('J5')
     await createCapa(page, title)
