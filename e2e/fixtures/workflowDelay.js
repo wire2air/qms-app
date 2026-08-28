@@ -71,19 +71,6 @@ export const DELAY_TEMPLATES = {
     action1: 'e2ef5003-0000-4000-8000-000000000021',
     delay: 'e2ef5003-0000-4000-8000-000000000022',
   },
-  // DELAY is last AND captures an effectiveness verdict — PW-J4's shape.
-  //
-  // A separate template rather than a flag on `tail`: `captures_effectiveness`
-  // makes the step refuse to complete until a verdict is picked
-  // (WorkflowStep.vue completeDisabled — "Record the effectiveness outcome
-  // first"), which would have broken every existing PW-J9/PW-J10 completion.
-  eff: {
-    name: 'E2E Delay Fixture Workflow (effectiveness)',
-    workflowId: 'e2ef5001-0000-4000-8000-000000000003',
-    versionId: 'e2ef5002-0000-4000-8000-000000000003',
-    action1: 'e2ef5003-0000-4000-8000-000000000021',
-    delay: 'e2ef5003-0000-4000-8000-000000000022',
-  },
   // DELAY has a step after it — PW-J9's skip shape.
   mid: {
     name: 'E2E Delay Fixture Workflow (mid)',
@@ -110,7 +97,6 @@ export const MAX_DELAY_EXTENSIONS = 2
 export function ensureDelayTemplates() {
   const t = DELAY_TEMPLATES.tail
   const m = DELAY_TEMPLATES.mid
-  const e = DELAY_TEMPLATES.eff
 
   const step = (id, versionId, name, order, type, esign, maxExt, capturesEff = 'false') =>
     `(${q(id)}, ${q(versionId)}, ${q(name)}, ${order}, 'ALL', 5, false, ${esign}, '[]'::jsonb, ` +
@@ -128,21 +114,19 @@ export function ensureDelayTemplates() {
     -- when replacing is safe (and is also why workflow_instances' FK is
     -- ON DELETE RESTRICT).
     DELETE FROM workflow_versions v
-     WHERE v.id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)})
+     WHERE v.id IN (${q(t.versionId)}, ${q(m.versionId)})
        AND v.status_id IS DISTINCT FROM 'PUBLISHED'
        AND NOT EXISTS (SELECT 1 FROM workflow_instances wi WHERE wi.workflow_version_id = v.id);
 
     INSERT INTO workflows (id, name, description, module_id, company_id, status_id, is_default, created_at, updated_at)
     VALUES ${workflow(t.workflowId, t.name)},
-           ${workflow(m.workflowId, m.name)},
-           ${workflow(e.workflowId, e.name)}
+           ${workflow(m.workflowId, m.name)}
     ON CONFLICT (id) DO UPDATE SET status_id = 'INACTIVE', deleted_at = NULL;
 
     INSERT INTO workflow_versions (id, workflow_id, version_major, version_minor, version_label,
                                    status_id, company_id, is_current, created_at, updated_at)
     VALUES (${q(t.versionId)}, ${q(t.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW()),
-           (${q(m.versionId)}, ${q(m.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW()),
-           (${q(e.versionId)}, ${q(e.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW())
+           (${q(m.versionId)}, ${q(m.workflowId)}, 1, 0, '1.0', 'DRAFT', ${q(COMPANY_ID)}, false, NOW(), NOW())
     ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO workflow_steps (id, workflow_version_id, name, step_order, approval_rule, sla_days,
@@ -155,8 +139,6 @@ export function ensureDelayTemplates() {
       step(m.action1, m.versionId, 'Delay Review', 1, 'ACTION', 'false', null),
       step(m.delay, m.versionId, 'Effectiveness Wait', 2, 'DELAY', 'true', MAX_DELAY_EXTENSIONS),
       step(m.action3, m.versionId, 'Post-Delay Verification', 3, 'ACTION', 'false', null),
-      step(e.action1, e.versionId, 'Delay Review', 1, 'ACTION', 'false', null),
-      step(e.delay, e.versionId, 'Effectiveness Wait', 2, 'DELAY', 'true', MAX_DELAY_EXTENSIONS, 'true'),
     ].join(',\n      ')}
     ON CONFLICT (id) DO UPDATE SET
       -- Self-heal CONFIG drift: an older fixture generation left delay_days=30
@@ -180,15 +162,13 @@ export function ensureDelayTemplates() {
              (${q(t.delay)}::uuid,   'E2E Approver'),
              (${q(m.action1)}::uuid, 'E2E Reviewer'),
              (${q(m.delay)}::uuid,   'E2E Approver'),
-             (${q(m.action3)}::uuid, 'E2E Reviewer'),
-             (${q(e.action1)}::uuid, 'E2E Reviewer'),
-             (${q(e.delay)}::uuid,   'E2E Approver')
+             (${q(m.action3)}::uuid, 'E2E Reviewer')
            ) AS v(step_id, role_name)
       JOIN roles r ON r.name = v.role_name AND r.company_id = ${q(COMPANY_ID)} AND r.deleted_at IS NULL
     ON CONFLICT DO NOTHING;
 
     UPDATE workflow_versions SET status_id = 'PUBLISHED', updated_at = NOW()
-     WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)}) AND status_id = 'DRAFT';
+     WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}) AND status_id = 'DRAFT';
   `)
 
   // Fail loudly and early rather than letting a half-built template surface as
@@ -202,16 +182,16 @@ export function ensureDelayTemplates() {
   const bound = sqlValue(
     `SELECT count(DISTINCT wsr.step_id) FROM workflow_step_roles wsr
        JOIN workflow_steps ws ON ws.id = wsr.step_id
-      WHERE ws.workflow_version_id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)})
+      WHERE ws.workflow_version_id IN (${q(t.versionId)}, ${q(m.versionId)})
         AND wsr.deleted_at IS NULL`,
   )
-  expect(Number(bound), 'every fixture step has a role pool bound').toBe(7)
+  expect(Number(bound), 'every fixture step has a role pool bound').toBe(5)
 
   const published = sqlValue(
     `SELECT count(*) FROM workflow_versions
-      WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}, ${q(e.versionId)}) AND status_id = 'PUBLISHED'`,
+      WHERE id IN (${q(t.versionId)}, ${q(m.versionId)}) AND status_id = 'PUBLISHED'`,
   )
-  expect(Number(published), 'all three fixture versions are PUBLISHED').toBe(3)
+  expect(Number(published), 'both fixture versions are PUBLISHED').toBe(2)
 }
 
 // ─── Reading the engine's own tables ────────────────────────────────────────

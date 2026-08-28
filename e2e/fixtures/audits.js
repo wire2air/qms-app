@@ -448,7 +448,9 @@ export async function submitForCloseOut(
     timeout: 30_000,
   })
   await waitForSqlValue(
-    `SELECT count(*) FROM audit_instances WHERE id = '${auditInstanceId}' AND status_id = 'REVIEW'`,
+    // Unified audit statuses (2026-08-28): the parent stays OPEN; review is
+    // the execution phase.
+    `SELECT count(*) FROM audit_instances WHERE id = '${auditInstanceId}' AND status_id = 'OPEN' AND execution_phase = 'REVIEW'`,
     { timeoutMs: 30_000, label: 'audit handed to the close-out workflow' },
   )
 }
