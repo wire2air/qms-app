@@ -1,12 +1,15 @@
 // PW-J2 — Review + e-signed approval → EFFECTIVE (TC-04/05). The P0 journey:
-// author submits, the assigned reviewer completes the ACTION step (comment
-// required), the approver approves with an e-signature PIN, the version goes
-// EFFECTIVE, a signatures row is written and the worker generates the
-// hash-anchored snapshot.
+// author submits, the assigned reviewer signs off step 1, the approver approves
+// with an e-signature PIN, the version goes EFFECTIVE, a signatures row is
+// written and the worker generates the hash-anchored snapshot.
+//
+// BOTH steps are e-signed APPROVAL steps as of 2026-08-28 — see the note at the
+// reviewer step below.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ESIGN_PIN, USERS } from '../fixtures/cast.js'
 import { createSopDocument, fillAllSections, submitForReview, uniqueTitle } from '../fixtures/documents.js'
 import { findDocumentByTitle, versionsOf, sqlValue, waitForSqlValue } from '../fixtures/db.js'
+import { signWithPin } from '../fixtures/esign.js'
 
 test.describe('PW-J2 · review → e-signed approval → effective', () => {
   test('full approval chain with e-signature and snapshot', async ({ browser }) => {
@@ -28,9 +31,7 @@ test.describe('PW-J2 · review → e-signed approval → effective', () => {
     expect(version.statusId).toBe('IN_REVIEW')
     await authorCtx.close()
 
-    // ── Reviewer (Rita, step 1 ACTION, require_comments) ─────────────────────
-    // The ACTION step's advance control is labelled "Approve" (maps to
-    // COMPLETE_AND_ADVANCE).
+    // ── Reviewer (Rita, step 1 — APPROVAL + e-sign + comments) ──────────────
     await waitForSqlValue(
       `SELECT count(*) FROM task_instances WHERE entity_id = '${version.id}'
         AND assigned_to = '${USERS.reviewer.id}' AND status_id IN ('ASSIGNED','FORM_SUBMITTED')`,
@@ -43,19 +44,31 @@ test.describe('PW-J2 · review → e-signed approval → effective', () => {
     await expect(completeBtn).toBeVisible({ timeout: 20_000 })
     await completeBtn.click()
 
-    // Comment dialog (require_comments) → provide the reason and confirm.
-    const reviewDialog = reviewerPage.getByRole('dialog').last()
-    if (await reviewDialog.isVisible({ timeout: 4_000 }).catch(() => false)) {
-      const commentBox = reviewDialog.locator('textarea, [contenteditable="true"]').first()
-      if (await commentBox.isVisible().catch(() => false)) {
-        await commentBox.click()
-        await reviewerPage.keyboard.type('Reviewed by E2E — technically accurate.')
-      }
-      await reviewDialog
-        .getByRole('button', { name: /approve|complete|submit|confirm|advance/i })
-        .last()
-        .click()
+    // Step 1 is now an E-SIGNED APPROVAL step, not a comment-only ACTION step.
+    // The approval flow moved onto the document template (documents/21 §1), so a
+    // document created from "E2E SOP Template" runs that template's minted
+    // workflow — "E2E SOP Template — Approval" — whose BOTH steps are APPROVAL
+    // with require_esignature=true. The seeded standalone "E2E Document Approval"
+    // (step 1 ACTION, esign=false, comments=true) is what this block was written
+    // against and is no longer the workflow this journey exercises.
+    //
+    // The previous block failed SILENTLY rather than loudly: it gated on
+    // `getByRole('dialog').last().isVisible()`, and the headlessui wrapper reports
+    // zero-size/hidden (the same trap documented in fixtures/esign.js). So the
+    // whole branch was skipped, the PIN dialog was left open, nothing was
+    // submitted, and the failure surfaced 30s later as "approver task created:
+    // 0" — three steps away from the actual cause.
+    // Scoped to the dialog portal, NOT the page: an unscoped
+    // `textarea, [contenteditable]` matches the section-feedback box behind the
+    // modal ("Add feedback for this section…"), which is visible but sits under
+    // the headlessui overlay — so the click is intercepted and retries to death.
+    const dialogRoot = reviewerPage.locator('#headlessui-portal-root')
+    const commentBox = dialogRoot.locator('textarea, [contenteditable="true"]').first()
+    if (await commentBox.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await commentBox.click()
+      await reviewerPage.keyboard.type('Reviewed by E2E — technically accurate.')
     }
+    await signWithPin(reviewerPage)
 
     // Step 2 task must now exist for the approver.
     await waitForSqlValue(

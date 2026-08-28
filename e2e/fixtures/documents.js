@@ -4,6 +4,7 @@
 import { expect } from '@playwright/test'
 import { FIXTURES, USERS, AUTH, ESIGN_PIN } from './cast.js'
 import { sqlValue, waitForSqlValue } from './db.js'
+import { signWithPin } from './esign.js'
 
 const FILL_MARKER = 'E2E-FILLED'
 
@@ -311,8 +312,16 @@ export async function clickWhenReady(page, locator, { perLoad = 20_000, reloads 
 
 /**
  * Reject the current DocumentVersion task (Reject button → "Reject Step" dialog →
- * required comment → confirm). The ACTION step (reviewer, step 1) is not e-signed,
- * so no PIN. Leaves the version REJECTED with the comment as reject_comment.
+ * required comment → confirm). Leaves the version REJECTED with the comment as
+ * reject_comment.
+ *
+ * ~~The ACTION step (reviewer, step 1) is not e-signed, so no PIN.~~ No longer
+ * true: once the approval flow moved onto the document template (documents/21
+ * §1), a document created from a template runs THAT template's workflow, and
+ * "E2E SOP Template — Approval" makes BOTH steps APPROVAL with
+ * require_esignature=true. The PIN prompt below is therefore reached on the
+ * reviewer's rejection as well — guarded, so this helper still works against a
+ * workflow whose step 1 really is a plain ACTION.
  */
 export async function rejectCurrentTask(page, documentId, comment = 'E2E reject — please correct section 1.') {
   await page.goto(`/documents/${documentId}`)
@@ -325,6 +334,17 @@ export async function rejectCurrentTask(page, documentId, comment = 'E2E reject 
   await commentBox.fill(comment)
   // Footer confirm is the second "Reject" (the first is the action-bar trigger).
   await page.getByRole('button', { name: /^reject$/i }).last().click()
+  // waitFor, NOT isVisible: `locator.isVisible()` is an immediate check and its
+  // `timeout` option does not make it wait, so it answers "false" while the
+  // dialog is still opening and the PIN is silently never entered — the reject
+  // then fails 30s later as "version REJECTED — last value: null", with the
+  // dialog sitting open in the screenshot.
+  const pin = page.getByPlaceholder('Enter your e-signature PIN')
+  const needsPin = await pin
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false)
+  if (needsPin) await signWithPin(page)
 }
 
 /**
@@ -364,15 +384,21 @@ export async function driveToEffective(browser, docId, versionId) {
   // The reviewer's Approve action renders once the step-1 task syncs into this
   // context; reload-tolerant so a missed socket push doesn't stall the run.
   await clickWhenReady(reviewerPage, reviewerPage.getByRole('button', { name: /^approve$/i }))
-  const reviewDialog = reviewerPage.getByRole('dialog').last()
-  if (await reviewDialog.isVisible({ timeout: 4_000 }).catch(() => false)) {
-    const box = reviewDialog.locator('textarea, [contenteditable="true"]').first()
-    if (await box.isVisible().catch(() => false)) {
-      await box.click()
-      await reviewerPage.keyboard.type('Reviewed by E2E — accurate.')
-    }
-    await reviewDialog.getByRole('button', { name: /approve|complete|submit|confirm|advance/i }).last().click()
+  // Step 1 is an e-signed APPROVAL step now (the approval flow lives on the
+  // template — documents/21 §1), so the reviewer gets the PIN prompt too.
+  //
+  // The block this replaces gated on `getByRole('dialog').last().isVisible()`,
+  // which the headlessui wrapper answers "hidden" to (see fixtures/esign.js). It
+  // therefore skipped the whole confirm silently, left the PIN dialog open, and
+  // surfaced 45s later as "approver task created: 0" — pointing at the approver
+  // when the reviewer was the one who never finished.
+  const dialogRoot = reviewerPage.locator('#headlessui-portal-root')
+  const box = dialogRoot.locator('textarea, [contenteditable="true"]').first()
+  if (await box.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true).catch(() => false)) {
+    await box.click()
+    await reviewerPage.keyboard.type('Reviewed by E2E — accurate.')
   }
+  await signWithPin(reviewerPage)
   await waitForSqlValue(
     `SELECT count(*) FROM task_instances ti WHERE ti.entity_id = '${versionId}'
        AND ti.assigned_to = '${USERS.approver.id}' AND ti.deleted_at IS NULL AND ti.status_id NOT IN ('CANCELLED')`,
