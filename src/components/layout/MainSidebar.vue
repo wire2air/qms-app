@@ -1,6 +1,5 @@
 <script setup>
 import {
-  IconFileImport,
   IconCirclePlus,
   IconChevronLeft,
   IconMessageCircle,
@@ -381,24 +380,14 @@ const navItems = computed(() => {
         },
       ],
     },
-    // Admin-defined modules (data-driven).
-    ...moduleNavItems.value,
     {
       label: 'Document Control',
       permissions: ['document_control:read'],
       icon: IconFileText,
       to: getCompanyPath('/documents'),
     },
-    {
-      // Migration aid, used heavily during onboarding and rarely after. Gated
-      // on CREATE rather than read so it stays out of the nav for everyone who
-      // only consumes documents — a bulk importer is not something most users
-      // should be invited to discover.
-      label: 'Bulk Import',
-      permissions: ['document_control:create'],
-      icon: IconFileImport,
-      to: getCompanyPath('/document-imports'),
-    },
+    // (Bulk Import moved out of the nav 2026-08-28 — it's a button beside
+    // Create Document on the register, where the importing actually starts.)
     {
       label: 'Nonconformances',
       permissions: ['ncr:read'],
@@ -435,6 +424,9 @@ const navItems = computed(() => {
       icon: IconReplace,
       to: getCompanyPath('/change-requests'),
     },
+    // Admin-defined modules (data-driven) — with the record modules, after
+    // Change Control and before Audits (user 2026-08-28).
+    ...moduleNavItems.value,
     {
       // Submenu like QC Inspection / Inspections & Logs (user request
       // 2026-08-15): the page's ?tab= sections become nav children so an
