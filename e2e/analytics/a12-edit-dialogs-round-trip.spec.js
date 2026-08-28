@@ -35,8 +35,11 @@ import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, ANALYTICS, COMPANY_ID, USERS } from '../fixtures/cast.js'
 import { sql } from '../fixtures/db.js'
 import {
+  createDashboardViaUi,
+  dashboardByName,
   ensureRollup,
   gotoAnalytics,
+  gotoDashboards,
   gotoReports,
   createReportViaUi,
   reportByName,
@@ -87,6 +90,64 @@ test.describe('ANL-A12 · edit dialogs', () => {
     await ensureRollup()
     sql(`DELETE FROM public.analytics_report_schedules WHERE name LIKE 'ANL-A12%'`)
     sql(`DELETE FROM public.analytics_reports WHERE name LIKE 'ANL-A12%'`)
+  })
+
+  test('the sharing dialog opens carrying the board\'s SAVED visibility, not the default', async ({
+    page,
+  }) => {
+    // ── WHY THIS DIALOG JOINED THIS FILE ────────────────────────────────────
+    // DashboardSharingDialog landed on 2026-08-28 (`21262579`) and is built to
+    // the exact shape this file polices: re-seed a form from a live SyncEngine
+    // row inside a `watch`, where Vue swallows whatever the callback throws. Its
+    // own header argues it is safe because visibility is a plain string and so
+    // there is no clone to get wrong — which is an argument, not a test. If that
+    // watcher ever stops running, the dialog falls back to its initialiser
+    // (`ref(VISIBILITY.PRIVATE)`) and opens on the WRONG state, offering to save
+    // it; the console guard below is what catches the reason.
+    const check = watchForErrors(page)
+    const name = uniqueName('ANL-A12 board')
+
+    await gotoDashboards(page)
+    await createDashboardViaUi(page, name)
+    const board = await expect
+      .poll(() => dashboardByName(name), { timeout: 20_000, message: 'dashboard row appears' })
+      .not.toBeNull()
+      .then(() => dashboardByName(name))
+
+    // Put it in the NON-default state before opening, and that is the whole
+    // design of the test. Every board is created `private`, so a dialog that
+    // ignored the row entirely and just used its own initialiser would open
+    // showing "Private" and pass. Only a board whose saved value differs from
+    // the default can tell "populated from the row" from "populated from a
+    // constant". A direct UPDATE rather than the dialog: the round trip through
+    // the UI is ANL-A5's subject, and this test has to be able to fail for its
+    // own reason.
+    sql(
+      `UPDATE public.analytics_dashboards SET visibility = 'shared' WHERE id = '${board.id}'`,
+    )
+
+    await gotoAnalytics(page, `/dashboards/${board.id}`)
+    await page.getByRole('button', { name: 'Sharing', exact: true }).click()
+    const dialog = await openDialog(page, /^sharing$/i)
+
+    // THE ASSERTION. The picker renders its selected value as the same badge
+    // the list and the page header use, so "Shared" here is the stored column
+    // reaching the form — not a default that happens to look plausible.
+    await expect(
+      dialog.getByText('Shared', { exact: true }).first(),
+      'the picker shows the value on the row, not the component default',
+    ).toBeVisible({ timeout: 20_000 })
+
+    // And the other half of "populated": with nothing changed there is nothing
+    // to save, and the button SAYS why rather than sitting inert. A dialog that
+    // opened on the wrong value would offer an enabled Save here — which is the
+    // shape of the harm, since pressing it would write the default over the
+    // board's real state.
+    const save = dialog.getByRole('button', { name: 'Save', exact: true })
+    await expect(save).toBeDisabled()
+    await expect(save).toHaveAttribute('title', /nothing to change/i)
+
+    check()
   })
 
   test('the report editor opens with the SAVED definition already in it', async ({ page }) => {

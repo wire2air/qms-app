@@ -77,10 +77,28 @@ test.describe('PW-J15 · F-12 reviewer-less step', () => {
     await createCr(page, title)
     const cr = findCrByTitle(title)
     expect(cr.statusId).toBe('DRAFT')
-    // submitForReview is owner-gated (`assertOwner`). If this ever stops holding,
-    // the submit below returns 403 and branch A would "pass" for a reason that
-    // has nothing to do with F-12.
-    expect(cr.ownerId, 'the submitting persona owns the record').toBe(USERS.author.id)
+    // The submit below must be REFUSED for reviewer-less reasons or not at all —
+    // a 403 would make branch A "pass" for a reason with nothing to do with F-12.
+    //
+    // What guards it changed on 2026-08-19. `assertOwner` is still the name in
+    // changeRequests.js:47, but it no longer means "is this the owner": it now
+    // delegates to `assertCanActOnRecord`, so custodianship supplies the SCOPE
+    // and the matrix supplies the VERB (`change_control:update`, also enforced
+    // at the route by `enforcePermission`). Aaron passes on both counts — he
+    // holds the verb at TENANT scope, and he owns the record — so this premise
+    // still holds, but it now pins two independent things. Both are asserted:
+    // ownership (the scope input) and the grant (the verb), because either one
+    // going missing produces the same misleading green.
+    expect(cr.ownerId, 'the submitting persona owns the record (scope input)').toBe(USERS.author.id)
+    expect(
+      sqlValue(
+        `SELECT count(*) FROM authz.role_module_permissions rmp
+           JOIN roles_on_users ru ON ru.role_id = rmp.role_id AND ru.company_id = rmp.company_id
+          WHERE ru.user_id = '${USERS.author.id}'
+            AND rmp.module_id = 'change_control' AND rmp.action_id = 'update'`,
+      ),
+      'and holds change_control:update, which submitForReview now requires of them too',
+    ).not.toBe('0')
 
     sql(
       `UPDATE change_requests

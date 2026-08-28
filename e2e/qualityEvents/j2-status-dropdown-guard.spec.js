@@ -75,6 +75,32 @@ test.describe('QE-J2 — status dropdown lifecycle guard (F-02)', () => {
     await openEvent(page, EV.id)
     const options = await statusMenuOptions(page)
     expect(options).toEqual(['Draft', 'Open', 'Closed', 'Cancelled'])
+
+    // …and that literal is only half the control, because the menu is NOT
+    // DB-driven. `QualityEventStatusSelectMenu` feeds BaseSelect from
+    // `src/utils/qualityEventStatuses.js` — a hardcoded array, unlike the NC and
+    // CAPA filter menus, which read their lookup through the syncEngine. So the
+    // assertion above proves the frontend const and says NOTHING about the table
+    // the foreign key points at, even though the sentence it is written under is
+    // entirely about that table. The two are free to drift in either direction,
+    // and both directions are live bugs the assertion above cannot see: a status
+    // in the const but not the lookup is an option that writes an FK violation;
+    // one in the lookup but not the const is a state no user can reach.
+    //
+    // Cross-check them here, ordered by display_order — the migration's `UNIFIED`
+    // const sets 100/200/300/400 precisely so the two orderings coincide, which
+    // is what makes toEqual (not a set comparison) the right assertion.
+    const { sql } = await import('../fixtures/db.js')
+    const lookupNames = sql(
+      `SELECT name FROM quality_event_statuses ORDER BY display_order`,
+    )
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    expect(
+      options,
+      'the hardcoded QUALITY_EVENT_STATUSES array and quality_event_statuses must name the same four states in the same order',
+    ).toEqual(lookupNames)
   })
 
   test('picking Closed from the dropdown does NOT close the event', async ({ page }) => {

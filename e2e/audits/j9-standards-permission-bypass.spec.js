@@ -1,28 +1,41 @@
-// PW-J9 · 🔴 auditStandards permission checks are dead code (inventory finding #1).
+// PW-J9 · auditStandards permission enforcement (was inventory finding #1).
 //
-// EVERY mutating route in backend/api/routes/auditStandards.js mounts
+// EVERY mutating route in backend/api/routes/auditStandards.js used to mount
 // `enforcePermission('audit_standards', verb)` AFTER the controller:
 //
 //   router.post(['/v1/services/auditStandards'],
 //     requireAuthByApiKey, requireCompanyAccess, express.json(),
 //     validate({ body: createAuditStandardSchema }),
-//     createAuditStandard,                        // <- sends the response…
-//     enforcePermission('audit_standards','create'))  // <- …so this never runs
+//     createAuditStandard,                            // <- sends the response…
+//     enforcePermission('audit_standards','create'))  // <- …so this never ran
 //
-// The controllers take (req, res) with no `next`, call sendSuccess/sendCreated
-// and return — the permission middleware is never reached. Any authenticated
-// company member can therefore create / update / delete / clone / BYOL-import /
-// attest-license an Audit Standard with zero audit_standards grants.
+// The controllers take (req, res) with no `next` — they call sendSuccess and
+// return — so the middleware was never reached, and any authenticated company
+// member could create / update / delete / clone / BYOL-import / attest-license
+// an Audit Standard with zero audit_standards grants. It was invisible to
+// tests/routePermissions.test.js, which regex-scans for the textual PRESENCE of
+// enforcePermission( in the route span, not its position.
 //
-// It is invisible to tests/routePermissions.test.js, which regex-scans for the
-// textual PRESENCE of enforcePermission( in the route span, not its position.
+// FIXED: every route in that file now mounts the check BEFORE its controller
+// (verified on develop — create / update / delete / restore / versions / clone /
+// submit / discard / import / attest all read
+// `validate(...) → enforcePermission(...) → controller`). These are therefore
+// REGRESSION GUARDS now, not expected failures. Nothing about what they assert
+// changed — they were always written as "this user must be refused", which is
+// the contract the reorder delivered — only the titles and this note did.
 //
 // The probes go through the API, not the UI: the UI hides the buttons from this
-// persona, which is exactly why the gap survived. `auditor` holds
+// persona, which is exactly why the gap survived for so long. `auditor` holds
 // audit_management:read and nothing else — no audit_standards action of any
 // kind — so every assertion below is "this user must be refused".
 //
-// EXPECTED TO FAIL until the routes are reordered. Each test is self-contained.
+// ⚠ e2e-seed.sql §23 still describes this persona as existing to PROVE the
+// bypass ("PW-J9 proves that a user with no audit_standards:create can still
+// create a standard"). That comment is now stale; the grants it sets up are
+// still exactly right. Reported, not edited (the seed is out of scope here).
+//
+// Each test is self-contained.
+
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, AUDIT_STANDARD, USERS } from '../fixtures/cast.js'
 import { findStandardByCode } from '../fixtures/audits.js'
@@ -41,7 +54,7 @@ test.describe('PW-J9 · standards routes enforce no permission', () => {
     ).toBe('f')
   })
 
-  test('🔴 create: a user without audit_standards:create is not refused (FAILS TODAY)', async ({
+  test('create: a user without audit_standards:create is refused 403', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.auditor })
@@ -52,13 +65,14 @@ test.describe('PW-J9 · standards routes enforce no permission', () => {
     const created = findStandardByCode(code)
     await ctx.close()
 
-    // Report the damage first — a 403 with a row still written would be a
-    // different (worse) bug than the one this documents.
+    // Row check first, status second: a 403 with a row still written would be a
+    // different (worse) bug than the one this used to document, and reading the
+    // damage before the status code is what names it.
     expect(created, 'no standard should exist after an unauthorised create').toBeNull()
     expect(res.status(), 'create without audit_standards:create must be 403').toBe(403)
   })
 
-  test('🔴 update: a user without audit_standards:update is not refused (FAILS TODAY)', async ({
+  test('update: a user without audit_standards:update is refused 403', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.auditor })
@@ -74,7 +88,7 @@ test.describe('PW-J9 · standards routes enforce no permission', () => {
     expect(res.status(), 'update without audit_standards:update must be 403').toBe(403)
   })
 
-  test('🔴 BYOL import: a user without audit_standards:create is not refused (FAILS TODAY)', async ({
+  test('BYOL import: a user without audit_standards:create is refused 403', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.auditor })
@@ -92,8 +106,10 @@ test.describe('PW-J9 · standards routes enforce no permission', () => {
     const created = findStandardByCode(code)
     await ctx.close()
 
-    // The import path is the most damaging of the set: it writes a standard, an
-    // EFFECTIVE version and a clause list in one unguarded call.
+    // The import path was the most damaging of the set: unguarded, it wrote a
+    // standard, an EFFECTIVE version and a clause list in one call — and an
+    // imported standard skips approval entirely (PW-J7), so it was immediately
+    // pickable for a real audit.
     expect(created, 'no standard should exist after an unauthorised import').toBeNull()
     expect(res.status(), 'import without audit_standards:create must be 403').toBe(403)
   })
@@ -101,9 +117,10 @@ test.describe('PW-J9 · standards routes enforce no permission', () => {
   test('CONTROL · a route that mounts enforcePermission correctly does refuse', async ({
     browser,
   }) => {
-    // audit_programs mounts the check BEFORE the controller. Same persona, same
-    // shape of request — the contrast is the point: this is what J9's routes
-    // should look like.
+    // audit_programs always mounted the check BEFORE the controller. Same
+    // persona, same shape of request. Kept now that auditStandards matches it:
+    // it is the independent witness that a 403 here means the permission layer
+    // is working, not that the whole API is refusing this session.
     const ctx = await browser.newContext({ storageState: AUTH.auditor })
     const res = await ctx.request.post('/api/v1/services/auditPrograms', {
       data: { name: 'PW-J9 control program', programTypeId: 'INTERNAL', frequencyId: 'ANNUAL' },

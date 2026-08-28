@@ -12,11 +12,23 @@
 //     await capa.update({ statusId: 'PENDING', ... })
 //
 // TWO layers reject that, and the order matters for anyone debugging it. The
-// status trigger fires first:
+// status trigger is a BEFORE-row trigger, so it fires ahead of the constraint
+// checks:
 //
-//     ERROR: Illegal CAPA status transition: OPEN -> PENDING.
+//     ERROR: Illegal CAPA status transition: DRAFT -> PENDING.
 //     HINT:  If this transition is legitimate, add it to
 //            enforce_capa_status_transition().
+//
+// ~~OPEN -> PENDING~~ — the source state is DRAFT, and naming it correctly
+// matters because it says where the fix belongs. `submitResourceForReview`
+// (services/workflowInstanceService.js:857) instantiates the workflow but
+// touches only DocumentVersion / LogBook / AuditStandardVersion / AuditInstance
+// / InspectionLot / Specification — never `capas` — so the CAPA is still DRAFT
+// when line 400 runs. The record's own DRAFT -> OPEN write lives in
+// `submitCapaForReview` (controllers/capas.js:184), which this shortcut does not
+// call; it hand-rolls the status write instead, and that hand-rolled copy is the
+// one the unified-status migration missed. Same shape as the CAPA detail action
+// bar: the shared path was migrated, the second copy was not.
 //
 // and behind it the foreign key would refuse too, since `capas.status_id`
 // references `capa_statuses.id` (`20260513000500-create-capas.js`) and the
