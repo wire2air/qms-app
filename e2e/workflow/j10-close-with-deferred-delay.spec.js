@@ -21,7 +21,7 @@
 // Test 1 pins that; test 2 pins the deferral; test 3 is the control that shows
 // the deferral, not the close path itself, is what keeps the instance alive.
 import { test, expect } from '../../video/fixtures/videoTest.js'
-import { AUTH, ESIGN_PIN, USERS } from '../fixtures/cast.js'
+import { AUTH, ESIGN_PIN } from '../fixtures/cast.js'
 import { sqlValue, waitForSqlValue } from '../fixtures/db.js'
 import { closeCapa } from '../fixtures/capas.js'
 import {
@@ -82,7 +82,9 @@ test.describe('PW-J10 · close gate with a deferred DELAY step', () => {
     const res = await closeRequest(page, capaId, 'E2E — must be refused while the delay is un-armed.')
     expect(res.status(), 'the server refuses the close').toBe(409)
     expect(await errorMessage(res)).toMatch(/1 workflow step still open/i)
-    expect(capaStatus(capaId), 'and the record did not move').toBe('PENDING')
+    // 'OPEN' — the unified parent status (2026-08-28); submit no longer has
+    // its own PENDING state.
+    expect(capaStatus(capaId), 'and the record did not move').toBe('OPEN')
     expect(instanceOfCapa(capaId).statusId).toBe('IN_PROGRESS')
   })
 

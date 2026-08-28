@@ -31,7 +31,7 @@
 // where everything is gated.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, ESIGN_PIN } from '../fixtures/cast.js'
-import { waitForSqlValue } from '../fixtures/db.js'
+import { sqlValue, waitForSqlValue } from '../fixtures/db.js'
 import { clickWhenReady } from '../fixtures/documents.js'
 import {
   MAX_DELAY_EXTENSIONS,
@@ -182,8 +182,17 @@ test.describe('PW-J9 · DELAY step schedule / skip / extend', () => {
       .getByPlaceholder('Why is this check not needed?')
       .fill('J9 — check made redundant by the follow-up ACTION step.')
     await page.getByRole('button', { name: 'Sign & Skip' }).click()
-    await page.locator('input[type="password"]').first().fill('12345678')
-    await page.getByRole('button', { name: /^Sign\b/i }).last().click()
+    // The esign dialog opens on the heels of the skip dialog closing; a fill
+    // that lands mid-handoff can be wiped by the remount. Retry until the
+    // Sign button acknowledges the PIN (same hardening as capas PW-J10).
+    const pinBox = page.getByPlaceholder('Enter your e-signature PIN')
+    await expect(async () => {
+      await pinBox.fill('12345678')
+      await expect(page.getByRole('button', { name: 'Sign', exact: true })).toBeEnabled({
+        timeout: 1500,
+      })
+    }).toPass({ timeout: 20_000 })
+    await page.getByRole('button', { name: 'Sign', exact: true }).click()
 
     await waitForDelayStep(capaId, `wis.status_id = 'SKIPPED'`, 'delay step skipped')
 
@@ -257,10 +266,13 @@ test.describe('PW-J9 · DELAY step schedule / skip / extend', () => {
 
     try {
       await gotoCapaWorkflow(assigneePage, capaId)
-      await clickWhenReady(
-        assigneePage,
-        assigneePage.getByRole('button', { name: 'Extend', exact: true }),
-      )
+      // The fired check presents the effectiveness decision panel (2026-08-28)
+      // — Extend Monitoring is one of its options, not a standalone button.
+      // Picking it opens the same extend dialog as before.
+      await expect(assigneePage.getByText('Effectiveness decision')).toBeVisible({
+        timeout: 30_000,
+      })
+      await assigneePage.getByRole('radio', { name: 'Extend Monitoring', exact: true }).click()
       await expect(assigneePage.getByRole('heading', { name: 'Extend Delay' })).toBeVisible({
         timeout: 10_000,
       })
@@ -295,15 +307,28 @@ test.describe('PW-J9 · DELAY step schedule / skip / extend', () => {
       'carrying no signature credential at all',
     ).toBeNull()
 
-    // The re-park: a fired step goes back to sleep, its open task is SUPERSEDED
-    // (not cancelled — it was never refused) and its assignment returns to
-    // PENDING so the next wake-up re-mints it.
+    // The deadline moves, the work stays open (2026-08-18, extendDelayCore):
+    // extending a FIRED step no longer re-parks it. The step stays IN_PROGRESS
+    // with its task ASSIGNED — the assignee just asked for more time, locking
+    // them out of recording the verdict early would be perverse — and only the
+    // due date (with its reminder chain) is pushed out.
     delay = delayStepOf(capaId)
-    expect(delay.statusId, 'the step re-parks').toBe('SCHEDULED')
+    expect(delay.statusId, 'the step stays IN_PROGRESS — the work remains open').toBe('IN_PROGRESS')
     expect(delay.delayExtensionCount).toBe(1)
     expectDelayInDays(delay, 30, 'after the assignee extension')
-    expect(taskStatusesOn(delay.id), 'the open task is superseded').toEqual({ SUPERSEDED: 1 })
-    expect(assignmentStatusesOn(delay.id), 'the assignment re-parks').toEqual({ PENDING: 1 })
+    expect(
+      taskStatusesOn(delay.id),
+      'the task stays ASSIGNED — extend moves the reminder, not the work',
+    ).toEqual({ ASSIGNED: 1 })
+    expect(assignmentStatusesOn(delay.id), 'its assignment stays promoted').toEqual({
+      ASSIGNED: 1,
+    })
+    expect(
+      sqlValue(
+        `SELECT (due_date > NOW() + INTERVAL '28 days') FROM task_instances WHERE id = '${firedTaskId}'`,
+      ),
+      "the assignee task's due date moved with the extension",
+    ).toBe('t')
     expect(signatureCountOn(delay.id), 'and no Part-11 signature was manufactured').toBe(0)
 
     // ── The cap ──────────────────────────────────────────────────────────────
@@ -363,9 +388,17 @@ test.describe('PW-J9 · DELAY step schedule / skip / extend', () => {
     const assigneePage = await ctx.newPage()
     try {
       await gotoCapaWorkflow(assigneePage, capaId)
-      // A DELAY step is not an APPROVAL step, so the inline completion button
-      // reads "Mark Complete" rather than "Approve" — the label is derived from
-      // stepType, the signature requirement is not.
+      // Completing a check is recording its verdict (2026-08-28): pick
+      // Effective and give the required supporting comment before Mark
+      // Complete enables. The label is derived from stepType, the signature
+      // requirement is not.
+      await expect(assigneePage.getByText('Effectiveness decision')).toBeVisible({
+        timeout: 30_000,
+      })
+      await assigneePage.getByRole('radio', { name: 'Effective', exact: true }).click()
+      await assigneePage
+        .getByPlaceholder(/What supports this decision/)
+        .fill('J9 control — verified effective; signing the completion.')
       await clickWhenReady(
         assigneePage,
         assigneePage.getByRole('button', { name: 'Mark Complete', exact: true }),

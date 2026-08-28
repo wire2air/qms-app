@@ -51,7 +51,7 @@
 // is the surgical distinction PW-J9 is there to pin (see F-16 / A2).
 import { expect, request as pwRequest } from '@playwright/test'
 import { sql, sqlValue, sqlRow, waitForSqlValue, findCapaByTitle } from './db.js'
-import { AUTH, COMPANY_ID, SITES, DEPARTMENTS, USERS, BASE_URL } from './cast.js'
+import { AUTH, COMPANY_ID, SITES, DEPARTMENTS, USERS, BASE_URL, ESIGN_PIN } from './cast.js'
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`
 
@@ -60,12 +60,16 @@ const q = (s) => `'${String(s).replace(/'/g, "''")}'`
 // e2e-seed.sql — the seed's workflow ids run e2ef0…e2ef3 plus e2eaf.
 export const DELAY_TEMPLATES = {
   // DELAY is the last step — PW-J10's close-gate shape.
+  // OWN ids — this workflow used to share e2ef5001-…-0001 with the seed's
+  // 'E2E CAPA Effectiveness Delay', and the two suites fought over its delay
+  // step config forever: capas needs delay_days=30 (parks ARMED), these
+  // journeys need NULL (parks un-armed). One template cannot satisfy both.
   tail: {
     name: 'E2E Delay Fixture Workflow (tail)',
-    workflowId: 'e2ef5001-0000-4000-8000-000000000001',
-    versionId: 'e2ef5002-0000-4000-8000-000000000001',
-    action1: 'e2ef5003-0000-4000-8000-000000000001',
-    delay: 'e2ef5003-0000-4000-8000-000000000002',
+    workflowId: 'e2ef5001-0000-4000-8000-000000000003',
+    versionId: 'e2ef5002-0000-4000-8000-000000000003',
+    action1: 'e2ef5003-0000-4000-8000-000000000021',
+    delay: 'e2ef5003-0000-4000-8000-000000000022',
   },
   // DELAY has a step after it — PW-J9's skip shape.
   mid: {
@@ -135,7 +139,20 @@ export function ensureDelayTemplates() {
       step(m.delay, m.versionId, 'Effectiveness Wait', 2, 'DELAY', 'true', MAX_DELAY_EXTENSIONS),
       step(m.action3, m.versionId, 'Post-Delay Verification', 3, 'ACTION', 'false', null),
     ].join(',\n      ')}
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET
+      -- Self-heal CONFIG drift: an older fixture generation left delay_days=30
+      -- on these rows and DO NOTHING preserved it forever, silently arming the
+      -- "un-armed" premises of PW-J9/J10. Instance steps freeze their own
+      -- config at start (F-05), so repairing the template touches no history.
+      name = EXCLUDED.name, step_order = EXCLUDED.step_order,
+      approval_rule = EXCLUDED.approval_rule, sla_days = EXCLUDED.sla_days,
+      require_comments = EXCLUDED.require_comments,
+      require_esignature = EXCLUDED.require_esignature,
+      form_schema = EXCLUDED.form_schema, step_type = EXCLUDED.step_type,
+      max_delay_extensions = EXCLUDED.max_delay_extensions,
+      delay_days = NULL, delay_until_date = NULL,
+      captures_effectiveness = (EXCLUDED.step_type = 'DELAY'),
+      deleted_at = NULL;
 
     INSERT INTO workflow_step_roles (id, step_id, role_id, company_id, created_at, updated_at)
     SELECT gen_random_uuid(), v.step_id, r.id, ${q(COMPANY_ID)}, NOW(), NOW()
@@ -421,9 +438,22 @@ export async function reachScheduledDelay(page, browser, { template = 'tail', ta
 
 // ─── Owner-side delay actions (the module step-action endpoint) ─────────────
 
-/** POST {module}/:id/delayStepAction as whoever `requester` is authenticated as. */
+/** POST {module}/:id/delayStepAction as whoever `requester` is authenticated as.
+ *  SKIP is a controlled action (2026-08-28): reason comment + PIN e-signature.
+ *  Those default here so every call site doesn't repeat them — pass your own
+ *  (or explicit nulls) to probe the refusal paths. */
 export async function delayStepAction(requester, capaId, body) {
-  return requester.post(`/api/v1/services/capas/${capaId}/delayStepAction`, { data: body })
+  const data =
+    body?.intent === 'SKIP'
+      ? {
+          comment: 'E2E — skipping: the check is not needed for this record.',
+          method: 'PIN',
+          token: ESIGN_PIN,
+          provider: null,
+          ...body,
+        }
+      : body
+  return requester.post(`/api/v1/services/capas/${capaId}/delayStepAction`, { data })
 }
 
 /**
@@ -466,13 +496,26 @@ export async function awaitCapaStatus(capaId, statusId) {
  * test — the alternative is waiting a day.
  */
 export async function fireDelayNow(requester, capaId, instanceStepId) {
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+  // SCHEDULE refuses non-future dates ("pick tomorrow or later"), so arm it
+  // legitimately for tomorrow, then pull both the step's wake time and its
+  // graphile job into the past over SQL — the same trick used to trigger
+  // real effectiveness checks "for today" during manual testing.
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
   const res = await delayStepAction(requester, capaId, {
     workflowInstanceStepId: instanceStepId,
     intent: 'SCHEDULE',
-    delayUntilDate: yesterday,
+    delayUntilDate: tomorrow,
   })
-  expect(res.status(), `SCHEDULE in the past — ${await res.text().catch(() => '')}`).toBe(200)
+  expect(res.status(), `SCHEDULE tomorrow — ${await res.text().catch(() => '')}`).toBe(200)
+  await awaitDelayStep(capaId, 'wis.delay_until IS NOT NULL', 'delay armed before the pull')
+  sql(`
+    UPDATE workflow_instance_steps SET delay_until = NOW() - INTERVAL '1 minute'
+     WHERE id = ${q(instanceStepId)};
+    -- graphile_worker.jobs is a read-only view in this graphile version;
+    -- the writable table behind it is _private_jobs (same "key" column).
+    UPDATE graphile_worker._private_jobs SET run_at = NOW()
+     WHERE key = ${q(`wf-delay-step:${instanceStepId}`)};
+  `)
 
   // The worker (JOB-01) does the rest: SCHEDULED → IN_PROGRESS, assignments
   // PENDING → ASSIGNED, one task per assignee. Barrier on the TASK, not the

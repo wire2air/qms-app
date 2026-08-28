@@ -7,6 +7,7 @@ import {
   IconInfoCircle,
   IconPlus,
   IconSettings,
+  IconRoute,
 } from '@tabler/icons-vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
 import {
@@ -91,6 +92,18 @@ const headerAlignClass = computed(
 )
 
 const LAYOUT_TYPES = new Set(['section', 'row', 'column', 'repeater'])
+
+// Chip label when this section is also a workflow step ('FILL' = legacy ACTION).
+const WORKFLOW_STEP_CHIP = {
+  ACTION: 'Workflow step · Action',
+  FILL: 'Workflow step · Action',
+  APPROVAL: 'Workflow step · Approval',
+  DELAY: 'Workflow step · Effectiveness check',
+}
+const workflowStepChip = computed(
+  () =>
+    (props.field?.type === 'section' && WORKFLOW_STEP_CHIP[props.field?.routing?.type]) || null,
+)
 
 const isLayoutField = computed(() => LAYOUT_TYPES.has(props.field.type))
 
@@ -345,6 +358,15 @@ function beginEdit(which) {
         </span>
         <span class="tw:text-micro tw:uppercase tw:tracking-wide tw:text-secondary/60">
           {{ layoutTypeLabel }}
+        </span>
+        <!-- The section doubles as a workflow step — say so without opening
+             the properties panel (user request 2026-08-28). -->
+        <span
+          v-if="workflowStepChip"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-primary/10 tw:px-2 tw:py-0.5 tw:text-micro tw:font-medium tw:text-primary"
+        >
+          <IconRoute :size="11" />
+          {{ workflowStepChip }}
         </span>
       </template>
     </div>

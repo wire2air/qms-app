@@ -157,12 +157,34 @@ const delayDays = computed({
     }
   },
 })
-const capturesEffectiveness = computed({
-  // Default ON — a delay whose completion records no verdict is rarely what
-  // a quality module wants (mirrors CAPA's effectiveness-as-delay).
-  get: () => field.value?.routing?.capturesEffectiveness !== false,
+// Optional positive-int routing number: blank/invalid clears the key.
+function routingIntSetter(key, min) {
+  return (v) => {
+    const n = v === '' || v == null ? NaN : Number(v)
+    field.value.routing = {
+      ...(field.value.routing || {}),
+      [key]: Number.isFinite(n) && n >= min ? Math.floor(n) : undefined,
+    }
+  }
+}
+const slaDays = computed({
+  get: () => field.value?.routing?.slaDays ?? null,
+  set: routingIntSetter('slaDays', 1),
+})
+const maxDelayExtensions = computed({
+  get: () => field.value?.routing?.maxDelayExtensions ?? null,
+  set: routingIntSetter('maxDelayExtensions', 0),
+})
+const requireComments = computed({
+  get: () => !!field.value?.routing?.requireComments,
   set: (v) => {
-    field.value.routing = { ...(field.value.routing || {}), capturesEffectiveness: !!v }
+    field.value.routing = { ...(field.value.routing || {}), requireComments: !!v }
+  },
+})
+const requireEsignature = computed({
+  get: () => !!field.value?.routing?.requireEsignature,
+  set: (v) => {
+    field.value.routing = { ...(field.value.routing || {}), requireEsignature: !!v }
   },
 })
 const stepRoles = computed({
@@ -357,14 +379,42 @@ function updateRowColClass(value) {
               <BaseField label="Wait (days)">
                 <BaseTextInput v-model.number="delayDays" type="number" min="1" />
               </BaseField>
-              <BaseCheckbox v-model="capturesEffectiveness">
-                Capture an effectiveness verdict on completion
-              </BaseCheckbox>
+              <BaseField label="Max extensions">
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <BaseTextInput
+                    v-model="maxDelayExtensions"
+                    type="number"
+                    min="0"
+                    placeholder="1"
+                    inputClass="tw:w-24"
+                  />
+                  <span class="tw:text-xs tw:text-secondary">
+                    times the wake-up can be pushed out (blank = 1)
+                  </span>
+                </div>
+              </BaseField>
               <p class="tw:text-xs tw:text-secondary">
-                The step parks until the wait elapses, then the assignee completes it — recording
-                whether the actions were effective when the verdict is on. Same machinery as the
-                CAPA effectiveness check.
+                The step parks until the wait elapses, then the assignee records whether the
+                actions were effective — the same machinery as the CAPA effectiveness check.
               </p>
+            </template>
+
+            <BaseField v-if="stepType !== 'NONE'" label="Due within">
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <BaseTextInput
+                  v-model="slaDays"
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 5"
+                  inputClass="tw:w-24"
+                />
+                <span class="tw:text-xs tw:text-secondary">business days of activation</span>
+              </div>
+            </BaseField>
+
+            <template v-if="stepType !== 'NONE'">
+              <BaseCheckbox v-model="requireComments">Require comments</BaseCheckbox>
+              <BaseCheckbox v-model="requireEsignature">Require e-signature</BaseCheckbox>
             </template>
 
             <BaseField v-if="stepType !== 'NONE'" label="Roles (optional)">
