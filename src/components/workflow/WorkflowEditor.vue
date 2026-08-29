@@ -373,7 +373,14 @@ const publishReadiness = computed(() => {
   const ordered = [...steps.value].sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0))
   for (const s of ordered) {
     const label = `Step ${s.stepOrder} — ${s.name || 'Untitled'}`
-    if (showFormSchema.value && s.stepType !== 'APPROVAL' && (s.formSchema?.length ?? 0) === 0) {
+    // DELAY excluded (2026-08-29): an Effectiveness Check is self-contained —
+    // formless is its correct shape, not a configuration gap.
+    if (
+      showFormSchema.value &&
+      s.stepType !== 'APPROVAL' &&
+      s.stepType !== 'DELAY' &&
+      (s.formSchema?.length ?? 0) === 0
+    ) {
       warnings.push(
         `${label}: no task form. The assignee can only comment and mark complete — no data is captured.`,
       )

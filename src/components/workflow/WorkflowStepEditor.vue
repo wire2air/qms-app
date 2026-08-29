@@ -51,11 +51,22 @@ watch(
 )
 
 const isApproval = computed(() => step.value?.stepType === 'APPROVAL')
+const isDelay = computed(() => step.value?.stepType === 'DELAY')
 
 // Task forms: every module whose runtime renders <WorkflowStep> (all but
-// Document Control — see WorkflowEditor), and never on an APPROVAL step,
-// which is comment-only by design.
-const showTaskForm = computed(() => props.showFormSchema && !isApproval.value)
+// Document Control — see WorkflowEditor), never on an APPROVAL step (comment-
+// only by design), and never on an Effectiveness Check — the verdict panel is
+// the whole step (user 2026-08-29), so there is nothing to build.
+const showTaskForm = computed(() => props.showFormSchema && !isApproval.value && !isDelay.value)
+
+// Legacy templates authored before the checks became self-contained may still
+// carry fields on a DELAY step; they render nowhere, so offer the cleanup.
+const delayLegacyFieldCount = computed(() =>
+  isDelay.value ? (step.value?.formSchema?.length ?? 0) : 0,
+)
+function clearDelayForm() {
+  step.value.formSchema = []
+}
 
 // An Action/Delay step without a task form only lets the assignee comment and
 // mark complete — almost always a configuration gap. Also surfaced as a
@@ -185,6 +196,34 @@ const showApprovalRule = computed(() => isApproval.value && props.selectedApprov
       <!-- hideHeader: the step panel shows nothing but this form, so its
            title/blurb/entry-point buttons were redundant chrome. -->
       <WorkflowStepFormSchema :stepId="stepId" :canUpdate="canUpdate" hideHeader />
+    </template>
+
+    <!-- Effectiveness Check: self-contained — the verdict panel is the whole
+         step, so there is no form to build here. -->
+    <template v-else-if="isDelay">
+      <div
+        class="tw:rounded-lg tw:border tw:border-dashed tw:border-divider tw:bg-main/50 tw:p-3 tw:text-xs tw:text-secondary"
+      >
+        Effectiveness Check — self-contained. The assignee records the Effective / Not effective
+        verdict with a signed comment; the check carries no form fields.
+      </div>
+      <div
+        v-if="delayLegacyFieldCount"
+        class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-2.5 tw:py-1.5 tw:text-xs tw:text-amber-800"
+      >
+        <span>
+          {{ delayLegacyFieldCount }} form field{{ delayLegacyFieldCount === 1 ? '' : 's' }} from
+          an older template — never shown to the assignee.
+        </span>
+        <button
+          v-if="canUpdate"
+          type="button"
+          class="tw:shrink-0 tw:font-semibold tw:underline tw:hover:text-amber-900"
+          @click="clearDelayForm"
+        >
+          Remove
+        </button>
+      </div>
     </template>
 
     <!-- Modules without step forms (Document Control): nothing is core here,
