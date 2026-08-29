@@ -332,6 +332,9 @@ async function closeRecord() {
       <!-- Right rail: optional first-class fields + live/sealed score. -->
       <div class="tw:w-full tw:lg:w-72 tw:shrink-0 tw:flex tw:flex-col tw:gap-4">
         <GenericModuleRail :recordId="id" :editable="!isTerminal && canUpdateRecord" />
+        <!-- Cross-module lineage + manual links. The entity type is the
+             module's own key, which is what record_links stores. -->
+        <RecordLineagePanel :id="id" :type="moduleKey" :canEdit="canUpdateRecord" />
         <ScoringSummaryCard
           :schema="fields"
           :payload="livePayload"

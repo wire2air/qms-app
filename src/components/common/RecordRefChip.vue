@@ -12,13 +12,37 @@ const props = defineProps({
   id: { type: String, required: true },
 })
 
-const cfg = computed(() => recordRefConfig(props.type))
+// A type that isn't a built-in is a promoted module's key ('deviation') —
+// tenant data, so it can't live in the static registry. Its records are all
+// `Record` rows, numbered recordNumber, at /m/<key>/<id>; the human label
+// comes from the module's own template (2026-08-29).
+const moduleTemplate = useLiveQueryWithDeps(
+  [() => props.type],
+  async (db, [type]) => {
+    if (!type || recordRefConfig(type)) return null
+    const rows = await db.FormTemplate.where('internalName', type).exec()
+    return rows.find((t) => t.isModule) || null
+  },
+  { models: ['FormTemplate'], initial: null },
+)
+
+const cfg = computed(() => {
+  const builtIn = recordRefConfig(props.type)
+  if (builtIn) return builtIn
+  if (!props.type) return null
+  return {
+    model: 'Record',
+    numberField: 'recordNumber',
+    label: moduleTemplate.value?.moduleConfig?.displayName || moduleTemplate.value?.title || props.type,
+    path: (id) => `/m/${props.type}/${id}`,
+  }
+})
 
 const record = useLiveQueryWithDeps(
   [() => props.type, () => props.id],
   async (db, [type, id]) => {
-    const c = recordRefConfig(type)
-    if (!c || !db[c.model]) return null
+    const c = recordRefConfig(type) ?? { model: 'Record' }
+    if (!db[c.model]) return null
     return db[c.model].findByPk(id, { force: true })
   },
   { initial: null },
@@ -42,7 +66,9 @@ const TONE = {
   AuditFinding: 'tw:bg-emerald-100 tw:text-emerald-700',
   TrainingInstance: 'tw:bg-blue-100 tw:text-blue-700',
 }
-const tone = computed(() => TONE[props.type] || 'tw:bg-gray-100 tw:text-gray-600')
+const tone = computed(
+  () => TONE[props.type] || 'tw:bg-violet-100 tw:text-violet-700',
+)
 </script>
 
 <template>

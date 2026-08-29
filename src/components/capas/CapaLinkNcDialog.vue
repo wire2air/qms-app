@@ -15,6 +15,7 @@
  * same shape the create-from-NC path writes, so both routes produce lineage
  * that reads identically.
  */
+import { post } from '@/api'
 import { IconSearch, IconLink } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -77,11 +78,13 @@ function toggle(id) {
   else selectedIds.value.push(id)
 }
 
-const createLink = useLiveMutation(async (db, payload) => {
-  const link = db.RecordLink.create(payload)
-  await link.save()
-  return link
-})
+// REST, not the SyncEngine. `app_user` holds SELECT and nothing else on
+// record_links, so the GraphQL write this used to attempt was refused
+// ("permission denied for table record_links") and linking never worked at all
+// — found 2026-08-29 while building the generic picker. The endpoint authorizes
+// both sides, which is why the table is server-write-only in the first place.
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+const createLink = (payload) => post('/v1/services/record-links', payload)
 
 async function submit() {
   if (!selectedIds.value.length || saving.value) return
