@@ -28,7 +28,7 @@ import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 import { standardTaskForm } from '@/constants/formTemplates'
 import {
   isApprovalOnlyModule,
-  isSystemAuthoredModule,
+  isSystemAuthoredModule, isDormantModule,
 } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
@@ -49,6 +49,8 @@ function moduleFilter(m) {
   // flow is authored inside the Document Template, and Form Modules' workflows
   // come from the module factory (2026-08-15).
   if (isSystemAuthoredModule(m.id)) return false
+  // Parked surfaces (Customer Complaint) don't take new workflows.
+  if (isDormantModule(m.id)) return false
   if (props.kind === 'approval') return isApprovalOnlyModule(m.id)
   if (props.kind === 'record') return !isApprovalOnlyModule(m.id)
   return true

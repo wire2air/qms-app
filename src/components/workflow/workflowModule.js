@@ -301,3 +301,15 @@ const SYSTEM_AUTHORED_MODULE_IDS = new Set(['APPROVAL', 'FORM'])
 export function isSystemAuthoredModule(moduleId) {
   return SYSTEM_AUTHORED_MODULE_IDS.has(moduleId)
 }
+
+// Modules whose SURFACE is parked (user 2026-08-29): Customer Complaint is
+// the support-desk customer_complaints table, superseded for QMS work by the
+// standalone Complaint module. Its reference row (and any existing workflows)
+// stay real — but create pickers must not invite authoring a workflow no
+// live surface will ever run.
+const DORMANT_MODULE_IDS = new Set(['CUSTOMER_COMPLAINT'])
+
+/** True when the module's surface is dormant — hide it from create pickers. */
+export function isDormantModule(moduleId) {
+  return DORMANT_MODULE_IDS.has(moduleId)
+}
