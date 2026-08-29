@@ -85,10 +85,13 @@ test.describe('Workflow screenshots · templates, wizard, designer', () => {
     // every picker inside it reads IndexedDB, which syncEngine fills
     // asynchronously on install (PW-J1).
     await expect(page.getByText(FIXTURES.crWorkflowName).first()).toBeVisible({ timeout: 60_000 })
-    await expect(page.getByRole('button', { name: 'Create Workflow' })).toBeVisible()
+    await expect(
+      page.locator('#main-header-actions').getByRole('button', { name: 'Create' }),
+    ).toBeVisible()
     await shot(page, 'templates-list')
 
-    await page.getByRole('button', { name: 'Create Workflow' }).click()
+    await page.locator('#main-header-actions').getByRole('button', { name: 'Create' }).click()
+    await page.getByRole('menuitem', { name: 'Workflow template' }).click()
 
     // ── 1. Basics ───────────────────────────────────────────────────────────
     const dlg = wizard(page)
@@ -128,7 +131,7 @@ test.describe('Workflow screenshots · templates, wizard, designer', () => {
       .click()
     await dlg
       .locator('label')
-      .filter({ hasText: 'Need a follow-up effectiveness check?' })
+      .filter({ hasText: 'Want to add a follow-up Effectiveness Check?' })
       .getByRole('switch')
       .click()
     await expect(dlg.getByText('Check after', { exact: true })).toBeVisible({ timeout: 10_000 })

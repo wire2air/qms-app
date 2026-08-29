@@ -229,7 +229,8 @@ const plannedSteps = computed(() => {
       name: 'Effectiveness Check',
       stepType: 'DELAY',
       roleIds: checkRoleIds.value,
-      hasForm: supportsStepForms.value,
+      // Self-contained: the verdict panel is the whole step (user 2026-08-29).
+      hasForm: false,
       delayDays: checkDate.value ? null : checkDays.value,
       delayUntilDate: checkDate.value ? checkDate.value.toFormat('yyyy-LL-dd') : null,
       note: checkDate.value

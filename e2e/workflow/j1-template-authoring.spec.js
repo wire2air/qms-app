@@ -132,7 +132,11 @@ test.describe('PW-J1 · authoring a workflow template through the guided wizard'
       timeout: 60_000,
     })
 
-    await page.getByRole('button', { name: 'Create Workflow' }).click()
+    // Templates split (2026-08-28): one header 'Create' split-button, typed
+    // choice in its menu — scope to the header teleport, the sidebar carries
+    // a same-named global Create.
+    await page.locator('#main-header-actions').getByRole('button', { name: 'Create' }).click()
+    await page.getByRole('menuitem', { name: 'Workflow template' }).click()
 
     const dlg = wizard(page)
     await expect(dlg.getByText('Workflow name', { exact: true })).toBeVisible({ timeout: 20_000 })
@@ -174,7 +178,7 @@ test.describe('PW-J1 · authoring a workflow template through the guided wizard'
 
     await dlg
       .locator('label')
-      .filter({ hasText: 'Need a follow-up effectiveness check?' })
+      .filter({ hasText: 'Want to add a follow-up Effectiveness Check?' })
       .getByRole('switch')
       .click()
     await expect(dlg.getByText('Check after', { exact: true })).toBeVisible({ timeout: 10_000 })
@@ -188,7 +192,9 @@ test.describe('PW-J1 · authoring a workflow template through the guided wizard'
     await expect(dlg.getByText('4 steps · created as a draft you can refine in the builder')).toBeVisible()
     await expect(dlg.getByText('Investigation', { exact: true })).toBeVisible()
     await expect(dlg.getByText('Final Approval', { exact: true })).toBeVisible()
-    await expect(dlg.getByText('Effectiveness Check', { exact: true })).toBeVisible()
+    // Twice on the review card since the DELAY rename: the step's name AND
+    // its type chip both read 'Effectiveness Check'.
+    await expect(dlg.getByText('Effectiveness Check', { exact: true }).first()).toBeVisible()
 
     await dlg.getByRole('button', { name: 'Create as Draft' }).click()
 
@@ -254,11 +260,14 @@ test.describe('PW-J1 · authoring a workflow template through the guided wizard'
       expect(s.maxDelayExtensions, `${s.name} has no extension cap`).toBeNull()
     }
 
-    // Task form — attached to the steps that CAPTURE something, and pointedly
-    // not to the approval gate, which is comment-only by design.
-    expect(investigation.formFieldCount, 'standard task form: description + attachments').toBe(2)
-    expect(implementation.formFieldCount).toBe(2)
-    expect(check.formFieldCount, 'a DELAY step captures its effectiveness evidence').toBe(2)
+    // Task form — attached to the steps that CAPTURE something. The standard
+    // form is ONE richTextAttachment since 2026-08-29 (body + evidence in one
+    // field, stored as description + description_attachments); the approval
+    // gate is comment-only, and the Effectiveness Check is SELF-CONTAINED —
+    // the verdict panel is the whole step, no form at all.
+    expect(investigation.formFieldCount, 'standard task form: one richTextAttachment').toBe(1)
+    expect(implementation.formFieldCount).toBe(1)
+    expect(check.formFieldCount, 'an Effectiveness Check is self-contained — no form').toBe(0)
     expect(approval.formFieldCount, 'APPROVAL steps are comment-only — no form').toBe(0)
     expect(
       sqlValue(
@@ -266,8 +275,8 @@ test.describe('PW-J1 · authoring a workflow template through the guided wizard'
            FROM workflow_steps s, jsonb_array_elements(s.form_schema) f
           WHERE s.id = '${investigation.id}'`,
       ),
-      'the seeded schema is the standard task form, not an arbitrary two fields',
-    ).toBe('attachments,description')
+      'the seeded schema is the standard task form, not an arbitrary field',
+    ).toBe('description')
 
     // Outcomes — one row per catalogued outcome, on every step.
     const catalog = sql(`SELECT id FROM workflow_step_outcomes ORDER BY id`).split('\n')
@@ -304,15 +313,14 @@ test.describe('PW-J1 · authoring a workflow template through the guided wizard'
     await expect(page.getByRole('button', { name: 'Publish' })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText('4 Steps')).toBeVisible({ timeout: 20_000 })
 
-    // Open the APPROVAL step and walk to its assignee surface.
+    // Open the APPROVAL step — the redesigned card expands inline (no
+    // 'Step Configuration' panel, no tab strip): the role pool renders on the
+    // card's Approvers field, and 'Change' opens the assignees dialog.
     await page.getByText('Final Approval', { exact: true }).first().click()
-    await expect(page.getByRole('heading', { name: /Step Configuration: Final Approval/ })).toBeVisible({
-      timeout: 20_000,
-    })
-    await page.getByRole('tab', { name: /Assignees/ }).click()
+    await expect(page.getByText('Approvers', { exact: true })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText('E2E Approver').first()).toBeVisible({ timeout: 15_000 })
 
-    await page.getByRole('button', { name: 'Manage Assignees' }).click()
+    await page.getByRole('button', { name: 'Change', exact: true }).first().click()
     await expect(page.getByRole('heading', { name: 'Manage Step Assignees' })).toBeVisible({
       timeout: 15_000,
     })
@@ -373,17 +381,25 @@ test.describe('PW-J1 · authoring a workflow template through the guided wizard'
     await page.goto(`/workflow-templates/${authored.workflowId}`)
     await expect(page.getByText('4 Steps')).toBeVisible({ timeout: 30_000 })
 
+    // SLA lives in the step's Settings dialog since the builder redesign —
+    // the expanded card carries assignees/instructions/form only. Anchor on
+    // the dialog title before filling: the input mounts with the dialog, so a
+    // fill can't land mid step-switch.
     await page.getByText('Implementation', { exact: true }).first().click()
-    // Anchor on the editor heading, not just the input: the step-name/SLA
-    // controls are already mounted for whichever step auto-selected on load, and
-    // WorkflowStepEditor's autosave watcher deliberately skips its first fire
-    // after a step switch — a fill that lands mid-swap is silently discarded.
+    // Every card carries a gear — Implementation is step 2 of the authored
+    // design (Investigation, Implementation, Final Approval, Effectiveness
+    // Check), so its gear is nth(1).
+    await page
+      .getByRole('button', { name: 'Step settings' })
+      .nth(1)
+      .click()
     await expect(
-      page.getByRole('heading', { name: 'Step Configuration: Implementation' }),
+      page.getByRole('heading', { name: /Implementation — Settings/ }),
     ).toBeVisible({ timeout: 20_000 })
     const sla = page.getByPlaceholder('e.g. 5')
     await expect(sla).toBeVisible({ timeout: 20_000 })
     await sla.fill('12')
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
 
     // The step editor autosaves on an 800ms debounce.
     await waitForSqlValue(
