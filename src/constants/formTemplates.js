@@ -329,13 +329,12 @@ export const QMS_BLOCKS = [
     code: 'BLK-TASK',
     schema: [
       {
-        type: 'textEditor',
+        type: 'richTextAttachment',
         name: 'description',
         label: 'Description',
         required: true,
         placeholder: 'Describe what was done…',
       },
-      { type: 'file', name: 'attachments', label: 'Attachments', required: false, multiple: true },
     ],
   },
   {
@@ -435,14 +434,15 @@ export const QMS_BLOCKS = [
  * matches the seeded workflows' steps.
  */
 export const STANDARD_TASK_FORM = [
+  // ONE richTextAttachment (user 2026-08-29): body + evidence in one field,
+  // stored as separate payload keys (`description` + `description_attachments`).
   {
     name: 'description',
     label: 'Description',
-    type: 'textEditor',
+    type: 'richTextAttachment',
     required: true,
     placeholder: 'Describe what was done…',
   },
-  { name: 'attachments', label: 'Attachments', type: 'file', required: false, multiple: true },
 ]
 
 /** Fresh deep copy — callers persist this onto a step and then edit it. */
