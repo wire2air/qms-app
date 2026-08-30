@@ -2,6 +2,7 @@
 import LoginForm from '@/components/auth/LoginForm.vue'
 import WorkspacePicker from '@/components/auth/WorkspacePicker.vue'
 import { currentSubdomain } from '@/utils/tenant'
+import { SIGNOUT_REASON_KEY } from '@/utils/currentSession.js'
 import { IconFileText, IconClipboardCheck, IconChartDots } from '@tabler/icons-vue'
 
 defineOptions({
@@ -14,6 +15,27 @@ defineOptions({
 //  • apex / reserved host (no tenant) → a workspace picker that routes the user
 //    to their tenant's own /signin.
 const onTenant = computed(() => currentSubdomain() !== null)
+
+// An automatic sign-out has to say so. Landing on a login screen with no
+// explanation reads as the app having crashed, not as the company's idle
+// timeout doing its job (2026-08-30).
+const route = useRoute()
+const REASONS = { inactivity: 'You were signed out because of inactivity.' }
+
+// The query param is the happy path; the stashed copy covers the case where a
+// racing 401 redirect replaced the URL with a bare /signin. Read once and
+// clear, so a later manual visit to /signin is not still explaining itself.
+const stashedReason = (() => {
+  try {
+    const v = sessionStorage.getItem(SIGNOUT_REASON_KEY)
+    if (v) sessionStorage.removeItem(SIGNOUT_REASON_KEY)
+    return v
+  } catch {
+    return null
+  }
+})()
+
+const signedOutReason = computed(() => REASONS[route.query.reason] ?? REASONS[stashedReason] ?? null)
 
 const features = [
   { icon: IconFileText, title: 'Document Control', desc: 'Versioned, audited, always current' },
@@ -67,6 +89,13 @@ const features = [
 
         <div class="form-wrap">
           <div class="form-card">
+            <div
+              v-if="signedOutReason"
+              class="tw:mb-4 tw:rounded-lg tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-3 tw:py-2 tw:text-sm tw:text-amber-800"
+              role="status"
+            >
+              {{ signedOutReason }}
+            </div>
             <LoginForm v-if="onTenant" mode="signin" />
             <WorkspacePicker v-else />
           </div>

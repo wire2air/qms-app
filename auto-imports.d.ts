@@ -12,6 +12,7 @@ declare global {
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
   const STEP_GROUPING_ENABLED: typeof import('./src/composables/useWorkflowStepGrouping.js').STEP_GROUPING_ENABLED
+  const WARN_BEFORE_MS: typeof import('./src/composables/useIdleLogout.js').WARN_BEFORE_MS
   const approvalPendingBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').approvalPendingBanner
   const archivedBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').archivedBanner
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
@@ -294,6 +295,7 @@ declare global {
   const useHotkeys: typeof import('./resource/js/shared/composables/useHotkeys.js').useHotkeys
   const useId: typeof import('vue').useId
   const useIdle: typeof import('@vueuse/core').useIdle
+  const useIdleLogout: typeof import('./src/composables/useIdleLogout.js').useIdleLogout
   const useImage: typeof import('@vueuse/core').useImage
   const useImpersonate: typeof import('./src/composables/useImpersonate.js').useImpersonate
   const useInfiniteScroll: typeof import('@vueuse/core').useInfiniteScroll
