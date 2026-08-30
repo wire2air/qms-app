@@ -477,7 +477,11 @@ const capaDetailConfig = computed(() =>
 
       <!-- Related records lineage (NC / complaint / finding → this CAPA).
            Self-hides when there are no links. -->
-      <RecordLineagePanel :id="id" type="Capa" />
+      <RecordLineagePanel
+        :id="id"
+        type="Capa"
+        :canEdit="!!capa && isAllowedOnRecord('capa:update', capa)"
+      />
 
       <!-- Raised-from-Audit context (scoped): audit header + only the
            findings/failed requirements this CAPA addresses. Self-hides

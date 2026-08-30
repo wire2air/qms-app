@@ -1003,6 +1003,7 @@ declare module 'vue' {
     RcaTemplatesHome: typeof import('./src/components/rcaTemplate/RcaTemplatesHome.vue')['default']
     RcaTemplatesTable: typeof import('./src/components/rcaTemplate/RcaTemplatesTable.vue')['default']
     RecordLineagePanel: typeof import('./src/components/common/RecordLineagePanel.vue')['default']
+    RecordLinkDialog: typeof import('./src/components/common/RecordLinkDialog.vue')['default']
     RecordListPrint: typeof import('./src/components/print/modules/RecordListPrint.vue')['default']
     RecordNotificationsCard: typeof import('./src/components/common/RecordNotificationsCard.vue')['default']
     RecordNotificationStatus: typeof import('./src/components/common/RecordNotificationStatus.vue')['default']

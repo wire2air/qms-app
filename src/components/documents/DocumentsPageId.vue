@@ -827,6 +827,13 @@ const documentDetailConfig = computed(() =>
       />
       <!-- Collaborator's own task — self-hides unless the viewer has one open. -->
       <DocumentCollaboratorTaskCard :documentId="props.id" />
+      <!-- Related records: link this document to NCs, CAPAs, module records…
+           (2026-08-29). The server re-checks update here / read there. -->
+      <RecordLineagePanel
+        :id="props.id"
+        type="Document"
+        :canEdit="isAllowed(['document_control:update'])"
+      />
     </template>
   </BaseDetailLayout>
 

@@ -542,7 +542,11 @@ const ncDetailConfig = computed(() =>
 
       <!-- Related records lineage (QC lot / complaint / finding → this NC
            → CAPA / CR). Self-hides when there are no links. -->
-      <RecordLineagePanel :id="id" type="Nonconformance" />
+      <RecordLineagePanel
+        :id="id"
+        type="Nonconformance"
+        :canEdit="!!nc && isAllowedOnRecord('ncr:update', nc)"
+      />
 
       <!-- Raised-from-Audit context (scoped) — self-hides when this NC
            wasn't spawned from an audit finding. -->

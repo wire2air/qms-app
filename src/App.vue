@@ -157,6 +157,16 @@ async function bootApp() {
 // clears when the tab closes, so a fresh session always gets one shot.
 const RECOVERY_FLAG = 'qms.boot.autoRecoveryAttempted'
 
+// Browser-side idle sign-out (2026-08-30). The server has always enforced the
+// company's idle timeout, but only on the next request — so a page left open
+// stayed on screen looking signed in.
+const {
+  warningOpen: idleWarningOpen,
+  secondsLeft: idleSecondsLeft,
+  staySignedIn,
+  signOutForInactivity,
+} = useIdleLogout()
+
 onMounted(async () => {
   try {
     await bootApp()
@@ -194,6 +204,26 @@ onMounted(async () => {
 <template>
   <BaseToastContainer />
   <ConfirmDialogHost />
+
+  <!-- Idle sign-out warning. Ordinary mouse movement does NOT dismiss it —
+       someone walking past the screen is not someone working — so staying
+       signed in is a deliberate click. -->
+  <BaseDialog
+    :modelValue="idleWarningOpen"
+    title="Still there?"
+    maxWidth="sm"
+    persistent
+    @update:modelValue="(v) => !v && staySignedIn()"
+  >
+    <p class="tw:text-sm tw:text-on-main tw:p-1">
+      You have been inactive for a while. For security you will be signed out in
+      <strong>{{ idleSecondsLeft }}</strong> second{{ idleSecondsLeft === 1 ? '' : 's' }}.
+    </p>
+    <template #footer>
+      <BaseButton variant="outline" @click="signOutForInactivity">Sign out now</BaseButton>
+      <BaseButton variant="primary" @click="staySignedIn">Stay signed in</BaseButton>
+    </template>
+  </BaseDialog>
   <HotkeyHelp />
   <BaseCommandPalette />
 

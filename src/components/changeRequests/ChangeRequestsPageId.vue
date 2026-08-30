@@ -449,7 +449,11 @@ const changeRequestDetailConfig = computed(() =>
     <template v-if="cr" #section-workflow>
       <!-- Related records lineage (NC / finding → this CR). Self-hides
            when there are no links. -->
-      <RecordLineagePanel :id="id" type="ChangeRequest" />
+      <RecordLineagePanel
+        :id="id"
+        type="ChangeRequest"
+        :canEdit="!!cr && isAllowedOnRecord('change_control:update', cr)"
+      />
 
       <!-- Raised-from-Audit context (scoped) — self-hides when this CR
            wasn't spawned from an audit finding. -->

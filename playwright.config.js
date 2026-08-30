@@ -67,6 +67,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Cross-module record links (Related records) — spans NC, module
+      // records and the generic picker, so it belongs to no single module.
+      name: 'recordLinks',
+      testMatch: /recordLinks\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'nonconformances',
       testMatch: /nonconformances\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
