@@ -13,8 +13,8 @@
 //      request helpers below hit /api/v1/services/qcInspection/... directly
 //      when a journey needs to prove a SERVER-side gate rather than a UI one.
 import { expect } from '@playwright/test'
-import { ESIGN_PIN, QC } from './cast.js'
-import { sql, sqlRow, sqlValue, waitForSqlValue } from './db.js'
+import { COMPANY_ID, ESIGN_PIN, QC } from './cast.js'
+import { sql, sqlAsAppUser, sqlRow, sqlValue, waitForSqlValue } from './db.js'
 import { clickWhenReady, selectOption } from './documents.js'
 
 const quote = (s) => `'${String(s).replace(/'/g, "''")}'`
@@ -583,4 +583,81 @@ export async function disposeViaRest(page, retainSampleId, { method = 'Incinerat
   return page.request.post(`/api/v1/services/qcInspection/retainSamples/${retainSampleId}/dispose`, {
     data: { disposalMethod: method, method: 'PIN', token, provider: null },
   })
+}
+
+
+/**
+ * Attempt a raw `app_user` UPDATE on one lot and report how the database
+ * answered — the write path a hand-rolled GraphQL mutation takes.
+ *
+ * This is the ONLY layer of the lot lifecycle lock a test can actually attempt.
+ * The other two are structural: `models/inspectionLot.js` keeps `statusId` and
+ * `inspectionPhase` out of the generated update mutation, and no QC control
+ * binds them — so the syncEngine cannot be made to issue this write, and REST
+ * connects as the superuser (bypassing both RLS and the untrusted branch of the
+ * guard). What is left is PostGraphile speaking as `app_user`, which is exactly
+ * what `sqlAsAppUser` reproduces.
+ *
+ * ── Why the DO block, rather than just running the UPDATE ────────────────────
+ *
+ * Two reasons, both borrowed from the Quality Events probe (`fixtures/
+ * qualityEvents.js attemptStatusWriteAs`), which learned them the hard way:
+ *
+ *   • **psql hides the SQLSTATE.** At the default VERBOSITY the client prints
+ *     `ERROR:  <message>` and nothing else, so a test that wants to assert
+ *     QMSQC could only match on prose a future edit is free to reword.
+ *   • **A silent RLS denial and an accepted write look identical** from the
+ *     outside — both are "no error". Capturing ROW_COUNT separates them.
+ *
+ * The block catches its own failure, records `SQLSTATE` and `ROW_COUNT`, then
+ * raises unconditionally. That final raise is load-bearing twice: it is how the
+ * two values escape to stdout, and it rolls the block back — so a probe that
+ * unexpectedly SUCCEEDS still leaves the lot untouched for the assertions that
+ * follow, and no journey inherits a forged lot from a failing one.
+ *
+ * @param {{id: string}} user the acting persona (cast.js USERS.*)
+ * @param {string} lotId
+ * @param {string} setClause raw SQL for the SET list, e.g. `status_id = 'CLOSED'`
+ * @returns {{ sqlstate: string, rows: number }} `sqlstate` is `'NO_ERROR'` when
+ *   the write was not refused; pair it with `rows` to tell a silent RLS denial
+ *   (`NO_ERROR` / 0) from an accepted write (`NO_ERROR` / 1).
+ */
+export function attemptLotWriteAs(user, lotId, setClause) {
+  const res = sqlAsAppUser(
+    `DO $probe$
+       DECLARE v_state text := 'NO_ERROR'; v_rows int := 0;
+       BEGIN
+         BEGIN
+           UPDATE inspection_lots SET ${setClause} WHERE id = ${quote(lotId)};
+           GET DIAGNOSTICS v_rows = ROW_COUNT;
+         EXCEPTION WHEN OTHERS THEN v_state := SQLSTATE;
+         END;
+         RAISE EXCEPTION 'QC_PROBE state=% rows=%', v_state, v_rows;
+       END $probe$;`,
+    { userId: user.id, companyId: COMPANY_ID },
+  )
+  const marker = /QC_PROBE state=(\S+) rows=(\d+)/.exec(`${res.error}${res.output}`)
+  if (!marker) {
+    throw new Error(
+      `attemptLotWriteAs could not read its own probe marker. ` +
+        `stdout=${JSON.stringify(res.output)} stderr=${JSON.stringify(res.error)}`,
+    )
+  }
+  return { sqlstate: marker[1], rows: Number(marker[2]) }
+}
+
+/** The four lifecycle-bearing columns of a lot, read as the superuser. */
+export function lotLifecycle(lotId) {
+  const row = sqlRow(
+    `SELECT status_id, inspection_phase, coalesce(disposition_type_id::text, ''),
+            coalesce(quality_state, '')
+       FROM inspection_lots WHERE id = ${quote(lotId)}`,
+  )
+  if (!row) return null
+  return {
+    statusId: row[0],
+    phase: row[1],
+    dispositionTypeId: row[2] || null,
+    qualityState: row[3] || null,
+  }
 }
