@@ -87,6 +87,7 @@ const users = useLiveQueryWithDeps(
 
 <template>
   <BaseListLayout
+    helpSlug="KB/administration/users"
     title="Users"
     :icon="IconUsers"
     subtitle="Manage your organization's users."
@@ -111,7 +112,6 @@ const users = useLiveQueryWithDeps(
     </template>
 
     <UsersTable :rows="users || []" :loading="users === undefined" />
-
   </BaseListLayout>
 
   <!-- Outside BaseListLayout so it stays mounted in the empty state. -->

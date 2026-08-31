@@ -71,6 +71,12 @@ function onDialogClose() {
       title="Risk Assessment Templates"
       subtitle="Configure the risk matrices used when finalising an assessment."
     >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Risk Assessment Templates
+          <HelpButton slug="KB/quality/risk-assessments" :size="16" />
+        </span>
+      </template>
       <!-- "New Template" header-action only on the Templates tab; the
            Hazard Categories tab has its own "Add Category" affordance. -->
       <template #actions>
@@ -110,6 +116,5 @@ function onDialogClose() {
       :template="editTemplate"
       @close="onDialogClose"
     />
-
   </BasePage>
 </template>

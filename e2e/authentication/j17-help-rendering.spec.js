@@ -58,11 +58,29 @@ test('an in-page anchor and a cross-article link both land somewhere', async ({ 
 // nothing failed: the markup was present, just never mounted. Only opening the
 // page catches it.
 const MODULE_PAGES = [
+  // Tab-shell modules — the shell owns the header, so the button has to live there.
   ['/documents', 'Document Control'],
   ['/nonconformances', 'Nonconformances'],
   ['/capas', 'CAPA'],
   ['/change-requests', 'Change Request'],
   ['/training-instances', 'Training'],
+  // List pages — these had an article and no way to reach it.
+  ['/users', 'Users'],
+  ['/sites', 'Sites'],
+  ['/departments', 'Sites'],
+  ['/groups', 'Groups'],
+  ['/api-keys', 'API'],
+  ['/audit-logs', 'Audit Log'],
+  ['/lookups', 'Option Sets'],
+  ['/document-templates', 'Document Templates'],
+  ['/automation-rules', 'Automation Rules'],
+  ['/records', 'Records'],
+  ['/task-instances', 'Tasks'],
+  ['/suppliers', 'Supplier'],
+  ['/products', 'Item Master'],
+  ['/rca-templates', 'Root Cause'],
+  ['/risk-assessment-templates', 'Risk Assessment'],
+],
 ]
 
 for (const [path, articleTitle] of MODULE_PAGES) {

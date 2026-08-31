@@ -47,6 +47,7 @@ const loading = computed(() => groups.value === undefined)
 
 <template>
   <BaseListLayout
+    helpSlug="KB/administration/groups"
     title="Groups"
     :icon="IconUsersGroup"
     subtitle="Manage your organization's groups and team assignments."
@@ -55,22 +56,14 @@ const loading = computed(() => groups.value === undefined)
     :emptyTitle="list.hasActiveFilters.value ? 'No groups match your filters' : 'No groups yet'"
   >
     <template #actions>
-      <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true">
-        Create Group
-      </BaseButton>
+      <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true"> Create Group </BaseButton>
     </template>
 
     <template #filters>
       <GroupsFilterToolbar v-model:filters="list.filters.value" />
     </template>
 
-    <GroupsTable
-      :rows="groups"
-      :loading="loading"
-      :canDelete="canDeleteGroup"
-      @delete="onDelete"
-    />
-
+    <GroupsTable :rows="groups" :loading="loading" :canDelete="canDeleteGroup" @delete="onDelete" />
   </BaseListLayout>
 
   <!-- Outside BaseListLayout so it stays mounted in the empty state (its

@@ -38,6 +38,12 @@ const props = defineProps({
   title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
   icon: { type: [Object, Function], default: null },
+  // Contextual help article for this list, e.g. "KB/administration/users".
+  // Renders the standard help launcher beside the title. Lives here because
+  // the title is composed inside this component: a page passing only `title`
+  // has nowhere else to put one, which is why 16 list pages shipped with an
+  // article nobody could reach from the page it documents.
+  helpSlug: { type: String, default: '' },
   width: {
     type: String,
     default: 'standard',
@@ -93,6 +99,12 @@ const rootProps = computed(() =>
   <component :is="rootIs" v-bind="rootProps">
     <PageHeader v-if="!embedded" :icon="icon" :title="title" :subtitle="subtitle">
       <template v-if="$slots.title" #title><slot name="title" /></template>
+      <template v-else-if="helpSlug" #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          {{ title }}
+          <HelpButton :slug="helpSlug" :size="16" />
+        </span>
+      </template>
       <template v-if="$slots.actions" #actions><slot name="actions" /></template>
     </PageHeader>
     <div v-else class="tw:flex tw:items-start tw:justify-between tw:gap-3">

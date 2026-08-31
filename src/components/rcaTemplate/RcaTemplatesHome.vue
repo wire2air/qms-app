@@ -73,6 +73,12 @@ function onDialogClose() {
       title="RCA Templates"
       subtitle="Pre-configure Root Cause Analysis frameworks and the categories supplier / analysts pick when finalising an analysis."
     >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          RCA Templates
+          <HelpButton slug="KB/quality/root-cause-analysis" :size="16" />
+        </span>
+      </template>
       <!-- The "New Template" header-action only makes sense on the Templates
            tab. The Categories tab has its own "Add Category" button inside
            the card. -->
@@ -109,6 +115,5 @@ function onDialogClose() {
     </BaseTabs>
 
     <RcaTemplateDialog v-model="showCreateDialog" :template="editTemplate" @close="onDialogClose" />
-
   </BasePage>
 </template>

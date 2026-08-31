@@ -80,6 +80,7 @@ async function onDeleteSite(row) {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/administration/sites-and-departments"
     title="Sites"
     :icon="IconMapPin"
     subtitle="Manage your organization's physical locations and sites."
