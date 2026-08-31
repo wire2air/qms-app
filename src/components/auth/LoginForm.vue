@@ -293,29 +293,25 @@ async function submitForm() {
 
     <div class="tw:pt-4">
       <div class="tw:flex tw:flex-col tw:gap-3">
+        <!-- Providers, below the credential form: password sign-in is the
+             primary path, these are the alternatives. `order` rather than a
+             move so the markup stays in one readable block. -->
+        <div class="tw:order-3 tw:flex tw:flex-wrap tw:gap-2">
         <!-- The workspace's own identity providers. -->
         <button
           v-for="conn in ssoConnections"
           :key="conn.id"
-          class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-primary tw:text-on-primary tw:border tw:border-primary tw:hover:bg-primary-hover tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-32 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-primary tw:text-on-primary tw:border tw:border-primary tw:hover:bg-primary-hover tw:transition-colors tw:cursor-pointer"
           @click="loginWithSso(conn.id)"
         >
           <IconKey :size="18" />
           Sign in with {{ conn.displayName }}
         </button>
 
-        <div
-          v-if="ssoConnections.length && (methods.google || methods.microsoft || methods.email)"
-          class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary"
-        >
-          <hr class="tw:flex-1 tw:border-divider" />
-          or
-          <hr class="tw:flex-1 tw:border-divider" />
-        </div>
 
         <button
           v-if="methods.google"
-          class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-32 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingMicrosoft"
           @click="loginWithGoogle"
         >
@@ -345,7 +341,7 @@ async function submitForm() {
 
         <button
           v-if="methods.microsoft"
-          class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-32 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingGoogle"
           @click="loginWithMicrosoft"
         >
@@ -361,17 +357,19 @@ async function submitForm() {
           <span class="tw:font-medium tw:text-sm">Continue with Microsoft</span>
         </button>
 
+        </div>
+
         <div
-          v-if="methods.email && (methods.google || methods.microsoft)"
-          class="tw:flex tw:items-center tw:gap-4 tw:my-3"
+          v-if="methods.email && (methods.google || methods.microsoft || ssoConnections.length)"
+          class="tw:order-2 tw:flex tw:items-center tw:gap-4 tw:my-3"
         >
           <hr class="tw:flex-1 tw:border-divider" />
-          <span class="tw:text-xs tw:text-secondary tw:whitespace-nowrap">or</span>
+          <span class="tw:text-xs tw:text-secondary tw:whitespace-nowrap">or sign in with</span>
           <hr class="tw:flex-1 tw:border-divider" />
         </div>
 
         <!-- email/password login form -->
-        <div v-if="methods.email || isSignup" class="tw:flex tw:flex-col tw:gap-3">
+        <div v-if="methods.email || isSignup" class="tw:order-1 tw:flex tw:flex-col tw:gap-3">
           <template v-if="isSignup">
             <BaseTextInput v-model="firstName" placeholder="First Name" @keyup.enter="submitForm">
               <template #icon>
