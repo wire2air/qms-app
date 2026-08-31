@@ -37,7 +37,8 @@ const roleCurricula = useLiveQuery((db) => db.RoleCurriculum.where().exec(), {
 const sortedCurricula = computed(() =>
   [...(curricula.value || [])].sort((a, b) => (a.name || '').localeCompare(b.name || '')),
 )
-const trainingsFor = (cid) => (curriculumTrainings.value || []).filter((ct) => ct.curriculumId === cid)
+const trainingsFor = (cid) =>
+  (curriculumTrainings.value || []).filter((ct) => ct.curriculumId === cid)
 const rolesFor = (cid) => (roleCurricula.value || []).filter((rc) => rc.curriculumId === cid)
 const trainingIdsFor = (cid) => trainingsFor(cid).map((ct) => ct.trainingId)
 const roleIdsFor = (cid) => rolesFor(cid).map((rc) => rc.roleId)
@@ -143,6 +144,7 @@ async function updateRoles(cid, newIds) {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/training/training-curriculum"
     title="Training Curriculum"
     subtitle="Group trainings into curricula and map roles to them. New employees (and document-assigned curricula) get every training in their role's curricula."
   >
@@ -170,8 +172,12 @@ async function updateRoles(cid, newIds) {
         class="tw:rounded-xl tw:border tw:border-divider tw:bg-main tw:shadow-sm tw:overflow-hidden"
       >
         <!-- Header -->
-        <div class="tw:flex tw:items-start tw:gap-3 tw:px-5 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover/20">
-          <div class="tw:size-9 tw:rounded-lg tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:shrink-0">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:px-5 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover/20"
+        >
+          <div
+            class="tw:size-9 tw:rounded-lg tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+          >
             <IconBook :size="18" class="tw:text-primary" />
           </div>
           <div class="tw:flex-1 tw:min-w-0">
@@ -216,7 +222,9 @@ async function updateRoles(cid, newIds) {
           </div>
           <div class="tw:flex tw:items-center tw:gap-3 tw:shrink-0">
             <span class="tw:text-xs tw:text-secondary tw:whitespace-nowrap">
-              {{ trainingsFor(c.id).length }} training{{ trainingsFor(c.id).length === 1 ? '' : 's' }}
+              {{ trainingsFor(c.id).length }} training{{
+                trainingsFor(c.id).length === 1 ? '' : 's'
+              }}
               · {{ rolesFor(c.id).length }} role{{ rolesFor(c.id).length === 1 ? '' : 's' }}
             </span>
             <button
@@ -233,7 +241,9 @@ async function updateRoles(cid, newIds) {
         <!-- Body -->
         <div class="tw:px-5 tw:py-4 tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-5">
           <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5 tw:block">
+            <label
+              class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5 tw:block"
+            >
               Trainings
             </label>
             <TrainingSelectMenu
@@ -244,7 +254,9 @@ async function updateRoles(cid, newIds) {
             />
           </div>
           <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5 tw:block">
+            <label
+              class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5 tw:block"
+            >
               Roles that get this curriculum
             </label>
             <RoleSelectMenu
@@ -257,7 +269,6 @@ async function updateRoles(cid, newIds) {
         </div>
       </div>
     </div>
-
   </BaseListLayout>
 
   <!-- Create curriculum — outside BaseListLayout so it stays mounted in the
@@ -266,7 +277,11 @@ async function updateRoles(cid, newIds) {
     <div class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Name</BaseText>
-        <BaseTextInput v-model="draft.name" placeholder="e.g. Production Onboarding" @keyup.enter="saveCurriculum" />
+        <BaseTextInput
+          v-model="draft.name"
+          placeholder="e.g. Production Onboarding"
+          @keyup.enter="saveCurriculum"
+        />
       </div>
       <div class="tw:flex tw:flex-col tw:gap-1">
         <BaseText as="div" variant="overline">Description</BaseText>
@@ -274,7 +289,12 @@ async function updateRoles(cid, newIds) {
       </div>
     </div>
     <template #footer="{ close }">
-      <BaseDialogFooter submitLabel="Create" :disabled="!draft.name.trim()" @cancel="close" @submit="saveCurriculum" />
+      <BaseDialogFooter
+        submitLabel="Create"
+        :disabled="!draft.name.trim()"
+        @cancel="close"
+        @submit="saveCurriculum"
+      />
     </template>
   </BaseDialog>
 </template>
