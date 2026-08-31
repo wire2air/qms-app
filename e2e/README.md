@@ -50,6 +50,18 @@ Later sections of the seed extend the same tenant for the other suites:
   and the standard every audit journey runs against: **E2E Quality Standard**
   (`E2E-STD-9001`), v1.0 EFFECTIVE, one section header + two leaf clauses.
 
+- **Inspections & Log Books (§34)** — three personas (`logOperator` =
+  `field_records` create/read_own/edit_own_in_window and nothing else,
+  `logSupervisor` = the two books' `supervisor_user_id` plus review/read_all,
+  `logAdmin` = amend/void/assign/log-book authoring), a log book type, and the
+  two ACTIVE books every journey files against: **E2E Operations Log**
+  (`E2E-ILOP`, OPERATIONAL_LOG, TIME_WINDOW 120 min, no signature, no review) and
+  **E2E Controlled Log** (`E2E-ILCR`, CONTROLLED_RECORD, e-signature at submit,
+  review required, UNTIL_REVIEW), each with an active ad-hoc form assignment.
+  Note §34's header: the …50/51/52 id slots belong to §30's roles-module cast, so
+  this section owns …70/71/72 — reusing them does not fail, it silently hands the
+  roles personas `field_records` verbs they are asserted not to have.
+
 Roster and IDs live in [fixtures/cast.js](fixtures/cast.js).
 
 ## Running
@@ -71,6 +83,11 @@ npm run test:e2e:depts        # departments
 npm run test:e2e:audits       # audits (standards, programs, instances, findings)
 npm run test:e2e:analytics    # analytics / QMS Intelligence
 npm run test:e2e:sites:headed # watch it drive a real browser
+
+# Inspections & Log Books has no npm alias yet — run it by project name.
+# It chains setup → inspectionsLogsSetup (a purge, like qcSetup), so a
+# --project run reports its own count + 4.
+npx playwright test --project=inspectionsLogs
 
 npm run test:e2e:ui           # Playwright UI mode (pick/replay/inspect)
 npm run test:e2e:report       # open the HTML report from the last run
@@ -151,9 +168,12 @@ automatically. A single module is a path filter, not its own project:
 
 **Don't re-run the suite back to back.** `authLimiter` allows 300 auth requests
 per 15 minutes per IP (in-memory in the api process, so Redis surgery won't clear
-it), and each `setup` run spends ~90 logging the cast in. Three consecutive runs
-exhaust it and the next `setup` fails with `login … → 429`; wait for the window
-rather than restarting the stack.
+it), and each `setup` run spends ~100 logging the cast in (three requests per
+persona — login, handoff, session — and the roster passed 30 with §34). Three
+consecutive runs exhaust it and the next `setup` fails with `login … → 429`; wait
+for the window rather than restarting the stack. Note this is `authLimiter`, not
+the much tighter `strictAuthLimiter` (20/15 min) — that one guards reset-token,
+MFA, invitation and PIN-reset routes, none of which `setup` touches.
 
 Every project declares `dependencies: ['setup']`, so seeding + login happen
 automatically whichever suite you run. To apply the seed by hand (e.g. to poke
@@ -184,6 +204,38 @@ footer. (These three rows carried the inflated totals until 2026-07-30.)
 | `departments` | 16 pass / 11 fail | DEPT-J1, J2, J3, J4 |
 | `audits` | 20 pass / 13 fail | J1 ×2, J7 ×2, J9 ×3, J10 ×5 — **plus J6, which is NOT by design** (open harness issue: `forceResync` does not get the REST-attached approval workflow into IndexedDB, though the DB row is correct) |
 | `authentication` | 18 pass / **0 fail** | none — the three 🔴 probes (lockout-as-DoS, `authLimiter` no-op, unbounded reset mail) became green release gates when C1–C3 were fixed on 2026-07-30 |
+| `inspectionsLogs` | 24 pass / 0 fail | none — but see IL-D1 below: one open defect is asserted **as it currently behaves**, so the suite stays green and the test fails the day it is fixed |
+
+**`inspectionsLogs` and IL-D1 — a green test that documents a broken feature.**
+The module's own journey spec (`qms/docs/modules/inspections-logs/14-playwright-journeys.md`)
+predates the fix for its top three findings and expects PW-J8/J9/J10 to fail;
+they were closed at the database on 2026-08-31, so `j8-integrity-guards.spec.js`
+is written the other way round — as the regression guard that keeps them closed,
+probed from BOTH sides (a persona the policy admits, expecting a raised error;
+and one it does not, expecting zero rows), because an RLS-filtered UPDATE
+succeeds silently against nothing and would otherwise read as a passing guard.
+
+Building the suite turned up a new one. **IL-D1: a field-record flag can never be
+resolved on a log book that has a supervisor.** `fieldRecordFlagService.resolveFlag()`
+closes the task the flag spawned with `statusId: 'RESOLVED'`, which is not a row
+in `task_instance_statuses`; the FK rejects it, the whole transaction rolls back,
+and `PATCH /v1/services/fieldRecordFlags/:id/resolve` answers 400 "Invalid
+reference". The dialog and the button work — the write behind them does not.
+`j5-flags.spec.js` asserts that refusal, carries the diagnosis, and is annotated
+`known-defect`; when the lookup row is added it goes red, which is the signal to
+flip it back to asserting a real resolution.
+
+**The one flake to expect, and why it is not worth chasing.** Nothing in this
+module is readable until the syncEngine has bootstrapped LogBook / FieldRecord /
+FormAssignment into a context's IndexedDB — measured at ~17s on an idle machine.
+`createPersonaPool` (fixtures/inspectionsLogs.js) pays that once per persona per
+file rather than once per test, which is what took the suite from ~25 minutes to
+5. The residual cost lands entirely on the FIRST test of the run, whose context
+is cold: on a busy machine it can exceed even the 60s + 45s the helpers allow and
+fail with "the log book never reached IndexedDB", then pass on the retry in
+seconds. That is what `retries: 1` on this project is for. Note the helpers wait
+long and reload ONCE on purpose — a reload restarts the bootstrap from zero, so
+an impatient retry loop makes this failure more likely, not less.
 
 Every audits failure is a confirmed defect, verified against the live stack on
 2026-07-29. Three map to the inventory's own findings — #1 (standards routes

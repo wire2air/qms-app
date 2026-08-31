@@ -242,6 +242,47 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Purges the log entries previous Inspections & Logs runs left behind.
+      // Same reason as qcSetup: FieldRecord/FieldRecordRevision/FieldRecordFlag/
+      // AssignmentInstance are all synced models, so accumulated rows slow every
+      // fresh browser context's syncEngine bootstrap until UI steps time out.
+      // See e2e/fixtures/inspectionsLogs.setup.js.
+      name: 'inspectionsLogsSetup',
+      testMatch: /fixtures\/inspectionsLogs\.setup\.js/,
+      dependencies: ['setup'],
+    },
+    {
+      // Inspections & Log Books — field records, log books, form assignments.
+      // The module had zero E2E coverage until 2026-08-31 and is the one place
+      // in the product where an immutable, e-signed record is created by a
+      // floor user rather than an author: submit, the edit window closing,
+      // supervisor review, amendment and void.
+      //
+      // IL-J8 is the reason this project is worth more than its test count. It
+      // pins the module's three top security-review findings (#1 a revision's
+      // Part-11 signature could be repointed, #2 a submitter could self-approve,
+      // #3 an assignee could self-complete a scheduled occurrence) — all three
+      // closed at the database on 2026-08-31, and each probed from BOTH sides so
+      // a policy that quietly stopped matching anything cannot read as a pass.
+      name: 'inspectionsLogs',
+      testMatch: /inspectionsLogs\/[^/]+\.spec\.js$/,
+      dependencies: ['inspectionsLogsSetup'],
+      // Above the 120s default. Nothing in this module is readable until the
+      // syncEngine has bootstrapped LogBook / FieldRecord / FormAssignment into
+      // a context's IndexedDB — ~17s idle, considerably more while trace and
+      // video are recording — and a journey that needs a second persona pays it
+      // again. `createPersonaPool` keeps that to one bootstrap per persona per
+      // file; the headroom covers the first one.
+      timeout: 180_000,
+      // The fill page and the detail overlay both read the log book and the
+      // record out of IndexedDB after a REST write, so their readiness depends
+      // on a sync broadcast landing. One Playwright-level retry covers the
+      // residual lag without masking a real failure (a genuine break fails both
+      // attempts).
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

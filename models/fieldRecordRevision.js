@@ -38,12 +38,21 @@ export class FieldRecordRevision extends BaseModel {
   @Property({ type: DateTime, required: true }) authoredAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) clientAuthoredAt = /** @type {DateTime} */ (null)
 
-  @Property({ type: String }) signatureId = ''
-  @Property({ type: String }) comment = ''
-  @Property({ type: String }) reviewOutcome = ''
+  // The client half of inspections-logs finding #1 — the severest in the
+  // documentation programme. `field_record_revisions` is append-only Part 11
+  // evidence, and its RLS UPDATE policy had NO permission check of any kind
+  // while the immutability guard covered six of nineteen columns. These four
+  // were among the thirteen it did not cover, so a hand-rolled
+  // `updateFieldRecordRevision` could rewrite a recorded review outcome, the
+  // stated reason for a void, or detach the signature itself. The table is
+  // sealed at the DB by enforce_field_record_revision_immutable (20260901140000);
+  // these markers stop the mutation being generated in the first place.
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) signatureId = ''
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) comment = ''
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) reviewOutcome = ''
 
-  @Property({ type: Object }) diffFromPrevious = null
-  @Property({ type: String }) voidReason = ''
+  @Property({ type: Object, excludeFromGraphQL: ['update'] }) diffFromPrevious = null
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) voidReason = ''
 
   @Property({ type: String }) ipAddress = ''
   @Property({ type: String }) userAgent = ''

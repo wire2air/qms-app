@@ -268,6 +268,32 @@ export const USERS = {
     email: 'teamjoiner@e2e.test',
     name: 'Tom TeamJoiner',
   },
+  // ── Inspections & Log Books (§34) ─────────────────────────────────────────
+  // The floor user. field_records create / read_own / edit_own_in_window and
+  // NOTHING else — no amend, no void, no review, and deliberately no log_books
+  // grant of any kind. They reach the two seeded books through the FormAssignment
+  // arm of `log_books_select_rls`, which is how a real operator reaches them.
+  logOperator: {
+    id: 'e2e10000-0000-4000-8000-000000000070',
+    email: 'logoperator@e2e.test',
+    name: 'Otto Operator',
+  },
+  // `supervisor_user_id` on both seeded books, so `is_log_book_reviewer()`
+  // returns true for them — which is the real review gate since 2026-08-09.
+  // Holding field_records:review alone is NOT enough to approve a book's entries.
+  logSupervisor: {
+    id: 'e2e10000-0000-4000-8000-000000000071',
+    email: 'logsupervisor@e2e.test',
+    name: 'Sonia Supervisor',
+  },
+  // amend + void + inspections:assign. NOT a reviewer of either book — which is
+  // what lets IL-J7 separate "holds the review permission" from "may review this
+  // book" without a second supervisor persona.
+  logAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000072',
+    email: 'logadmin@e2e.test',
+    name: 'Lena LogAdmin',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -347,6 +373,9 @@ export const AUTH = {
   umCreator: 'e2e/.auth/umCreator.json',
   umUpdater: 'e2e/.auth/umUpdater.json',
   teamJoiner: 'e2e/.auth/teamJoiner.json',
+  logOperator: 'e2e/.auth/logOperator.json',
+  logSupervisor: 'e2e/.auth/logSupervisor.json',
+  logAdmin: 'e2e/.auth/logAdmin.json',
   altOwner: 'e2e/.auth/altOwner.json',
 }
 
@@ -454,6 +483,51 @@ export const LOG_BOOK = {
   id: 'e2e5b000-0000-4000-8000-000000000001',
   title: 'E2E Sites Log Book',
   pivotId: 'e2e5c000-0000-4000-8000-000000000001',
+}
+
+// Inspections & Log Books fixtures (e2e-seed.sql §34) — the `inspectionsLogs`
+// project's two books and their ad-hoc assignment plans.
+//
+// The two books are NOT variations on a theme; each isolates one half of the
+// module's behaviour so a journey never has to disentangle them:
+//
+//   operations — OPERATIONAL_LOG, no signature, no review, TIME_WINDOW 120m.
+//     An entry lands SUBMITTED and its own submitter may edit it for two hours.
+//     This is the only book where the in-window edit exists at all.
+//   controlled — CONTROLLED_RECORD, so a signature at submit is mandatory
+//     (the classification decides, not `signature_required`), review_required
+//     so entries land UNDER_REVIEW, and UNTIL_REVIEW so `lock_at` is written by
+//     the review outcome instead of a timer.
+//
+// `schema` is mirrored here because the journeys fill the form by LABEL and
+// assert the stored payload by NAME — the two differ, and a spec that guessed
+// either would fail in a way that reads like a product bug.
+export const INSPECTIONS_LOGS = {
+  operations: {
+    id: 'e2e5b000-0000-4000-8000-000000000010',
+    code: 'E2E-ILOP',
+    title: 'E2E Operations Log',
+    classification: 'OPERATIONAL_LOG',
+    editWindowMinutes: 120,
+    assignmentId: 'e2e5d000-0000-4000-8000-000000000010',
+    fields: {
+      operator: { name: 'operator', label: 'Operator' },
+      reading: { name: 'reading', label: 'Reading' },
+      note: { name: 'note', label: 'Note' },
+    },
+  },
+  controlled: {
+    id: 'e2e5b000-0000-4000-8000-000000000011',
+    code: 'E2E-ILCR',
+    title: 'E2E Controlled Log',
+    classification: 'CONTROLLED_RECORD',
+    assignmentId: 'e2e5d000-0000-4000-8000-000000000011',
+    fields: {
+      area: { name: 'area', label: 'Area' },
+      temperature: { name: 'temperature', label: 'Temperature' },
+    },
+  },
+  logBookTypeId: 'e2e5a000-0000-4000-8000-000000000002',
 }
 
 // Seeded fixtures the journeys rely on (E2ELAB).
