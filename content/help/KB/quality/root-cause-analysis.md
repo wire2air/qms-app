@@ -90,3 +90,18 @@ If a step shows "No RCA template linked to this field," contact your administrat
 - Build one template per problem type (for example, equipment failure or process error) so investigators always start from a sensible structure.
 - Use categories consistently to make root-cause trends easier to spot in reports.
 - Confirm the **Primary** root cause is the true underlying cause, not a symptom, before you finalize.
+
+## AI in this module
+
+AI can **propose causes** and help articulate the root-cause statement from the
+evidence gathered. The analyst applies what is useful; the problem statement
+stays yours.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)

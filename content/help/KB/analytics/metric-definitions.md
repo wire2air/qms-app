@@ -645,6 +645,21 @@ and neither is affected by the defect above.
 
 ---
 
+## AI in this module
+
+AI can **narrate insights** over your metrics — describing what a trend shows
+in words. Analytics answers are computed against your own effective access
+scope, so two people can legitimately see different numbers for the same metric.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)
+
 ## Related articles
 
 - [Roles & Permissions](/help/KB/administration/roles-and-permissions) — how scope is granted,

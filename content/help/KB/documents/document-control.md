@@ -281,6 +281,23 @@ the workflow rather than being managed by hand.
 
 Granting access requires the Update capability on Document Control.
 
+## AI in this module
+
+**Draft with AI** produces a starting outline for a new document from a topic
+you describe. **Import PDF** extracts the structure of an existing file into
+editable sections. AI can also **generate quiz questions** from the document's
+own content for read-and-understood training, and **summarise what changed**
+between two versions.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)
+
 ## Related records
 
 Documents can be linked to other records — the NC that prompted a revision, the

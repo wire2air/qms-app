@@ -158,3 +158,18 @@ When a request shows **Received**, review what the supplier sent.
 :::tip
 Expand any request row to see its individual document lines and their progress (for example, *2 / 3 received*). The tab header shows how many requests are still pending or overdue at a glance.
 :::
+
+## AI in this module
+
+Where a qualification form is scored, AI can **draft the narrative** that
+explains the rating — a summary of what drove the score, for you to check
+against what the assessment actually says.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)

@@ -180,3 +180,18 @@ workflow, records the reason, and sets the status to **Cancelled**.
   CAPA, its workflow steps, and its effectiveness checks in one place.
 - From an open CAPA you can also start a linked **Change Request** when the fix requires
   a controlled change.
+
+## AI in this module
+
+**Ask AI** answers questions about the open CAPA. When articulating a root
+cause, AI can propose a statement from the evidence recorded — you keep the
+problem statement, edit it, or discard it.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)

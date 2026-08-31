@@ -176,6 +176,22 @@ Approving and closing an NC is a regulated, attested action and requires an e-si
 - The **Insights** tab shows trends across your NCs — by type, site, severity and time.
 - Search covers NC content, not just titles.
 
+## AI in this module
+
+**Ask AI** answers questions about the open NC. **Similar records** surfaces
+existing NCs as you type a title, so you can spot a duplicate or a recurrence
+before raising a new one. Text fields offer AI assistance for tidying up what
+you have written.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)
+
 ## Related
 
 - [CAPAs](./capas.md) — corrective and preventive actions raised from an NC

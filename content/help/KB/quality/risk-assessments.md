@@ -119,3 +119,18 @@ Because each saved assessment stores the labels, scores, and colors used at the 
 reports stay accurate even if a template, risk level, or hazard category is later renamed
 or reconfigured.
 :::
+
+## AI in this module
+
+AI can **suggest an assessment** — hazards, and a starting severity and
+likelihood — from the context you provide. Treat it as a prompt for the team's
+judgement, not a substitute for it.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)

@@ -219,6 +219,21 @@ one.
 
 See [Roles and Permissions](../administration/roles-and-permissions.md).
 
+## AI in this module
+
+AI can **draft a workflow template** from a description of your process —
+steps, roles and forms — created as a Draft for you to review and publish. It
+proposes a structure; it does not publish anything.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)
+
 ## Related
 
 - [Task Forms and Form Blocks](./task-forms-and-form-blocks.md) — what a step captures

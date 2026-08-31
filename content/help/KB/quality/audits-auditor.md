@@ -111,3 +111,19 @@ other.
 An external auditor can be recorded as a contact on the audit without being given
 a user account, so third-party and certification audits are attributable to a
 named person without provisioning access they do not need.
+
+## AI in this module
+
+AI **enriches a standard's clauses** with an auditor guide — questions to ask,
+what to observe, expected evidence, who to interview. It can **import a standard
+from a PDF** and draft the checklist shell. During reporting it can **extract
+findings** from the notes you took, as a first pass for you to correct.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)
