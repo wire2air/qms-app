@@ -301,18 +301,20 @@ async function submitForm() {
         <button
           v-for="conn in ssoConnections"
           :key="conn.id"
-          class="tw:flex tw:flex-1 tw:min-w-32 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-primary tw:text-on-primary tw:border tw:border-primary tw:hover:bg-primary-hover tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-24 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-primary tw:text-on-primary tw:border tw:border-primary tw:hover:bg-primary-hover tw:transition-colors tw:cursor-pointer"
+          :aria-label="`Sign in with ${conn.displayName}`"
           @click="loginWithSso(conn.id)"
         >
           <IconKey :size="18" />
-          Sign in with {{ conn.displayName }}
+          {{ conn.displayName }}
         </button>
 
 
         <button
           v-if="methods.google"
-          class="tw:flex tw:flex-1 tw:min-w-32 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-24 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingMicrosoft"
+          aria-label="Sign in with Google"
           @click="loginWithGoogle"
         >
           <BaseSpinner v-if="loadingGoogle" size="sm" color="secondary" />
@@ -336,13 +338,14 @@ async function submitForm() {
               />
             </svg>
           </template>
-          <span class="tw:font-medium tw:text-sm">Continue with Google</span>
+          <span class="tw:font-medium tw:text-sm">Google</span>
         </button>
 
         <button
           v-if="methods.microsoft"
-          class="tw:flex tw:flex-1 tw:min-w-32 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-24 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingGoogle"
+          aria-label="Sign in with Microsoft"
           @click="loginWithMicrosoft"
         >
           <BaseSpinner v-if="loadingMicrosoft" size="sm" color="secondary" />
@@ -354,7 +357,7 @@ async function submitForm() {
               <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
             </svg>
           </template>
-          <span class="tw:font-medium tw:text-sm">Continue with Microsoft</span>
+          <span class="tw:font-medium tw:text-sm">Microsoft</span>
         </button>
 
         </div>
