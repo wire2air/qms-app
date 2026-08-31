@@ -23,6 +23,7 @@ const TABS = [
   { value: 'password', label: 'Password policy', icon: IconKey },
   { value: 'mfa', label: 'MFA policy', icon: IconDeviceMobile },
   { value: 'sessions', label: 'Sessions', icon: IconClock },
+  { value: 'sso', label: 'Single sign-on', icon: IconKey },
 ]
 const activeTab = ref('methods')
 
@@ -136,6 +137,10 @@ async function save() {
 
       <BaseCard class="tw:mt-4">
         <!-- Login methods -->
+        <!-- Single sign-on — its own component: the connection editor and
+             metadata import are substantial enough to crowd this page. -->
+        <OrgSecuritySsoTab v-if="activeTab === 'sso'" />
+
         <div v-if="activeTab === 'methods'" class="tw:flex tw:flex-col tw:gap-4">
           <p class="tw:text-sm tw:text-secondary">
             Choose how people can sign in to this workspace. At least one method must stay enabled.

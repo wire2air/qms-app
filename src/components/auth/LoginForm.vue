@@ -1,5 +1,5 @@
 <script setup>
-import { IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabler/icons-vue'
+import { IconKey, IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabler/icons-vue'
 import { currentSubdomain, rootDomain, apexOrigin } from '@/utils/tenant'
 import MfaVerifyForm from '@/components/auth/MfaVerifyForm.vue'
 import ForcePasswordChangeForm from '@/components/auth/ForcePasswordChangeForm.vue'
@@ -32,6 +32,18 @@ const isSignup = computed(() => props.mode === 'signup')
 // Which login methods this tenant allows (drives which buttons show). Defaults
 // to all-on so the form renders immediately; refined once the fetch resolves.
 const methods = ref({ email: true, google: true, microsoft: true })
+
+// The tenant's own identity providers. One button each — deliberately NOT an
+// automatic redirect on page load, even when there is only one: enforcement is
+// per email domain, so a workspace with SSO still has people who must sign in
+// with a password (the break-glass owner, contractors on other domains).
+// Bouncing everyone to the IdP would strand exactly the person you need when
+// the IdP is the thing that is broken.
+const ssoConnections = ref([])
+
+function loginWithSso(connectionId) {
+  window.location.href = `/api/v1/auth/sso/login?connection=${encodeURIComponent(connectionId)}`
+}
 onMounted(async () => {
   // Show a message if a disabled federated method was attempted (redirect back).
   const url = new URL(window.location.href)
@@ -44,6 +56,7 @@ onMounted(async () => {
     if (res.ok) {
       const data = await res.json()
       if (data?.methods) methods.value = data.methods
+      if (Array.isArray(data?.sso)) ssoConnections.value = data.sso
     }
   } catch {
     /* keep permissive defaults */
@@ -280,10 +293,28 @@ async function submitForm() {
 
     <div class="tw:pt-4">
       <div class="tw:flex tw:flex-col tw:gap-3">
+        <!-- Providers, below the credential form: password sign-in is the
+             primary path, these are the alternatives. `order` rather than a
+             move so the markup stays in one readable block. -->
+        <div class="tw:order-3 tw:flex tw:flex-wrap tw:gap-2">
+        <!-- The workspace's own identity providers. -->
+        <button
+          v-for="conn in ssoConnections"
+          :key="conn.id"
+          class="tw:flex tw:flex-1 tw:min-w-24 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-primary tw:text-on-primary tw:border tw:border-primary tw:hover:bg-primary-hover tw:transition-colors tw:cursor-pointer"
+          :aria-label="`Sign in with ${conn.displayName}`"
+          @click="loginWithSso(conn.id)"
+        >
+          <IconKey :size="18" />
+          {{ conn.displayName }}
+        </button>
+
+
         <button
           v-if="methods.google"
-          class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-24 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingMicrosoft"
+          aria-label="Sign in with Google"
           @click="loginWithGoogle"
         >
           <BaseSpinner v-if="loadingGoogle" size="sm" color="secondary" />
@@ -307,13 +338,14 @@ async function submitForm() {
               />
             </svg>
           </template>
-          <span class="tw:font-medium tw:text-sm">Continue with Google</span>
+          <span class="tw:font-medium tw:text-sm">Google</span>
         </button>
 
         <button
           v-if="methods.microsoft"
-          class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
+          class="tw:flex tw:flex-1 tw:min-w-24 tw:items-center tw:justify-center tw:gap-2 tw:px-4 tw:py-3 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
           :disabled="loadingGoogle"
+          aria-label="Sign in with Microsoft"
           @click="loginWithMicrosoft"
         >
           <BaseSpinner v-if="loadingMicrosoft" size="sm" color="secondary" />
@@ -325,20 +357,22 @@ async function submitForm() {
               <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
             </svg>
           </template>
-          <span class="tw:font-medium tw:text-sm">Continue with Microsoft</span>
+          <span class="tw:font-medium tw:text-sm">Microsoft</span>
         </button>
 
+        </div>
+
         <div
-          v-if="methods.email && (methods.google || methods.microsoft)"
-          class="tw:flex tw:items-center tw:gap-4 tw:my-3"
+          v-if="methods.email && (methods.google || methods.microsoft || ssoConnections.length)"
+          class="tw:order-2 tw:flex tw:items-center tw:gap-4 tw:my-3"
         >
           <hr class="tw:flex-1 tw:border-divider" />
-          <span class="tw:text-xs tw:text-secondary tw:whitespace-nowrap">or</span>
+          <span class="tw:text-xs tw:text-secondary tw:whitespace-nowrap">or sign in with</span>
           <hr class="tw:flex-1 tw:border-divider" />
         </div>
 
         <!-- email/password login form -->
-        <div v-if="methods.email || isSignup" class="tw:flex tw:flex-col tw:gap-3">
+        <div v-if="methods.email || isSignup" class="tw:order-1 tw:flex tw:flex-col tw:gap-3">
           <template v-if="isSignup">
             <BaseTextInput v-model="firstName" placeholder="First Name" @keyup.enter="submitForm">
               <template #icon>

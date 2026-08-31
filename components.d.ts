@@ -923,6 +923,7 @@ declare module 'vue' {
     OptionSetsPageId: typeof import('./src/components/optionSets/OptionSetsPageId.vue')['default']
     OptionSetsTab: typeof import('./src/components/optionSets/OptionSetsTab.vue')['default']
     OptionSetsTable: typeof import('./src/components/optionSets/OptionSetsTable.vue')['default']
+    OrgSecuritySsoTab: typeof import('./src/components/security/OrgSecuritySsoTab.vue')['default']
     PageHeader: typeof import('./resource/js/shared/components/PageHeader.vue')['default']
     'PageHeader.spec': typeof import('./resource/js/shared/components/PageHeader.spec.js')['default']
     PageSection: typeof import('./resource/js/shared/components/PageSection.vue')['default']
