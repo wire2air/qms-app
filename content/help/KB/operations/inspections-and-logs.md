@@ -21,6 +21,47 @@ The module landing page shows four quick stat tiles (My queue, Awaiting your rev
 this week, Submitted this week) and cards that take you into Log Books, Log Book Assignments,
 My Tasks, and Logs.
 
+## The sub-menus, and what to create first
+
+| Menu | What it holds |
+| --- | --- |
+| **Log Forms** | The reusable field layouts a log book captures. |
+| **Log Books** | The books themselves — a form, a policy, a lifecycle. |
+| **Inspections & Logs** | The entries people have filed. |
+| **Assignments** | Who fills which book, and on what schedule. |
+
+Build them in that order:
+
+### Step 1 — Create a Log Form
+
+Define the fields to capture — readings, checks, observations — with their types
+and limits. Forms are reusable, so several books can share one.
+
+### Step 2 — Create a Log Book
+
+A book pairs a form with a policy: who may make entries, whether a supervisor
+signs off, the edit window, the equipment it belongs to, and the controlled
+documents it follows.
+
+Submit it for approval. Once approved and **Active**, its definition is frozen —
+which is the point, and why it is worth getting right before submitting.
+
+### Step 3 — Assign who fills it
+
+Schedule the people or roles responsible, and how often. This is what turns a
+book into recurring tasks in someone's list.
+
+### Step 4 — Entries get filed
+
+People make entries from their tasks, or from a mobile device at the point of
+work. See [Mobile Logging](./mobile-logging.md).
+
+:::tip
+Get the form right before approving the book. A book's fields are frozen on
+approval, so changing them later means creating a replacement book — deliberate,
+but more work than a few minutes' thought up front.
+:::
+
 ## Key concepts
 
 ### Log book classifications

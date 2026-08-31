@@ -42,6 +42,46 @@ The Audits menu has two working modules, one per role:
   draft the auditor guide (questions, observations, expected evidence,
   people to interview) per clause.
 
+## What to set up first
+
+The sub-menus are in roughly the order you use them, and each step is usable
+before the next exists.
+
+### Step 1 — Standards
+
+An audit runs **against** something. Load the clause library you audit to —
+import your licensed copy of a standard, or author your own checklist.
+
+AI enrichment can draft the auditor guide per clause: the questions to ask, what
+to observe, the evidence to expect, who to interview. Review it before you rely
+on it; it is a starting point, not a finished checklist.
+
+### Step 2 — Audit Plan (optional)
+
+If you audit on a cycle — internal audits quarterly, suppliers annually — set up
+a **program** and let it generate the schedule. Skip this for one-off audits and
+create them directly.
+
+### Step 3 — The audit itself
+
+Create it, pick the standard, site, lead auditor and team. Work the
+**Requirements** notebook clause by clause during fieldwork.
+
+### Step 4 — Findings and follow-up
+
+Findings raised during the audit become CAPAs where corrective action is needed,
+linked back to the finding so the chain from observation to closure is intact.
+
+### Step 5 — The report
+
+Generate the report from what you recorded, rather than rewriting it afterwards.
+
+:::tip
+Load the standard properly before your first audit. Everything downstream — the
+notebook, the findings, the report, the readiness dashboard — hangs off the
+clause library, and a thin one makes all of them thin.
+:::
+
 ## Running an audit, in short
 
 1. Create the audit (ad hoc from **Audits**, or let a program schedule it),

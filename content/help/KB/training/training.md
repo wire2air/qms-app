@@ -1,7 +1,7 @@
 ---
 id: training
-title: Training
-sidebar_position: 1
+title: Training Library
+sidebar_position: 2
 description: Build training programs, assign them to your team, complete assigned trainings, and verify competency through manager sign-off.
 keywords: [training, training library, assignment, assessment, verification, competency]
 ---
@@ -10,9 +10,26 @@ keywords: [training, training library, assignment, assessment, verification, com
 
 ## Overview
 
-Training lets you build training programs, deliver them to your team, and prove that people are competent to do their work. An admin or training owner creates a training in the **Training Library**, adds material and assessment questions, and launches it to selected employees. Each employee works through their assigned training in **My Tasks**, and — when required — a training manager reviews the results and signs off in the **Training Verification** dashboard.
+The **Training Library** is your catalogue of trainings — the material itself,
+who it is for, whether there is a quiz, and whether a manager must confirm
+competency afterwards. It is where a training is _defined_; who has to complete
+it is decided elsewhere.
 
-This keeps a complete, audit-ready record of who was trained, what they scored, and who confirmed their competency.
+> **New to the module?** Start with
+> [Training — How It Works](./training-overview.md), which shows how the library,
+> curricula, role mapping, instances and verification fit together and what to set
+> up first.
+
+Trainings reach people two ways:
+
+- **Through a curriculum mapped to a role**, so anyone holding that role is
+  assigned them automatically — the usual route. See
+  [Training Curriculum](./training-curriculum.md).
+- **Launched directly** to a chosen group, for one-off or ad-hoc training.
+
+A third kind is not created here at all: training attached to a **controlled
+document** is generated from that document and launches when a new version
+becomes effective. See [Document Control](../documents/document-control.md).
 
 ## Key concepts
 
@@ -102,3 +119,10 @@ To make a training a standing requirement for a role rather than a one-off assig
 - Document and external links are pinned to the version that was effective when the training launched, so trainees always see the right material.
 - A published training can be **unpublished** back to Draft only if no one has been launched into it yet.
 - Managers can **Cancel Instance** to stop a launch early, or remove an individual assignee — both require a recorded reason that is kept in the audit log.
+
+## Related
+
+- [Training — How It Works](./training-overview.md) — the whole module, and setup order
+- [Training Curriculum](./training-curriculum.md) — grouping trainings and mapping to roles
+- [Training Verification](./training-verification.md) — confirming competency
+- [Training Matrix Report](./training-matrix.md) — completion and gaps

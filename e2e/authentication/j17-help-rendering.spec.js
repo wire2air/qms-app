@@ -87,6 +87,7 @@ const MODULE_PAGES = [
   ['/custom-fields', 'Custom Fields'],
   ['/training-verifications', 'Training Verification'],
   ['/training-curriculum', 'Curriculum'],
+  ['/trainings', 'Training Library'],
 ]
 
 for (const [path, articleTitle] of MODULE_PAGES) {
