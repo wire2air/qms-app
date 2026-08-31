@@ -80,7 +80,6 @@ const MODULE_PAGES = [
   ['/products', 'Item Master'],
   ['/rca-templates', 'Root Cause'],
   ['/risk-assessment-templates', 'Risk Assessment'],
-],
 ]
 
 for (const [path, articleTitle] of MODULE_PAGES) {
