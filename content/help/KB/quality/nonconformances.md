@@ -179,6 +179,7 @@ Approving and closing an NC is a regulated, attested action and requires an e-si
 ## Related
 
 - [CAPAs](./capas.md) — corrective and preventive actions raised from an NC
+- [Quality Events](./quality-events.md) — lighter-weight intake that can escalate into an NC
 - [Workflows](../automation/workflows.md) — designing the review path
 - [Suppliers](../suppliers/suppliers.md) — supplier-facing NCs and the portal
 - [Roles and Permissions](../administration/roles-and-permissions.md) — who can do what

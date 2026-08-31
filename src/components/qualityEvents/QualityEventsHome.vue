@@ -156,6 +156,7 @@ function openCreateDialog() {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/quality/quality-events"
     title="Events & Observations"
     subtitle="Log quality observations, concerns, and near-misses — escalate only when justified."
     :state="list.state.value"

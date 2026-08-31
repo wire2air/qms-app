@@ -98,11 +98,13 @@ const rootProps = computed(() =>
 <template>
   <component :is="rootIs" v-bind="rootProps">
     <PageHeader v-if="!embedded" :icon="icon" :title="title" :subtitle="subtitle">
-      <template v-if="$slots.title" #title><slot name="title" /></template>
-      <template v-else-if="helpSlug" #title>
+      <!-- One branch, so a page with a custom title keeps its help launcher.
+           An either/or here silently dropped the button the moment a page
+           supplied #title — which is a trap, not a behaviour. -->
+      <template v-if="$slots.title || helpSlug" #title>
         <span class="tw:inline-flex tw:items-center tw:gap-1.5">
-          {{ title }}
-          <HelpButton :slug="helpSlug" :size="16" />
+          <slot name="title">{{ title }}</slot>
+          <HelpButton v-if="helpSlug" :slug="helpSlug" :size="16" />
         </span>
       </template>
       <template v-if="$slots.actions" #actions><slot name="actions" /></template>
