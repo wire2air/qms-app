@@ -29,7 +29,19 @@ export class QualityEvent extends BaseModel {
   @Property({ type: String }) description = ''
   @Property({ type: String }) categoryId = /** @type {String} */ (null)
   @Property({ type: String }) severityId = /** @type {String} */ (null)
-  @Property({ type: String, required: true }) statusId = 'DRAFT'
+  // QE-C1 (client half): the lifecycle is SERVER-OWNED. The four states are
+  // DRAFT / OPEN / CLOSED / CANCELLED and the only legal edges are DRAFT→OPEN
+  // (POST /submit), DRAFT→CANCELLED and OPEN→CANCELLED (POST /cancel, e-signed)
+  // and OPEN→CLOSED (POST /close, e-signed). A status change arriving on the
+  // GraphQL/syncEngine path is refused outright by the DB trigger with error
+  // code QMSQE, so `excludeFromGraphQL: ['update']` keeps statusId out of the
+  // generated updateQualityEvent mutation entirely — an inline autosave can
+  // never even attempt the write it would be rejected for.
+  //
+  // Default is OPEN, not DRAFT: createQualityEvent writes OPEN server-side and
+  // no code path creates a DRAFT event, so a DRAFT default only ever produced a
+  // client instance that disagreed with the row the server returned.
+  @Property({ type: String, required: true, excludeFromGraphQL: ['update'] }) statusId = 'OPEN'
   @Property({ type: String }) departmentId = /** @type {String} */ (null)
   @Property({ type: String }) siteId = /** @type {String} */ (null)
   @Property({ type: String }) supplierId = /** @type {String} */ (null)
