@@ -46,6 +46,17 @@ const closeBlockedReason = computed(() => {
   }
   return 'Only the assigned reviewer can close this event.'
 })
+// Cancel is gated on the same grant as Close (quality_events:update +
+// quality_events:close) but the SERVER's reviewer rule is deliberately looser:
+// with an assignee, only that person may cancel; with NO assignee, any close
+// holder may. That asymmetry exists because an unassigned event is the one most
+// likely to need cancelling, and `closeBlockedReason` would have told that user
+// to go assign a reviewer purely to earn the right to throw the event away.
+const cancelBlockedReason = computed(() => {
+  if (isAssignedReviewer.value) return ''
+  if (!event.value?.assignedToUserId) return ''
+  return 'Only the assigned reviewer can cancel this event.'
+})
 const canEscalate = computed(() => canUpdate.value)
 const closing = ref(false)
 const notifying = ref(false)
@@ -333,7 +344,17 @@ async function handleAssigneeChange(userId) {
   }
 }
 
-async function handleClose() {
+// ── Lifecycle actions (submit / close / cancel) ────────────────────────────
+// These three REST endpoints are the ONLY writers of statusId. The header's
+// status dropdown used to be a fourth, unguarded one; it is now a read-only
+// badge, statusId is excluded from the update mutation, and a DB trigger
+// refuses any status_id change arriving on the syncEngine path with QMSQE.
+
+// Close now requires a Part-11 e-signature: the endpoint verifies identity,
+// writes a `signatures` row against signatures.quality_event_id, and only then
+// flips OPEN → CLOSED.
+const showCloseEsign = ref(false)
+function handleCloseClick() {
   if (!event.value) return
   // The button is disabled in this case; this is the belt-and-braces path for
   // a keyboard/programmatic trigger. Says the same thing as the tooltip rather
@@ -342,9 +363,26 @@ async function handleClose() {
     toast.warning(closeBlockedReason.value || 'You cannot close this event.')
     return
   }
+  showCloseEsign.value = true
+}
+async function onCloseEsignVerified({ method, provider, token }) {
+  if (!event.value) return
+  showCloseEsign.value = false
   closing.value = true
   try {
-    const res = await post(`/v1/services/qualityEvents/${event.value.id}/close`, {})
+    const res = await post(`/v1/services/qualityEvents/${event.value.id}/close`, {
+      method,
+      provider: provider || null,
+      token,
+      // Unlike the Change Request page, Close here is a single step (no confirm
+      // dialog in front of the PIN prompt), so there is nowhere to type closure
+      // notes and this is always null. Sent explicitly so the endpoint's
+      // optional-comments contract stays visible at the call site.
+      comments: null,
+    })
+    // Reflect immediately; the sync push confirms a moment later. Safe to assign
+    // now that statusId is excluded from the update mutation — the autosave
+    // watcher this wakes computes an empty patch and returns without a request.
     if (res?.qualityEvent) {
       event.value.statusId = res.qualityEvent.statusId
     }
@@ -353,6 +391,76 @@ async function handleClose() {
     toast.error(e.message || 'Failed to close event')
   } finally {
     closing.value = false
+  }
+}
+
+// Cancel is two dialogs deep because it needs a reason AND a signature: collect
+// the reason first, then sign. The reason dialog is CLOSED before the e-sign one
+// opens — stacking two BaseDialogs puts two focus traps in competition and the
+// PIN field silently stops receiving keystrokes.
+const showCancelDialog = ref(false)
+const showCancelEsign = ref(false)
+const cancelling = ref(false)
+const cancelReason = ref('')
+const cancelReasonError = ref('')
+function openCancelDialog() {
+  if (!canClose.value || cancelBlockedReason.value) {
+    toast.warning(cancelBlockedReason.value || 'You cannot cancel this event.')
+    return
+  }
+  cancelReason.value = ''
+  cancelReasonError.value = ''
+  showCancelDialog.value = true
+}
+function handleCancelClick() {
+  if (!cancelReason.value.trim()) {
+    cancelReasonError.value = 'A cancel reason is required'
+    return
+  }
+  cancelReasonError.value = ''
+  showCancelDialog.value = false
+  showCancelEsign.value = true
+}
+async function onCancelEsignVerified({ method, provider, token }) {
+  if (!event.value) return
+  showCancelEsign.value = false
+  cancelling.value = true
+  try {
+    const res = await post(`/v1/services/qualityEvents/${event.value.id}/cancel`, {
+      method,
+      provider: provider || null,
+      token,
+      reason: cancelReason.value.trim(),
+    })
+    if (res?.qualityEvent) {
+      event.value.statusId = res.qualityEvent.statusId
+    }
+    toast.success('Event cancelled')
+  } catch (e) {
+    toast.error(e.message || 'Failed to cancel event')
+    // Reopen the reason dialog so the typed reason isn't lost to a failed sign.
+    showCancelDialog.value = true
+  } finally {
+    cancelling.value = false
+  }
+}
+
+// Submit is the DRAFT → OPEN edge and the only one of the three with no
+// signature: it attests to nothing, it just moves an intake record out of draft.
+const submitting = ref(false)
+async function handleSubmit() {
+  if (!event.value || event.value.statusId !== 'DRAFT') return
+  submitting.value = true
+  try {
+    const res = await post(`/v1/services/qualityEvents/${event.value.id}/submit`, {})
+    if (res?.qualityEvent) {
+      event.value.statusId = res.qualityEvent.statusId
+    }
+    toast.success('Event submitted')
+  } catch (e) {
+    toast.error(e.message || 'Failed to submit event')
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -425,14 +533,24 @@ const qualityEventActions = computed(() =>
     {
       canClose: canClose.value,
       closeBlockedReason: closeBlockedReason.value,
+      cancelBlockedReason: cancelBlockedReason.value,
       canEscalate: canEscalate.value,
+      canUpdate: canUpdate.value,
       statusId: event.value?.statusId,
       closing: closing.value,
+      cancelling: cancelling.value,
+      submitting: submitting.value,
       escalatedTo: escalatedTo.value,
     },
     {
+      submit() {
+        handleSubmit()
+      },
       close() {
-        handleClose()
+        handleCloseClick()
+      },
+      cancel() {
+        openCancelDialog()
       },
       escalate() {
         showEscalate.value = true
@@ -481,9 +599,13 @@ const qualityEventDetailConfig = computed(() =>
       </template>
 
       <template #status>
+        <!-- Read-only for everyone, including quality_events:update holders.
+             The picker that used to render here (F-02) wrote statusId straight
+             through the debounced autosave, reaching CLOSED without the assigned
+             reviewer check, the e-signature or the CLOSE audit row. Status now
+             moves only via Submit / Close / Cancel in the header. -->
         <div v-if="event" class="tw:w-full tw:sm:w-48">
-          <QualityEventStatusSelectMenu v-if="canUpdate" v-model="event.statusId" />
-          <QualityEventStatusBadgeById v-else :statusId="event.statusId" />
+          <QualityEventStatusBadgeById :statusId="event.statusId" />
         </div>
       </template>
 
@@ -809,6 +931,40 @@ const qualityEventDetailConfig = computed(() =>
       :eventId="props.id"
       @escalated="onEscalated"
     />
+
+    <!-- Cancel step 1 of 2 — the reason. Step 2 is the e-sign dialog below;
+         handleCancelClick closes this one before opening that one. -->
+    <BaseDialog v-model="showCancelDialog" title="Cancel Event" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-on-main">
+          Cancelling permanently terminates this event. The record stays in the audit log; you
+          cannot re-open it.
+        </p>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" required :error="cancelReasonError">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="cancelReason"
+            :rows="3"
+            placeholder="Why is this event being cancelled?"
+            @input="cancelReasonError = ''"
+          />
+        </BaseField>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          cancelLabel="Back"
+          submitLabel="Sign & Cancel"
+          submitVariant="danger"
+          :loading="cancelling"
+          :disabled="!cancelReason.trim()"
+          @cancel="close"
+          @submit="handleCancelClick"
+        />
+      </template>
+    </BaseDialog>
+
+    <WorkflowInstanceEsignAuthDialog v-model="showCloseEsign" @verified="onCloseEsignVerified" />
+    <WorkflowInstanceEsignAuthDialog v-model="showCancelEsign" @verified="onCancelEsignVerified" />
 
     <AuditLogDialog
       v-model="showAuditLog"
