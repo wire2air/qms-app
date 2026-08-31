@@ -315,6 +315,18 @@ const certsText = computed({
       </BaseField>
 
       <label class="tw:flex tw:items-center tw:gap-3">
+        <BaseSwitch v-model="editing.allowIdpInitiated" />
+        <span class="tw:text-sm tw:text-on-main">
+          Allow starting from the identity provider
+          <span class="tw:block tw:text-xs tw:text-secondary">
+            Needed to sign in by clicking the app tile in Okta or Entra. Off by default: such a
+            response answers no request of ours, so there is nothing to bind it to — prefer
+            starting from this app's sign-in page where you can.
+          </span>
+        </span>
+      </label>
+
+      <label class="tw:flex tw:items-center tw:gap-3">
         <BaseSwitch v-model="editing.enforced" />
         <span class="tw:text-sm tw:text-on-main">
           Require SSO — people in these domains can no longer sign in with a password
