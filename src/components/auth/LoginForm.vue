@@ -1,5 +1,5 @@
 <script setup>
-import { IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabler/icons-vue'
+import { IconKey, IconUser, IconMail, IconLock, IconBuilding, IconArrowLeft } from '@tabler/icons-vue'
 import { currentSubdomain, rootDomain, apexOrigin } from '@/utils/tenant'
 import MfaVerifyForm from '@/components/auth/MfaVerifyForm.vue'
 import ForcePasswordChangeForm from '@/components/auth/ForcePasswordChangeForm.vue'
@@ -32,6 +32,18 @@ const isSignup = computed(() => props.mode === 'signup')
 // Which login methods this tenant allows (drives which buttons show). Defaults
 // to all-on so the form renders immediately; refined once the fetch resolves.
 const methods = ref({ email: true, google: true, microsoft: true })
+
+// The tenant's own identity providers. One button each — deliberately NOT an
+// automatic redirect on page load, even when there is only one: enforcement is
+// per email domain, so a workspace with SSO still has people who must sign in
+// with a password (the break-glass owner, contractors on other domains).
+// Bouncing everyone to the IdP would strand exactly the person you need when
+// the IdP is the thing that is broken.
+const ssoConnections = ref([])
+
+function loginWithSso(connectionId) {
+  window.location.href = `/api/v1/auth/sso/login?connection=${encodeURIComponent(connectionId)}`
+}
 onMounted(async () => {
   // Show a message if a disabled federated method was attempted (redirect back).
   const url = new URL(window.location.href)
@@ -44,6 +56,7 @@ onMounted(async () => {
     if (res.ok) {
       const data = await res.json()
       if (data?.methods) methods.value = data.methods
+      if (Array.isArray(data?.sso)) ssoConnections.value = data.sso
     }
   } catch {
     /* keep permissive defaults */
@@ -280,6 +293,26 @@ async function submitForm() {
 
     <div class="tw:pt-4">
       <div class="tw:flex tw:flex-col tw:gap-3">
+        <!-- The workspace's own identity providers. -->
+        <button
+          v-for="conn in ssoConnections"
+          :key="conn.id"
+          class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-primary tw:text-on-primary tw:border tw:border-primary tw:hover:bg-primary-hover tw:transition-colors tw:cursor-pointer"
+          @click="loginWithSso(conn.id)"
+        >
+          <IconKey :size="18" />
+          Sign in with {{ conn.displayName }}
+        </button>
+
+        <div
+          v-if="ssoConnections.length && (methods.google || methods.microsoft || methods.email)"
+          class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary"
+        >
+          <hr class="tw:flex-1 tw:border-divider" />
+          or
+          <hr class="tw:flex-1 tw:border-divider" />
+        </div>
+
         <button
           v-if="methods.google"
           class="tw:flex tw:items-center tw:justify-center tw:w-full tw:gap-2 tw:px-5 tw:py-3.5 tw:rounded-lg tw:font-medium tw:bg-slate-100 tw:text-on-main tw:border tw:border-slate-300 tw:hover:bg-slate-200 tw:transition-colors tw:cursor-pointer"
