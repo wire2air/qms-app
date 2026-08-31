@@ -31,12 +31,25 @@ const activeTab = computed({
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconFileText" title="Documents" subtitle="Controlled documents, versions and their approval history." />
+    <PageHeader
+      :icon="IconFileText"
+      title="Documents"
+      subtitle="Controlled documents, versions and their approval history."
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Documents
+          <HelpButton slug="KB/documents/document-control" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Document sections">
       <div class="tw:mt-6">
         <BaseTabPanel value="documents"><DocumentsHome embedded /></BaseTabPanel>
-        <BaseTabPanel value="insights"><ModuleInsightsTab moduleId="document_control" /></BaseTabPanel>
+        <BaseTabPanel value="insights"
+          ><ModuleInsightsTab moduleId="document_control"
+        /></BaseTabPanel>
       </div>
     </BaseTabs>
   </BasePage>

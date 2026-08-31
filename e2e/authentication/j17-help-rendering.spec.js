@@ -49,3 +49,29 @@ test('an in-page anchor and a cross-article link both land somewhere', async ({ 
     timeout: 15_000,
   })
 })
+
+// ── The help button has to survive the page shell ──────────────────────────
+// Several modules render their list inside a tab shell, and the shell owns the
+// real PageHeader while the list component is mounted `embedded`. The list's
+// own header — help button included — is suppressed. Documents, NCs and CAPAs
+// all shipped a HelpButton that never rendered for exactly this reason, and
+// nothing failed: the markup was present, just never mounted. Only opening the
+// page catches it.
+const MODULE_PAGES = [
+  ['/documents', 'Document Control'],
+  ['/nonconformances', 'Nonconformances'],
+  ['/capas', 'CAPA'],
+  ['/change-requests', 'Change Request'],
+  ['/training-instances', 'Training'],
+]
+
+for (const [path, articleTitle] of MODULE_PAGES) {
+  test(`${path} offers help from its header`, async ({ page }) => {
+    await page.goto(path)
+    const help = page.getByRole('button', { name: /^Help:/ }).first()
+    await expect(help).toBeVisible({ timeout: 20_000 })
+    await help.click()
+    // And it opens the RIGHT article, not just any article.
+    await expect(page.getByRole('dialog')).toContainText(articleTitle, { timeout: 10_000 })
+  })
+}
