@@ -44,7 +44,9 @@ test.describe('PW-J12 — dispose e-sign + sealed record', () => {
       { data: { disposalMethod: 'Incinerated', method: 'PIN', token: ESIGN_PIN, provider: null } },
     )
     expect(denied.status(), 'inspector holds no retain_samples:dispose').toBe(403)
-    expect(findRetainSample(sample.id).statusId, 'refused disposal leaves it RETAINED').toBe('RETAINED')
+    expect(findRetainSample(sample.id).statusId, 'refused disposal leaves it RETAINED').toBe(
+      'RETAINED',
+    )
     await inspectorCtx.close()
 
     // ── The custodian disposes it ──────────────────────────────────────────
@@ -67,9 +69,10 @@ test.describe('PW-J12 — dispose e-sign + sealed record', () => {
     expect(retainEventTypes(sample.id), 'DISPOSED custody event').toContain('DISPOSED')
     expect(retainAuditActions(sample.id), 'DISPOSE audit-log row').toContain('DISPOSE')
 
-    // The audit row is the ONLY durable record of the e-sign decision — assert
-    // it actually carries the identity + method, since finding #16 means there
-    // is no signature ledger entry to fall back on.
+    // The audit row carries the identity + method. Until QC-F5 it was the ONLY
+    // durable record of the e-sign decision, because finding #16 meant there was
+    // no signature ledger entry to fall back on; it is now corroboration rather
+    // than the sole evidence, and it gained a signatureId pointing at the ledger.
     const auditRow = sqlRow(
       `SELECT new_value_json::text, performed_by, ip_address FROM audit_logs
         WHERE entity_id = '${sample.id}' AND action = 'DISPOSE'
@@ -85,12 +88,40 @@ test.describe('PW-J12 — dispose e-sign + sealed record', () => {
     expect(performedBy, 'disposal attributed to the custodian').toBe(USERS.retainCustodian.id)
     expect(ip, 'signer ip captured').toBeTruthy()
 
-    // Finding #16, pinned: the PIN was verified but NO signature row exists.
-    // When #16 ships a `retain_sample_id` subject column, this flips to expect 1.
+    // ── Finding #16 CLOSED (QC-F5, migrations 20260901110000) ──────────────
+    // This assertion used to read `.toBe('0')` and carried the note "when #16
+    // ships a retain_sample_id subject column, this flips to expect 1". It has.
+    //
+    // disposeRetainSample() called verifyAndSign with `step: null`, no subject
+    // and no requireEsignature, so control reached
+    // `if (!(requireEsignature ?? step?.requireEsignature)) return null` and
+    // returned BEFORE createSignatureRecord. The PIN was genuinely verified —
+    // that half always worked — but nothing was written, so destroying the only
+    // retained physical evidence for a lot left no Part 11 signature at all.
+    //
+    // Scoped to THIS sample deliberately: the old global `WHERE meaning =
+    // 'DISPOSED'` count is shared across every run in the tenant, so it reports
+    // 1 on a clean database and 2 on the retry of a failure — which is exactly
+    // how this test read as flaky rather than as a hard result.
     expect(
-      sql(`SELECT count(*) FROM signatures WHERE meaning = 'DISPOSED'`),
-      'no signatures ledger row is minted today (finding #16)',
-    ).toBe('0')
+      sql(`SELECT count(*) FROM signatures WHERE retain_sample_id = '${sample.id}'`),
+      'the disposal mints exactly one Part 11 signature (finding #16)',
+    ).toBe('1')
+
+    const sigRow = sqlRow(
+      `SELECT meaning, user_id, payload_hash FROM signatures
+        WHERE retain_sample_id = '${sample.id}'`,
+    )
+    const [sigMeaning, sigUser, payloadHash] = sigRow
+    expect(sigMeaning, 'the signature records what was attested').toBe('DISPOSED')
+    expect(sigUser, 'the signature names the custodian who disposed it').toBe(
+      USERS.retainCustodian.id,
+    )
+    expect(payloadHash, 'the signature carries a tamper-detection hash').toBeTruthy()
+
+    // The audit trail points at the ledger row rather than merely coinciding
+    // with it in time.
+    expect(auditJson, 'audit payload links to the signature it produced').toMatch(/"signatureId"/)
 
     // ── Sealed: the UI hides the write controls ────────────────────────────
     await custodianPage.goto(`/qc-inspection/retain-samples/${sample.id}`)

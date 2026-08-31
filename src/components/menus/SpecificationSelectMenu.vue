@@ -10,8 +10,6 @@ const props = defineProps({
 })
 const modelValue = defineModel({ type: [String, null], default: null })
 
-const MATERIAL = { RAW: 'Raw', PACKAGING: 'Pkg', BULK: 'Bulk', FINISHED: 'FG' }
-
 const specs = useLiveQueryWithDeps(
   [() => props.productId],
   async (db, [productId]) => {
@@ -31,7 +29,10 @@ const specs = useLiveQueryWithDeps(
 const items = computed(() =>
   specs.value.map((s) => ({
     id: s.id,
-    name: `${s.name} (${MATERIAL[s.materialKind] || s.materialKind} · v${s.version})`,
+    // `materialKind` was dropped from specifications by migration 20260720001050;
+    // this label read `MATERIAL[s.materialKind] || s.materialKind`, so every option
+    // rendered "(undefined · v1)". Found 2026-09-01 during the QC hardening pass.
+    name: `${s.name} (v${s.version})`,
   })),
 )
 </script>
