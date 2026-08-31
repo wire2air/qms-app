@@ -106,6 +106,13 @@ export const AUDIT_ACTIONS = {
   // Customer complaints
   SEND: 'SEND',
   CONVERT_TO_NC: 'CONVERT_TO_NC',
+  // A Quality Event spawning a formal downstream record (Nonconformance, CAPA
+  // or Change Request) and the record_links lineage row that ties them.
+  // CONVERT_TO_NC would have been a lie for two of the three targets, and a
+  // generic UPDATE loses the target entirely — which was the finding (P2 #18):
+  // escalateQualityEvent relied on the status trigger for its trail, and the
+  // trigger records a status move, not what the event escalated INTO.
+  ESCALATE: 'ESCALATE',
   EXPORT: 'EXPORT',
 }
 
@@ -211,6 +218,7 @@ export const ACTION_COLORS = {
   RECEIVE: 'tw:bg-teal-100 tw:text-teal-700',
   SEND: 'tw:bg-teal-100 tw:text-teal-700',
   CONVERT_TO_NC: 'tw:bg-purple-100 tw:text-purple-700',
+  ESCALATE: 'tw:bg-purple-100 tw:text-purple-700',
   EXPORT: 'tw:bg-slate-100 tw:text-slate-700',
 }
 
@@ -283,6 +291,7 @@ export const ACTION_ICONS = {
   STEP_CANCELLED: 'IconX',
   SEND: 'IconSend',
   CONVERT_TO_NC: 'IconTransform',
+  ESCALATE: 'IconArrowUpRight',
   EXPORT: 'IconDownload',
 }
 

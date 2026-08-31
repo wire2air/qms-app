@@ -375,9 +375,62 @@ export const QUALITY_EVENTS = {
     number: 'EV-E2E-0001',
     title: 'E2E Standing Quality Event',
     reportedBy: 'e2e10000-0000-4000-8000-000000000013', // deptAdmin
+    // Assigned to qeManager since seed §28e. That assignment is what makes the
+    // standing event the EMPTY-REVIEW-FIELDS fixture: closeQualityEvent checks
+    // the reviewer FIRST and the three mandatory review fields SECOND, so on an
+    // unassigned event the second gate is unreachable and cannot be tested.
+    // Its notes / attachment / supplier share are untouched — QE-J1 and QE-J2
+    // still own it.
+    assignedTo: 'e2e10000-0000-4000-8000-000000000040', // qeManager
     internalNoteId: 'e2eeb000-0000-4000-8000-000000000001',
     publicNoteId: 'e2eeb000-0000-4000-8000-000000000002',
     attachmentId: 'e2eea000-0000-4000-8000-000000000001',
+  },
+  // ── The lifecycle fixtures (seed §28f) ──────────────────────────────────
+  // One event per journey, because close and cancel are TERMINAL: a shared row
+  // would make the suite order-dependent and un-rerunnable. All four are
+  // assigned to a reviewer, since every gated action starts with that check.
+  // `resetLifecycleEvents()` (fixtures/qualityEvents.js) restores their seeded
+  // status and clears the signature / audit rows they accumulate.
+  //
+  // `assignedTo` is duplicated onto each rather than assumed, because two of
+  // these four exist ONLY to tell the reviewer personas apart.
+  close: {
+    id: 'e2eef000-0000-4000-8000-000000000002',
+    number: 'EV-E2E-0002',
+    title: 'E2E Close Journey Event',
+    assignedTo: 'e2e10000-0000-4000-8000-000000000040', // qeManager
+    // reviewSummary / recommendedAction / decision are pre-filled in the seed,
+    // so QE-J3 drives Close → e-sign and never touches a rich-text editor.
+    reviewFieldsPrefilled: true,
+  },
+  cancel: {
+    id: 'e2eef000-0000-4000-8000-000000000003',
+    number: 'EV-E2E-0003',
+    title: 'E2E Cancel Journey Event',
+    assignedTo: 'e2e10000-0000-4000-8000-000000000040', // qeManager
+    // Deliberately NOT pre-filled: cancel must not require the review that
+    // close does — it asserts the event will not be investigated at all.
+    reviewFieldsPrefilled: false,
+  },
+  draft: {
+    id: 'e2eef000-0000-4000-8000-000000000004',
+    number: 'EV-E2E-0004',
+    title: 'E2E Draft Journey Event',
+    assignedTo: 'e2e10000-0000-4000-8000-000000000040', // qeManager
+    // The only DRAFT in the tenant, and unreachable by any client path — the
+    // server creates events as OPEN and the guard refuses untrusted status
+    // writes — which is exactly why POST /submit needs a seeded input.
+    statusId: 'DRAFT',
+  },
+  foreignReviewer: {
+    id: 'e2eef000-0000-4000-8000-000000000005',
+    number: 'EV-E2E-0005',
+    title: 'E2E Foreign Reviewer Event',
+    // deptAdmin, NOT qeManager — the point of the fixture. Its review fields
+    // are complete, so the assigned-reviewer rule is the only gate left.
+    assignedTo: 'e2e10000-0000-4000-8000-000000000013', // deptAdmin
+    reviewFieldsPrefilled: true,
   },
 }
 
