@@ -80,6 +80,13 @@ const MODULE_PAGES = [
   ['/products', 'Item Master'],
   ['/rca-templates', 'Root Cause'],
   ['/risk-assessment-templates', 'Risk Assessment'],
+  // Modules that had no article at all until now.
+  ['/qualityEvents', 'Quality Events'],
+  ['/complaints', 'Complaints'],
+  ['/customer-complaints', 'Customer Complaints'],
+  ['/custom-fields', 'Custom Fields'],
+  ['/training-verifications', 'Training Verification'],
+  ['/training-curriculum', 'Curriculum'],
 ]
 
 for (const [path, articleTitle] of MODULE_PAGES) {

@@ -1,9 +1,21 @@
 ---
 id: audits-auditee
-title: "Audits — Auditee"
+title: 'Audits — Auditee'
 sidebar_position: 8
 description: Track external audits done to your company — agenda, auditor reports, findings, CAPAs, and the certificate.
-keywords: [auditee, external audit, certification, ISO, FDA inspection, registrar, audit report, certificate, findings, OFI]
+keywords:
+  [
+    auditee,
+    external audit,
+    certification,
+    ISO,
+    FDA inspection,
+    registrar,
+    audit report,
+    certificate,
+    findings,
+    OFI,
+  ]
 ---
 
 # Audits — Auditee

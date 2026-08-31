@@ -87,6 +87,22 @@ Each step's gear button opens its settings.
 | Require E-signature | Identity is verified with a PIN before the action is recorded. |
 | Runtime sub-tasks | Lets the record owner add ad-hoc sub-tasks while the run is live. |
 
+## Templates and Approval Flows
+
+The workflow list is split in two, because the two halves are used differently.
+
+| List | Holds |
+| --- | --- |
+| **Templates** | Workflows carrying task forms and multi-step work — NC, CAPA, Change Control, and modules you build. |
+| **Approval Flows** | Workflows that are purely sign-off — Document Control, Log Books, Inspections & Logs, Audits and QC. |
+
+They are the same thing underneath and open in the same editor; the split just
+keeps a list of approval paths from being buried among templates with forms
+attached, and the other way round.
+
+If a flow you expect is missing from one list, look in the other — a workflow
+appears in Approval Flows when every step is an approval step.
+
 ## Designing a template
 
 1. Go to **Templates** under Workflows and create a workflow, choosing the module

@@ -153,6 +153,7 @@ function onConverted(ncId) {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/quality/complaints"
     title="Complaints"
     :icon="IconMessageReport"
     subtitle="Review, investigate and escalate customer complaints — sourced from manual entry, CSV import or the Zendesk integration."

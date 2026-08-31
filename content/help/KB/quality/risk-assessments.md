@@ -23,27 +23,27 @@ reported. Assessments can capture both an **initial** risk (before action) and a
 
 ## Key concepts
 
-| Concept | What it means |
-| --- | --- |
-| Template | A reusable risk matrix: the likelihood levels, severity levels, risk levels, and how they combine into a score. |
-| Likelihood | How likely the risk is to occur. Each level has a label (e.g. "Likely") and a numeric score. |
-| Severity | How serious the impact would be. Each level has a label (e.g. "Severe") and a numeric score. |
-| Risk level | The named, color-coded result a likelihood/severity combination maps to (e.g. Low, Medium, High). |
+| Concept                  | What it means                                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Template                 | A reusable risk matrix: the likelihood levels, severity levels, risk levels, and how they combine into a score.          |
+| Likelihood               | How likely the risk is to occur. Each level has a label (e.g. "Likely") and a numeric score.                             |
+| Severity                 | How serious the impact would be. Each level has a label (e.g. "Severe") and a numeric score.                             |
+| Risk level               | The named, color-coded result a likelihood/severity combination maps to (e.g. Low, Medium, High).                        |
 | Detectability (optional) | An extra factor for FMEA-style scoring. When enabled, the score becomes Likelihood × Severity × Detectability (the RPN). |
-| Hazard category | The bucket a risk belongs to, used for grouping and reporting. |
-| Assessment type | Whether the recorded result is the **Initial** risk or the **Residual** risk. |
+| Hazard category          | The bucket a risk belongs to, used for grouping and reporting.                                                           |
+| Assessment type          | Whether the recorded result is the **Initial** risk or the **Residual** risk.                                            |
 
 ### Default risk levels
 
 New templates start with five color-coded risk levels you can rename, recolor, or remove:
 
-| Level | Typical use |
-| --- | --- |
-| Low | Minimal concern, no action usually required |
-| Low Med | Minor concern, monitor |
-| Medium | Moderate concern, review needed |
-| Med Hi | Elevated concern, action recommended |
-| High | Serious concern, action required |
+| Level   | Typical use                                 |
+| ------- | ------------------------------------------- |
+| Low     | Minimal concern, no action usually required |
+| Low Med | Minor concern, monitor                      |
+| Medium  | Moderate concern, review needed             |
+| Med Hi  | Elevated concern, action recommended        |
+| High    | Serious concern, action required            |
 
 ### Hazard categories
 

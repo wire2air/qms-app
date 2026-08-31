@@ -1,9 +1,10 @@
 ---
 id: audits-auditor
-title: "Audits — Auditor"
+title: 'Audits — Auditor'
 sidebar_position: 7
 description: Run internal and supplier audits — plan them, walk the requirements, record findings, and close out.
-keywords: [audit, internal audit, supplier audit, auditor, findings, OFI, audit plan, calendar, standards]
+keywords:
+  [audit, internal audit, supplier audit, auditor, findings, OFI, audit plan, calendar, standards]
 ---
 
 # Audits — Auditor
@@ -14,10 +15,10 @@ keywords: [audit, internal audit, supplier audit, auditor, findings, OFI, audit 
 
 The Audits menu has two working modules, one per role:
 
-- **Auditor** — *you* are running the audit: internal audits of your own
+- **Auditor** — _you_ are running the audit: internal audits of your own
   processes, or supplier audits of a vendor. You work from a standard's
   requirements, ask the questions, record results and raise findings.
-- **Auditee** — *you* are being audited by an outside body (ISO registrar,
+- **Auditee** — _you_ are being audited by an outside body (ISO registrar,
   FDA, a customer). You don't walk requirements — you track the auditor's
   agenda, reports, findings and the certificate. See
   [Audits — Auditee](./audits-auditee).

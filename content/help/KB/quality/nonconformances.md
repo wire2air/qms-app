@@ -18,12 +18,12 @@ The Nonconformances home page shows summary cards (Open NCs, Overdue, Critical o
 
 ### Statuses
 
-| Status | What it means |
-| --- | --- |
-| Draft | Started but not yet opened. Can still be edited freely or deleted. |
-| Open | Opened and being worked. The record is now a permanent audit record. |
-| Closed | Approved and closed. Read-only. |
-| Cancelled | Withdrawn with a recorded reason instead of being closed. |
+| Status    | What it means                                                        |
+| --------- | -------------------------------------------------------------------- |
+| Draft     | Started but not yet opened. Can still be edited freely or deleted.   |
+| Open      | Opened and being worked. The record is now a permanent audit record. |
+| Closed    | Approved and closed. Read-only.                                      |
+| Cancelled | Withdrawn with a recorded reason instead of being closed.            |
 
 :::note One vocabulary across the quality modules
 Nonconformances, CAPAs, Quality Events, Change Requests, Complaints, Audits, QC
@@ -40,22 +40,22 @@ it closes, however many steps it passes through.
 
 ### Severity and priority
 
-| Field | Options |
-| --- | --- |
-| Severity (required) | Minor, Major, Critical |
+| Field               | Options                     |
+| ------------------- | --------------------------- |
+| Severity (required) | Minor, Major, Critical      |
 | Priority (optional) | Low, Medium, High, Critical |
 
 ### Other classification fields
 
-| Field | Purpose |
-| --- | --- |
-| NC Type | The nature of the nonconformance (configured by your admin). Required. |
-| Detection source | Where the issue was found (e.g. inspection, audit, customer). Required. |
-| Category | The shared quality taxonomy — the same list used by Quality Events and CAPAs, so an issue keeps its classification along the whole chain. Optional. |
-| Site / Department | Where the issue occurred. Both required. |
-| Owner | The person responsible for the NC. Required. |
-| Product / Supplier | The item or vendor involved. Optional. |
-| Qty affected, Unit of measure, PO #, Order #, Lot # | Commercial and material reference details. Optional. |
+| Field                                               | Purpose                                                                                                                                             |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NC Type                                             | The nature of the nonconformance (configured by your admin). Required.                                                                              |
+| Detection source                                    | Where the issue was found (e.g. inspection, audit, customer). Required.                                                                             |
+| Category                                            | The shared quality taxonomy — the same list used by Quality Events and CAPAs, so an issue keeps its classification along the whole chain. Optional. |
+| Site / Department                                   | Where the issue occurred. Both required.                                                                                                            |
+| Owner                                               | The person responsible for the NC. Required.                                                                                                        |
+| Product / Supplier                                  | The item or vendor involved. Optional.                                                                                                              |
+| Qty affected, Unit of measure, PO #, Order #, Lot # | Commercial and material reference details. Optional.                                                                                                |
 
 Category, description and severity **propagate** down the chain: raise a CAPA from
 an NC and it inherits them, so the same problem is classified the same way
@@ -123,7 +123,7 @@ resolved it, a deviation held in a module you built yourself.
 
 Use the **Related records** card in the right rail: pick the module, search by
 number or title, and link. Links work across every module, so a chain like
-*Complaint → NC → Deviation → Filling Instruction* stays navigable from any point
+_Complaint → NC → Deviation → Filling Instruction_ stays navigable from any point
 in it.
 
 ## Sharing outside the company

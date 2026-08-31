@@ -26,26 +26,26 @@ pills such as **All open**, **My CAPAs**, **Critical**, **High**, **Overdue**,
 
 ### Statuses
 
-| Status | What it means |
-| --- | --- |
-| Draft | Being set up. Editable, deletable, and not yet a permanent record. |
-| Open | Opened and active — the workflow is running and the CAPA is a controlled record. |
-| Closed | Work is complete and signed off. |
-| Cancelled | Stopped before completion, with a recorded reason. |
+| Status    | What it means                                                                    |
+| --------- | -------------------------------------------------------------------------------- |
+| Draft     | Being set up. Editable, deletable, and not yet a permanent record.               |
+| Open      | Opened and active — the workflow is running and the CAPA is a controlled record. |
+| Closed    | Work is complete and signed off.                                                 |
+| Cancelled | Stopped before completion, with a recorded reason.                               |
 
 ### Type, source, and priority
 
-| Field | Examples / values | Notes |
-| --- | --- | --- |
-| CAPA Type | Corrective, Preventive (your configured types) | A corrective action fixes a problem that already happened; a preventive action stops a potential problem before it occurs. |
-| Source | Nonconformance, Internal Audit, and other configured sources | Where the issue came from. A CAPA raised from a Nonconformance links back to it. |
-| Priority | Low, Medium, High, Critical | Drives the Critical and High filters and stat cards. |
+| Field     | Examples / values                                            | Notes                                                                                                                      |
+| --------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| CAPA Type | Corrective, Preventive (your configured types)               | A corrective action fixes a problem that already happened; a preventive action stops a potential problem before it occurs. |
+| Source    | Nonconformance, Internal Audit, and other configured sources | Where the issue came from. A CAPA raised from a Nonconformance links back to it.                                           |
+| Priority  | Low, Medium, High, Critical                                  | Drives the Critical and High filters and stat cards.                                                                       |
 
 ### Effectiveness check verdicts
 
-| Verdict | Meaning |
-| --- | --- |
-| Effective | The actions are preventing the issue from recurring. |
+| Verdict                     | Meaning                                                                                                  |
+| --------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Effective                   | The actions are preventing the issue from recurring.                                                     |
 | Not Effective — Close Check | The fix did not hold, and you are closing the check with a recorded justification rather than reopening. |
 
 ## How to create a CAPA

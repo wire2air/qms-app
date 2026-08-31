@@ -65,17 +65,23 @@ async function saveSchema(schemaData) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:h-full tw:overflow-hidden">
-    <!-- Entity picker -->
-    <div class="tw:shrink-0 tw:px-4 tw:pt-3 tw:bg-sidebar tw:border-b tw:border-divider">
-      <BaseTabs v-model="selectedEntity" :tabs="entityTabs" ariaLabel="Custom field entities" />
+    <!-- Entity picker. Full-canvas builder, so there is no PageHeader to hang
+         the help launcher on — it sits beside the entity tabs instead. -->
+    <div
+      class="tw:shrink-0 tw:px-4 tw:pt-3 tw:bg-sidebar tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-3"
+    >
+      <BaseTabs
+        v-model="selectedEntity"
+        :tabs="entityTabs"
+        ariaLabel="Custom field entities"
+        class="tw:flex-1 tw:min-w-0"
+      />
+      <HelpButton slug="KB/administration/custom-fields" :size="16" class="tw:shrink-0 tw:pb-2" />
     </div>
 
     <!-- Builder for the selected entity -->
     <div class="tw:flex-1 tw:min-h-0 tw:relative">
-      <div
-        v-if="loading"
-        class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full"
-      >
+      <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full">
         <BaseSpinner size="lg" />
         <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading…</div>
       </div>
