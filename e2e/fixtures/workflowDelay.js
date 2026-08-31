@@ -56,16 +56,24 @@ import { AUTH, COMPANY_ID, SITES, DEPARTMENTS, USERS, BASE_URL } from './cast.js
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`
 
 // Fixed ids so the template is created once and reused across runs (and so a
-// failed run leaves nothing to clean up). The e2ef5xxx block is unused by
-// e2e-seed.sql — the seed's workflow ids run e2ef0…e2ef3 plus e2eaf.
+// failed run leaves nothing to clean up).
+//
+// The e2ef5xxx block is SHARED with e2e-seed.sql §31e, which owns the …0001
+// workflow/version and the …0001/…0002 steps ("E2E CAPA Effectiveness Delay").
+// `tail` used to sit on exactly those ids, and the two definitions fought every
+// run: the seed forced the workflow ACTIVE and stamped captures_effectiveness
+// on `tail`'s DELAY step (which makes it refuse to complete without a verdict —
+// see the `eff` note below), while the fixture's own gen_random_uuid() step-role
+// rows made the seed's fixed-id INSERT trip workflow_step_roles_unique_live.
+// `tail` now carries its own …0004 block, like `mid` and `eff` already did.
 export const DELAY_TEMPLATES = {
   // DELAY is the last step — PW-J10's close-gate shape.
   tail: {
     name: 'E2E Delay Fixture Workflow (tail)',
-    workflowId: 'e2ef5001-0000-4000-8000-000000000001',
-    versionId: 'e2ef5002-0000-4000-8000-000000000001',
-    action1: 'e2ef5003-0000-4000-8000-000000000001',
-    delay: 'e2ef5003-0000-4000-8000-000000000002',
+    workflowId: 'e2ef5001-0000-4000-8000-000000000004',
+    versionId: 'e2ef5002-0000-4000-8000-000000000004',
+    action1: 'e2ef5003-0000-4000-8000-000000000031',
+    delay: 'e2ef5003-0000-4000-8000-000000000032',
   },
   // DELAY is last AND captures an effectiveness verdict — PW-J4's shape.
   //
