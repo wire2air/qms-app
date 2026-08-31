@@ -30,11 +30,35 @@ Every record carries a few core pieces of information that you will see in the t
 
 A record's status controls how it is treated and which actions are available. Statuses are shown as colored badges in the **Status** column.
 
-| Status | Badge | Meaning |
-| --- | --- | --- |
-| Draft | Gray | The record has been submitted but not yet approved. It can still be approved. |
-| Approved | Green | The record has been reviewed and approved. It can be returned to Draft if needed. |
-| Deleted | Red | The record has been removed and no longer appears in the active list. |
+| Status | Meaning |
+| --- | --- |
+| Draft | Being filled in. Not yet submitted. |
+| Open | Submitted and being worked — its workflow, if it has one, is running. |
+| Closed | Complete. |
+| Cancelled | Withdrawn, with a recorded reason. |
+
+These are the same four words used by Nonconformances, CAPAs, Quality Events,
+Change Requests, Complaints, Audits and QC lots — so a module you build reports
+alongside the built-in ones instead of needing its own vocabulary.
+
+## The App Builder workspace
+
+App Builder is organised in tabs:
+
+| Tab | What it holds |
+| --- | --- |
+| **Submissions** | The records themselves. |
+| **Forms** | The form templates behind them. |
+| **Option Sets** | The dropdown lists those forms use. |
+
+A form template can be **promoted to a module**, which gives it its own place in
+the navigation, its own record list, its own numbering and its own permissions —
+the same treatment the built-in modules get.
+
+Promoted modules can carry a workflow, so records route for review and approval
+like any other. You can also choose which of the form's fields appear as columns
+in the list and which can be filtered on — see **Configure View** beside the
+template.
 
 ## How to view and search records
 

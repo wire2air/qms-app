@@ -117,3 +117,14 @@ responsible for management-level oversight, so they're easy to identify at a gla
 
 Keep your groups and their members up to date so that anything organized around a group always
 reflects the right people.
+
+## Roles granted through a group
+
+A group can carry roles, so everyone in it picks them up. That is convenient, and
+it is also the reason someone's access can be puzzling: their user page shows a
+role they were never given directly.
+
+Group-granted roles are shown with their **provenance** — which group they came
+from. When you need to take access away, that tells you whether to change the
+person or the group. Removing the role from the user will not stick if the group
+is still granting it.

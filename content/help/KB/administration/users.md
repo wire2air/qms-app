@@ -45,11 +45,40 @@ to **Invited**, and once they accept and set a password they become **Active**.
 | **First / Last Name** | The user's name, shown throughout the app. |
 | **Email Address** | Used for sign-in and to send the invitation. Set when the user is created. |
 | **Roles** | One or more roles that control what the user can see and do. |
-| **Site / Department** | The location and team the user belongs to. |
+| **Sites** | A **primary** site plus any number of **additional** sites. Every assigned site counts for access — a Site-scoped permission reaches records at all of them. |
+| **Department** | The team the user belongs to. |
 | **Preferred Language** | The display language for the user. |
 | **Timezone** | The time zone used when showing dates and times for the user. |
 | **User Color** | A color used for the user's avatar and to identify them across the app. |
 | **Status** | Active, Invited, or Inactive (see above). |
+
+## Sites and what a user can reach
+
+A user has one **primary** site and any number of **additional** ones. This is not
+cosmetic — it is half of how access is decided.
+
+A permission granted at **Site** scope reaches records at **every site assigned to
+the user**, not just the primary one. So adding a second site to someone widens
+what they can see, wherever their roles are site-scoped.
+
+:::tip
+Review site assignments when someone changes job, not only their roles. A role
+change with a stale site list is one of the easier ways to leave access wider than
+intended, and it is invisible if you only look at the roles.
+:::
+
+Users also see their assigned sites automatically in pickers — no separate Sites
+permission needed for that. A Sites read grant is only for roles that must choose
+across **all** sites.
+
+## Checking effective permissions
+
+Roles combine, and what someone ends up with is not always obvious from a list of
+role names. The user's detail page has an **effective permissions** panel showing
+what their roles actually add up to, module by module.
+
+Use it to answer "why can this person do that?" — it is faster and more reliable
+than reading each role in turn.
 
 ## How to invite a new user
 
@@ -57,7 +86,7 @@ to **Invited**, and once they accept and set a password they become **Active**.
 2. Select **Create User** in the top-right corner.
 3. In the **Create New User** dialog, fill in the required fields: **First Name**,
    **Last Name**, and **Email**.
-4. Choose one or more **Roles**, then select the user's **Site** and **Department**.
+4. Choose one or more **Roles**, then set the user's **primary site**, any **additional sites** they work across, and their **Department**.
 5. Optionally pick a **User Color** in the side panel.
 6. To email the invitation right away, tick **Send Invite**. Leave it unticked to add
    the user now and invite them later.
