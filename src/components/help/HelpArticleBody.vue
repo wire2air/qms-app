@@ -72,6 +72,37 @@ function onBodyClick(e) {
   color: var(--color-primary, #2563eb);
   text-decoration: underline;
 }
+/* Docusaurus-style callouts (:::note / :::tip / :::warning / :::caution).
+   Tone drives the accent only — the title carries the meaning, so these stay
+   readable if the colour is lost. */
+.help-prose :deep(.admonition) {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--admonition-accent);
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--admonition-accent) 8%, transparent);
+}
+.help-prose :deep(.admonition-title) {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--admonition-accent);
+}
+.help-prose :deep(.admonition > p:last-child) {
+  margin-bottom: 0;
+}
+.help-prose :deep(.admonition-note) {
+  --admonition-accent: var(--color-primary, #2563eb);
+}
+.help-prose :deep(.admonition-tip) {
+  --admonition-accent: var(--color-good, #16a34a);
+}
+.help-prose :deep(.admonition-warning) {
+  --admonition-accent: var(--color-warning, #d97706);
+}
+.help-prose :deep(.admonition-danger) {
+  --admonition-accent: var(--color-bad, #dc2626);
+}
 .help-prose :deep(code) {
   font-size: 0.85em;
   background: var(--color-main-hover, #f1f5f9);

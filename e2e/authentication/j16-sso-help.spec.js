@@ -30,6 +30,12 @@ test.describe('PW-J16 · SSO setup documentation', () => {
     // The break-glass rule is the one thing that must never quietly disappear
     // from the docs — it is why requiring SSO cannot lock a company out.
     await expect(dialog).toContainText('owners')
+    // Callouts must render AS callouts. The help corpus is authored in
+    // Docusaurus flavour, and an unsupported ':::' leaks the marker into the
+    // middle of a sentence — which is what it did until the renderer learned
+    // the syntax.
+    await expect(dialog.locator('.admonition').first()).toBeVisible()
+    await expect(dialog).not.toContainText(':::')
 
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
@@ -46,5 +52,7 @@ test.describe('PW-J16 · SSO setup documentation', () => {
       timeout: 15_000,
     })
     await expect(page.getByText('Require SSO', { exact: false }).first()).toBeVisible()
+    await expect(page.locator('.admonition')).not.toHaveCount(0)
+    await expect(page.locator('.help-prose')).not.toContainText(':::')
   })
 })
