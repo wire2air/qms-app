@@ -31,6 +31,12 @@ The Audits menu has two working modules, one per role:
 - **Audit Plan** — recurring audit programs and the schedule they generate.
 - **Calendar** (own menu entry) — every audit on one year grid, including
   certification audits in violet.
+- **Audit Readiness** (own menu entry) — a dashboard of how prepared you are
+  before an audit arrives: coverage, outstanding findings, and what still needs
+  attention.
+- **Reports** — the audit report, generated from what you recorded during the
+  audit rather than rewritten afterwards. AI can extract findings from your notes
+  as a starting point for you to review and correct.
 - **Standards** (own menu entry) — the clause libraries audits run against.
   Import your licensed copy or author your own checklist; AI enrichment can
   draft the auditor guide (questions, observations, expected evidence,
@@ -48,3 +54,20 @@ The Audits menu has two working modules, one per role:
    closure feeds finding closure.
 4. When every finding is closed and every clause answered, **Submit for
    Close-Out** — the approval workflow signs the audit off.
+
+## Audit status, and where it is up to
+
+An audit carries the same four statuses as every other record — Draft, Open,
+Closed, Cancelled — with **where in the audit you are** kept separately as its
+execution phase (planning, fieldwork, reporting, and so on).
+
+They are two different questions. "Is this audit still open?" is what reporting
+asks across the whole system; "has fieldwork finished?" is what the audit team
+asks. Keeping them apart means neither answer has to be reconstructed from the
+other.
+
+## External auditors
+
+An external auditor can be recorded as a contact on the audit without being given
+a user account, so third-party and certification audits are attributable to a
+named person without provisioning access they do not need.

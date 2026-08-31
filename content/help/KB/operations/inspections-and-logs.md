@@ -139,6 +139,48 @@ and any of its open scheduled fills are closed out. The two books stay linked �
 each shows "Replaces" / "Replaced by" — and the old book's entries remain readable exactly as
 they were recorded.
 
+## Training gate — only trained people may make entries
+
+A log book can be linked to controlled documents: the SOP the entry follows, the
+method it applies. When it is, being trained on those documents is enforced, not
+just expected.
+
+The gate applies at three points, each deliberately different:
+
+| Point | What happens |
+| --- | --- |
+| Assigning someone | A **warning** — you can still assign them, so you can schedule ahead of the training landing. |
+| The task and notification | The outstanding training is **named**, so the person knows what to complete. |
+| Making an entry | **Blocked.** An untrained user cannot file an entry against the book. |
+
+Only training that is fully **verified** clears the gate.
+
+:::note Why the block is at entry and not at assignment
+Assignment is scheduling — often done weeks ahead, by someone planning a rota,
+for training that is booked and not yet done. Blocking there would make the rota
+unusable.
+
+The entry is the moment the claim is made: this reading was taken by someone
+competent to take it. That is the moment worth enforcing, and it is the one an
+auditor examines.
+:::
+
+## Over-the-shoulder review
+
+Some entries need a supervisor's sign-off at the moment they are made — the
+operator is at the workstation and the supervisor is standing beside them.
+
+Enable it per book. The operator stays signed in; the reviewer picks their own
+name and enters their **PIN** to approve or reject on the spot. No session
+switch, no walking to another machine.
+
+The signature is attributed to the **reviewer** — they are the one attesting —
+and the record also captures that the operator's session was used. Both facts are
+kept, because either alone would misrepresent what happened.
+
+Only a book's authorised reviewers can sign this way: its designated supervisor,
+or additional reviewers named on the book.
+
 ## How to schedule who fills a log book
 
 1. From the landing page, open **Log Book Assignments**, then click **New Assignment** (you
