@@ -34,18 +34,18 @@ available for your supplier assessment. That is what this package does.
 
 Concretely, the split is:
 
-| Qability provides | Your organisation provides |
-| --- | --- |
-| Protocol templates (this package) | Approval of the protocols before execution |
-| Functional specification of each control | Your intended use, user requirements and risk assessment |
-| Hosting, backup and change-control evidence on request | Execution against your own configured tenant |
-| Release notes identifying what changed | Signed, dated executed records and the summary report |
-| Supplier assessment / audit support | Deviation handling and the release decision |
+| Qability provides                                      | Your organisation provides                               |
+| ------------------------------------------------------ | -------------------------------------------------------- |
+| Protocol templates (this package)                      | Approval of the protocols before execution               |
+| Functional specification of each control               | Your intended use, user requirements and risk assessment |
+| Hosting, backup and change-control evidence on request | Execution against your own configured tenant             |
+| Release notes identifying what changed                 | Signed, dated executed records and the summary report    |
+| Supplier assessment / audit support                    | Deviation handling and the release decision              |
 
 > **Tailor before you approve.** These protocols are written against the product's
 > standard behaviour. Your configuration — workflow templates, document types, roles,
 > lookups — is yours, and a protocol that tests configuration you do not use is wasted
-> effort, while one that omits a critical configuration you *do* use is a gap. Add,
+> effort, while one that omits a critical configuration you _do_ use is a gap. Add,
 > remove and reword test cases to match your intended use, then approve the tailored
 > version.
 
@@ -58,11 +58,11 @@ review.
 
 Scale your effort by what a failure would cost:
 
-| Risk of the module in *your* process | Typical effort |
-| --- | --- |
+| Risk of the module in _your_ process                                    | Typical effort                                                              |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | High — the record is a GxP release decision, or a Part 11 signed record | Execute the full OQ protocol, plus PQ scenarios against real business cases |
-| Medium — supports a GxP process but errors are detectable downstream | Execute the OQ protocol; PQ optional |
-| Low — administrative or reporting only | Reduced testing, or justify exclusion in the VMP |
+| Medium — supports a GxP process but errors are detectable downstream    | Execute the OQ protocol; PQ optional                                        |
+| Low — administrative or reporting only                                  | Reduced testing, or justify exclusion in the VMP                            |
 
 Excluding a module is a legitimate decision. Record it, and record why, in the Validation
 Master Plan — an unexplained gap is what an inspector will find.
@@ -131,7 +131,37 @@ Every deviation must be closed, with QA approval, before the summary report is s
 - File the executed protocol with its evidence attachments.
 - Roll results into the validation summary report and make the release decision.
 
-## 6. Printing a protocol
+## 6. Record statuses you will see
+
+Several protocols ask you to confirm a record's status. The quality records share
+one vocabulary, so the same four words mean the same thing throughout.
+
+| Status    | What it means                                                                         |
+| --------- | ------------------------------------------------------------------------------------- |
+| Draft     | Created but not yet submitted. Editable, and deletable.                               |
+| Open      | Submitted and being worked. Permanent — it can be closed or cancelled, never deleted. |
+| Closed    | Complete and signed off.                                                              |
+| Cancelled | Withdrawn with a recorded reason.                                                     |
+
+This applies to Nonconformances, CAPAs, Quality Events, Change Requests,
+Complaints, Audits, QC inspection lots and records in modules you have built.
+
+:::note The record's status is not the workflow's phase
+A record stays **Open** for as long as work is happening, however many review,
+approval or implementation steps its workflow passes through. Step-level progress
+is confirmed separately, on the workflow itself.
+
+If a protocol asks you to confirm a workflow step advanced, look at the step. If
+it asks you to confirm a status, look at the record header. They answer different
+questions and are verified independently.
+:::
+
+Records that are not quality records keep vocabulary suited to what they are —
+document versions are Draft, In Review, Approved, Effective and Superseded;
+templates are Draft, Published and Retired; log books are Draft, Active and
+Obsolete. Each protocol states the statuses it expects.
+
+## 7. Printing a protocol
 
 Every document in this package has a **Print** action that produces an A4 protocol with
 your company header, ready to be executed on paper and filed. Test-step tables print with
@@ -140,7 +170,7 @@ blank **Actual Result**, **Pass/Fail** and **Initials/Date** columns.
 Protocols default to landscape because the step tables are wide; switch to portrait in the
 print toolbar if your template requires it.
 
-## 7. Keeping validation current
+## 8. Keeping validation current
 
 Validation is a state you maintain, not an event you complete.
 

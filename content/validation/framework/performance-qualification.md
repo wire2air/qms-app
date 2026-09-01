@@ -10,15 +10,15 @@ keywords: [PQ, performance qualification, UAT, user acceptance, business scenari
 
 **Document ID:** VAL-PQ-001 · **Version:** 1.0
 
-| Role | Name | Title | Signature | Date |
-| --- | --- | --- | --- | --- |
-| Protocol prepared by |  |  |  |  |
-| Protocol approved by (QA) |  |  |  |  |
-| Execution reviewed by |  |  |  |  |
+| Role                      | Name | Title | Signature | Date |
+| ------------------------- | ---- | ----- | --------- | ---- |
+| Protocol prepared by      |      |       |           |      |
+| Protocol approved by (QA) |      |       |           |      |
+| Execution reviewed by     |      |       |           |      |
 
 ## 1. Purpose
 
-OQ proves the system *functions* as specified. PQ proves it *performs* for your intended
+OQ proves the system _functions_ as specified. PQ proves it _performs_ for your intended
 use: real users, following your approved SOPs, completing real business processes on
 representative data, in the environment you will actually run.
 
@@ -28,13 +28,13 @@ authority, or because the required fields do not capture what your procedure dem
 
 ## 2. What makes PQ different from OQ
 
-| | OQ | PQ |
-| --- | --- | --- |
-| Executed by | Validation tester | The people who will use the system |
-| Follows | The test script | Your SOP |
-| Data | Contrived test data | Representative real-world data |
-| Proves | The function works | The process works, end to end |
-| Fails when | A function is broken | A function works but does not fit the process |
+|             | OQ                   | PQ                                            |
+| ----------- | -------------------- | --------------------------------------------- |
+| Executed by | Validation tester    | The people who will use the system            |
+| Follows     | The test script      | Your SOP                                      |
+| Data        | Contrived test data  | Representative real-world data                |
+| Proves      | The function works   | The process works, end to end                 |
+| Fails when  | A function is broken | A function works but does not fit the process |
 
 Run PQ **after** OQ passes, in the environment you will go live in, with the final
 configuration.
@@ -59,24 +59,24 @@ configuration.
 
 Copy this block for each scenario.
 
-**Scenario ID:** PQ-___ **Title:** ______________________________
+**Scenario ID:** PQ-**\_ **Title:** ************\_\_\_\_**************
 
-| Field | Detail |
-| --- | --- |
-| Business process | **[what real process this represents]** |
-| Governing SOP | **[SOP number and title]** |
-| Requirement refs | **[URS ids from the traceability matrix]** |
-| Executed by | **[name, role — a real user of this process]** |
-| Date |  |
-| Test data used | **[describe]** |
+| Field            | Detail                                         |
+| ---------------- | ---------------------------------------------- |
+| Business process | **[what real process this represents]**        |
+| Governing SOP    | **[SOP number and title]**                     |
+| Requirement refs | **[URS ids from the traceability matrix]**     |
+| Executed by      | **[name, role — a real user of this process]** |
+| Date             |                                                |
+| Test data used   | **[describe]**                                 |
 
 | Step | User action (per SOP) | Expected business outcome | Actual outcome | P/F | Init |
-| --- | --- | --- | --- | --- | --- |
-| 1 |  |  |  |  |  |
-| 2 |  |  |  |  |  |
-| 3 |  |  |  |  |  |
-| 4 |  |  |  |  |  |
-| 5 |  |  |  |  |  |
+| ---- | --------------------- | ------------------------- | -------------- | --- | ---- |
+| 1    |                       |                           |                |     |      |
+| 2    |                       |                           |                |     |      |
+| 3    |                       |                           |                |     |      |
+| 4    |                       |                           |                |     |      |
+| 5    |                       |                           |                |     |      |
 
 **Findings / observations:**
 
@@ -148,13 +148,13 @@ without someone having to remember it.
 **Prove:** the permission model matches your delegation of authority, and deactivating a
 person never rewrites history.
 
-### PQ-E — Supplier or external participation *(if used)*
+### PQ-E — Supplier or external participation _(if used)_
 
 1. A supplier-facing nonconformance or corrective action is routed to a supplier contact.
 2. The external user signs in and completes only their assigned step.
 3. Confirm the external user cannot see records outside what was shared with them.
 
-### PQ-F — Business continuity and recovery *(recommended)*
+### PQ-F — Business continuity and recovery _(recommended)_
 
 1. Confirm the documented behaviour when the service is unavailable, and that staff know
    the fallback procedure.
@@ -166,21 +166,21 @@ know the data comes back".
 ## 6. PQ summary
 
 | Scenario | Executed by | Date | Result | Findings |
-| --- | --- | --- | --- | --- |
-| PQ-A |  |  |  |  |
-| PQ-B |  |  |  |  |
-| PQ-C |  |  |  |  |
-| PQ-D |  |  |  |  |
-| PQ-E |  |  |  |  |
-| PQ-F |  |  |  |  |
+| -------- | ----------- | ---- | ------ | -------- |
+| PQ-A     |             |      |        |          |
+| PQ-B     |             |      |        |          |
+| PQ-C     |             |      |        |          |
+| PQ-D     |             |      |        |          |
+| PQ-E     |             |      |        |          |
+| PQ-F     |             |      |        |          |
 
 **Overall PQ result:** ☐ Pass ☐ Pass with observations ☐ Fail
 
-| Role | Name | Signature | Date |
-| --- | --- | --- | --- |
-| Compiled by |  |  |  |
-| Business Process Owner |  |  |  |
-| Approved by (QA) |  |  |  |
+| Role                   | Name | Signature | Date |
+| ---------------------- | ---- | --------- | ---- |
+| Compiled by            |      |           |      |
+| Business Process Owner |      |           |      |
+| Approved by (QA)       |      |           |      |
 
 ## Related
 
