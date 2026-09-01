@@ -9,6 +9,7 @@ defineProps({
 const SCHEME_MAP = {
   NEW: { class: 'tw:bg-blue-100 tw:text-blue-700' },
   OPEN: { class: 'tw:bg-sky-100 tw:text-sky-700' },
+  UNDER_REVIEW: { class: 'tw:bg-cyan-100 tw:text-cyan-700' },
   ASSIGNED: { class: 'tw:bg-indigo-100 tw:text-indigo-700' },
   IN_PROGRESS: { class: 'tw:bg-amber-100 tw:text-amber-700' },
   WAITING_CUSTOMER: { class: 'tw:bg-orange-100 tw:text-orange-700' },

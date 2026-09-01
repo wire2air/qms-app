@@ -12,7 +12,7 @@ keywords: [form templates, form builder, field types, publish form, fill in form
 
 Form Templates are the reusable forms that drive structured data collection in Qability QMS — deviation reports, audit checklists, CAPA records, change requests, and inspection logs. You design a template once in the visual **Form Builder**, set its details, and make it available to your sites. When someone fills it in, the answers are saved as a record tied back to the template.
 
-Open the **Form Templates** area from the navigation to see every template in your company. You can switch between **List View** and **Table View**, and filter by search term, document type, site, or status.
+Open **App Builder** in the left menu and select the **Forms** tab to see every template in your company. You can switch between **List View** and **Table View**, and filter by search term, document type, site, or status.
 
 ## Key concepts
 
@@ -64,7 +64,7 @@ Select any field on the canvas to open the **Field Settings** panel and adjust:
 
 ## How to build a form template
 
-1. In **Form Templates**, click **Create New Template**.
+1. In **App Builder → Forms**, click **Create Form**.
 2. On **Step 1 (Define Metadata)**, enter a **Template Name** and a short **Code** (letters, numbers, dashes, or underscores — used to generate record IDs). A checkmark confirms the code is available. Pick a **Document Type**, optionally turn on training requirements, and choose which **Sites** can use the template.
 3. Click **Next: Select Template**. On **Step 2**, choose **Blank Form** to start fresh, or pick a ready-made preset such as Deviation Report, Internal Audit Checklist, CAPA Form, or Change Control Request.
 4. Click **Design Form** to open the Form Builder.

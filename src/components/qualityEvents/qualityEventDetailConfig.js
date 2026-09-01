@@ -69,6 +69,7 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
     cancelling,
     submitting,
     escalatedTo,
+    canViewAuditTrail,
   } = gates
   const isOpen = !['CLOSED', 'CANCELLED'].includes(statusId)
   // Close is narrower than "not terminal". OPEN→CLOSED is the ONLY close edge
@@ -178,7 +179,11 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
       icon: IconHistory,
       variant: 'secondary',
       priority: 15,
-      visible: true,
+      // The trail is its own matrix module (`audit_trail:read`), not something
+      // the record's own read implies — `audit_log_select_rls` enforces that.
+      // The dialog behind this button now refuses politely, but a button whose
+      // only outcome is being told no should not be offered in the first place.
+      visible: !!canViewAuditTrail,
       onSelect: handlers.openAudit,
     },
   ]

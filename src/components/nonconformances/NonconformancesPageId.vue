@@ -450,6 +450,7 @@ const ncActions = computed(() =>
       canConvert: canConvertToSupplier.value,
       saving: saving.value,
       completing: completing.value,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       openOpen: openOpenDialog,

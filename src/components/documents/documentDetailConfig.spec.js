@@ -47,9 +47,17 @@ describe('buildDocumentActions', () => {
 
   it('always exposes the standard secondary actions', () => {
     const ids = visibleIds({})
-    expect(ids).toEqual(
-      expect.arrayContaining(['print', 'reports', 'revisionHistory', 'auditLog', 'export']),
-    )
+    expect(ids).toEqual(expect.arrayContaining(['print', 'reports', 'revisionHistory', 'export']))
+  })
+
+  // Audit Log is the one that is NOT standard any more. `audit_log_select_rls`
+  // used to key on document_control:read, making it free for every document
+  // reader; it keys on `audit_trail:read` now, so without that grant the dialog
+  // has no rows and only tells the user no. Revision History is unaffected —
+  // it reads document_versions, not the trail.
+  it('shows Audit Log only with canViewAuditTrail', () => {
+    expect(visibleIds({ canViewAuditTrail: true })).toContain('auditLog')
+    expect(visibleIds({})).not.toContain('auditLog')
   })
 
   it('shows Create New Draft only when canCreate', () => {

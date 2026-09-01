@@ -319,6 +319,7 @@ const changeRequestActions = computed(() =>
       cancelling: cancelling.value,
       opening: opening.value,
       deleting: deleting.value,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       openOpen: openOpenDialog,

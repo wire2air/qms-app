@@ -74,7 +74,7 @@ They share the same designer but serve different jobs:
 | Purpose | A standalone form that creates its **own records** | A reusable **section** embedded inside something else |
 | Has record numbering, statuses, sites | Yes | No |
 | Can become a module | Yes | No |
-| Where it's used | Records, log books, public forms, modules | Workflow step Task Forms, child-step forms, checklists |
+| Where it's used | Submissions, log books, public forms, modules | Workflow step Task Forms, child-step forms, checklists |
 
 When a picker offers "blocks", it deliberately hides standalone templates —
 a step's Task Form wants a containment section, not a whole Deviation Report.

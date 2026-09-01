@@ -39,6 +39,7 @@ export function buildChangeRequestActions(gates = {}, handlers = {}) {
     opening,
     deleting,
     closeDisabledReason,
+    canViewAuditTrail,
   } = gates
 
   const notTerminal = !['DRAFT', 'CLOSED', 'CANCELLED'].includes(statusId)
@@ -93,7 +94,11 @@ export function buildChangeRequestActions(gates = {}, handlers = {}) {
       icon: IconHistory,
       variant: 'secondary',
       priority: 15,
-      visible: true,
+      // The trail is its own matrix module (`audit_trail:read`), not something
+      // change_control:read implies — `audit_log_select_rls` enforces that. The
+      // dialog refuses politely now; the button should not be offered to be
+      // refused.
+      visible: !!canViewAuditTrail,
       onSelect: handlers.openAudit,
     },
     {

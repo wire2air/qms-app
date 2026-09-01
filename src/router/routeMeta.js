@@ -202,7 +202,7 @@ export const ROUTE_META = {
     permission: 'security:manage',
     parent: '/settings',
   },
-  '/audit-logs': { title: 'Audit Logs', icon: IconShieldCheck },
+  '/audit-logs': { title: 'Audit Logs', icon: IconShieldCheck, permission: 'audit_trail:read' },
   '/settings': { title: 'Settings', icon: IconSettings, permission: 'company_settings:manage' },
   '/notification-rules': {
     title: 'Notification Settings',

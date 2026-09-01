@@ -22,7 +22,8 @@ export function buildComplaintSections(_complaint) {
 
 /** Header action descriptors. gates = resolved booleans/strings; handlers = callbacks. */
 export function buildComplaintActions(gates = {}, handlers = {}) {
-  const { isEditable, canUpdate, canConvert, statusId, acting, hasAssignee } = gates
+  const { isEditable, canUpdate, canConvert, statusId, acting, hasAssignee, canViewAuditTrail } =
+    gates
   return [
     {
       id: 'accept',
@@ -95,7 +96,11 @@ export function buildComplaintActions(gates = {}, handlers = {}) {
       icon: IconClipboardList,
       variant: 'secondary',
       priority: 15,
-      visible: true,
+      // The trail is its own matrix module (`audit_trail:read`), not something
+      // complaint_management:read implies — `audit_log_select_rls` enforces
+      // that. The dialog refuses politely now; the button should not be offered
+      // to be refused.
+      visible: !!canViewAuditTrail,
       onSelect: handlers.openAudit,
     },
   ]

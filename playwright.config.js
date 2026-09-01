@@ -283,6 +283,51 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Tasks — the unified work inbox. Every journey has to MINT its task
+      // first: a task is not a page (taskRoute.js deep-links to the host
+      // entity) and the inbox is hard-scoped to `assignedTo`, so there is no
+      // fixture shortcut — the specs drive a real CAPA or document workflow to
+      // the point where a task exists, then log in as the assignee. That cost
+      // is why `e2e/fixtures/tasks.js` carries mintCapaTask / mintCollaboratorTask.
+      //
+      // The load-bearing probe is the read leak (HIGH-3): `task_instance_select_rls`
+      // released every task in the tenant to any holder of `document_control:read`
+      // — measured, the E2E Doc Controller persona saw 3,672 of 3,672. Both sides
+      // are asserted, because a policy that quietly stopped matching anything
+      // would otherwise read as a perfect guard.
+      name: 'tasks',
+      testMatch: /tasks\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Same reason as inspectionsLogs: nothing is readable until the syncEngine
+      // has bootstrapped TaskInstance into a context's IndexedDB, and a journey
+      // that needs a second persona pays that again.
+      timeout: 180_000,
+      // Every file here pays for its fixtures in a `beforeAll` that drives the
+      // CAPA create wizard and/or the document rail — two to three full UI mints
+      // before a single assertion runs. Those forms read their pickers out of
+      // IndexedDB, so a context whose bootstrap has not landed opens a select
+      // with no options and BaseSelect renders its empty state instead of a
+      // listbox; observed twice on 2026-09-01, both times in the mint, never in
+      // an assertion. One retry covers that without masking a real failure —
+      // a genuine break fails both attempts, and the probes themselves are
+      // deterministic SQL. Same posture and same reason as inspectionsLogs.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Audit Logs — a read surface, so the journeys are cheap, and the module's
+      // only CRITICAL is exactly the kind E2E proves well: `audit_log_select_rls`
+      // gated on `document_control:read` (49 of 75 roles, incl. baseline
+      // Employee) instead of `audit_trail:read` (10). The e2e seed grants the
+      // trail to E2E Auditor and E2E Role Admin and DENIES it to E2E Doc
+      // Controller — those denials are regression probes placed on purpose, so
+      // every one is paired with a granted persona reading the same rows.
+      name: 'auditLogs',
+      testMatch: /auditLogs\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
