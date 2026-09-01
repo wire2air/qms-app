@@ -5,7 +5,18 @@ import { get, post } from '@/api'
 
 const route = useRoute()
 const toast = useToast()
-const templateId = route.params.templateId
+
+// FORMS F-01/F-02. This param was `templateId` — the form's PRIMARY KEY, used
+// directly as the public capability, which is why every ACTIVE template in every
+// tenant was readable by anyone who had ever seen its id. It is a share TOKEN
+// now: minted by the database when a form owner explicitly publishes, destroyed
+// when they unpublish or archive, and unrelated to the row's id. The file is
+// named [shareToken].vue so the route param carries the same name.
+//
+// The page treats it as opaque and forwards it verbatim; the backend is the only
+// thing that knows what a valid token looks like (see publicFormShare.js — every
+// refusal is the same 404, deliberately).
+const shareToken = route.params.shareToken
 
 const schema = ref(null)
 const model = ref({})
@@ -18,7 +29,7 @@ const recordNumber = ref(null)
 async function fetchSchema() {
   error.value = null
   try {
-    const data = await get(`/v1/services/public/formTemplates/${templateId}`, {
+    const data = await get(`/v1/services/public/formTemplates/${shareToken}`, {
       loader: loading,
       showError: false,
     })
@@ -32,7 +43,7 @@ async function onSubmit() {
   submitting.value = true
   try {
     const data = await post('/v1/services/public/records', {
-      templateId,
+      token: shareToken,
       payload: model.value,
     })
 
@@ -52,10 +63,10 @@ function resetForm() {
 }
 
 onMounted(() => {
-  if (templateId) {
+  if (shareToken) {
     fetchSchema()
   } else {
-    error.value = 'No template ID provided'
+    error.value = 'This link is not valid'
     loading.value = false
   }
 })

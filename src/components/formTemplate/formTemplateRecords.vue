@@ -44,6 +44,28 @@ const templateRecords = useLiveQueryWithDeps(
   { models: ['Record'], initial: [] },
 )
 
+// Records F-14. The CREATED BY column bound `row.user` — a relation that does
+// not exist. SyncEngine models are flat: models/record.js declares scalar FKs
+// (`userId`, `ownerUserId`) and the engine has no relation decorator at all, so
+// `row.user` was structurally always undefined and the column rendered '-' for
+// every row that ever existed. It rendered '-' in the CSV and Excel exports too,
+// which is the half that matters: an exported submission register with no
+// attribution is not a record of who submitted anything.
+//
+// Resolved from `userId` against the local User store instead. Indexed once
+// rather than per cell — this table renders every submission of a template.
+const allUsers = useLiveQuery((db) => db.User.where().exec(), {
+  models: ['User'],
+  initial: [],
+})
+const usersById = computed(() => new Map((allUsers.value || []).map((u) => [u.id, u])))
+
+/** "First Last<sep>email", or '-'. `sep` is a newline on screen, a space in exports. */
+function createdByLabel(row, sep = ' ') {
+  const user = usersById.value.get(row?.userId)
+  return user ? `${user.firstName} ${user.lastName}${sep}${user.email}` : '-'
+}
+
 const recordsLoading = computed(() => templateRecords.value === undefined)
 const schema = computed(() => template.value?.schema || [])
 const templateName = computed(() => template.value?.title || '')
@@ -229,8 +251,7 @@ const columns = computed(() => {
     {
       name: 'createdBy',
       label: 'CREATED BY',
-      field: (row) =>
-        row.user ? `${row.user.firstName} ${row.user.lastName} \n ${row.user.email}` : '-',
+      field: (row) => createdByLabel(row, ' \n '),
       align: 'left',
       sortable: true,
       editable: false,
@@ -281,8 +302,7 @@ const exportColumns = computed(() => {
     {
       name: 'createdBy',
       label: 'CREATED BY',
-      field: (row) =>
-        row.user ? `${row.user.firstName} ${row.user.lastName} ${row.user.email}` : '-',
+      field: (row) => createdByLabel(row),
       align: 'left',
       sortable: true,
     },
@@ -677,10 +697,7 @@ async function handleExport(format) {
       </template>
 
       <template #body-cell-createdBy="{ row }">
-        <div v-if="row.user" class="tw:flex tw:flex-col">
-          <span class="tw:font-medium">{{ row.user.firstName }} {{ row.user.lastName }}</span>
-          <span class="tw:text-xs tw:text-secondary">{{ row.user.email }}</span>
-        </div>
+        <UserBadgeById v-if="row.userId" :userId="row.userId" />
         <span v-else class="tw:text-secondary">-</span>
       </template>
 

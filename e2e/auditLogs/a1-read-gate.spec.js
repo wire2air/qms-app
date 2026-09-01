@@ -140,20 +140,41 @@ test.beforeAll(async () => {
 })
 
 test.describe('ALD-A1 — audit_log_select_rls gates on audit_trail:read', () => {
-  test('the trail is readable by audit_trail holders and by nobody else', () => {
-    // Leg 1 — ground truth, RLS bypassed. Without this the two legs below are
-    // both consistent with an empty table.
+  // THE MODEL CHANGED ON 2026-09-01 AND THESE THREE TESTS CHANGED WITH IT.
+  // `audit_log_select_rls` used to be binary: `audit_trail:read` or nothing. It
+  // now carries a RECORD-SCOPED DISJUNCT — you may also read the audit rows of
+  // an entity whose OWNING MODULE you can read. So visibility is three-tiered,
+  // and the probe subject (a department) resolves to the `departments` module,
+  // which is what decides who sees the probe rows.
+  //
+  //   audit_trail:read  -> the entire tenant trail
+  //   <module>:read     -> that module's history only
+  //   neither           -> nothing
+  //
+  // MEASURED on app-db when this was written: of 66,724 rows in the tenant, the
+  // Doc Controller reads 28,516 and a zero-grant user reads 0, while a trail
+  // holder reads all 66,724. Before this branch the Doc Controller read all
+  // 66,724 through `document_control:read`, so this is still a large tightening
+  // — it restores the history of what she administers, not the platform ledger.
+  const MODULE_READERS = ['controller', 'author'] // hold departments:read
+  // Holds NO departments grant, so it reads none of the PROBE rows — but it does
+  // hold audit_management / audit_standards / audit_programs / audit_findings,
+  // so under the disjunct it legitimately reaches those modules' history
+  // elsewhere in the tenant. It is a module reader for OTHER modules, which is
+  // why it cannot be asserted to reach zero rows tenant-wide.
+  const OTHER_MODULE_READER = 'auditReader'
+  // The only persona with no grant anywhere, and therefore the only one for whom
+  // "reaches nothing in the tenant" is the correct claim.
+  const NO_GRANTS = 'noAccess'
+
+  test('visibility is three-tiered: whole trail, own module, or nothing', () => {
+    // Leg 1 — ground truth, RLS bypassed. Without this every leg below is also
+    // consistent with an empty table.
     const inTable = trailRowsInTable(probeWhere)
     expect(inTable, 'the probe wrote at least a CREATE and an UPDATE').toBeGreaterThanOrEqual(2)
 
-    // Leg 2 — every GRANTED persona sees exactly what the table holds. Equality
-    // rather than `> 0`: the policy carries no row-level narrowing, so a granted
-    // reader that saw *some* of the rows would be a different defect, and a
-    // `> 0` assertion would not notice it.
-    //
-    // `owner` is excluded because `sqlAsAppUser` pins
-    // `app.current_user_is_owner = 'false'` — her bypass cannot be probed
-    // through this door, and the browser leg (ALD-A2) is where it is exercised.
+    // Leg 2 — a trail grant reads every probe row. Equality, not `> 0`: a
+    // granted reader seeing SOME rows would be a different defect.
     for (const persona of TRAIL_GRANTED.filter((p) => p !== 'owner')) {
       expect(
         trailRowsVisibleTo(USERS[persona].id, probeWhere),
@@ -161,31 +182,41 @@ test.describe('ALD-A1 — audit_log_select_rls gates on audit_trail:read', () =>
       ).toBe(inTable)
     }
 
-    // Leg 3 — every DENIED persona sees none of them. Each of these is a probe
-    // placed on purpose by e2e-seed.sql §35, not a gap in the fixture.
-    for (const persona of TRAIL_DENIED) {
+    // Leg 3 — the new arm. These personas hold NO trail grant but DO hold
+    // `departments:read`, and the probe subject is a department, so they read
+    // its history. This is the §6.3 fix, asserted where it bites.
+    for (const persona of MODULE_READERS) {
+      expect(
+        hasPermission(USERS[persona].id, 'audit_trail'),
+        `${persona} holds no trail grant`,
+      ).toBe(false)
       expect(
         trailRowsVisibleTo(USERS[persona].id, probeWhere),
-        `${persona} holds no audit_trail grant and reads nothing`,
-      ).toBe(0)
+        `${persona} reads departments and so reads this department's history`,
+      ).toBe(inTable)
     }
 
-    // Leg 4 — tenant-wide, not just on the probe rows. A policy narrowed to hide
-    // only recent rows would pass the three legs above.
-    //
-    // BOUNDED on purpose, and the bound is not cosmetic. An unbounded
-    // `count(*)` over this table is a sequential scan calling
-    // `authz.has_permission` per row — the E2E tenant holds ~64k audit rows and
-    // the probe blew `db.js`'s 15 s psql timeout, which surfaces as
-    // `ok === false` with an EMPTY stderr: a probe that looks like a policy
-    // error and is actually a stopwatch. `LIMIT 1` asks the only question this
-    // leg needs (is there ANY row) and answers it off the first matching tuple.
-    for (const persona of TRAIL_DENIED) {
-      expect(
-        trailReachesAnyRow(USERS[persona].id),
-        `${persona} reads no audit row in the tenant at all`,
-      ).toBe(0)
-    }
+    // Leg 4 — the disjunct is per-MODULE, not per-user. `auditReader` holds no
+    // departments grant, so the probe rows stay shut to her even though she
+    // reads plenty of trail elsewhere. This is the leg that would fail if the
+    // arm had been written as "any grant anywhere unlocks the trail".
+    expect(
+      trailRowsVisibleTo(USERS[OTHER_MODULE_READER].id, probeWhere),
+      `${OTHER_MODULE_READER} reads the audit MODULES but not departments, so not this history`,
+    ).toBe(0)
+    expect(
+      trailReachesAnyRow(USERS[OTHER_MODULE_READER].id),
+      `${OTHER_MODULE_READER} does reach her OWN modules' history — the arm is per-module`,
+    ).toBe(1)
+
+    // Leg 5 — and a user with no grant at all still reads nothing, anywhere.
+    // Without this the disjunct could have widened to "any authenticated user"
+    // and every leg above would still pass.
+    expect(
+      trailRowsVisibleTo(USERS[NO_GRANTS].id, probeWhere),
+      'a user with no role reads none of the probe rows',
+    ).toBe(0)
+    expect(trailReachesAnyRow(USERS[NO_GRANTS].id), 'and no audit row in the tenant at all').toBe(0)
 
     // …paired, because "no rows anywhere" is also what a dropped policy, an
     // empty table and a broken probe all look like.
@@ -197,45 +228,62 @@ test.describe('ALD-A1 — audit_log_select_rls gates on audit_trail:read', () =>
     }
   })
 
-  test('the gate is audit_trail and not document_control — proved in both directions', () => {
-    // This is F1 itself. One direction is the finding; the other is what stops a
-    // "fix" that simply widened `audit_trail` to everyone from passing.
-
-    // ← Direction 1. Carla is THE regression probe: full document_control CRUD,
-    // zero audit_trail. Before the fix she read the entire cross-module trail.
+  test("a module grant buys that module's history and NOT the rest of the trail", () => {
+    // This is F1, restated for the three-tier model. The finding was that
+    // `document_control:read` returned the ENTIRE cross-module trail. It no
+    // longer does — but proving that now needs a module the persona cannot
+    // read, because she legitimately reads the ones she administers.
+    //
+    // `SamplingPlanTables` is that probe: 11,200 rows in the tenant, owned by an
+    // inspection module the Doc Controller holds nothing on.
     expect(
       hasPermission(USERS.controller.id, 'document_control'),
       'the Doc Controller still holds the OLD gate',
     ).toBe(true)
+    expect(hasPermission(USERS.controller.id, 'audit_trail'), '…and not the new one').toBe(false)
+
+    const foreign = "entity_type = 'SamplingPlanTables'"
+    expect(trailRowsInTable(foreign), 'the foreign-module probe has rows to leak').toBeGreaterThan(
+      0,
+    )
     expect(
-      hasPermission(USERS.controller.id, 'audit_trail'),
-      '…and not the new one',
-    ).toBe(false)
-    expect(
-      trailRowsVisibleTo(USERS.controller.id, probeWhere),
-      'so the old gate buys her nothing — document_control no longer reaches the trail',
+      trailRowsVisibleTo(USERS.controller.id, foreign),
+      'document_control buys her nothing outside the modules she reads',
     ).toBe(0)
 
-    // → Direction 2. Rosa is the mirror image, and she is the half that proves
-    // the first is a permission result rather than a broken policy: no
-    // document_control grant whatsoever, and the full trail.
+    // → The mirror image, and the half that proves the line above is a
+    // permission result rather than a broken policy: no document_control grant
+    // whatsoever, and the full trail.
     expect(
       hasPermission(USERS.roleAdmin.id, 'document_control'),
       'the Role Admin holds NO document_control grant',
     ).toBe(false)
     expect(hasPermission(USERS.roleAdmin.id, 'audit_trail'), '…only audit_trail').toBe(true)
     expect(
-      trailRowsVisibleTo(USERS.roleAdmin.id, probeWhere),
-      'and the new gate is sufficient on its own',
-    ).toBe(trailRowsInTable(probeWhere))
+      trailRowsVisibleTo(USERS.roleAdmin.id, foreign),
+      'and the trail grant alone reaches the foreign module',
+    ).toBe(trailRowsInTable(foreign))
 
     // The policy text itself, so a regression that reverts the string fails here
     // with the reason spelled out rather than as an arithmetic surprise.
-    const policy = sqlValue(
-      `SELECT pg_get_expr(polqual, polrelid) FROM pg_policy WHERE polname = 'audit_log_select_rls'`,
-    )
-    expect(policy, 'the live policy names audit_trail').toContain("has_permission('audit_trail'")
-    expect(policy, 'and no longer names document_control').not.toContain('document_control')
+    // Asked as booleans rather than by substring-matching the expression:
+    // `pg_get_expr` for this policy is longer than `sqlValue` returns intact, and
+    // a truncated string silently fails `toContain` for the wrong reason.
+    const policySays = (needle) =>
+      sqlValue(
+        `SELECT (pg_get_expr(polqual, polrelid) LIKE '%${needle}%')::text
+           FROM pg_policy WHERE polname = 'audit_log_select_rls'`,
+      )
+    // Needles carry NO single quotes: this goes through `docker exec … psql -c`,
+    // and an embedded quote closes the SQL string and fails as a psql syntax
+    // error rather than an assertion. `audit_trail` appears in this policy only
+    // inside has_permission('audit_trail', 'read'), so the bare name is exact.
+    expect(policySays('audit_trail'), 'the live policy names audit_trail').toBe('true')
+    expect(policySays('document_control'), 'and still never names document_control').toBe('false')
+    expect(
+      policySays('audit_entity_types'),
+      'and it resolves the entity type through the vocabulary, not a literal list',
+    ).toBe('true')
   })
 
   test('reading the Audits MODULE is not reading the TRAIL', () => {
@@ -254,27 +302,19 @@ test.describe('ALD-A1 — audit_log_select_rls gates on audit_trail:read', () =>
     expect(trailRowsVisibleTo(USERS.auditor.id, probeWhere)).toBe(trailRowsInTable(probeWhere))
   })
 
-  test('a denied persona still reads the RECORD whose history it hides (§6.3, open)', () => {
-    // ⚠ THIS TEST ASSERTS A KNOWN-OPEN DEFECT, DELIBERATELY.
+  test('§6.3 CLOSED — a record you can read no longer hides its own history', () => {
+    // This test was written the other way round, asserting §6.3 as a known-open
+    // defect: `audit_log_select_rls` was tenant-wide, so a Document Controller
+    // kept the department row and lost its change history. Its own note said
+    // "when the record-scoped disjunct lands, this test SHOULD fail, and the
+    // failure is the signal to rewrite it". The disjunct landed; this is the
+    // rewrite.
     //
-    // 23-hardening-pass §6.3 records a residual the grant backfill cannot fix:
-    // `audit_log_select_rls` is tenant-wide, so a Document Controller loses the
-    // change history of records she owns and can read, not merely the
-    // cross-module page. The fix is a record-scoped disjunct inside the policy —
-    // the shape `authz.can_read_workflow_resource` already has — and it was not
-    // written, because getting it right means answering the same question for
-    // the CAPA, NCR, CR and Quality Event embeds at once.
-    //
-    // MEASURED, not assumed: the probe subject is a department with a NULL
-    // `site_id`, and `departments_sel` ends `… OR ((site_id IS NULL) OR (site_id
-    // = ANY (authz.current_site_ids())))`. Verified live — all six personas,
-    // grants or none, read the row; only the audit rows differ. So this is
-    // exactly §6.3's shape: a record you are entitled to, whose history you are
-    // not.
-    //
-    // It is written asserting CURRENT REAL BEHAVIOUR. When the record-scoped
-    // disjunct lands, this test SHOULD fail, and the failure is the signal to
-    // rewrite it — not a regression.
+    // MEASURED, and the measurement is what makes the pairing meaningful: the
+    // probe subject is a department with a NULL `site_id`, and `departments_sel`
+    // ends `… OR ((site_id IS NULL) OR (site_id = ANY (authz.current_site_ids())))`
+    // — so ALL personas read the row itself, grants or none. Only the audit rows
+    // differ, which is exactly the asymmetry §6.3 was about.
     const reads = (userId) => {
       const res = sqlAsAppUser(
         `SELECT 'RESULT=' || count(*)::text FROM departments WHERE id = '${DEPT.id}';`,
@@ -284,15 +324,30 @@ test.describe('ALD-A1 — audit_log_select_rls gates on audit_trail:read', () =>
       return Number(/RESULT=(\d+)/.exec(res.output)?.[1])
     }
 
+    // Both still read the RECORD — unchanged, and the premise of the asymmetry.
     expect(reads(USERS.controller.id), 'the Doc Controller reads the department row').toBe(1)
     expect(reads(USERS.noAccess.id), 'so does a user with no role at all').toBe(1)
+
+    // The fix: she holds `departments:read`, so she now reads its history too.
     expect(
       trailRowsVisibleTo(USERS.controller.id, probeWhere),
-      'and neither of them reads a single one of its changes — §6.3, still open',
-    ).toBe(0)
+      '…and now she reads its changes as well — §6.3 closed',
+    ).toBe(trailRowsInTable(probeWhere))
 
-    // The pair, without which the line above is just "the table might be empty".
-    expect(trailRowsVisibleTo(USERS.auditor.id, probeWhere)).toBeGreaterThanOrEqual(2)
+    // The other side, and the reason this is a scoped fix rather than an
+    // opening: reading the ROW is not reading its HISTORY. `noAccess` reaches
+    // the department through the NULL-site arm of `departments_sel` and holds no
+    // grant on the module, so the trail stays shut for her. If this ever returns
+    // rows, the disjunct has widened to "anyone who can see the record", which
+    // is not what was agreed.
+    expect(
+      hasPermission(USERS.noAccess.id, 'departments'),
+      'the no-role user holds no departments grant',
+    ).toBe(false)
+    expect(
+      trailRowsVisibleTo(USERS.noAccess.id, probeWhere),
+      'reading the row is still not reading its history',
+    ).toBe(0)
   })
 
   test('the company clause is intact — a granted reader sees one tenant only', () => {

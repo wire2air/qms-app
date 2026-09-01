@@ -23,6 +23,15 @@ const optionSet = useLiveQueryWithDeps(
 
 const loading = computed(() => optionSet.value === undefined)
 const canUpdate = computed(() => isAllowed(['option_sets:update']))
+// CFL L-1. Delete used to be gated on `canUpdate` here while the list pages
+// (OptionSetsTab / OptionSetsHome) gated the identical operation on
+// `option_sets:delete`. `delete` is the correct verb — the authz catalog
+// registers it, the REST route enforces it (routes/optionSets.js), and the
+// seeded Quality Manager role deliberately withholds it — so the detail page was
+// the outlier. Enforced in the database too, by the soft-delete guard in
+// migration 20260902301000: option_sets is paranoid, so `delete()` below is an
+// UPDATE that sets deleted_at, which option_set_update_rls alone would admit.
+const canDelete = computed(() => isAllowed(['option_sets:delete']))
 
 const editingOptionIndex = ref(-1)
 const editingName = ref(false)
@@ -85,7 +94,7 @@ async function confirmDelete() {
 
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const optionSetActions = computed(() =>
-  buildOptionSetActions({ canUpdate: canUpdate.value }, { delete: confirmDelete }),
+  buildOptionSetActions({ canDelete: canDelete.value }, { delete: confirmDelete }),
 )
 const optionSetDetailConfig = computed(() =>
   defineDetailConfig({
@@ -138,75 +147,74 @@ const optionSetDetailConfig = computed(() =>
 
     <template v-if="optionSet" #section-details>
       <!-- Options Manager Card -->
-        <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
-          <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-            <div class="tw:flex tw:items-center tw:justify-between">
-              <div class="tw:text-xl tw:font-bold tw:text-on-main">Options</div>
-              <BaseButton v-if="canUpdate" size="sm" @click="addOption">
-                <IconPlus :size="14" />
-                Add Option
-              </BaseButton>
-            </div>
+      <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:overflow-hidden">
+        <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
+          <div class="tw:flex tw:items-center tw:justify-between">
+            <div class="tw:text-xl tw:font-bold tw:text-on-main">Options</div>
+            <BaseButton v-if="canUpdate" size="sm" @click="addOption">
+              <IconPlus :size="14" />
+              Add Option
+            </BaseButton>
           </div>
-          <div class="tw:p-6">
+        </div>
+        <div class="tw:p-6">
+          <div
+            v-if="!optionSet.options?.length"
+            class="tw:text-secondary tw:text-center tw:p-12 tw:bg-main-hover tw:rounded-xl tw:border-2 tw:border-dashed tw:border-divider"
+          >
+            No options added yet. Click "Add Option" to start.
+          </div>
+
+          <div v-else class="tw:flex tw:flex-col">
             <div
-              v-if="!optionSet.options?.length"
-              class="tw:text-secondary tw:text-center tw:p-12 tw:bg-main-hover tw:rounded-xl tw:border-2 tw:border-dashed tw:border-divider"
+              v-for="(opt, idx) in optionSet.options"
+              :key="idx"
+              class="tw:flex tw:items-center tw:gap-1 tw:group"
             >
-              No options added yet. Click "Add Option" to start.
-            </div>
+              <!-- Number -->
+              <div class="tw:w-6 tw:text-secondary tw:text-xs">{{ idx + 1 }}.</div>
 
-            <div v-else class="tw:flex tw:flex-col">
-              <div
-                v-for="(opt, idx) in optionSet.options"
-                :key="idx"
-                class="tw:flex tw:items-center tw:gap-1 tw:group"
-              >
-                <!-- Number -->
-                <div class="tw:w-6 tw:text-secondary tw:text-xs">{{ idx + 1 }}.</div>
-
-                <!-- Option Content -->
-                <div class="tw:flex-1">
-                  <!-- Display Mode -->
-                  <BaseClickableRow
-                    v-if="editingOptionIndex !== idx"
-                    class="tw:text-base tw:px-2 tw:py-1 tw:rounded-lg tw:transition-all tw:duration-200 tw:text-on-main tw:flex tw:items-center tw:justify-between tw:hover:bg-main-hover"
-                    :disabled="!canUpdate"
-                    :aria-label="`Edit option ${opt || 'Empty option'}`"
-                    @click="startEditOption(idx)"
-                  >
-                    <span>{{ opt || 'Empty option' }}</span>
-                    <IconEdit
-                      v-if="canUpdate"
-                      :size="18"
-                      class="tw:text-secondary tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity"
-                    />
-                  </BaseClickableRow>
-
-                  <!-- Edit Mode -->
-                  <BaseTextInput
-                    v-else
-                    v-model="optionSet.options[idx]"
-                    placeholder="Option value"
-                    size="sm"
-                    @blur="stopEditOption"
-                    @keyup.enter="stopEditOption"
-                  />
-                </div>
-
-                <!-- Delete Button -->
-                <button
-                  v-if="canUpdate"
-                  class="tw:p-1 tw:text-secondary tw:hover:text-red-600 tw:hover:bg-red-50 tw:rounded tw:transition-colors tw:opacity-0 tw:group-hover:opacity-100"
-                  @click="removeOption(idx)"
+              <!-- Option Content -->
+              <div class="tw:flex-1">
+                <!-- Display Mode -->
+                <BaseClickableRow
+                  v-if="editingOptionIndex !== idx"
+                  class="tw:text-base tw:px-2 tw:py-1 tw:rounded-lg tw:transition-all tw:duration-200 tw:text-on-main tw:flex tw:items-center tw:justify-between tw:hover:bg-main-hover"
+                  :disabled="!canUpdate"
+                  :aria-label="`Edit option ${opt || 'Empty option'}`"
+                  @click="startEditOption(idx)"
                 >
-                  <IconTrash :size="16" />
-                </button>
+                  <span>{{ opt || 'Empty option' }}</span>
+                  <IconEdit
+                    v-if="canUpdate"
+                    :size="18"
+                    class="tw:text-secondary tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity"
+                  />
+                </BaseClickableRow>
+
+                <!-- Edit Mode -->
+                <BaseTextInput
+                  v-else
+                  v-model="optionSet.options[idx]"
+                  placeholder="Option value"
+                  size="sm"
+                  @blur="stopEditOption"
+                  @keyup.enter="stopEditOption"
+                />
               </div>
+
+              <!-- Delete Button -->
+              <button
+                v-if="canUpdate"
+                class="tw:p-1 tw:text-secondary tw:hover:text-red-600 tw:hover:bg-red-50 tw:rounded tw:transition-colors tw:opacity-0 tw:group-hover:opacity-100"
+                @click="removeOption(idx)"
+              >
+                <IconTrash :size="16" />
+              </button>
             </div>
           </div>
         </div>
-
+      </div>
     </template>
 
     <template v-if="optionSet" #rail>

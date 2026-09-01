@@ -15,9 +15,20 @@ export function buildOptionSetSections(_optionSet) {
 
 /** Header action descriptors. The only action is Delete (immediate — the page
  *  has no confirmation dialog).
+ *
+ *  CFL L-1: the gate is `canDelete` (`option_sets:delete`), NOT `canUpdate`.
+ *  It used to be canUpdate here while OptionSetsTab / OptionSetsHome gated the
+ *  identical operation on option_sets:delete — the same button, two different
+ *  permissions, depending on which page you reached it from. `delete` wins on a
+ *  3-to-1 reading: the authz catalog registers option_sets.delete, the REST
+ *  route enforces it, and the seeded Quality Manager role deliberately withholds
+ *  it. Backed by the database since migration 20260902301000 — option_sets is a
+ *  paranoid model, so a delete is an UPDATE setting deleted_at, which
+ *  option_set_update_rls would otherwise have admitted on nothing but
+ *  option_sets:update.
  */
 export function buildOptionSetActions(gates = {}, handlers = {}) {
-  const { canUpdate } = gates
+  const { canDelete } = gates
   return [
     {
       id: 'delete',
@@ -25,7 +36,7 @@ export function buildOptionSetActions(gates = {}, handlers = {}) {
       icon: IconTrash,
       variant: 'danger',
       priority: 10,
-      visible: !!canUpdate,
+      visible: !!canDelete,
       onSelect: handlers.delete,
     },
   ]

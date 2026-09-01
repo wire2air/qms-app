@@ -153,7 +153,13 @@ function openRecord(row) {
           <span class="tw:text-sm">{{ row.createdAt ? row.createdAt.formatDate() : '—' }}</span>
         </template>
         <template #body-cell-nextReviewDate="{ row }">
-          <span class="tw:text-sm">{{ row.nextReviewDate || '—' }}</span>
+          <!-- Records F-24. `nextReviewDate` is a Luxon DateTime (models/record.js
+             declares it as one), so interpolating it printed the object's ISO
+             toString with offset. The sibling slot immediately above already
+             calls .formatDate() — this one was simply missing it. -->
+        <span class="tw:text-sm">{{
+          row.nextReviewDate ? row.nextReviewDate.formatDate() : '—'
+        }}</span>
         </template>
       </DataTable>
     </div>

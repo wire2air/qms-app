@@ -328,6 +328,40 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // App Builder — Forms. The headline here is the public fill surface: an
+      // unauthenticated read that used to serve any ACTIVE template in any
+      // tenant to anyone holding the row's UUID, now a server-minted revocable
+      // share token. Journeys that exercise it must run WITHOUT storageState,
+      // which is the point of the surface, so they set `storageState: undefined`
+      // per-test rather than inheriting a logged-in context.
+      name: 'forms',
+      testMatch: /forms\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // App Builder — Records (Submissions). Covers both shapes that share the
+      // one physical table: plain form submissions and promoted module records.
+      // e2e-seed.sql §35 seeds the module fixture these need — before it, the
+      // E2E database could not represent a module record at all.
+      name: 'records',
+      testMatch: /records\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Custom Fields / Option Sets. The RLS gate on entity_field_values is
+      // per-HOST-record (an NC's custom fields are the NC's), so these journeys
+      // are cross-module by nature and need personas with differing host grants.
+      name: 'customFields',
+      testMatch: /customFields\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

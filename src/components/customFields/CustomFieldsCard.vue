@@ -84,12 +84,23 @@ const formData = ref({})
 // Seed exactly once per entity from the loaded value row, then ignore echoes
 // (incl. our own saves) so an in-flight edit is never clobbered.
 const seededEntityId = ref(null)
+// The exact content we seeded, as a comparable string. `seededEntityId` alone
+// cannot gate the autosave below: seeding assigns `formData` and sets
+// `seededEntityId` in the SAME tick, and the deep watcher fires AFTER that tick
+// — by which point the guard passes and a save runs that the user never asked
+// for. That save rewrites `form_schema` with the live schema, so MERELY OPENING
+// a record destroyed the snapshot the seal exists to preserve: a record filled
+// under one version of the schema silently re-sealed under a later one, which
+// is the precise scenario the seal is for. Comparing content closes it, and
+// also absorbs echoes of our own writes.
+const seededContent = ref(null)
 watch(
   valueRow,
   (row) => {
     if (row === undefined) return // still loading
     if (seededEntityId.value === props.entityId) return
     formData.value = row?.payload ? deepClonePlain(row.payload) : {}
+    seededContent.value = JSON.stringify(formData.value)
     seededEntityId.value = props.entityId
   },
   { immediate: true },
@@ -123,10 +134,14 @@ async function persist() {
   saving.value = true
   saveError.value = null
   try {
+    const payload = deepClonePlain(formData.value)
     await saveValues({
-      payload: deepClonePlain(formData.value),
+      payload,
       schema: deepClonePlain(liveSchema.value),
     })
+    // What is now stored. Keeps the guard honest across subsequent edits, and
+    // stops an echo of our own write from looking like a fresh change.
+    seededContent.value = JSON.stringify(payload)
   } catch (e) {
     saveError.value = e.message || 'Failed to save'
   } finally {
@@ -141,6 +156,9 @@ watch(
   () => {
     if (!props.editable) return
     if (seededEntityId.value !== props.entityId) return // not seeded yet
+    // Only a GENUINE change may write. Without this, opening the record is
+    // enough to re-seal it (see `seededContent`).
+    if (JSON.stringify(formData.value) === seededContent.value) return
     debouncedSave()
   },
   { deep: true },
