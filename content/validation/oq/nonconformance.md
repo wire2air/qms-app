@@ -83,7 +83,7 @@ URS-NCR-01 … URS-NCR-10. See the
 | --- | --- | --- | --- | --- | --- |
 | 1 | As a user other than the owner, attempt to open the NC | The action is unavailable or refused |  |  |  |
 | 2 | As **NC Owner**, open the NC | A confirmation explains that the record becomes permanent |  |  |  |
-| 3 | Confirm | Status moves to under review; the workflow's first step activates |  |  |  |
+| 3 | Confirm | Status becomes **Open**; the workflow's first step activates |  |  |  |
 | 4 | Confirm the assigned reviewer receives a task | Task appears for **Reviewer** |  |  |  |
 | 5 | Attempt to delete the NC now | Deletion is refused — the record can only be closed or cancelled |  |  |  |
 
@@ -138,7 +138,7 @@ URS-NCR-01 … URS-NCR-10. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | On a separate opened NC, initiate cancellation without a reason | Refused; a reason is required |  |  |  |
-| 2 | Enter a reason and complete cancellation with signature | Status becomes void/cancelled; reason and signature recorded |  |  |  |
+| 2 | Enter a reason and complete cancellation with signature | Status becomes **Cancelled**; reason and signature recorded |  |  |  |
 | 3 | Confirm any in-progress workflow steps are stopped | Steps no longer actionable |  |  |  |
 | 4 | Confirm the cancelled record remains retrievable | Record readable, clearly not active |  |  |  |
 

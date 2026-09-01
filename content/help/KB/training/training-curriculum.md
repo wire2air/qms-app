@@ -36,14 +36,14 @@ Role  ⇄  Curriculum  →  Training
 Both are many-to-many: a role can require several curricula, and one curriculum
 can serve several roles.
 
-:::note Why a group in the middle
-Requirements were once mapped role-to-training directly. That meant a change to
-what induction consists of had to be repeated against every role that included
-it, and nothing named the _set_ — you could see the individual courses but not
-the thing they belonged to.
+:::note Why a group sits in the middle
+A curriculum names a _set_ of trainings, so the set becomes a thing you can talk
+about and change in one place.
 
-A curriculum names the set once. Add a course to "New Operator Induction" and
-every role requiring it picks the course up, with no further mapping.
+Add a course to "New Operator Induction" and every role requiring that curriculum
+picks it up, with no further mapping. Without the group you would be attaching the
+same course to each role in turn, and nothing would name what those courses
+collectively are.
 :::
 
 ## Key concepts

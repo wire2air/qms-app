@@ -23,12 +23,12 @@ My Tasks, and Logs.
 
 ## The sub-menus, and what to create first
 
-| Menu | What it holds |
-| --- | --- |
-| **Log Forms** | The reusable field layouts a log book captures. |
-| **Log Books** | The books themselves — a form, a policy, a lifecycle. |
-| **Inspections & Logs** | The entries people have filed. |
-| **Assignments** | Who fills which book, and on what schedule. |
+| Menu                   | What it holds                                         |
+| ---------------------- | ----------------------------------------------------- |
+| **Log Forms**          | The reusable field layouts a log book captures.       |
+| **Log Books**          | The books themselves — a form, a policy, a lifecycle. |
+| **Inspections & Logs** | The entries people have filed.                        |
+| **Assignments**        | Who fills which book, and on what schedule.           |
 
 Build them in that order:
 
@@ -69,60 +69,60 @@ but more work than a few minutes' thought up front.
 When you create a log book you choose how strict it is. This sets sensible defaults for
 edit windows, signatures, and review.
 
-| Classification | Best for | Edit window | E-signature | Reviewer approval |
-| --- | --- | --- | --- | --- |
-| Operational | Routine field entries (temperature, gemba, walk-throughs) | Auto-locks ~15 min after submit | Not required | Not required |
-| Controlled | Regulated records (batch release, deviations, calibrations) | Stays open until reviewed | Required on submit | Second-person review before locking |
+| Classification | Best for                                                    | Edit window                     | E-signature        | Reviewer approval                   |
+| -------------- | ----------------------------------------------------------- | ------------------------------- | ------------------ | ----------------------------------- |
+| Operational    | Routine field entries (temperature, gemba, walk-throughs)   | Auto-locks ~15 min after submit | Not required       | Not required                        |
+| Controlled     | Regulated records (batch release, deviations, calibrations) | Stays open until reviewed       | Required on submit | Second-person review before locking |
 
 ### Two different approvals — don't confuse them
 
 A log book can involve **two separate approvals**, which do different things:
 
-| | **Log Book Approval** | **Entry review** |
-| --- | --- | --- |
-| Approves | The **log book itself** — its fields (schema) and policy | An **individual entry** (a filled-in log) |
-| Set by | The **Log Book Approval** workflow (bottom of the Details tab) | The **Require reviewer approval before locking** toggle |
-| Who approves | The reviewers/approvers defined in the chosen workflow (e.g. technical review → Quality Manager) | The log book's **Supervisor** |
-| When | When you **create or replace** the log book — every book must be approved before it becomes **Active** and can take entries | **Every entry**, before it locks |
-| Steps | Multi-step workflow | Single reviewer sign-off |
+|              | **Log Book Approval**                                                                                                       | **Entry review**                                        |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Approves     | The **log book itself** — its fields (schema) and policy                                                                    | An **individual entry** (a filled-in log)               |
+| Set by       | The **Log Book Approval** workflow (bottom of the Details tab)                                                              | The **Require reviewer approval before locking** toggle |
+| Who approves | The reviewers/approvers defined in the chosen workflow (e.g. technical review → Quality Manager)                            | The log book's **Supervisor**                           |
+| When         | When you **create or replace** the log book — every book must be approved before it becomes **Active** and can take entries | **Every entry**, before it locks                        |
+| Steps        | Multi-step workflow                                                                                                         | Single reviewer sign-off                                |
 
 In short: **Log Book Approval controls the template; Entry review controls the daily records.** The reviewer for entries is the **Supervisor** you set on the log book — entries land in that person's review queue.
 
 ### Edit window options
 
-| Setting | What it means |
-| --- | --- |
-| Time window | Edits allowed for a set number of minutes after submit |
-| Until next entry | Edits allowed until the next entry is logged |
-| Until reviewed | Edits allowed until a reviewer signs off |
-| No edits after submit | The entry locks immediately |
+| Setting               | What it means                                          |
+| --------------------- | ------------------------------------------------------ |
+| Time window           | Edits allowed for a set number of minutes after submit |
+| Until next entry      | Edits allowed until the next entry is logged           |
+| Until reviewed        | Edits allowed until a reviewer signs off               |
+| No edits after submit | The entry locks immediately                            |
 
 ### Log (field record) statuses
 
-| Status | What it means |
-| --- | --- |
-| Submitted (in window) | Just entered; still editable until the window closes |
-| Completed | Locked; no further edits allowed |
-| Under review | Waiting for a supervisor or reviewer to approve or reject |
-| Approved | Reviewer accepted the entry |
-| Rejected | Reviewer sent it back |
-| Voided | Cancelled with a recorded reason; kept for the audit trail |
+| Status                | What it means                                              |
+| --------------------- | ---------------------------------------------------------- |
+| Submitted (in window) | Just entered; still editable until the window closes       |
+| Completed             | Locked; no further edits allowed                           |
+| Under review          | Waiting for a supervisor or reviewer to approve or reject  |
+| Approved              | Reviewer accepted the entry                                |
+| Rejected              | Reviewer sent it back                                      |
+| Voided                | Cancelled with a recorded reason; kept for the audit trail |
 
 ### Assignment schedule types
 
-| Type | What it does |
-| --- | --- |
-| Recurring | Repeats on a schedule you set (frequency plus timezone) |
-| Ad-hoc | No schedule; the log book is available to fill on demand |
+| Type      | What it does                                             |
+| --------- | -------------------------------------------------------- |
+| Recurring | Repeats on a schedule you set (frequency plus timezone)  |
+| Ad-hoc    | No schedule; the log book is available to fill on demand |
 
 ## Roles — who does what
 
 Inspections & Logs separates **setting up** log books from **filling them in**, so day-to-day staff can record entries without changing the controlled templates.
 
-| Role | Typical activities | Permissions |
-| --- | --- | --- |
-| **QA Manager / owner** (setup) | Create and edit log books, define the schema (fields), set the edit-window / signature / review policy, submit books for **approval**, schedule assignments, and **review, amend, or void** entries. | `log_books:create`, `log_books:update`, `field_records:review`, `field_records:amend`, `field_records:void`, `field_records:read_all`, `inspections:assign` |
-| **Day-to-day user** (execution) | Fill in and submit logs from their task inbox, and edit their own entry **while its edit window is still open**. | `field_records:create` |
+| Role                            | Typical activities                                                                                                                                                                                   | Permissions                                                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **QA Manager / owner** (setup)  | Create and edit log books, define the schema (fields), set the edit-window / signature / review policy, submit books for **approval**, schedule assignments, and **review, amend, or void** entries. | `log_books:create`, `log_books:update`, `field_records:review`, `field_records:amend`, `field_records:void`, `field_records:read_all`, `inspections:assign` |
+| **Day-to-day user** (execution) | Fill in and submit logs from their task inbox, and edit their own entry **while its edit window is still open**.                                                                                     | `field_records:create`                                                                                                                                      |
 
 A day-to-day user can only edit **their own** entry, and only **before** the edit window closes or a reviewer locks it. After that, corrections must go through a QA Manager as an **amendment** or **void** (both keep the original for the audit trail).
 
@@ -159,14 +159,14 @@ A log book works like a physical bound book: once approved, the book itself — 
 entry policy, equipment link, location, and code — is **frozen**, so every entry in it keeps
 full integrity forever. The lifecycle is:
 
-| Status | What it means |
-| --- | --- |
-| Draft | Being built or revised — fully editable, takes no entries |
-| Under review | Submitted for approval — locked while reviewers decide |
-| Rejected | Sent back with a reviewer comment — edit and resubmit |
-| Active | Approved and accepting entries; template and policy are frozen |
-| Inactive | Paused — takes no entries, can be resumed |
-| Obsolete | Retired with a recorded reason; kept for the audit trail |
+| Status       | What it means                                                  |
+| ------------ | -------------------------------------------------------------- |
+| Draft        | Being built or revised — fully editable, takes no entries      |
+| Under review | Submitted for approval — locked while reviewers decide         |
+| Rejected     | Sent back with a reviewer comment — edit and resubmit          |
+| Active       | Approved and accepting entries; template and policy are frozen |
+| Inactive     | Paused — takes no entries, can be resumed                      |
+| Obsolete     | Retired with a recorded reason; kept for the audit trail       |
 
 Submitting a draft routes it through the **Log Book Approval** workflow (set at the bottom
 of the Details tab), so attach a workflow there before submitting. This approves the **log
@@ -188,11 +188,11 @@ just expected.
 
 The gate applies at three points, each deliberately different:
 
-| Point | What happens |
-| --- | --- |
-| Assigning someone | A **warning** — you can still assign them, so you can schedule ahead of the training landing. |
-| The task and notification | The outstanding training is **named**, so the person knows what to complete. |
-| Making an entry | **Blocked.** An untrained user cannot file an entry against the book. |
+| Point                     | What happens                                                                                  |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| Assigning someone         | A **warning** — you can still assign them, so you can schedule ahead of the training landing. |
+| The task and notification | The outstanding training is **named**, so the person knows what to complete.                  |
+| Making an entry           | **Blocked.** An untrained user cannot file an entry against the book.                         |
 
 Only training that is fully **verified** clears the gate.
 
@@ -249,7 +249,7 @@ and edit it at any time.
    window; controlled entries require your e-signature and then wait for review.
 
 :::note
-The old "My Queue" page now redirects to My Tasks, so all of your due inspections and logs
+Your due inspections and logs appear in My Tasks, so all of your work
 live in one inbox.
 :::
 

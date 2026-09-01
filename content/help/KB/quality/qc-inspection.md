@@ -148,6 +148,167 @@ Day-to-day, the QA team works entirely in the **Inspection Lots** tab.
 8. The reviewer records a single **Disposition** (Release, Rework, Scrap, Use-as-is…). For an **adverse** disposition you can raise a **Nonconformance** in one click — the NC arrives pre-filled with the failure summary **and the full inspection report attached as a PDF** on its description, so the NC evidence stands alone.
 9. A QA manager can **Reopen for re-inspection** (reason required, kept in the audit trail), re-picking the specification and sampling: an existing plan, an ad-hoc **Custom AQL**, or an ad-hoc **Custom table** — applied to that lot only.
 
+## Recording results against a test
+
+How results are captured depends on the inspection plan's **capture mode**.
+
+| Mode       | You record                                       | Use it for                                               |
+| ---------- | ------------------------------------------------ | -------------------------------------------------------- |
+| **Lot**    | One result per characteristic for the whole lot. | Attribute checks and anything judged once for the batch. |
+| **Sample** | A value per sampled unit, per characteristic.    | Variable data where each unit's reading matters.         |
+
+### The sample grid
+
+In Sample mode you get a classic inspection data sheet: **one row per sampled
+unit**, **one column per characteristic**, with the specification shown in the
+column header.
+
+Enter a value in each cell. The cell evaluates itself against the spec limits as
+you type — the same rule the system applies when it recalculates — and a footer
+tallies pass and fail per characteristic, so a problem column is visible before
+you finish.
+
+Two things make an 80-unit lot bearable:
+
+- **Fill ↓** copies the first row's value down a column, for the characteristics
+  that read the same on every unit.
+- **Paste a column** — copy a newline-separated column out of a gauge export or
+  a spreadsheet and paste it into a cell; it fills consecutive rows from there.
+
+You can attach a **comment or evidence** to an individual cell, which is where a
+photo of the out-of-spec unit belongs.
+
+### Acceptance
+
+Acceptance is calculated for you rather than logged separately. Each
+characteristic carries a **defect class** (Critical, Major, Minor) from the
+specification; a sampled unit counts as one defective for a class if any of its
+characteristics in that class fails.
+
+Those counts are compared against the sampling plan's accept and reject numbers
+per class, and the panel shows an **advisory** Accept or Reject.
+
+:::note The verdict is advisory, and the disposition is yours
+The system tells you what the sampling plan says. It does not dispose of the lot
+for you.
+
+That separation is deliberate: acceptance is arithmetic, disposition is a
+decision — one that may weigh customer impact, a deviation already open, or
+material you cannot replace in time. Record the disposition explicitly.
+:::
+
+## In-process inspection (IPQC)
+
+In-process inspection works differently from receiving or final inspection: the
+line is running, samples are pulled repeatedly over a shift, and who is watching
+matters.
+
+### Check in
+
+An inspector **checks in** to take the inspection. Check-in captures who is
+inspecting and the **shift**, and — for in-process — which **production lot** is
+active. Samples then collect against that lot.
+
+If someone else is already checked in, taking over is explicit, so the record
+shows who was responsible at any point.
+
+### Clear the line first
+
+Collection is locked until the active production lot has a **passed line
+clearance**. See below.
+
+### Collect samples on a cadence
+
+Rather than recording everything at once, you **collect** units off the line as
+the run proceeds. Each collection appends the units to the lot, stamped
+server-side with the time and the inspector, and tagged to the production lot
+they came from.
+
+The sampling plan can set a **collection interval**. When it does:
+
+- The next collection's due time is calculated from the last one.
+- **Collect stays locked until shortly before it is due**, so a shift cannot be
+  front-loaded and called hourly sampling.
+- A banner warns as the collection comes due, and again once it is overdue.
+
+:::tip
+Set the interval on the sampling plan, not as a reminder in someone's head. An
+in-process record whose samples are all timestamped within ten minutes of each
+other tells an auditor exactly what happened, and no explanation afterwards
+improves it.
+:::
+
+### Changing production lot
+
+A run can move to a new production lot mid-shift. Add it from the inspection,
+and subsequent collections tag to it — a fresh line clearance applies to the new
+lot.
+
+## Line clearance
+
+Line clearance is the check that the line is genuinely ready: the previous
+product cleared away, documentation correct, area sanitised.
+
+It is a **hard gate** — a production lot cannot have samples collected against it
+until its clearance has passed.
+
+1. Open the line clearance for the active production lot.
+2. Complete your company's clearance checklist. It is a configurable form, so it
+   asks what your process actually requires.
+3. Record the decision: **Release** to clear the line, or **Hold**.
+
+A release unlocks collection for that lot. A hold leaves it locked.
+
+:::note Why it gates rather than warns
+A line clearance that only warned would be a form people fill in afterwards to
+match what already happened.
+
+Blocking collection means the clearance is done at the point it is meant to be
+done — before product is sampled — and its timestamp is evidence rather than
+paperwork.
+:::
+
+## Retain samples
+
+Retain samples are the physical units you keep back from a batch so you can go
+back to the material later — a customer complaint, a stability question, a
+regulator asking what actually shipped.
+
+### Creating one
+
+Create a retain from the inspection lot. The item, lot number, batch and the
+manufacturing and expiry dates carry across automatically, so you are only
+recording what is specific to the sample:
+
+- **Sample type** — Reserve, Reference, and your other configured types.
+- **Quantity** retained.
+- **Storage** location and conditions.
+- **Retain until** — defaulted for you from the expiry date where one is known,
+  and overridable when your policy differs.
+
+### Labelling
+
+**Print Label** produces the physical label for the container, so what is on the
+shelf can be matched back to its record rather than relying on handwriting.
+
+### Chain of custody
+
+Every movement is recorded as a custody event, so the sample's history is
+continuous from creation to disposal. That continuity is the point: a retain
+sample with a gap in its custody proves nothing.
+
+### Disposal
+
+Disposal is a deliberate, separate action, e-signed with your **PIN**. The
+identity is verified before the disposal is recorded, so the destruction of a
+retained sample carries an attributable signature.
+
+:::warning
+Check the retain-until date and any open investigation before disposing. A retain
+sample is the only physical evidence of what a batch actually was — once
+destroyed, questions about that batch can no longer be answered from the material.
+:::
+
 ## Roles — who does what
 
 QC Inspection separates **setup** from **execution** so day-to-day inspectors aren't changing quality requirements:

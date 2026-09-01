@@ -3,7 +3,8 @@ id: suppliers
 title: Suppliers
 sidebar_position: 1
 description: Onboard suppliers, manage contacts and documents, give suppliers portal access, and request documents through asset requests.
-keywords: [suppliers, supplier portal, asset requests, document requests, supplier contacts, onboarding]
+keywords:
+  [suppliers, supplier portal, asset requests, document requests, supplier contacts, onboarding]
 ---
 
 # Suppliers
@@ -22,23 +23,23 @@ A supplier's status appears as a badge next to its name. New suppliers start as 
 
 ### Categories and risk levels
 
-| Field | Available values |
-| --- | --- |
-| Category | Raw Materials, Component, Service, Software |
-| Risk Level | Low, Medium, High |
+| Field      | Available values                            |
+| ---------- | ------------------------------------------- |
+| Category   | Raw Materials, Component, Service, Software |
+| Risk Level | Low, Medium, High                           |
 
 ### Asset request statuses
 
 When you request documents, each request and each document line tracks its own progress.
 
-| Status | Where it shows | Meaning |
-| --- | --- | --- |
-| Pending | Request / line | Requested, waiting for the supplier to upload |
-| Overdue | Request | Past its due date and not yet received |
-| Received | Request / line | The supplier has uploaded the file |
-| Skipped | Line | You marked that line as not applicable |
-| Accepted | Request | You reviewed the file and accepted it |
-| Rejected | Request | You reviewed the file and rejected it with a reason |
+| Status   | Where it shows | Meaning                                             |
+| -------- | -------------- | --------------------------------------------------- |
+| Pending  | Request / line | Requested, waiting for the supplier to upload       |
+| Overdue  | Request        | Past its due date and not yet received              |
+| Received | Request / line | The supplier has uploaded the file                  |
+| Skipped  | Line           | You marked that line as not applicable              |
+| Accepted | Request        | You reviewed the file and accepted it               |
+| Rejected | Request        | You reviewed the file and rejected it with a reason |
 
 :::note
 **Contacts** are notification targets (email and phone) only. **Supplier users** are real login identities who can access the supplier portal. They are managed separately.
@@ -77,12 +78,10 @@ Use the open icon to view a file in a new tab, or the trash icon to remove it.
 
 ## How to share controlled documents
 
-:::note Sharing goes to portal users, not to a public link
-Documents used to be shared as a public token URL sent to the supplier's primary
-contact — anyone holding the link could open it. That is retired.
-
-Sharing now grants access to named **supplier portal users**, who sign in to see
-it. Access is attributable, and it can be withdrawn.
+:::note Sharing grants access to named people
+Sharing a document gives named **supplier portal users** access to it. They sign
+in to read it, so every view is attributable to a person, and access can be
+withdrawn at any time.
 :::
 
 On the **Shared Documents** tab you can share an internal controlled document with the supplier so it shows up in their portal.
@@ -156,7 +155,7 @@ When a request shows **Received**, review what the supplier sent.
 4. Confirm. The supplier is notified, and the request moves to **Accepted** or **Rejected**.
 
 :::tip
-Expand any request row to see its individual document lines and their progress (for example, *2 / 3 received*). The tab header shows how many requests are still pending or overdue at a glance.
+Expand any request row to see its individual document lines and their progress (for example, _2 / 3 received_). The tab header shows how many requests are still pending or overdue at a glance.
 :::
 
 ## AI in this module

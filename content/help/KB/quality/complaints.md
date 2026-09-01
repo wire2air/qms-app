@@ -51,11 +51,12 @@ passes through both.
 The same four words used by Nonconformances, CAPAs, Quality Events and Change
 Requests.
 
-:::note "Converted to NC" is no longer a status
-It used to be. It was removed because it duplicated a fact already recorded
-properly: the link between the complaint and the nonconformance it produced. A
-converted complaint is Closed, and its NC is on the record as a link — so you can
-navigate from either end, and a complaint that produced two NCs is representable.
+:::note A converted complaint is Closed, and linked
+Converting does not give the complaint a status of its own. It closes, and the
+nonconformance it produced is recorded as a **link** on the record.
+
+Keeping it as a link rather than a status means you can navigate from either end,
+and one complaint can produce more than one nonconformance.
 :::
 
 ## Investigating

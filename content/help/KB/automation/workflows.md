@@ -3,7 +3,19 @@ id: workflows
 title: Workflows
 sidebar_position: 1
 description: Design the review, approval and follow-up paths your records travel — steps, assignees, task forms, scheduled checks and electronic signatures.
-keywords: [workflow, approval, template, steps, assignees, sla, e-signature, delay step, effectiveness check, version]
+keywords:
+  [
+    workflow,
+    approval,
+    template,
+    steps,
+    assignees,
+    sla,
+    e-signature,
+    delay step,
+    effectiveness check,
+    version,
+  ]
 ---
 
 # Workflows
@@ -22,78 +34,78 @@ the same route as a critical one.
 
 ## What you can build
 
-| Capability | What it gives you |
-| --- | --- |
-| **Task steps** | Assign work, with a form for whatever must be captured. |
-| **Approval steps** | Gate progress on sign-off — by everyone, or by any one approver. |
-| **Scheduled steps** | Pause the record and come back to it weeks or months later. |
-| **Effectiveness checks** | A scheduled step that records a verdict and can reopen the record. |
-| **Electronic signatures** | Bind an action to a person with a PIN. |
-| **Due dates** | Per-step SLAs that drive reminders and escalation. |
-| **Role-based assignment** | Route by role, so the path survives people changing jobs. |
-| **Versioning** | Change a template without disturbing records already running. |
+| Capability                | What it gives you                                                  |
+| ------------------------- | ------------------------------------------------------------------ |
+| **Task steps**            | Assign work, with a form for whatever must be captured.            |
+| **Approval steps**        | Gate progress on sign-off — by everyone, or by any one approver.   |
+| **Scheduled steps**       | Pause the record and come back to it weeks or months later.        |
+| **Effectiveness checks**  | A scheduled step that records a verdict and can reopen the record. |
+| **Electronic signatures** | Bind an action to a person with a PIN.                             |
+| **Due dates**             | Per-step SLAs that drive reminders and escalation.                 |
+| **Role-based assignment** | Route by role, so the path survives people changing jobs.          |
+| **Versioning**            | Change a template without disturbing records already running.      |
 
 ## Key concepts
 
 ### Step types
 
-| Step type | What it does |
-| --- | --- |
-| **Task** | A work step. Carries a form for what the assignee must capture, and can allow ad-hoc sub-tasks. The assignee fills it in and marks it complete. |
-| **Approval** | A gate. One or more approvers sign off before the record moves on. |
+| Step type         | What it does                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Task**          | A work step. Carries a form for what the assignee must capture, and can allow ad-hoc sub-tasks. The assignee fills it in and marks it complete.                    |
+| **Approval**      | A gate. One or more approvers sign off before the record moves on.                                                                                                 |
 | **Schedule Task** | A deliberate wait. The record parks and the step wakes on its own after the delay — for a follow-up check, a monitoring period, a review after a settling-in time. |
 
-:::note Scheduled steps are how you park a record honestly
-Before these existed, "check back in 90 days" was a calendar entry in somebody's
-head. A Schedule Task step keeps the record open and accountable, and wakes it up
-on time — with the delay, any extension, and who granted it all on the record.
+:::note Scheduled steps park a record honestly
+"Check back in 90 days" belongs on the record, not in somebody's calendar. A
+Schedule Task step keeps the record open and accountable, wakes it on time, and
+keeps the delay, any extension, and who granted it all in the step's history.
 :::
 
 ### Approval rule
 
-| Rule | Meaning |
-| --- | --- |
-| ALL | Every assigned approver must sign off before the workflow advances. |
-| ANY | The first approver to act carries the step. |
+| Rule | Meaning                                                             |
+| ---- | ------------------------------------------------------------------- |
+| ALL  | Every assigned approver must sign off before the workflow advances. |
+| ANY  | The first approver to act carries the step.                         |
 
 ### Template version statuses
 
-| Status | What it means |
-| --- | --- |
-| Draft | Editable and unpublished. Add and change steps freely. |
+| Status    | What it means                                                     |
+| --------- | ----------------------------------------------------------------- |
+| Draft     | Editable and unpublished. Add and change steps freely.            |
 | Published | Locked and available to launch. To change it, create a new draft. |
-| Retired | A superseded published version, kept read-only for history. |
+| Retired   | A superseded published version, kept read-only for history.       |
 
 ### Instance statuses
 
-| Status | What it means |
-| --- | --- |
-| In Progress | The run is active and moving through its steps. |
-| Completed | Every step finished. |
-| Rejected | An approver rejected a step and stopped the run. |
+| Status            | What it means                                           |
+| ----------------- | ------------------------------------------------------- |
+| In Progress       | The run is active and moving through its steps.         |
+| Completed         | Every step finished.                                    |
+| Rejected          | An approver rejected a step and stopped the run.        |
 | Changes Requested | An approver sent it back to the owner before approving. |
 
 ### Step settings
 
 Each step's gear button opens its settings.
 
-| Setting | What it controls |
-| --- | --- |
-| Instructions | Guidance shown to whoever gets the step. |
-| Due within | Days from step activation until it is due. Drives reminders and escalation. |
-| Default delay | Schedule Task steps: how long to wait — 30, 60, 90, 180 or 365 days, or a specific date. |
-| Max delay extensions | How many times a scheduled step may be pushed back before someone has to act. |
-| Require Comments | The assignee must say something when acting. |
-| Require E-signature | Identity is verified with a PIN before the action is recorded. |
-| Runtime sub-tasks | Lets the record owner add ad-hoc sub-tasks while the run is live. |
+| Setting              | What it controls                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| Instructions         | Guidance shown to whoever gets the step.                                                 |
+| Due within           | Days from step activation until it is due. Drives reminders and escalation.              |
+| Default delay        | Schedule Task steps: how long to wait — 30, 60, 90, 180 or 365 days, or a specific date. |
+| Max delay extensions | How many times a scheduled step may be pushed back before someone has to act.            |
+| Require Comments     | The assignee must say something when acting.                                             |
+| Require E-signature  | Identity is verified with a PIN before the action is recorded.                           |
+| Runtime sub-tasks    | Lets the record owner add ad-hoc sub-tasks while the run is live.                        |
 
 ## Templates and Approval Flows
 
 The workflow list is split in two, because the two halves are used differently.
 
-| List | Holds |
-| --- | --- |
-| **Templates** | Workflows carrying task forms and multi-step work — NC, CAPA, Change Control, and modules you build. |
+| List               | Holds                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| **Templates**      | Workflows carrying task forms and multi-step work — NC, CAPA, Change Control, and modules you build. |
 | **Approval Flows** | Workflows that are purely sign-off — Document Control, Log Books, Inspections & Logs, Audits and QC. |
 
 They are the same thing underneath and open in the same editor; the split just
@@ -191,9 +203,9 @@ is implemented, not on the day you implement it.
 
 The step parks the record for the configured window, then asks for a verdict:
 
-| Verdict | What it means |
-| --- | --- |
-| **Effective** | It worked. The record closes. |
+| Verdict                         | What it means                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Effective**                   | It worked. The record closes.                                                              |
 | **Not Effective — Close Check** | It did not work, and you are closing the check with a justification rather than reopening. |
 
 The verdict needs a comment and a signature, and the whole exchange stays on the

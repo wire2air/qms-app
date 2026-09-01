@@ -69,7 +69,7 @@ URS-CAP-01 … URS-CAP-10. See the
 | 2 | Delete a **separate** draft CAPA | Deletion permitted while in draft |  |  |  |
 | 3 | As a user other than the owner, attempt to start the CAPA | Unavailable or refused |  |  |  |
 | 4 | As **CAPA Owner**, start the CAPA | A confirmation explains the record becomes permanent |  |  |  |
-| 5 | Confirm | Status becomes pending/active; the first workflow step activates |  |  |  |
+| 5 | Confirm | Status becomes **Open**; the first workflow step activates |  |  |  |
 | 6 | Attempt to delete the CAPA now | Refused |  |  |  |
 | 7 | Confirm the assigned reviewer is tasked | Task appears |  |  |  |
 
@@ -136,7 +136,7 @@ URS-CAP-01 … URS-CAP-10. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | On a separate started CAPA, initiate cancellation without a reason | Refused |  |  |  |
-| 2 | Enter a reason and cancel with signature | Status becomes cancelled; reason and signature recorded |  |  |  |
+| 2 | Enter a reason and cancel with signature | Status becomes **Cancelled**; reason and signature recorded |  |  |  |
 | 3 | Confirm in-progress workflow steps are stopped | Steps no longer actionable |  |  |  |
 | 4 | Confirm the cancelled CAPA remains retrievable | Readable, clearly not active |  |  |  |
 
