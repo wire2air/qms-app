@@ -56,11 +56,14 @@ async function onDeleteDepartment(row) {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/administration/sites-and-departments"
     title="Departments"
     :icon="IconBuilding"
     subtitle="Manage departments within your organization's sites."
     :state="list.state.value"
-    :emptyTitle="list.hasActiveFilters.value ? 'No departments match your filters' : 'No departments yet'"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No departments match your filters' : 'No departments yet'
+    "
   >
     <template #actions>
       <BaseButton v-if="canCreateDepartment" @click="openDialog()">
@@ -79,10 +82,13 @@ async function onDeleteDepartment(row) {
       @delete="onDeleteDepartment"
       @edit="onEditDepartment"
     />
-
   </BaseListLayout>
 
   <!-- Create/Edit Department Dialog — outside BaseListLayout so it stays mounted
        in the empty state (else you can't create the first department). -->
-  <DepartmentsCreateUpdateDialog v-if="showDialog" :id="selectedDepartmentId" v-model="showDialog" />
+  <DepartmentsCreateUpdateDialog
+    v-if="showDialog"
+    :id="selectedDepartmentId"
+    v-model="showDialog"
+  />
 </template>

@@ -16,7 +16,12 @@ const router = useRouter()
 const ALL_TABS = [
   { value: 'submissions', label: 'Submissions', icon: IconTable, permission: 'records:read' },
   { value: 'forms', label: 'Forms', icon: IconForms, permission: 'forms_templates:read' },
-  { value: 'optionsets', label: 'Option Sets', icon: IconChecklist, permission: 'option_sets:read' },
+  {
+    value: 'optionsets',
+    label: 'Option Sets',
+    icon: IconChecklist,
+    permission: 'option_sets:read',
+  },
 ]
 const tabs = computed(() => ALL_TABS.filter((t) => isAllowed([t.permission])))
 const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
@@ -49,7 +54,14 @@ watch(
       :icon="IconTable"
       title="App Builder"
       subtitle="Build forms, collect submissions, and grow them into full modules."
-    />
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          App Builder
+          <HelpButton slug="KB/operations/records" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="App Builder sections">
       <div class="tw:mt-6">

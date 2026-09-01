@@ -31,7 +31,18 @@ const activeTab = computed({
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconAlertTriangle" title="Nonconformances" subtitle="Record, investigate and close nonconformities." />
+    <PageHeader
+      :icon="IconAlertTriangle"
+      title="Nonconformances"
+      subtitle="Record, investigate and close nonconformities."
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Nonconformances
+          <HelpButton slug="KB/quality/nonconformances" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Nonconformance sections">
       <div class="tw:mt-6">

@@ -32,22 +32,29 @@ A CR moves through a lifecycle from draft to closure. The status appears in the
 | Status | What it means |
 | --- | --- |
 | Draft | Being prepared by the owner. Editable and can be deleted. |
-| Under Review | Submitted; the approval workflow is running and reviewers are acting on it. |
-| Approved | Approvals are complete; implementation can begin. |
-| In Implementation | Implementation sub-tasks are being worked. |
-| Pending Effectiveness | Implementation done; awaiting the effectiveness check. |
-| On Hold | Temporarily paused. |
-| Rejected | An approver declined the change. |
+| Open | Submitted and being worked — its workflow is running. |
+| Closed | Completed and signed off. |
 | Cancelled | Abandoned after submission, with a recorded reason. |
-| Closed | Completed successfully and signed off. |
+
+:::note Where did Under Review, Approved and In Implementation go?
+They described where the **workflow** was, which the workflow already records on
+its own steps. Carrying the same fact in two places meant they could disagree,
+and a report asking "how many changes are open" had to enumerate five phases and
+get all five right.
+
+A change request is Open from the moment it leaves draft until it closes. To see
+which phase it is in, look at the workflow — that is the thing that actually
+knows. "Rejected" is also gone: it reverted to Draft on arrival and was never a
+resting state.
+:::
 
 ### Change types and classification
 
-| Field | Purpose |
-| --- | --- |
-| Change Type | Category of the change (configured by your admin). Some types may flag that a risk assessment or root-cause analysis is expected. |
-| Classification | Impact level: **Minor**, **Major**, or **Critical**. Optional, but useful for prioritising. |
-| Priority | How urgent the change is (e.g. Low, Medium, High, Urgent — configured by your admin). |
+| Field          | Purpose                                                                                                                           |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Change Type    | Category of the change (configured by your admin). Some types may flag that a risk assessment or root-cause analysis is expected. |
+| Classification | Impact level: **Minor**, **Major**, or **Critical**. Optional, but useful for prioritising.                                       |
+| Priority       | How urgent the change is (e.g. Low, Medium, High, Urgent — configured by your admin).                                             |
 
 :::note
 Change types, priorities, and statuses are configured for your company, so the

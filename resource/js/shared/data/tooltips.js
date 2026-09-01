@@ -13,6 +13,78 @@
  */
 export const TOOLTIPS = [
   {
+    key: 'sso.entityId',
+    label: 'Audience / Entity ID',
+    tooltip:
+      'How your identity provider names this application. Paste it into the field your provider calls Audience URI, Entity ID, or Identifier. It is unique to your workspace, which is what stops a sign-in issued for one company being replayed at another — so it must match exactly, character for character.',
+  },
+  {
+    key: 'sso.acsUrl',
+    label: 'Sign-on URL (ACS)',
+    tooltip:
+      'Where your identity provider sends people after they authenticate. Your provider may call this the Single sign-on URL, Reply URL, or Assertion Consumer Service URL. It must be this exact address, including https.',
+  },
+  {
+    key: 'sso.metadataUrl',
+    label: 'Our metadata',
+    tooltip:
+      'The same details in the standard XML format. If your provider offers to import metadata from a URL, give it this one instead of typing the fields by hand — it is the least error-prone route.',
+  },
+  {
+    key: 'sso.displayName',
+    label: 'Name',
+    tooltip:
+      'What appears on the sign-in button, so make it something your people will recognise — usually your provider’s name, such as “Okta” or “Microsoft”.',
+  },
+  {
+    key: 'sso.metadataXml',
+    tooltip:
+      'The fastest and most reliable setup. Download or copy the federation metadata your provider publishes, paste it here, and we fill in the entity ID, sign-on URL and signing certificate for you. You can still review and correct every field before saving.',
+  },
+  {
+    key: 'sso.idpEntityId',
+    label: 'IdP Entity ID',
+    tooltip:
+      'How your identity provider names itself. It is an identifier, not a page you can open, so it will not always look like a working web address. Okta calls it the Identity Provider Issuer; Entra calls it the Microsoft Entra Identifier.',
+  },
+  {
+    key: 'sso.idpSsoUrl',
+    label: 'IdP sign-on URL',
+    tooltip:
+      'The address we send people to in order to sign in. Okta calls it the Identity Provider Single Sign-On URL; Entra calls it the Login URL; Google calls it the SSO URL.',
+  },
+  {
+    key: 'sso.certificates',
+    label: 'Signing certificate',
+    tooltip:
+      'The public certificate we use to verify that a sign-in really came from your provider — the trust anchor for the whole connection. Paste more than one during a certificate rollover: we accept any of them, so you can add the new certificate before your provider switches and avoid an outage.',
+  },
+  {
+    key: 'sso.emailDomains',
+    label: 'Email domains',
+    tooltip:
+      'Which email domains this connection serves, such as acme.com. We match on the domain to decide who this provider signs in, and — if you require SSO — who can no longer use a password. Addresses outside these domains are unaffected, which is how contractors and break-glass accounts keep working.',
+  },
+  {
+    key: 'sso.enforced',
+    label: 'Require SSO',
+    tooltip:
+      'Turns your provider into the only way in for these domains: the password form and the Google and Microsoft buttons stop working for them, so access really is governed by your directory, including its MFA and deprovisioning. Company owners can always still sign in with a password — deliberately, so a misconfigured provider cannot lock everyone out of their own quality system. Test the connection before turning this on.',
+  },
+  {
+    key: 'sso.allowIdpInitiated',
+    label: 'Allow starting from the identity provider',
+    tooltip:
+      'Lets people sign in by clicking your app tile in Okta or Entra. Off by default because such a sign-in answers no request of ours, so there is less we can check about it. Leave it off unless your people rely on the tile.',
+  },
+  {
+    key: 'sso.enabled',
+    label: 'Enable single sign-on',
+    tooltip:
+      'The master switch for this workspace. Turning it off stops every SSO connection at once — useful while a misconfigured provider is being fixed — without deleting anything you have set up.',
+  },
+
+  {
     key: 'record.notifications',
     label: 'Notifications',
     tooltip:

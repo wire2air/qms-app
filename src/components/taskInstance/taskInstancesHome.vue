@@ -48,6 +48,7 @@ const subtitle = computed(() => {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/operations/my-tasks"
     :title="title"
     :subtitle="subtitle"
     :state="list.state.value"

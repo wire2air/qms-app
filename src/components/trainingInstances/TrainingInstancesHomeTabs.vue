@@ -31,12 +31,25 @@ const activeTab = computed({
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconSchool" title="Training" subtitle="Assigned training, completion and compliance." />
+    <PageHeader
+      :icon="IconSchool"
+      title="Training"
+      subtitle="Assigned training, completion and compliance."
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Training
+          <HelpButton slug="KB/training/training" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Training sections">
       <div class="tw:mt-6">
         <BaseTabPanel value="instances"><TrainingInstancesHome embedded /></BaseTabPanel>
-        <BaseTabPanel value="insights"><ModuleInsightsTab moduleId="training_instances" /></BaseTabPanel>
+        <BaseTabPanel value="insights"
+          ><ModuleInsightsTab moduleId="training_instances"
+        /></BaseTabPanel>
       </div>
     </BaseTabs>
   </BasePage>

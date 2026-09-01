@@ -1,7 +1,7 @@
 ---
 id: training
-title: Training
-sidebar_position: 1
+title: Training Library
+sidebar_position: 2
 description: Build training programs, assign them to your team, complete assigned trainings, and verify competency through manager sign-off.
 keywords: [training, training library, assignment, assessment, verification, competency]
 ---
@@ -10,49 +10,66 @@ keywords: [training, training library, assignment, assessment, verification, com
 
 ## Overview
 
-Training lets you build training programs, deliver them to your team, and prove that people are competent to do their work. An admin or training owner creates a training in the **Training Library**, adds material and assessment questions, and launches it to selected employees. Each employee works through their assigned training in **My Tasks**, and — when required — a training manager reviews the results and signs off in the **Training Verification** dashboard.
+The **Training Library** is your catalogue of trainings — the material itself,
+who it is for, whether there is a quiz, and whether a manager must confirm
+competency afterwards. It is where a training is _defined_; who has to complete
+it is decided elsewhere.
 
-This keeps a complete, audit-ready record of who was trained, what they scored, and who confirmed their competency.
+> **New to the module?** Start with
+> [Training — How It Works](./training-overview.md), which shows how the library,
+> curricula, role mapping, instances and verification fit together and what to set
+> up first.
+
+Trainings reach people two ways:
+
+- **Through a curriculum mapped to a role**, so anyone holding that role is
+  assigned them automatically — the usual route. See
+  [Training Curriculum](./training-curriculum.md).
+- **Launched directly** to a chosen group, for one-off or ad-hoc training.
+
+A third kind is not created here at all: training attached to a **controlled
+document** is generated from that document and launches when a new version
+becomes effective. See [Document Control](../documents/document-control.md).
 
 ## Key concepts
 
 ### Training statuses (Training Library)
 
-| Status | What it means |
-| --- | --- |
-| **Draft** | Being built. You can edit every part of it. Not yet visible to employees. |
-| **Active** | Published. Content is locked and the training can be launched to people. |
-| **Archived** | Retired from active use. No longer launched. |
+| Status       | What it means                                                             |
+| ------------ | ------------------------------------------------------------------------- |
+| **Draft**    | Being built. You can edit every part of it. Not yet visible to employees. |
+| **Active**   | Published. Content is locked and the training can be launched to people.  |
+| **Archived** | Retired from active use. No longer launched.                              |
 
 ### Assignee statuses (a person's progress)
 
-| Status | What it means |
-| --- | --- |
-| **Assigned** | Sent to the person; not started yet. |
-| **In Progress** | The person has started but not submitted. |
-| **Failed** | Scored below the passing score; may retry if attempts remain. |
-| **Completed** | Passed the assessment; awaiting verification if required. |
-| **Verified** | Manager confirmed competency. Fully done. |
+| Status               | What it means                                                  |
+| -------------------- | -------------------------------------------------------------- |
+| **Assigned**         | Sent to the person; not started yet.                           |
+| **In Progress**      | The person has started but not submitted.                      |
+| **Failed**           | Scored below the passing score; may retry if attempts remain.  |
+| **Completed**        | Passed the assessment; awaiting verification if required.      |
+| **Verified**         | Manager confirmed competency. Fully done.                      |
 | **Retrain Required** | Manager rejected; a fresh training is launched for the person. |
-| **Removed** | Taken off this launch by a manager, with a recorded reason. |
+| **Removed**          | Taken off this launch by a manager, with a recorded reason.    |
 
 ### Instance statuses (a single launch)
 
-| Status | What it means |
-| --- | --- |
-| **Active** | People are still working through it. |
+| Status                   | What it means                                   |
+| ------------------------ | ----------------------------------------------- |
+| **Active**               | People are still working through it.            |
 | **Pending Verification** | Everyone finished; waiting on manager sign-off. |
-| **Completed** | Closed out. |
-| **Cancelled** | Stopped early, with a recorded reason. |
+| **Completed**            | Closed out.                                     |
+| **Cancelled**            | Stopped early, with a recorded reason.          |
 
 ### Key settings on a training
 
-| Field | What it controls |
-| --- | --- |
-| **Passing Score (%)** | Minimum assessment score to pass (default 70). |
-| **Max Attempts** | How many times a person can try the assessment (default 1). |
-| **Completion Due (days)** | Deadline, counted from launch. Leave blank for no deadline. |
-| **Training Manager** | The person who verifies competency. Required before publishing. |
+| Field                             | What it controls                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Passing Score (%)**             | Minimum assessment score to pass (default 70).                                                            |
+| **Max Attempts**                  | How many times a person can try the assessment (default 1).                                               |
+| **Completion Due (days)**         | Deadline, counted from launch. Leave blank for no deadline.                                               |
+| **Training Manager**              | The person who verifies competency. Required before publishing.                                           |
 | **Manager Verification Required** | When on, completed trainees wait for sign-off. When off, the training closes automatically on completion. |
 
 ## How to build a training (Training Library)
@@ -77,7 +94,7 @@ Publishing locks the training so it can no longer be edited. Finalize the conten
 4. Click **Launch**. Each person receives a training task. You can then open the launch from **Training Instances** to track progress.
 
 :::note
-You can also click **Add to Training Matrix** to schedule a training as a recurring competency requirement for a role.
+To make a training a standing requirement for a role rather than a one-off assignment, add it to a curriculum and map that curriculum to the role — see [Training Curriculum](./training-curriculum.md).
 :::
 
 ## How to complete my training
@@ -102,3 +119,10 @@ You can also click **Add to Training Matrix** to schedule a training as a recurr
 - Document and external links are pinned to the version that was effective when the training launched, so trainees always see the right material.
 - A published training can be **unpublished** back to Draft only if no one has been launched into it yet.
 - Managers can **Cancel Instance** to stop a launch early, or remove an individual assignee — both require a recorded reason that is kept in the audit log.
+
+## Related
+
+- [Training — How It Works](./training-overview.md) — the whole module, and setup order
+- [Training Curriculum](./training-curriculum.md) — grouping trainings and mapping to roles
+- [Training Verification](./training-verification.md) — confirming competency
+- [Training Matrix Report](./training-matrix.md) — completion and gaps

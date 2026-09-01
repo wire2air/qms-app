@@ -77,6 +77,14 @@ Use the open icon to view a file in a new tab, or the trash icon to remove it.
 
 ## How to share controlled documents
 
+:::note Sharing goes to portal users, not to a public link
+Documents used to be shared as a public token URL sent to the supplier's primary
+contact — anyone holding the link could open it. That is retired.
+
+Sharing now grants access to named **supplier portal users**, who sign in to see
+it. Access is attributable, and it can be withdrawn.
+:::
+
 On the **Shared Documents** tab you can share an internal controlled document with the supplier so it shows up in their portal.
 
 1. Open the supplier and select **Shared Documents**.
@@ -94,6 +102,36 @@ Invite people at the supplier so they can log in to the supplier portal.
 You can cancel an invitation that hasn't been accepted yet using the **X** on the user's row.
 
 When a supplier user logs in, their portal shows a welcome dashboard with anything explicitly shared with them — documents, CAPAs, and non-conformances — plus their document requests.
+
+## Qualifying and scoring suppliers
+
+Beyond holding a supplier's documents, you can **qualify** them: run a structured
+assessment, score it, and end up with a rating you can act on.
+
+**How it is built.** Qualification is a form-based module you design, linked to
+suppliers. In the form builder you give answers **scores** and fields **weights**;
+on the module's **Scoring** page you define the **rating bands** that turn a
+0–100 total into a rating and an outcome — Approved, Conditional, Rejected, or
+whatever your process calls them.
+
+**Why bands rather than a raw number.** A score of 72 means nothing on its own,
+and everyone reads it differently. A band converts it into a decision, and that
+decision is what automation and approval steps can react to — so "below 60 routes
+to the quality manager" becomes a rule rather than a habit.
+
+**Re-qualification.** Each cycle creates a **new** assessment record rather than
+overwriting the last one. The supplier's **Evaluations** tab lists every one,
+newest first, with its status, sealed rating and next-review date — so you can
+show an auditor not just the current rating but how it has moved.
+
+Start one from the supplier's Evaluations tab, which opens the assessment with
+that supplier already in context.
+
+:::tip
+Weight the questions that actually predict problems for you, not the ones that
+are easiest to answer. A questionnaire where every question counts the same
+produces ratings that cluster in the middle and separate nobody.
+:::
 
 ## How to create document (asset) requests
 
@@ -120,3 +158,18 @@ When a request shows **Received**, review what the supplier sent.
 :::tip
 Expand any request row to see its individual document lines and their progress (for example, *2 / 3 received*). The tab header shows how many requests are still pending or overdue at a glance.
 :::
+
+## AI in this module
+
+Where a qualification form is scored, AI can **draft the narrative** that
+explains the rating — a summary of what drove the score, for you to check
+against what the assessment actually says.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)

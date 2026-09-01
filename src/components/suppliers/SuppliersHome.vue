@@ -13,7 +13,9 @@ const router = useRouter()
 
 // Create needs read too: the create mutation reads the new row back through the
 // `suppliers:read` RLS SELECT policy, so create-without-read fails at the DB.
-const canCreateSupplier = computed(() => isAllowed(['supplier_management:create', 'supplier_management:read']))
+const canCreateSupplier = computed(() =>
+  isAllowed(['supplier_management:create', 'supplier_management:read']),
+)
 const canUpdateSupplier = computed(() => isAllowed(['supplier_management:update']))
 const canDeleteSupplier = computed(() => isAllowed(['supplier_management:delete']))
 
@@ -71,7 +73,13 @@ const kpiItems = computed(() => {
       color: 'red',
       emphasize: byRisk('High') > 0,
     },
-    { key: 'medium', label: 'Medium risk', value: byRisk('Medium'), icon: IconShieldCheck, color: 'amber' },
+    {
+      key: 'medium',
+      label: 'Medium risk',
+      value: byRisk('Medium'),
+      icon: IconShieldCheck,
+      color: 'amber',
+    },
     { key: 'low', label: 'Low risk', value: byRisk('Low'), icon: IconCircleCheck, color: 'green' },
   ]
 })
@@ -99,11 +107,14 @@ async function onDeleteSupplier(row) {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/suppliers/suppliers"
     title="Suppliers"
     :icon="IconTruck"
     subtitle="Manage and evaluate your global network of manufacturing partners."
     :state="list.state.value"
-    :emptyTitle="list.hasActiveFilters.value ? 'No suppliers match your filters' : 'No suppliers yet'"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No suppliers match your filters' : 'No suppliers yet'
+    "
   >
     <template #actions>
       <BaseButton v-if="canCreateSupplier" @click="onCreateSupplier">

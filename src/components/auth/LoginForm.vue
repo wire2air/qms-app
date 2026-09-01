@@ -41,15 +41,45 @@ const methods = ref({ email: true, google: true, microsoft: true })
 // the IdP is the thing that is broken.
 const ssoConnections = ref([])
 
+/**
+ * What the user is told when a sign-in redirect carries ?error=.
+ *
+ * Two audiences at once: the person trying to get in needs to know whether to
+ * retry or call someone, and the admin they call needs enough to know which
+ * setting is wrong. So these name the thing to check without leaking whether a
+ * given address has an account here.
+ */
+const SIGNIN_ERRORS = {
+  method_disabled: 'That sign-in method is disabled for this workspace.',
+  sso_required: 'Your organisation requires signing in with your identity provider.',
+  sso_disabled: 'Single sign-on is turned off for this workspace.',
+  sso_unavailable: 'Single sign-on is not available for this workspace.',
+  sso_no_connection: 'No identity provider is configured for that email domain.',
+  sso_domain_not_allowed:
+    'Your identity provider returned an email domain this connection does not cover.',
+  sso_idp_initiated_disabled:
+    'Start from this sign-in page rather than from your provider’s app tile.',
+  sso_assertion_invalid:
+    'Your identity provider’s response could not be verified. Your administrator should check the signing certificate.',
+  sso_no_email: 'Your identity provider did not send an email address for your account.',
+  sso_no_account: 'No account here matches that sign-in. Ask your administrator to invite you.',
+  sso_account_inactive: 'That account is not active. Please contact your administrator.',
+  sso_not_permitted: 'That account cannot sign in this way.',
+  sso_error: 'Single sign-on failed. Please try again or contact your administrator.',
+}
+
 function loginWithSso(connectionId) {
   window.location.href = `/api/v1/auth/sso/login?connection=${encodeURIComponent(connectionId)}`
 }
 onMounted(async () => {
-  // Show a message if a disabled federated method was attempted (redirect back).
+  // A failed SSO attempt comes back as a redirect carrying a code. Without a
+  // message for each one the user lands on a silent login page and tries the
+  // same button again — the codes are most of what an admin has to go on when
+  // a connection is misconfigured, so every one of them says something.
   const url = new URL(window.location.href)
-  if (url.searchParams.get('error') === 'method_disabled') {
-    toast.error('That sign-in method is disabled for this workspace.')
-  }
+  const code = url.searchParams.get('error')
+  if (code && SIGNIN_ERRORS[code]) toast.error(SIGNIN_ERRORS[code])
+  else if (code) toast.error('Sign-in failed. Please try again or contact your administrator.')
   if (isSignup.value) return
   try {
     const res = await fetch('/api/v1/auth/login-methods')

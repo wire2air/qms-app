@@ -21,6 +21,47 @@ The module landing page shows four quick stat tiles (My queue, Awaiting your rev
 this week, Submitted this week) and cards that take you into Log Books, Log Book Assignments,
 My Tasks, and Logs.
 
+## The sub-menus, and what to create first
+
+| Menu | What it holds |
+| --- | --- |
+| **Log Forms** | The reusable field layouts a log book captures. |
+| **Log Books** | The books themselves — a form, a policy, a lifecycle. |
+| **Inspections & Logs** | The entries people have filed. |
+| **Assignments** | Who fills which book, and on what schedule. |
+
+Build them in that order:
+
+### Step 1 — Create a Log Form
+
+Define the fields to capture — readings, checks, observations — with their types
+and limits. Forms are reusable, so several books can share one.
+
+### Step 2 — Create a Log Book
+
+A book pairs a form with a policy: who may make entries, whether a supervisor
+signs off, the edit window, the equipment it belongs to, and the controlled
+documents it follows.
+
+Submit it for approval. Once approved and **Active**, its definition is frozen —
+which is the point, and why it is worth getting right before submitting.
+
+### Step 3 — Assign who fills it
+
+Schedule the people or roles responsible, and how often. This is what turns a
+book into recurring tasks in someone's list.
+
+### Step 4 — Entries get filed
+
+People make entries from their tasks, or from a mobile device at the point of
+work. See [Mobile Logging](./mobile-logging.md).
+
+:::tip
+Get the form right before approving the book. A book's fields are frozen on
+approval, so changing them later means creating a replacement book — deliberate,
+but more work than a few minutes' thought up front.
+:::
+
 ## Key concepts
 
 ### Log book classifications
@@ -138,6 +179,48 @@ replacement is approved, the old book is automatically marked **Obsolete** ("Rep
 and any of its open scheduled fills are closed out. The two books stay linked — the banner on
 each shows "Replaces" / "Replaced by" — and the old book's entries remain readable exactly as
 they were recorded.
+
+## Training gate — only trained people may make entries
+
+A log book can be linked to controlled documents: the SOP the entry follows, the
+method it applies. When it is, being trained on those documents is enforced, not
+just expected.
+
+The gate applies at three points, each deliberately different:
+
+| Point | What happens |
+| --- | --- |
+| Assigning someone | A **warning** — you can still assign them, so you can schedule ahead of the training landing. |
+| The task and notification | The outstanding training is **named**, so the person knows what to complete. |
+| Making an entry | **Blocked.** An untrained user cannot file an entry against the book. |
+
+Only training that is fully **verified** clears the gate.
+
+:::note Why the block is at entry and not at assignment
+Assignment is scheduling — often done weeks ahead, by someone planning a rota,
+for training that is booked and not yet done. Blocking there would make the rota
+unusable.
+
+The entry is the moment the claim is made: this reading was taken by someone
+competent to take it. That is the moment worth enforcing, and it is the one an
+auditor examines.
+:::
+
+## Over-the-shoulder review
+
+Some entries need a supervisor's sign-off at the moment they are made — the
+operator is at the workstation and the supervisor is standing beside them.
+
+Enable it per book. The operator stays signed in; the reviewer picks their own
+name and enters their **PIN** to approve or reject on the spot. No session
+switch, no walking to another machine.
+
+The signature is attributed to the **reviewer** — they are the one attesting —
+and the record also captures that the operator's session was used. Both facts are
+kept, because either alone would misrepresent what happened.
+
+Only a book's authorised reviewers can sign this way: its designated supervisor,
+or additional reviewers named on the book.
 
 ## How to schedule who fills a log book
 

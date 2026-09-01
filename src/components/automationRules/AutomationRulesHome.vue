@@ -132,6 +132,12 @@ async function onDelete(rule) {
       title="Automation Rules"
       subtitle="Condition-based notifications & automations — when an object matches your conditions, run actions."
     >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Automation Rules
+          <HelpButton slug="KB/automation/automation-rules" :size="16" />
+        </span>
+      </template>
       <template #actions>
         <BaseButton variant="primary" @click="openNew">New Rule</BaseButton>
       </template>

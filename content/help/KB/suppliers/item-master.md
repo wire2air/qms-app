@@ -30,6 +30,14 @@ Each item in the catalog has the following fields. Fields marked required must b
 | Product Type | Yes | The category that describes what kind of item this is (see below). |
 | Status | Yes | The item's current lifecycle stage (see below). Defaults to Active. |
 | Description | No | A short plain-text summary, up to 1,000 characters. |
+| ERP Item Code | No | The item's code in your ERP, so records here reconcile with the system of record on the other side. |
+| Revision | No | The item's revision level, where it is controlled. |
+| Item Type | No | What kind of item this is. |
+| Criticality | No | How critical the item is — drives how closely it is inspected. |
+| Country of origin | No | Needed for trade and regulatory reporting. |
+| Shelf life (days) | No | Drives expiry handling for materials that age. |
+| Storage conditions | No | The conditions the item must be kept in. |
+| Default AQL | No | The acceptance quality limit inspection plans start from for this item. |
 
 ### Item statuses
 
@@ -111,3 +119,23 @@ Export your current catalog first to get a correctly formatted template, then fi
 - SKUs must be unique. If a save is blocked, check the SKU field for an "already in use" message.
 - Use Product Family and Product Type consistently so filters and searches stay reliable.
 - Prefer changing an item's status over deleting it when you want to keep a historical record.
+
+## Items and suppliers
+
+An item can be supplied by more than one supplier, and a supplier supplies more
+than one item, so the link between them is many-to-many rather than a single
+"supplier" field on the item.
+
+That matters in practice: when an item is dual-sourced, a nonconformance is
+against a **particular supplier's** delivery of it, not against the item in
+general. Keeping the relationship many-to-many means quality history attaches to
+the right pairing, and dropping a supplier does not orphan the item.
+
+## Specifications and inspection
+
+Items carry **specifications** — the characteristics you inspect against, with
+their limits. Inspection plans can be bound at the item level, or inherited from
+the item's family so a whole group shares one plan without repeating it per item.
+
+The **Default AQL** and **Criticality** on the item feed how incoming inspection
+samples it. See [QC Inspection](../quality/qc-inspection.md).

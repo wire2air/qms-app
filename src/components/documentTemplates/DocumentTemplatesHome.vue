@@ -37,6 +37,7 @@ function navigateToCreate() {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/documents/document-templates"
     title="Document Templates"
     :icon="IconFileDescription"
     subtitle="Define document lifecycles, metadata, and structural components."

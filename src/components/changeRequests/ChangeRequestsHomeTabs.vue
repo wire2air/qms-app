@@ -31,12 +31,25 @@ const activeTab = computed({
 
 <template>
   <BasePage width="standard">
-    <PageHeader :icon="IconGitBranch" title="Change Requests" subtitle="Propose, review and approve controlled changes." />
+    <PageHeader
+      :icon="IconGitBranch"
+      title="Change Requests"
+      subtitle="Propose, review and approve controlled changes."
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Change Requests
+          <HelpButton slug="KB/quality/change-requests" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Change request sections">
       <div class="tw:mt-6">
         <BaseTabPanel value="changeRequests"><ChangeRequestsHome embedded /></BaseTabPanel>
-        <BaseTabPanel value="insights"><ModuleInsightsTab moduleId="change_control" /></BaseTabPanel>
+        <BaseTabPanel value="insights"
+          ><ModuleInsightsTab moduleId="change_control"
+        /></BaseTabPanel>
       </div>
     </BaseTabs>
   </BasePage>

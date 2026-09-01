@@ -24,6 +24,7 @@ function openDialog() {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/administration/api-keys"
     title="API Keys"
     :icon="IconKey"
     subtitle="Manage your personal API keys for programmatic access."
@@ -46,7 +47,6 @@ function openDialog() {
     <div class="tw:flex tw:flex-col tw:gap-2">
       <ApiKeyListItem v-for="key in apiKeys || []" :key="key.id" :apiKey="key" />
     </div>
-
   </BaseListLayout>
 
   <!-- Outside BaseListLayout so it stays mounted in the empty state. -->

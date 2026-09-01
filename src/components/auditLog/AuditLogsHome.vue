@@ -30,12 +30,15 @@ const hasActiveFilters = computed(
 
 <template>
   <BaseListLayout
+    helpSlug="KB/administration/audit-logs"
     title="Audit Logs"
     :icon="IconShield"
     subtitle="Tamper-evident record of all system actions."
     :state="list.state.value"
     :emptyIcon="IconShield"
-    :emptyTitle="hasActiveFilters ? 'No audit log entries match your filters' : 'No audit log entries found'"
+    :emptyTitle="
+      hasActiveFilters ? 'No audit log entries match your filters' : 'No audit log entries found'
+    "
     emptyDescription="Audit logs will appear here as actions are performed."
   >
     <template #filters>

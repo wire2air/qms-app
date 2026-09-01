@@ -2,20 +2,36 @@
 id: workflows
 title: Workflows
 sidebar_position: 1
-description: Design multi-step review and approval workflows, then launch and run them against your documents, nonconformances, and other records.
-keywords: [workflows, approvals, workflow steps, send back, reviewers, workflow versions]
+description: Design the review, approval and follow-up paths your records travel — steps, assignees, task forms, scheduled checks and electronic signatures.
+keywords: [workflow, approval, template, steps, assignees, sla, e-signature, delay step, effectiveness check, version]
 ---
 
 # Workflows
 
 ## Overview
 
-Workflows let you turn a repeatable review or approval process into a reusable template, then run that template against real records such as documents, nonconformances, CAPAs, and change controls. You design a template once — its steps, assignees, and rules — publish it, and from then on anyone submitting a record can launch a tracked, step-by-step process with clear ownership and a full timeline.
+A workflow is the path a record takes from raised to closed: who does what, in
+what order, who signs off, and what has to be captured on the way. You design it
+once as a **template**, and every record that uses it follows the same path — so
+your process is enforced by the system rather than remembered by people.
 
-There are two sides to Workflows:
+Workflows drive Documents, Nonconformances, CAPAs, Change Requests, Quality
+Events, Audits, Complaints and any module you build yourself. Different records
+of the same type can follow different paths: a minor deviation need not travel
+the same route as a critical one.
 
-- **Workflow templates** — the reusable blueprint you design and publish.
-- **Workflow instances** — a live run of a published template attached to a specific record.
+## What you can build
+
+| Capability | What it gives you |
+| --- | --- |
+| **Task steps** | Assign work, with a form for whatever must be captured. |
+| **Approval steps** | Gate progress on sign-off — by everyone, or by any one approver. |
+| **Scheduled steps** | Pause the record and come back to it weeks or months later. |
+| **Effectiveness checks** | A scheduled step that records a verdict and can reopen the record. |
+| **Electronic signatures** | Bind an action to a person with a PIN. |
+| **Due dates** | Per-step SLAs that drive reminders and escalation. |
+| **Role-based assignment** | Route by role, so the path survives people changing jobs. |
+| **Versioning** | Change a template without disturbing records already running. |
 
 ## Key concepts
 
@@ -23,108 +39,206 @@ There are two sides to Workflows:
 
 | Step type | What it does |
 | --- | --- |
-| Action | A work step. Can include form fields and (in some modules) sub-tasks. The assignee completes the work and marks it complete. |
-| Approval | A gate step. One or more approvers sign off. No form — comment-only. |
+| **Task** | A work step. Carries a form for what the assignee must capture, and can allow ad-hoc sub-tasks. The assignee fills it in and marks it complete. |
+| **Approval** | A gate. One or more approvers sign off before the record moves on. |
+| **Schedule Task** | A deliberate wait. The record parks and the step wakes on its own after the delay — for a follow-up check, a monitoring period, a review after a settling-in time. |
 
-### Approval rule (Approval steps)
+:::note Scheduled steps are how you park a record honestly
+Before these existed, "check back in 90 days" was a calendar entry in somebody's
+head. A Schedule Task step keeps the record open and accountable, and wakes it up
+on time — with the delay, any extension, and who granted it all on the record.
+:::
+
+### Approval rule
 
 | Rule | Meaning |
 | --- | --- |
-| ALL | Every assigned approver must complete their task before the workflow advances. |
-| ANY | Only one assigned approver needs to complete the step to advance. |
+| ALL | Every assigned approver must sign off before the workflow advances. |
+| ANY | The first approver to act carries the step. |
 
 ### Template version statuses
 
 | Status | What it means |
 | --- | --- |
-| Draft | An editable, unpublished version. You can add and change steps here. |
+| Draft | Editable and unpublished. Add and change steps freely. |
 | Published | Locked and available to launch. To change it, create a new draft. |
-| Retired | An older published version, kept read-only for history. |
+| Retired | A superseded published version, kept read-only for history. |
 
 ### Instance statuses
 
 | Status | What it means |
 | --- | --- |
 | In Progress | The run is active and moving through its steps. |
-| Completed | All steps finished successfully. |
+| Completed | Every step finished. |
 | Rejected | An approver rejected a step and stopped the run. |
-| Changes Requested | An approver asked the owner for changes before approving. |
+| Changes Requested | An approver sent it back to the owner before approving. |
 
-### Step-level settings
+### Step settings
+
+Each step's gear button opens its settings.
 
 | Setting | What it controls |
 | --- | --- |
-| Instructions | Guidance shown to the assignee. |
-| SLA: Due in (days) | Business days from when the step activates until it is due. |
-| Require Comments | Forces the assignee to leave a comment when acting. |
-| Require E-signature | Prompts for identity verification before the action is recorded. |
-| Allow child steps | (Action steps, some modules) Lets the record owner add ad-hoc sub-tasks while the run is live. |
+| Instructions | Guidance shown to whoever gets the step. |
+| Due within | Days from step activation until it is due. Drives reminders and escalation. |
+| Default delay | Schedule Task steps: how long to wait — 30, 60, 90, 180 or 365 days, or a specific date. |
+| Max delay extensions | How many times a scheduled step may be pushed back before someone has to act. |
+| Require Comments | The assignee must say something when acting. |
+| Require E-signature | Identity is verified with a PIN before the action is recorded. |
+| Runtime sub-tasks | Lets the record owner add ad-hoc sub-tasks while the run is live. |
 
-## How to design a workflow template
+## Templates and Approval Flows
 
-1. Go to **Workflows** and select **Create Workflow**.
-2. Enter a **Workflow Name**, choose the **Module** the workflow applies to, and optionally add a description. Select **Create Workflow**.
-3. The designer opens with a first draft version and a starter step. Use the left **Workflow Sequence** panel to manage steps and the right panel to configure the selected step.
-4. Select **Add Step** to add steps. Use the up/down arrows on each step card to reorder, and the remove control to delete a step.
+The workflow list is split in two, because the two halves are used differently.
 
-:::note
-You can only edit a version while it is in **Draft**. Published versions are locked.
+| List | Holds |
+| --- | --- |
+| **Templates** | Workflows carrying task forms and multi-step work — NC, CAPA, Change Control, and modules you build. |
+| **Approval Flows** | Workflows that are purely sign-off — Document Control, Log Books, Inspections & Logs, Audits and QC. |
+
+They are the same thing underneath and open in the same editor; the split just
+keeps a list of approval paths from being buried among templates with forms
+attached, and the other way round.
+
+If a flow you expect is missing from one list, look in the other — a workflow
+appears in Approval Flows when every step is an approval step.
+
+## Designing a template
+
+1. Go to **Templates** under Workflows and create a workflow, choosing the module
+   it applies to.
+2. Add steps in order. Give each a clear name — the name is what assignees see in
+   their task list.
+3. For each step, set its type, then open **settings** for instructions, the due
+   window and compliance options.
+4. Use the **people** button to set who handles the step (see below).
+5. On Task and Schedule Task steps, build the **task form** — the fields the
+   assignee fills in. You can compose one inline or reuse a saved form block.
+6. **Publish** when the path is right.
+
+:::tip Start from a working template
+Every company is seeded with templates for the standard processes. Copying the
+closest one and adjusting it is faster and safer than starting from an empty
+canvas.
 :::
 
-### Configure a step
+### Assigning steps
 
-1. Select a step in the left panel.
-2. Set the **Step Name** and **Instructions**.
-3. Choose the **Step Type** — **Action** or **Approval**.
-4. For an Approval step, choose the **Rule** (**ALL** or **ANY**).
-5. Set the **SLA** in business days, and toggle **Require Comments** and **Require E-signature** as needed.
-6. For Action steps in supported modules, you can add form fields and turn on **Allow adding child steps at runtime**.
+Steps are assigned by **role**, not to named individuals. A step routed to
+"Quality Manager" keeps working when the quality manager changes — no template
+edit, no stranded records.
 
-### Assign who handles each step
+Where a workflow leaves the choice open, the record owner picks the specific
+person at submission time.
 
-1. With a step selected, select **Manage Assignees**.
-2. Assign one or more **Roles** to the step. Roles define the pool of people eligible to be picked when the workflow is launched.
+:::note An assignment is routing, not a lock
+The assignee is the accountable party, but anyone the permission matrix allows
+can act on a step — otherwise one person on leave strands the record until
+somebody reassigns it.
 
-:::tip
-Assigning roles is optional. If a step has no roles, the person launching the workflow can pick any active user for that step. Assigning roles narrows the choices to the right people.
+Acting on someone else's step looks different on purpose: the button names them
+("Approve on behalf of Sam Patel"), so it cannot be clicked without noticing
+whose it is. The assignee is notified, and the audit trail records who actually
+acted rather than who it was assigned to.
 :::
 
-## How to publish a template
+## Publishing and versioning
 
-1. Open the workflow and make sure the **Draft** version is selected (use the version badge in the header to switch versions).
-2. Select **Publish**. The version becomes **Published** and locked, and is now available to launch.
+Publishing locks the template. To change a published workflow, create a new draft
+version — records already running stay on the version they started with, so a
+mid-flight change never rewrites the path a record is already taking.
 
-To change a published workflow, select **Create New Draft**. This copies the current steps into a fresh draft you can edit and publish as a new version. Older published versions become **Retired** and stay available for history.
+Each record shows which **version** of the workflow it is following, so a record
+that behaves differently from today's template has a visible reason.
 
-:::note
-Use **Archive** to take a workflow out of use without deleting it; **Restore** brings it back. A draft that has never been published can be discarded with **Discard Draft** (or **Delete** if it is the only version).
-:::
+## Running a workflow
 
-## How to launch a workflow on a record
+When a record is submitted, its workflow launches and the first step activates.
+Assignees get tasks; the record shows a **Workflow** card and a timeline of where
+it is.
 
-Workflows are launched from the record you want to route (for example when submitting a document version or a nonconformance):
+**Acting on a step.** Open the record or the task. Fill in the step's form, add a
+comment if required, and Mark Complete — or Approve or Reject on an approval
+step. If e-signature is required you will be asked for your PIN.
 
-1. On the record, choose the **workflow version** to run.
-2. In the **Assign Step Reviewers** dialog, pick a user for each step. The choices come from the roles you assigned in the template (or all active users if no roles were set). The first step requires a reviewer.
-3. Select **Confirm** to start the run. A workflow instance is created, the first step activates, and assigned users get their tasks.
+**Drafts.** Work in progress on a step form can be saved without completing the
+step. A colleague picking the step up sees the draft rather than starting again.
 
-## How to act on a step
+**Grouped steps.** Consecutive steps belonging to the same person are shown as a
+single card, so a run of five things one person does reads as one piece of work
+instead of five. Each step keeps its own actions and its own history.
 
-When you are assigned to the active step, open the workflow instance to see your **required action**:
+**Step history.** Every step carries its own trail — who acted, when, what they
+said, and any delay scheduled, extended or skipped.
 
-1. Review the step details and any form fields or instructions.
-2. For an Approval step, select **Approve** or **Reject** (and **Request Changes** where available).
-3. If the step requires comments, enter one. **Reject** and **Request Changes** always ask for a comment.
-4. If the step requires an e-signature, complete the identity verification prompt to record your action.
+## Send-backs and rejections
 
-Once the step's rule is satisfied (**ALL** or **ANY** approvers done), the workflow advances to the next step automatically. You can follow progress on the instance's **timeline** and health card, which show completed steps, elapsed time, and overall status.
+An approver has three options:
 
-## Send-back and rejections
+- **Approve** — the run advances.
+- **Request changes** — the record goes back to the owner to fix and resubmit.
+  The run continues from where it left off.
+- **Reject** — the run stops.
 
-- **Reject** stops the run and marks the instance **Rejected**.
-- **Request Changes** sends the record back to its owner as **Changes Requested**, with your comment, so they can fix it.
-- When a step is sent back, the system automatically routes it to the right person — the record owner for a main step, or the parent step's assignee for a sub-task — so you don't configure send-back targets in the template.
+Both send-back and rejection require a comment, since "no" without a reason is
+the thing everyone complains about.
 
-:::tip
-Use the **Workflow Instances** list to find and filter all in-flight and completed runs across your records.
-:::
+## Effectiveness checks
+
+A Schedule Task step can be marked as capturing an **effectiveness verdict** —
+the "did the fix actually work?" question you must answer some time after a CAPA
+is implemented, not on the day you implement it.
+
+The step parks the record for the configured window, then asks for a verdict:
+
+| Verdict | What it means |
+| --- | --- |
+| **Effective** | It worked. The record closes. |
+| **Not Effective — Close Check** | It did not work, and you are closing the check with a justification rather than reopening. |
+
+The verdict needs a comment and a signature, and the whole exchange stays on the
+record. If it is too early to judge, the check can be extended — up to the limit
+set on the step, so a check cannot be deferred indefinitely.
+
+Because the check is a workflow step, it appears on the record's Workflow card
+with everything else, and reporting can find every record with a check pending,
+completed or overdue without digging through steps.
+
+## Who can do what
+
+Designing templates and acting on steps are separate permissions.
+
+- **Workflows & Templates** — create, edit and publish templates.
+- **The module's own capabilities** — act on a step. Approving a CAPA step needs
+  the Approve capability on CAPA; completing a task step needs Update.
+
+The permission matrix is checked for the assignee too: routing a step to someone
+who lacks the capability does not grant it. If a step cannot be actioned by the
+person it is assigned to, that is a role configuration to fix, not a workflow
+one.
+
+See [Roles and Permissions](../administration/roles-and-permissions.md).
+
+## AI in this module
+
+AI can **draft a workflow template** from a description of your process —
+steps, roles and forms — created as a Draft for you to review and publish. It
+proposes a structure; it does not publish anything.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)
+
+## Related
+
+- [Task Forms and Form Blocks](./task-forms-and-form-blocks.md) — what a step captures
+- [Forms and Form Templates](./forms-and-form-templates.md) — building forms
+- [Automation Rules](./automation-rules.md) — condition-based actions and notifications
+- [My Tasks](../operations/my-tasks.md) — where assignees pick work up
+- [Document Control](../documents/document-control.md) — workflows on documents
+- [CAPAs](../quality/capas.md) — effectiveness checks in context

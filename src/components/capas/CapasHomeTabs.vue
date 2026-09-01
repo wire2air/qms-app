@@ -44,7 +44,14 @@ const activeTab = computed({
       :icon="IconShieldCheck"
       title="CAPAs"
       subtitle="Track corrective and preventive actions through to verification."
-    />
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          CAPAs
+          <HelpButton slug="KB/quality/capas" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="CAPA sections">
       <div class="tw:mt-6">

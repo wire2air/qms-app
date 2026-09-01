@@ -179,34 +179,43 @@ const certsText = computed({
       Let people sign in with your own identity provider — Microsoft Entra ID, Okta or Google
       Workspace. Give your IdP the details below, then add a connection using the metadata your
       IdP publishes.
+      <HelpButton
+        slug="KB/administration/single-sign-on"
+        label="Setup guide"
+        class="tw:ml-1 tw:align-middle"
+      />
     </p>
 
-    <label class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:p-3">
-      <BaseSwitch :modelValue="ssoEnabled" @update:modelValue="toggleSso" />
-      <span class="tw:text-sm tw:text-on-main">
+    <div class="tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:p-3">
+      <BaseSwitch
+        :modelValue="ssoEnabled"
+        label="Enable single sign-on for this workspace"
+        @update:modelValue="toggleSso"
+      />
+      <BaseLabel size="sm" dataKey="sso.enabled" class="tw:text-on-main">
         Enable single sign-on for this workspace
         <span class="tw:block tw:text-xs tw:text-secondary">
           The master switch. Turn it off to stop all SSO at once — for example while a
           misconfigured provider is being fixed — without deleting anything.
         </span>
-      </span>
-    </label>
+      </BaseLabel>
+    </div>
 
     <!-- 1. Our half — what the customer types into their IdP. -->
     <div v-if="sp" class="tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:flex-col tw:gap-3">
       <BaseText variant="overline" class="tw:block">Give these to your identity provider</BaseText>
       <div
         v-for="row in [
-          { label: 'Audience / Entity ID', value: sp.entityId },
-          { label: 'Sign-on URL (ACS)', value: sp.acsUrl },
-          { label: 'Our metadata', value: sp.metadataUrl },
+          { label: 'Audience / Entity ID', value: sp.entityId, key: 'sso.entityId' },
+          { label: 'Sign-on URL (ACS)', value: sp.acsUrl, key: 'sso.acsUrl' },
+          { label: 'Our metadata', value: sp.metadataUrl, key: 'sso.metadataUrl' },
         ]"
         :key="row.label"
         class="tw:flex tw:items-center tw:gap-2"
       >
-        <span class="tw:w-48 tw:shrink-0 tw:text-xs tw:font-medium tw:text-secondary">
+        <BaseLabel size="xs" :dataKey="row.key" class="tw:w-48 tw:shrink-0">
           {{ row.label }}
-        </span>
+        </BaseLabel>
         <code class="tw:flex-1 tw:min-w-0 tw:truncate tw:rounded tw:bg-main-hover tw:px-2 tw:py-1 tw:text-xs">
           {{ row.value }}
         </code>
@@ -282,12 +291,12 @@ const certsText = computed({
         {{ editing.id ? 'Edit connection' : 'New connection' }}
       </BaseText>
 
-      <BaseField label="Name">
+      <BaseField label="Name" dataKey="sso.displayName">
         <BaseTextInput v-model="editing.displayName" placeholder="e.g. Acme Okta" />
       </BaseField>
 
       <!-- The fast path: paste what the IdP publishes. -->
-      <BaseField label="Paste your IdP's metadata XML (fastest)">
+      <BaseField label="Paste your IdP's metadata XML (fastest)" dataKey="sso.metadataXml">
         <BaseTextarea
           v-model="metadataXml"
           rows="4"
@@ -301,37 +310,43 @@ const certsText = computed({
         </BaseButton>
       </div>
 
-      <BaseField label="IdP Entity ID">
+      <BaseField label="IdP Entity ID" dataKey="sso.idpEntityId">
         <BaseTextInput v-model="editing.idpEntityId" placeholder="http://www.okta.com/exk…" />
       </BaseField>
-      <BaseField label="IdP sign-on URL">
+      <BaseField label="IdP sign-on URL" dataKey="sso.idpSsoUrl">
         <BaseTextInput v-model="editing.idpSsoUrl" placeholder="https://acme.okta.com/app/…/sso/saml" />
       </BaseField>
-      <BaseField label="Signing certificate(s) — blank line between each">
+      <BaseField label="Signing certificate(s) — blank line between each" dataKey="sso.certificates">
         <BaseTextarea v-model="certsText" rows="4" placeholder="MIIDp…" />
       </BaseField>
-      <BaseField label="Email domains (comma separated)">
+      <BaseField label="Email domains (comma separated)" dataKey="sso.emailDomains">
         <BaseTextInput v-model="domainsText" placeholder="acme.com, acme.co.uk" />
       </BaseField>
 
-      <label class="tw:flex tw:items-center tw:gap-3">
-        <BaseSwitch v-model="editing.allowIdpInitiated" />
-        <span class="tw:text-sm tw:text-on-main">
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <BaseSwitch
+          v-model="editing.allowIdpInitiated"
+          label="Allow starting from the identity provider"
+        />
+        <BaseLabel size="sm" dataKey="sso.allowIdpInitiated" class="tw:text-on-main">
           Allow starting from the identity provider
           <span class="tw:block tw:text-xs tw:text-secondary">
             Needed to sign in by clicking the app tile in Okta or Entra. Off by default: such a
             response answers no request of ours, so there is nothing to bind it to — prefer
             starting from this app's sign-in page where you can.
           </span>
-        </span>
-      </label>
+        </BaseLabel>
+      </div>
 
-      <label class="tw:flex tw:items-center tw:gap-3">
-        <BaseSwitch v-model="editing.enforced" />
-        <span class="tw:text-sm tw:text-on-main">
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <BaseSwitch
+          v-model="editing.enforced"
+          label="Require SSO for these email domains"
+        />
+        <BaseLabel size="sm" dataKey="sso.enforced" class="tw:text-on-main">
           Require SSO — people in these domains can no longer sign in with a password
-        </span>
-      </label>
+        </BaseLabel>
+      </div>
 
       <div class="tw:flex tw:justify-end tw:gap-2 tw:border-t tw:border-divider tw:pt-3">
         <BaseButton variant="outline" :disabled="saving" @click="editing = null">Cancel</BaseButton>

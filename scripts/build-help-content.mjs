@@ -91,6 +91,34 @@ function rewriteTarget(target, fromDir, routePrefix) {
   return `${routePrefix}/${p}${hash ? `#${hash}` : ''}`
 }
 
+/**
+ * Warn about intra-doc links that point at no article.
+ *
+ * The rewriter only joins a target to the current directory when it is written
+ * relative (`./sibling.md`); a bare `sibling.md` is treated as root-relative and
+ * silently becomes `/help/sibling` — a link that renders and clicks perfectly
+ * well and lands on nothing. That is the same failure the rewriter's own
+ * idempotence guard exists to prevent, and it is only ever found by following
+ * every link by hand, so it is checked here instead.
+ */
+function reportDeadLinks(articles, routePrefix, name) {
+  const slugs = new Set(articles.map((a) => a.slug))
+  const dead = []
+  for (const a of articles) {
+    const re = new RegExp(`\\]\\((${routePrefix}/[^)#\\s]+)`, 'g')
+    for (const [, target] of a.body.matchAll(re)) {
+      const slug = target.slice(routePrefix.length + 1)
+      if (!slugs.has(slug)) dead.push(`${a.slug} -> ${target}`)
+    }
+  }
+  if (dead.length) {
+    console.warn(
+      `[${name}] ${dead.length} dead intra-doc link(s); use ./sibling.md for a file in the same folder:`,
+    )
+    for (const d of dead) console.warn(`  ${d}`)
+  }
+}
+
 function rewriteLinks(body, slug, routePrefix) {
   const fromDir = posix.dirname(slug) // e.g. 'KB/ai' (or '.' for top-level)
   return body.replace(/\]\(([^)\s]+)(\s+"[^"]*")?\)/g, (_m, target, title = '') => {
@@ -158,6 +186,7 @@ function build({ name, contentDir, outFile, routePrefix, required }) {
     }
   })
   articles.sort((a, b) => a.category.localeCompare(b.category) || a.order - b.order)
+  reportDeadLinks(articles, routePrefix, name)
 
   const payload = {
     generatedAt: new Date().toISOString(),

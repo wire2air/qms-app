@@ -3,7 +3,22 @@ id: qc-inspection
 title: QC Inspection
 sidebar_position: 6
 description: Set up specifications, sampling plans and inspection plans, then run incoming, in-process, final and outgoing inspections with sampling, results capture and QA disposition.
-keywords: [qc inspection, quality control, IQC, IPQC, FQC, OQC, specification, sampling plan, AQL, inspection lot, disposition, test library, inspection plan]
+keywords:
+  [
+    qc inspection,
+    quality control,
+    IQC,
+    IPQC,
+    FQC,
+    OQC,
+    specification,
+    sampling plan,
+    AQL,
+    inspection lot,
+    disposition,
+    test library,
+    inspection plan,
+  ]
 ---
 
 # QC Inspection
@@ -28,22 +43,22 @@ You'll find QC Inspection in the sidebar. The page header shows a test-tube icon
 
 QC Inspection is organized into six tabs. The first five are **setup**; the last one — Inspection Lots — is where the day-to-day work happens.
 
-| Tab | Purpose | Who typically uses it |
-| --- | --- | --- |
-| **Test Library** | A reusable master list of individual tests (pH, Appearance, Net Weight…). Define a test once and reuse it across many specifications. | QA Manager |
-| **Specifications** | The **acceptance criteria** — the list of tests plus their target/limits for a given item, item group, or item type. "What good looks like." | QA Manager |
-| **Sampling Plans** | **How many** units to inspect for a lot size, and how many defects are allowed (AQL). | QA Manager |
-| **AQL Standards** | The published sampling tables (e.g. ANSI/ASQ Z1.4) that sampling plans draw their numbers from. | QA Manager |
-| **Inspection Plans** | Binds a **disposition approval workflow** to a scope + inspection point, so a completed lot routes to the right approver. | QA Manager |
-| **Inspection Lots** | The actual inspection record: pick an item + inspection point, capture results, and record a disposition. | QA team |
+| Tab                  | Purpose                                                                                                                                      | Who typically uses it |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **Test Library**     | A reusable master list of individual tests (pH, Appearance, Net Weight…). Define a test once and reuse it across many specifications.        | QA Manager            |
+| **Specifications**   | The **acceptance criteria** — the list of tests plus their target/limits for a given item, item group, or item type. "What good looks like." | QA Manager            |
+| **Sampling Plans**   | **How many** units to inspect for a lot size, and how many defects are allowed (AQL).                                                        | QA Manager            |
+| **AQL Standards**    | The published sampling tables (e.g. ANSI/ASQ Z1.4) that sampling plans draw their numbers from.                                              | QA Manager            |
+| **Inspection Plans** | Binds a **disposition approval workflow** to a scope + inspection point, so a completed lot routes to the right approver.                    | QA Manager            |
+| **Inspection Lots**  | The actual inspection record: pick an item + inspection point, capture results, and record a disposition.                                    | QA team               |
 
 ### How the pieces fit together
 
 Everything is keyed off **scope** and **inspection point**, so the right requirements attach to a lot automatically.
 
-- **Scope** answers *"what does this apply to?"* and can be one of three levels, from most to least specific:
+- **Scope** answers _"what does this apply to?"_ and can be one of three levels, from most to least specific:
   - **Item** — a single SKU.
-  - **Item Group** — a family of related SKUs (e.g. all "Caps"). *Set up one spec/plan for the whole group instead of one per SKU.*
+  - **Item Group** — a family of related SKUs (e.g. all "Caps"). _Set up one spec/plan for the whole group instead of one per SKU._
   - **Item Type** — a broad category (Finished Good, Component…).
 - **Inspection point** — Incoming, In-process, Final or Outgoing.
 
@@ -66,7 +81,7 @@ Do these once per item / item group. Later changes create new versions rather th
 2. Add the individual tests you use often — give each a name, a test type (Numeric, Pass/Fail, Text), a default severity (defect class), and, if it needs a gauge, mark **Requires an instrument** and pick a preferred one.
 3. Optionally restrict a test to certain **Item Groups** so it only appears where relevant.
 
-Library tests are templates: when you build a specification you can **Add from library** to pre-fill tests instead of typing them again. *Acceptance limits (target/LSL/USL/UOM) are not stored in the library — they belong to each specification, because they differ per item.*
+Library tests are templates: when you build a specification you can **Add from library** to pre-fill tests instead of typing them again. _Acceptance limits (target/LSL/USL/UOM) are not stored in the library — they belong to each specification, because they differ per item._
 
 ### Step 2 — Create a Specification
 
@@ -95,6 +110,7 @@ A sampling plan decides how many units to inspect and how many defects are accep
 If you use AQL-based plans, the **AQL Standards** tab holds the published tables your plans reference. The global standards ship with the **complete canonical ANSI/ASQ Z1.4 / ISO 2859-1 master tables** — all 16 code letters (A–R), Normal / Tightened / Reduced, including the Ac=0 plans for tight AQLs and the arrow cells of the printed standard.
 
 Reading the table viewer:
+
 - Every AQL value carries its typical defect-class pairing chip (typ. Critical / Major / Minor).
 - **Arrow cells** have no plan of their own — they point at a neighbouring code letter's plan ("larger sample" / "smaller sample"), exactly like the arrows in the printed standard. The system follows them automatically when computing a plan.
 - **Ac / Re** — accept the lot at ≤ Ac defects of that class, reject at ≥ Re. Reduced-inspection plans can have a gap between Ac and Re: a count in the gap still accepts, but signals a return to Normal inspection.
@@ -120,15 +136,15 @@ Day-to-day, the QA team works entirely in the **Inspection Lots** tab.
 3. Choose the **Sampling** source:
    - **Sampling plan** (default) — the system **matches** the Specification and Sampling Plan for that item + point, narrow → broad: one match is shown read-only ("matched by Item Group"), several matches let you pick, and no match blocks that mode until a QA Manager approves one.
    - **Custom table** — declare a fixed plan inline for **this lot only** (one sample size + accept/reject per defect class). No approved sampling plan is required — this is the escape hatch when nothing matches yet.
-4. If the matched plan is a **√N + 1** plan, enter the **Containers received (N)** — the field shows the computed sample live ("√N + 1 → sample 6 containers"). Formula lots express their sample basis in containers throughout: *sample 9 of 50 containers · 1,000 kg*.
+4. If the matched plan is a **√N + 1** plan, enter the **Containers received (N)** — the field shows the computed sample live ("√N + 1 → sample 6 containers"). Formula lots express their sample basis in containers throughout: _sample 9 of 50 containers · 1,000 kg_.
 5. Create the lot. The system computes the **sample size** from the sampling configuration.
 6. **Capture results** for each characteristic (and log any defects). Instruments requiring calibration are checked at capture. Notes:
    - Numeric fields don't accept **negative values** unless the characteristic's own spec range goes below zero (e.g. freezer temperatures).
    - A **failed sample requires a comment** — the row's comment icon turns **red** until the reason is documented (Save is blocked without it), and entered comments show as a truncated preview on the row.
    - Use **Retain Sample** (in the header actions or the rail card) to keep a physical sample from the lot.
 7. When results are complete, **Submit for QA Disposition**. The lot routes through the disposition workflow from the matching inspection plan. The reviewer sees a glanceable advisory:
-   - **AQL / custom lots** — the *AQL Acceptance* panel tallies defective units per class against the plan's Ac/Re and shows an advisory Accept / Reject.
-   - **√N + 1 lots** — the *Lab Acceptance* panel applies the raw-material rule: **all** captured results within specification → advisory Accept; **any** out-of-spec result → advisory Reject, with per-sample chips naming what failed. Advisory only — the disposition decision is the reviewer's.
+   - **AQL / custom lots** — the _AQL Acceptance_ panel tallies defective units per class against the plan's Ac/Re and shows an advisory Accept / Reject.
+   - **√N + 1 lots** — the _Lab Acceptance_ panel applies the raw-material rule: **all** captured results within specification → advisory Accept; **any** out-of-spec result → advisory Reject, with per-sample chips naming what failed. Advisory only — the disposition decision is the reviewer's.
 8. The reviewer records a single **Disposition** (Release, Rework, Scrap, Use-as-is…). For an **adverse** disposition you can raise a **Nonconformance** in one click — the NC arrives pre-filled with the failure summary **and the full inspection report attached as a PDF** on its description, so the NC evidence stands alone.
 9. A QA manager can **Reopen for re-inspection** (reason required, kept in the audit trail), re-picking the specification and sampling: an existing plan, an ad-hoc **Custom AQL**, or an ad-hoc **Custom table** — applied to that lot only.
 

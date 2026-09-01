@@ -104,3 +104,18 @@ To review what has already been submitted, open a template and choose **View rec
 :::warning
 The **Preview** inside the Form Builder is for checking layout only — submitting in preview does not save a record. A real record is created only when an Active form is filled in and submitted by a user.
 :::
+
+## AI in this module
+
+The form builder has a **conversational assistant**: describe what you need to
+capture and it proposes a field list, which appears as a card you can apply,
+edit or ignore. Applying happens in the builder, through the normal save.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)

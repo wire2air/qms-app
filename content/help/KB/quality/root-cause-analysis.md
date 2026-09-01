@@ -18,24 +18,24 @@ Root Cause Analysis (RCA) helps your team move past symptoms and identify the un
 
 Every RCA template makes all four methods available. The investigator chooses one when they start the analysis.
 
-| Method | What it does | What the admin sets up |
-| --- | --- | --- |
-| Fishbone | Sorts possible causes into branch categories (People, Machine, Method, Material, Measurement, Environment by default). | The branch names. Investigators add the causes. |
-| 5 Whys | Asks "why" repeatedly until the underlying cause surfaces. | A problem prompt and the list of "why" prompts. |
-| Is / Is Not | Compares what the problem is versus what it is not across several dimensions. | The dimension rows (What, Where, When, Who, How Much / How Many by default). |
-| Why Tree | Builds a branching causal tree from the problem down to root causes. | A problem prompt. The tree is built live during the investigation. |
+| Method      | What it does                                                                                                           | What the admin sets up                                                       |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Fishbone    | Sorts possible causes into branch categories (People, Machine, Method, Material, Measurement, Environment by default). | The branch names. Investigators add the causes.                              |
+| 5 Whys      | Asks "why" repeatedly until the underlying cause surfaces.                                                             | A problem prompt and the list of "why" prompts.                              |
+| Is / Is Not | Compares what the problem is versus what it is not across several dimensions.                                          | The dimension rows (What, Where, When, Who, How Much / How Many by default). |
+| Why Tree    | Builds a branching causal tree from the problem down to root causes.                                                   | A problem prompt. The tree is built live during the investigation.           |
 
 ### Root cause records
 
 When the analysis is finalized, each identified cause is saved as a row.
 
-| Field | Meaning |
-| --- | --- |
-| Primary | The single canonical root cause for the investigation. Every analysis has exactly one and it cannot be removed. |
-| Contributing | Optional additional factors that played a part. Add or remove as many as needed. |
-| Category | An optional label (such as People or Machine) used to group causes for reporting. |
-| Description | The written explanation of the cause. |
-| Method used | The method that produced the cause, recorded automatically. |
+| Field        | Meaning                                                                                                         |
+| ------------ | --------------------------------------------------------------------------------------------------------------- |
+| Primary      | The single canonical root cause for the investigation. Every analysis has exactly one and it cannot be removed. |
+| Contributing | Optional additional factors that played a part. Add or remove as many as needed.                                |
+| Category     | An optional label (such as People or Machine) used to group causes for reporting.                               |
+| Description  | The written explanation of the cause.                                                                           |
+| Method used  | The method that produced the cause, recorded automatically.                                                     |
 
 :::note
 Categories and their labels are frozen onto each root cause when you finalize the analysis, so renaming or removing a category later will not change past records.
@@ -90,3 +90,18 @@ If a step shows "No RCA template linked to this field," contact your administrat
 - Build one template per problem type (for example, equipment failure or process error) so investigators always start from a sensible structure.
 - Use categories consistently to make root-cause trends easier to spot in reports.
 - Confirm the **Primary** root cause is the true underlying cause, not a symptom, before you finalize.
+
+## AI in this module
+
+AI can **propose causes** and help articulate the root-cause statement from the
+evidence gathered. The analyst applies what is useful; the problem statement
+stays yours.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)

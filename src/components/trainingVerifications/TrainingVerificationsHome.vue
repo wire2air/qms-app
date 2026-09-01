@@ -109,9 +109,7 @@ watchEffect(() => {
 })
 
 const selectedInstance = computed(
-  () =>
-    verifiableInstances.value.find((r) => r.instance.id === selectedInstanceId.value)
-      ?.instance,
+  () => verifiableInstances.value.find((r) => r.instance.id === selectedInstanceId.value)?.instance,
 )
 
 // Stats
@@ -141,6 +139,7 @@ function onVerified() {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/training/training-verification"
     title="Training Verification"
     :icon="IconClipboardCheck"
     width="standard"
@@ -163,11 +162,15 @@ function onVerified() {
         <div class="tw:flex tw:gap-3">
           <div class="tw:bg-blue-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-blue-200">
             <p class="tw:text-xs tw:text-blue-700 tw:font-medium">Pending Instances</p>
-            <p class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-blue-700">{{ filteredInstances.length }}</p>
+            <p class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-blue-700">
+              {{ filteredInstances.length }}
+            </p>
           </div>
           <div class="tw:bg-green-50 tw:rounded-lg tw:px-4 tw:py-2 tw:border tw:border-green-200">
             <p class="tw:text-xs tw:text-green-700 tw:font-medium">Closed This Week</p>
-            <p class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-green-700">{{ closedThisWeek }}</p>
+            <p class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-green-700">
+              {{ closedThisWeek }}
+            </p>
           </div>
         </div>
       </div>
@@ -183,7 +186,11 @@ function onVerified() {
           <p class="tw:text-sm tw:font-bold tw:text-on-sidebar">Pending Training Instances</p>
           <p class="tw:text-xs tw:text-secondary">Instances awaiting competency verification</p>
         </div>
-        <BaseTextInput v-model="list.filters.value.search" placeholder="Search training..." size="sm" />
+        <BaseTextInput
+          v-model="list.filters.value.search"
+          placeholder="Search training..."
+          size="sm"
+        />
 
         <div class="tw:flex tw:gap-1.5">
           <button

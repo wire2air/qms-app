@@ -43,6 +43,9 @@ const props = defineProps({
   size: { type: String, default: 'md' },
   // Help-icon tooltip text on the label.
   help: { type: String, default: '' },
+  // Or pull that copy from the central registry by key (see tooltips.js).
+  // `help` still wins when both are given.
+  dataKey: { type: String, default: '' },
   // Label subtitle/description.
   description: { type: String, default: '' },
   // Override the auto-generated control id.
@@ -126,6 +129,7 @@ defineExpose({ validate })
       :error="!!displayError"
       :size="size"
       :help="help"
+      :dataKey="dataKey"
       :description="description"
     >
       <slot name="label">{{ label }}</slot>

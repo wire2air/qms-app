@@ -176,9 +176,7 @@ const myTeamIds = useLiveQuery(
   async (db) => {
     const uid = currentSession.value?.userId
     if (!uid) return []
-    return (await db.UserOnTeam.where().exec())
-      .filter((r) => r.userId === uid)
-      .map((r) => r.teamId)
+    return (await db.UserOnTeam.where().exec()).filter((r) => r.userId === uid).map((r) => r.teamId)
   },
   { models: ['UserOnTeam'], initial: [] },
 )
@@ -330,7 +328,11 @@ const exportColumns = computed(() => {
     { key: 'Customer Email', label: 'Customer Email', value: (c) => c.customerEmail ?? '' },
     { key: 'Customer Company', label: 'Customer Company', value: (c) => c.customerCompany ?? '' },
     { key: 'Created', label: 'Created', value: (c) => c.createdAt?.formatDate?.('datetime') ?? '' },
-    { key: 'Resolved', label: 'Resolved', value: (c) => c.resolvedAt?.formatDate?.('datetime') ?? '' },
+    {
+      key: 'Resolved',
+      label: 'Resolved',
+      value: (c) => c.resolvedAt?.formatDate?.('datetime') ?? '',
+    },
     { key: 'Closed', label: 'Closed', value: (c) => c.closedAt?.formatDate?.('datetime') ?? '' },
     { key: 'Spam', label: 'Spam', value: (c) => (c.isSpam ? 'Yes' : '') },
   ].map((f) => ({ ...f, group: 'system' }))
@@ -372,12 +374,15 @@ function onNewComplaint() {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/quality/customer-complaints"
     title="Customer Complaints"
     :icon="IconHeadset"
     subtitle="Manage customer complaint tickets from web, forms and email intake."
     :state="list.state.value"
     :emptyIcon="IconHeadset"
-    :emptyTitle="list.hasActiveFilters.value ? 'No complaints match your filters' : 'No complaints yet'"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No complaints match your filters' : 'No complaints yet'
+    "
     :selectedCount="selectedIds.length"
   >
     <template #actions>

@@ -18,7 +18,11 @@ const tabs = [
   { value: 'item-categories', label: 'Item Categories', group: 'Products & Suppliers' },
   { value: 'product-families', label: 'Item Groups', group: 'Products & Suppliers' },
   { value: 'uoms', label: 'Units of Measure', group: 'Products & Suppliers' },
-  { value: 'supplier-certificate-types', label: 'Supplier Certificates', group: 'Products & Suppliers' },
+  {
+    value: 'supplier-certificate-types',
+    label: 'Supplier Certificates',
+    group: 'Products & Suppliers',
+  },
   { value: 'log-book-types', label: 'Log Book Types', group: 'Inspections & Logs' },
   { value: 'production-lines', label: 'Production Lines', group: 'QC Inspection' },
   { value: 'storage-locations', label: 'Storage Locations', group: 'QC Inspection' },
@@ -62,7 +66,14 @@ watch(activeTab, (v) => {
       :icon="IconList"
       title="Lookups"
       subtitle="Shared master data — quality categories, dispositions, certificate types and audit categories used across the QMS."
-    />
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+          Lookups
+          <HelpButton slug="KB/administration/option-sets" :size="16" />
+        </span>
+      </template>
+    </PageHeader>
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
       <div class="tw:max-w-sm">

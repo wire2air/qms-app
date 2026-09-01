@@ -18,46 +18,64 @@ The Nonconformances home page shows summary cards (Open NCs, Overdue, Critical o
 
 ### Statuses
 
-| Status | What it means |
-| --- | --- |
-| Draft | The NC has been started but not yet opened for review. It can still be edited freely or deleted. |
-| Under review | The NC has been opened and its workflow is running. The record is now a permanent audit record. |
-| Closed | The NC has been approved and closed. It becomes read-only. |
-| Void | The NC was cancelled with a recorded reason instead of being closed. |
+| Status    | What it means                                                        |
+| --------- | -------------------------------------------------------------------- |
+| Draft     | Started but not yet opened. Can still be edited freely or deleted.   |
+| Open      | Opened and being worked. The record is now a permanent audit record. |
+| Closed    | Approved and closed. Read-only.                                      |
+| Cancelled | Withdrawn with a recorded reason instead of being closed.            |
 
-A small **Completed** badge appears next to the status once the owner marks the NC complete, while final close is being recorded.
+:::note One vocabulary across the quality modules
+Nonconformances, CAPAs, Quality Events, Change Requests, Complaints, Audits, QC
+lots and module records all use these same four words. They used to each have
+their own — "Under review", "Pending", "Awaiting decision" — which meant a report
+asking "how many are open?" had to know three vocabularies and get all three
+right.
+
+The record's status is deliberately **not** the workflow's status. The workflow
+has its own steps and its own states; it advances and sets the record's status,
+never the other way round. A record is Open from the moment it leaves draft until
+it closes, however many steps it passes through.
+:::
 
 ### Severity and priority
 
-| Field | Options |
-| --- | --- |
-| Severity (required) | Minor, Major, Critical |
+| Field               | Options                     |
+| ------------------- | --------------------------- |
+| Severity (required) | Minor, Major, Critical      |
 | Priority (optional) | Low, Medium, High, Critical |
 
 ### Other classification fields
 
-| Field | Purpose |
-| --- | --- |
-| NC Type | The nature of the nonconformance (configured by your admin). Required. |
-| Detection source | Where the issue was found (e.g. inspection, audit, customer). Required. |
-| Issue type | The discovery dimension (e.g. out-of-spec, receiving, missing standard). Optional. |
-| Site / Department | Where the issue occurred. Both required. |
-| Owner | The person responsible for the NC. Required. |
-| Product / Supplier | The item or vendor involved. Optional. |
-| Qty affected, Unit of measure, PO #, Order #, Lot # | Commercial and material reference details. Optional. |
+| Field                                               | Purpose                                                                                                                                             |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NC Type                                             | The nature of the nonconformance (configured by your admin). Required.                                                                              |
+| Detection source                                    | Where the issue was found (e.g. inspection, audit, customer). Required.                                                                             |
+| Category                                            | The shared quality taxonomy — the same list used by Quality Events and CAPAs, so an issue keeps its classification along the whole chain. Optional. |
+| Site / Department                                   | Where the issue occurred. Both required.                                                                                                            |
+| Owner                                               | The person responsible for the NC. Required.                                                                                                        |
+| Product / Supplier                                  | The item or vendor involved. Optional.                                                                                                              |
+| Qty affected, Unit of measure, PO #, Order #, Lot # | Commercial and material reference details. Optional.                                                                                                |
+
+Category, description and severity **propagate** down the chain: raise a CAPA from
+an NC and it inherits them, so the same problem is classified the same way
+wherever it is being worked.
 
 ## How to log a nonconformance
 
 1. On the Nonconformances home page, click **Raise NC**.
 2. Under **Basic information**, enter a **Title** and an optional rich-text **Description**. As you type, the Similar records panel may surface existing NCs so you can avoid duplicates.
-3. Under **Classification**, choose the **Site**, **Department**, **NC Type**, **Detection source**, **Severity**, and **Owner** (all required). Optionally set **Issue type**, **Priority**, **Detected date**, and a **Due date**.
+3. Under **Classification**, choose the **Site**, **Department**, **NC Type**, **Detection source**, **Severity**, and **Owner** (all required). Optionally set **Category**, **Priority** and **Detected date**.
 4. Under **Product & material** (optional), add the product, supplier, quantity affected, unit of measure, and any PO, order, or lot numbers. Tick **Supplier-facing NC** and pick a supplier if the review steps should be handled by that supplier's users.
 5. Under **Immediate containment action** (optional), describe anything done right away to contain the problem.
-6. Under **Workflow**, choose the review workflow to attach.
-7. Click **Submit**. You'll then pick the reviewer for each workflow step before the NC is created as a **Draft**.
+6. Under **Initial investigation** (optional), record what you already know — first findings, who you spoke to, what you checked.
+7. Under **Workflow**, choose the review workflow to attach. Where your company has only one, it is selected for you.
+8. Click **Submit**, picking the reviewer for each workflow step. The NC is created as a **Draft**.
+
+You can also **Save as Draft** at any point and come back to it.
 
 :::note
-Title, Severity, NC Type, Detection source, Site, Department, Owner, Detected date, and a workflow must all be filled in before the NC can be submitted.
+Title, Severity, NC Type, Detection source, Site, Department, Owner, Detected date and a workflow must all be filled in before the NC can be submitted. NCs no longer carry their own due date — timing lives on the workflow steps, which is what reminders and escalation actually run on.
 :::
 
 ## How to open an NC for review
@@ -67,10 +85,13 @@ A new NC starts in **Draft**. While in Draft, the owner can edit any field inlin
 1. Open the NC from the list.
 2. Click **Open NC**.
 3. Review the confirmation — once opened, the NC becomes a permanent audit record that can no longer be deleted, only closed or cancelled with a reason.
-4. Click **Open NC** to confirm. The status moves to **Under review**, the workflow's first step activates, and that assignee receives a task.
+4. Click **Open NC** to confirm. The status moves to **Open**, the workflow's first step activates, and that assignee receives a task.
 
 :::tip
-Only the NC owner sees the **Open NC**, **Delete**, and **Approve and Close** actions. To remove an NC that was raised by mistake, delete it while it is still in Draft.
+Each action is gated on the matching capability rather than on ownership: closing
+an NC needs the Close capability, deleting it needs Delete. Owning an NC is not by
+itself permission to close it. To remove one raised by mistake, delete it while it
+is still in Draft.
 :::
 
 ## How to record the disposition and root cause
@@ -94,6 +115,45 @@ When **CAPA required?** is set to **Yes**, a **Linked CAPAs** card appears.
 
 If CAPA is required, at least one linked CAPA must exist before the NC can be closed.
 
+## Linking related records
+
+Beyond CAPAs, an NC can be linked to any other record in the system — the audit
+finding that raised it, the complaint it came from, the change request that
+resolved it, a deviation held in a module you built yourself.
+
+Use the **Related records** card in the right rail: pick the module, search by
+number or title, and link. Links work across every module, so a chain like
+_Complaint → NC → Deviation → Filling Instruction_ stays navigable from any point
+in it.
+
+## Sharing outside the company
+
+Two ways an NC reaches someone outside your organisation.
+
+**Supplier portal access.** Tick **Supplier-facing NC** and pick a supplier, and
+the review steps route to that supplier's portal users. The
+**Supplier portal access** card also lets you grant read access directly, at any
+status.
+
+**Notify by email.** The notify field reaches people with no account at all — a
+customer's quality contact, an external consultant. They get a secure link to a
+read-only summary, opened with a code sent to that same address. The rail shows
+who outside the company can currently read the record, and access can be
+withdrawn at any time.
+
+## Raising a supplier NC with its 8D
+
+For supplier issues there is a shortcut that creates the NC and its linked
+supplier CAPA together, with the 8D structure already in place, so you are not
+raising two records by hand and joining them up afterwards.
+
+## Reporting on effectiveness
+
+Where an NC's workflow includes an effectiveness check, the record carries a
+second-level status for it. That means you can filter the list for NCs whose
+check is **pending**, **effective** or **not effective** without opening each
+record to look at its workflow steps.
+
 ## How to close an NC
 
 Closing is a single, final action handled by the owner once everything is complete.
@@ -112,4 +172,30 @@ Approving and closing an NC is a regulated, attested action and requires an e-si
 
 - Use **Print** to generate a printable record and **Audit Log** to see the full timeline of the NC and its workflow steps.
 - The **Ask AI** button can answer questions about the open NC.
-- Overdue NCs are flagged in red in the list and on the detail page.
+- Overdue steps are flagged in red in the list and on the detail page. Overdue is driven by the workflow step's due date.
+- The **Insights** tab shows trends across your NCs — by type, site, severity and time.
+- Search covers NC content, not just titles.
+
+## AI in this module
+
+**Ask AI** answers questions about the open NC. **Similar records** surfaces
+existing NCs as you type a title, so you can spot a duplicate or a recurrence
+before raising a new one. Text fields offer AI assistance for tidying up what
+you have written.
+
+The assistant reads; it does not act. It can find, summarise and draft — it
+cannot create, edit, approve or close a record. Anything it produces is a
+starting point you review and apply yourself, and the normal permission checks
+run when you save it.
+
+It can only reach modules you already have read access to.
+
+→ [AI Assistant](../ai/ai-assistant.md) · [AI Access and Usage](../ai/ai-access-and-usage.md)
+
+## Related
+
+- [CAPAs](./capas.md) — corrective and preventive actions raised from an NC
+- [Quality Events](./quality-events.md) — lighter-weight intake that can escalate into an NC
+- [Workflows](../automation/workflows.md) — designing the review path
+- [Suppliers](../suppliers/suppliers.md) — supplier-facing NCs and the portal
+- [Roles and Permissions](../administration/roles-and-permissions.md) — who can do what

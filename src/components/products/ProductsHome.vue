@@ -119,6 +119,7 @@ async function restoreProduct(product) {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/suppliers/item-master"
     title="Item Master"
     :icon="IconPackage"
     subtitle="Manage your organization's items — raw materials, components, intermediates, and finished goods."
@@ -164,7 +165,10 @@ async function restoreProduct(product) {
         >
           <div class="tw:min-w-0">
             <span class="tw:font-medium tw:text-secondary tw:line-through">{{ p.name }}</span>
-            <span class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ p.sku }}</span>
+            <span
+              class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary"
+              >{{ p.sku }}</span
+            >
             <span v-if="p.deletedAt" class="tw:text-xs tw:text-secondary tw:ml-2">
               deleted {{ p.deletedAt.formatDate('date') }}
             </span>
@@ -180,7 +184,6 @@ async function restoreProduct(product) {
         </div>
       </div>
     </div>
-
   </BaseListLayout>
 
   <!-- Dialogs live OUTSIDE BaseListLayout: its default slot only renders in the
