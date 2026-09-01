@@ -21,6 +21,8 @@
  * Empty-state hints use `module.displayName` so the wording reads
  * naturally per module ('… before submitting this NC' vs 'this CAPA').
  */
+import { fetchStepReviewerPool } from '@/composables/useStepReviewerPool.js'
+
 const props = defineProps({
   module: { type: Object, required: true },
   step: { type: Object, required: true },
@@ -68,6 +70,35 @@ const usesSupplierPicker = computed(() => props.isSupplierFacing && !isApprovalS
 // Without the distinction, the role-less branch raced the initial paint
 // for role-gated steps and auto-selected a user who shouldn't have been
 // eligible (see the LogBook submit-dialog regression report).
+// The server owns eligibility. It answers with the same function that
+// validates the picks at submit, and states `unrestricted` explicitly — so an
+// unsynced cache can no longer look like a step with no roles.
+//
+// `null` means "not answered yet", which is NOT the same as "no restriction":
+// while it is null the picker offers nobody rather than everybody.
+const serverPool = ref(null)
+const serverPoolFailed = ref(false)
+
+watch(
+  [() => props.step?.workflowVersionId, () => props.module?.workflowVersionModuleId],
+  async ([versionId, moduleId]) => {
+    if (props.roleIds != null) return // synthesized step: roles supplied by the caller
+    if (!versionId) return
+    serverPoolFailed.value = false
+    try {
+      const byStep = await fetchStepReviewerPool(versionId, moduleId)
+      serverPool.value = byStep?.get(props.step.id) ?? null
+    } catch {
+      // Fall back to the local derivation rather than blocking submission
+      // outright — but say so, so the pool is not silently trusted.
+      serverPoolFailed.value = true
+      serverPool.value = null
+    }
+  },
+  { immediate: true },
+)
+
+// Local fallback, used only when the server could not be reached.
 const stepRoles = useLiveQueryWithDeps(
   [() => props.step.id, () => props.roleIds],
 
@@ -79,8 +110,17 @@ const stepRoles = useLiveQueryWithDeps(
   { models: ['WorkflowStepRole'] },
 )
 
-const stepRolesLoaded = computed(() => props.roleIds != null || stepRoles.value !== undefined)
-const stepRoleIds = computed(() => props.roleIds ?? (stepRoles.value ?? []).map((r) => r.roleId))
+const usingServerPool = computed(() => props.roleIds == null && !serverPoolFailed.value)
+const stepRolesLoaded = computed(() => {
+  if (props.roleIds != null) return true
+  if (usingServerPool.value) return serverPool.value !== null
+  return stepRoles.value !== undefined
+})
+const stepRoleIds = computed(() => {
+  if (props.roleIds != null) return props.roleIds
+  if (usingServerPool.value) return (serverPool.value?.roles ?? []).map((r) => r.id)
+  return (stepRoles.value ?? []).map((r) => r.roleId)
+})
 
 // Resolve role names for the empty-state hint — when a step has roles
 // and no eligible users hold them, the hint reads "No users assigned
@@ -104,9 +144,27 @@ const stepRoleNames = useLiveQueryWithDeps(
 // While stepRoles is still loading we return [] so the auto-select
 // watch below doesn't fire on a transient empty role state.
 const internalCandidates = useLiveQueryWithDeps(
-  [() => stepRolesLoaded.value, () => stepRoleIds.value.join(',')],
+  [
+    () => stepRolesLoaded.value,
+    () => stepRoleIds.value.join(','),
+    () => serverPool.value?.userIds?.join(',') ?? '',
+    () => usingServerPool.value,
+  ],
   async (db, [loaded, roleIdsStr]) => {
     if (!loaded) return []
+    // Server answered: use exactly who it named. `unrestricted` is the only
+    // thing that opens this up to every internal user, and it comes from the
+    // validator rather than from an empty local array.
+    if (usingServerPool.value && serverPool.value) {
+      if (!serverPool.value.unrestricted) {
+        const users = await Promise.all(serverPool.value.userIds.map((id) => db.User.findByPk(id)))
+        return users.filter(
+          (u) => u && u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER',
+        )
+      }
+      const all = await db.User.where().exec()
+      return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+    }
     if (!roleIdsStr) {
       const all = await db.User.where().exec()
       return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
