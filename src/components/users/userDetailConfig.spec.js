@@ -15,9 +15,13 @@ describe('buildUserActions', () => {
       .filter((a) => a.visible)
       .map((a) => a.id)
 
-  it('Audit Log shows whenever a user is loaded', () => {
-    expect(visibleIds({ hasUser: true })).toContain('auditLog')
-    expect(visibleIds({})).not.toContain('auditLog')
+  // Needs the user loaded AND the trail's own grant: `audit_log_select_rls`
+  // keys on `audit_trail:read`, which user_management:read does not imply, so
+  // without it the dialog has no rows and only tells the user no.
+  it('Audit Log needs a loaded user and canViewAuditTrail', () => {
+    expect(visibleIds({ hasUser: true, canViewAuditTrail: true })).toContain('auditLog')
+    expect(visibleIds({ hasUser: true })).not.toContain('auditLog')
+    expect(visibleIds({ canViewAuditTrail: true })).not.toContain('auditLog')
   })
 
   it('Send Invitation shows only for an un-invited user with canUpdate', () => {

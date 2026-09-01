@@ -55,6 +55,14 @@ describe('buildQualityEventActions', () => {
     ])
   })
 
+  // The trail is its own module (`audit_trail:read`), not implied by
+  // quality_events:read — see `audit_log_select_rls`. Without it the dialog has
+  // no rows and only tells the user no.
+  it('shows Audit Log only with canViewAuditTrail', () => {
+    expect(byId({ canViewAuditTrail: true }).audit.visible).toBe(true)
+    expect(byId({}).audit.visible).toBe(false)
+  })
+
   // Escalation stopped being a status on 2026-08-18 — the event stays open and
   // is still closed the normal way — so "already escalated" comes from the
   // escalation link, and the button is disabled rather than hidden so the page

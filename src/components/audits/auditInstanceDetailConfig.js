@@ -105,6 +105,7 @@ export function buildAuditInstanceActions(gates = {}, handlers = {}) {
     releasing,
     unassessedCount = 0,
     findingsOpen = 0,
+    canViewAuditTrail,
   } = gates
 
   const submitBlocked = unassessedCount > 0 || findingsOpen > 0
@@ -174,7 +175,11 @@ export function buildAuditInstanceActions(gates = {}, handlers = {}) {
       icon: IconClipboardCheck,
       variant: 'secondary',
       priority: 40,
-      visible: true,
+      // The platform trail, not this audit's own findings: it is governed by
+      // `audit_trail:read`, which auditing:read does not imply — see
+      // `audit_log_select_rls`. The dialog refuses politely now; the button
+      // should not be offered to be refused.
+      visible: !!canViewAuditTrail,
       onSelect: handlers.openAuditLog,
     },
     {

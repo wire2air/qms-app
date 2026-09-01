@@ -252,6 +252,7 @@ const userActions = computed(() =>
       hasUser: !!user.value,
       inviteSent: user.value?.inviteSent,
       sendingInvite: sendingInvite.value,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       sendInvite: sendInvitation,

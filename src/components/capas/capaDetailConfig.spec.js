@@ -188,8 +188,18 @@ describe('buildCapaActions', () => {
     )
     expect(a.find((x) => x.id === 'open').visible).toBe(false)
     expect(a.find((x) => x.id === 'delete').visible).toBe(false)
-    expect(a.find((x) => x.id === 'audit').visible).toBe(true) // always visible
+    expect(a.find((x) => x.id === 'audit').visible).toBe(false) // needs audit_trail:read
     expect(a.find((x) => x.id === 'print').visible).toBe(true) // always visible
+  })
+
+  // Audit Log is NOT implied by capa:read. `audit_log_select_rls` moved the
+  // trail onto its own module (`audit_trail:read`) — without it the dialog has
+  // no rows to show and only tells the user no, so the button is hidden.
+  it('shows Audit Log only with canViewAuditTrail', () => {
+    const visible = (gates) =>
+      buildCapaActions(gates, handlers).find((x) => x.id === 'audit').visible
+    expect(visible({ statusId: 'OPEN' })).toBe(false)
+    expect(visible({ statusId: 'OPEN', canViewAuditTrail: true })).toBe(true)
   })
 
   it('open has loading=true and disabled=true while saving', () => {

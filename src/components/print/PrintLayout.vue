@@ -1,7 +1,7 @@
 <script setup>
 import { IconPrinter, IconX, IconBuilding } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
-import { currentSession } from '@/utils/currentSession.js'
+import { currentSession, isAllowed } from '@/utils/currentSession.js'
 
 /**
  * Shared print chrome. Every printable module wraps its body in this so we
@@ -14,6 +14,9 @@ import { currentSession } from '@/utils/currentSession.js'
  *   - status (prop)             — drives the prominent status badge ("DRAFT" / "EFFECTIVE" / …)
  *   - identifier (prop)         — short string shown in the footer ("SOP-001 v1.2")
  *   - auditEntities (prop)      — list of {entityType, entityId} to pull audit history for
+ *
+ * The audit + signatures sections need `audit_trail:read`; without it they are
+ * replaced by a printed notice rather than omitted (see canReadAuditTrail).
  *
  * Per-company branding is read from company.settings.printSettings with
  * sensible fallbacks to plain company fields. Branding-only customization
@@ -94,6 +97,23 @@ const statusClass = computed(() => {
 })
 
 // ─── Audit + signatures ──────────────────────────────────────────────────
+// BOTH blocks below are derived from db.AuditLog, and `audit_log_select_rls`
+// now bounds that table on `audit_trail:read` instead of `document_control:read`
+// — a grant most roles do not hold. Nothing errors when it is missing: the
+// bootstrap simply syncs zero rows, the query returns [], and the sections
+// `v-if` themselves away. On screen that is merely thin; on a printed
+// controlled copy it is a compliance failure, because a copy that prints with
+// no signature block is indistinguishable from a record that was never signed
+// — and paper carries no way to ask.
+//
+// So the sections do not vanish. When the trail is unreadable they are replaced
+// by a printed notice that says why, which travels with the copy. Deriving the
+// signature block from the audit trail at all is the deeper mistake — there is
+// a real Part 11 `signatures` ledger — but it cannot be fixed here: that table
+// has no client model, is absent from the sync publication, and reaches a
+// Document only indirectly, through the task_instance that was signed.
+const canReadAuditTrail = computed(() => isAllowed(['audit_trail:read']))
+
 const SIGNATURE_ACTIONS = ['APPROVE', 'SET_EFFECTIVE']
 
 // auditLogs query — uses the compound [entityType+entityId] index. There is
@@ -320,8 +340,27 @@ onBeforeUnmount(() => {
           <slot />
         </section>
 
-        <!-- Approvals & Signatures -->
-        <section v-if="showAudit && signatures.length > 0" class="print-signatures">
+        <!-- Approvals & Signatures / Audit history — unavailable.
+             One notice for both, because they have one source and one reason
+             for being missing. It prints: the person holding the paper is not
+             the person who printed it, and is the one who needs to be told
+             that "no signatures shown" here does not mean "not signed". -->
+        <section v-if="showAudit && !canReadAuditTrail" class="print-signatures">
+          <h2>Approvals &amp; Signatures</h2>
+          <p class="print-restricted">
+            <strong>Not shown on this copy.</strong>
+            The signature block and audit history are part of the platform audit trail, which the
+            user who printed this copy is not permitted to read.
+            <strong>Their absence is not evidence that this record is unsigned.</strong>
+            Reprint via a user holding the Audit Trail permission, or view the record's approvals in
+            Qability, before relying on this copy as signed evidence.
+          </p>
+        </section>
+
+        <section
+          v-if="showAudit && canReadAuditTrail && signatures.length > 0"
+          class="print-signatures"
+        >
           <h2>Approvals &amp; Signatures</h2>
           <table class="print-sig-table">
             <thead>
@@ -343,8 +382,8 @@ onBeforeUnmount(() => {
           </table>
         </section>
 
-        <!-- Audit history -->
-        <section v-if="showAudit && auditLogs.length > 0" class="print-audit">
+        <!-- Audit history — covered by the notice above when unreadable. -->
+        <section v-if="showAudit && canReadAuditTrail && auditLogs.length > 0" class="print-audit">
           <h2>Recent Audit History</h2>
           <table class="print-audit-table">
             <thead>
@@ -375,6 +414,12 @@ onBeforeUnmount(() => {
           </div>
           <div v-if="latestApproval" class="print-footer-approval">
             Approved by {{ latestApproval.who }} on {{ fmtAuditTime(latestApproval.when) }}
+          </div>
+          <!-- The footer is the part an auditor scans first, so the approval
+               line must not simply go missing: "no approval line" and "the
+               printer could not see the approval" have to read differently. -->
+          <div v-else-if="showAudit && !canReadAuditTrail" class="print-footer-approval">
+            Approval details not shown — printed by a user without audit trail access
           </div>
           <div class="print-footer-provenance">
             {{ branding.name }}{{ identifier ? ` · ${identifier}` : '' }}
@@ -549,6 +594,20 @@ onBeforeUnmount(() => {
   padding-bottom: 4px;
   border-bottom: 1px solid #e5e7eb;
 }
+/* Deliberately loud on paper — boxed and amber rather than grey body text.
+   This is the one block a reader must not skim past, because skimming it is
+   exactly how an unavailable signature block gets read as an absent one. */
+.print-restricted {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #d97706;
+  border-left-width: 4px;
+  background: #fffbeb;
+  color: #78350f;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .print-sig-table,
 .print-audit-table {
   width: 100%;

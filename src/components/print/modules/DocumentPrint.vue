@@ -1,5 +1,6 @@
 <script setup>
 import { sanitizeHtml } from '@/utils/markdown.js'
+import { isAllowed } from '@/utils/currentSession.js'
 
 /**
  * Document print module.
@@ -138,6 +139,27 @@ function revApprover(versionId) {
   }
 }
 
+/**
+ * Approver and approval date come from the audit trail, not from the version
+ * row, and `audit_log_select_rls` now bounds that on `audit_trail:read` —
+ * which document_control:read no longer implies. Without it the query returns
+ * [] and both columns print "—", the same glyph this table uses for "the
+ * document doesn't record one". On a printed revision history that reads as
+ * "this revision was never approved", so the two cases are separated: the
+ * cells say "Not shown" and the note under the heading says why.
+ */
+const canReadAuditTrail = computed(() => isAllowed(['audit_trail:read']))
+
+function revApproverName(versionId) {
+  if (!canReadAuditTrail.value) return 'Not shown'
+  return revApprover(versionId)?.name || '—'
+}
+function revApprovalDate(versionId) {
+  if (!canReadAuditTrail.value) return 'Not shown'
+  const approval = revApprover(versionId)
+  return approval ? revDate(approval.date) : '—'
+}
+
 const version = computed(() => {
   if (!versions.value?.length) return null
   if (props.versionId) {
@@ -251,6 +273,10 @@ onMounted(() => {
             revisionHistory.length === 1 ? '' : 's'
           }}. Full history is in the QMS Revision History view.
         </p>
+        <p v-if="!canReadAuditTrail" class="doc-print-revisions-restricted">
+          Approver and approval date are part of the audit trail, which the user who printed this
+          copy is not permitted to read. <strong>"Not shown" is not "not approved."</strong>
+        </p>
         <table class="doc-print-revisions-table">
           <thead>
             <tr>
@@ -275,8 +301,8 @@ onMounted(() => {
               </td>
               <td>{{ revDate(v.effectiveDate) }}</td>
               <td class="doc-print-rev-reason">{{ v.changeReason || '—' }}</td>
-              <td>{{ revApprover(v.id)?.name || '—' }}</td>
-              <td>{{ revApprover(v.id) ? revDate(revApprover(v.id).date) : '—' }}</td>
+              <td>{{ revApproverName(v.id) }}</td>
+              <td>{{ revApprovalDate(v.id) }}</td>
             </tr>
           </tbody>
         </table>
@@ -468,6 +494,18 @@ onMounted(() => {
   font-size: 9.5px;
   color: #6b7280;
   margin: 0 0 8px;
+}
+/* Boxed and amber rather than grey like the note above it — this is the line
+   whose whole job is to not be skimmed past, because skimming it is how "Not
+   shown" gets read as "never approved". Matches PrintLayout's .print-restricted. */
+.doc-print-revisions-restricted {
+  font-size: 9.5px;
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border: 1px solid #d97706;
+  border-left-width: 4px;
+  background: #fffbeb;
+  color: #78350f;
 }
 .doc-print-revisions-table {
   width: 100%;

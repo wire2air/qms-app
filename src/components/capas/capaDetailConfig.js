@@ -61,6 +61,7 @@ export function buildCapaActions(gates = {}, handlers = {}) {
     saving,
     closing,
     cancelling,
+    canViewAuditTrail,
   } = gates
   return [
     {
@@ -135,7 +136,11 @@ export function buildCapaActions(gates = {}, handlers = {}) {
       icon: IconHistory,
       variant: 'secondary',
       priority: 15,
-      visible: true,
+      // The trail is its own matrix module (`audit_trail:read`), not something
+      // capa:read implies — `audit_log_select_rls` enforces that. The dialog
+      // behind this button refuses politely now, but a button whose only
+      // outcome is being told no should not be offered in the first place.
+      visible: !!canViewAuditTrail,
       onSelect: handlers.openAudit,
     },
     {

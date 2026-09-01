@@ -70,6 +70,7 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
     statusId,
     selectedStatus,
     inReview,
+    canViewAuditTrail,
   } = gates
   return [
     {
@@ -149,7 +150,13 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
       icon: IconClipboardList,
       variant: 'secondary',
       priority: 35,
-      visible: true,
+      // The platform trail is its own matrix module (`audit_trail:read`).
+      // `audit_log_select_rls` used to key on document_control:read, so this
+      // button was effectively free for any document reader; it is not any
+      // more. The dialog refuses politely now — the button should not be
+      // offered to be refused. (Revision History above is unaffected: it reads
+      // document_versions, not the trail.)
+      visible: !!canViewAuditTrail,
       onSelect: handlers.auditLog,
     },
     {

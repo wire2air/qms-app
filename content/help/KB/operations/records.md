@@ -1,18 +1,18 @@
 ---
 id: records
-title: Records
+title: Submissions
 sidebar_position: 3
-description: View, search, preview, and manage submitted form records and their statuses from the Records page.
+description: View, search, preview, and manage submitted form records and their statuses from the Submissions tab in App Builder.
 keywords: [records, record number, record status, approve, draft, form submissions]
 ---
 
-# Records
+# Submissions
 
 ## Overview
 
-The **Records** page is where submitted form entries are collected and managed. Whenever someone fills out and submits a form template, the result is saved here as a record with its own unique record number. From this page you can browse everything that has been submitted, search for a specific entry, open a record to read its contents, and move records through their approval status.
+The **Submissions** tab of **App Builder** is where submitted form entries are collected and managed. Whenever someone fills out and submits a form template, the result is saved here as a record with its own unique record number. From this tab you can browse everything that has been submitted, search for a specific entry, open a record to read its contents, and move records through their approval status.
 
-Records are useful as a running log of completed forms — for example, utility checklists and standalone forms your team submits day to day. Each record keeps the answers exactly as they were entered, so the page acts as a permanent reference of what was recorded and by whom.
+Records are useful as a running log of completed forms — for example, utility checklists and standalone forms your team submits day to day. Each record keeps the answers exactly as they were entered, so the tab acts as a permanent reference of what was recorded and by whom.
 
 ## Key concepts
 
@@ -38,7 +38,7 @@ A record's status controls how it is treated and which actions are available. St
 
 ## How to view and search records
 
-1. Open the **Records** page from the navigation menu.
+1. Open **App Builder** in the left menu, then select the **Submissions** tab.
 2. The table lists all submitted records, with the newest shown first.
 3. To find a specific record, type into the **Search records...** box at the top of the table. The list filters as you type, matching against the record number.
 4. Clear the search box to return to the full list.
@@ -70,9 +70,9 @@ The search box matches on the record number. To narrow results, enter all or par
 
 ## How to add a record
 
-If you have permission to create records, an **Add Record** button appears at the top right of the page.
+If you have permission to create records, an **Add Submission** button appears at the top right of the tab.
 
-1. Click **Add Record**.
+1. Click **Add Submission**.
 2. Choose a form template from the list. Use the search box to filter templates by title or code.
 3. Fill in the form fields. For standalone records, select the required **Document Type**.
 4. Click **Save Record** to submit. A confirmation appears with the new record number.
@@ -87,11 +87,11 @@ A new record number is assigned automatically when you save, using the template 
 2. Use the record's actions to delete it, and confirm when prompted.
 
 :::warning
-Deleting a record removes it from the active list. Confirm carefully before deleting, as the action cannot be undone from this page.
+Deleting a record removes it from the active list. Confirm carefully before deleting, as the action cannot be undone from this tab.
 :::
 
 ## Tips
 
 - Click a column header that supports sorting (such as **Record #**, **Status**, or **Created**) to reorder the list.
 - The **Created By** column tells you who submitted each record — handy when following up on a specific entry.
-- If you cannot see the **Add Record** button, your account may not have permission to create records; contact your administrator.
+- If you cannot see the **Add Submission** button, your account may not have permission to create records; contact your administrator.

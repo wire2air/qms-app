@@ -17,7 +17,7 @@ export function buildUserSections(_user) {
  *  Send Invitation (primary) shows for un-invited users; Audit Log overflows.
  */
 export function buildUserActions(gates = {}, handlers = {}) {
-  const { canUpdate, hasUser, inviteSent, sendingInvite } = gates
+  const { canUpdate, hasUser, inviteSent, sendingInvite, canViewAuditTrail } = gates
   return [
     {
       id: 'sendInvite',
@@ -34,7 +34,11 @@ export function buildUserActions(gates = {}, handlers = {}) {
       icon: IconHistory,
       variant: 'secondary',
       priority: 20,
-      visible: !!hasUser,
+      // "What has this user done" is the platform trail, governed by
+      // `audit_trail:read` — user_management:read does not imply it (see
+      // `audit_log_select_rls`). The dialog refuses politely now; the button
+      // should not be offered to be refused.
+      visible: !!hasUser && !!canViewAuditTrail,
       onSelect: handlers.openAuditLog,
     },
   ]

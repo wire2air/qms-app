@@ -373,6 +373,7 @@ const auditStandardActions = computed(() =>
       isArchived: isArchived.value,
       spawningDraft: spawningDraft.value,
       deleting: deleting.value,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       openClone() {

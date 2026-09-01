@@ -67,7 +67,7 @@ const complaints = useLiveQueryWithDeps(
 
     if (af === 'qa_review') {
       // My QA queue: complaints I own (the workflow's responsible party — e.g.
-      // an UNDER_REVIEW complaint sitting on the owner for final review) or that
+      // an OPEN complaint sitting on the owner for final review) or that
       // are assigned to me / my team, and not yet closed.
       results = results.filter(
         (r) =>

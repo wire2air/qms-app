@@ -151,6 +151,7 @@ const complaintActions = computed(() =>
       statusId: complaint.value?.statusId,
       acting: acting.value,
       hasAssignee: !!complaint.value?.assignedTo,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       accept() {

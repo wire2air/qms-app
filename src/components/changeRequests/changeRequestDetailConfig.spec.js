@@ -134,8 +134,16 @@ describe('buildChangeRequestActions', () => {
     )
     expect(a.find((x) => x.id === 'open').visible).toBe(false)
     expect(a.find((x) => x.id === 'delete').visible).toBe(false)
-    expect(a.find((x) => x.id === 'audit').visible).toBe(true) // always visible
+    expect(a.find((x) => x.id === 'audit').visible).toBe(false) // needs audit_trail:read
     expect(a.find((x) => x.id === 'print').visible).toBe(true) // always visible
+  })
+
+  // Audit Log is NOT implied by change_control:read — see `audit_log_select_rls`.
+  it('shows Audit Log only with canViewAuditTrail', () => {
+    const visible = (gates) =>
+      buildChangeRequestActions(gates, handlers).find((x) => x.id === 'audit').visible
+    expect(visible({ statusId: 'OPEN' })).toBe(false)
+    expect(visible({ statusId: 'OPEN', canViewAuditTrail: true })).toBe(true)
   })
 
   it('open is disabled and loading while opening=true', () => {

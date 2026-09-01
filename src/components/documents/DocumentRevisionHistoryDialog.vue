@@ -1,5 +1,6 @@
 <script setup>
 import { IconHistory, IconShieldCheck } from '@tabler/icons-vue'
+import { isAllowed } from '@/utils/currentSession.js'
 
 /**
  * Revision History for a Document — the audit-facing view of every version
@@ -10,6 +11,13 @@ import { IconHistory, IconShieldCheck } from '@tabler/icons-vue'
  * Approver info comes from audit_logs (action='APPROVE' or 'SET_EFFECTIVE')
  * keyed by version id — the same pattern PrintLayout already uses for the
  * "Approvals & Signatures" section.
+ *
+ * Which means the Approved column is permissioned separately from the rest of
+ * the table: `audit_log_select_rls` bounds audit_logs on `audit_trail:read`,
+ * not on document_control:read, so a reader without that grant syncs no rows
+ * and the column collapses to the same "—" this table uses for a version that
+ * was genuinely never approved. On a Part 11 traceability view those two must
+ * not look alike, so the column says so instead.
  */
 
 const props = defineProps({
@@ -18,6 +26,8 @@ const props = defineProps({
 })
 
 const show = defineModel({ type: Boolean, default: false })
+
+const canReadAuditTrail = computed(() => isAllowed(['audit_trail:read']))
 
 const versions = useLiveQueryWithDeps(
   [() => props.documentId, () => show.value],
@@ -201,7 +211,13 @@ const columns = [
       </template>
 
       <template #body-cell-approved="{ row }">
-        <template v-if="approvalByVersion[row.id]">
+        <BaseTooltip
+          v-if="!canReadAuditTrail"
+          content="Approvals are recorded in the audit trail, which you don't have permission to view. This is not the same as the version being unapproved."
+        >
+          <span class="tw:text-secondary tw:italic">Not shown</span>
+        </BaseTooltip>
+        <template v-else-if="approvalByVersion[row.id]">
           <div class="tw:whitespace-nowrap">{{ fmtDate(approvalByVersion[row.id].when) }}</div>
           <div class="tw:text-xs tw:text-secondary">
             <UserBadgeById :userId="approvalByVersion[row.id].who" />

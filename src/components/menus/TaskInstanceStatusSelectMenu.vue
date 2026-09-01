@@ -15,12 +15,22 @@ const modelValue = defineModel({
   default: null,
 })
 
-const items = computed(() => [
-  { id: 'ASSIGNED', name: 'Assigned' },
-  { id: 'APPROVED', name: 'Approved / Completed' },
-  { id: 'REJECTED', name: 'Rejected' },
-  { id: 'CHANGES_REQUESTED', name: 'Changes Requested' },
-])
+// Tasks F-12 — this menu hardcoded four ids while `task_instance_statuses`
+// seeds ten, so CANCELLED / FORM_SUBMITTED / IN_PROGRESS / REASSIGNED /
+// SENT_BACK / SUPERSEDED tasks were visible in the inbox and impossible to
+// filter for. Reading the lookup table is what keeps it honest the next time
+// a status is seeded — a copied list is what drifted in the first place.
+const statuses = useLiveQuery(
+  (db) => db.TaskInstanceStatus.where().orderBy('displayOrder').exec(),
+  { models: ['TaskInstanceStatus'], initial: [] },
+)
+
+// APPROVED is the task vocabulary for "done" on every step type, not just
+// approvals (see TaskInstanceStatusBadgeById). A filter has no step to
+// disambiguate against, so it names both readings.
+const items = computed(() =>
+  statuses.value.map((s) => (s.id === 'APPROVED' ? { ...s, name: 'Approved / Completed' } : s)),
+)
 </script>
 
 <template>

@@ -375,6 +375,7 @@ const capaActions = computed(() =>
       saving: saving.value,
       closing: closing.value,
       cancelling: cancelling.value,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       openOpen: openOpenDialog,

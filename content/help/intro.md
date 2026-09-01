@@ -32,7 +32,7 @@ with **Document Templates**.
 
 ### Inspections & Operations
 Run **Inspections & Logs**, capture entries with **Mobile Logging**, track
-**Records**, manage **My Tasks**, and register **Equipment**.
+**Submissions**, manage **My Tasks**, and register **Equipment**.
 
 ### Training
 Assign and complete **Training**, verify competency, and monitor coverage with the
