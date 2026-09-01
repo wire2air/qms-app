@@ -22,12 +22,12 @@ Some settings affect every user in your company. Changes can take up to 5 minute
 
 Company Settings is organized into four tabs along the top of the page.
 
-| Tab | What you manage there |
-| --- | --- |
-| **General** | Company name and code, light/dark logos, regional preferences (time zone, first day of week), and read-only system information. |
-| **Defaults** | The default values new approval workflows, document templates, and asset requests inherit across the app's modules. |
-| **Print** | Branding applied to printed documents — logo override, mailing address, footer notice, and accent color. |
-| **Lookups** | Shared master lists used by the Nonconformance module: NC Disposition Types and NC Issue Types. |
+| Tab          | What you manage there                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **General**  | Company name and code, light/dark logos, regional preferences (time zone, first day of week), and read-only system information.      |
+| **Defaults** | The default values new approval workflows, document templates, and asset requests inherit across the app's modules.                  |
+| **Print**    | Branding applied to printed documents — logo override, mailing address, footer notice, and accent color.                             |
+| **Lookups**  | Shared master lists — NC Disposition Types, and the Categories and Severities used across Quality Events, Nonconformances and CAPAs. |
 
 :::tip
 Some areas of the app link straight to a specific tab. For example, an NC Dispositions link opens Company Settings with the **Lookups** tab already selected.
@@ -81,10 +81,10 @@ Defaults apply only to new records — existing workflows, templates, and reques
 
 The **Lookups** tab holds shared lists used when working with nonconformances. These lists are specific to your company.
 
-| Lookup list | Purpose |
-| --- | --- |
-| **NC Disposition Types** | The disposition options reviewers choose when closing out a nonconformance. |
-| **NC Issue Types** | The categories used to classify a nonconformance. |
+| Lookup list              | Purpose                                                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| **NC Disposition Types** | The disposition options reviewers choose when closing out a nonconformance.                                                       |
+| **Categories**           | The shared quality taxonomy used by Quality Events, Nonconformances and CAPAs, so a classification carries along the whole chain. |
 
 To add or edit an entry:
 

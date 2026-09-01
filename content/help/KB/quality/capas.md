@@ -150,15 +150,10 @@ on the step, so a check cannot be deferred indefinitely. The record shows how ma
 extensions remain and why the cap applies. Every extension, and who granted it,
 stays in the step's history.
 
-:::note This replaces the old separate effectiveness section
-Effectiveness used to be a card of its own on the CAPA, outside the workflow.
-Making it a workflow step means it appears alongside every other step, uses the
-same tasks, reminders, overdue handling and signatures, and can be positioned
-wherever your process actually wants it.
-
-It also means **reporting no longer has to dig through workflow steps**: the CAPA
-carries a rollup status, so you can filter for checks that are pending, effective
-or not effective directly from the list.
+:::tip Reporting on checks
+The CAPA carries the check's outcome at record level, so you can filter the list
+for checks that are pending, effective or not effective without opening each CAPA
+to look at its workflow.
 :::
 
 :::tip

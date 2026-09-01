@@ -20,15 +20,6 @@ people are _required_ to complete is defined by
 [Training Curriculum](./training-curriculum.md), which maps trainings to roles;
 this page shows the result.
 
-:::note This page changed
-Requirements used to be configured on a Training Matrix page — a list of
-"this training is required for this role" rules you edited directly. That was
-replaced by the curriculum layer, which groups trainings so a change to a set is
-made once instead of against every role.
-
-The matrix survives as what it was always most used for: reading compliance.
-:::
-
 ## How to read it
 
 1. Open **Training Reports** from the Training area.

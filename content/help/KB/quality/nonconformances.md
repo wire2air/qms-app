@@ -27,10 +27,9 @@ The Nonconformances home page shows summary cards (Open NCs, Overdue, Critical o
 
 :::note One vocabulary across the quality modules
 Nonconformances, CAPAs, Quality Events, Change Requests, Complaints, Audits, QC
-lots and module records all use these same four words. They used to each have
-their own — "Under review", "Pending", "Awaiting decision" — which meant a report
-asking "how many are open?" had to know three vocabularies and get all three
-right.
+lots and module records all use these same four words, so a report asking "how
+many are open?" means the same thing everywhere and needs no per-module
+translation.
 
 The record's status is deliberately **not** the workflow's status. The workflow
 has its own steps and its own states; it advances and sets the record's status,
