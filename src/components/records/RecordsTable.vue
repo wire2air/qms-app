@@ -1,5 +1,6 @@
 <script setup>
 import { IconCircleCheck, IconArrowBack } from '@tabler/icons-vue'
+import { isAllowed } from '@/utils/currentSession'
 
 defineProps({
   rows: {
@@ -23,6 +24,42 @@ function openPreview(row) {
 function closePreview() {
   previewDialog.value = false
   selectedRecordId.value = null
+}
+
+// Records F-13. The Approve / Unapprove menu below is the ONLY affordance in
+// the product that writes records.status_id, and it was offered to every user
+// who could see the table. `records:update` is the permission the write itself
+// needs — the SyncEngine mutation goes out over GraphQL as app_user, where
+// record_update_rls requires exactly that — so a user without it was shown a
+// menu item whose only possible outcome was a failed save. Same computed the
+// sibling submissions view already uses (formTemplateRecords.vue:350).
+const canUpdate = computed(() => isAllowed(['records:update']))
+
+// Menu items, built as a function rather than inline in the template so the
+// permission check reads once and the empty case is expressible: with no items
+// the menu is not rendered at all, which is the house pattern
+// (NonconformancesTable.vue rowMenuItems, CapasTable.vue rowMenuItems).
+function rowMenuItems(row) {
+  if (!canUpdate.value) return []
+  if (row.statusId === 'DRAFT') {
+    return [
+      {
+        name: 'Approve',
+        icon: IconCircleCheck,
+        click: () => updateRecord({ id: row.id, updates: { statusId: 'APPROVED' } }),
+      },
+    ]
+  }
+  if (row.statusId === 'APPROVED') {
+    return [
+      {
+        name: 'Unapprove',
+        icon: IconArrowBack,
+        click: () => updateRecord({ id: row.id, updates: { statusId: 'DRAFT' } }),
+      },
+    ]
+  }
+  return []
 }
 
 const updateRecord = useLiveMutation(async (db, { id, updates }) => {
@@ -125,29 +162,8 @@ const sort = ref([{ id: 'createdAt', desc: true }])
 
     <!-- Actions Column -->
     <template #body-cell-actions="{ row }">
-      <div class="tw:flex tw:justify-end" @click.prevent.stop>
-        <BaseMenu
-          :items="[
-            ...(row.statusId === 'DRAFT'
-              ? [
-                  {
-                    name: 'Approve',
-                    icon: IconCircleCheck,
-                    click: () => updateRecord({ id: row.id, updates: { statusId: 'APPROVED' } }),
-                  },
-                ]
-              : []),
-            ...(row.statusId === 'APPROVED'
-              ? [
-                  {
-                    name: 'Unapprove',
-                    icon: IconArrowBack,
-                    click: () => updateRecord({ id: row.id, updates: { statusId: 'DRAFT' } }),
-                  },
-                ]
-              : []),
-          ]"
-        />
+      <div v-if="rowMenuItems(row).length" class="tw:flex tw:justify-end" @click.prevent.stop>
+        <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
   </DataTable>

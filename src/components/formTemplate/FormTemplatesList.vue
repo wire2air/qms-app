@@ -14,7 +14,7 @@ defineProps({
   },
 })
 
-const emit = defineEmits(['archive', 'clone'])
+const emit = defineEmits(['archive', 'clone', 'share'])
 
 const showPreviewDialog = ref(false)
 const previewTemplate = ref(null)
@@ -50,6 +50,7 @@ const previewTitle = computed(() => {
       @preview="handlePreview"
       @archive="(t) => emit('archive', t)"
       @clone="(t) => emit('clone', t)"
+      @share="(t) => emit('share', t)"
     />
   </div>
 

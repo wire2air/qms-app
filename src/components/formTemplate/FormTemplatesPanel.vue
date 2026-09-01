@@ -18,8 +18,24 @@ const toast = useToast()
 
 // Create needs read too: the create mutation reads the new row back through the
 // `formTemplates:read` RLS SELECT policy, so create-without-read fails at the DB.
-const canCreateTemplate = computed(() => isAllowed(['forms_templates:create', 'forms_templates:read']))
+const canCreateTemplate = computed(() =>
+  isAllowed(['forms_templates:create', 'forms_templates:read']),
+)
 const canUpdateTemplate = computed(() => isAllowed(['forms_templates:update']))
+
+// Share link for the LIST view. The table view hosts its own ShareFormDialog;
+// the list had no route to it, and `templates-view-mode` defaults to 'list' — so
+// on a fresh profile the Publish/Revoke control that governs whether a form is
+// reachable by anonymous callers was behind an unlabelled view switcher. Since
+// `is_public` defaults false and was deliberately not backfilled, that made
+// publishing effectively undiscoverable. Kept as a second mount rather than
+// hoisting the table's, so the table's existing behaviour is untouched.
+const shareTemplate = ref(null)
+const showShare = ref(false)
+function onShareTemplate(template) {
+  shareTemplate.value = template
+  showShare.value = true
+}
 
 // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
 const filters = ref({
@@ -172,9 +188,11 @@ async function onArchiveTemplate(template) {
         :canClone="canCreateTemplate"
         @archive="onArchiveTemplate"
         @clone="onCloneTemplate"
+        @share="onShareTemplate"
       />
     </div>
 
     <FormTemplateCreateTemplate v-model="showCreateDialog" @next="handleTemplateCreated" />
+    <ShareFormDialog v-model="showShare" :template="shareTemplate" />
   </div>
 </template>

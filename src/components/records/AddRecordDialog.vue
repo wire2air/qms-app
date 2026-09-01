@@ -248,30 +248,34 @@ watch(model, (open) => {
   }
 })
 
-const createRecord = useLiveMutation(async (db, { templateId, payload }) => {
-  const template = await db.FormTemplate.findByPk(templateId)
-  if (!template) throw new Error('Template not found')
-
-  const { code } = template
-
-  // One counter per template — the record number is `<code>-NNNN`.
-  const allCounters = await db.RecordCounter.where().exec()
-  let counter = allCounters.find((c) => c.templateId === templateId)
-
-  if (!counter) {
-    counter = db.RecordCounter.create({ templateId, currentValue: 1 })
-  } else {
-    counter.currentValue += 1
-  }
-
-  const recordNumber = `${code}-${String(counter.currentValue).padStart(4, '0')}`
-
-  const record = db.Record.create({ templateId, payload, recordNumber })
-  await record.save()
-  await counter.save()
-
-  return record
-})
+/**
+ * Create a UTILITY record. Records F-11.
+ *
+ * This was a SyncEngine useLiveMutation that minted the record number IN THE
+ * BROWSER: read every RecordCounter out of IndexedDB, find this template's,
+ * `currentValue += 1`, format `<code>-NNNN`, then save the record and the
+ * counter as two separate round trips. Two people submitting the same form at
+ * once both read the same currentValue and both wrote the same number — and
+ * the register a record number identifies is the thing an auditor traces, so a
+ * collision is not a cosmetic bug. (It also read from IndexedDB, whose counter
+ * row is only as fresh as the last sync push, so the race did not even need
+ * true concurrency to lose.)
+ *
+ * POST /v1/services/records does the same job correctly and already existed:
+ * insertRecord in the API takes `SELECT … FOR UPDATE` on the counter row and
+ * writes the counter and the record in ONE transaction. It also freezes
+ * form_schema + template_version onto the row (the QMS Intelligence Phase 9
+ * seal), projects reportable answers into analytics_field_values, and — since
+ * 2026-09-01 — enforces the create permission for the template's module. The
+ * client path did none of those five things.
+ *
+ * The saved row arrives back over the normal sync push, same as every other
+ * REST-written model (submitFieldRecord below has always worked this way).
+ */
+async function createRecord({ templateId, payload }) {
+  const res = await post('/v1/services/records', { templateId, payload })
+  return res?.record ?? res
+}
 
 /**
  * Read the classification from the selected row.
@@ -410,8 +414,9 @@ async function handleSubmit(data) {
     toast.error('Training for this book is incomplete — finish it before logging entries.')
     return
   }
-  // UTILITY templates keep the legacy SyncEngine path — they write to
-  // the `records` table (numbered `<code>-NNNN`, one sequence per template).
+  // UTILITY templates write to the `records` table (numbered `<code>-NNNN`,
+  // one sequence per template) — now through the server, which is the only
+  // place that sequence can be minted safely. See createRecord above.
   if (!isInspectionRecord.value) {
     submitting.value = true
     try {
@@ -420,11 +425,10 @@ async function handleSubmit(data) {
         templateId: selectedTemplate.value.id,
         payload: frozen,
       })
-      // useLiveMutation reports the failure itself and resolves to undefined
-      // rather than throwing, so the catch below never sees it. Without this
-      // guard a failed create still advanced to the success step and emitted
-      // 'created' — surfacing "Record created successfully" alongside the error
-      // toast for a record that was never written.
+      // Kept from the useLiveMutation era, when a failed create resolved to
+      // undefined instead of throwing and the success step ran anyway. post()
+      // throws, so the catch below now handles that case — this stays as the
+      // guard against a 2xx with an empty body.
       if (!record) return
       createdRecord.value = record
       step.value = 'success'
