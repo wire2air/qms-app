@@ -380,7 +380,11 @@ const complaintActions = computed(() => {
       label: 'Audit log',
       variant: 'ghost',
       priority: 10,
-      visible: true,
+      // The trail is its own matrix module (`audit_trail:read`), not something
+      // complaints:read implies — `audit_log_select_rls` enforces that. The
+      // dialog refuses politely now; the button should not be offered to be
+      // refused.
+      visible: isAllowed(['audit_trail:read']),
       onSelect: () => (showAuditLog.value = true),
     },
   ]

@@ -628,6 +628,7 @@ const documentActions = computed(() =>
       inReview:
         selectedVersion.value?.statusId === 'IN_REVIEW' &&
         !!selectedVersion.value?.workflowInstanceId,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       createDraft: openNewVersionDialog,

@@ -163,12 +163,17 @@ describe('buildComplaintActions', () => {
     expect(a.find((x) => x.id === 'convertToNc').visible).toBe(false)
   })
 
-  it('audit is always visible', () => {
-    const a = buildComplaintActions(
-      { isEditable: false, canUpdate: false, canConvert: false, statusId: 'CLOSED', acting: false, hasAssignee: false },
-      handlers,
-    )
-    expect(a.find((x) => x.id === 'audit').visible).toBe(true)
+  // Audit Log is NOT implied by complaint_management:read — `audit_log_select_rls`
+  // moved the trail onto its own module (`audit_trail:read`), so without the
+  // grant the dialog has no rows and only tells the user no.
+  it('shows audit only with canViewAuditTrail', () => {
+    const visible = (gates) =>
+      buildComplaintActions(
+        { isEditable: false, canUpdate: false, canConvert: false, statusId: 'CLOSED', acting: false, hasAssignee: false, ...gates },
+        handlers,
+      ).find((x) => x.id === 'audit').visible
+    expect(visible({})).toBe(false)
+    expect(visible({ canViewAuditTrail: true })).toBe(true)
   })
 
   it('all actions are disabled and accept shows loading when acting=true', () => {
@@ -190,7 +195,7 @@ describe('buildComplaintActions', () => {
     expect(a.find((x) => x.id === 'accept').visible).toBe(false)
     expect(a.find((x) => x.id === 'assign').visible).toBe(false)
     expect(a.find((x) => x.id === 'close').visible).toBe(false)
-    expect(a.find((x) => x.id === 'audit').visible).toBe(true)
+    expect(a.find((x) => x.id === 'audit').visible).toBe(false) // needs audit_trail:read
   })
 
   it('wires onSelect to the provided handlers', () => {

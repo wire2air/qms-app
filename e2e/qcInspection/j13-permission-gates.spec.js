@@ -38,7 +38,7 @@ test.describe('PW-J13 — retain-samples permission + RLS gates', () => {
     expect(res.error, 'refused by the row-level security policy').toMatch(/row-level security/i)
   })
 
-  test('MTC-25 — 🔴 OPEN finding #14: an update-holder can dispose over raw SQL, skipping the e-sign', async ({
+  test('MTC-25 — finding #14 CLOSED: an update-holder cannot dispose over raw SQL, skipping the e-sign', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.qcInspector })
@@ -50,9 +50,20 @@ test.describe('PW-J13 — retain-samples permission + RLS gates', () => {
     expect(sample.statusId).toBe('RETAINED')
 
     // The inspector holds retain_samples:read/create/update — NOT dispose. The
-    // REST route refuses them (asserted in PW-J12). The database does not:
-    // retain_samples_write_rls accepts create OR update OR dispose in one
-    // policy, and status_id has no CHECK and no transition trigger.
+    // REST route refuses them (asserted in PW-J12).
+    //
+    // INVERTED 2026-09-01 (QC-F6, migration 20260901120000). The database used
+    // to allow this: retain_samples_write_rls accepts create OR update OR
+    // dispose in one policy, and status_id had no CHECK and no trigger, so the
+    // RETAINED/DISPOSED vocabulary and the disposal seal lived only in
+    // retainSampleService.js. `enforce_retain_sample_lifecycle` now refuses any
+    // untrusted write to the disposal facts with SQLSTATE QMSRS.
+    //
+    // This pairs with QC-F5 (20260901110000), which made the REST disposal write
+    // a real Part 11 `signatures` row — it had been calling verifyAndSign with
+    // no subject, so the PIN was checked and nothing was recorded. Neither half
+    // is a control on its own: a signature you can decline to produce by going
+    // around the endpoint is not a signature.
     const res = sqlAsAppUser(
       `UPDATE retain_samples SET status_id = 'DISPOSED', disposed_at = NOW()
         WHERE id = '${sample.id}';`,
@@ -61,31 +72,19 @@ test.describe('PW-J13 — retain-samples permission + RLS gates', () => {
 
     const after = findRetainSample(sample.id)
 
-    if (res.ok && after.statusId === 'DISPOSED') {
-      // CURRENT BEHAVIOR — the bypass works. A physical reserve sample is
-      // marked destroyed with no e-signature and no DISPOSED custody event.
-      expect(after.statusId, 'finding #14 is still open — see 11-security-review.md #14').toBe('DISPOSED')
-      // And the evidence trail the feature promises is simply absent.
-      expect(
-        sqlValue(`SELECT count(*) FROM retain_sample_events
-                   WHERE retain_sample_id = '${sample.id}' AND event_type = 'DISPOSED'`),
-        'the bypass leaves NO custody event — this is the harm',
-      ).toBe('0')
-      test.info().annotations.push({
-        type: 'known-defect',
-        description:
-          'Finding #14 OPEN: retain_samples.status_id has no CHECK/trigger and one broad write policy, ' +
-          'so retain_samples:update holders can dispose without the PIN e-sign. Fix = C1 status trigger ' +
-          '+ M2 seal, then invert this test to expect refusal.',
-      })
-    } else {
-      // The fix has landed. Flip this test: the refusal is now the contract.
-      throw new Error(
-        'Finding #14 appears FIXED (the raw UPDATE was refused). This is good news — ' +
-          'invert this test to assert the refusal permanently, and update ' +
-          'docs/modules/qc-inspection/11-security-review.md finding #14 to FIXED.',
-      )
-    }
+    expect(
+      after.statusId,
+      'finding #14 has regressed — an update-holder disposed a retain sample over raw SQL',
+    ).toBe('RETAINED')
+    expect(after.disposedAt ?? null, 'the disposal facts must not be forged either').toBeNull()
+
+    // The harm the old bypass caused, asserted from the other side: the sample
+    // is still live, so its custody chain has no DISPOSED event to be missing.
+    expect(
+      sqlValue(`SELECT count(*) FROM retain_sample_events
+                 WHERE retain_sample_id = '${sample.id}' AND event_type = 'DISPOSED'`),
+      'a refused disposal must not leave a custody event behind',
+    ).toBe('0')
   })
 
   test('finding #18 — the retain custodian is bounced off the QC list route their own sidebar links to', async ({
@@ -118,7 +117,9 @@ test.describe('PW-J13 — retain-samples permission + RLS gates', () => {
     // only of their own sidebar entry, not of the page — and the guard is a UX
     // affordance, not a security boundary (RLS is the real gate).
     await page.goto('/qc-inspection?tab=retain-samples')
-    await expect(page, 'a direct load is not guarded at all').toHaveURL(/qc-inspection/, { timeout: 20_000 })
+    await expect(page, 'a direct load is not guarded at all').toHaveURL(/qc-inspection/, {
+      timeout: 20_000,
+    })
     await expect(
       page.getByRole('heading', { name: 'QC Inspection' }).first(),
       'and the surface renders for a persona the guard just rejected',

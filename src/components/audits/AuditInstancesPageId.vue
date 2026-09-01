@@ -400,6 +400,7 @@ const auditInstanceActions = computed(() =>
       releasing: releasing.value,
       unassessedCount: unassessedCount.value,
       findingsOpen: findingsByStatus.value.open,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
     },
     {
       release: releaseAudit,

@@ -242,6 +242,126 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Purges the log entries previous Inspections & Logs runs left behind.
+      // Same reason as qcSetup: FieldRecord/FieldRecordRevision/FieldRecordFlag/
+      // AssignmentInstance are all synced models, so accumulated rows slow every
+      // fresh browser context's syncEngine bootstrap until UI steps time out.
+      // See e2e/fixtures/inspectionsLogs.setup.js.
+      name: 'inspectionsLogsSetup',
+      testMatch: /fixtures\/inspectionsLogs\.setup\.js/,
+      dependencies: ['setup'],
+    },
+    {
+      // Inspections & Log Books — field records, log books, form assignments.
+      // The module had zero E2E coverage until 2026-08-31 and is the one place
+      // in the product where an immutable, e-signed record is created by a
+      // floor user rather than an author: submit, the edit window closing,
+      // supervisor review, amendment and void.
+      //
+      // IL-J8 is the reason this project is worth more than its test count. It
+      // pins the module's three top security-review findings (#1 a revision's
+      // Part-11 signature could be repointed, #2 a submitter could self-approve,
+      // #3 an assignee could self-complete a scheduled occurrence) — all three
+      // closed at the database on 2026-08-31, and each probed from BOTH sides so
+      // a policy that quietly stopped matching anything cannot read as a pass.
+      name: 'inspectionsLogs',
+      testMatch: /inspectionsLogs\/[^/]+\.spec\.js$/,
+      dependencies: ['inspectionsLogsSetup'],
+      // Above the 120s default. Nothing in this module is readable until the
+      // syncEngine has bootstrapped LogBook / FieldRecord / FormAssignment into
+      // a context's IndexedDB — ~17s idle, considerably more while trace and
+      // video are recording — and a journey that needs a second persona pays it
+      // again. `createPersonaPool` keeps that to one bootstrap per persona per
+      // file; the headroom covers the first one.
+      timeout: 180_000,
+      // The fill page and the detail overlay both read the log book and the
+      // record out of IndexedDB after a REST write, so their readiness depends
+      // on a sync broadcast landing. One Playwright-level retry covers the
+      // residual lag without masking a real failure (a genuine break fails both
+      // attempts).
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Tasks — the unified work inbox. Every journey has to MINT its task
+      // first: a task is not a page (taskRoute.js deep-links to the host
+      // entity) and the inbox is hard-scoped to `assignedTo`, so there is no
+      // fixture shortcut — the specs drive a real CAPA or document workflow to
+      // the point where a task exists, then log in as the assignee. That cost
+      // is why `e2e/fixtures/tasks.js` carries mintCapaTask / mintCollaboratorTask.
+      //
+      // The load-bearing probe is the read leak (HIGH-3): `task_instance_select_rls`
+      // released every task in the tenant to any holder of `document_control:read`
+      // — measured, the E2E Doc Controller persona saw 3,672 of 3,672. Both sides
+      // are asserted, because a policy that quietly stopped matching anything
+      // would otherwise read as a perfect guard.
+      name: 'tasks',
+      testMatch: /tasks\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Same reason as inspectionsLogs: nothing is readable until the syncEngine
+      // has bootstrapped TaskInstance into a context's IndexedDB, and a journey
+      // that needs a second persona pays that again.
+      timeout: 180_000,
+      // Every file here pays for its fixtures in a `beforeAll` that drives the
+      // CAPA create wizard and/or the document rail — two to three full UI mints
+      // before a single assertion runs. Those forms read their pickers out of
+      // IndexedDB, so a context whose bootstrap has not landed opens a select
+      // with no options and BaseSelect renders its empty state instead of a
+      // listbox; observed twice on 2026-09-01, both times in the mint, never in
+      // an assertion. One retry covers that without masking a real failure —
+      // a genuine break fails both attempts, and the probes themselves are
+      // deterministic SQL. Same posture and same reason as inspectionsLogs.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Audit Logs — a read surface, so the journeys are cheap, and the module's
+      // only CRITICAL is exactly the kind E2E proves well: `audit_log_select_rls`
+      // gated on `document_control:read` (49 of 75 roles, incl. baseline
+      // Employee) instead of `audit_trail:read` (10). The e2e seed grants the
+      // trail to E2E Auditor and E2E Role Admin and DENIES it to E2E Doc
+      // Controller — those denials are regression probes placed on purpose, so
+      // every one is paired with a granted persona reading the same rows.
+      name: 'auditLogs',
+      testMatch: /auditLogs\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // App Builder — Forms. The headline here is the public fill surface: an
+      // unauthenticated read that used to serve any ACTIVE template in any
+      // tenant to anyone holding the row's UUID, now a server-minted revocable
+      // share token. Journeys that exercise it must run WITHOUT storageState,
+      // which is the point of the surface, so they set `storageState: undefined`
+      // per-test rather than inheriting a logged-in context.
+      name: 'forms',
+      testMatch: /forms\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // App Builder — Records (Submissions). Covers both shapes that share the
+      // one physical table: plain form submissions and promoted module records.
+      // e2e-seed.sql §35 seeds the module fixture these need — before it, the
+      // E2E database could not represent a module record at all.
+      name: 'records',
+      testMatch: /records\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Custom Fields / Option Sets. The RLS gate on entity_field_values is
+      // per-HOST-record (an NC's custom fields are the NC's), so these journeys
+      // are cross-module by nature and need personas with differing host grants.
+      name: 'customFields',
+      testMatch: /customFields\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

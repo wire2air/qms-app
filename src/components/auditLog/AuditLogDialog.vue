@@ -2,6 +2,7 @@
 import { h, defineAsyncComponent } from 'vue'
 import { IconShield, IconDownload, IconRefresh } from '@tabler/icons-vue'
 import BaseSpinner from '@shared/components/BaseSpinner.vue'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
   // Single-entity mode: shows changes made TO this record.
@@ -26,7 +27,7 @@ const model = defineModel({ type: Boolean, default: false })
 // Lazy-load the audit list: its subtree (AuditLogsItem → AuditLogEntityLink →
 // per-entity resolvers/badges) is a ~2.5 MB chunk. Async-loading it here means
 // it loads only when the dialog is actually opened — keeping it off the
-// critical path of the 8 entity detail pages that embed this dialog. A
+// critical path of the 10 entity detail pages that embed this dialog. A
 // centered spinner covers the (one-time, then cached) chunk download; `delay`
 // avoids flashing it when the chunk is already cached.
 const AuditListLoading = () =>
@@ -38,6 +39,19 @@ const AuditLogsList = defineAsyncComponent({
 })
 
 const refreshKey = ref(0)
+
+// The trail is governed by its own matrix module (`audit_trail` — read/export),
+// not by whatever permission opened the host record. `audit_log_select_rls`
+// decides which rows sync at all, so without this check a user who does not
+// hold the grant sees "No audit entries" — indistinguishable from a record that
+// genuinely has no history, on a surface whose entire value is being trusted.
+const canRead = computed(() => isAllowed(['audit_trail:read']))
+
+// Downloading the trail is a separate grant from reading it. An affordance
+// gate, not the gate: the CSV is assembled from rows already in IDB, so there
+// is no server round-trip left to re-check it — `canRead` above (and the RLS
+// policy behind it) is what actually bounds what can leave.
+const canExport = computed(() => isAllowed(['audit_trail:export']))
 
 // Build a per-entityType id set so the in-memory filter is O(1) per log
 const entityIdSetByType = computed(() => {
@@ -57,12 +71,13 @@ const entityIdSetByType = computed(() => {
 const logs = useLiveQueryWithDeps(
   [
     () => model.value,
+    () => canRead.value,
     () => entityIdSetByType.value,
     () => props.performedBy,
     () => refreshKey.value,
   ],
-  async (db, [open, byType, performedBy]) => {
-    if (!open) return []
+  async (db, [open, allowed, byType, performedBy]) => {
+    if (!open || !allowed) return []
     const hasEntities = byType.size > 0
     if (!hasEntities && !performedBy) return []
 
@@ -151,7 +166,13 @@ function exportCsv() {
 
 <template>
   <BaseDialog v-model="model" :title="title" maxWidth="3xl">
-    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-3">
+    <!-- Deliberately NOT the empty state below: "no entries" and "not yours to
+         see" must not look alike on a compliance record. -->
+    <div v-if="!canRead" class="tw:py-12 tw:text-center tw:text-secondary">
+      You don't have permission to view the audit trail.
+    </div>
+
+    <div v-else class="tw:p-5 tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:items-center tw:justify-between">
         <p class="tw:text-xs tw:text-secondary">
           Tamper-evident record of changes. Showing {{ logs?.length ?? 0 }} entries
@@ -164,7 +185,13 @@ function exportCsv() {
           <BaseButton variant="outline" size="sm" @click="refreshKey++">
             <IconRefresh :size="14" class="tw:mr-1" /> Refresh
           </BaseButton>
-          <BaseButton variant="outline" size="sm" :disabled="!logs?.length" @click="exportCsv">
+          <BaseButton
+            v-if="canExport"
+            variant="outline"
+            size="sm"
+            :disabled="!logs?.length"
+            @click="exportCsv"
+          >
             <IconDownload :size="14" class="tw:mr-1" /> Export CSV
           </BaseButton>
         </div>

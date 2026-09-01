@@ -31,6 +31,16 @@ setup('purge inspection lots from previous QC runs', async () => {
   // soft-deleted rows behind would defeat the point — the syncEngine still
   // pages through them during bootstrap.)
   sql(`
+    -- QC-F5 (2026-09-01): disposing a retain sample now writes a Part 11 row to
+    -- the signatures table, and signatures_retain_sample_id_fkey is ON DELETE
+    -- RESTRICT like every other signature subject -- a signed record must not be
+    -- silently deletable. That is the correct production semantic and is NOT
+    -- relaxed for the tests; this throwaway fixture drops its own signatures
+    -- first instead.
+    DELETE FROM signatures WHERE retain_sample_id IN (
+      SELECT rs.id FROM retain_samples rs
+        JOIN inspection_lots l ON l.id = rs.inspection_lot_id
+       WHERE l.company_id = '${COMPANY_ID}' AND l.lot_number LIKE 'E2E-LOT-%');
     DELETE FROM retain_sample_events WHERE retain_sample_id IN (
       SELECT rs.id FROM retain_samples rs
         JOIN inspection_lots l ON l.id = rs.inspection_lot_id

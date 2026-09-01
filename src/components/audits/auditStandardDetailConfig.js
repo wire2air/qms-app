@@ -57,7 +57,7 @@ export function buildAuditStandardSections(standard, { underReviewVersion } = {}
  *  - duplicate: clone standard (canCreate)
  *  - submit:    submit editable version for approval (canSubmitEditable + editableVersion)
  *  - newDraft:  spawn a new draft off effective (canSpawnNewDraft)
- *  - audit:     open audit log (always)
+ *  - audit:     open audit log (canViewAuditTrail — the trail is its own module)
  *  - archive:   retire a standard that has an EFFECTIVE version (canDelete).
  *               Archived standards stay on record and existing audits stay
  *               valid; they just leave the pickers for new audits.
@@ -79,6 +79,7 @@ export function buildAuditStandardActions(gates = {}, handlers = {}) {
     isArchived,
     spawningDraft,
     deleting,
+    canViewAuditTrail,
   } = gates
   return [
     {
@@ -116,7 +117,11 @@ export function buildAuditStandardActions(gates = {}, handlers = {}) {
       icon: IconHistory,
       variant: 'secondary',
       priority: 15,
-      visible: !!hasStandard,
+      // The trail is its own matrix module (`audit_trail:read`), not something
+      // auditing:read implies — `audit_log_select_rls` enforces that. The
+      // dialog refuses politely now; the button should not be offered to be
+      // refused.
+      visible: !!hasStandard && !!canViewAuditTrail,
       onSelect: handlers.openAudit,
     },
     {

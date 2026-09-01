@@ -295,23 +295,95 @@ export const ACTION_ICONS = {
   EXPORT: 'IconDownload',
 }
 
+// The Audit Logs module filter.
+//
+// ── THIS LIST MATCHED NOTHING UNTIL 2026-09-01 ──────────────────────────────
+//
+// It previously held 14 UPPERCASE_SNAKE values — DOCUMENT_CONTROL, WORKFLOWS,
+// NONCONFORMANCES, TASKS … — while the server stores lowercase `authz.modules`
+// ids. `useAuditLogs.js` filters with `modules.includes(log.moduleId)`, an exact
+// string compare, and not one `authz.modules` id contains an uppercase
+// character (verified live). So **every option matched zero rows**: picking any
+// module emptied the list, which reads to a user as "nothing happened in that
+// module" rather than as a broken filter. That is the same silent shape as the
+// write-side status bugs found the same day — a vocabulary that drifted from
+// the database and had nothing comparing the two.
+//
+// Values are now the real `audit_entity_types.module_id`, labels are the real
+// `authz.modules.name`. Restricted to modules that actually carry audit rows,
+// so the dropdown does not offer filters that are empty by construction.
+//
+// GENERATED — regenerate rather than hand-editing, or it will drift again:
+//
+//   SELECT '  { label: ' || quote_literal(m.name) ||
+//          ', value: ' || quote_literal(aet.module_id) || ' },'
+//     FROM audit_entity_types aet
+//     JOIN authz.modules m ON m.id = aet.module_id
+//     LEFT JOIN audit_entity_type_aliases a ON a.canonical = aet.id
+//     LEFT JOIN audit_logs al ON al.entity_type IN (aet.id, a.alias)
+//    WHERE aet.module_id IS NOT NULL
+//    GROUP BY aet.module_id, m.name HAVING count(al.id) > 0
+//    ORDER BY m.name;
+//
+// Note `TaskInstance.module_id` is NULL until migration 20260901210000 runs;
+// once it does, re-run the query above to pick up 'tasks' (8.4% of all rows).
 export const MODULE_OPTIONS = [
-  { label: 'Document Control', value: 'DOCUMENT_CONTROL' },
-  { label: 'Workflows', value: 'WORKFLOWS' },
-  { label: 'Forms & Records', value: 'FORMS' },
-  { label: 'Suppliers', value: 'SUPPLIERS' },
-  { label: 'Asset Requests', value: 'ASSET_REQUESTS' },
-  { label: 'Nonconformances', value: 'NONCONFORMANCES' },
-  { label: 'Users & Access', value: 'USERS_ACCESS' },
-  { label: 'Teams', value: 'TEAMS' },
-  { label: 'Org / Departments', value: 'ORG' },
-  { label: 'Products', value: 'PRODUCTS' },
-  { label: 'Tasks', value: 'TASKS' },
-  { label: 'Configuration', value: 'CONFIGURATION' },
-  { label: 'Organization', value: 'ORGANIZATION' },
-  { label: 'API Keys', value: 'API_KEYS' },
+  { label: 'AQL Standards', value: 'inspection_standards' },
+  { label: 'Audit Finding Categories', value: 'audit_finding_categories' },
+  { label: 'Audit Findings', value: 'audit_findings' },
+  { label: 'Audit Management', value: 'audit_management' },
+  { label: 'Audit Programs', value: 'audit_programs' },
+  { label: 'Audit Standards', value: 'audit_standards' },
+  { label: 'Audit Standard Types', value: 'audit_standard_types' },
+  { label: 'Automation Rules', value: 'automation_rules' },
+  { label: 'Calibration / Equipment', value: 'calibration_equipment' },
+  { label: 'CAPA', value: 'capa' },
+  { label: 'Change Control', value: 'change_control' },
+  { label: 'Complaint Management', value: 'complaint_management' },
+  { label: 'Custom Fields', value: 'custom_fields' },
+  { label: 'Departments', value: 'departments' },
+  { label: 'Deviation / Quality Events', value: 'quality_events' },
+  { label: 'Document Control', value: 'document_control' },
+  { label: 'Document Templates', value: 'document_templates' },
+  { label: 'Field Records', value: 'field_records' },
+  { label: 'Forms & Form Templates', value: 'forms_templates' },
+  { label: 'Hazard Categories', value: 'hazard_categories' },
+  { label: 'Inspection / QC', value: 'inspection_qc' },
+  { label: 'Inspection Settings', value: 'inspection_settings' },
+  { label: 'Inspection Specifications', value: 'inspection_spec' },
+  { label: 'Item Master', value: 'products' },
+  { label: 'Log Books', value: 'log_books' },
+  { label: 'NC Disposition Types', value: 'nc_disposition_types' },
+  { label: 'Non-Conformance / NCR', value: 'ncr' },
+  { label: 'Notifications', value: 'notifications' },
+  { label: 'Option Sets', value: 'option_sets' },
+  { label: 'Quality Complaints', value: 'complaints' },
+  { label: 'RCA Templates', value: 'rca_templates' },
+  { label: 'Related Standards', value: 'related_standards' },
+  { label: 'Retain Samples', value: 'retain_samples' },
+  { label: 'Risk Assessment Templates', value: 'risk_assessment_templates' },
+  { label: 'Role & Permission Management', value: 'role_permission_management' },
+  { label: 'Root Cause Categories', value: 'root_cause_categories' },
+  { label: 'Sampling Plans', value: 'inspection_plan' },
+  { label: 'Security Settings', value: 'security' },
+  { label: 'Sites', value: 'sites' },
+  { label: 'Supplier Certificate Types', value: 'supplier_certificate_types' },
+  { label: 'Supplier Management', value: 'supplier_management' },
+  { label: 'Teams', value: 'teams' },
+  { label: 'Test Library', value: 'inspection_catalog' },
+  { label: 'Training Instances', value: 'training_instances' },
+  { label: 'Training Management', value: 'training' },
+  { label: 'Training Verifications', value: 'training_verifications' },
+  { label: 'User Management', value: 'user_management' },
+  { label: 'Workflows & Templates', value: 'workflows_templates' },
 ]
 
+// UNUSED as of 2026-09-01 — no consumer anywhere in src/ (only MODULE_OPTIONS is
+// read, by AuditLogsFilters.vue:13). Left in place rather than deleted because
+// its icon/colour choices are the only record of an intended per-module
+// treatment, but note the keys are the OLD uppercase values and therefore no
+// longer correspond to anything the server sends. Anyone wiring this up must
+// re-key it on the lowercase module ids above first.
 export const MODULE_META = {
   DOCUMENT_CONTROL: { label: 'Document Control', icon: 'IconFileText', color: 'tw:text-blue-600' },
   WORKFLOWS: { label: 'Workflows', icon: 'IconGitBranch', color: 'tw:text-purple-600' },

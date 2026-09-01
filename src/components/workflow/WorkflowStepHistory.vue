@@ -21,8 +21,18 @@
  *
  * Tasks give us "who held it and when"; audit gives us "what was done and was
  * it signed". Neither alone answers the question.
+ *
+ * Only the SECOND source is permissioned. `audit_log_select_rls` bounds
+ * audit_logs on `audit_trail:read`, which most roles do not hold, so for them
+ * this panel silently degrades rather than empties: the task half still renders
+ * the chain of custody, while the signatures, the delay/reopen acts, and the
+ * verified actor behind a completion all disappear with no explanation. The
+ * degraded half is what the notice at the foot of the list exists to name —
+ * a step history that quietly omits its e-signatures is worse than one that
+ * says it cannot show them.
  */
 import { DateTime } from 'luxon'
+import { isAllowed } from '@/utils/currentSession.js'
 import {
   IconUserPlus,
   IconArrowsExchange,
@@ -38,6 +48,9 @@ const props = defineProps({
 })
 
 const open = ref(false)
+
+// Governs the AuditLog half of the timeline — see the header comment.
+const canReadAuditTrail = computed(() => isAllowed(['audit_trail:read']))
 
 const tasks = useLiveQueryWithDeps(
   [() => props.instanceStepId],
@@ -100,7 +113,15 @@ const taskAuditRows = useLiveQueryWithDeps(
   { models: ['AuditLog'], initial: [] },
 )
 
-/** Who actually ended this task, and on whose behalf. */
+/**
+ * Who actually ended this task, and on whose behalf.
+ *
+ * Without `audit_trail:read` there are no rows to consult and this falls back
+ * to `task.assignedTo` — the pre-takeover behaviour, i.e. it credits whoever
+ * the task was routed to. That is right in the ordinary case and wrong for a
+ * takeover, and the reader cannot tell which. The notice in the template says
+ * so rather than the panel quietly asserting an actor it did not verify.
+ */
 const TASK_END_ACTIONS = ['APPROVE', 'REJECT', 'CANCEL']
 function actorForTaskEnd(task) {
   const row = taskAuditRows.value
@@ -290,5 +311,17 @@ const timeline = computed(() => {
         </span>
       </li>
     </ol>
+
+    <!-- Named, not omitted: the entries missing here are the compliance-
+         critical ones (the e-signature above all), and a list that just stops
+         short reads as "this step was never signed". -->
+    <p
+      v-if="open && !canReadAuditTrail"
+      class="tw:mt-2 tw:ps-1 tw:text-micro tw:text-secondary tw:italic"
+    >
+      E-signatures, delay and reopen entries are not shown — they come from the audit trail, which
+      you don't have permission to view. Completions are credited to the assignee here; only the
+      audit trail records who acted.
+    </p>
   </div>
 </template>

@@ -58,7 +58,15 @@ describe('buildNcActions', () => {
     const a = buildNcActions({ canOpen: false, canClose: false, canDelete: false, statusId: 'DRAFT', canMarkComplete: false, markCompleteBlockedReason: '', canConvert: false, saving: false }, handlers)
     expect(a.find((x) => x.id === 'open').visible).toBe(false)
     expect(a.find((x) => x.id === 'delete').visible).toBe(false)
-    expect(a.find((x) => x.id === 'audit').visible).toBe(true) // audit always available
+    expect(a.find((x) => x.id === 'audit').visible).toBe(false) // needs audit_trail:read
+  })
+  // Audit Log is NOT implied by ncr:read — `audit_log_select_rls` moved the
+  // trail onto its own module, so without the grant the dialog has no rows and
+  // only tells the user no.
+  it('shows Audit Log only with canViewAuditTrail', () => {
+    const visible = (gates) => buildNcActions(gates, handlers).find((x) => x.id === 'audit').visible
+    expect(visible({ statusId: 'OPEN' })).toBe(false)
+    expect(visible({ statusId: 'OPEN', canViewAuditTrail: true })).toBe(true)
   })
   it('gates each action on its OWN verb, independently', () => {
     // The rule that changed 2026-08-19. These were all one `isOwner` flag, so a

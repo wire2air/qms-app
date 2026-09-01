@@ -38,6 +38,19 @@ export class FormTemplate extends BaseModel {
   // row with '' collides. NULL is excluded from the index (only modules set it).
   @Property({ type: String }) internalName = null
   @Property({ type: Boolean }) isModule = false
+  // ── public fill link (FORMS F-01/F-02) ────────────────────────────────────
+  // `isPublic` is the switch the Share dialog flips; `publicToken` is the
+  // capability the link carries. The TOKEN IS SERVER-OWNED — minted, carried and
+  // destroyed by the enforce_form_template_integrity trigger — so a save that
+  // round-trips whatever this client last saw (or `null`, if it has never seen
+  // one) cannot clear it. It is declared here only so the dialog can READ the
+  // link back after publishing. Never assign to it.
+  //
+  // null, not '': a SyncEngine save sends every declared property, and '' into a
+  // nullable column is the mistake that produced the UUID-column 400s elsewhere
+  // in this model set.
+  @Property({ type: Boolean }) isPublic = false
+  @Property({ type: String }) publicToken = null
   @Property({ type: String }) icon = ''
   @Property({ type: Object }) moduleConfig = null
   @Property({ type: DateTime }) deletedAt = null

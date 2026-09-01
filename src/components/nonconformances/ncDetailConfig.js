@@ -38,7 +38,7 @@ export function buildNcSections(nc) {
  * canConvert are 'update', canClose is 'close', canDelete is 'delete'.
  */
 export function buildNcActions(gates = {}, handlers = {}) {
-  const { canOpen, canClose, canDelete, statusId, canMarkComplete, markCompleteBlockedReason, canConvert, saving, completing } = gates
+  const { canOpen, canClose, canDelete, statusId, canMarkComplete, markCompleteBlockedReason, canConvert, saving, completing, canViewAuditTrail } = gates
   const notTerminal = !['DRAFT', 'CLOSED', 'CANCELLED'].includes(statusId)
   return [
     { id: 'open', label: 'Open NC', variant: 'primary', priority: 100,
@@ -47,7 +47,10 @@ export function buildNcActions(gates = {}, handlers = {}) {
       visible: !!canClose && notTerminal, disabled: !canMarkComplete || !!completing, loading: !!completing, title: markCompleteBlockedReason || undefined, onSelect: handlers.openMarkComplete },
     { id: 'print', label: 'Print', icon: IconPrinter, variant: 'secondary', priority: 50, visible: true, onSelect: handlers.print },
     { id: 'convert', label: 'Convert to supplier-facing', icon: IconArrowsExchange, variant: 'secondary', priority: 20, visible: !!canConvert, onSelect: handlers.openConvert },
-    { id: 'audit', label: 'Audit Log', icon: IconHistory, variant: 'secondary', priority: 15, visible: true, onSelect: handlers.openAudit },
+    // Audit Log is gated on the trail's own module (`audit_trail:read`), which
+    // ncr:read does not imply — `audit_log_select_rls` enforces that. The dialog
+    // refuses politely now; the button should not be offered to be refused.
+    { id: 'audit', label: 'Audit Log', icon: IconHistory, variant: 'secondary', priority: 15, visible: !!canViewAuditTrail, onSelect: handlers.openAudit },
     { id: 'delete', label: 'Delete', icon: IconTrash, variant: 'danger', priority: 10, visible: !!canDelete && statusId === 'DRAFT', onSelect: handlers.openDelete },
   ]
 }

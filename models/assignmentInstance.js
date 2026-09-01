@@ -30,17 +30,29 @@ export class AssignmentInstance extends BaseModel {
   @Property({ type: DateTime, required: true }) windowClosesAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true }) graceUntil = /** @type {DateTime} */ (null)
 
-  @Property({ type: String }) statusId = 'DUE'
+  // The client half of inspections-logs finding #3. The RLS UPDATE policy
+  // admitted the assignee with no permission at all, so the person the work was
+  // assigned to could mark their own overdue occurrence COMPLETED, or erase a
+  // MISSED one. Nothing in src/ mutates this entity at all — the UI completes an
+  // occurrence indirectly, by passing `assignmentInstanceId` on a record submit
+  // — so these markers cost nothing and close the generated mutation.
+  // enforce_assignment_instance_lifecycle (20260901150000) is the real gate.
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DUE'
 
-  @Property({ type: String }) completedRecordId = ''
-  @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
-  @Property({ type: DateTime }) missedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) completedRecordId = ''
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) completedAt =
+    /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) missedAt = /** @type {DateTime} */ (
+    null
+  )
 
-  @Property({ type: DateTime }) skippedAt = /** @type {DateTime} */ (null)
-  @Property({ type: String }) skippedByUserId = ''
-  @Property({ type: String }) skippedReason = ''
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) skippedAt =
+    /** @type {DateTime} */ (null)
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) skippedByUserId = ''
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) skippedReason = ''
 
-  @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) deletedAt =
+    /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })

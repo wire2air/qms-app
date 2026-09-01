@@ -331,11 +331,11 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/form/[templateId]': RouteRecordInfo<
-      '/form/[templateId]',
-      '/form/:templateId',
-      { templateId: ParamValue<true> },
-      { templateId: ParamValue<false> },
+    '/form/[shareToken]': RouteRecordInfo<
+      '/form/[shareToken]',
+      '/form/:shareToken',
+      { shareToken: ParamValue<true> },
+      { shareToken: ParamValue<false> },
       | never
     >,
     '/form-blocks': RouteRecordInfo<
@@ -1133,9 +1133,9 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/form/[templateId].vue': {
+    'src/pages/form/[shareToken].vue': {
       routes:
-        | '/form/[templateId]'
+        | '/form/[shareToken]'
       views:
         | never
     }

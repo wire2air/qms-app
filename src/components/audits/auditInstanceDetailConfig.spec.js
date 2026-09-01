@@ -66,8 +66,16 @@ describe('buildAuditInstanceActions', () => {
       .filter((a) => a.visible)
       .map((a) => a.id)
 
-  it('Report and Audit Log are always available', () => {
-    expect(visibleIds({})).toEqual(expect.arrayContaining(['report', 'auditLog']))
+  it('Report is always available', () => {
+    expect(visibleIds({})).toContain('report')
+  })
+
+  // The platform trail is its own module (`audit_trail:read`), not implied by
+  // auditing:read — see `audit_log_select_rls`. Without it the dialog has no
+  // rows and only tells the user no.
+  it('Audit Log only with canViewAuditTrail', () => {
+    expect(visibleIds({ canViewAuditTrail: true })).toContain('auditLog')
+    expect(visibleIds({})).not.toContain('auditLog')
   })
 
   it('Start only when canStart', () => {

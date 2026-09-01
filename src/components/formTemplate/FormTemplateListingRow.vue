@@ -1,5 +1,14 @@
 <script setup>
-import { IconHistory, IconClock, IconEdit, IconBrush, IconEye, IconArchive, IconCopy } from '@tabler/icons-vue'
+import {
+  IconHistory,
+  IconClock,
+  IconEdit,
+  IconBrush,
+  IconEye,
+  IconArchive,
+  IconCopy,
+  IconShare,
+} from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -17,7 +26,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['navigate', 'preview', 'archive', 'clone'])
+const emit = defineEmits(['navigate', 'preview', 'archive', 'clone', 'share'])
 
 const router = useRouter()
 
@@ -42,6 +51,14 @@ function menuItems() {
     items.push({ name: 'View', icon: IconEye, click: () => navigateToTemplate() })
   }
   items.push({ name: 'Preview', icon: IconEye, click: () => emit('preview', props.template) })
+  // Share link — the ONLY route to Publish/Revoke for a public form, and until
+  // now it existed only on the table view. `templates-view-mode` defaults to
+  // 'list', so on a fresh profile the control governing public exposure sat
+  // behind an unlabelled view switcher. Publishing is an `update` on the row, so
+  // it is gated the same way Edit/Design/Archive are.
+  if (props.canUpdate) {
+    items.push({ name: 'Share link', icon: IconShare, click: () => emit('share', props.template) })
+  }
   if (props.canClone) {
     items.push({ name: 'Clone', icon: IconCopy, click: () => emit('clone', props.template) })
   }
@@ -73,9 +90,7 @@ function menuItems() {
             <h4 class="tw:text-lg tw:font-bold tw:text-on-sidebar">
               {{ template.title }}
             </h4>
-            <span
-              class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary"
-            >
+            <span class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary">
               Code: {{ template.code }}
             </span>
           </div>

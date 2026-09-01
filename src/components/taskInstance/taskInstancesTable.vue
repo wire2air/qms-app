@@ -24,8 +24,7 @@ const taskInstances = useLiveQueryWithDeps(
     let results = await db.TaskInstance.where('assignedTo', userId).exec()
     if (statusId) results = results.filter((t) => t.statusId === statusId)
     if (taskKindId) results = results.filter((t) => t.taskKindId === taskKindId)
-    if (createdAt)
-      results = results.filter((t) => matchesDateFilter(t.createdAt, createdAt))
+    if (createdAt) results = results.filter((t) => matchesDateFilter(t.createdAt, createdAt))
     return results
   },
 
@@ -191,10 +190,7 @@ const changeRequestMap = useLiveQueryWithDeps(
 )
 
 const qualityEventMap = useLiveQueryWithDeps(
-  [
-    () =>
-      taskInstances.value.filter((i) => i.entityType === 'QualityEvent').map((i) => i.entityId),
-  ],
+  [() => taskInstances.value.filter((i) => i.entityType === 'QualityEvent').map((i) => i.entityId)],
   async (db, [eventIds]) => {
     const ids = [...new Set(eventIds.filter(Boolean))]
     if (!ids.length) return {}
@@ -344,10 +340,7 @@ const inspectionLotMap = useLiveQueryWithDeps(
 
 // Retain-sample disposal-due tasks — entityId is the RetainSample id.
 const retainSampleMap = useLiveQueryWithDeps(
-  [
-    () =>
-      taskInstances.value.filter((i) => i.entityType === 'RetainSample').map((i) => i.entityId),
-  ],
+  [() => taskInstances.value.filter((i) => i.entityType === 'RetainSample').map((i) => i.entityId)],
   async (db, [rsIds]) => {
     const ids = [...new Set(rsIds.filter(Boolean))]
     if (!ids.length) return {}
@@ -360,7 +353,10 @@ const retainSampleMap = useLiveQueryWithDeps(
 
 // Specification approval tasks — entityId is the Specification id.
 const specificationMap = useLiveQueryWithDeps(
-  [() => taskInstances.value.filter((i) => i.entityType === 'Specification').map((i) => i.entityId)],
+  [
+    () =>
+      taskInstances.value.filter((i) => i.entityType === 'Specification').map((i) => i.entityId),
+  ],
   async (db, [specIds]) => {
     const ids = [...new Set(specIds.filter(Boolean))]
     if (!ids.length) return {}
@@ -432,7 +428,12 @@ const moduleRecordMap = useLiveQueryWithDeps(
     if (!ids.length) return {}
     const records = await Promise.all(ids.map((id) => db.Record.findByPk(id)))
     const templateIds = [
-      ...new Set(records.filter(Boolean).map((r) => r.templateId).filter(Boolean)),
+      ...new Set(
+        records
+          .filter(Boolean)
+          .map((r) => r.templateId)
+          .filter(Boolean),
+      ),
     ]
     const templates = await Promise.all(templateIds.map((id) => db.FormTemplate.findByPk(id)))
     const tplById = Object.fromEntries(templates.filter(Boolean).map((t) => [t.id, t]))
@@ -483,6 +484,16 @@ const filteredInstances = computed(() => {
       if (!capa) return false
       return capa.title?.toLowerCase().includes(q) || capa.capaNumber?.toLowerCase().includes(q)
     }
+    if (instance.entityType === 'CustomerComplaint') {
+      const c = complaintMap.value[instance.entityId]
+      if (!c) return false
+      return c.subject?.toLowerCase().includes(q) || c.complaintNumber?.toLowerCase().includes(q)
+    }
+    if (instance.entityType === 'Complaint') {
+      const c = qmsComplaintMap.value[instance.entityId]
+      if (!c) return false
+      return c.subject?.toLowerCase().includes(q) || c.complaintNumber?.toLowerCase().includes(q)
+    }
     if (instance.entityType === 'ChangeRequest') {
       const cr = changeRequestMap.value[instance.entityId]
       if (!cr) return false
@@ -530,7 +541,9 @@ const filteredInstances = computed(() => {
     }
     if (instance.entityType === 'RetainSample') {
       const rs = retainSampleMap.value[instance.entityId]
-      return !!rs && (rs.rsNumber?.toLowerCase().includes(q) || rs.lotNumber?.toLowerCase().includes(q))
+      return (
+        !!rs && (rs.rsNumber?.toLowerCase().includes(q) || rs.lotNumber?.toLowerCase().includes(q))
+      )
     }
     if (instance.entityType === 'Specification') {
       const s = specificationMap.value[instance.entityId]
@@ -586,6 +599,7 @@ const EntityType = {
   AuditInstance: 'Audit',
   AuditStandardVersion: 'Audit Standard',
   InspectionLot: 'QC Inspection Lot',
+  RetainSample: 'Retain Sample',
   Specification: 'Specification',
   LineClearanceChecklist: 'Line Clearance',
 }
@@ -973,7 +987,12 @@ defineExpose({ exportCsv })
             v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
             :statusId="getTrainingAssigneeEntry(row).assignee.status"
           />
-          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :task="row" :module="row.entityType" />
+          <TaskInstanceStatusBadgeById
+            v-else
+            :statusId="row.statusId"
+            :task="row"
+            :module="row.entityType"
+          />
         </div>
         <div class="tw:mt-2 tw:text-caption">
           <span v-if="row.completedAt" class="tw:text-green-600 tw:font-medium">
@@ -1153,14 +1172,21 @@ defineExpose({ exportCsv })
                 {{ retainSampleMap[row.entityId]?.rsNumber || 'Retain Sample' }}
               </span>
               <span class="tw:text-micro tw:text-secondary tw:tracking-tight">
-                {{ retainSampleMap[row.entityId]?.lotNumber ? `Lot ${retainSampleMap[row.entityId].lotNumber}` : '—' }}
+                {{
+                  retainSampleMap[row.entityId]?.lotNumber
+                    ? `Lot ${retainSampleMap[row.entityId].lotNumber}`
+                    : '—'
+                }}
               </span>
             </template>
             <template v-else-if="row.entityType === 'Specification'">
               <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:group-hover:text-primary">
                 {{ specificationMap[row.entityId]?.name || 'Specification' }}
               </span>
-              <span v-if="specificationMap[row.entityId]?.code" class="tw:text-micro tw:text-secondary tw:tracking-tight">
+              <span
+                v-if="specificationMap[row.entityId]?.code"
+                class="tw:text-micro tw:text-secondary tw:tracking-tight"
+              >
                 {{ specificationMap[row.entityId].code }}
               </span>
             </template>
@@ -1234,9 +1260,7 @@ defineExpose({ exportCsv })
             :iconOnly="false"
           />
           <span
-            v-else-if="
-              row.entityType === 'LogBook' && logBookMap[row.entityId]?.typeLabel
-            "
+            v-else-if="row.entityType === 'LogBook' && logBookMap[row.entityId]?.typeLabel"
             class="tw:text-sm tw:text-on-main"
           >
             {{ logBookMap[row.entityId].typeLabel }}
@@ -1271,7 +1295,10 @@ defineExpose({ exportCsv })
           <span v-else-if="row.entityType === 'Specification'" class="tw:text-sm tw:text-on-main">
             Spec Approval
           </span>
-          <span v-else-if="row.entityType === 'LineClearanceChecklist'" class="tw:text-sm tw:text-on-main">
+          <span
+            v-else-if="row.entityType === 'LineClearanceChecklist'"
+            class="tw:text-sm tw:text-on-main"
+          >
             Checklist Approval
           </span>
           <span
@@ -1306,7 +1333,12 @@ defineExpose({ exportCsv })
             v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
             :statusId="getTrainingAssigneeEntry(row).assignee.status"
           />
-          <TaskInstanceStatusBadgeById v-else :statusId="row.statusId" :task="row" :module="row.entityType" />
+          <TaskInstanceStatusBadgeById
+            v-else
+            :statusId="row.statusId"
+            :task="row"
+            :module="row.entityType"
+          />
         </template>
 
         <!-- Created -->

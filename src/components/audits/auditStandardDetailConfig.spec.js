@@ -159,12 +159,18 @@ describe('buildAuditStandardActions', () => {
     expect(nd.loading).toBe(true)
   })
 
-  it('audit is always visible when hasStandard', () => {
-    const a = buildAuditStandardActions(
-      { canCreate: false, canDelete: false, canSubmitEditable: false, canSpawnNewDraft: false, hasStandard: true, hasEditableVersion: false, spawningDraft: false, deleting: false },
-      handlers,
-    )
-    expect(a.find((x) => x.id === 'audit').visible).toBe(true)
+  // The platform trail is its own module (`audit_trail:read`), not implied by
+  // auditing:read — see `audit_log_select_rls`. Without it the dialog has no
+  // rows and only tells the user no.
+  it('audit needs hasStandard AND canViewAuditTrail', () => {
+    const visible = (gates) =>
+      buildAuditStandardActions(
+        { canCreate: false, canDelete: false, canSubmitEditable: false, canSpawnNewDraft: false, hasStandard: true, hasEditableVersion: false, spawningDraft: false, deleting: false, ...gates },
+        handlers,
+      ).find((x) => x.id === 'audit').visible
+    expect(visible({ canViewAuditTrail: true })).toBe(true)
+    expect(visible({})).toBe(false)
+    expect(visible({ hasStandard: false, canViewAuditTrail: true })).toBe(false)
   })
 
   it('shows delete when canDelete and hasStandard', () => {

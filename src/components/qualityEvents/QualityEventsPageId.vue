@@ -137,6 +137,23 @@ const visibleReporter = useLiveQueryWithDeps(
   { models: ['User'], initial: null },
 )
 
+/**
+ * Supplier acknowledgements have no record of their own.
+ *
+ * POST /acknowledge-view writes ONE AuditLog row (action ACKNOWLEDGED,
+ * newValueJson.acknowledgedBySupplier) and nothing else — the supplier's
+ * comment exists nowhere but that row. So this panel is an audit-trail read
+ * wearing a business-data hat, and `audit_log_select_rls` now bounds the trail
+ * on `audit_trail:read`, which is unrelated to the quality_events:update +
+ * assigned-reviewer pair that opens this box. Without the grant the query
+ * returns [] and the reviewer reads "No supplier acknowledgements yet" about a
+ * supplier who did acknowledge — so the two cases are told apart below.
+ *
+ * The proper fix is server-side: an acknowledgement is a business fact and
+ * belongs in a table of its own, not in the audit trail.
+ */
+const canReadAuditTrail = computed(() => isAllowed(['audit_trail:read']))
+
 const supplierAcknowledgements = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -541,6 +558,7 @@ const qualityEventActions = computed(() =>
       cancelling: cancelling.value,
       submitting: submitting.value,
       escalatedTo: escalatedTo.value,
+      canViewAuditTrail: canReadAuditTrail.value,
     },
     {
       submit() {
@@ -750,8 +768,15 @@ const qualityEventDetailConfig = computed(() =>
                 class="tw:bg-card tw:border tw:border-divider tw:rounded-lg tw:p-4 tw:flex tw:flex-col tw:gap-3"
               >
                 <BaseText variant="overline" class="tw:block">Supplier Feedback</BaseText>
+                <!-- "You can't see the acknowledgement" and "the supplier never
+                     acknowledged" are different findings, and only one of them
+                     is a reason to go and chase the supplier. -->
+                <div v-if="!canReadAuditTrail" class="tw:text-sm tw:text-secondary tw:italic">
+                  Acknowledgements are recorded in the audit trail, which you don't have permission
+                  to view — this is not the same as the supplier not having acknowledged.
+                </div>
                 <div
-                  v-if="!supplierAcknowledgements.length"
+                  v-else-if="!supplierAcknowledgements.length"
                   class="tw:text-sm tw:text-secondary tw:italic"
                 >
                   No supplier acknowledgements yet.

@@ -17,6 +17,7 @@ import {
   IconFileText,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { useToast } from '@shared/composables/useToast.js'
 
 const props = defineProps({
   supplierId: {
@@ -27,6 +28,7 @@ const props = defineProps({
 
 const canUpdate = computed(() => isAllowed(['supplier_management:update']))
 const { confirm } = useConfirm()
+const toast = useToast()
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
@@ -126,7 +128,10 @@ async function removeItem(item) {
   try {
     await item.delete()
   } catch (err) {
-    alert(err?.message || 'Failed to remove item')
+    // F-14 — a raw browser alert() was the only failure feedback in this
+    // component, in a module where every sibling dialog already uses the app
+    // toast. It also blocks the tab until dismissed.
+    toast.error(err?.message || 'Failed to remove item')
   }
 }
 
