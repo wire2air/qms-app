@@ -18,7 +18,6 @@ import {
   IconCircleDot,
 } from '@tabler/icons-vue'
 import { upload } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { currentSession } from '@/utils/currentSession.js'
 
 defineOptions({ name: 'SupplierDocumentRequestsPage' })
 const pageInfo = usePageInfo()
@@ -123,14 +122,13 @@ async function pickAndUpload(item) {
           already-sent file at any time until the request is closed.
         </p>
       </div>
-      <!-- Diagnostic counters — handy until the sync pipeline is stable.
-           Strip these once we're confident new requests reliably surface. -->
-      <div class="tw:text-right tw:text-xs tw:text-secondary">
-        <div>{{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}</div>
-        <div>{{ items.length }} item{{ items.length === 1 ? '' : 's' }} in IDB</div>
-        <div v-if="currentSession?.supplierId" class="tw:text-micro">
-          supplier: {{ currentSession.supplierId.slice(0, 8) }}…
-        </div>
+      <!-- F-14 — this was a developer diagnostic ("N items in IDB", the first
+           eight characters of the supplier's UUID) shipped to the page a THIRD
+           PARTY logs into. It leaked client-side storage internals and an
+           internal identifier to someone outside the company. What a supplier
+           actually wants here is how much is still owed. -->
+      <div v-if="pendingItems.length" class="tw:text-right tw:text-xs tw:text-secondary">
+        {{ pendingItems.length }} document{{ pendingItems.length === 1 ? '' : 's' }} outstanding
       </div>
     </div>
 
