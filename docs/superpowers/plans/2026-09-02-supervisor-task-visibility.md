@@ -2,7 +2,11 @@
 
 **Date:** 2026-09-02
 **Branch:** `claude/supervisor-task-visibility-9br6nc`
-**Status:** implemented, pushed, no PR opened yet.
+**Status:** frontend implemented and pushed, no PR opened yet. **Blocked on a
+backend RLS change** — see "RESOLVED" below.
+
+**Repos:** `wire2air/qms-app` (frontend, this branch) and `wire2air/qms` (backend
+monorepo — attach with `add_repo`, clone to `/home/user/qms`).
 
 Pick-up note for continuing this work on another machine.
 
@@ -109,22 +113,109 @@ Two semantics chosen deliberately (both documented in `src/utils/taskDueWindows.
 - **The department filter renders only past one department.** With a single supervised
   department it can only ever be a no-op.
 
-## OPEN — needs checking against the backend
+## RESOLVED — the backend does NOT allow this yet
 
-The scope control is a **UX affordance, not a permission**. It is computed from records
-already in IndexedDB; RLS on `task_instances` still decides which rows a viewer can read,
-exactly as it does for the personal scope.
+`wire2air/qms` was attached to the session on 2026-09-02 and the policy read
+directly. **`task_instances` SELECT is not tenant-wide, and there is no supervisor
+concept in RLS at all.** The team scopes will render EMPTY for a normal department
+supervisor until the backend changes.
 
-**This repo is frontend-only, so the policy could not be verified here.**
+`database/rls.sql:5708` — `task_instance_select_rls` admits a row when any of:
 
-- If `task_instances` SELECT RLS is **tenant-wide**, this ships as designed. The model's
-  own header comment (`models/taskInstance.js`) says `task_instances_update_rls` "asks no
-  permission question", and many components already read tasks by entity regardless of
-  assignee — which points this way.
-- If it is **assignee-scoped**, the backend needs a matching supervisor clause or the
-  team scopes render empty.
+1. `is_owner` (company owner),
+2. `assigned_to = me` — the personal inbox, asks no permission,
+3. `authz.scope_allowed('tasks', 'read', assigned_to, NULL, NULL)`,
+4. `authz.can_read_workflow_resource(entity_type, entity_id)` — you may read the
+   record the task hangs off,
+5. `entity_type = 'Document' AND has_permission('document_control','read')` — a
+   documented stopgap for the collaborator / periodic-review cards.
 
-Confirm before shipping. The root monorepo `CLAUDE.md` was not present in the session.
+**Branch 3 is the one that would carry a team view, and it cannot.**
+`authz.scope_allowed(p_module, p_action, p_owner, p_dept, p_site)`
+(`backend/api/migrations/20260709120300-permissions-03-functions.js:56`) ends:
+
+```sql
+RETURN (v_rank >= 4)
+    OR (v_rank >= 3 AND p_site IS NOT NULL AND p_site = v_usite)
+    OR (v_rank >= 2 AND p_dept IS NOT NULL AND p_dept = v_udept)
+    OR (v_rank >= 1 AND p_owner IS NOT NULL AND p_owner = v_user);
+```
+
+The policy passes **NULL for both `p_dept` and `p_site`**, so the department and
+site tiers can never fire — `task_instances` carries no department or site column
+to pass. The effective ladder is therefore:
+
+| `tasks:read` scope      | What the supervisor actually sees                     |
+| ----------------------- | ----------------------------------------------------- |
+| own / department / site | Their own tasks only — the department grant is inert. |
+| tenant                  | **Every task in the tenant**, not just their team.    |
+
+So the grant that makes the feature work is also the grant that over-shares, and
+the one that describes the intent (department) does nothing.
+
+Two further points that matter:
+
+- **This policy was deliberately narrowed on 2026-09-01**, one day before this
+  work — Tasks finding F-03 / HIGH-3 removed a blanket `document_control:read`
+  branch that had released every task in the tenant to 43 of 45 roles. Any change
+  here has to not reopen that.
+- Its own header note justifies the narrowing partly with: _"No read surface
+  regresses — taskInstancesTable, DashboardMyTasks and DashboardKpis all filter
+  assignedTo client-side."_ **This change invalidates that stated assumption** —
+  `taskInstancesTable` now queries other users' tasks. Worth citing when proposing
+  the follow-up.
+
+### Proposed fix — a supervisor branch, not a wider grant
+
+Add a sixth arm that mirrors the frontend roster exactly, so the DB answers the
+same question the UI asks:
+
+```sql
+OR authz.is_supervisor_of(assigned_to)
+```
+
+with a new `STABLE SECURITY DEFINER` helper (same shape as the other `authz`
+predicates, `SET search_path = pg_catalog`, `REVOKE ALL FROM public` +
+`GRANT EXECUTE TO app_user`):
+
+```sql
+-- Is the current user accountable for p_user? Unions the two relationships
+-- already in the schema, matching taskInstancesHome's roster:
+--   users.supervisor_id            — an explicit reporting line
+--   departments.supervisor_user_id — accountability for a whole department
+SELECT EXISTS (
+  SELECT 1 FROM public.users u
+   WHERE u.id = p_user
+     AND u.company_id = v_comp
+     AND u.deleted_at IS NULL
+     AND ( u.supervisor_id = v_me
+        OR EXISTS ( SELECT 1 FROM public.departments d
+                     WHERE d.id = u.department_id
+                       AND d.company_id = v_comp
+                       AND d.deleted_at IS NULL
+                       AND d.supervisor_user_id = v_me ) )
+);
+```
+
+Why this shape rather than the alternatives:
+
+- **It grants strictly less than `tasks:read` at tenant.** A supervisor sees their
+  own span and nothing else, which is what was asked for; the 6 roles that
+  legitimately hold tenant scope are unaffected.
+- **It needs no new permission and no admin action.** The relationships are
+  already maintained on the user and department records, so the feature works the
+  day it ships instead of after a role-matrix migration.
+- **It does not reopen F-03.** The arm is keyed on a relationship to the assignee,
+  not on an unrelated module read held by nearly every role.
+- Passing the assignee's department into `scope_allowed` instead was considered —
+  it would make a `tasks:read`-at-department grant meaningful — but it answers a
+  different question (same department, not accountable for) and still requires the
+  grant to exist.
+
+**Not implemented.** It is a Part-11-relevant security policy that was
+deliberately tightened the day before; it wants an explicit decision, a migration
+in `backend/api/migrations/`, and the measured before/after count the neighbouring
+policy comments all carry.
 
 ## Verification done
 
@@ -140,7 +231,8 @@ Confirm before shipping. The root monorepo `CLAUDE.md` was not present in the se
 
 ## Suggested next steps
 
-1. Confirm the `task_instances` SELECT policy (above).
+1. Decide on the `authz.is_supervisor_of` arm above and write the migration —
+   the frontend is inert without it.
 2. Manual pass as a supervisor: switch scopes, search a name in the dropdown, check the
    ASSIGNEE column, the due windows, and the CSV export.
 3. Decide whether to keep the department filter — it is genuinely useful for a
