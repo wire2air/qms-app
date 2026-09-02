@@ -187,14 +187,28 @@ integration suite ran against it under real RLS (`SET LOCAL ROLE app_user`).
 - **Baseline, before the change:** 15 files / **166 tests passed**.
 - **After:** 16 files / **176 tests passed** — the 10 new cases, and not one of
   the 166 existing authz tests regressed.
+- **Whole backend integration suite:** 76 files / **1298 passed, 1 failed**.
 - `lint:db-invariants` reports only pre-existing structural classes (unindexed
   FKs, missing audit triggers, RLS-without-policy); nothing names
   `task_instances`, and invariant (H) — a tenancy-only UPDATE gate on a
   `signature_id` table — does not fire, confirming the UPDATE policy was not
   loosened.
-- Caveat: the local server is **PG16**; production is **PG18** (`pgvector/pgvector:pg18`).
-  Nothing in the change uses version-specific syntax, but the suite has not been
-  run on 18.
+
+**The one failing test is a PG16 artefact, not this change.**
+`quality-event-close-signature.test.js` expects SQLSTATE `23001`
+(`restrict_violation`) on hard-deleting a signed event and gets `23503`. Checked
+two ways rather than assumed:
+
+1. Reverting `database/rls.sql` and `harness/factories.js` to the parent commit
+   reproduces it identically.
+2. The FK really is `RESTRICT` (`confdeltype = 'r'`; migration `20260831120000`
+   writes `ON DELETE RESTRICT`), and a minimal two-table experiment on the same
+   server shows **PG16 raises `23503` for a RESTRICT FK** — the test is correct
+   for production, which is **PG18** (`pgvector/pgvector:pg18`) and reports the
+   distinct code.
+
+Nothing in this change uses version-specific syntax, but the suite has not been
+run on 18 and should be before shipping.
 
 ### To reproduce the DB locally in a fresh session
 
