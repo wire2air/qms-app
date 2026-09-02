@@ -2,8 +2,8 @@
 
 **Date:** 2026-09-02
 **Branch:** `claude/supervisor-task-visibility-9br6nc`
-**Status:** frontend implemented and pushed, no PR opened yet. **Blocked on a
-backend RLS change** — see "RESOLVED" below.
+**Status:** frontend AND backend implemented and pushed. No PR opened in either
+repo yet.
 
 **Repos:** `wire2air/qms-app` (frontend, this branch) and `wire2air/qms` (backend
 monorepo — attach with `add_repo`, clone to `/home/user/qms`).
@@ -113,109 +113,99 @@ Two semantics chosen deliberately (both documented in `src/utils/taskDueWindows.
 - **The department filter renders only past one department.** With a single supervised
   department it can only ever be a no-op.
 
-## RESOLVED — the backend does NOT allow this yet
+## Backend — DONE (wire2air/qms, same branch name)
 
-`wire2air/qms` was attached to the session on 2026-09-02 and the policy read
-directly. **`task_instances` SELECT is not tenant-wide, and there is no supervisor
-concept in RLS at all.** The team scopes will render EMPTY for a normal department
-supervisor until the backend changes.
+The gap was real: `task_instance_select_rls` (`database/rls.sql:5708`) had no
+supervisor concept, and the only arm that could have carried a team view —
+`authz.scope_allowed('tasks','read', assigned_to, NULL, NULL)` — passes NULL for
+both `p_dept` and `p_site` because `task_instances` has neither column. Both
+tiers inside `scope_allowed` are guarded on `IS NOT NULL`, so a `tasks:read`
+grant at **department** or **site** scope was **inert**, and the only grant that
+released a colleague's task was **tenant**, which released the whole company.
 
-`database/rls.sql:5708` — `task_instance_select_rls` admits a row when any of:
+### What shipped
 
-1. `is_owner` (company owner),
-2. `assigned_to = me` — the personal inbox, asks no permission,
-3. `authz.scope_allowed('tasks', 'read', assigned_to, NULL, NULL)`,
-4. `authz.can_read_workflow_resource(entity_type, entity_id)` — you may read the
-   record the task hangs off,
-5. `entity_type = 'Document' AND has_permission('document_control','read')` — a
-   documented stopgap for the collaborator / periodic-review cards.
+| File                                                                | Change                                                                                                                                               |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database/rls.sql`                                                  | New `public.is_supervisor_of(uuid)` (`STABLE SECURITY DEFINER COST 500`); `task_instance_select_rls` gains `OR public.is_supervisor_of(assigned_to)` |
+| `backend/api/tests/integration/authz/task-supervisor-scope.test.js` | 10 L2 cases against real RLS                                                                                                                         |
+| `backend/api/tests/integration/harness/factories.js`                | `createUser({supervisorId})`, `createDepartment({supervisorUserId})`, new `createTaskInstance()`                                                     |
+| `docs/modules/tasks/24-change-addendum-2026-09-02.md` + `README.md` | The module pack's record of the change                                                                                                               |
 
-**Branch 3 is the one that would carry a team view, and it cannot.**
-`authz.scope_allowed(p_module, p_action, p_owner, p_dept, p_site)`
-(`backend/api/migrations/20260709120300-permissions-03-functions.js:56`) ends:
+**No migration.** Hand-written policies live in `rls.sql`, which
+`scripts/apply-rls.js` replays after every migrate in every environment — a
+`CREATE POLICY` written in a migration is silently reverted on the next deploy.
+The root `CLAUDE.md` is explicit about this.
 
-```sql
-RETURN (v_rank >= 4)
-    OR (v_rank >= 3 AND p_site IS NOT NULL AND p_site = v_usite)
-    OR (v_rank >= 2 AND p_dept IS NOT NULL AND p_dept = v_udept)
-    OR (v_rank >= 1 AND p_owner IS NOT NULL AND p_owner = v_user);
+The function unions the two relationships the schema already carries —
+`users.supervisor_id` and `departments.supervisor_user_id` — matching the
+frontend roster exactly, so the UI's people list and the rows the DB returns are
+the same set.
+
+### Decisions
+
+- **Not a permission.** Nobody grants anything for a supervisor to see their own
+  team, and no grant can be mis-set to widen it.
+- **Does not reopen F-03.** The 2026-09-01 removal closed a `document_control:read`
+  arm that leaked every task to 43 of 45 roles because it keyed on an unrelated
+  module read. This keys on a named relationship to the assignee.
+- **READ only.** `task_instance_update_rls` untouched; a test pins that a
+  supervisor's `UPDATE` affects 0 rows. Acting on a task still goes through
+  API-03 (record's module + e-signature).
+- **One level.** A manager's manager is not admitted. Matches the frontend.
+- **SECURITY DEFINER is load-bearing** — and so is the definer being a superuser.
+  `users` and `departments` both carry `FORCE ROW LEVEL SECURITY`, so a
+  merely-owning (non-superuser) role would be filtered by `users_sel` and the
+  function would silently return false. On this deployment `apply-rls.js` runs as
+  the superuser `DB_USER`, so it is correct. If `DB_USER` is ever de-escalated,
+  re-check this function first — the failure is silent.
+
+### Known residual — cross-site roster
+
+The DB now returns the whole span, but the frontend roster is built from `User` /
+`Department` rows in IndexedDB, which arrived under `users_sel`. That policy's
+ungated directory branch covers same-site and site-less colleagues, so the
+ordinary case works — but a report at a site the supervisor has **no** assignment
+to (most plausibly a company-wide department whose members sit at several sites)
+is missing from the roster, so the UI never asks for their tasks.
+
+Fix shape is `OR public.is_supervisor_of(id)` on `users_sel`, but that policy is
+generator-managed: it means editing the `authz.module_table_bindings` row's
+`extra_read_sql` and re-running the generator in a migration (precedent:
+`20260807140000-users-directory-read-drop-admin-branches`). It also widens the
+**people directory**, a different security decision from task visibility — so it
+is flagged, not folded in. Full write-up in
+`docs/modules/tasks/24-change-addendum-2026-09-02.md` §6.
+
+### How the backend was verified
+
+A real Postgres was stood up in the session (local PG16 + `postgresql-16-pgvector`;
+no docker daemon available), the project's own `globalSetup` built
+`qms_authz_test` through all 596 migrations + `apply-rls.js`, and the authz
+integration suite ran against it under real RLS (`SET LOCAL ROLE app_user`).
+
+- **Baseline, before the change:** 15 files / **166 tests passed**.
+- **After:** 16 files / **176 tests passed** — the 10 new cases, and not one of
+  the 166 existing authz tests regressed.
+- `lint:db-invariants` reports only pre-existing structural classes (unindexed
+  FKs, missing audit triggers, RLS-without-policy); nothing names
+  `task_instances`, and invariant (H) — a tenancy-only UPDATE gate on a
+  `signature_id` table — does not fire, confirming the UPDATE policy was not
+  loosened.
+- Caveat: the local server is **PG16**; production is **PG18** (`pgvector/pgvector:pg18`).
+  Nothing in the change uses version-specific syntax, but the suite has not been
+  run on 18.
+
+### To reproduce the DB locally in a fresh session
+
+```bash
+apt-get install -y postgresql-16-pgvector
+service postgresql start
+su postgres -c "psql -c \"ALTER USER postgres PASSWORD 'postgres';\""
+apt-get install -y redis-server && redis-server --daemonize yes   # log.js retries forever without it
+cd /home/user/qms && cp .env.example .env && pnpm install
+cd backend/api && pnpm test:integration tests/integration/authz
 ```
-
-The policy passes **NULL for both `p_dept` and `p_site`**, so the department and
-site tiers can never fire — `task_instances` carries no department or site column
-to pass. The effective ladder is therefore:
-
-| `tasks:read` scope      | What the supervisor actually sees                     |
-| ----------------------- | ----------------------------------------------------- |
-| own / department / site | Their own tasks only — the department grant is inert. |
-| tenant                  | **Every task in the tenant**, not just their team.    |
-
-So the grant that makes the feature work is also the grant that over-shares, and
-the one that describes the intent (department) does nothing.
-
-Two further points that matter:
-
-- **This policy was deliberately narrowed on 2026-09-01**, one day before this
-  work — Tasks finding F-03 / HIGH-3 removed a blanket `document_control:read`
-  branch that had released every task in the tenant to 43 of 45 roles. Any change
-  here has to not reopen that.
-- Its own header note justifies the narrowing partly with: _"No read surface
-  regresses — taskInstancesTable, DashboardMyTasks and DashboardKpis all filter
-  assignedTo client-side."_ **This change invalidates that stated assumption** —
-  `taskInstancesTable` now queries other users' tasks. Worth citing when proposing
-  the follow-up.
-
-### Proposed fix — a supervisor branch, not a wider grant
-
-Add a sixth arm that mirrors the frontend roster exactly, so the DB answers the
-same question the UI asks:
-
-```sql
-OR authz.is_supervisor_of(assigned_to)
-```
-
-with a new `STABLE SECURITY DEFINER` helper (same shape as the other `authz`
-predicates, `SET search_path = pg_catalog`, `REVOKE ALL FROM public` +
-`GRANT EXECUTE TO app_user`):
-
-```sql
--- Is the current user accountable for p_user? Unions the two relationships
--- already in the schema, matching taskInstancesHome's roster:
---   users.supervisor_id            — an explicit reporting line
---   departments.supervisor_user_id — accountability for a whole department
-SELECT EXISTS (
-  SELECT 1 FROM public.users u
-   WHERE u.id = p_user
-     AND u.company_id = v_comp
-     AND u.deleted_at IS NULL
-     AND ( u.supervisor_id = v_me
-        OR EXISTS ( SELECT 1 FROM public.departments d
-                     WHERE d.id = u.department_id
-                       AND d.company_id = v_comp
-                       AND d.deleted_at IS NULL
-                       AND d.supervisor_user_id = v_me ) )
-);
-```
-
-Why this shape rather than the alternatives:
-
-- **It grants strictly less than `tasks:read` at tenant.** A supervisor sees their
-  own span and nothing else, which is what was asked for; the 6 roles that
-  legitimately hold tenant scope are unaffected.
-- **It needs no new permission and no admin action.** The relationships are
-  already maintained on the user and department records, so the feature works the
-  day it ships instead of after a role-matrix migration.
-- **It does not reopen F-03.** The arm is keyed on a relationship to the assignee,
-  not on an unrelated module read held by nearly every role.
-- Passing the assignee's department into `scope_allowed` instead was considered —
-  it would make a `tasks:read`-at-department grant meaningful — but it answers a
-  different question (same department, not accountable for) and still requires the
-  grant to exist.
-
-**Not implemented.** It is a Part-11-relevant security policy that was
-deliberately tightened the day before; it wants an explicit decision, a migration
-in `backend/api/migrations/`, and the measured before/after count the neighbouring
-policy comments all carry.
 
 ## Verification done
 
@@ -231,10 +221,11 @@ policy comments all carry.
 
 ## Suggested next steps
 
-1. Decide on the `authz.is_supervisor_of` arm above and write the migration —
-   the frontend is inert without it.
+1. Decide on the cross-site roster residual above (widen `users_sel`, or accept).
 2. Manual pass as a supervisor: switch scopes, search a name in the dropdown, check the
    ASSIGNEE column, the due windows, and the CSV export.
 3. Decide whether to keep the department filter — it is genuinely useful for a
    multi-department supervisor but was not part of the requested design.
-4. Open a PR when happy.
+4. Re-run the authz integration suite on PG18 before shipping.
+5. Open a PR in each repo when happy. **They must land together:** the frontend
+   is inert without the RLS arm, and the RLS arm is unused without the frontend.
