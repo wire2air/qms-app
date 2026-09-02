@@ -3,7 +3,7 @@ id: my-tasks
 title: My Tasks
 sidebar_position: 4
 description: Use the My Tasks inbox to find, prioritize, and complete the quality work assigned to you across the Qability QMS.
-keywords: [my tasks, task inbox, due dates, task status, approvals, assignments]
+keywords: [my tasks, task inbox, due dates, task status, approvals, assignments, team tasks, supervisor, department]
 ---
 
 # My Tasks
@@ -16,8 +16,12 @@ CAPA steps, change requests, training, scheduled inspections and logs, flagged l
 entries, and information requests — into one list so nothing slips through. Instead of
 hunting through each module, you open My Tasks, see what is due, and act on it.
 
-The page shows only the work assigned to **you**. When you open My Tasks filtered to
-training, the page is titled **My Trainings** and shows only your training items.
+By default the page shows only the work assigned to **you**. If you supervise other
+people, a **Show** menu appears in the toolbar so you can switch to your team's open work
+as well — see [Seeing your team's tasks](#seeing-your-teams-tasks). If you supervise
+nobody, there is no menu: the page is simply your own inbox, exactly as before. When you
+open My Tasks filtered to training, the page is titled **My Trainings** and shows only
+your training items.
 
 ## Key concepts
 
@@ -71,6 +75,12 @@ hold many different kinds at once.
 4. To show only one status, open the **Status** menu in the toolbar and choose a status
    (for example, **Assigned** to see only what still needs your action). Clear the menu
    to see everything again.
+5. To narrow the list by deadline, open the **due date** menu in the toolbar and pick
+   **Overdue**, **Due in 7 / 15 / 30 / 60 days**, or **Custom range…** to choose your own
+   from/to dates. A day window is a cutoff, not a slice: **Due in 7 days** shows
+   everything due on or before a week from today, including anything already overdue, so
+   the most urgent work never drops out of the list. Tasks with no due date are hidden
+   while a due filter is active.
 
 :::tip
 The **Due Date** and **Created** columns are sortable on the desktop view. Click a column
@@ -84,6 +94,44 @@ training. When the inbox is opened this way, the heading changes (such as **My
 Trainings**) and only that kind of task is shown. Open the inbox from its dedicated entry
 point to see just those items, or open the main **My Tasks** entry to see everything
 together.
+
+## Seeing your team's tasks
+
+If you supervise other people, the toolbar shows a **Show** menu with three kinds of
+choice:
+
+| Choice | What you see |
+| --- | --- |
+| **My tasks** | Only the work assigned to you. This is the default. |
+| **All tasks** | Your own tasks plus those of everyone you supervise. |
+| _A team member's name_ | Only that person's tasks. Start typing to search the list. |
+
+You count as a supervisor in either of two ways, and both are combined into one list of
+people:
+
+- You are set as the **supervisor** on a user's profile (a direct reporting line).
+- You are set as the **supervisor of a department** — everyone in that department is
+  included.
+
+Once you pick anything other than **My tasks**:
+
+- An **Assignee** column names the person each task belongs to, and the list opens sorted
+  by **due date**, soonest first.
+- The **Export** button produces a `team-tasks` CSV that includes the assignee column.
+- People who have been deactivated still appear if they have open tasks — that is exactly
+  the work that needs reassigning.
+
+If you supervise more than one department, a **department** menu appears beside it and
+narrows the list of people you can choose from.
+
+Your choice is kept in the page address, so a filtered team view can be bookmarked or
+shared with a colleague who has the same access.
+
+:::note
+The **Show** menu appears only if you supervise at least one person, and it only ever
+offers people you supervise. What you can see is still governed by your permissions — the
+menu changes which tasks are listed, not what you are allowed to read.
+:::
 
 ## How to complete a task
 
@@ -116,6 +164,7 @@ Due dates that have passed are shown in **red** so overdue work stands out. Sort
 :::
 
 :::warning
-My Tasks shows only items assigned to you. If you expect a task that is not here, confirm
-with the person who owns the workflow that it was routed to your account.
+By default the inbox shows only items assigned to you. If you expect a task that is not
+here, check the **Show** menu (if you have one), then confirm with the person who owns
+the workflow that it was routed to your account.
 :::

@@ -3,6 +3,7 @@ import { getCompanyPath } from '@/utils/routeHelpers'
 import { currentSession } from '@/utils/currentSession'
 import { exportToCSV } from '@/utils/exportUtils.js'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
+import { matchesDueWindow } from '@/utils/taskDueWindows.js'
 import { DateTime } from 'luxon'
 
 const props = defineProps({
@@ -10,26 +11,85 @@ const props = defineProps({
   statusId: { type: String, default: null },
   taskKindId: { type: String, default: null },
   createdAt: { type: Object, default: null },
+  // Due-in window ({ id, from?, to? }) — resolved against "now" per run, see
+  // @/utils/taskDueWindows.
+  dueWindow: { type: Object, default: null },
+  // Whose tasks to list. null = the signed-in user (the original inbox); an
+  // explicit list is the supervisor's team roster, already narrowed by the page
+  // (taskInstancesHome owns who may appear in it).
+  assigneeIds: { type: Array, default: null },
+  // Team scope: name the assignee on every row and open on due date.
+  showAssignee: { type: Boolean, default: false },
 })
+
+const resolvedAssigneeIds = computed(() => {
+  if (props.assigneeIds) return props.assigneeIds
+  const me = currentSession.value?.userId
+  return me ? [me] : []
+})
+
+// Dep is the JOINED key, not the array: the roster arrives from a live query
+// that hands back a fresh array on every User/Department sync tick, and an
+// identity-compared dep would re-run this query — and the fifteen entity maps
+// hanging off it — for a roster that did not actually change.
+const assigneeKey = computed(() => resolvedAssigneeIds.value.join(','))
 
 const taskInstances = useLiveQueryWithDeps(
   [
     () => props.statusId,
     () => props.taskKindId,
     () => props.createdAt,
-    () => currentSession.value?.userId,
+    () => props.dueWindow,
+    () => assigneeKey.value,
   ],
-  async (db, [statusId, taskKindId, createdAt, userId]) => {
-    if (!userId) return []
-    let results = await db.TaskInstance.where('assignedTo', userId).exec()
+  async (db, [statusId, taskKindId, createdAt, dueWindow, key]) => {
+    const assignees = key ? key.split(',') : []
+    if (!assignees.length) return []
+    // `assignedTo` is an index, so one keyed lookup per person stays cheaper
+    // than a full scan even for a whole department.
+    const perAssignee = await Promise.all(
+      assignees.map((id) => db.TaskInstance.where('assignedTo', id).exec()),
+    )
+    let results = perAssignee.flat()
     if (statusId) results = results.filter((t) => t.statusId === statusId)
     if (taskKindId) results = results.filter((t) => t.taskKindId === taskKindId)
     if (createdAt) results = results.filter((t) => matchesDateFilter(t.createdAt, createdAt))
+    if (dueWindow) results = results.filter((t) => matchesDueWindow(t.dueDate, dueWindow))
     return results
   },
 
   { models: ['TaskInstance'], initial: [] },
 )
+
+// Assignee display names for the team scope — needed as plain strings for the
+// column's sort/filter/export value (the cell itself renders UserBadgeById).
+// `force: true` keeps a deactivated user's name on their still-open tasks:
+// "who do I reassign this from" is the whole point of the column.
+const assigneeNameById = useLiveQueryWithDeps(
+  [
+    () =>
+      props.showAssignee
+        ? [...new Set(taskInstances.value.map((t) => t.assignedTo).filter(Boolean))]
+            .sort()
+            .join(',')
+        : '',
+  ],
+  async (db, [key]) => {
+    if (!key) return {}
+    const users = await Promise.all(
+      key.split(',').map((id) => db.User.findByPk(id, { force: true })),
+    )
+    return Object.fromEntries(
+      users.filter(Boolean).map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim() || u.email]),
+    )
+  },
+
+  { models: ['User'], initial: {} },
+)
+
+function assigneeName(row) {
+  return assigneeNameById.value[row.assignedTo] || ''
+}
 
 const documentMap = useLiveQueryWithDeps(
   [
@@ -466,6 +526,10 @@ const filteredInstances = computed(() => {
   if (!props.search) return taskInstances.value
   const q = props.search.toLowerCase()
   return taskInstances.value.filter((instance) => {
+    // Team scope: the assignee is a legitimate thing to search for ("what has
+    // Priya got open"), and it is the one field the per-entity branches below
+    // can never see.
+    if (props.showAssignee && assigneeName(instance).toLowerCase().includes(q)) return true
     if (instance.entityType === 'TrainingAssignee') {
       const title = trainingAssigneeMap.value[instance.entityId]?.instance?.snapshot?.title
       return title?.toLowerCase().includes(q)
@@ -566,14 +630,52 @@ const filteredInstances = computed(() => {
   })
 })
 
-// The desktop BaseTable sorts internally (newest first); the mobile card
-// list iterates the rows directly, so sort here too — newest created
-// first, matching the table's default.
-const sortedInstances = computed(() =>
-  [...filteredInstances.value].sort(
-    (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-  ),
+// Default order per scope. The personal inbox stays newest-created-first (the
+// order it has always had); the team scope opens on DUE DATE ascending, because
+// a supervisor's list is read as a deadline queue — the point of the view is
+// what lands next, not what was raised last.
+const defaultSort = computed(() =>
+  props.showAssignee ? [{ id: 'dueDate', desc: false }] : [{ id: 'createdAt', desc: true }],
 )
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([...defaultSort.value])
+
+// Switching scope re-seats the sort on that scope's default. A sort the user
+// chose for their own inbox is not the one they want on a deadline queue, and
+// carrying it across reads as the tab having ignored the switch.
+watch(defaultSort, (next) => {
+  sort.value = [...next]
+})
+
+// The active sort's value for one row. Only the columns declared `sortable`
+// need a case here — everything else falls through to null and leaves the rows
+// in query order.
+function sortValue(row, columnId) {
+  if (columnId === 'assignee') return assigneeName(row) || null
+  return row[columnId]?.toMillis?.() ?? null
+}
+
+// The desktop table sorts internally; the mobile card list and the CSV export
+// iterate the rows directly, so mirror the active sort here rather than
+// hardcoding one — an export that ignores the sort the user is looking at
+// arrives as a different list from the one they asked for.
+//
+// Empty values sink to the bottom in EITHER direction: "no deadline" is not
+// "the earliest deadline", and it must never head a due-date queue.
+const sortedInstances = computed(() => {
+  const active = sort.value[0] ?? defaultSort.value[0]
+  const dir = active.desc ? -1 : 1
+  return [...filteredInstances.value].sort((a, b) => {
+    const av = sortValue(a, active.id)
+    const bv = sortValue(b, active.id)
+    if (av === null && bv === null) return 0
+    if (av === null) return 1
+    if (bv === null) return -1
+    if (typeof av === 'string') return av.localeCompare(bv) * dir
+    return (av - bv) * dir
+  })
+})
 
 // Audit close-out tasks: TYPE column shows the audit's program (Internal /
 // Supplier); standard-approval tasks show 'Standard Approval'.
@@ -623,6 +725,21 @@ const columns = computed(() => {
   }
   return [
     { name: 'title', label: 'ITEM', field: 'title', align: 'left' },
+    // Team scope only — in the personal inbox every row has the same assignee.
+    // The `field` is the resolved NAME (not the id) so the column sorts,
+    // filters and exports as the reader sees it.
+    ...(props.showAssignee
+      ? [
+          {
+            name: 'assignee',
+            label: 'ASSIGNEE',
+            field: (row) => assigneeName(row),
+            align: 'left',
+            sortable: true,
+            filterType: 'text',
+          },
+        ]
+      : []),
     {
       name: 'entityType',
       label: 'ENTITY TYPE',
@@ -635,9 +752,6 @@ const columns = computed(() => {
     { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
-
-const pagination = ref({ page: 1, pageSize: 50 })
-const sort = ref([{ id: 'createdAt', desc: true }])
 
 // Resolve a row's display title from the per-entity maps (mirrors the title
 // cell), for export.
@@ -694,12 +808,15 @@ function exportCsv() {
     sortedInstances.value,
     [
       { field: (r) => titleFor(r), label: 'Item' },
+      // Mirrors the visible columns: an Assignee column in the export would be
+      // a single repeated name in the personal inbox.
+      ...(props.showAssignee ? [{ field: (r) => assigneeName(r), label: 'Assignee' }] : []),
       { field: (r) => EntityType[r.entityType] || r.entityType, label: 'Entity Type' },
       { field: 'statusId', label: 'Status' },
       { field: (r) => r.dueDate?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Due' },
       { field: (r) => r.createdAt?.toFormat?.('yyyy-LL-dd') ?? '', label: 'Created' },
     ],
-    'my-tasks',
+    props.showAssignee ? 'team-tasks' : 'my-tasks',
   )
 }
 
@@ -982,6 +1099,10 @@ defineExpose({ exportCsv })
               {{ EntityType[row.entityType] || row.entityType
               }}<span v-if="rowSubtitle(row)"> · {{ rowSubtitle(row) }}</span>
             </div>
+            <!-- Whose task it is — the card's equivalent of the ASSIGNEE column. -->
+            <div v-if="showAssignee" class="tw:mt-1">
+              <UserBadgeById v-if="row.assignedTo" :userId="row.assignedTo" />
+            </div>
           </div>
           <TrainingAssigneeStatusBadgeById
             v-if="row.entityType === 'TrainingAssignee' && getTrainingAssigneeEntry(row)?.assignee"
@@ -1237,6 +1358,12 @@ defineExpose({ exportCsv })
               {{ row.comment }}
             </span>
           </component>
+        </template>
+
+        <!-- Assignee (team scope only — the column isn't declared otherwise) -->
+        <template #body-cell-assignee="{ row }">
+          <UserBadgeById v-if="row.assignedTo" :userId="row.assignedTo" />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </template>
 
         <!-- Type -->

@@ -60,6 +60,14 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // Explicit id whitelist (null = no whitelist). For pickers whose candidate
+  // set is computed by the caller rather than describable as a department /
+  // site / role filter — e.g. the supervisor's team roster on the task inbox,
+  // which unions a reporting line with the departments they own.
+  userIds: {
+    type: Array,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -74,10 +82,13 @@ const users = useLiveQueryWithDeps(
     () => props.includeInactive,
     () => props.departmentId,
     () => props.siteId,
+    () => (props.userIds ? [...props.userIds] : null),
   ],
-  async (db, [kind, supplierId, includeInactive, departmentId, siteId]) => {
+  async (db, [kind, supplierId, includeInactive, departmentId, siteId, userIds]) => {
     const all = await db.User.where().exec()
+    const whitelist = userIds ? new Set(userIds) : null
     return all
+      .filter((u) => (whitelist ? whitelist.has(u.id) : true))
       .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
       .filter((u) => (kind ? u.kind === kind : true))
       .filter((u) =>
@@ -137,7 +148,6 @@ const filteredUsers = computed(() => {
     return filter.some((rid) => userRoleIds.includes(rid))
   })
 })
-
 </script>
 
 <template>
