@@ -1,6 +1,6 @@
 <script setup>
 import { currentSession } from '@/utils/currentSession'
-import { IconDownload, IconUser, IconUsersGroup } from '@tabler/icons-vue'
+import { IconDownload } from '@tabler/icons-vue'
 
 /**
  * My Tasks / My Trainings — the assignee inbox list. Built on the Enterprise
@@ -14,19 +14,25 @@ import { IconDownload, IconUser, IconUsersGroup } from '@tabler/icons-vue'
  * A supervisor's question is "what is my team sitting on, and what lands this
  * month" — which the assignee inbox could not answer at all. Rather than a
  * second nav entry duplicating fifteen entity-resolution queries, the page
- * gained a SCOPE tab: Mine, and Team when the viewer supervises anyone.
+ * gained ONE scope control (`TaskScopeSelectMenu`): My tasks · All tasks · a
+ * searchable list of the people the viewer supervises.
+ *
+ * One control, not a tab plus an assignee filter: both were answering the same
+ * question, so the pair could disagree and a manager had to set two things to
+ * ask one. The value is a single token — 'mine', 'all', or a user id — which is
+ * also what makes the view shareable as one readable query param.
  *
  * "Supervises" is the union of the two relationships the schema already
  * carries, because tenants use them differently and both are load-bearing:
  *   1. `users.supervisorId`       — an explicit reporting line.
  *   2. `departments.supervisorUserId` — accountability for a whole department
  *      (the same field the equipment-calibration escalations target).
- * Neither is a permission. The tab is a UX affordance computed from records
+ * Neither is a permission. The control is a UX affordance computed from records
  * already in IndexedDB; RLS on `task_instances` is what actually decides which
  * rows a viewer can read, exactly as it does for the Mine scope. A viewer who
- * supervises nobody never sees the tab, and a hand-typed `?scope=team` falls
- * back to Mine (see `activeScope`) rather than rendering an empty stranger's
- * inbox.
+ * supervises nobody never sees the control at all — one possible answer needs
+ * no question — and a hand-typed scope naming someone outside the roster falls
+ * back to Mine (see `activeScope`) rather than rendering a stranger's inbox.
  *
  * URL sync was intentionally OFF for a long time: `taskKindId` lives in the
  * route query and is read by the parent page (`pages/task-instances.vue`), and
@@ -57,10 +63,11 @@ const list = useListLayout({
     // Due-in window (Overdue / 7 / 15 / 30 / 60 / custom). Stored as the preset
     // descriptor, resolved against "now" at filter time — see taskDueWindows.
     dueWindow: null,
+    // Whose tasks: 'mine' | 'all' | a supervised user's id.
     scope: 'mine',
-    // Team-scope narrowing only; ignored while scope is 'mine'.
+    // Narrows the roster (and so the scope menu) for someone who supervises
+    // more than one department; ignored while scope is 'mine'.
     departmentId: null,
-    assignedTo: null,
   },
   syncUrl: true,
 })
@@ -90,61 +97,59 @@ const teamMembers = useLiveQueryWithDeps(
       )
       .map((u) => ({ id: u.id, departmentId: u.departmentId }))
   },
-  { models: ['User', 'Department'], initial: [] },
+  // No `initial` — undefined means "still loading", which the stale-scope guard
+  // below must not mistake for "supervises nobody" and use to wipe a scope
+  // hydrated from the URL before the roster has arrived.
+  { models: ['User', 'Department'] },
 )
 
-const isSupervisor = computed(() => teamMembers.value.length > 0)
+const isSupervisor = computed(() => (teamMembers.value?.length ?? 0) > 0)
 
-// A hydrated ?scope=team from someone who supervises nobody resolves back to
-// 'mine' — the filter value is a request, not the answer.
-const activeScope = computed(() =>
-  list.filters.value.scope === 'team' && isSupervisor.value ? 'team' : 'mine',
-)
-
-const teamDepartmentIds = computed(() => [
-  ...new Set(teamMembers.value.map((m) => m.departmentId).filter(Boolean)),
-])
-
-// Candidate set for the Assignee picker: the roster narrowed by Department but
-// NOT by the assignee filter itself — otherwise picking a person collapses the
-// dropdown to that one person and there is no way back to a teammate.
+// The roster the scope menu offers: everyone supervised, narrowed by the
+// Department filter when one is set.
 const rosterUserIds = computed(() => {
   const { departmentId } = list.filters.value
   const members = departmentId
-    ? teamMembers.value.filter((m) => m.departmentId === departmentId)
-    : teamMembers.value
+    ? (teamMembers.value ?? []).filter((m) => m.departmentId === departmentId)
+    : (teamMembers.value ?? [])
   return members.map((m) => m.id)
 })
 
-// The assignees the table should query. Always an explicit id list, so the
-// team scope can never widen past the roster — a hand-typed ?assignedTo= for
-// someone outside it resolves to an empty set rather than that user's inbox.
+const teamDepartmentIds = computed(() => [
+  ...new Set((teamMembers.value ?? []).map((m) => m.departmentId).filter(Boolean)),
+])
+
+// The stored scope is a REQUEST; this is the answer. Anything naming someone
+// outside the current roster — a stale bookmark, a department filter that just
+// excluded them, a hand-typed id — resolves to 'mine' rather than showing a
+// stranger's inbox or an empty list with no visible cause.
+const activeScope = computed(() => {
+  const scope = list.filters.value.scope
+  if (!isSupervisor.value) return 'mine'
+  if (scope === 'all') return 'all'
+  if (scope && scope !== 'mine' && rosterUserIds.value.includes(scope)) return scope
+  return 'mine'
+})
+
+// Reset a scope the roster can no longer honour, so the menu never renders a
+// selection that isn't in its own list. Waits for the roster to load.
+watch([activeScope, teamMembers], ([resolved, roster]) => {
+  if (roster === undefined) return
+  if (list.filters.value.scope !== resolved) list.filters.value.scope = resolved
+})
+
+// The assignees the table should query — always an explicit id list, so no
+// scope can widen past the roster. 'all' includes the viewer: a manager asking
+// for "all tasks" means everything in their span, their own included.
 const assigneeIds = computed(() => {
   const me = currentSession.value?.userId
-  if (activeScope.value !== 'team') return me ? [me] : []
-
-  const { departmentId, assignedTo } = list.filters.value
-  let members = teamMembers.value
-  if (departmentId) members = members.filter((m) => m.departmentId === departmentId)
-  if (assignedTo) members = members.filter((m) => m.id === assignedTo)
-  return members.map((m) => m.id)
+  const scope = activeScope.value
+  if (scope === 'mine') return me ? [me] : []
+  if (scope === 'all') return me ? [me, ...rosterUserIds.value] : rosterUserIds.value
+  return [scope]
 })
 
-const isTeamScope = computed(() => activeScope.value === 'team')
-
-const scopeTabs = computed(() => [
-  {
-    value: 'mine',
-    label: props.taskKindId === 'TRAINING' ? 'Mine' : 'Assigned to me',
-    icon: IconUser,
-  },
-  {
-    value: 'team',
-    label: 'My team',
-    icon: IconUsersGroup,
-    badge: teamMembers.value.length || undefined,
-  },
-])
+const isTeamScope = computed(() => activeScope.value !== 'mine')
 
 const title = computed(() => {
   if (props.taskKindId === 'TRAINING') return isTeamScope.value ? 'Team Trainings' : 'My Trainings'
@@ -152,14 +157,16 @@ const title = computed(() => {
 })
 
 const subtitle = computed(() => {
-  if (props.taskKindId === 'TRAINING') {
-    return isTeamScope.value
-      ? 'Training tasks assigned to the people you supervise, soonest due first.'
-      : 'Training tasks assigned to you.'
+  const noun = props.taskKindId === 'TRAINING' ? 'Training tasks' : 'Tasks'
+  if (activeScope.value === 'mine') {
+    return props.taskKindId === 'TRAINING'
+      ? 'Training tasks assigned to you.'
+      : 'Review and act on tasks assigned to you.'
   }
-  return isTeamScope.value
-    ? 'Tasks assigned to the people you supervise, soonest due first.'
-    : 'Review and act on tasks assigned to you.'
+  if (activeScope.value === 'all') {
+    return `${noun} assigned to you and the people you supervise, soonest due first.`
+  }
+  return `${noun} assigned to the selected team member, soonest due first.`
 })
 </script>
 
@@ -179,26 +186,12 @@ const subtitle = computed(() => {
     </template>
 
     <template #filters>
-      <div class="tw:flex tw:flex-col tw:gap-3">
-        <!-- Scope switch, ABOVE the filter bar: it decides WHOSE tasks the
-             filters below then narrow. Rendered only for a supervisor — for
-             everyone else there is one scope and a one-tab tab bar is noise. -->
-        <BaseTabs
-          v-if="isSupervisor"
-          :modelValue="activeScope"
-          :tabs="scopeTabs"
-          variant="segmented"
-          ariaLabel="Task scope"
-          class="tw:self-start"
-          @update:modelValue="(v) => (list.filters.value.scope = v)"
-        />
-        <TaskInstancesFilterToolbar
-          v-model:filters="list.filters.value"
-          :teamScope="isTeamScope"
-          :teamUserIds="rosterUserIds"
-          :teamDepartmentIds="teamDepartmentIds"
-        />
-      </div>
+      <TaskInstancesFilterToolbar
+        v-model:filters="list.filters.value"
+        :showScope="isSupervisor"
+        :teamUserIds="rosterUserIds"
+        :teamDepartmentIds="teamDepartmentIds"
+      />
     </template>
 
     <div class="tw:flex tw:gap-4 tw:flex-1 tw:min-h-0">

@@ -17,9 +17,11 @@ entries, and information requests — into one list so nothing slips through. In
 hunting through each module, you open My Tasks, see what is due, and act on it.
 
 By default the page shows only the work assigned to **you**. If you supervise other
-people, a **My team** tab appears so you can see their open work as well — see
-[Seeing your team's tasks](#seeing-your-teams-tasks). When you open My Tasks filtered to
-training, the page is titled **My Trainings** and shows only your training items.
+people, a **Show** menu appears in the toolbar so you can switch to your team's open work
+as well — see [Seeing your team's tasks](#seeing-your-teams-tasks). If you supervise
+nobody, there is no menu: the page is simply your own inbox, exactly as before. When you
+open My Tasks filtered to training, the page is titled **My Trainings** and shows only
+your training items.
 
 ## Key concepts
 
@@ -95,33 +97,40 @@ together.
 
 ## Seeing your team's tasks
 
-If you supervise other people, the inbox shows a **My team** tab beside **Assigned to
-me**. Switching to it lists the open tasks of everyone you supervise, so you can see what
-your team is sitting on without opening each module.
+If you supervise other people, the toolbar shows a **Show** menu with three kinds of
+choice:
 
-You count as a supervisor in either of two ways, and both are combined into one roster:
+| Choice | What you see |
+| --- | --- |
+| **My tasks** | Only the work assigned to you. This is the default. |
+| **All tasks** | Your own tasks plus those of everyone you supervise. |
+| _A team member's name_ | Only that person's tasks. Start typing to search the list. |
+
+You count as a supervisor in either of two ways, and both are combined into one list of
+people:
 
 - You are set as the **supervisor** on a user's profile (a direct reporting line).
 - You are set as the **supervisor of a department** — everyone in that department is
   included.
 
-On the **My team** tab:
+Once you pick anything other than **My tasks**:
 
 - An **Assignee** column names the person each task belongs to, and the list opens sorted
   by **due date**, soonest first.
-- The toolbar gains an **assignee** filter to focus on one person. If you supervise more
-  than one department, a **department** filter appears as well.
 - The **Export** button produces a `team-tasks` CSV that includes the assignee column.
 - People who have been deactivated still appear if they have open tasks — that is exactly
   the work that needs reassigning.
 
-Filters you set here are kept in the page address, so a filtered team view can be
-bookmarked or shared with a colleague who has the same access.
+If you supervise more than one department, a **department** menu appears beside it and
+narrows the list of people you can choose from.
+
+Your choice is kept in the page address, so a filtered team view can be bookmarked or
+shared with a colleague who has the same access.
 
 :::note
-The **My team** tab appears only if you supervise at least one person. What you can see
-there is still governed by your permissions — the tab changes which tasks are listed, not
-what you are allowed to read.
+The **Show** menu appears only if you supervise at least one person, and it only ever
+offers people you supervise. What you can see is still governed by your permissions — the
+menu changes which tasks are listed, not what you are allowed to read.
 :::
 
 ## How to complete a task
@@ -155,7 +164,7 @@ Due dates that have passed are shown in **red** so overdue work stands out. Sort
 :::
 
 :::warning
-The **Assigned to me** tab shows only items assigned to you. If you expect a task that is
-not here, check the **My team** tab (if you have one), then confirm with the person who
-owns the workflow that it was routed to your account.
+By default the inbox shows only items assigned to you. If you expect a task that is not
+here, check the **Show** menu (if you have one), then confirm with the person who owns
+the workflow that it was routed to your account.
 :::

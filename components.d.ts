@@ -1196,6 +1196,7 @@ declare module 'vue' {
     TaskInstanceStatusBadge: typeof import('./src/components/badges/TaskInstanceStatusBadge.vue')['default']
     TaskInstanceStatusBadgeById: typeof import('./src/components/badges/TaskInstanceStatusBadgeById.vue')['default']
     TaskInstanceStatusSelectMenu: typeof import('./src/components/menus/TaskInstanceStatusSelectMenu.vue')['default']
+    TaskScopeSelectMenu: typeof import('./src/components/menus/TaskScopeSelectMenu.vue')['default']
     TeamAvatar: typeof import('./resource/js/shared/components/TeamAvatar.vue')['default']
     'TeamAvatar.stories': typeof import('./resource/js/shared/components/TeamAvatar.stories.js')['default']
     TemplatesHome: typeof import('./src/components/templates/TemplatesHome.vue')['default']

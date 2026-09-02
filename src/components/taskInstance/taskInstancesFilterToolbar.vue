@@ -3,11 +3,13 @@ import { IconCalendar, IconSearch } from '@tabler/icons-vue'
 import { isDueWindowActive } from '@/utils/taskDueWindows.js'
 
 const props = defineProps({
-  // Team scope adds the two roster narrowing controls (Department / Assignee).
-  // They are hidden — and cleared, see below — in the Mine scope, where the
-  // assignee is by definition the viewer.
-  teamScope: { type: Boolean, default: false },
+  // Whether this viewer supervises anyone. False = no scope control at all:
+  // there is exactly one answer to "whose tasks", so asking is noise.
+  showScope: { type: Boolean, default: false },
+  // The people the scope menu may offer, already narrowed by Department.
   teamUserIds: { type: Array, default: () => [] },
+  // Departments this viewer supervises. The filter appears only past one —
+  // with a single department it can only ever be a no-op.
   teamDepartmentIds: { type: Array, default: () => [] },
 })
 
@@ -27,7 +29,7 @@ const showClear = computed(
       filters.value.statusId ||
       filters.value.createdAt ||
       filters.value.departmentId ||
-      filters.value.assignedTo
+      (filters.value.scope && filters.value.scope !== 'mine')
     ) || isDueWindowActive(filters.value.dueWindow),
 )
 
@@ -38,20 +40,20 @@ function clearAll() {
     statusId: null,
     createdAt: null,
     dueWindow: null,
+    scope: 'mine',
     departmentId: null,
-    assignedTo: null,
   }
 }
 
-// Leaving the team scope must not leave an invisible roster filter applied —
-// the controls disappear with the tab, and a filter nobody can see or clear is
-// the one that gets reported as "the list is empty and I don't know why".
+// A viewer who loses their roster (last report reassigned) must not be left on
+// a scope whose control no longer renders — an invisible filter is the one that
+// gets reported as "the list is empty and I don't know why".
 watch(
-  () => props.teamScope,
-  (isTeam) => {
-    if (isTeam) return
-    if (filters.value.departmentId || filters.value.assignedTo) {
-      filters.value = { ...filters.value, departmentId: null, assignedTo: null }
+  () => props.showScope,
+  (canScope) => {
+    if (canScope) return
+    if (filters.value.scope !== 'mine' || filters.value.departmentId) {
+      filters.value = { ...filters.value, scope: 'mine', departmentId: null }
     }
   },
 )
@@ -77,22 +79,17 @@ watch(
 
   <BaseFilterBar hideSearch :showClear="showClear" @clear="clearAll">
     <template #filters>
-      <TaskInstanceStatusSelectMenu v-model="filters.statusId" />
-      <TaskDueWindowSelectMenu v-model="filters.dueWindow" />
+      <!-- Whose tasks — first, because it decides what the rest narrow. -->
+      <TaskScopeSelectMenu v-if="showScope" v-model="filters.scope" :userIds="teamUserIds" />
       <DepartmentSelectMenu
-        v-if="teamScope && teamDepartmentIds.length > 1"
+        v-if="showScope && teamDepartmentIds.length > 1"
         v-model="filters.departmentId"
         :departmentIds="teamDepartmentIds"
         :allowCreate="false"
         isFilter
       />
-      <UserSelectMenu
-        v-if="teamScope"
-        v-model="filters.assignedTo"
-        :userIds="teamUserIds"
-        includeInactive
-        nullLabel="— All team members —"
-      />
+      <TaskInstanceStatusSelectMenu v-model="filters.statusId" />
+      <TaskDueWindowSelectMenu v-model="filters.dueWindow" />
       <BaseFilterMenu v-model="filters" :items="filterItems" />
     </template>
   </BaseFilterBar>
