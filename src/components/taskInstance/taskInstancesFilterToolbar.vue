@@ -1,5 +1,15 @@
 <script setup>
 import { IconCalendar, IconSearch } from '@tabler/icons-vue'
+import { isDueWindowActive } from '@/utils/taskDueWindows.js'
+
+const props = defineProps({
+  // Team scope adds the two roster narrowing controls (Department / Assignee).
+  // They are hidden — and cleared, see below — in the Mine scope, where the
+  // assignee is by definition the viewer.
+  teamScope: { type: Boolean, default: false },
+  teamUserIds: { type: Array, default: () => [] },
+  teamDepartmentIds: { type: Array, default: () => [] },
+})
 
 const filters = defineModel('filters', {
   type: Object,
@@ -11,12 +21,40 @@ const filterItems = computed(() => [
 ])
 
 const showClear = computed(
-  () => !!(filters.value.search || filters.value.statusId || filters.value.createdAt),
+  () =>
+    !!(
+      filters.value.search ||
+      filters.value.statusId ||
+      filters.value.createdAt ||
+      filters.value.departmentId ||
+      filters.value.assignedTo
+    ) || isDueWindowActive(filters.value.dueWindow),
 )
 
 function clearAll() {
-  filters.value = { ...filters.value, search: '', statusId: null, createdAt: null }
+  filters.value = {
+    ...filters.value,
+    search: '',
+    statusId: null,
+    createdAt: null,
+    dueWindow: null,
+    departmentId: null,
+    assignedTo: null,
+  }
 }
+
+// Leaving the team scope must not leave an invisible roster filter applied —
+// the controls disappear with the tab, and a filter nobody can see or clear is
+// the one that gets reported as "the list is empty and I don't know why".
+watch(
+  () => props.teamScope,
+  (isTeam) => {
+    if (isTeam) return
+    if (filters.value.departmentId || filters.value.assignedTo) {
+      filters.value = { ...filters.value, departmentId: null, assignedTo: null }
+    }
+  },
+)
 </script>
 
 <template>
@@ -40,6 +78,21 @@ function clearAll() {
   <BaseFilterBar hideSearch :showClear="showClear" @clear="clearAll">
     <template #filters>
       <TaskInstanceStatusSelectMenu v-model="filters.statusId" />
+      <TaskDueWindowSelectMenu v-model="filters.dueWindow" />
+      <DepartmentSelectMenu
+        v-if="teamScope && teamDepartmentIds.length > 1"
+        v-model="filters.departmentId"
+        :departmentIds="teamDepartmentIds"
+        :allowCreate="false"
+        isFilter
+      />
+      <UserSelectMenu
+        v-if="teamScope"
+        v-model="filters.assignedTo"
+        :userIds="teamUserIds"
+        includeInactive
+        nullLabel="— All team members —"
+      />
       <BaseFilterMenu v-model="filters" :items="filterItems" />
     </template>
   </BaseFilterBar>

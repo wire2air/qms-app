@@ -1186,6 +1186,7 @@ declare module 'vue' {
     'TableSearchScope.spec': typeof import('./resource/js/shared/components/dataTable/TableSearchScope.spec.js')['default']
     TableToolbar: typeof import('./src/components/editor/TableToolbar.vue')['default']
     TaskActionBar: typeof import('./src/components/taskInstance/TaskActionBar.vue')['default']
+    TaskDueWindowSelectMenu: typeof import('./src/components/menus/TaskDueWindowSelectMenu.vue')['default']
     TaskInstanceCapaActions: typeof import('./src/components/taskInstance/TaskInstanceCapaActions.vue')['default']
     TaskInstanceCapaEffectivenessActions: typeof import('./src/components/taskInstance/TaskInstanceCapaEffectivenessActions.vue')['default']
     TaskInstanceNcActions: typeof import('./src/components/taskInstance/TaskInstanceNcActions.vue')['default']
