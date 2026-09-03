@@ -66,7 +66,14 @@ const roleAssignments = useLiveQueryWithDeps(
   { models: ['RoleOnUser'], initial: [] },
 )
 
-const assignedRoleIds = computed(() => roleAssignments.value.map((ra) => ra.roleId))
+// Deduped: legacy databases can hold several live roles_on_users rows for the
+// same (user, role, company) — the partial unique index that prevents that was
+// folded back into an already-applied create migration, so it never ran on
+// pre-existing databases. Without the dedupe the select renders duplicate
+// entries and `toRemove` below repeats an id once per surviving row.
+const assignedRoleIds = computed(() => [
+  ...new Set(roleAssignments.value.map((ra) => ra.roleId)),
+])
 
 const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
   const assignment = db.RoleOnUser.create({ userId, roleId })
@@ -83,8 +90,14 @@ async function handleRolesChange(newRoleIds) {
     await addRoleOnUser({ userId: props.id, roleId })
   }
   for (const roleId of toRemove) {
-    const match = roleAssignments.value.find((ra) => ra.roleId === roleId)
-    if (match) await match.delete()
+    // EVERY live row for the role, not just the first: `.find()` left any
+    // duplicate rows behind, so the assignment looked removed in the UI while
+    // the user kept the grant (RLS and authz.has_permission both read the
+    // surviving rows). See the dedupe note on assignedRoleIds above.
+    const matches = roleAssignments.value.filter((ra) => ra.roleId === roleId)
+    for (const match of matches) {
+      await match.delete()
+    }
   }
   showRoleSelect.value = false
 }
