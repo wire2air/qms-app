@@ -1,7 +1,11 @@
 <script setup>
 import { IconKey, IconAlertTriangle, IconCopy } from '@tabler/icons-vue'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. The raw key
+// is only ever returned here, once, so creation can't go through
+// useLiveMutation/db.ApiKey.create().
 import { post } from '@/api'
 import { useToast } from '@shared/composables/useToast.js'
+import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
 
 const show = defineModel({ type: Boolean, default: false })
 
@@ -32,6 +36,15 @@ async function handleSubmit() {
       label: form.value.label.trim() || null,
       expiresAt: form.value.expiresAt || null,
     })
+
+    // The create endpoint is a REST action RPC (returns the raw secret once),
+    // not a SyncEngine mutation — the new row never reaches IndexedDB via the
+    // normal save path, and this table has no companyId to route a sync
+    // broadcast to, so the list's live query never picks it up on its own.
+    // Force a refetch into IDB now so it appears without a page reload.
+    if (result?.apiKey?.id) {
+      await refetchSyncRecord('ApiKey', result.apiKey.id)
+    }
 
     if (result?.key) {
       createdKey.value = result.key
