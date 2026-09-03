@@ -47,14 +47,18 @@ export function useLiveQuery(
 ) {
   const data = shallowRef(initial)
   let requestId = 0
+  let disposed = false
 
   async function refresh() {
     const myRequestId = ++requestId
     try {
       const result = await queryFn(db)
       // Drop stale results — a later refresh may already have resolved
-      // (e.g. a burst of sync events) and we must not clobber it.
-      if (myRequestId !== requestId) return
+      // (e.g. a burst of sync events) and we must not clobber it. Also drop
+      // anything resolving after the owning scope was disposed — a debounced
+      // syncBus callback scheduled just before unmount can still fire after
+      // (belt-and-braces alongside syncBus's own timer cancellation).
+      if (myRequestId !== requestId || disposed) return
       data.value = result
     } catch (err) {
       console.error(err)
@@ -68,7 +72,10 @@ export function useLiveQuery(
   const modelList = (Array.isArray(models) ? models : [models]).map(resolveSyncChannel)
   const unsubscribes = modelList.map((m) => syncBus.on(m, refresh, { debounce }))
 
-  onScopeDispose(() => unsubscribes.forEach((fn) => fn()))
+  onScopeDispose(() => {
+    disposed = true
+    unsubscribes.forEach((fn) => fn())
+  })
 
   return data
 }
@@ -93,6 +100,7 @@ export function useLiveQueryWithDeps(
   const data = shallowRef(initial)
   let lastDepValues = []
   let requestId = 0
+  let disposed = false
 
   async function refresh(depValues) {
     const myRequestId = ++requestId
@@ -103,7 +111,13 @@ export function useLiveQueryWithDeps(
       // selected record — the parent reselects a new id while this query's
       // own sync-triggered refresh is still resolving against the old,
       // now-deleted id). Only the most recently *started* refresh may write.
-      if (myRequestId !== requestId) return
+      // Also drop anything resolving after the owning scope was disposed — a
+      // debounced syncBus callback scheduled just before unmount (e.g. a
+      // route navigation right after a mutation) can still fire after
+      // (belt-and-braces alongside syncBus's own timer cancellation), and
+      // writing a fresh value here can newly mount a v-if'd subtree against
+      // a component tree vue-router has already torn down.
+      if (myRequestId !== requestId || disposed) return
       data.value = result
     } catch (err) {
       console.error(err)
@@ -126,7 +140,10 @@ export function useLiveQueryWithDeps(
     syncBus.on(m, () => refresh(lastDepValues), { debounce }),
   )
 
-  onScopeDispose(() => unsubscribes.forEach((fn) => fn()))
+  onScopeDispose(() => {
+    disposed = true
+    unsubscribes.forEach((fn) => fn())
+  })
 
   return data
 }

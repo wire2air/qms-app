@@ -1,6 +1,7 @@
 <script setup>
 import { TransitionRoot, TransitionChild, Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { IconX } from '@tabler/icons-vue'
+import { onBeforeRouteLeave } from 'vue-router'
 
 const props = defineProps({
   title: {
@@ -62,6 +63,32 @@ function close() {
   isOpen.value = false
 }
 
+// HeadlessUI's leave transition is async (CSS-timed, not a synchronous
+// Vue unmount) — it plays for ~200ms after isOpen flips false. If a route
+// navigation unmounts this dialog's whole page tree while that transition
+// is still in flight (e.g. "submit" closes the dialog and the user
+// immediately clicks a sidebar link), HeadlessUI's pending afterLeave/DOM
+// cleanup callbacks fire against component internals Vue has already torn
+// down, throwing "Cannot read properties of null (reading 'insertBefore'
+// / emitsOptions')" etc. Block the route change until the close transition
+// has genuinely finished so nothing is torn down mid-transition.
+let resolveClosed = null
+function handleAfterLeave() {
+  resolveClosed?.()
+  resolveClosed = null
+}
+onBeforeRouteLeave((to, from, next) => {
+  if (!isOpen.value) {
+    next()
+    return
+  }
+  const closed = new Promise((resolve) => {
+    resolveClosed = resolve
+  })
+  isOpen.value = false
+  closed.then(() => next())
+})
+
 const maxWidthClass = {
   sm: 'tw:max-w-sm',
   md: 'tw:max-w-md',
@@ -77,7 +104,7 @@ const maxWidthClass = {
 </script>
 
 <template>
-  <TransitionRoot appear :show="isOpen" as="template">
+  <TransitionRoot appear :show="isOpen" as="template" @afterLeave="handleAfterLeave">
     <Dialog
       as="div"
       class="tw:relative tw:z-modal"
