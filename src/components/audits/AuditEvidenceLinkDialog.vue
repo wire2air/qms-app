@@ -27,49 +27,49 @@ const toast = useToast()
 const KIND_CATALOG = [
   {
     id: 'Document',
-    label: 'Document',
+    name: 'Document',
     modelName: 'Document',
     numberAccessor: (r) => r.docNumber,
     titleAccessor: (r) => r.title,
   },
   {
     id: 'FieldRecord',
-    label: 'Log Book Entry',
+    name: 'Log Book Entry',
     modelName: 'FieldRecord',
     numberAccessor: (r) => r.recordNumber || r.id?.slice(0, 8),
     titleAccessor: (r) => r.title || r.recordNumber || r.id,
   },
   {
     id: 'Capa',
-    label: 'CAPA',
+    name: 'CAPA',
     modelName: 'Capa',
     numberAccessor: (r) => r.capaNumber,
     titleAccessor: (r) => r.title,
   },
   {
     id: 'Nonconformance',
-    label: 'NC',
+    name: 'NC',
     modelName: 'Nonconformance',
     numberAccessor: (r) => r.ncNumber,
     titleAccessor: (r) => r.title,
   },
   {
     id: 'ChangeRequest',
-    label: 'Change Request',
+    name: 'Change Request',
     modelName: 'ChangeRequest',
     numberAccessor: (r) => r.crNumber,
     titleAccessor: (r) => r.title,
   },
   {
     id: 'TrainingInstance',
-    label: 'Training Instance',
+    name: 'Training Instance',
     modelName: 'TrainingInstance',
     numberAccessor: (r) => r.id?.slice(0, 8),
     titleAccessor: (r) => r.name || r.title || r.id,
   },
   {
     id: 'SupplierAsset',
-    label: 'Supplier Document',
+    name: 'Supplier Document',
     modelName: 'SupplierAsset',
     numberAccessor: (r) => r.documentType || '—',
     titleAccessor: (r) => r.title || r.id,
@@ -176,7 +176,7 @@ async function handleLink() {
       </BaseField>
 
       <BaseField>
-        <template #label>Search {{ activeKind?.label ?? 'records' }}</template>
+        <template #label>Search {{ activeKind?.name ?? 'records' }}</template>
         <template #default="{ id: fieldId }">
           <BaseTextInput :id="fieldId" v-model="search" placeholder="Search by number or title…" />
         </template>
@@ -186,7 +186,7 @@ async function handleLink() {
         v-if="!candidates.length"
         class="tw:py-10 tw:text-center tw:text-sm tw:text-secondary tw:italic"
       >
-        No {{ activeKind?.label?.toLowerCase() ?? 'records' }} match this search.
+        No {{ activeKind?.name?.toLowerCase() ?? 'records' }} match this search.
       </div>
 
       <div
