@@ -42,6 +42,17 @@ const uploadingAvatar = ref(false)
 const sendingInvite = ref(false)
 const showRoleSelect = ref(false)
 const editingName = ref(false)
+// The first/last name inputs share one edit-mode flag, but each is a
+// separate <input> — moving focus from one to the other (Tab, or a click
+// landing on the second field) fires `blur` on the departing input before
+// focus lands on the next one. A per-input `@blur="editingName = false"`
+// therefore collapsed the whole group mid-edit. `focusout` bubbles to the
+// shared container, and `relatedTarget` (the element gaining focus) lets us
+// only close when focus actually leaves the group.
+function onNameFocusOut(e) {
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return
+  editingName.value = false
+}
 
 const { isSaving, saveError } = useAutoSave(user)
 
@@ -283,21 +294,19 @@ const userDetailConfig = computed(() =>
     notFoundDescription="This user could not be found."
   >
     <template #title>
-      <div v-if="editingName && canUpdateUser" class="tw:flex tw:gap-2">
+      <div v-if="editingName && canUpdateUser" class="tw:flex tw:gap-2" @focusout="onNameFocusOut">
         <BaseTextInput
           v-model="user.firstName"
           placeholder="First Name"
           size="sm"
           autofocus
           @keyup.enter="editingName = false"
-          @blur="editingName = false"
         />
         <BaseTextInput
           v-model="user.lastName"
           placeholder="Last Name"
           size="sm"
           @keyup.enter="editingName = false"
-          @blur="editingName = false"
         />
       </div>
       <div v-else class="tw:flex tw:items-center tw:gap-2">
