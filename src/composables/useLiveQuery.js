@@ -46,10 +46,16 @@ export function useLiveQuery(
   { models = '*', initial = undefined, debounce = DEFAULT_DEBOUNCE } = {},
 ) {
   const data = shallowRef(initial)
+  let requestId = 0
 
   async function refresh() {
+    const myRequestId = ++requestId
     try {
-      data.value = await queryFn(db)
+      const result = await queryFn(db)
+      // Drop stale results — a later refresh may already have resolved
+      // (e.g. a burst of sync events) and we must not clobber it.
+      if (myRequestId !== requestId) return
+      data.value = result
     } catch (err) {
       console.error(err)
     }
@@ -86,10 +92,19 @@ export function useLiveQueryWithDeps(
 ) {
   const data = shallowRef(initial)
   let lastDepValues = []
+  let requestId = 0
 
   async function refresh(depValues) {
+    const myRequestId = ++requestId
     try {
-      data.value = await queryFn(db, depValues)
+      const result = await queryFn(db, depValues)
+      // Drop stale results: a deps change and a sync event can both trigger
+      // a refresh for the same model concurrently (e.g. deleting the
+      // selected record — the parent reselects a new id while this query's
+      // own sync-triggered refresh is still resolving against the old,
+      // now-deleted id). Only the most recently *started* refresh may write.
+      if (myRequestId !== requestId) return
+      data.value = result
     } catch (err) {
       console.error(err)
     }
