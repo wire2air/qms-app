@@ -221,7 +221,10 @@ async function onEsignVerified(esign) {
     await flushPendingSaves()
     submitResult.value = await post(`/v1/services/trainingInstances/${props.id}/submit`, {
       answers: hasAssessment.value ? answers.value : {},
-      signatureMethod: esign?.method ?? 'password',
+      // Send the WHOLE esign envelope { method, provider, token }. This used
+      // to send only `method` and throw the PIN away, so the server had
+      // nothing to verify and any string produced a signed record.
+      esign,
     })
     showEsignDialog.value = false
     step.value = 'result'

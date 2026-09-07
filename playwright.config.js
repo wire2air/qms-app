@@ -362,6 +362,46 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Equipment / calibration programme. The module had no E2E surface at all
+      // until 2026-09-07 — no project, no fixture, and zero equipment rows in
+      // e2e-seed.sql — and the absence was not neutral: with no persona holding
+      // a `calibration_equipment` grant, every write control in the register was
+      // hidden from every persona, so a browser could not have reached the
+      // module's defect even if someone had looked.
+      //
+      // EQ-J3 is why this project is worth more than its test count. E1 was a
+      // live REST privilege escalation: DELETE /v1/services/equipment/:id was
+      // gated on `calibration_equipment:update` while the RLS DELETE policy, the
+      // soft-delete guard trigger (migration 20260907150000) and the register's
+      // own button all demanded `:delete`. REST connects as the superuser, where
+      // the trigger self-skips by design ("the route has already checked"), so
+      // the route WAS the check and it asked the wrong question. J3 probes all
+      // three paths — the hidden button, the syncEngine's paranoid UPDATE, and
+      // the REST route — from the persona that held update and not delete.
+      //
+      // EQ-J4 reaches across into QC on purpose: `requires_calibration` is not
+      // bookkeeping, it is an enforced production control
+      // (inspectionResultService.js refuses a measurement taken with a lapsed
+      // instrument), and the frontend half of it is a banner with no `disabled`,
+      // so only a server-side assertion says anything.
+      name: 'equipment',
+      testMatch: /equipment\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Above the 120s default for the same reason as inspectionsLogs: the
+      // register renders out of IndexedDB, so nothing is readable until the
+      // syncEngine has bootstrapped Equipment into a fresh context, and a
+      // journey that needs a second persona pays that bootstrap again.
+      timeout: 180_000,
+      // The register is a live-query over IndexedDB fed by the sync socket, so
+      // a row written over REST appears only once the broadcast lands. The
+      // helpers already reload-and-retry; one Playwright-level retry covers the
+      // residual lag without masking a real failure — the DB-level probes are
+      // deterministic SQL and fail both attempts when something is genuinely
+      // broken.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

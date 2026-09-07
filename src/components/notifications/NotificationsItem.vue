@@ -15,6 +15,11 @@ import {
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { resolveTaskInstanceRoute } from '@/utils/taskRoute.js'
+import {
+  canonicalResourceType,
+  hasNotificationRoute,
+  notificationPath,
+} from '@/utils/notificationRoutes.js'
 import { db } from '@models/index'
 
 const props = defineProps({
@@ -57,76 +62,6 @@ const typeColor = computed(
 )
 
 /**
- * Canonicalise the snake_case analytics vocabulary to the PascalCase one used
- * as keys below.
- *
- * Two vocabularies reach this resolver. Almost every emitter sends the model
- * name (`Nonconformance`), but the analytics worker tasks are raw-SQL jobs with
- * no model in scope and send the TABLE name instead — `evaluate_analytics_alerts`
- * emits `resourceType: 'analytics_alert'`. Both must land on the same page here
- * AND in the email builder, which normalises identically
- * (`analyticsCanonicalType` in `@qability/shared/utils/companyAppUrl.js`).
- *
- * Accepts singular or plural (`analytics_alert`, `analytics_alerts`) because the
- * emitter and the table disagree about which one they use.
- */
-function canonicalResourceType(resourceType) {
-  if (!resourceType.startsWith('analytics_')) return resourceType
-  const singular = resourceType.endsWith('s') ? resourceType.slice(0, -1) : resourceType
-  return singular
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('')
-}
-
-// Deep-link targets for a notification's `resourceType`. This table is the
-// in-app HALF of a pair: the email half is `entityRouteSegment` in
-// `@qability/shared/utils/companyAppUrl.js`. ONE notification row feeds both,
-// so a type that resolves differently in the two places sends the emailed link
-// and the in-app link to different pages — nothing tests that, and nobody finds
-// out until a customer says so. Add a type to BOTH or to neither.
-const RESOURCE_ROUTES = {
-  Document: (id) => getCompanyPath(`/documents/${id}`),
-  Record: (id) => getCompanyPath(`/records/${id}`),
-  WorkflowInstance: (id) => getCompanyPath(`/workflow-instances/${id}`),
-  // TaskInstance has NO standalone detail route (/task-instances/:id 404s) — it
-  // is resolved to its host entity in resolveTarget() below, matching the task
-  // inbox and the email deep link.
-  // Equipment has no detail page yet — land on the list (calibration reminders).
-  Equipment: () => getCompanyPath('/equipment'),
-  Nonconformance: (id) => getCompanyPath(`/nonconformances/${id}`),
-  Capa: (id) => getCompanyPath(`/capas/${id}`),
-  QualityEvent: (id) => getCompanyPath(`/qualityEvents/${id}`),
-  TrainingInstance: (id) => getCompanyPath(`/training-instances/${id}`),
-  LogBook: (id) => getCompanyPath(`/inspections-logs/log-books/${id}`),
-
-  // ── Analytics ──────────────────────────────────────────────────────────
-  // Dashboards and reports are the only analytics records with a page of
-  // their own, so they are the only ones that carry an id.
-  AnalyticsDashboard: (id) => getCompanyPath(`/analytics/dashboards/${id}`),
-  AnalyticsReport: (id) => getCompanyPath(`/analytics/reports/${id}`),
-  // A schedule is configuration hanging off a report and a run is a row in
-  // that report's history — neither is addressable, so both stop at the
-  // reports list. Resolving to the PARENT report would be a better landing
-  // spot, but it needs an id lookup the email builder (synchronous, no DB
-  // handle) cannot do, and a link that lands somewhere different depending on
-  // whether you clicked the email or the bell is worse than one that lands one
-  // level up in both.
-  AnalyticsReportSchedule: () => getCompanyPath('/analytics/reports'),
-  AnalyticsReportRun: () => getCompanyPath('/analytics/reports'),
-  // Alerts have no UI surface at all yet; the analytics home is the honest
-  // destination until one exists.
-  AnalyticsAlert: () => getCompanyPath('/analytics'),
-  AnalyticsAlertEvent: () => getCompanyPath('/analytics'),
-  // AnalyticsWidget is deliberately ABSENT. A widget is a layout cell inside a
-  // dashboard, not a record anyone navigates to; anything worth notifying about
-  // a widget (an alert on its metric) is worth notifying about its DASHBOARD,
-  // and the emitter already holds that id. Registering it would encode the lie
-  // that a widget id is navigable and silently drop the id on the way. It falls
-  // through to the analytics fallback below instead.
-}
-
-/**
  * Where a notification whose `resourceType` nobody registered lands.
  *
  * Doing NOTHING — the previous behaviour — is the worst available outcome: the
@@ -143,7 +78,8 @@ const RESOURCE_ROUTES = {
 function fallbackTarget(resourceType, canonicalType) {
   console.warn(
     `[notifications] no deep-link route for resourceType "${resourceType}" — ` +
-      'add it to RESOURCE_ROUTES here AND to the backend entityRouteSegment',
+      'add it to RESOURCE_ROUTES in @/utils/notificationRoutes.js AND to the ' +
+      'backend entityRouteSegment',
   )
   return getCompanyPath(canonicalType.startsWith('Analytics') ? '/analytics' : '/notifications')
 }
@@ -155,7 +91,7 @@ function fallbackTarget(resourceType, canonicalType) {
 const hasTarget = computed(() => {
   const { resourceType, resourceId } = props.notification
   if (!resourceType || !resourceId) return false
-  return resourceType === 'TaskInstance' || !!RESOURCE_ROUTES[canonicalResourceType(resourceType)]
+  return resourceType === 'TaskInstance' || hasNotificationRoute(resourceType)
 })
 
 // Resolve the (company-prefixed) destination at click time. A TaskInstance needs
@@ -167,9 +103,9 @@ async function resolveTarget() {
     const task = await db.TaskInstance.findByPk(resourceId)
     return getCompanyPath(await resolveTaskInstanceRoute(db, task))
   }
-  const canonicalType = canonicalResourceType(resourceType)
-  const builder = RESOURCE_ROUTES[canonicalType]
-  return builder ? builder(resourceId) : fallbackTarget(resourceType, canonicalType)
+  const path = notificationPath(resourceType, resourceId)
+  if (path) return getCompanyPath(path)
+  return fallbackTarget(resourceType, canonicalResourceType(resourceType))
 }
 
 async function handleClick() {

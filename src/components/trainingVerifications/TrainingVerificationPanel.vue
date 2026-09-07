@@ -2,7 +2,7 @@
 import { IconCheck, IconChevronDown, IconChevronRight } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { post } from '@/api'
+import { get, post } from '@/api'
 
 const props = defineProps({
   instance: { type: Object, required: true },
@@ -10,6 +10,25 @@ const props = defineProps({
 
 const emit = defineEmits(['verified'])
 const toast = useToast()
+
+// The correct answers are no longer part of the instance snapshot (they used to
+// sync straight into the learner's browser). Reviewers fetch them from the
+// permission-gated endpoint instead; a failure just means no highlighting.
+const answerKey = ref(null)
+watch(
+  () => props.instance?.id,
+  async (id) => {
+    answerKey.value = null
+    if (!id) return
+    try {
+      const data = await get(`/v1/services/trainingInstances/${id}/answer-key`)
+      answerKey.value = data?.answerKey ?? null
+    } catch (err) {
+      console.error('[training] could not load the assessment answer key', err)
+    }
+  },
+  { immediate: true },
+)
 
 const training = useLiveQueryWithDeps(
   [() => props.instance?.trainingId],
@@ -164,7 +183,9 @@ async function onEsignVerified(esign) {
         !effectiveReject.value && form.value.practicalObservationCompleted,
       retrainingRequired: effectiveReject.value,
       notes: form.value.notes,
-      signatureMethod: esign?.method ?? 'password',
+      // The verifier's credential, not just their claimed method — the server
+      // now authenticates this before writing the competency record.
+      esign,
     })
     showEsignDialog.value = false
     const employeeLabel = `${data.verifiedCount} employee${data.verifiedCount === 1 ? '' : 's'}`
@@ -267,6 +288,7 @@ async function onEsignVerified(esign) {
               :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
               :readonly="true"
               :showCorrect="true"
+              :answerKey="answerKey"
             />
           </div>
         </div>
