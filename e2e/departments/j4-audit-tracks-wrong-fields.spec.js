@@ -1,8 +1,11 @@
-// DEPT-J4 — 🔴 The audit config tracks three fields, and one of them is not a
-// column. WRITTEN TO FAIL.
+// DEPT-J4 — What a department change records.
+// FIXED. Written to fail; both reds turned green, and they were closed by work
+// this module's own pack did not do — the Sites cycle rewrote the shared audit
+// config, and the Sites referential-integrity migration (20260810160000) added
+// the missing foreign key. This file was the thing that noticed.
 //
-// `backend/worker/services/audit/registry/modules/departmentSites.js` configures
-// both tables identically:
+// `backend/worker/services/audit/registry/modules/departmentSites.js` used to
+// configure both tables identically:
 //
 //     trackFields: ['name', 'code', 'stateId']
 //
@@ -11,12 +14,15 @@
 // `sites` has:       id, company_id, name, code, address, timezone,
 // deleted_at, created_at, updated_at.
 //
-// **Neither table has a `state_id` column.** One third of the configuration is
+// **Neither table has a `state_id` column.** One third of the configuration was
 // dead. This is the same defect class already confirmed in the Products pack,
 // where the registry also named a `stateId` that does not exist — so it is a
-// pattern in how these configs get written, not a typo in one file.
+// pattern in how these configs get written, not a typo in one file. The
+// `stateId` MECHANISM test below is KEPT and still asserts zero: the phantom is
+// gone from the config, and the column it named must never appear either, or
+// the config's replacement would silently start tracking something new.
 //
-// What that leaves untracked matters more than the dead entry:
+// What that left untracked mattered more than the dead entry:
 //
 //   * `supervisor_user_id` — who quality events route to (see DEPT-J1)
 //   * `site_id`            — which site the department belongs to
@@ -24,8 +30,9 @@
 //                            rows in sites/j9; a soft delete writes only this
 //
 // So moving a department to a different site, or changing who supervises it,
-// leaves no trace at all: hasRelevantChanges() is false, defaultHandler returns
-// null, and the event is dropped with a logger.warn at most.
+// left no trace at all: hasRelevantChanges() was false, defaultHandler returned
+// null, and the event was dropped with a logger.warn at most. The config now
+// tracks name, code, siteId, supervisorUserId, description and deletedAt.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, SITES, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
@@ -92,10 +99,12 @@ test.describe('DEPT-J4 · what a department change does and does not record', ()
     await patchDepartment(ctx, { name: `E2E DJ4 Renamed ${Date.now()}` })
     await ctx.close()
 
-    expect(await auditRowsAfter(DEPT_ID, before), 'a name change is recorded').toBeGreaterThan(before)
+    expect(await auditRowsAfter(DEPT_ID, before), 'a name change is recorded').toBeGreaterThan(
+      before,
+    )
   })
 
-  test('🔴 changing the supervisor is audited (FAILS TODAY)', async ({ browser }) => {
+  test('changing the supervisor is audited', async ({ browser }) => {
     // The routing target for quality events. Someone can redirect every future
     // event for a department to themselves and leave no record of having done it.
     const before = auditRows(DEPT_ID)
@@ -113,7 +122,7 @@ test.describe('DEPT-J4 · what a department change does and does not record', ()
     ).toBeGreaterThan(before)
   })
 
-  test('🔴 moving a department to another site is audited (FAILS TODAY)', async ({ browser }) => {
+  test('moving a department to another site is audited', async ({ browser }) => {
     // Re-parents every record filed under it, and does so invisibly.
     const before = auditRows(DEPT_ID)
     const ctx = await browser.newContext({ storageState: AUTH.deptAdmin })
@@ -130,15 +139,23 @@ test.describe('DEPT-J4 · what a department change does and does not record', ()
     ).toBeGreaterThan(before)
   })
 
-  test('MECHANISM · and there is no FK behind site_id to catch a bad move', () => {
-    // `departments.site_id` has NO foreign key — only company_id and
-    // supervisor_user_id do. So the unaudited move above can also point a
-    // department at a site that does not exist, with nothing to stop it.
-    const fks = sqlValue(
-      `SELECT count(*) FROM pg_constraint
+  test('MECHANISM · site_id is a foreign key, and a company-scoped one', () => {
+    // `departments.site_id` had NO foreign key when this was written, so the
+    // unaudited move above could also point a department at a site that did not
+    // exist. 20260810160000 added one; 20260907400000 widened it to the
+    // COMPOSITE (site_id, company_id) → sites(id, company_id), which is what
+    // stops a move to another TENANT's site — a stronger property than mere
+    // existence, and the one D-C1 is about. The assertion is on the definition
+    // rather than the count for exactly that reason: a single-column FK would
+    // still count as 1.
+    const def = sqlValue(
+      `SELECT pg_get_constraintdef(oid) FROM pg_constraint
         WHERE conrelid = 'departments'::regclass AND contype = 'f'
-          AND pg_get_constraintdef(oid) LIKE '%site_id%'`,
+          AND conname = 'departments_site_id_fkey'`,
     )
-    expect(Number(fks), 'departments.site_id should be a foreign key').toBe(1)
+    expect(def, 'departments.site_id must be a foreign key').toBeTruthy()
+    expect(def, 'and it must name company_id too, or a cross-tenant move is legal').toContain(
+      'sites(id, company_id)',
+    )
   })
 })

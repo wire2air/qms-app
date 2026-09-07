@@ -1,5 +1,7 @@
-// DEPT-J1 — 🔴 A department created over REST can never route a quality event.
-// WRITTEN TO FAIL.
+// DEPT-J1 — A department created over REST can now route a quality event.
+// FIXED 2026-09-07 (D-H1). This suite was written to fail; the two tests marked
+// 🔴 below are the ones that turned green, and they are kept as the regression
+// guard rather than deleted.
 //
 // This is the module's headline finding and the only one in either org-structure
 // module that reaches a user-visible hard error rather than a silent gap.
@@ -10,18 +12,24 @@
 //     `users`, and the UI writes it — DepartmentsCreateUpdateDialog.vue binds a
 //     UserSelectMenu at :246 and persists it at :156/:167 through the
 //     syncEngine (GraphQL).
-//  2. The REST Zod schemas do not mention it. `createDepartmentSchema` accepts
+//  2. The REST Zod schemas did not mention it. `createDepartmentSchema` accepted
 //     name/code/siteId/description/displayOrder; `updateDepartmentSchema`
-//     accepts name/siteId/description/displayOrder. Zod strips unknown keys, so
-//     a POST carrying supervisorUserId is accepted, ignored, and the column
-//     lands NULL. No error, no warning.
+//     accepted name/siteId/description/displayOrder. Zod strips unknown keys, so
+//     a POST carrying supervisorUserId was accepted, ignored, and the column
+//     landed NULL. No error, no warning. THE FIX had to be three things, not the
+//     "two lines in one schema file" this file originally predicted: the field
+//     added to both schemas, the controller's destructuring widened to read it,
+//     and — because `departments.supervisor_user_id` referenced `users(id)` with
+//     no company predicate — the value resolved against the caller's company
+//     before it is stored. Simply forwarding it would have opened D-C1, letting
+//     a REST client name another tenant's user as supervisor.
 //  3. `controllers/qualityEvents.js:144-151` routes an unassigned event to
 //     `department.supervisorUserId`, and throws BadRequestError — "No supervisor
 //     is configured for this department at the selected site" — when it is NULL.
 //
 // So any department created by a non-UI consumer (integration, API key, script,
-// bulk import) is silently unable to receive a routed quality event, and the
-// person who finds out is whoever files the event.
+// bulk import) was silently unable to receive a routed quality event, and the
+// person who found out was whoever filed the event.
 //
 // A NOTE ON HOW THIS WAS FOUND. Three parallel sweeps independently concluded
 // "supervisorUserId has no write path after bootstrap". All three were wrong,
@@ -42,24 +50,24 @@ const EVENTS = `${API}/v1/services/qualityEvents`
 const stamp = () => String(Date.now()).slice(-6)
 
 function purgeDept(code) {
-  sql(`DELETE FROM quality_events WHERE department_id IN (SELECT id FROM departments WHERE code = '${code}')`)
+  sql(
+    `DELETE FROM quality_events WHERE department_id IN (SELECT id FROM departments WHERE code = '${code}')`,
+  )
   sql(`DELETE FROM departments WHERE code = '${code}'`)
 }
 
-test.describe('DEPT-J1 · supervisorUserId is unreachable over REST', () => {
-  test('PRECONDITION · the REST schema really omits the field', () => {
-    // Asserted against behaviour rather than by reading the file: a POST that
-    // carries the key must be ACCEPTED (Zod strips unknown keys rather than
-    // rejecting), which is what makes the omission silent.
+test.describe('DEPT-J1 · supervisorUserId over REST', () => {
+  test('PRECONDITION · the seeded Quality department has a supervisor', () => {
+    // The control path for everything below: if this row lost its supervisor,
+    // the two CONTROL tests would fail for a reason that has nothing to do with
+    // what this file is about.
     expect(
       sqlValue(`SELECT supervisor_user_id FROM departments WHERE id = '${DEPARTMENTS.quality.id}'`),
       'the seeded Quality department has a supervisor (the control path)',
     ).toBe(USERS.owner.id)
   })
 
-  test('🔴 POST /departments persists a supervisor when one is supplied (FAILS TODAY)', async ({
-    browser,
-  }) => {
+  test('POST /departments persists a supervisor when one is supplied', async ({ browser }) => {
     const code = `D1A${stamp()}`
     const ctx = await browser.newContext({ storageState: AUTH.deptAdmin })
 
@@ -72,12 +80,12 @@ test.describe('DEPT-J1 · supervisorUserId is unreachable over REST', () => {
           supervisorUserId: USERS.owner.id,
         },
       })
-      // The request succeeds — that is the problem. A field the caller asked
-      // for was dropped without comment.
       expect([200, 201], 'the create itself is accepted').toContain(res.status())
 
       expect(
-        sqlValue(`SELECT coalesce(supervisor_user_id::text, 'NULL') FROM departments WHERE code = '${code}'`),
+        sqlValue(
+          `SELECT coalesce(supervisor_user_id::text, 'NULL') FROM departments WHERE code = '${code}'`,
+        ),
         'a supervisor supplied over REST must be stored',
       ).toBe(USERS.owner.id)
     } finally {
@@ -86,9 +94,7 @@ test.describe('DEPT-J1 · supervisorUserId is unreachable over REST', () => {
     }
   })
 
-  test('🔴 a quality event routes to a REST-created department (FAILS TODAY)', async ({
-    browser,
-  }) => {
+  test('a quality event routes to a REST-created department', async ({ browser }) => {
     // The consequence, end to end. This is what an operator actually hits.
     const code = `D1B${stamp()}`
     const ctx = await browser.newContext({ storageState: AUTH.deptAdmin })
@@ -147,7 +153,9 @@ test.describe('DEPT-J1 · supervisorUserId is unreachable over REST', () => {
         },
       })
       const body = await event.json().catch(() => null)
-      expect([200, 201], `control must pass: ${body?.error?.message ?? ''}`).toContain(event.status())
+      expect([200, 201], `control must pass: ${body?.error?.message ?? ''}`).toContain(
+        event.status(),
+      )
     } finally {
       await ctx.close()
       sql(`DELETE FROM quality_events WHERE title = '${title.replace(/'/g, "''")}'`)
@@ -155,9 +163,11 @@ test.describe('DEPT-J1 · supervisorUserId is unreachable over REST', () => {
   })
 
   test('CONTROL · GraphQL CAN set the supervisor (must pass today)', async ({ browser }) => {
-    // The UI path works, which is why this has survived: everyone who has ever
-    // set a supervisor did it through the dialog. Proving the column, the FK and
-    // the mutation are all fine narrows the fix to the Zod schemas alone.
+    // The UI path always worked, which is why the REST gap survived: everyone
+    // who ever set a supervisor did it through the dialog. Kept after the fix
+    // because it is what notices if someone "simplifies" the module by routing
+    // the dialog through REST — the two paths must both work, and DEPT-J5 pins
+    // that the dialog still uses GraphQL.
     const code = `D1C${stamp()}`
     const id = sqlValue(`SELECT gen_random_uuid()`)
 
@@ -179,7 +189,9 @@ test.describe('DEPT-J1 · supervisorUserId is unreachable over REST', () => {
       await ctx.close()
 
       expect(
-        sqlValue(`SELECT coalesce(supervisor_user_id::text,'NULL') FROM departments WHERE id = '${id}'`),
+        sqlValue(
+          `SELECT coalesce(supervisor_user_id::text,'NULL') FROM departments WHERE id = '${id}'`,
+        ),
         'GraphQL persists what REST drops',
       ).toBe(USERS.owner.id)
     } finally {
