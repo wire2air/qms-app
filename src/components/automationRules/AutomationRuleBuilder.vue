@@ -3,13 +3,17 @@ import { IconPlus, IconTrash } from '@tabler/icons-vue'
 import {
   AUTOMATION_OBJECTS,
   buildModuleAutomationObject,
-  AUTOMATION_TRIGGERS,
+  triggersForObject,
   actionsForObject,
   NO_VALUE_OPERATORS,
   LIST_OPERATORS,
   MODULE_ACTIONS,
   moduleOperatorsForField,
 } from '@/utils/automationObjects'
+import {
+  buildConditionTree,
+  hydrateConditionTree,
+} from '@/utils/automationConditionTree.js'
 import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
@@ -58,6 +62,15 @@ function blankDraft() {
     trigger: 'CREATED',
     logic: 'AND',
     conditions: [],
+    // Nested condition groups. This builder cannot AUTHOR them — there is no UI
+    // for a sub-group — but the evaluator supports and tests them
+    // (evaluateConditionTree.js, `groups[]`), the column is free-form JSONB, and
+    // rules carrying groups exist. Carrying them here means opening such a rule
+    // and pressing Save preserves them. It used to rebuild conditionTree as
+    // `{ logic, conditions }` with no groups key at all, which deleted the
+    // nested logic irrecoverably and — because dropping an ANDed group only
+    // ever widens a rule — left it matching MORE records than before, silently.
+    groups: [],
     actions: [],
     siteIds: [],
     departmentIds: [],
@@ -70,6 +83,10 @@ const draft = ref(blankDraft())
 // once per open (after the live query resolves) without clobbering in-progress
 // edits on later sync updates.
 const hydratedFor = ref(null)
+// …and which OBJECT that rule targets. The reset watcher below needs to tell
+// "the user picked a different object" from "we just loaded a rule that happens
+// to target a different object than the draft was holding". See its comment.
+const hydratedObjectType = ref(null)
 
 function hydrateDraft() {
   if (props.ruleId && existing.value) {
@@ -78,10 +95,10 @@ function hydrateDraft() {
       name: r.name,
       objectType: r.objectType,
       trigger: r.trigger,
-      logic: r.conditionTree?.logic || 'AND',
-      conditions: Array.isArray(r.conditionTree?.conditions)
-        ? r.conditionTree.conditions.map((c) => ({ ...c }))
-        : [],
+      // logic / conditions / groups — one round trip, one place. `groups` is
+      // carried through untouched; this builder cannot author a nested group
+      // and used to DELETE any it found on save.
+      ...hydrateConditionTree(r.conditionTree),
       actions: Array.isArray(r.actions)
         ? r.actions.map((a) => ({ ...a, config: { ...(a.config || {}) } }))
         : [],
@@ -90,15 +107,18 @@ function hydrateDraft() {
       isActive: r.isActive,
     }
     hydratedFor.value = props.ruleId
+    hydratedObjectType.value = r.objectType
   } else if (!props.ruleId) {
     draft.value = blankDraft()
     hydratedFor.value = null
+    hydratedObjectType.value = null
   }
 }
 
 watch(open, (v) => {
   if (!v) {
     hydratedFor.value = null
+    hydratedObjectType.value = null
     return
   }
   hydrateDraft()
@@ -117,6 +137,25 @@ const availableActions = computed(() =>
   isModuleMode.value || currentObject.value?.isModule
     ? MODULE_ACTIONS
     : actionsForObject(draft.value.objectType),
+)
+
+/**
+ * Triggers this object can actually be fired by.
+ *
+ * SCHEDULED is offered only for admin-defined module records. The daily sweep
+ * (`evaluate_scheduled_automation.js`) enumerates the `records` table and skips
+ * anything whose object type is not a lowercase module_key, so a SCHEDULED rule
+ * on a built-in object saves, lists as Active, and can never fire — the exact
+ * failure this whole builder is meant to avoid, offered as a menu item.
+ *
+ * Hiding it is the cheap half of the fix. Making the sweep serve built-ins is a
+ * much larger change (seven tables, each with its own scoping and status
+ * source) and is deliberately not attempted here.
+ */
+const availableTriggers = computed(() =>
+  triggersForObject(draft.value.objectType, {
+    isModule: isModuleMode.value || !!currentObject.value?.isModule,
+  }),
 )
 
 // BaseSelect maps via optionLabel/optionValue; the source arrays already carry
@@ -269,27 +308,55 @@ function removeAction(i) {
 }
 const newActionType = ref(null)
 
-// When the object changes, reset conditions/actions that may no longer apply.
+/**
+ * When the user RETARGETS the rule at a different object, drop the conditions
+ * and any actions that object does not support — they reference field keys and
+ * action types that no longer exist.
+ *
+ * ── WHY THE GUARD ────────────────────────────────────────────────────────────
+ * This watcher used to be unguarded, and it fired on hydration as well as on a
+ * user pick. `draft` starts as blankDraft() (objectType 'QualityEvent'), and
+ * hydrateDraft() replaces it wholesale — so opening ANY saved rule that targets
+ * a different object changed this getter's value and the callback ran on the
+ * same flush, one tick after the rule's conditions were loaded, and emptied
+ * them. The form then showed a rule with no conditions, and pressing Save
+ * stored `conditions: []` — which the evaluator reads as "no conditions =
+ * always". A narrow rule became one that matches every record of its type.
+ *
+ * Verified, not inferred: a Vue `watch` on a getter fires when the getter's
+ * value changes, and replacing `draft.value` does exactly that. The reset
+ * watcher is registered after the hydration watchers, so it runs after them in
+ * the same pre-flush queue.
+ *
+ * The guard is what makes the two cases distinguishable: after hydration
+ * `hydratedObjectType` holds the object the rule was loaded with, so a change
+ * INTO that value is the load itself and not a choice anybody made.
+ */
 watch(
   () => draft.value.objectType,
-  () => {
+  (next) => {
+    if (next === hydratedObjectType.value) return
     draft.value.conditions = []
+    // Groups go with them. Their conditions reference field keys belonging to
+    // the OLD object, so keeping them across a retarget would leave the rule
+    // carrying conditions the evaluator cannot interpret — which it treats as
+    // MATCHING, quietly widening the new rule to everything.
+    draft.value.groups = []
     draft.value.actions = draft.value.actions.filter((a) =>
       availableActions.value.some((x) => x.value === a.type),
     )
+    // A trigger the new object cannot be fired by must not survive either — it
+    // would be submitted as-is from a picker that no longer offers it, which is
+    // how a dead SCHEDULED rule on a built-in object gets created. Deliberately
+    // NOT applied on hydration: rewriting a saved rule's trigger just because
+    // somebody opened it would turn an inert rule into a live one behind their
+    // back, and the whole point of the stranded rules is that an operator has
+    // to find and decide about them.
+    if (!availableTriggers.value.some((t) => t.value === draft.value.trigger)) {
+      draft.value.trigger = availableTriggers.value[0]?.value ?? 'CREATED'
+    }
   },
 )
-
-function normalizeValue(cond) {
-  if (NO_VALUE_OPERATORS.has(cond.operator)) return undefined
-  if (LIST_OPERATORS.has(cond.operator)) {
-    const arr = Array.isArray(cond.value)
-      ? cond.value
-      : String(cond.value ?? '').split(',')
-    return arr.map((s) => String(s).trim()).filter(Boolean)
-  }
-  return cond.value
-}
 
 const createRule = useLiveMutation(async (db, payload) => {
   const r = db.AutomationRule.create(payload)
@@ -305,17 +372,7 @@ function handleSave(close) {
 async function onValidSubmit() {
   saving.value = true
   try {
-    const conditionTree = {
-      logic: draft.value.logic,
-      conditions: draft.value.conditions
-        .filter((c) => c.field && c.operator)
-        .map((c) => {
-          const v = normalizeValue(c)
-          return v === undefined
-            ? { field: c.field, operator: c.operator }
-            : { field: c.field, operator: c.operator, value: v }
-        }),
-    }
+    const conditionTree = buildConditionTree(draft.value)
     const payload = {
       name: draft.value.name.trim(),
       objectType: draft.value.objectType,
@@ -383,7 +440,7 @@ async function onValidSubmit() {
           <BaseField label="Trigger">
             <BaseSelect
               v-model="draft.trigger"
-              :options="AUTOMATION_TRIGGERS"
+              :options="availableTriggers"
               :required="true"
               :searchable="false"
             />

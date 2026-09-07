@@ -774,3 +774,86 @@ export const ANALYTICS = {
   // crash and from a private record leaking its existence.
   ABSENT_ID: 'e2eaffff-0000-4000-8000-0000000000ff',
 }
+
+// Equipment / calibration programme fixtures (e2e-seed.sql §36) — the
+// `equipment` Playwright project.
+//
+// The module mints NO persona of its own. The split it needs already exists in
+// the QC cast: `qcAuthor` owns the register (create + update + DELETE) and
+// `qcInspector` holds calibration_equipment:update and DELIBERATELY NOT delete.
+// That second persona is E1's — until 2026-09-07 the REST DELETE route asked
+// for `update`, so an inspector could tombstone an instrument the UI told them
+// they could not touch. Every probe in EQ-J3 is about that absence, so do not
+// widen the inspector's grants; §36 even ends with a DELETE that strips a
+// stray `calibration_equipment:delete` back off, because ON CONFLICT DO NOTHING
+// could never take one back.
+export const EQUIPMENT = {
+  // Register owner (create/update/delete) and the actor for every calibration
+  // and PM event these journeys record.
+  admin: { auth: AUTH.qcAuthor, user: USERS.qcAuthor },
+  // update-but-not-delete — the escalation persona.
+  technician: { auth: AUTH.qcInspector, user: USERS.qcInspector },
+  // Holds nothing on calibration_equipment. Reads the register anyway, because
+  // `equipment_sel` is a bare company_id match and calibration_equipment has NO
+  // `read` action in authz.module_actions (migration 20260810170000 dropped it).
+  reader: { auth: AUTH.noAccess, user: USERS.noAccess },
+
+  // Instruments. Dates are seeded RELATIVE to NOW(), so no absolute date
+  // appears here — a journey that needs one reads it out of the database.
+  calDue: {
+    id: 'e2eb0000-0000-4000-8000-000000000001',
+    code: 'E2E-CAL-DUE',
+    name: 'E2E Vernier Calipers (cal due)',
+    intervalMonths: 6,
+  },
+  calExpired: {
+    id: 'e2eb0000-0000-4000-8000-000000000002',
+    code: 'E2E-CAL-EXPIRED',
+    name: 'E2E pH Meter (out of calibration)',
+    intervalMonths: 3,
+  },
+  notTracked: {
+    id: 'e2eb0000-0000-4000-8000-000000000003',
+    code: 'E2E-NO-CAL',
+    name: 'E2E Bench Scale (uncontrolled)',
+  },
+  pmDue: {
+    id: 'e2eb0000-0000-4000-8000-000000000004',
+    code: 'E2E-PM-DUE',
+    name: 'E2E Autoclave (PM overdue)',
+    intervalMonths: 3,
+  },
+  // Secondary Site / Operations department — the row a site- or
+  // department-scoped grant would exclude.
+  otherDept: {
+    id: 'e2eb0000-0000-4000-8000-000000000005',
+    code: 'E2E-OPS-FORK',
+    name: 'E2E Forklift (Operations)',
+    siteId: 'e2e51000-0000-4000-8000-000000000003',
+    departmentId: 'e2e7d000-0000-4000-8000-000000000003',
+  },
+  // EQ-J3's denial target. Never delete this row from a spec — the journey's
+  // closing assertion is that it is still there.
+  undeletable: {
+    id: 'e2eb0000-0000-4000-8000-000000000006',
+    code: 'E2E-UNDELETABLE',
+    name: 'E2E Reference Thermometer (delete probe)',
+  },
+  alt: {
+    id: 'e2eb0000-0000-4000-8000-000000000021',
+    code: 'E2EALT-THERMO',
+    name: 'E2EALT Thermometer',
+  },
+
+  // The QC calibration-gate fixture (§36c). Its own product/spec/plan/template
+  // so it cannot disturb §22c, which four qcInspection journeys are frozen
+  // against.
+  qcGate: {
+    product: { id: 'e2eb1000-0000-4000-8000-000000000001', name: 'E2E Buffer Solution' },
+    specification: { id: 'e2eb1000-0000-4000-8000-000000000002', code: 'E2E-SPEC-PH' },
+    // requires_instrument = true, preferred_equipment_id = calExpired.
+    characteristic: { id: 'e2eb1000-0000-4000-8000-000000000003', code: 'PH', name: 'pH at 25C' },
+    samplingPlan: { id: 'e2eb1000-0000-4000-8000-000000000004' },
+    template: { id: 'e2eb1000-0000-4000-8000-000000000005', name: 'E2E Buffer Incoming Inspection' },
+  },
+}
