@@ -391,6 +391,8 @@ declare module 'vue' {
     CapaWorkflowChildSteps: typeof import('./src/components/capas/CapaWorkflowChildSteps.vue')['default']
     CapaWorkflowDetail: typeof import('./src/components/capas/CapaWorkflowDetail.vue')['default']
     CapaWorkflowDraftPreview: typeof import('./src/components/capas/CapaWorkflowDraftPreview.vue')['default']
+    CertificateExpiry: typeof import('./src/components/suppliers/certificateExpiry.js')['default']
+    'CertificateExpiry.spec': typeof import('./src/components/suppliers/certificateExpiry.spec.js')['default']
     ChangeRequestAddChildStepDialog: typeof import('./src/components/changeRequests/ChangeRequestAddChildStepDialog.vue')['default']
     ChangeRequestDetailConfig: typeof import('./src/components/changeRequests/changeRequestDetailConfig.js')['default']
     'ChangeRequestDetailConfig.spec': typeof import('./src/components/changeRequests/changeRequestDetailConfig.spec.js')['default']

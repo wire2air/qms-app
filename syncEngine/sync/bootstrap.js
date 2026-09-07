@@ -59,6 +59,48 @@ export async function bootstrapAll(signal) {
 }
 
 /**
+ * Delta-refresh ONE model, out of band from `bootstrapAll` and independent of
+ * the 5-minute `bootstrapGate`.
+ *
+ * PORTAL-F14. The gate exists so a reload does not re-pull everything, and for
+ * ordinary screens that is right: a stale row shows slightly old data. On the
+ * supplier portal it is not, because there the local `shared_with_user` table
+ * IS the authorization decision — the dashboard lists exactly the entities it
+ * holds a live grant row for. A grant revoked while the client was reloading,
+ * offline, or briefly disconnected is a grant the client never hears about:
+ * the socket event is missed, and nothing afterwards reconciles, because the
+ * delta bootstrap only ever `bulkPut`s and there is no tombstone pass. Measured
+ * by `SUP-J8b`, which revokes and reloads in the same tick.
+ *
+ * A delta refresh is enough to repair it and a tombstone pass is not needed:
+ * a revoke is an `UPDATE` that bumps `updated_at`, so the row is newer than the
+ * watermark and comes back — carrying `deleted_at`, because neither
+ * `shared_with_user_select_rls` nor the generated query filters soft deletes.
+ * Writing it to IndexedDB is what removes it, since QueryBuilder's paranoid
+ * filter then drops it from every live query.
+ *
+ * Deliberately narrow: one named model, on one surface, at mount. It does NOT
+ * close the other half of F-14 — the entity rows themselves (`Document`,
+ * `DocumentVersion`, `DocumentSection`) stay in IndexedDB until logout, so a
+ * path that loads content by id without consulting a grant is still exposed.
+ * That needs a real tombstone pass and is not this.
+ *
+ * @param {string} modelName
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<boolean>} true if the refresh ran, false if it could not
+ */
+export async function refreshModel(modelName, signal) {
+  if (!navigator.onLine) return false
+  const meta = MetaCache.all().find((m) => m.modelName === modelName)
+  if (!meta) {
+    console.error(`[syncEngine refreshModel] unknown model: ${modelName}`)
+    return false
+  }
+  await bootstrapModel(meta, signal)
+  return true
+}
+
+/**
  * Fetch all pages for a single model and upsert nodes into IDB.
  * Uses the stored lastSyncValue for delta-sync (only fetches records newer than watermark).
  *
