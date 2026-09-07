@@ -24,8 +24,15 @@ const categories = useLiveQuery((db) => db.ItemCategory.where().orderBy('display
   initial: [],
 })
 
+// F-16 (2026-09-07): was `isAllowed(['company_settings:manage', 'owner'])`.
+// isAllowed() ANDs its list (currentSession.js:312) and 'owner' is not a
+// module:action pair, so it could never be present — collapsing the gate to
+// owner-only via the isOwner short-circuit at :307, and hiding the affordance
+// from exactly the settings admins the backend admits
+// (POST /v1/services/{productFamilies,itemCategories,uoms} all gate on
+// company_settings:manage alone). The author meant OR; owners still pass at :307.
 const canCreate = computed(
-  () => props.allowCreate && isAllowed(['company_settings:manage', 'owner']),
+  () => props.allowCreate && isAllowed(['company_settings:manage']),
 )
 const showCreate = ref(false)
 const newName = ref('')
