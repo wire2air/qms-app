@@ -62,8 +62,13 @@ test.describe('USER-J4 · a teams grant does not enumerate the user roster', () 
   test('✅ teams:create does not admit the staff directory', async ({ browser }) => {
     const roster = await rosterFor(browser, AUTH.teamsOnly)
 
-    // teamsOnly holds `teams:create` and nothing else, and lives at the
-    // Secondary site. Exact set, because Secondary is a deliberately
+    // teamsOnly holds ONLY teams grants — `teams:create`, plus the `teams:read`
+    // that e2e-seed §36 adds since RA-1 removed the read fallback (2026-09-07);
+    // nothing on user_management either way — and lives at the Secondary site.
+    // The read grant is deliberately harmless here: migration 20260807140000
+    // deleted the `has_permission('teams','read')` branch from users_sel
+    // altogether, so holding it explicitly widens nothing. If this assertion
+    // ever goes red on the teams row, that branch has been reinstated. Exact set, because Secondary is a deliberately
     // two-person site: themselves, their one site colleague, and the org-wide
     // supplier account that every caller can see. Anything else appearing here
     // means a branch has been widened back.
@@ -84,11 +89,11 @@ test.describe('USER-J4 · a teams grant does not enumerate the user roster', () 
   })
 
   test('CONTROL · the site-visibility baseline is what is doing the work', async ({ browser }) => {
-    // noAccess holds NO grants at all and differs from teamsOnly by exactly one
-    // row in role_module_permissions — a row about TEAMS. If the two see rosters
-    // of the same SHAPE (own site + org-wide) and differing only by which site
-    // they stand in, then the teams row contributes nothing, which is the whole
-    // claim of this file.
+    // noAccess holds NO grants at all and differs from teamsOnly only by rows
+    // about TEAMS (`teams:create`, and `teams:read` since e2e-seed §36 — see the
+    // note on the first test). If the two see rosters of the same SHAPE (own
+    // site + org-wide), differing only by which site they stand in, then the
+    // teams rows contribute nothing, which is the whole claim of this file.
     //
     // Asserted as properties rather than an exact set: noAccess is at Primary,
     // where most of the cast lives and where any new persona lands, so an exact
