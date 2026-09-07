@@ -1,6 +1,12 @@
 <script setup>
 /**
  * Open nonconformances — newest first, severity badge per row.
+ *
+ * "Open" excludes both CLOSED and CANCELLED (2026-08-23's unified-record-status
+ * migration gave NC a CANCELLED state it never had before — see docs/modules/
+ * dashboard's 2026-09-07 addendum, D-1). A deny-list of just CLOSED counts a
+ * cancelled NC as open here while NonconformancesHome's own allow-list
+ * (OPEN_STATUSES) does not — matching the CAPA widgets' shape below fixes it.
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { IconCircleCheck } from '@tabler/icons-vue'
@@ -9,7 +15,7 @@ const ncs = useLiveQuery(
   async (db) => {
     const rows = await db.Nonconformance.where().exec()
     return rows
-      .filter((n) => n.statusId !== 'CLOSED')
+      .filter((n) => !['CLOSED', 'CANCELLED'].includes(n.statusId))
       .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
 
@@ -18,7 +24,12 @@ const ncs = useLiveQuery(
 </script>
 
 <template>
-  <DashboardWidgetCard title="Open Nonconformances" :count="ncs.length" linkTo="/nonconformances" tone="rose">
+  <DashboardWidgetCard
+    title="Open Nonconformances"
+    :count="ncs.length"
+    linkTo="/nonconformances"
+    tone="rose"
+  >
     <BaseEmptyState
       v-if="!ncs.length"
       dense
