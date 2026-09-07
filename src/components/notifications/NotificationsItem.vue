@@ -11,6 +11,23 @@ import {
   IconUserShare,
   IconRefresh,
   IconCalendarExclamation,
+  IconAlertTriangle,
+  IconAlertCircle,
+  IconTool,
+  IconCertificate,
+  IconFileText,
+  IconFlag,
+  IconNotebook,
+  IconPackage,
+  IconShieldCheck,
+  IconCalendarTime,
+  IconUserExclamation,
+  IconMailForward,
+  IconBellRinging,
+  IconClipboardList,
+  IconThumbUp,
+  IconRobot,
+  IconUsers,
 } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers'
@@ -32,6 +49,10 @@ const timeAgo = computed(() => {
   return props.notification.createdAt ? props.notification.createdAt.toRelative() : ''
 })
 
+// Covers all 37 seeded notification_types (was 9/31 — docs/modules/notifications
+// finding #8). Anything added to the catalog after this falls back to the
+// generic bell/gray below, same as before; the gap is now "a type nobody has
+// picked an icon for yet", not "most of the catalog".
 const TYPE_ICON_MAP = {
   DOCUMENT_APPROVED: IconCircleCheck,
   WORKFLOW_ACTION_REQUIRED: IconClock,
@@ -40,8 +61,36 @@ const TYPE_ICON_MAP = {
   TASK_REASSIGNED: IconUserShare,
   TASK_STATUS_CHANGED: IconRefresh,
   TASK_DUE_TOMORROW: IconCalendarExclamation,
+  TASK_OVERDUE: IconAlertCircle,
+  TASK_OVERDUE_ESCALATED: IconAlertTriangle,
+  TASK_ACTED_BY_OTHER: IconUsers,
   DOCUMENT_MESSAGE: IconMessage,
+  DOCUMENT_NEW_VERSION_SHARED: IconFileText,
   SYSTEM: IconInfoCircle,
+  NOTIFICATION_RULE: IconBellRinging,
+  AUTOMATION_RULE: IconRobot,
+  ASSET_REQUEST_RECEIVED: IconPackage,
+  ASSIGNMENT_MISSED: IconUserExclamation,
+  AUDIT_READINESS_NUDGE: IconClipboardList,
+  CUSTOMER_COMPLAINT_ASSIGNED: IconFlag,
+  CUSTOMER_COMPLAINT_CREATED: IconFlag,
+  CUSTOMER_COMPLAINT_CONVERTED_TO_NC: IconAlertTriangle,
+  CUSTOMER_COMPLAINT_REPLY_RECEIVED: IconMailForward,
+  EQUIPMENT_CALIBRATION_DUE: IconTool,
+  EQUIPMENT_PM_DUE: IconTool,
+  FIELD_RECORD_DIGEST: IconNotebook,
+  FIELD_RECORD_FLAGGED: IconFlag,
+  FIELD_RECORD_FLAGGED_CRITICAL: IconAlertTriangle,
+  FIELD_RECORD_REJECTED: IconAlertCircle,
+  FIELD_RECORD_RETURNED_FOR_INFO: IconMailForward,
+  LOG_BOOK_ENTRY_DUE: IconNotebook,
+  SUPPLIER_CERTIFICATE_EXPIRING: IconCertificate,
+  TRAINING_ASSIGNED: IconClipboardList,
+  TRAINING_COMPLETED: IconThumbUp,
+  TRAINING_ESCALATION: IconAlertTriangle,
+  TRAINING_INSTANCE_COMPLETED: IconCircleCheck,
+  TRAINING_REMINDER: IconCalendarTime,
+  TRAINING_VERIFICATION_REQUIRED: IconShieldCheck,
 }
 
 const TYPE_COLOR_MAP = {
@@ -52,8 +101,36 @@ const TYPE_COLOR_MAP = {
   TASK_REASSIGNED: 'tw:text-purple-600',
   TASK_STATUS_CHANGED: 'tw:text-blue-600',
   TASK_DUE_TOMORROW: 'tw:text-orange-600',
+  TASK_OVERDUE: 'tw:text-red-600',
+  TASK_OVERDUE_ESCALATED: 'tw:text-red-600',
+  TASK_ACTED_BY_OTHER: 'tw:text-blue-600',
   DOCUMENT_MESSAGE: 'tw:text-blue-600',
+  DOCUMENT_NEW_VERSION_SHARED: 'tw:text-blue-600',
   SYSTEM: 'tw:text-gray-600',
+  NOTIFICATION_RULE: 'tw:text-blue-600',
+  AUTOMATION_RULE: 'tw:text-purple-600',
+  ASSET_REQUEST_RECEIVED: 'tw:text-blue-600',
+  ASSIGNMENT_MISSED: 'tw:text-red-600',
+  AUDIT_READINESS_NUDGE: 'tw:text-amber-600',
+  CUSTOMER_COMPLAINT_ASSIGNED: 'tw:text-purple-600',
+  CUSTOMER_COMPLAINT_CREATED: 'tw:text-orange-600',
+  CUSTOMER_COMPLAINT_CONVERTED_TO_NC: 'tw:text-red-600',
+  CUSTOMER_COMPLAINT_REPLY_RECEIVED: 'tw:text-blue-600',
+  EQUIPMENT_CALIBRATION_DUE: 'tw:text-amber-600',
+  EQUIPMENT_PM_DUE: 'tw:text-amber-600',
+  FIELD_RECORD_DIGEST: 'tw:text-gray-600',
+  FIELD_RECORD_FLAGGED: 'tw:text-orange-600',
+  FIELD_RECORD_FLAGGED_CRITICAL: 'tw:text-red-600',
+  FIELD_RECORD_REJECTED: 'tw:text-red-600',
+  FIELD_RECORD_RETURNED_FOR_INFO: 'tw:text-orange-600',
+  LOG_BOOK_ENTRY_DUE: 'tw:text-amber-600',
+  SUPPLIER_CERTIFICATE_EXPIRING: 'tw:text-amber-600',
+  TRAINING_ASSIGNED: 'tw:text-purple-600',
+  TRAINING_COMPLETED: 'tw:text-green-600',
+  TRAINING_ESCALATION: 'tw:text-red-600',
+  TRAINING_INSTANCE_COMPLETED: 'tw:text-green-600',
+  TRAINING_REMINDER: 'tw:text-amber-600',
+  TRAINING_VERIFICATION_REQUIRED: 'tw:text-blue-600',
 }
 
 const typeIcon = computed(() => TYPE_ICON_MAP[props.notification.notificationTypeId] || IconBell)

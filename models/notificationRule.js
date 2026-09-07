@@ -4,7 +4,8 @@ import { DateTime } from 'luxon'
 
 /**
  * NotificationRule — company DEFAULT cc recipients per entity type (one row each
- * for Nonconformance / Capa / ChangeRequest), managed under Settings →
+ * for Nonconformance / Capa / ChangeRequest / QualityEvent — the 4 entries in
+ * the backend's entityRegistry.js NOTIFY_ENTITIES), managed under Settings →
  * Notifications. The worker merges these with each record's own
  * notify_group_ids / notify_user_ids. cc/FYI only.
  */
