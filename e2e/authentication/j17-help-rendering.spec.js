@@ -69,7 +69,7 @@ const MODULE_PAGES = [
   ['/sites', 'Sites'],
   ['/departments', 'Sites'],
   ['/groups', 'Groups'],
-  ['/api-keys', 'API'],
+  ['/service-accounts', 'Service Accounts'],
   ['/audit-logs', 'Audit Log'],
   ['/lookups', 'Option Sets'],
   ['/document-templates', 'Document Templates'],

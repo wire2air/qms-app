@@ -72,7 +72,6 @@ const ADMIN_PERMISSIONS = {
   // route lands at /analytics/create, map it explicitly rather than letting
   // createPermissionFrom() derive a `reports_dashboards:create` nobody holds.
   analytics: 'reports_dashboards:read',
-  'api-keys': 'api_integrations:read',
   'service-accounts': 'api_integrations:read',
   // NOTE (RA-1, 2026-09-07): `read` is no longer implied by any other grant on
   // a module — authz.effective_permission_strings stopped synthesising it. So

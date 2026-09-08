@@ -47,6 +47,7 @@ function openDialog() {
 
 <template>
   <BaseListLayout
+    helpSlug="KB/administration/service-accounts"
     title="Service Accounts"
     :icon="IconRobot"
     subtitle="Machine identities for integrations. A service account holds its own roles and owns the API keys an external system authenticates with — so an integration keeps working when the person who set it up leaves, and every write it makes is attributed to the integration rather than to them."

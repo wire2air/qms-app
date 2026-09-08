@@ -128,13 +128,6 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
-    '/api-keys': RouteRecordInfo<
-      '/api-keys',
-      '/api-keys',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
     '/api-tokens': RouteRecordInfo<
       '/api-tokens',
       '/api-tokens',
@@ -963,12 +956,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/analytics/reports/[id].vue': {
       routes:
         | '/analytics/reports/[id]'
-      views:
-        | never
-    }
-    'src/pages/api-keys.vue': {
-      routes:
-        | '/api-keys'
       views:
         | never
     }

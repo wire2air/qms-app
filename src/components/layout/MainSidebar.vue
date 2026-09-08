@@ -22,7 +22,6 @@ import {
   IconUsers,
   IconShield,
   IconUsersGroup,
-  IconKey,
   IconRobot,
   IconChartBar,
   IconCompass,
@@ -886,16 +885,10 @@ const navItems = computed(() => {
           to: getCompanyPath('/service-accounts'),
         },
         {
-          label: 'API Keys',
-          permissions: ['api_integrations:read'],
-          icon: IconKey,
-          to: getCompanyPath('/api-keys'),
-        },
-        {
           // AI sidecar PATs — see backend/ai/README.md, AI_PLAN.md §6.5.
-          // These are NOT the same credential as API Keys: a PAT opens exactly
-          // one endpoint (POST /v1/services/ai/mcp) for an external AI client,
-          // where an API key reaches the whole REST surface.
+          // These are NOT the same credential as a service account's API key: a
+          // PAT opens exactly one endpoint (POST /v1/services/ai/mcp) for an
+          // external AI client, where an API key reaches the whole REST surface.
           //
           // NOTE (RA-1, 2026-09-07): `ai:read` is no longer implied by any other
           // ai grant — the synthesis was removed from
