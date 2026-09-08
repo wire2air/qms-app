@@ -43,11 +43,24 @@ export default defineConfig({
       testMatch: /fixtures\/auth\.setup\.js/,
     },
     {
+      // Purges the documents previous runs left behind. Same reason as qcSetup
+      // and inspectionsLogsSetup: Document/DocumentVersion/DocumentSection are
+      // synced models, so accumulated rows slow every fresh browser context's
+      // syncEngine bootstrap until UI steps time out. Measured 2026-09-08 at 894
+      // documents in the tenant — 890 of them leftovers — with three successive
+      // no-code-change runs degrading 17 → 10 → 9 passing.
+      // See e2e/fixtures/documents.setup.js.
+      name: 'documentsSetup',
+      testMatch: /fixtures\/documents\.setup\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // The journeys themselves — direct children of e2e/documents only, so the
       // screenshot suite below doesn't inflate this project's runtime.
       name: 'documents',
       testMatch: /documents\/[^/]+\.spec\.js$/,
-      dependencies: ['setup'],
+      dependencies: ['documentsSetup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
