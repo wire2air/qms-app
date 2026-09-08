@@ -78,11 +78,8 @@ const users = useLiveQueryWithDeps(
   async (db, [kind, supplierId, includeInactive, departmentId, siteId]) => {
     const all = await db.User.where().exec()
     return all
-      // Service accounts are `users` rows but never people. Offering one as an
-      // assignee, a reviewer or a notification recipient would be a bug in
-      // every caller of this menu — a machine identity has no inbox and cannot
-      // approve anything.
-      .filter((u) => !u.isServiceAccount)
+      // Service accounts never reach here: User.hiddenFromLists drops them
+      // from every list query in the engine, so this menu needs no filter.
       .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
       .filter((u) => (kind ? u.kind === kind : true))
       .filter((u) =>

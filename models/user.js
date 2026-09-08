@@ -6,6 +6,12 @@ import { DateTime } from 'luxon'
 @ClientModel('users', { primaryKey: 'id', syncField: 'updatedAt' })
 export class User extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
+  // Service accounts are `users` rows but never people, so every roster —
+  // assignee pickers, recipient lists, team members — must leave them out.
+  // Listing them is wrong; resolving one by id is not, because a record an
+  // integration created still has to render its actor. findByPk() is
+  // deliberately unaffected.
+  static hiddenFromLists = 'isServiceAccount'
   constructor(...args) {
     super(...args)
     // Auto-assign companyId from current session on creation
@@ -38,12 +44,8 @@ export class User extends BaseModel {
   @Property({ type: String }) color = '#2563eb'
   @Property({ type: String }) avatar = ''
   @Property({ type: Boolean }) isOwner = false
-  // A machine identity, not a person (backend migration 20260913100000). These
-  // rows sync like any other user, so anything offering a LIST of people —
-  // assignee pickers, recipient selection, member lists — must filter them out.
-  // UserSelectMenu, the shared picker, already does. See
-  // docs/api/API_ARCHITECTURE.md for the RLS-level fix that would make the
-  // filter unnecessary.
+  // A machine identity, not a person (backend migration 20260913100000).
+  // Enforced by `hiddenFromLists` above, not by each caller.
   @Property({ type: Boolean }) isServiceAccount = false
   // INTERNAL — staff. EXTERNAL_SUPPLIER — supplier user (scoped + lands
   // on /supplier dashboard at login). Drives sidebar + routing.

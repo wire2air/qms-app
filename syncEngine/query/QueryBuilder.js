@@ -45,14 +45,17 @@ export class QueryBuilder {
   #limit = null
   #offset = 0
   #paranoidField = null
+  #hiddenField = null
 
   /**
    * @param {string} modelName — registered model class name
    * @param {string} [indexField] — IDB index to use for the initial lookup
    * @param {*} [indexValue] — value to match against the index
    * @param {boolean|string} [paranoid] — soft-delete field name, or `true` for 'deletedAt'
+   * @param {string} [hiddenFromLists] — boolean field marking rows that list
+   *   queries exclude by default (see BaseModel.hiddenFromLists)
    */
-  constructor(modelName, indexField, indexValue, paranoid) {
+  constructor(modelName, indexField, indexValue, paranoid, hiddenFromLists) {
     this.#modelName = modelName
 
     if (indexField) {
@@ -76,6 +79,10 @@ export class QueryBuilder {
 
     if (paranoid) {
       this.#paranoidField = typeof paranoid === 'string' ? paranoid : 'deletedAt'
+    }
+
+    if (hiddenFromLists) {
+      this.#hiddenField = hiddenFromLists
     }
   }
 
@@ -244,13 +251,17 @@ export class QueryBuilder {
   }
 
   /**
-   * Test a single record against paranoid filter + all conditions.
+   * Test a single record against paranoid + hidden filters and all conditions.
    * Used as the predicate for cursor-based scans.
    * @param {object} record — raw IDB record
    * @returns {boolean}
    */
   #matches(record) {
     if (this.#paranoidField && record[this.#paranoidField] != null) {
+      return false
+    }
+
+    if (this.#hiddenField && record[this.#hiddenField]) {
       return false
     }
 
@@ -271,7 +282,7 @@ export class QueryBuilder {
 
   /**
    * Filter records returned from an indexed lookup through
-   * paranoid check + all in-memory conditions.
+   * paranoid + hidden checks and all in-memory conditions.
    * @param {object[]} records
    * @returns {object[]}
    */
@@ -280,6 +291,10 @@ export class QueryBuilder {
 
     if (this.#paranoidField) {
       result = result.filter((r) => r[this.#paranoidField] == null)
+    }
+
+    if (this.#hiddenField) {
+      result = result.filter((r) => !r[this.#hiddenField])
     }
 
     for (const [field, test] of this.#conditions) {
