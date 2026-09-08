@@ -130,6 +130,7 @@ test.describe('EQ-J5 · cross-tenant isolation', () => {
     const page = await ctx.newPage()
     try {
       const before = findEquipment(EQUIPMENT.undeletable.id)
+      const calBefore = findEquipment(EQUIPMENT.calExpired.id)
 
       // REST: the PATCH resolves the row by (id, companyId) before it applies a
       // single field, so an owner of the wrong tenant gets a 404 — not a
@@ -151,10 +152,15 @@ test.describe('EQ-J5 · cross-tenant isolation', () => {
 
       const after = findEquipment(EQUIPMENT.undeletable.id)
       expect(after.name, 'nothing was renamed').toBe(before.name)
+      // FIXED 2026-09-08: this compared `findEquipment(calExpired).lastCalibratedAt`
+      // to a second read of the SAME expression, so it could not fail — the
+      // instrument could have been recalibrated across the tenant boundary and
+      // the assertion would still have been green. The baseline now comes from
+      // before the request, like the rename above it.
       expect(
         findEquipment(EQUIPMENT.calExpired.id).lastCalibratedAt,
         'and no calibration was stamped',
-      ).toBe(findEquipment(EQUIPMENT.calExpired.id).lastCalibratedAt)
+      ).toBe(calBefore.lastCalibratedAt)
     } finally {
       await ctx.close()
     }

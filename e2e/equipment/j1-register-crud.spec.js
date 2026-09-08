@@ -30,6 +30,7 @@ import {
   findEquipmentByCode,
   openRegister,
   purgeEquipmentByCode,
+  purgeMintedEquipment,
   registerRow,
 } from '../fixtures/equipment.js'
 
@@ -44,10 +45,26 @@ test.afterAll(() => pool.close())
 const CODE = 'E2E-EQ-J1-SUBJECT'
 const NAME = 'E2E J1 Torque Wrench'
 const RENAMED = 'E2E J1 Torque Wrench (recalled)'
+// The retire journey gets its OWN row. Sharing the row above made the test
+// depend on two earlier tests having succeeded AND on a REST PATCH round-
+// tripping into IndexedDB before a filter re-ran — see the note on that test.
+const RETIRE_CODE = 'E2E-EQ-J1-RETIRE'
+const RETIRE_NAME = 'E2E J1 Reference Weight (retire)'
 
 test.describe('EQ-J1 · the instrument register', () => {
-  test.beforeAll(() => purgeEquipmentByCode(CODE))
-  test.afterAll(() => purgeEquipmentByCode(CODE))
+  test.beforeAll(() => {
+    // J1 is the first file in the project, so this is the suite's front door:
+    // sweep every `E2E-EQ-%` instrument a previous run left behind before any
+    // assertion counts or sorts the register. A run that dies mid-test leaks
+    // throwaway rows, and they are not inert — see the sort journey below.
+    purgeMintedEquipment()
+    purgeEquipmentByCode(CODE)
+    purgeEquipmentByCode(RETIRE_CODE)
+  })
+  test.afterAll(() => {
+    purgeEquipmentByCode(CODE)
+    purgeEquipmentByCode(RETIRE_CODE)
+  })
 
   test('create: the dialog persists over REST, and the service validates it', async ({
     browser,
@@ -157,7 +174,18 @@ test.describe('EQ-J1 · the instrument register', () => {
       data: { code: `${CODE}-BAD`, name: 'Bad category', category: 'LAB', siteId: SITES.primary.id },
     })
     expect(res.status()).toBe(400)
-    expect(await res.text()).toMatch(/category must be one of/i)
+    // UPDATED 2026-09-08. The enum is now closed TWICE and the outer layer
+    // answers first: `schemas/equipment.js` (added with the Part 11 window) runs
+    // as route middleware and rejects with a field-named
+    // `{ error: { code: 'VALIDATION_ERROR', fields: { category: [...] } } }`,
+    // so `equipmentService`'s own "category must be one of …" is now
+    // unreachable over REST. The rule did not change — it moved earlier, which
+    // is strictly better. Accept either, so this journey keeps asserting the
+    // RULE rather than which layer happens to enforce it, and assert the
+    // field is named so a blanket "Validation failed" cannot satisfy it.
+    const body = await res.text()
+    expect(body, 'the refusal names the offending field').toMatch(/category/i)
+    expect(body).toMatch(/must be one of|VALIDATION_ERROR/i)
     expect(sqlValue(`SELECT count(*) FROM equipment WHERE code = '${CODE}-BAD'`)).toBe('0')
   })
 
@@ -165,7 +193,14 @@ test.describe('EQ-J1 · the instrument register', () => {
     browser,
   }) => {
     const page = await pool.page(browser, EQUIPMENT.admin.auth)
-    await openRegister(page)
+    // Anchor on the row this test is about to CLICK, not on a seeded row. They
+    // are not the same wait: `E2E-EQ-J1-SUBJECT` was created moments ago by the
+    // test above, so it reaches IndexedDB via the sync socket, while the seeded
+    // anchor is already in the bootstrap. Anchoring on the seeded one returns as
+    // soon as the page has any rows at all and the click then times out on a row
+    // that is still in flight — which is exactly how this failed when a worker
+    // restart put the whole file in a fresh context.
+    await openRegister(page, { anchorName: NAME })
 
     const restCalls = []
     page.on('request', (req) => {
@@ -197,19 +232,29 @@ test.describe('EQ-J1 · the instrument register', () => {
     ).toHaveLength(0)
   })
 
-  // KNOWN-OPEN (2026-09-07). This journey does not pass and is marked rather than
-  // deleted or weakened, because the RULE it checks is real and uncovered: the
-  // dialog saves through the syncEngine, so `retiredAt` is stamped a SECOND time
-  // in buildModelFields() instead of by `updateEquipment` — two implementations
-  // of one rule, which is the shape that drifts.
+  // RESOLVED 2026-09-08 — this journey was `test.fixme` and is not any more.
   //
-  // What fails is the harness, not the product: after the row is renamed the
-  // register never shows it within the fixture's 60s+45s budget, and the fixture
-  // says so itself ("sync/bootstrap failure, not a filter miss"). The server-side
-  // copy of the stamp IS covered by tests/services/equipmentService.test.js; the
-  // syncEngine copy is what remains unpinned. Fix the hydration wait, not the
-  // assertion.
-  test.fixme('edit: flipping to RETIRED stamps retiredAt, on the path that has no service behind it', async ({
+  // WHAT WAS ACTUALLY WRONG, because the previous note had it half right. It
+  // said "the harness fails, not the product", which was true, and blamed the
+  // hydration budget, which was not: no wait would ever have been long enough.
+  //
+  // The old arrange step reused the row the two tests above had already mutated
+  // and pushed it back to IN_SERVICE over a REST PATCH. But the register renders
+  // from IndexedDB, its default filter is `status: ['IN_SERVICE']`, and the copy
+  // of the row sitting in IDB still said OUT_OF_SERVICE — so the row was
+  // filtered OUT of the register, and `openRegister`'s remedy (reload, wait
+  // longer, reload again) could not possibly help: a reload does not re-bootstrap
+  // (the localStorage gate skips it while the data is under five minutes old),
+  // so every attempt re-read the same stale row. The only thing that could have
+  // fixed it was the sync broadcast landing, which the test had no barrier on.
+  //
+  // The fix is to stop depending on either: mint a FRESH row for this test alone,
+  // before the register is opened, so it arrives as part of the same bootstrap
+  // the anchor waits for — and then let the RETIRE go through the syncEngine,
+  // which writes IDB itself and fires syncBus synchronously with the save. Both
+  // halves are then deterministic, and the rule the journey exists for is
+  // asserted rather than skipped.
+  test('edit: flipping to RETIRED stamps retiredAt, on the path that has no service behind it', async ({
     browser,
   }) => {
     // `updateEquipment` auto-stamps retiredAt server-side, but the dialog does
@@ -218,43 +263,46 @@ test.describe('EQ-J1 · the instrument register', () => {
     // exactly the shape that drifts, and this is the copy nothing else covers.
     const page = await pool.page(browser, EQUIPMENT.admin.auth)
 
-    // Arrange the row this test needs instead of inheriting RENAMED from the
-    // edit test above. Sharing mutable state across tests in file order means a
-    // failure up there surfaces down here as "the register never hydrated",
-    // which points at the syncEngine and wastes the reader's time. Idempotent:
-    // 400 means a previous run already created it.
-    const ensure = await page.request.post('/api/v1/services/equipment', {
-      data: { code: CODE, name: RENAMED, siteId: SITES.primary.id },
+    purgeEquipmentByCode(RETIRE_CODE)
+    const created = await page.request.post('/api/v1/services/equipment', {
+      data: {
+        code: RETIRE_CODE,
+        name: RETIRE_NAME,
+        siteId: SITES.primary.id,
+        statusId: 'IN_SERVICE',
+        category: 'INSTRUMENT',
+      },
     })
-    expect([201, 400]).toContain(ensure.status())
-    if (ensure.status() === 400) {
-      await page.request.patch(`/api/v1/services/equipment/${findEquipmentByCode(CODE).id}`, {
-        data: { name: RENAMED, statusId: 'IN_SERVICE' },
-      })
-    }
+    expect(created.status(), `arrange failed: ${await created.text()}`).toBe(201)
+    const subject = findEquipmentByCode(RETIRE_CODE)
+    expect(subject.retiredAt ?? sqlValue(`SELECT retired_at FROM equipment WHERE code = '${RETIRE_CODE}'`))
+      .toBeFalsy()
 
-    await openRegister(page, { anchorName: RENAMED })
+    await openRegister(page, { anchorName: RETIRE_NAME })
 
-    await registerRow(page, RENAMED).click()
+    await registerRow(page, RETIRE_NAME).click()
     await expect(page.getByText('Edit Equipment', { exact: true }).last()).toBeVisible()
     await page.getByLabel('Status', { exact: true }).selectOption('RETIRED')
     await page.getByRole('button', { name: 'Save changes', exact: true }).click()
 
     await expect
-      .poll(() => findEquipmentByCode(CODE)?.statusId, { timeout: 20_000 })
+      .poll(() => findEquipmentByCode(RETIRE_CODE)?.statusId, { timeout: 30_000 })
       .toBe('RETIRED')
     expect(
-      findEquipmentByCode(CODE).retiredAt ?? sqlValue(`SELECT retired_at FROM equipment WHERE code = '${CODE}'`),
-      'retiring an instrument records WHEN — auditors ask',
+      sqlValue(`SELECT retired_at FROM equipment WHERE code = '${RETIRE_CODE}'`),
+      'retiring an instrument records WHEN — auditors ask, and no service ran on this path',
     ).toBeTruthy()
 
     // And the register's default filter (status: ['IN_SERVICE']) drops it, which
-    // is the product behaviour that keeps retired gear out of the way.
-    await openRegister(page)
+    // is the product behaviour that keeps retired gear out of the way. No reload
+    // and no barrier needed: the syncEngine wrote IDB as part of the save and
+    // fired syncBus, so the live query has already re-run.
     await expect(
-      registerRow(page, RENAMED),
+      registerRow(page, RETIRE_NAME),
       'a RETIRED instrument leaves the default view',
-    ).toHaveCount(0)
+    ).toHaveCount(0, { timeout: 30_000 })
+
+    purgeEquipmentByCode(RETIRE_CODE)
   })
 
   test('filter: search matches name, code and serial — and excludes', async ({ browser }) => {
@@ -322,7 +370,12 @@ test.describe('EQ-J1 · the instrument register', () => {
     // The live query already sorts by name ascending, so an ASCENDING assertion
     // would pass whether or not the header did anything. Clicking to DESCENDING
     // and reading the first row back is the only version of this that can fail.
-    const firstRowText = () => page.locator('tbody tr').first().innerText()
+    // The NAME line only — the name cell also renders code and serial on a
+    // sub-line, and comparing whole-cell text would compare those too.
+    const nameAt = async (row) =>
+      (await row.locator('td').first().locator('div').first().innerText()).trim()
+    const firstName = () => nameAt(page.locator('tbody tr').first())
+    const lastName = () => nameAt(page.locator('tbody tr').last())
 
     // A sortable column renders a <button> INSIDE the <th> and the click handler
     // lives on the button (DataTable.vue:924-926). Clicking the columnheader
@@ -334,13 +387,33 @@ test.describe('EQ-J1 · the instrument register', () => {
       .getByRole('columnheader', { name: 'Name' })
       .first()
       .getByRole('button', { name: 'Name' })
+
+    // ASSERT THE PROPERTY, NOT A ROW NAME. This used to expect the literal
+    // "E2E Autoclave" first and "E2E Vernier Calipers" last, which made the
+    // journey a test of WHICH ROWS EXIST rather than of the sort: any instrument
+    // another spec left behind changed the answer. It did — EQ-J3's throwaway
+    // rows are named "Throwaway E2E-EQ-J3SYNC-…", which sorts after every
+    // seeded name and became the first row descending, so this failed on a run
+    // where nothing about sorting had changed. Comparing the ends of the page is
+    // the same assertion and is immune to the register's contents.
     await header.click() // → ascending
-    await expect.poll(firstRowText, { timeout: 15_000 }).toContain('E2E Autoclave')
+    await expect
+      .poll(async () => (await firstName()).localeCompare(await lastName()), { timeout: 15_000 })
+      .toBeLessThan(0)
+    const ascendingFirst = await firstName()
 
     await header.click() // → descending
     await expect
-      .poll(firstRowText, { timeout: 15_000, message: 'the header reversed the order' })
-      .toContain('E2E Vernier Calipers')
+      .poll(firstName, { timeout: 15_000, message: 'the header reversed the order' })
+      .not.toBe(ascendingFirst)
+    expect(
+      (await firstName()).localeCompare(ascendingFirst),
+      'descending starts at the other end of the alphabet',
+    ).toBeGreaterThan(0)
+    expect(
+      await lastName(),
+      'and the row that led ascending now trails',
+    ).toBe(ascendingFirst)
   })
 
   test('the department a row belongs to is stored and shown', async () => {

@@ -187,11 +187,37 @@ export function resetPmWindow(id, { daysOverdue = 10, intervalMonths = 3 } = {})
  * concerned.
  */
 export function purgeEquipmentByCode(code) {
+  // Signatures FIRST. Since migration 20260911110000 the evidence ledger points
+  // at instruments (`signatures.equipment_id`, a COMPOSITE FK), so a hard DELETE
+  // of an instrument that has ever been calibrated through the product raises a
+  // foreign-key violation — and because `db.js` runs psql with
+  // `ON_ERROR_STOP=1`, that surfaces as a thrown `Command failed: docker exec …`
+  // out of a beforeAll/afterAll hook, which Playwright reports against whichever
+  // test happened to be last. Deleting the ledger rows is correct here and only
+  // here: these are throwaway fixtures that never existed as far as the product
+  // is concerned. NOTHING in the application may do this.
+  sql(
+    `DELETE FROM signatures
+      WHERE equipment_id IN (SELECT id FROM equipment WHERE code = ${quote(code)})`,
+  )
   sql(`DELETE FROM equipment WHERE code = ${quote(code)}`)
 }
 
-/** Purge every row a previous run of this suite minted (codes are prefixed). */
+/**
+ * Purge every row a previous run of this suite minted (codes are prefixed).
+ *
+ * Worth calling at the START of the first spec in the project, not just at the
+ * end of each: a run that dies mid-test leaves its throwaway instruments behind,
+ * and they are not inert — they sit in the register and change what a SORT or a
+ * count assertion sees on the next run. That is exactly how EQ-J1's sort journey
+ * failed against rows EQ-J3 had leaked (`Throwaway E2E-EQ-J3SYNC-…` sorts after
+ * every seeded name, so it became the first row descending).
+ */
 export function purgeMintedEquipment() {
+  sql(
+    `DELETE FROM signatures
+      WHERE equipment_id IN (SELECT id FROM equipment WHERE code LIKE 'E2E-EQ-%')`,
+  )
   sql(`DELETE FROM equipment WHERE code LIKE 'E2E-EQ-%'`)
 }
 
@@ -218,7 +244,21 @@ export async function errorMessage(res) {
   const body = await res.text()
   try {
     const json = JSON.parse(body)
-    return json?.error?.message ?? json?.message ?? json?.error ?? body
+    const base = json?.error?.message ?? json?.message ?? json?.error ?? body
+    // Zod's ValidationError carries the generic "Validation failed" as its
+    // message and puts the substance in `error.fields`. Returning the message
+    // alone made every schema rejection indistinguishable from every other one —
+    // a spec could assert "the interval unit was refused" and pass on a refusal
+    // about a completely different field. Append the field map so the assertion
+    // can name the field that was actually wrong.
+    const fields = json?.error?.fields
+    if (fields && typeof fields === 'object') {
+      const detail = Object.entries(fields)
+        .map(([k, v]) => `${k}: ${[].concat(v).join(', ')}`)
+        .join('; ')
+      return detail ? `${base} — ${detail}` : base
+    }
+    return base
   } catch {
     return body
   }
@@ -300,4 +340,137 @@ export async function waitForEquipmentState(query, opts) {
  */
 export function daysBetween(a, b) {
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000)
+}
+
+// ── EQ-J2 / EQ-J4 additions (2026-09-08) ────────────────────────────────────
+
+/**
+ * The DataTable column index for a header label, read off the rendered header.
+ *
+ * Hard-coding `td:nth(4)` for "Next calibration" would be a silent lie the day
+ * someone inserts a column, a selection checkbox, or a row-expander: the
+ * assertion would move to the neighbouring cell and keep passing or start
+ * failing for a reason that has nothing to do with calibration. Reading the
+ * header makes the locator say what it means.
+ */
+export async function columnIndex(page, label) {
+  const headers = await page.locator('thead tr').first().locator('th').allInnerTexts()
+  const i = headers.findIndex((h) => h.trim().toLowerCase().startsWith(label.toLowerCase()))
+  expect(i, `the register has a "${label}" column (saw: ${headers.map((h) => h.trim()).join(' | ')})`).toBeGreaterThanOrEqual(0)
+  return i
+}
+
+/** One row's cell under a named column. */
+export async function cellFor(page, name, columnLabel) {
+  const i = await columnIndex(page, columnLabel)
+  return registerRow(page, name).locator('td').nth(i)
+}
+
+/**
+ * The calibration-status badge for one instrument, as a class string.
+ *
+ * `dueClass()` in EquipmentHome.vue is the module's ONLY calibration-status
+ * surface — there is no detail page, no print module and no dashboard widget —
+ * so red-when-overdue and amber-inside-30-days are literally the whole
+ * indication an auditor or a technician gets. Returned as the raw class
+ * attribute so a spec can assert both what it IS and what it is NOT.
+ */
+export async function calibrationBadgeClass(page, name) {
+  const cell = await cellFor(page, name, 'Next calibration')
+  // Bounded and non-throwing: this is polled while the live query catches up
+  // with a write, so "the row is not there yet" has to read as "no badge class
+  // yet" rather than as an exception that ends the poll on its first attempt.
+  return (
+    (await cell
+      .locator('span')
+      .first()
+      .getAttribute('class', { timeout: 3_000 })
+      .catch(() => null)) ?? ''
+  )
+}
+
+/**
+ * Mint an instrument over the REST create route as the acting persona.
+ *
+ * Runtime fixtures rather than seed rows, deliberately: a calibration journey
+ * MUTATES its instrument (that is the journey), and `database/e2e-seed.sql` is
+ * `ON CONFLICT DO NOTHING`, so a seeded row is never restored and the second
+ * run of a journey asserts against whatever the first run left. A row minted
+ * per-run cannot inherit anything.
+ */
+export async function createEquipmentViaRest(page, body) {
+  const res = await restPost(page, '/equipment', { siteId: undefined, ...body })
+  expect(res.status(), `equipment create failed: ${await res.text()}`).toBe(201)
+  const row = findEquipmentByCode(body.code)
+  expect(row, `minted equipment ${body.code} is in Postgres`).not.toBeNull()
+  return row
+}
+
+/**
+ * Click the register's "Record calibration" quick action on one row.
+ *
+ * The button is `v-if="canUpdate && row.requiresCalibration"`, so its ABSENCE
+ * is two different facts and a spec that just clicked would report the wrong
+ * one. Asserting it is present first separates "the persona cannot update" from
+ * "this instrument is not calibration-tracked".
+ */
+export async function recordCalibrationFromRow(page, name) {
+  const row = registerRow(page, name)
+  const button = row.getByRole('button', { name: /Record calibration/ })
+  await expect(button, `"${name}" offers the calibration quick action`).toBeVisible({ timeout: 20_000 })
+  await button.click()
+}
+
+/** PM twin of recordCalibrationFromRow. */
+export async function recordPmFromRow(page, name) {
+  const row = registerRow(page, name)
+  const button = row.getByRole('button', { name: /Record PM/ })
+  await expect(button, `"${name}" offers the PM quick action`).toBeVisible({ timeout: 20_000 })
+  await button.click()
+}
+
+// ── Schema probes for the Part 11 package (agent C's window) ────────────────
+//
+// The evidentiary layer around a calibration completion — an `equipment_id`
+// subject on `signatures`, plus certificate / vendor columns on `equipment` —
+// is being built in the backend WHILE these journeys are written. Rather than
+// omit the assertions (which would leave the finding unpinned once it lands) or
+// hard-fail on them (which would leave a red suite for days), the journeys probe
+// the schema and skip with a message naming the dependency. They arm themselves
+// the moment the migration runs.
+
+/** Does `signatures` carry a subject column for equipment yet? */
+export function signaturesHaveEquipmentSubject() {
+  return (
+    sqlValue(
+      `SELECT count(*) FROM information_schema.columns
+        WHERE table_name = 'signatures' AND column_name = 'equipment_id'`,
+    ) === '1'
+  )
+}
+
+/** Does `equipment` carry a given column yet (certificate / vendor work)? */
+export function equipmentHasColumn(column) {
+  return (
+    sqlValue(
+      `SELECT count(*) FROM information_schema.columns
+        WHERE table_name = 'equipment' AND column_name = ${quote(column)}`,
+    ) === '1'
+  )
+}
+
+/** Signature rows whose subject is one instrument, newest first. */
+export function signaturesForEquipment(equipmentId) {
+  if (!signaturesHaveEquipmentSubject()) return []
+  const out = sql(
+    `SELECT id, user_id, meaning, is_revoked
+       FROM signatures
+      WHERE equipment_id = ${quote(equipmentId)}
+      ORDER BY signed_at DESC`,
+  )
+  if (!out) return []
+  return out.split('\n').map((line) => {
+    const [id, userId, meaning, isRevoked] = line.split('|')
+    return { id, userId, meaning, isRevoked: isRevoked === 't' }
+  })
 }

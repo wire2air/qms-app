@@ -34,7 +34,7 @@
 // both. A guard that had quietly stopped matching anything would refuse both
 // personas and still look like a perfect gate against the denial half alone.
 import { test, expect } from '@playwright/test'
-import { AUTH, COMPANY_ID, EQUIPMENT, SITES, USERS } from '../fixtures/cast.js'
+import { COMPANY_ID, EQUIPMENT, SITES, USERS } from '../fixtures/cast.js'
 import { sql, sqlAsAppUser, sqlValue } from '../fixtures/db.js'
 import {
   createPersonaPool,
@@ -43,6 +43,7 @@ import {
   findEquipmentByCode,
   openRegister,
   purgeEquipmentByCode,
+  purgeMintedEquipment,
   restDelete,
   restPatch,
   restPost,
@@ -120,7 +121,7 @@ test.describe('EQ-J3 · update does not confer delete', () => {
     ).toBeNull()
   })
 
-  test('the syncEngine’s paranoid UPDATE is refused too (F-27)', async ({ browser }) => {
+  test('the syncEngine’s paranoid UPDATE is refused too (F-27)', async () => {
     // `BaseModel.delete()` sets deleted_at and then marks the operation UPDATE,
     // so the wire mutation is `UPDATE equipment SET deleted_at = now()` and
     // `equipment_del` is never evaluated. That is the path the register's own
@@ -241,6 +242,13 @@ test.describe('EQ-J3 · update does not confer delete', () => {
   })
 
   test.afterAll(() => {
+    // Sweep the throwaway instruments. They are purged inline at the end of the
+    // delete-holder test, which is fine until that test FAILS — then they
+    // survive the run and pollute the register for the next one (EQ-J1's sort
+    // journey is the assertion that notices, because "Throwaway …" sorts after
+    // every seeded name). An afterAll runs either way.
+    purgeMintedEquipment()
+
     // Leave the seeded probe row exactly as the seed made it — its notes and
     // location were written to by the tests above.
     sql(
