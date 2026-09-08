@@ -76,6 +76,9 @@ const nextDueDateStr = ref('')
 const isFirstLoad = ref(true)
 const saving = ref(false)
 const saveError = ref(null)
+// True while the Next Due date input has focus. Guards the re-seed watcher
+// below from overwriting a keystroke the user hasn't finished typing yet.
+const isEditingDueDate = ref(false)
 
 function toDateInput(dt) {
   if (!dt) return ''
@@ -97,6 +100,23 @@ watch(
     debouncedSave()
   },
   { deep: true },
+)
+
+// Re-seed nextDueDateStr whenever a LATER sync delta changes the model's
+// nextDueDate — e.g. generate_due_audit_instances advancing the schedule
+// after minting today's instance. Without this, nextDueDateStr was only
+// ever set once (the isFirstLoad branch above) and every subsequent
+// debouncedSave() — triggered by the deep watch on ANY other field edit —
+// PATCHed that stale string straight back, silently reverting the
+// generator's advance. Skipped while the user has the field focused so an
+// in-progress edit is never clobbered by an incoming sync.
+watch(
+  () => program.value?.nextDueDate,
+  (nextDueDate) => {
+    if (isFirstLoad.value || isEditingDueDate.value) return
+    const reseeded = toDateInput(nextDueDate)
+    if (reseeded !== nextDueDateStr.value) nextDueDateStr.value = reseeded
+  },
 )
 
 watch(nextDueDateStr, () => {
@@ -395,7 +415,13 @@ const auditProgramDetailConfig = computed(() =>
             </div>
             <div class="tw:flex tw:flex-col tw:gap-1">
               <div class="tw:text-xs tw:text-secondary">Next Due</div>
-              <BaseTextInput v-if="isEditable" v-model="nextDueDateStr" type="date" />
+              <BaseTextInput
+                v-if="isEditable"
+                v-model="nextDueDateStr"
+                type="date"
+                @focus="isEditingDueDate = true"
+                @blur="isEditingDueDate = false"
+              />
               <span v-else class="tw:text-sm">
                 {{ program.nextDueDate ? program.nextDueDate.formatDate('date') : '—' }}
               </span>
