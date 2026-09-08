@@ -41,11 +41,28 @@ export const PUBLIC_ROUTES = [
 
 /**
  * Check if a given path is a public route.
+ *
+ * SEGMENT-AWARE, deliberately (RS-H-01, fixed 2026-09-08). A bare
+ * `path.startsWith(publicRoute)` made `'/shared-records'.startsWith('/share')`
+ * true, so the company's own "who outside this company can read our records"
+ * page was treated as an unauthenticated route: App.vue took the public boot
+ * branch (no `initCurrentCompany`, no sync init, no permission sync) and
+ * rendered the bare public shell, and main.js's `handleSessionExpired` returned
+ * early so a 401 there never redirected to /signin. Client-side navigation from
+ * the sidebar worked, because bootApp() had already run on a non-matching path;
+ * a typed URL, a bookmark or a hard refresh showed an empty table with no error.
+ * `/support` had the same latent collision with any future `/support-*`.
+ *
+ * This is the form App.vue's own `isOpenRoute` has always used, three lines
+ * above the call site that did not.
+ *
  * @param {string} path - The pathname to check
  * @returns {boolean}
  */
 export function isPublicRoute(path) {
-  return PUBLIC_ROUTES.some((publicRoute) => path.startsWith(publicRoute))
+  return PUBLIC_ROUTES.some(
+    (publicRoute) => path === publicRoute || path.startsWith(`${publicRoute}/`),
+  )
 }
 
 /**
