@@ -877,6 +877,15 @@ const navItems = computed(() => {
           to: getCompanyPath('/groups'),
         },
         {
+          // Machine identities for integrations. An account holds its own roles
+          // and owns the keys, so an integration survives its author leaving and
+          // its writes are audited to the integration rather than to a person.
+          label: 'Service Accounts',
+          permissions: ['api_integrations:read'],
+          icon: IconRobot,
+          to: getCompanyPath('/service-accounts'),
+        },
+        {
           label: 'API Keys',
           permissions: ['api_integrations:read'],
           icon: IconKey,
@@ -884,9 +893,15 @@ const navItems = computed(() => {
         },
         {
           // AI sidecar PATs — see backend/ai/README.md, AI_PLAN.md §6.5.
-          // ai:read is implied by ANY ai grant (run/manage/audit), so this
-          // shows for anyone with an AI capability; backend still 404s when
-          // AI_MODULE_ENABLED is off.
+          // These are NOT the same credential as API Keys: a PAT opens exactly
+          // one endpoint (POST /v1/services/ai/mcp) for an external AI client,
+          // where an API key reaches the whole REST surface.
+          //
+          // NOTE (RA-1, 2026-09-07): `ai:read` is no longer implied by any other
+          // ai grant — the synthesis was removed from
+          // authz.effective_permission_strings — so a role holding only `ai:run`
+          // no longer sees this item. The previous comment claimed otherwise.
+          // Backend still 404s when AI_MODULE_ENABLED is off.
           label: 'API Tokens',
           permissions: ['ai:read'],
           icon: IconRobot,

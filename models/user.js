@@ -38,6 +38,13 @@ export class User extends BaseModel {
   @Property({ type: String }) color = '#2563eb'
   @Property({ type: String }) avatar = ''
   @Property({ type: Boolean }) isOwner = false
+  // A machine identity, not a person (backend migration 20260913100000). These
+  // rows sync like any other user, so anything offering a LIST of people —
+  // assignee pickers, recipient selection, member lists — must filter them out.
+  // UserSelectMenu, the shared picker, already does. See
+  // docs/api/API_ARCHITECTURE.md for the RLS-level fix that would make the
+  // filter unnecessary.
+  @Property({ type: Boolean }) isServiceAccount = false
   // INTERNAL — staff. EXTERNAL_SUPPLIER — supplier user (scoped + lands
   // on /supplier dashboard at login). Drives sidebar + routing.
   @Property({ type: String }) kind = 'INTERNAL'

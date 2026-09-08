@@ -688,6 +688,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/service-accounts': RouteRecordInfo<
+      '/service-accounts',
+      '/service-accounts',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
@@ -1436,6 +1443,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/security.vue': {
       routes:
         | '/security'
+      views:
+        | never
+    }
+    'src/pages/service-accounts.vue': {
+      routes:
+        | '/service-accounts'
       views:
         | never
     }
