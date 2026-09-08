@@ -60,6 +60,36 @@ export class Equipment extends BaseModel {
   @Property({ type: String }) calibrationIntervalUnit = 'MONTH'
   @Property({ type: DateTime }) lastCalibratedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) nextCalibrationDue = /** @type {DateTime} */ (null)
+  // Certificate + vendor evidence for the MOST RECENT calibration (migration
+  // 20260911120000). `record-calibration` now REQUIRES a certificate number and
+  // one of the two vendor forms, so these are never null on an instrument that
+  // has been calibrated through the product. Synced (rather than left
+  // server-only) because the alternative is a register that cannot show the
+  // evidence its own quick action just demanded — the module has no detail page
+  // and no print module, so IndexedDB is the only place the UI can read it from.
+  //
+  // READ-ONLY on the client, by construction. A `SECURITY INVOKER` BEFORE
+  // INSERT/UPDATE trigger (migration 20260911150000) refuses any CHANGE to these
+  // four on the `app_user` connection — which is exactly the connection the edit
+  // dialog's SyncEngine save runs on — so a mutation carrying a changed value
+  // fails at the database with "Calibration certificate evidence can only be set
+  // by recording a calibration". `excludeFromGraphQL` keeps them out of the
+  // generated create/update mutations entirely, making that unreachable rather
+  // than merely unlikely.
+  //
+  // It also closes the empty-string-into-UUID trap on `lastCalibrationVendorId`:
+  // that column is a uuid, `''` is not a uuid, and the SyncEngine write path has
+  // produced bare 400s from exactly this shape before. Defaulted to null here as
+  // well as excluded — belt and braces, because a default is what a locally
+  // constructed instance starts from.
+  @Property({ type: String, excludeFromGraphQL: ['create', 'update'] })
+  lastCalibrationCertificateNumber = /** @type {String} */ (null)
+  @Property({ type: String, excludeFromGraphQL: ['create', 'update'] })
+  lastCalibrationCertificateUrl = /** @type {String} */ (null)
+  @Property({ type: String, excludeFromGraphQL: ['create', 'update'] })
+  lastCalibrationVendorId = /** @type {String} */ (null)
+  @Property({ type: String, excludeFromGraphQL: ['create', 'update'] })
+  lastCalibrationVendorName = /** @type {String} */ (null)
   @Property({ type: DateTime }) nextPmDue = /** @type {DateTime} */ (null)
   // PM program — calibration's twin (2026-08-06).
   @Property({ type: Boolean }) requiresPm = false

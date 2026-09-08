@@ -262,7 +262,18 @@ const items = computed(() => {
 
 <template>
   <div v-if="items.length" class="tw:contents">
-    <BaseMenu :items="items" />
+    <!--
+      `flip` — this menu is the reported off-screen case. Step cards sit low on
+      a long workflow page, and without it the panel opens below the fold and
+      every item is unclickable. See the prop's own comment in
+      resource/js/shared/components/BaseMenu.vue.
+
+      This component is SHARED: NC (WorkflowStep.vue / WorkflowStepGroup.vue),
+      CAPA (CapaWorkflowChildStep.vue, CapaWorkflowChildSteps.vue) and Change
+      Requests (ChangeRequestWorkflowChildStep.vue) all render it, so this
+      fixes the same defect in all three modules at once.
+    -->
+    <BaseMenu :items="items" flip />
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <BaseForm ref="confirmFormRef" hideFooter @submit="onConfirmDialog">

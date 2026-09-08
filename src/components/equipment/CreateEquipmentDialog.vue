@@ -445,13 +445,31 @@ function close() {
           </BaseField>
         </div>
 
-        <BaseField label="Owner / custodian" optional>
-          <UserSelectMenu v-model="ownerUserId" />
-          <div class="tw:text-caption tw:text-secondary tw:mt-1">
-            The responsible person — notified first about calibration. Falls back to the department
-            supervisor.
-          </div>
-        </BaseField>
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField label="Owner / custodian" optional>
+            <UserSelectMenu v-model="ownerUserId" />
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              The responsible person — notified first about calibration. Falls back to the
+              department supervisor.
+            </div>
+          </BaseField>
+          <!-- `supplier_id` has been a column, a model Property and an
+               UPDATABLE_FIELDS entry since the module shipped, and both write
+               paths have always sent it — but nothing rendered a control, so
+               the payload carried a field no user could set and every equipment
+               row's supplier was NULL by construction. This is that control.
+               The list is APPROVED-only (SupplierSelectMenu's default): the
+               calibration vendor on a GxP instrument is an approved-supplier
+               question, and a badge resolves an existing id through
+               SupplierOption regardless of status, so an out-of-list value
+               still renders rather than silently disappearing. -->
+          <BaseField label="Supplier / calibration vendor" optional>
+            <SupplierSelectMenu v-model="supplierId" />
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Who supplies or calibrates this equipment. Approved suppliers only.
+            </div>
+          </BaseField>
+        </div>
 
         <BaseField v-slot="{ id: fieldId }" label="Location (free text)">
           <BaseTextInput
@@ -498,6 +516,48 @@ function close() {
               Used to roll the next-due date forward when a calibration is recorded — e.g.
               <strong>1 Day</strong> for a pH meter, or <strong>12 Months</strong> for a balance.
             </div>
+          </div>
+        </div>
+
+        <!-- Last calibration evidence — READ ONLY, and the only place it is
+             visible anywhere in the product. `record-calibration` requires a
+             certificate number and a vendor (migration 20260911120000), and a DB
+             trigger refuses any change to these four columns on the connection
+             this dialog saves over — so they are shown, never edited. Without
+             this block the module would demand evidence its own UI could not
+             display: there is no detail page and no print module. -->
+        <div
+          v-if="props.equipment?.id && props.equipment?.lastCalibrationCertificateNumber"
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-1"
+        >
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Last calibration evidence</span>
+          <div class="tw:text-sm tw:text-secondary">
+            Certificate
+            <a
+              v-if="props.equipment.lastCalibrationCertificateUrl"
+              :href="props.equipment.lastCalibrationCertificateUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="tw:text-primary tw:hover:underline"
+            >
+              {{ props.equipment.lastCalibrationCertificateNumber }}
+            </a>
+            <span v-else class="tw:text-on-main">
+              {{ props.equipment.lastCalibrationCertificateNumber }}
+            </span>
+          </div>
+          <div class="tw:text-sm tw:text-secondary tw:flex tw:items-center tw:gap-1">
+            Performed by
+            <SupplierBadgeById
+              v-if="props.equipment.lastCalibrationVendorId"
+              :supplierId="props.equipment.lastCalibrationVendorId"
+            />
+            <span v-else class="tw:text-on-main">
+              {{ props.equipment.lastCalibrationVendorName || '—' }}
+            </span>
+          </div>
+          <div class="tw:text-caption tw:text-secondary">
+            Recorded with an e-signature. Set only by recording a calibration.
           </div>
         </div>
 

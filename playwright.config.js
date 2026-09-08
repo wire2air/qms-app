@@ -43,11 +43,24 @@ export default defineConfig({
       testMatch: /fixtures\/auth\.setup\.js/,
     },
     {
+      // Purges the documents previous runs left behind. Same reason as qcSetup
+      // and inspectionsLogsSetup: Document/DocumentVersion/DocumentSection are
+      // synced models, so accumulated rows slow every fresh browser context's
+      // syncEngine bootstrap until UI steps time out. Measured 2026-09-08 at 894
+      // documents in the tenant — 890 of them leftovers — with three successive
+      // no-code-change runs degrading 17 → 10 → 9 passing.
+      // See e2e/fixtures/documents.setup.js.
+      name: 'documentsSetup',
+      testMatch: /fixtures\/documents\.setup\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // The journeys themselves — direct children of e2e/documents only, so the
       // screenshot suite below doesn't inflate this project's runtime.
       name: 'documents',
       testMatch: /documents\/[^/]+\.spec\.js$/,
-      dependencies: ['setup'],
+      dependencies: ['documentsSetup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -404,6 +417,57 @@ export default defineConfig({
       // residual lag without masking a real failure — the DB-level probes are
       // deterministic SQL and fail both attempts when something is genuinely
       // broken.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Products / Item Master. The module had no browser coverage of any kind
+      // until 2026-09-08 — no project, no specs, and, more to the point, no
+      // persona holding a `products:*` grant. That last absence is why nothing
+      // could have been asserted even if specs had existed: /products is an
+      // ADMIN-tier route (permissionGuard.js ADMIN_PERMISSIONS), so a tenant
+      // with no products grant does not get an empty register, it gets bounced
+      // to /no-access. e2e-seed.sql §37 is that fixture.
+      //
+      // PJ-J5 and PJ-J11 are why this project is worth more than its test
+      // count. `products` has NO REST layer at all — no route gate in front, no
+      // service layer behind — so RLS and four triggers are the only
+      // enforcement the item master has, and until 2026-09-07/08 three of those
+      // four did not exist: any `products:update` holder could tombstone the
+      // entire register (P5), the weaker grant could undo a delete-holder's
+      // decision (P7), and the module's one business rule — no retiring an item
+      // while a live Specification points at it — lived in a Vue component in
+      // front of a syncEngine mutation (P8). Every one of those is probed from
+      // BOTH sides here, because a policy that quietly stopped matching
+      // anything refuses everyone and reads as a perfect guard against the
+      // denial half alone.
+      name: 'products',
+      testMatch: /products\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Above the 120s default, and above `equipment`/`inspectionsLogs`' 180s —
+      // reasoned, not copied. The register is a live query over IndexedDB, so
+      // nothing is readable until the syncEngine has bootstrapped Product into a
+      // fresh context, and this module's journeys additionally need
+      // ProductFamily, ProductType, ProductStatus, ItemCategory, Uom,
+      // Specification, ProductSupplier and ProductOption (the picker's view) in
+      // the same store before a dialog can render its pickers.
+      //
+      // What pushes it past 180s is the PERSONA COUNT. The access-tier and
+      // quick-add files each drive four personas — admin, editor, reader,
+      // owner — and every one is a separate browser context with its own empty
+      // IndexedDB paying that bootstrap again. `createPersonaPool` keeps it to
+      // one bootstrap per persona per file, but the first test in a file can
+      // legitimately pay two of them. Measured: `openRegister`'s 60s + 45s
+      // budget ran out once on a machine also running three other agents'
+      // suites, so it now makes three attempts (60/45/45) and the project
+      // budget has to cover that plus the assertions after it.
+      timeout: 240_000,
+      // A row written in SQL or over the lookup REST routes appears on the page
+      // only once the sync broadcast lands. The helpers already reload-and-retry
+      // (openRegister waits long and reloads once), and one Playwright-level
+      // retry covers the residual lag without masking a real failure: the
+      // DB-level probes are deterministic SQL and fail both attempts when
+      // something is genuinely broken.
       retries: 1,
       use: { ...devices['Desktop Chrome'] },
     },

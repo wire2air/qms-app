@@ -22,7 +22,19 @@ export class CapaEffectivenessCheck extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) capaId = ''
   @Property({ type: DateTime, required: true }) dueAt = /** @type {DateTime} */ (null)
-  @Property({ type: String, required: true }) statusId = 'PENDING'
+  // CAPA-M2, the half finished on 2026-09-08. `capas.statusId` has carried
+  // excludeFromGraphQL:['update'] since the 2026-07-21 hardening; this one did
+  // not, so the effectiveness check's status WAS in the generated mutation
+  // input and a capa:update holder could mark a check COMPLETED without an
+  // outcome, verification notes or the Part-11 signature that
+  // completeEffectivenessCheck demands.
+  //
+  // This lock is defense-in-depth ONLY — it removes the field from the
+  // mutation this client generates (syncEngine/persistence/hydration.js:247),
+  // which a hand-written GraphQL call ignores. The real control is the DB
+  // trigger `capa_effectiveness_checks_status_transition_guard`
+  // (qms migration 20260909400000). Both, for the same reason `capas` has both.
+  @Property({ type: String, required: true, excludeFromGraphQL: ['update'] }) statusId = 'PENDING'
   @Property({ type: String }) taskInstanceId = /** @type {String} */ (null)
   @Property({ type: String }) parentCheckId = /** @type {String} */ (null)
   // Verdict on completed rows: 'EFFECTIVE' | 'NOT_EFFECTIVE' | null

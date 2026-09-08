@@ -14,11 +14,44 @@
  */
 import { IconDotsVertical } from '@tabler/icons-vue'
 
-defineProps({
+const props = defineProps({
   /** @type {import('vue').PropType<Array<{name: string, icon?: object, click: () => void, disabled?: boolean, title?: string}>>} */
   items: {
     type: Array,
     default: () => [],
+  },
+  /**
+   * Flip to the opposite side when the preferred `bottom-end` placement does
+   * not fit the viewport.
+   *
+   * BasePopover already carries floating-ui's `flip()` middleware, but its own
+   * `flip` prop defaults to FALSE and BaseMenu never passed it — so every menu
+   * in the app opens downward unconditionally. A trigger near the bottom of the
+   * viewport therefore renders its panel BELOW THE FOLD: the items resolve and
+   * report visible + enabled + stable, and every click retries with "element is
+   * outside of the viewport" until it times out.
+   *
+   * That is not hypothetical. The workflow step-actions menu hits it on a
+   * 1280x720 viewport whenever the step card sits low on the page, and three
+   * Playwright suites carry an explicit
+   * `el.scrollIntoView({ block: 'center' })` workaround for it, each with a
+   * comment saying the menu not flipping is a real UI issue and not a test one:
+   *   e2e/nonconformances/j2-reviewer-workflow.spec.js:107-110
+   *   e2e/capas/j2-reviewer-workflow.spec.js:92-94
+   *   e2e/changeRequests/j3-reject-sendback.spec.js:76,178,265
+   *
+   * OPT-IN, not the default, deliberately. `shift` (already on) handles
+   * cross-axis overflow; `flip` is the main-axis fix, and turning it on for all
+   * 31 BaseMenu call sites at once is a wider change than the one reported
+   * defect justifies in a pass whose tests are run by someone else. Callers
+   * that can sit low on a scrolling page should set it. Making it the default
+   * is the right follow-up for whoever owns this design-system directory —
+   * floating-ui only repositions when the preferred placement genuinely does
+   * not fit, so a menu with room behaves identically either way.
+   */
+  flip: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -51,7 +84,7 @@ function onMenuKeydown(e) {
 </script>
 
 <template>
-  <BasePopover placement="bottom-end" :shift="8" :arrow="false">
+  <BasePopover placement="bottom-end" :shift="8" :arrow="false" :flip="props.flip">
     <template #button>
       <slot name="trigger">
         <button
