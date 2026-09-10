@@ -86,7 +86,10 @@ function keyStatus(key) {
       <div class="tw:min-w-0 tw:flex-1">
         <div class="tw:flex tw:items-center tw:gap-2">
           <span class="tw:truncate tw:font-semibold tw:text-on-main">{{ account.name }}</span>
-          <span class="tw:rounded-full tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium" :class="statusClass">
+          <span
+            class="tw:rounded-full tw:px-2 tw:py-0.5 tw:text-xs tw:font-medium"
+            :class="statusClass"
+          >
             {{ isActive ? 'Active' : 'Disabled' }}
           </span>
         </div>
@@ -96,7 +99,15 @@ function keyStatus(key) {
       </div>
 
       <div class="tw:flex tw:shrink-0 tw:flex-wrap tw:items-center tw:gap-1">
-        <RoleBadgeById v-for="roleId in account.roleIds" :key="roleId" :roleId="roleId" />
+        <!-- Rendered from the server's `roles`, NOT RoleBadgeById. The roles RLS
+             policy admits a role only to the owner, a role_permission_management:read
+             holder, or someone the role is assigned to — an api_integrations admin is
+             none of those, so the row never reaches IndexedDB and RoleBadgeById's
+             `v-if="role"` rendered nothing at all. A blank space, on the screen whose
+             whole job is to say what an integration may do. -->
+        <BaseBadge v-for="role in account.roles || []" :key="role.id">
+          {{ role.name || role.id }}
+        </BaseBadge>
       </div>
 
       <div class="tw:flex tw:shrink-0 tw:items-center tw:gap-1">
@@ -172,11 +183,7 @@ function keyStatus(key) {
     </div>
   </div>
 
-  <ServiceAccountKeyDialog
-    v-model="showKeyDialog"
-    :accountId="account.id"
-    @issued="loadKeys"
-  />
+  <ServiceAccountKeyDialog v-model="showKeyDialog" :accountId="account.id" @issued="loadKeys" />
 
   <BaseConfirmDialog
     v-model="confirmDelete"

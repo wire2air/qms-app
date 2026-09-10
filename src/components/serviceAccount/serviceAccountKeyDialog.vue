@@ -109,9 +109,13 @@ function handleDialogClose() {
         </div>
 
         <div class="tw:flex tw:items-center tw:gap-2">
+          <!-- noReveal: BaseTextInput adds its OWN show/hide button to any password
+               field, which put a second eye toggle beside this dialog's "Reveal key"
+               and let the two disagree about what is masked. -->
           <BaseTextInput
             :modelValue="secret"
             readonly
+            noReveal
             :type="revealed ? 'text' : 'password'"
             class="tw:flex-1"
           />
