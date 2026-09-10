@@ -219,6 +219,25 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Service accounts — the machine identities that own API keys, and the
+      // surface that REPLACED personal API keys (deleted 2026-09-09, because
+      // routes/apiKeys.js carried no enforcePermission of any kind: the
+      // permission was checked in the sidebar and nowhere else).
+      //
+      // Two halves, both in e2e/serviceAccounts/ and each with its own helper
+      // module: `api-*.spec.js` exercises the CREDENTIAL (issue a key, use it
+      // against the REST surface, revoke it), `ui-*.spec.js` the admin screen.
+      // They share a tenant and no fixtures — the seed deliberately does NOT
+      // clean service accounts up, because it runs at the start of every
+      // invocation and a shared DELETE would let one suite wipe another's
+      // fixtures mid-test, so each spec names its accounts with its own prefix
+      // and purges only that.
+      name: 'serviceAccounts',
+      testMatch: /serviceAccounts\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Multi-site user assignment. Mostly RLS verdicts over raw GraphQL rather
       // than UI steps: what is under test is which records a `site`-scoped grant
       // reaches once a user holds several sites, and the UI is only one of the

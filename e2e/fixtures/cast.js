@@ -294,6 +294,17 @@ export const USERS = {
     email: 'logadmin@e2e.test',
     name: 'Lena LogAdmin',
   },
+  // §39 — api_integrations CRUD, and document_control:READ only. The narrowness
+  // is load-bearing: assertNoPrivilegeEscalation refuses to grant a service
+  // account any permission the creator lacks, so this persona can be offered the
+  // E2E Author role (create/update) and must be refused, while E2E Reviewer
+  // (read alone) must be accepted. A persona holding everything could not test
+  // the guard at all.
+  intAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000073',
+    email: 'intadmin@e2e.test',
+    name: 'Ingrid Integrations',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -344,6 +355,7 @@ export const ALT_USERS = {
 
 // storageState files written by auth.setup.js, consumed via test.use().
 export const AUTH = {
+  intAdmin: 'e2e/.auth/intAdmin.json',
   owner: 'e2e/.auth/owner.json',
   author: 'e2e/.auth/author.json',
   reviewer: 'e2e/.auth/reviewer.json',
