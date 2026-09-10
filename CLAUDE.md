@@ -606,6 +606,7 @@ import { ClientModel, BaseModel, Property, Computed } from '@syncEngine/index.js
 })
 class DocumentVersion extends BaseModel {
   static paranoid = true // soft-delete via deletedAt; or 'fieldName' for custom
+  static hiddenFromLists = null // boolean field whose truthy rows `where()` skips
 
   @Property({ type: String, required: true }) id = null
   @Property({ type: String }) documentId = null
@@ -647,9 +648,16 @@ await db.DocumentVersion.where().exec()
 // First only
 await db.DocumentVersion.where('documentId', id).orderBy('createdAt', 'desc').first()
 
-// Include soft-deleted (bypass paranoid)
+// Include soft-deleted (bypass paranoid) + rows hidden from lists
 await db.DocumentVersion.where('documentId', id, { force: true }).exec()
 await db.Document.findByPk(id, { force: true })
+
+// `hiddenFromLists` — rows excluded from where() but reachable by id.
+// User declares it for `isServiceAccount`, so no caller filters machine
+// identities by hand. The asymmetry is deliberate: a service account must
+// stay out of pickers, yet still resolve as the actor on an audit-log line.
+await db.User.where().exec() // people only
+await db.User.findByPk(serviceAccountId) // still returns it
 
 // findByPk — null if soft-deleted
 await db.Document.findByPk(id)

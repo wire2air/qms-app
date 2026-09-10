@@ -72,8 +72,12 @@ const ADMIN_PERMISSIONS = {
   // route lands at /analytics/create, map it explicitly rather than letting
   // createPermissionFrom() derive a `reports_dashboards:create` nobody holds.
   analytics: 'reports_dashboards:read',
-  'api-keys': 'api_integrations:read',
-  // ai:read is implied by ANY ai grant — run/manage/audit all pass.
+  'service-accounts': 'api_integrations:read',
+  // NOTE (RA-1, 2026-09-07): `read` is no longer implied by any other grant on
+  // a module — authz.effective_permission_strings stopped synthesising it. So
+  // this is now a real `ai:read` requirement, and a role holding only `ai:run`
+  // no longer reaches this route. The comment that used to sit here said the
+  // opposite and had gone stale.
   'api-tokens': 'ai:read',
   'ai-usage': 'ai:read',
   'audit-logs': 'audit_trail:read',

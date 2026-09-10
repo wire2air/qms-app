@@ -1,9 +1,9 @@
 <script setup>
 defineOptions({
-  name: 'ApiKeysPage',
+  name: 'ServiceAccountsPage',
 })
 </script>
 
 <template>
-  <ApiKeyIndex />
+  <ServiceAccountIndex />
 </template>
