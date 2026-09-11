@@ -35,7 +35,12 @@ const hasCaption = computed(() => {
 function shouldShow({ editor }) {
   // Show only when the image node is the current selection. We rely on
   // editor.isActive('image') which is true for a NodeSelection on the image.
-  return editor.isActive('image')
+  //
+  // isEditable is checked here rather than by v-if'ing this component away in
+  // a read-only editor — a BubbleMenu must never be unmounted mid-life (see
+  // BaseRichTextEditor.vue's BubbleMenu comment). A custom shouldShow replaces
+  // TipTap's default, which is what would otherwise apply this check.
+  return editor.isEditable && editor.isActive('image')
 }
 
 function align(value) {
@@ -104,11 +109,14 @@ const widthPresets = [25, 50, 75, 100]
 </script>
 
 <template>
+  <!-- `options` is TipTap v3's Floating UI config. (v3 dropped tippy.js, so a
+       `tippyOptions` prop is not a prop at all — it silently fell through to
+       $attrs and was rendered onto the div as an attribute.) -->
   <BubbleMenu
     pluginKey="image-bubble-menu"
     :editor="editor"
     :shouldShow="shouldShow"
-    :tippyOptions="{ duration: 100, placement: 'top', maxWidth: 'none' }"
+    :options="{ placement: 'top' }"
   >
     <div
       class="tw:flex tw:items-center tw:gap-1 tw:p-1 tw:bg-white tw:rounded-lg tw:shadow-xl tw:border tw:border-divider"

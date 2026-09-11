@@ -371,8 +371,14 @@ const detailConfig = computed(() =>
         <div class="tw:flex tw:flex-col tw:gap-4">
           <div>
             <BaseLabel>Scope</BaseLabel>
+            <!-- A single BaseRichTextEditor toggles :editable rather than being
+                 v-if'd in/out with a separate read-only v-html view — see
+                 AuditInstancesPageId.vue's identical comment, and the BubbleMenu
+                 comment in BaseRichTextEditor.vue for why a mid-life editor
+                 teardown is worth avoiding. -->
             <BaseRichTextEditor
-              v-if="isEditable"
+              v-if="isEditable || auditInstance.scope"
+              :editable="isEditable"
               :modelValue="auditInstance.scope || ''"
               placeholder="What's in scope?"
               @update:modelValue="(v) => stage('scope', v)"
@@ -381,8 +387,10 @@ const detailConfig = computed(() =>
           </div>
           <div>
             <BaseLabel>Objectives</BaseLabel>
+            <!-- See the scope field's comment above — same fix. -->
             <BaseRichTextEditor
-              v-if="isEditable"
+              v-if="isEditable || auditInstance.objectives"
+              :editable="isEditable"
               :modelValue="auditInstance.objectives || ''"
               placeholder="What should this audit achieve?"
               @update:modelValue="(v) => stage('objectives', v)"
