@@ -161,6 +161,48 @@ function daysOpen(row) {
   return d
 }
 
+function categoryLabel(id) {
+  return eventCategories.value.find((c) => c.id === id)?.name ?? ''
+}
+function severityLabel(id) {
+  return eventSeverities.value.find((s) => s.id === id)?.name ?? ''
+}
+function statusLabel(id) {
+  return QUALITY_EVENT_STATUSES.find((s) => s.id === id)?.name ?? id ?? ''
+}
+function userNameById(id) {
+  const user = users.value.find((u) => u.id === id)
+  return user ? userLabel(user) : ''
+}
+
+// Explicit export field list for the export manager. DataTable's fallback
+// export (deriving fields from `columns`) reads the raw `field` accessor per
+// column, which is a UUID for CATEGORY/SEVERITY/ASSIGNED TO/REPORTED BY, and
+// is simply absent for DAYS OPEN/ESCALATED (those only exist as body-cell
+// template logic, not as a real row property) — so hand it fully-resolved
+// fields instead.
+const exportColumns = computed(() => [
+  { key: 'eventNumber', label: 'EVENT #', value: (row) => row.eventNumber ?? '' },
+  { key: 'title', label: 'TITLE', value: (row) => row.title ?? '' },
+  { key: 'category', label: 'CATEGORY', value: (row) => categoryLabel(row.categoryId) },
+  { key: 'severity', label: 'SEVERITY', value: (row) => severityLabel(row.severityId) },
+  { key: 'status', label: 'STATUS', value: (row) => statusLabel(row.statusId) },
+  { key: 'assignee', label: 'ASSIGNED TO', value: (row) => userNameById(row.assignedToUserId) },
+  { key: 'reporter', label: 'REPORTED BY', value: (row) => userNameById(row.reportedByUserId) },
+  {
+    key: 'reportedDate',
+    label: 'REPORTED',
+    value: (row) => row.reportedDate?.formatDate?.('date') ?? '',
+  },
+  { key: 'daysOpen', label: 'DAYS OPEN', value: (row) => daysOpen(row) },
+  {
+    key: 'escalated',
+    label: 'ESCALATED',
+    value: (row) => (props.escalatedIds.has(row.id) ? 'Yes' : ''),
+  },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'reportedDate', desc: true }])
 
@@ -184,6 +226,7 @@ function rowMenuItems(row) {
     :mobileCards="false"
     searchable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="quality-events.csv"
     persistKey="qualityEvents"
   >
