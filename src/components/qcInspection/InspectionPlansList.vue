@@ -108,6 +108,26 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
+// APPLIES TO / SPECIFICATION / SAMPLING PLAN / WORKFLOW only ever display via
+// the scopeLabel()/specName()/samplingName()/workflowName() resolvers above —
+// DataTable's fallback export reads the raw `productId`/`specificationId`/
+// `samplingPlanId`/`workflowVersionId` UUIDs, so hand it an explicit
+// exportColumns list that reuses those same resolvers instead.
+const exportColumns = computed(() => [
+  { key: 'name', label: 'NAME', value: (row) => row.name ?? '' },
+  {
+    key: 'point',
+    label: 'POINT',
+    value: (row) => POINT_LABELS[row.inspectionPoint] || row.inspectionPoint || '',
+  },
+  { key: 'appliesTo', label: 'APPLIES TO', value: (row) => scopeLabel(row) },
+  { key: 'specification', label: 'SPECIFICATION', value: (row) => specName(row.specificationId) },
+  { key: 'sampling', label: 'SAMPLING PLAN', value: (row) => samplingName(row.samplingPlanId) },
+  { key: 'workflow', label: 'WORKFLOW', value: (row) => workflowName(row.workflowVersionId) },
+  { key: 'active', label: 'ACTIVE', value: (row) => (row.active ? 'ACTIVE' : 'INACTIVE') },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 function startEdit(plan) {
   editingPlan.value = plan
   showEdit.value = true
@@ -138,6 +158,7 @@ async function deletePlan(id) {
     searchable
     filterable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="inspection-plans.csv"
     persistKey="qcInspection:inspectionPlans"
     noDataLabel="No inspection plans yet. Create one to bind a Specification + Sampling Plan to a product (or product type) and inspection point — new lots will pick them up automatically."

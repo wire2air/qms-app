@@ -152,6 +152,28 @@ async function onEsignVerified({ method, token }) {
   }
 }
 
+// Standard / Level only ever displays via standardName()/levelLabel() (and a
+// different string entirely for FORMULA/CUSTOM plans) — DataTable's fallback
+// export reads the raw `standardCode` UUID, so hand it an explicit
+// exportColumns list that mirrors the body-cell logic instead.
+function standardLevelLabel(row) {
+  if (row.planType === 'STANDARD') return `${standardName(row.standardCode)} · ${levelLabel(row.inspectionLevel)}`
+  if (row.planType === 'FORMULA') return '√N + 1 (containers)'
+  return 'Custom table'
+}
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'Name', value: (row) => row.name ?? '' },
+  {
+    key: 'point',
+    label: 'Point',
+    value: (row) => POINT_LABELS[row.inspectionPoint] || row.inspectionPoint || '',
+  },
+  { key: 'standard', label: 'Standard / Level', value: (row) => standardLevelLabel(row) },
+  { key: 'status', label: 'Status', value: (row) => row.statusId ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 async function createNewVersion(plan) {
   if (revisingId.value) return
   revisingId.value = plan.id
@@ -177,6 +199,7 @@ async function createNewVersion(plan) {
       searchable
       filterable
       exportManager
+      :exportColumns="exportColumns"
       exportFilename="sampling-plans.csv"
       persistKey="qcInspection:samplingPlans"
       noDataLabel="No sampling plans yet."
