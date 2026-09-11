@@ -102,6 +102,31 @@ const columns = [
     filterOptions: ACTIVE_OPTIONS,
   },
 ]
+
+// The Standard column only ever displays via AuditStandardBadgeById, which
+// resolves AuditStandard itself; DataTable's fallback export just reads the
+// raw `auditStandardId` UUID, so hand it an explicit exportColumns list.
+const auditStandards = useLiveQuery((db) => db.AuditStandard.where().exec(), {
+  models: ['AuditStandard'],
+  initial: [],
+})
+function standardLabel(id) {
+  const standard = auditStandards.value.find((s) => s.id === id)
+  return standard ? standard.name || standard.code || '' : ''
+}
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'Name', value: (row) => row.name ?? '' },
+  { key: 'type', label: 'Type', value: (row) => TYPE_LABELS[row.programTypeId] || row.programTypeId },
+  {
+    key: 'frequency',
+    label: 'Frequency',
+    value: (row) => FREQUENCY_LABELS[row.frequencyId] || row.frequencyId || '',
+  },
+  { key: 'standard', label: 'Standard', value: (row) => standardLabel(row.auditStandardId) },
+  { key: 'nextDue', label: 'Next Due', value: (row) => row.nextDueDate?.formatDate?.('date') ?? '' },
+  { key: 'active', label: 'Active', value: (row) => (row.active ? 'Active' : 'Paused') },
+])
 </script>
 
 <template>
@@ -117,6 +142,7 @@ const columns = [
     searchable
     filterable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="audit-programs.csv"
     persistKey="audits:programs"
     noDataLabel="No programs yet. A program defines a recurring schedule — the daily worker mints an Audit whenever the program hits its frequency window."

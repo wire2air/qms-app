@@ -90,6 +90,47 @@ const columns = [
   },
   { name: 'actions', label: '', field: 'actions', align: 'right', filterType: false },
 ]
+
+// Static labels for content license — mirrors AuditStandardContentLicenseBadgeById.
+const LICENSE_LABELS = {
+  STRUCTURAL_SHELL: 'Structural shell',
+  PUBLIC_DOMAIN: 'Public domain',
+  OFFICIAL_LICENSED: 'Vendor-licensed',
+  CUSTOMER_LICENSED: 'Customer-licensed',
+  CUSTOMER_AUTHORED: 'Customer-authored',
+}
+
+// Type only ever displays via AuditStandardTypeBadgeById (resolves
+// AuditStandardType), and Version only ever displays via the computed
+// `effectiveVersionByStandardId` map (not a real row field) — DataTable's
+// fallback export reads the raw `auditStandardTypeId` UUID / a nonexistent
+// `row.version`, so hand it an explicit exportColumns list instead.
+const auditStandardTypes = useLiveQuery((db) => db.AuditStandardType.where().exec(), {
+  models: ['AuditStandardType'],
+  initial: [],
+})
+function typeLabel(id) {
+  const type = auditStandardTypes.value.find((t) => t.id === id)
+  return type ? type.name || '' : ''
+}
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'Name', value: (row) => row.name ?? '' },
+  { key: 'code', label: 'Code', value: (row) => row.code ?? '' },
+  { key: 'type', label: 'Type', value: (row) => typeLabel(row.auditStandardTypeId) },
+  {
+    key: 'license',
+    label: 'License',
+    value: (row) => LICENSE_LABELS[row.contentLicense] || row.contentLicense || '',
+  },
+  {
+    key: 'version',
+    label: 'Version',
+    value: (row) => versionLabel(effectiveVersionByStandardId.value[row.id]),
+  },
+  { key: 'createdAt', label: 'Created', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
 </script>
 
 <template>
@@ -105,6 +146,7 @@ const columns = [
     searchable
     filterable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="audit-standards.csv"
     persistKey="audits:standards"
     noDataLabel="No audit standards yet. New tenants are seeded with an empty 'Internal Quality Audit' shell."
