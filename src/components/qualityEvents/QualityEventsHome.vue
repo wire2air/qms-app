@@ -96,7 +96,10 @@ const events = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { models: ['QualityEvent'], initial: [] },
+  // Also re-run on RecordLink sync events — the 'escalated' active filter reads
+  // escalatedIds (derived from RecordLink), so a new escalation must re-run this
+  // query too, not just the events list itself.
+  { models: ['QualityEvent', 'RecordLink'], initial: [] },
 )
 
 const stats = computed(() => {
