@@ -48,6 +48,22 @@ export default defineConfig(({ mode }) => {
       ws: true,
       configure: forwardTenantHost,
     },
+    // Swagger UI + its spec (`/swagger`, `/swagger/spec.json`). No rewrite —
+    // the api serves these paths as-is, which is the same reason the deployed
+    // `swagger-dev` Traefik router carries no strip middleware.
+    //
+    // Worth proxying rather than telling people to open :4000 directly: the
+    // session cookie is scoped to the tenant host (`acme.localhost`), so it is
+    // NOT sent to `localhost:4000`, and "Try it out" there runs unauthenticated.
+    // On this origin it runs as whoever is logged into the tab.
+    //
+    // Note the spec is NOT at `/docs` — that path is the SPA's Internal Docs
+    // Center route, and proxying it would take the docs centre away.
+    '/swagger': {
+      target: env.VITE_PROXY_API_TARGET,
+      changeOrigin: true,
+      configure: forwardTenantHost,
+    },
   }
 
   return {
