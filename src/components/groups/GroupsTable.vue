@@ -30,6 +30,44 @@ const columns = computed(() => [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ])
 
+// MEMBERS has no real `members` field on the row — it's a join through
+// UserOnTeam -> User, resolved per-row by GroupMembersCell (which only shows
+// a count). DataTable's fallback export reads `row.members`, which doesn't
+// exist, so build the actual member-name list here and hand it an explicit
+// exportColumns list instead.
+function userLabel(u) {
+  return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+}
+const memberNamesByTeamId = useLiveQuery(
+  async (db) => {
+    const [assignments, users] = await Promise.all([
+      db.UserOnTeam.where().exec(),
+      db.User.where().exec(),
+    ])
+    const userById = new Map(users.map((u) => [u.id, u]))
+    const map = new Map()
+    for (const a of assignments) {
+      const user = userById.get(a.userId)
+      if (!user) continue
+      const list = map.get(a.teamId) ?? []
+      list.push(userLabel(user))
+      map.set(a.teamId, list)
+    }
+    return map
+  },
+  { models: ['UserOnTeam', 'User'], initial: new Map() },
+)
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'GROUP NAME', value: (row) => row.name ?? '' },
+  {
+    key: 'members',
+    label: 'MEMBERS',
+    value: (row) => (memberNamesByTeamId.value.get(row.id) ?? []).join(', '),
+  },
+  { key: 'isLeadership', label: 'TYPE', value: (row) => (row.isLeadership ? 'Leadership' : 'Group') },
+])
+
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'name', desc: false }])
 
@@ -55,6 +93,7 @@ function rowMenuItems(row) {
     :searchable="false"
     :filterable="false"
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="groups.csv"
     @rowClick="openGroup"
   >
