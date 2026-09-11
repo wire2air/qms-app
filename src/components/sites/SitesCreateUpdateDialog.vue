@@ -73,18 +73,17 @@ const allSites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site']
 // check and then be rejected on save.
 const codeAvailable = computed(() => isSiteCodeAvailable(allSites.value, form.value.code, props.id))
 
-// Live "in use" message for the Code field. Applies while editing too: the
-// code is no longer frozen after create (user request 2026-08-15), and
-// isSiteCodeAvailable already excludes the row being edited, so the check is
-// correct in both modes — it was only ever suppressed because the field was
-// disabled.
+// Code is frozen after create (matches Departments) — disabled in the
+// template, so this only ever applies in create mode.
 const codeInUseError = computed(() =>
-  form.value.code && !codeAvailable.value ? 'Code already in use' : '',
+  !isEdit.value && form.value.code && !codeAvailable.value ? 'Code already in use' : '',
 )
 
 // Submit-time rule mirroring the live check so a taken code blocks submit.
+// Skipped in edit mode: the field is disabled there, so codeAvailable would
+// otherwise be evaluated against an unchanged, already-taken-by-itself code.
 function codeUnique() {
-  return codeAvailable.value || 'Code already in use'
+  return isEdit.value || codeAvailable.value || 'Code already in use'
 }
 
 // Name uniqueness (case-insensitive, whitespace-trimmed) — mirrors the DB
@@ -242,21 +241,25 @@ watch(open, (val) => {
         :error="codeInUseError"
         :hint="
           isEdit
-            ? 'Used by document prefixes containing {SITE_CODE}. Numbers already issued keep the old code — only documents numbered from now on use the new one.'
+            ? 'Used by document prefixes containing {SITE_CODE}. Frozen after create, same as other modules.'
             : undefined
         "
       >
         <template #default="field">
           <div class="tw:relative">
-            <!-- maxlength matches sites.code — varchar(10). Same gap that let a
-                 too-long supplier code through to an opaque INSERT failure. -->
+            <!-- maxlength matches sites.code — varchar(10). Disabled once
+                 created (matches Departments) — editing it here silently kept
+                 the old value on save because it was never wired into the
+                 update payload, so the field is frozen instead of fixing a
+                 save path nothing else in the app offers for this field. -->
             <BaseTextInput
               v-bind="field"
               v-model="form.code"
               :maxlength="10"
               placeholder="e.g. NY-HQ"
+              :disabled="isEdit"
             />
-            <template v-if="form.code">
+            <template v-if="!isEdit && form.code">
               <IconCheck
                 v-if="codeAvailable"
                 class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-green"
