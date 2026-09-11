@@ -18,6 +18,11 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 const router = useRouter()
 const toast = useToast()
 
+// Mirrors the suppliers.code column (varchar(10)) and the backend's
+// checkcode guard. Enforced on the input AND in validate(), because maxlength
+// alone doesn't cover a programmatically-set value (the name-blur autofill).
+const CODE_MAX_LENGTH = 10
+
 const saving = ref(false)
 const isChecking = ref(false)
 const isAvailable = ref(null)
@@ -93,7 +98,11 @@ const checkAvailabilityDebounced = useDebounceFn(async (code) => {
       isNameCheck: false,
     })
     isAvailable.value = data?.message === 'available'
-    if (!isAvailable.value) codeError.value = 'Code already in use'
+    if (!isAvailable.value) {
+      // 'invalid' carries a reason (too short, too long, illegal characters) —
+      // show it rather than mislabelling every rejection as a collision.
+      codeError.value = data?.reason || 'Code already in use'
+    }
   } catch {
     isAvailable.value = null
   } finally {
@@ -224,13 +233,19 @@ function validate() {
   if (!form.value.code.trim()) {
     codeError.value = 'Required'
     valid = false
+  } else if (form.value.code.trim().length > CODE_MAX_LENGTH) {
+    codeError.value = `Cannot be longer than ${CODE_MAX_LENGTH} characters`
+    valid = false
   }
   if (!form.value.category) {
     categoryError.value = 'Required'
     valid = false
   }
+  // Don't clobber a more specific code error (required / too long) that the
+  // checks above already set — those explain WHY the availability check never
+  // came back clean.
   if (isAvailable.value !== true && form.value.code.trim()) {
-    codeError.value = 'Check availability first'
+    if (!codeError.value) codeError.value = 'Check availability first'
     valid = false
   }
   if (!hasPrimaryContact.value) {
@@ -350,7 +365,16 @@ function goBack() {
 
                 <BaseField v-slot="{ id: fieldId }" label="Supplier Code" required>
                   <div class="tw:relative">
-                    <BaseTextInput :id="fieldId" v-model="form.code" placeholder="e.g. SUP-2024-001" />
+                    <!-- maxlength matches suppliers.code — varchar(10). Without it
+                         the form accepted a longer code, the availability check
+                         reported it free, and the INSERT failed with an opaque
+                         masked GraphQL error ("Something went wrong"). -->
+                    <BaseTextInput
+                      :id="fieldId"
+                      v-model="form.code"
+                      :maxlength="CODE_MAX_LENGTH"
+                      placeholder="e.g. SUP-001"
+                    />
                     <BaseSpinner
                       v-if="isChecking"
                       size="sm"

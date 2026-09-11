@@ -248,7 +248,14 @@ watch(open, (val) => {
       >
         <template #default="field">
           <div class="tw:relative">
-            <BaseTextInput v-bind="field" v-model="form.code" placeholder="e.g. NY-HQ" />
+            <!-- maxlength matches sites.code — varchar(10). Same gap that let a
+                 too-long supplier code through to an opaque INSERT failure. -->
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.code"
+              :maxlength="10"
+              placeholder="e.g. NY-HQ"
+            />
             <template v-if="form.code">
               <IconCheck
                 v-if="codeAvailable"
