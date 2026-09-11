@@ -244,7 +244,7 @@ async function handleDelete() {
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const breadcrumbs = computed(() => [
   { label: 'Audits', to: getCompanyPath('/audits?tab=programs') },
-  { label: program.value?.name || 'Loading…' },
+  { label: program.value?.name || (program.value === null ? 'Not found' : 'Loading…') },
 ])
 const auditProgramBanners = computed(() => buildAuditProgramBanners(program.value))
 const auditProgramActions = computed(() =>

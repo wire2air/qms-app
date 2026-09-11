@@ -401,7 +401,10 @@ const capaDetailConfig = computed(() =>
     width: 'standard',
     breadcrumbs: [
       { label: 'CAPAs', to: getCompanyPath('/capas') },
-      { label: capa.value?.capaNumber || capa.value?.title || 'Loading…' },
+      {
+        label:
+          capa.value?.capaNumber || capa.value?.title || (capa.value === null ? 'Not found' : 'Loading…'),
+      },
     ],
     banners: () => capaBanners.value,
     actions: capaActions.value,

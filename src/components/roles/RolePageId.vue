@@ -87,7 +87,7 @@ const permSearch = ref('')
 
 const breadcrumbItems = computed(() => [
   { label: 'Roles', to: getCompanyPath('/roles') },
-  { label: role.value?.name || 'Role Details' },
+  { label: role.value?.name || (notFound.value ? 'Not found' : 'Role Details') },
 ])
 
 const usersCount = computed(() => roleAssignments.value.length)

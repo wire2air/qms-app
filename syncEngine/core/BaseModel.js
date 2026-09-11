@@ -189,7 +189,20 @@ export class BaseModel {
       if (schema && schema.loadStrategy !== LOAD_STRATEGY.LOCAL) {
         const meta = MetaCache.get(this.name)
         if (meta) {
-          const record = await MutationRunner.fetchOne(meta, id)
+          // A GraphQL fetch-by-id failure (malformed UUID in the URL, a
+          // deleted/never-existed id the resolver 400s on, an expired
+          // session, ...) must resolve findByPk to "not found", not throw.
+          // useLiveQuery's refresh() only ever sets `data.value` on success
+          // — an uncaught rejection here left the live query stuck at its
+          // `initial` value (usually `undefined`) forever, which every
+          // detail page reads as "still loading". The page then never
+          // reaches its not-found state; it spins indefinitely instead.
+          // The underlying error is still visible via useLiveQuery's
+          // `console.error(err)` for real debugging.
+          const record = await MutationRunner.fetchOne(meta, id).catch((err) => {
+            console.error(`findByPk(${this.name}, ${id}) fetch failed — treating as not found:`, err)
+            return null
+          })
           if (record) {
             const tableName = ModelRegistry.getTableName(this.name)
             await IndexedDB.put(tableName, record)
