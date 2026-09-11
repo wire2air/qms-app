@@ -117,6 +117,41 @@ const columns = computed(() => {
     { name: 'actions', label: '', align: 'right' },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+function changeTypeLabel(id) {
+  return changeTypes.value.find((t) => t.id === id)?.name ?? ''
+}
+function priorityLabel(id) {
+  return priorities.value.find((p) => p.id === id)?.name ?? ''
+}
+function statusLabel(id) {
+  return statuses.value.find((s) => s.id === id)?.name ?? ''
+}
+function ownerLabel(id) {
+  const user = users.value.find((u) => u.id === id)
+  return user ? `${user.firstName} ${user.lastName}`.trim() || user.email : ''
+}
+
+// Explicit export field list for the export manager. The Type/Priority/
+// Status/Owner columns have no `field` accessor at all — they render purely
+// via body-cell badge templates (ChangeTypeBadgeById etc.) reading the row's
+// *Id directly — so DataTable's fallback export (which reads `col.field`,
+// falling back to `row[col.name]`, e.g. `row.changeType`, which doesn't
+// exist) produced blank cells for every row. Resolve them explicitly instead.
+const exportColumns = computed(() => [
+  { key: 'crNumber', label: 'CR #', value: (row) => row.crNumber || 'Draft' },
+  { key: 'title', label: 'Title', value: (row) => row.title ?? '' },
+  { key: 'changeType', label: 'Type', value: (row) => changeTypeLabel(row.changeTypeId) },
+  { key: 'priority', label: 'Priority', value: (row) => priorityLabel(row.priorityId) },
+  { key: 'status', label: 'Status', value: (row) => statusLabel(row.statusId) },
+  { key: 'owner', label: 'Owner', value: (row) => ownerLabel(row.ownerId) },
+  {
+    key: 'targetImplementationDate',
+    label: 'Target Date',
+    value: (row) => row.targetImplementationDate?.formatDate?.('date') ?? '',
+  },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
 </script>
 
 <template>
@@ -128,6 +163,7 @@ const columns = computed(() => {
     :mobileCards="false"
     searchable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="change-requests.csv"
   >
     <!-- Query-level filter menu -->
