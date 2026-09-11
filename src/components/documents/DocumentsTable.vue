@@ -239,6 +239,39 @@ function getVersionLabel(version) {
   return version.versionLabel || `${version.versionMajor}.${version.versionMinor}`
 }
 
+// Explicit export field list for the export manager. DataTable's fallback
+// export (deriving fields from `columns`) would JSON-stringify the CURRENT/
+// LATEST version objects, export the raw department/owner UUIDs, and leak the
+// ACTIONS column (its `name` is 'actions', not the magic '__actions' the
+// fallback filters out) — so hand it fully-resolved fields instead.
+const exportColumns = computed(() => [
+  { key: 'docNumber', label: 'DOC #', value: (row) => row.docNumber ?? '' },
+  { key: 'title', label: 'TITLE', value: (row) => row.title ?? '' },
+  {
+    key: 'department',
+    label: 'DEPARTMENT',
+    value: (row) => deptNameById.value[row.departmentId] ?? '',
+  },
+  {
+    key: 'current',
+    label: 'CURRENT',
+    value: (row) => getVersionLabel(currentVersionMapById.value[row.id]),
+  },
+  {
+    key: 'latest',
+    label: 'LATEST',
+    value: (row) => getVersionLabel(latestVersionMapById.value[row.id]),
+  },
+  {
+    key: 'effectiveDate',
+    label: 'EFFECTIVE DATE',
+    value: (row) => latestVersionMapById.value[row.id]?.effectiveDate?.formatDate?.('date') ?? '',
+  },
+  { key: 'owner', label: 'OWNER', value: (row) => userNameById.value[row.userId] ?? '' },
+  { key: 'createdAt', label: 'CREATED', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 // Archiving a controlled document is a regulated event (H7) — route the
 // list-view Archive through the SAME obsoletion dialog the detail page uses, so
 // a reason is captured + audited (soft-delete stamping obsoletedAt/By/reason),
@@ -271,6 +304,7 @@ function onObsoleted() {
     :mobileCards="false"
     searchable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="documents.csv"
     persistKey="documents"
   >
