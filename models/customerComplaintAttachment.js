@@ -9,7 +9,16 @@ import { DateTime } from 'luxon'
   schemaVersion: 1,
 })
 export class CustomerComplaintAttachment extends BaseModel {
-  static paranoid = true
+  // NOT paranoid, deliberately — RLS on customer_complaint_attachments grants
+  // app_user only DELETE + SELECT (no UPDATE; see database/rls.sql), and there
+  // is no REST route for removing an attachment either (only the upload POST).
+  // `paranoid: true` makes BaseModel#delete() set deletedAt and save() via an
+  // UPDATE mutation instead of issuing a real delete — Postgres then rejects
+  // that UPDATE for lack of privilege, which PostGraphile reports as an opaque
+  // masked GraphQLError ("Something went wrong"). A real DELETE is exactly
+  // what's granted, so this model must not be paranoid on the client side even
+  // though the backend Sequelize model is (that side deletes via the
+  // superuser connection, which never goes through this RLS grant at all).
 
   constructor(...args) {
     super(...args)
