@@ -134,14 +134,30 @@ function removeTag(index) {
 }
 
 function incrementReviewMonths() {
-  form.value.periodicReviewMonths++
+  form.value.periodicReviewMonths = Math.trunc(form.value.periodicReviewMonths) + 1
 }
 
 function decrementReviewMonths() {
   if (form.value.periodicReviewMonths > 1) {
-    form.value.periodicReviewMonths--
+    form.value.periodicReviewMonths = Math.max(1, Math.trunc(form.value.periodicReviewMonths) - 1)
   }
 }
+
+// documents.periodicReviewMonths is a GraphQL Int — typing "1.5" here and
+// clicking Create sent that straight through as a float and the mutation
+// was rejected with a raw GraphQL type error ("Int cannot represent
+// non-integer value"). `v-model.number` only parses the string to a JS
+// number; it does nothing to stop it being a non-integer one. This wrapper
+// rounds on every keystroke so a fractional value can never reach the model
+// (native `step="1"` alone only affects the spinner arrows and browser
+// validation UI, not manual typing or paste).
+const reviewMonthsModel = computed({
+  get: () => form.value.periodicReviewMonths,
+  set: (v) => {
+    const n = Math.round(Number(v))
+    form.value.periodicReviewMonths = Number.isFinite(n) ? Math.max(1, n) : 1
+  },
+})
 
 // Prefix validation rules — mirrors the original Vuelidate rules.
 const prefixRules = [
@@ -178,8 +194,12 @@ const prefixRules = [
   },
 ]
 
-// periodicReviewMonths must be >= 1
-const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at least 1 month']
+// periodicReviewMonths must be a whole number >= 1 (GraphQL Int column).
+const reviewMonthsRules = [
+  required(),
+  (value) => Number.isInteger(value) || 'Must be a whole number of months',
+  (value) => value >= 1 || 'Must be at least 1 month',
+]
 </script>
 
 <template>
@@ -313,11 +333,12 @@ const reviewMonthsRules = [required(), (value) => value >= 1 || 'Must be at leas
             <IconMinus :size="18" />
           </button>
           <input
-            v-model.number="form.periodicReviewMonths"
+            v-model.number="reviewMonthsModel"
             name="periodicReviewMonths"
             class="tw:w-16 tw:text-center tw:bg-transparent tw:border-none tw:focus:ring-0 tw:text-sm tw:font-bold tw:outline-none"
             type="number"
             min="1"
+            step="1"
           />
           <button
             class="tw:px-3 tw:py-2 tw:hover:bg-sidebar tw:text-secondary"

@@ -74,6 +74,21 @@ const showEffectiveDate = computed(
   () => effectiveDateEditable.value || !!currentVersion.value?.effectiveDate,
 )
 
+// documents.periodicReviewMonths is a GraphQL Int. This field autosaves
+// straight off the live record with no submit button in the way, so a
+// fractional value typed here isn't just a validation message away from
+// blocking Create — it silently fails debounceSaveDocument's save() and gets
+// swallowed by its catch (console.error only), leaving the change looking
+// applied while nothing persisted. Round on every keystroke instead.
+const reviewMonthsModel = computed({
+  get: () => document.value?.periodicReviewMonths,
+  set: (v) => {
+    if (!document.value) return
+    const n = Math.round(Number(v))
+    document.value.periodicReviewMonths = Number.isFinite(n) ? Math.max(1, n) : 1
+  },
+})
+
 // State
 const activeSection = ref(null)
 
@@ -262,9 +277,10 @@ watch(
         <BaseDetailField label="Periodic Review">
           <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-1.5">
             <input
-              v-model.number="document.periodicReviewMonths"
+              v-model.number="reviewMonthsModel"
               type="number"
               min="1"
+              step="1"
               class="tw:w-16 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-sm tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
             />
             <span class="tw:text-xs tw:text-secondary">months</span>
