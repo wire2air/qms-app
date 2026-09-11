@@ -479,14 +479,17 @@ function toggleColumn(name) {
 }
 
 // ─── Print / Export ─────────────────────────────────────────────────
-// Only available when a single log book is selected. Exporting a mixed
-// view would produce columns that don't apply to every row.
+// Schema-derived columns (visibleColumns) only apply in log-book mode — a
+// mixed "all log books" view has no single schema to draw extra columns
+// from. That's fine for Export itself: it still works with just the base
+// columns (Form/Classification/Status/Submitted), it just skips the
+// schema-specific extras. Only Print (a single log book's printed sheet)
+// requires a log book to be selected.
 
 function exportCsv(exportRows) {
-  if (!isLogBookMode.value) return
-  const cols = visibleColumns.value
+  const cols = isLogBookMode.value ? visibleColumns.value : []
   const header = [
-    'Log Entry ID',
+    isLogBookMode.value ? 'Log Entry ID' : 'Form',
     'Submitted At',
     'Submitted By',
     'Status',
@@ -500,7 +503,7 @@ function exportCsv(exportRows) {
   const rows = sourceRows.map((r) => {
     const payload = payloadFor(r)
     return [
-      r.recordNumber ?? r.id,
+      isLogBookMode.value ? (r.recordNumber ?? r.id) : templateTitle(r),
       r.submittedAt?.toISO ? r.submittedAt.toISO() : (r.submittedAt ?? ''),
       r.submittedByUserId ?? '',
       r.statusId ?? '',
@@ -515,8 +518,8 @@ function exportCsv(exportRows) {
   const a = document.createElement('a')
   a.href = url
   const stamp = DateTime.now().toFormat('yyyy-LL-dd')
-  const slug = selectedTemplate.value.code?.toLowerCase() ?? 'log-book'
-  a.download = `${slug}-${stamp}.csv`
+  const slug = isLogBookMode.value ? selectedTemplate.value.code?.toLowerCase() : 'log-entries'
+  a.download = `${slug ?? 'log-entries'}-${stamp}.csv`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
