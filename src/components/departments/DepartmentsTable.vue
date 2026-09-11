@@ -49,6 +49,24 @@ const columns = computed(() => {
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
 
+// SITE has no `field` accessor at all — it renders purely via the
+// body-cell's SiteBadgeById (reading `row.siteId`) with a "Company-wide"
+// fallback when unset. DataTable's fallback export reads `row.site`, which
+// doesn't exist, so hand it an explicit exportColumns list instead.
+function siteLabel(id) {
+  if (!id) return 'Company-wide'
+  return sites.value.find((s) => s.id === id)?.name ?? ''
+}
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'DEPARTMENT NAME', value: (row) => row.name ?? '' },
+  { key: 'code', label: 'CODE', value: (row) => row.code ?? '' },
+  { key: 'site', label: 'SITE', value: (row) => siteLabel(row.siteId) },
+  { key: 'description', label: 'DESCRIPTION', value: (row) => row.description ?? '' },
+  { key: 'createdAt', label: 'CREATED', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
 
@@ -84,6 +102,7 @@ function rowMenuItems(row) {
     searchable
     filterable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="departments.csv"
   >
     <template #body-cell-name="{ row }">
