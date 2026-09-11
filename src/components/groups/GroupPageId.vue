@@ -76,7 +76,30 @@ const filteredUsers = computed(() => {
 // ─── Auto-save ────────────────────────────────────────────────────────────────
 
 const editingName = ref(false)
-const { isSaving, saveError } = useAutoSave(group)
+
+// Name uniqueness (case-insensitive, per company) — backed by the DB
+// teams_company_name_unique partial index, same check GroupsCreateDialog runs
+// on create. The rename field had no equivalent: nothing stopped the autosave
+// from firing a mutation the DB's unique index was always going to reject,
+// which PostGraphile then reported as an opaque masked GraphQLError ("An
+// error occurred (logged with hash: ...)") instead of a usable message.
+const allTeams = useLiveQuery((db) => db.Team.where().exec(), { models: ['Team'], initial: [] })
+const nameAvailable = computed(() => {
+  const n = (group.value?.name || '').trim().toLowerCase()
+  if (!n) return true
+  return !allTeams.value.some(
+    (t) => t.id !== props.id && (t.name || '').trim().toLowerCase() === n,
+  )
+})
+const nameInUseError = computed(() =>
+  group.value?.name && !nameAvailable.value ? 'A group with this name already exists' : '',
+)
+
+// Blocks the autosave entirely while the typed name collides, rather than
+// letting it round-trip to a guaranteed DB rejection. Other fields on this
+// page save through their own explicit .save() calls (avatar, membership),
+// so this only withholds the deep-watch save this hook drives.
+const { isSaving, saveError } = useAutoSave(group, { enabled: nameAvailable })
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -205,15 +228,17 @@ const groupDetailConfig = computed(() =>
     notFoundDescription="This team could not be found."
   >
     <template #title>
-      <BaseTextInput
-        v-if="editingName && canUpdate"
-        v-model="group.name"
-        placeholder="Group name"
-        size="sm"
-        autofocus
-        @keyup.enter="editingName = false"
-        @blur="editingName = false"
-      />
+      <div v-if="editingName && canUpdate" class="tw:flex tw:flex-col tw:gap-1">
+        <BaseTextInput
+          v-model="group.name"
+          placeholder="Group name"
+          size="sm"
+          autofocus
+          :errorMsg="nameInUseError"
+          @keyup.enter="!nameInUseError && (editingName = false)"
+          @blur="editingName = false"
+        />
+      </div>
       <BaseClickableRow
         v-else
         class="tw:text-base tw:font-semibold tw:text-on-main"
