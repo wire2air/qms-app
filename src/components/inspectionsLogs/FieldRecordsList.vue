@@ -478,6 +478,16 @@ function toggleColumn(name) {
   visibleColumnKeys.value = scalarFields.value.map((f) => f.name).filter((n) => set.has(n))
 }
 
+// Name lookup for the export's "Submitted By" column — the table itself
+// never shows this raw id (see UserBadgeById elsewhere), so export must
+// resolve it the same way instead of writing the UUID to the CSV.
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function userNameById(id) {
+  const user = users.value.find((u) => u.id === id)
+  if (!user) return id ?? ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+
 // ─── Print / Export ─────────────────────────────────────────────────
 // Schema-derived columns (visibleColumns) only apply in log-book mode — a
 // mixed "all log books" view has no single schema to draw extra columns
@@ -504,8 +514,8 @@ function exportCsv(exportRows) {
     const payload = payloadFor(r)
     return [
       isLogBookMode.value ? (r.recordNumber ?? r.id) : templateTitle(r),
-      r.submittedAt?.toISO ? r.submittedAt.toISO() : (r.submittedAt ?? ''),
-      r.submittedByUserId ?? '',
+      r.submittedAt?.formatDate ? r.submittedAt.formatDate('datetime') : fmtDate(r.submittedAt),
+      userNameById(r.submittedByUserId),
       r.statusId ?? '',
       ...cols.map((c) => formatCellValue(c, payload[c.name], { maxLength: 1000 })),
     ]
