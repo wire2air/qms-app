@@ -74,6 +74,29 @@ const columns = computed(() => {
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
 
+// FAMILY/PRODUCT TYPE/STATUS only ever display via *BadgeById — DataTable's
+// fallback export reads the raw `productFamilyId`/`productTypeId`/`statusId`
+// UUIDs, so hand it an explicit exportColumns list instead.
+function familyLabel(id) {
+  return families.value.find((f) => f.id === id)?.name ?? ''
+}
+function productTypeLabel(id) {
+  return productTypes.value.find((t) => t.id === id)?.name ?? ''
+}
+function statusLabel(id) {
+  return productStatuses.value.find((s) => s.id === id)?.name ?? ''
+}
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'NAME', value: (row) => row.name ?? '' },
+  { key: 'sku', label: 'SKU', value: (row) => row.sku ?? '' },
+  { key: 'family', label: 'FAMILY', value: (row) => familyLabel(row.productFamilyId) },
+  { key: 'productType', label: 'PRODUCT TYPE', value: (row) => productTypeLabel(row.productTypeId) },
+  { key: 'status', label: 'STATUS', value: (row) => statusLabel(row.statusId) },
+  { key: 'createdAt', label: 'CREATED', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
 
@@ -123,6 +146,7 @@ const showImportDialog = ref(false)
       selectable
       filterable
       exportManager
+      :exportColumns="exportColumns"
       exportFilename="products.csv"
       persistKey="products"
       @rowClick="openDetail"
