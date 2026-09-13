@@ -87,6 +87,14 @@ const events = useLiveQueryWithDeps(
     () => list.filters.value.categoryId,
     () => list.filters.value.severityId,
     () => list.filters.value.activeFilter,
+    // The 'escalated' active filter reads escalatedIds, which comes from its
+    // own RecordLink live query. Depend on the resolved value rather than on
+    // the 'RecordLink' sync channel: both queries subscribe to that channel
+    // with the same debounce and nothing orders them, so a channel-triggered
+    // re-run here can read the *previous* escalatedIds and then never re-run
+    // once escalations lands. Watching the computed instead guarantees this
+    // query re-runs after that value has updated.
+    () => escalatedIds.value,
   ],
   async (db, [statusIds, categoryIds, severityIds, af]) => {
     let results = await db.QualityEvent.where().exec()

@@ -165,6 +165,44 @@ const allInstances = useLiveQuery(
 )
 
 const instances = computed(() => applyActiveFilter(allInstances.value, activeFilter.value))
+
+// Option source for resolving the Standard column on export — the table only
+// ever displays it via AuditStandardBadgeById, which reads AuditStandard
+// itself; DataTable's fallback export just reads the raw `auditStandardId`
+// UUID, so hand it an explicit exportColumns list instead.
+const auditStandards = useLiveQuery((db) => db.AuditStandard.where().exec(), {
+  models: ['AuditStandard'],
+  initial: [],
+})
+function standardLabel(id) {
+  const s = auditStandards.value.find((s) => s.id === id)
+  return s ? s.name || s.code || '' : ''
+}
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function userNameById(id) {
+  const user = users.value.find((u) => u.id === id)
+  if (!user) return ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+
+const exportColumns = computed(() => [
+  { key: 'number', label: 'Number', value: (row) => row.auditNumber || row.id.slice(0, 8) },
+  { key: 'standard', label: 'Standard', value: (row) => standardLabel(row.auditStandardId) },
+  { key: 'type', label: 'Type', value: (row) => TYPE_LABELS[row.programTypeId] || row.programTypeId },
+  { key: 'lead', label: 'Lead', value: (row) => userNameById(row.leadAuditorUserId) },
+  {
+    key: 'scheduled',
+    label: 'Scheduled',
+    value: (row) => row.scheduledDate?.formatDate?.('date') ?? '',
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    value: (row) =>
+      STATUS_FILTER_OPTIONS.find((s) => s.value === row.statusId)?.label ?? row.statusId ?? '',
+  },
+  { key: 'createdAt', label: 'Created', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+])
 </script>
 
 <template>
@@ -183,6 +221,7 @@ const instances = computed(() => applyActiveFilter(allInstances.value, activeFil
       searchable
       filterable
       exportManager
+      :exportColumns="exportColumns"
       exportFilename="audits.csv"
       persistKey="audits:instances"
       noDataLabel="No audits yet. Audits are minted by the daily generator from active programs — create a program with a next-due date to see your first audit."

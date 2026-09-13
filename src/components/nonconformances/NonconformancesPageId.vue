@@ -31,7 +31,7 @@ const loading = computed(() => nc.value === undefined)
 
 const breadcrumbs = computed(() => [
   { label: 'Nonconformances', to: getCompanyPath('/nonconformances') },
-  { label: nc.value?.ncNumber || nc.value?.title || 'Loading…' },
+  { label: nc.value?.ncNumber || nc.value?.title || (nc.value === null ? 'Not found' : 'Loading…') },
 ])
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────

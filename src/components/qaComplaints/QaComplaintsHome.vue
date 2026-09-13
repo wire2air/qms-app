@@ -8,6 +8,8 @@ import {
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
+import { DateTime } from 'luxon'
 
 /**
  * QA Complaints list — every customer complaint in the system (however it
@@ -17,6 +19,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
  * shared convert-to-NC dialog.
  */
 const router = useRouter()
+const toast = useToast()
 
 const canCreate = computed(() => isAllowed(['complaints:create']))
 const canUpdate = computed(() => isAllowed(['complaints:update']))
@@ -149,6 +152,71 @@ function onConverted(ncId) {
   selectedIds.value = []
   router.push(getCompanyPath(`/nonconformances/${ncId}`))
 }
+
+// ─── Export ──────────────────────────────────────────────────────────────
+// Field universe for the table's export manager — mirrors CustomerComplaintsHome's
+// export so the QA complaints list gets a real CSV/Excel file instead of relying
+// on DataTable's generic column-based fallback.
+//
+// NOTE: the `Complaint` model (QMS `complaints` table) is NOT the same shape as
+// `CustomerComplaint` (support `customer_complaints` table) that this table/export
+// pattern was copied from. `Complaint` has no priorityId/sentiment/assignedTo/
+// assignedTeamId fields, and its statusId/sourceId are foreign keys into the
+// separate ComplaintStatus / ComplaintSourceType lookups (not the customer-complaint
+// ones) — so those ids must be resolved to labels here, not read off *Status/*Source
+// filter option lists built for the other module.
+const complaintStatuses = useLiveQuery((db) => db.ComplaintStatus.where().exec(), {
+  models: ['ComplaintStatus'],
+  initial: [],
+})
+const complaintSources = useLiveQuery((db) => db.ComplaintSourceType.where().exec(), {
+  models: ['ComplaintSourceType'],
+  initial: [],
+})
+const allUsers = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+
+function statusLabel(id) {
+  return complaintStatuses.value.find((s) => s.id === id)?.name ?? id ?? ''
+}
+function sourceLabel(id) {
+  return complaintSources.value.find((s) => s.id === id)?.name ?? id ?? ''
+}
+function userLabel(id) {
+  const user = allUsers.value.find((u) => u.id === id)
+  if (!user) return id ?? ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+
+const exportColumns = computed(() => [
+  { key: 'Ticket', label: 'Ticket', value: (c) => c.complaintNumber ?? '' },
+  { key: 'Subject', label: 'Subject', value: (c) => c.subject ?? '' },
+  { key: 'Status', label: 'Status', value: (c) => statusLabel(c.statusId) },
+  { key: 'Source', label: 'Source', value: (c) => sourceLabel(c.sourceId) },
+  { key: 'Customer', label: 'Customer', value: (c) => c.customerName ?? '' },
+  { key: 'Customer Email', label: 'Customer Email', value: (c) => c.customerEmail ?? '' },
+  { key: 'Customer Company', label: 'Customer Company', value: (c) => c.customerCompany ?? '' },
+  { key: 'Owner', label: 'Owner', value: (c) => userLabel(c.ownerId) },
+  { key: 'Created', label: 'Created', value: (c) => c.createdAt?.formatDate?.('datetime') ?? '' },
+  {
+    key: 'Resolved',
+    label: 'Resolved',
+    value: (c) => c.resolvedAt?.formatDate?.('datetime') ?? '',
+  },
+  { key: 'Closed', label: 'Closed', value: (c) => c.closedAt?.formatDate?.('datetime') ?? '' },
+])
+
+function handleExport({ format, fields, rows }) {
+  if (!rows.length) {
+    toast.notify({ type: 'warning', message: 'Nothing to export — the current view is empty' })
+    return
+  }
+  const data = rows.map((row) => Object.fromEntries(fields.map((f) => [f.label, f.value(row)])))
+  const sheet = xlsxUtils.json_to_sheet(data)
+  const book = xlsxUtils.book_new()
+  xlsxUtils.book_append_sheet(book, sheet, 'Complaints')
+  const stamp = DateTime.now().toFormat('yyyyLLdd-HHmm')
+  xlsxWriteFile(book, `complaints-${stamp}.${format}`, { bookType: format })
+}
 </script>
 
 <template>
@@ -185,6 +253,9 @@ function onConverted(ncId) {
       detailBasePath="/complaints"
       :ownerAsAssignee="true"
       :emptyLabel="activeFilter === 'all' ? 'No complaints yet' : 'No complaints match this view'"
+      :exportColumns="exportColumns"
+      :exportFormats="['csv', 'xlsx']"
+      @export="handleExport"
     >
       <!-- Quick views -->
       <template #tabs>

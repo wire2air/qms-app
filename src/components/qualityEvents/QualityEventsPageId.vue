@@ -542,7 +542,10 @@ function targetRoute(link) {
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const breadcrumbs = computed(() => [
   { label: 'Events', to: getCompanyPath('/qualityEvents') },
-  { label: event.value?.title || event.value?.eventNumber || 'Loading…' },
+  {
+    label:
+      event.value?.title || event.value?.eventNumber || (event.value === null ? 'Not found' : 'Loading…'),
+  },
 ])
 const qualityEventBanners = computed(() => buildQualityEventBanners(event.value))
 const qualityEventActions = computed(() =>

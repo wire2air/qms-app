@@ -136,7 +136,7 @@ const tabs = [
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const breadcrumbs = computed(() => [
   { label: 'Training Library', to: getCompanyPath('/trainings') },
-  { label: training.value?.title || 'Loading…' },
+  { label: training.value?.title || (training.value === null ? 'Not found' : 'Loading…') },
 ])
 const statusHelp = computed(() => trainingStatusHelp(training.value))
 const trainingActions = computed(() =>
