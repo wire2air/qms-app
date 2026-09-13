@@ -1,52 +1,56 @@
 <script setup>
 /**
  * Small "Expires in N days" / "Expired" pill driven by a date prop.
- * Colour bands:
- *   already expired  → red
- *   ≤ 30 days        → amber
- *   ≤ 90 days        → yellow
- *   > 90 days        → green (low-key)
- *   null / no date   → neutral grey "no expiry"
  *
- * Used today by the supplier cert list; trivially reusable for any
- * other expiring-thing surface (document review windows, training
- * recertification dates, etc.).
+ * The bands are NOT hand-picked. They come from `reminderWindows` — the same
+ * day list the cron uses (worker/tasks/send_supplier_certificate_expiry_notification.js,
+ * REMINDER_WINDOWS_DAYS = [90, 30, 0]) — so the pill cannot claim a
+ * certificate is fine on a day the system emails a warning about it. The
+ * arithmetic and that invariant live in certificateExpiry.js, which is unit
+ * tested; this file is colour only.
+ *
+ *   expired → red     lapsed. The cron stops emailing past day 0, so the pill
+ *                     is the ONLY signal here — loudest on purpose.
+ *   due     → orange  inside the innermost window (day 0): emailing today.
+ *   warning → amber   inside the second window (<= 30 days).
+ *   notice  → yellow  inside the outermost window (<= 90 days).
+ *   ok      → green   beyond every window.
+ *   none    → grey    no expiry recorded.
+ *
+ * The helper module sits under components/suppliers/ because the windows it
+ * mirrors are the supplier-certificate cron's. If a second surface (document
+ * review windows, training recertification) ever needs a different schedule,
+ * it passes its own `reminderWindows` — the pill itself is generic.
  */
-import { DateTime } from 'luxon'
+import { REMINDER_WINDOWS_DAYS, describeExpiry } from '@/components/suppliers/certificateExpiry.js'
 
 const props = defineProps({
   expiresAt: { type: [Object, String, Date, null], default: null },
+  // Day offsets on which a reminder is sent. Defaults to the supplier
+  // certificate schedule; override for a surface with its own cadence.
+  reminderWindows: { type: Array, default: () => REMINDER_WINDOWS_DAYS },
 })
 
-const dt = computed(() => {
-  if (!props.expiresAt) return null
-  if (props.expiresAt instanceof DateTime) return props.expiresAt
-  return DateTime.fromJSDate(new Date(props.expiresAt))
-})
+const expiry = computed(() => describeExpiry(props.expiresAt, { windows: props.reminderWindows }))
 
-const daysUntilExpiry = computed(() => {
-  if (!dt.value) return null
-  return Math.floor(dt.value.diff(DateTime.now(), 'days').days)
-})
+const CLASS_MAP = {
+  none: 'tw:bg-gray-100 tw:text-gray-600',
+  expired: 'tw:bg-red-100 tw:text-red-700',
+  due: 'tw:bg-orange-100 tw:text-orange-700',
+  warning: 'tw:bg-amber-100 tw:text-amber-700',
+  notice: 'tw:bg-yellow-100 tw:text-yellow-700',
+  ok: 'tw:bg-green-100 tw:text-green-700',
+}
 
-const label = computed(() => {
-  if (daysUntilExpiry.value === null) return 'No expiry'
-  const d = daysUntilExpiry.value
-  if (d < 0) return `Expired ${-d}d ago`
-  if (d === 0) return 'Expires today'
-  if (d === 1) return 'Expires tomorrow'
-  return `Expires in ${d}d`
-})
+const className = computed(() => CLASS_MAP[expiry.value.bucket] || CLASS_MAP.none)
 
-const className = computed(() => {
-  if (daysUntilExpiry.value === null) {
-    return 'tw:bg-gray-100 tw:text-gray-600'
-  }
-  const d = daysUntilExpiry.value
-  if (d < 0) return 'tw:bg-red-100 tw:text-red-700'
-  if (d <= 30) return 'tw:bg-amber-100 tw:text-amber-700'
-  if (d <= 90) return 'tw:bg-yellow-100 tw:text-yellow-700'
-  return 'tw:bg-green-100 tw:text-green-700'
+// Spelled out on hover: the pill is compact ("Expires in 45d") and the exact
+// date plus "a reminder goes out today" is the part people act on.
+const title = computed(() => {
+  const parts = [expiry.value.label]
+  if (props.expiresAt?.formatDate) parts.push(props.expiresAt.formatDate('date'))
+  if (expiry.value.notifiesToday) parts.push('a renewal reminder is sent today')
+  return parts.join(' · ')
 })
 </script>
 
@@ -54,7 +58,8 @@ const className = computed(() => {
   <span
     class="tw:inline-flex tw:items-center tw:text-xs tw:font-medium tw:rounded-md tw:border tw:border-current/20 tw:px-2 tw:py-0.5 tw:whitespace-nowrap"
     :class="className"
+    :title="title"
   >
-    {{ label }}
+    {{ expiry.label }}
   </span>
 </template>

@@ -504,7 +504,7 @@ function goBack() {
         </button>
         <div class="tw:flex tw:flex-col tw:items-end tw:gap-1">
           <p v-if="saveError" class="tw:text-sm tw:text-red-600">{{ saveError }}</p>
-          <BaseButton :loading="saving" @click="formRef?.submit()">
+          <BaseButton :isLoading="saving" @click="formRef?.submit()">
             {{ isEditMode ? 'Save Changes' : 'Create Template' }}
           </BaseButton>
         </div>

@@ -31,18 +31,25 @@ export function buildCapaBanners(capa, { isEditable } = {}) {
   return banners
 }
 
-/** Anchor-nav sections for the CAPA body (SP-6). Effectiveness always visible;
- *  the CapaEffectivenessCheckCard self-manages its mode (pre-close vs. active).
- */
+/** Anchor-nav sections for the CAPA body (SP-6). */
 export function buildCapaSections(_capa) {
   return [
     { id: 'details', label: 'Details' },
     { id: 'workflow', label: 'Workflow' },
     // The Effectiveness section is gone (2026-08-18). Effectiveness checks are
     // a DELAY step in the workflow now, so they render with the rest of the
-    // steps rather than in a section of their own. The record-based
-    // CapaEffectivenessCheck table, its endpoints and its card are still in
-    // the codebase but unreachable — kept only until the transition is done.
+    // steps rather than in a section of their own.
+    //
+    // The four unreachable record-based components that survived that cutover
+    // — CapaEffectivenessCheckCard, …ScheduleDialog, …RenewDialog and
+    // CapaRecordViewerDialog — were DELETED on 2026-09-08. Each had zero
+    // import sites anywhere in src/ or e2e/, so they were shipped in every
+    // bundle, reviewed as if live, and read by two doc cycles as evidence of
+    // capability the product did not have. The backend table, endpoints and
+    // reminder job remain — 66 checks are still open on CAPAs closed before
+    // the cutover, and they are driven from the task surface
+    // (TaskInstanceCapaEffectivenessActions → CapaEffectivenessCheckComplete
+    // Dialog, which is NOT orphaned and stays).
   ]
 }
 

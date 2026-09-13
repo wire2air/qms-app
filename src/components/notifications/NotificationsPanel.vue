@@ -4,14 +4,22 @@ import { DateTime } from 'luxon'
 
 const emit = defineEmits(['close'])
 
+// No `initial: []` — the ref stays `undefined` until the first query result
+// arrives, which is what makes `loading` below a real, reachable state instead
+// of dead code. Same pattern as NotificationsPage.vue's `allNotifications`.
 const notifications = useLiveQuery(
   async (db) => db.Notification.where().orderBy('createdAt', 'desc').exec(),
 
-  { models: ['Notification'], initial: [] },
+  { models: ['Notification'] },
 )
 
-const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length)
-const previewNotifications = computed(() => notifications.value.slice(0, 6))
+const loading = computed(() => notifications.value === undefined)
+const unreadCount = computed(() => notifications.value?.filter((n) => !n.isRead).length ?? 0)
+const previewNotifications = computed(() => (notifications.value ?? []).slice(0, 6))
+// The footer's `v-if` runs unconditionally (it's a sibling of the loading
+// branch, not part of that if/else chain), so it needs its own null-safe count
+// rather than reading `notifications.length` directly while still loading.
+const totalCount = computed(() => notifications.value?.length ?? 0)
 const viewAllPath = '/notifications'
 
 const markAllAsRead = useLiveMutation(async (db) => {
@@ -74,7 +82,7 @@ function handleViewAll() {
 
     <!-- View all footer -->
     <div
-      v-if="notifications.length > 0"
+      v-if="totalCount > 0"
       class="tw:border-t tw:border-divider tw:px-4 tw:py-2.5 tw:text-center"
     >
       <RouterLink
@@ -83,8 +91,8 @@ function handleViewAll() {
         @click="handleViewAll"
       >
         View all notifications
-        <span v-if="notifications.length > 6" class="tw:text-gray-400 tw:font-normal">
-          ({{ notifications.length }}+)
+        <span v-if="totalCount > 6" class="tw:text-gray-400 tw:font-normal">
+          ({{ totalCount }}+)
         </span>
       </RouterLink>
     </div>

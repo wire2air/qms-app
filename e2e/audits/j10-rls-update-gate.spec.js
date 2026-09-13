@@ -1,38 +1,77 @@
-// PW-J10 · 🔴 six audit tables have a company-only UPDATE policy (finding #2).
+// PW-J10 · six audit tables' UPDATE policies gate on has_permission (finding #2).
 //
-// Their SELECT / INSERT / DELETE policies are permission-gated; UPDATE is not —
-// it checks company_id and stops. PostGraphile issues `SET ROLE app_user` for
-// every GraphQL request unconditionally, so RLS is the ONLY thing standing
-// between an authenticated company member and a raw mutation on these rows.
-// With the gate reduced to company scope, any member can reassign a finding,
+// ─────────────────────────────────────────────────────────────────────────────
+// WHAT WAS HERE
+//
+// audit_instances, audit_evidence, audit_findings, audit_programs,
+// audit_requirements, audit_standards and audit_standard_versions all had a
+// company-scoped-only UPDATE policy while their SELECT / INSERT / DELETE
+// policies gated on a permission. PostGraphile issues `SET ROLE app_user` for
+// every GraphQL request unconditionally, so RLS was the ONLY thing standing
+// between an authenticated company member and a raw mutation on these rows —
+// with the gate reduced to company scope, any member could reassign a finding,
 // re-price its severity, or rewrite a standard's clause text without holding
-// any *:update permission, team membership, or share grant.
+// any *:update permission, team membership, or share grant. This file
+// documented that as a set of EXPECTED-TO-FAIL probes.
 //
-// The probe runs SQL as `app_user` with the session GUCs requireCompanyAccess
-// would set (fixtures/db.js sqlAsAppUser) rather than through GraphQL. That is
-// the same layer PostGraphile runs at, it removes the API surface as a variable,
-// and it is how the sites/departments suites probe RLS. A refusal shows up as
-// zero rows changed, not an error — so every assertion reads the value back.
+// FIXED: AUDIT-RLS-2 (2026-09-07, database/rls.sql) added a permission gate to
+// every one of these UPDATE policies — `audit_findings_update_rls` on
+// `audit_findings:update`, `audit_programs_update_rls` on
+// `audit_programs:update`, `audit_requirements_update_rls` /
+// `audit_standards_update_rls` / `audit_standard_versions_update_rls` on
+// `audit_standards:update`. `audit_instances_upd` (the generator-managed
+// native policy) already required `audit_management:update AND
+// authz.scope_allowed(...)` — the comment in rls.sql above it wrongly claimed
+// it was "company-wide/ungated" (corrected 2026-09-08); it was always the
+// CONTROL here, not a sixth defect. These are therefore REGRESSION GUARDS now,
+// not demonstrations of a bypass. `audit_evidence` shares the fix but still
+// needs an uploaded file to probe and stays out of scope for this file, same
+// as before.
 //
-// The actor is `auditReader` — *:read on every audit module, no write action
-// anywhere — and that choice is load-bearing. Postgres applies the SELECT policy
-// when an UPDATE has to locate its rows, so a user who cannot READ a finding
-// cannot exploit its company-only UPDATE policy either. The exposure is
-// therefore precisely "anyone who can see the record can rewrite it", which is
-// the most ordinary role in the module, not an exotic one.
+// Nothing about the MECHANICS below changed — the probe always ran raw SQL as
+// `app_user` rather than through the API, for the reasons in the next section
+// — only the framing, and now every probe is PAIRED: the same row is first
+// attempted by a persona with no relevant grant (must have no effect) and then
+// by a persona that holds it (must take effect). A one-sided "the denied user
+// is denied" is worth nothing on its own — it passes identically when the
+// policy is simply broken and refuses everyone, which is a different bug
+// wearing the same green checkmark. Pairing is the same principle
+// e2e/auditLogs/a1-read-gate.spec.js uses for the read side of this module.
 //
-// audit_instances is the CONTROL: it had this exact defect, it was fixed on
-// 2026-07-22, and it must stay refused. A run where the control goes red is a
-// regression of that fix.
+// ─────────────────────────────────────────────────────────────────────────────
+// WHY RAW SQL AS app_user, NOT A REST OR GRAPHQL CALL
 //
-// EXPECTED TO FAIL for the five tables probed here. The sixth, `audit_evidence`,
-// shares the defect but needs an uploaded file to probe and is not covered yet.
+// `REST_RLS_ENABLED` is off by default (see root CLAUDE.md, "Auth & company
+// scoping") — Sequelize/REST connects as the DB superuser, which bypasses RLS
+// entirely, so a REST PATCH here would prove nothing about the policy. RLS
+// fires unconditionally for PostGraphile, because `config/postgraphile.js`
+// issues `SET ROLE app_user` for every request — that is the layer this file
+// probes. `sqlAsAppUser` (fixtures/db.js) reproduces exactly that: a real
+// `SET ROLE app_user` plus the session GUCs `requireCompanyAccess`/PostGraphile
+// would set, on a raw connection, with no API surface as a variable. Same
+// approach as j9-standards-permission-bypass.spec.js's CONTROL and every probe
+// in auditLogs/a1-read-gate.spec.js.
+//
+// An RLS-denied UPDATE returns rowCount 0 — it does NOT raise. Nothing throws,
+// nothing 403s: the policy simply matches no rows. So every assertion below
+// reads the row back and compares values / a changed-or-not fact; none of them
+// assert on a thrown error or a status code.
+//
+// The DENIED actor is `auditReader` — *:read on every audit module, no write
+// action anywhere — and that choice is load-bearing. Postgres applies the
+// SELECT policy when an UPDATE has to locate its rows, so a user who cannot
+// READ a finding cannot exploit its UPDATE policy either; using her means the
+// exposure being guarded against is "anyone who can see the record can rewrite
+// it", the most ordinary role in the module, not an exotic one. The GRANTED
+// actor is `author` — every audit_management / audit_standards /
+// audit_programs / audit_findings action, `tenant` scope — the lead-auditor
+// persona this module's other journeys already write through.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUDIT_STANDARD, COMPANY_ID, USERS } from '../fixtures/cast.js'
 import { sql, sqlValue, sqlAsAppUser } from '../fixtures/db.js'
 
-// The persona: read-only across every audit module, no write action anywhere.
-const ACTOR = { userId: USERS.auditReader.id, companyId: COMPANY_ID }
+const DENIED = { userId: USERS.auditReader.id, companyId: COMPANY_ID }
+const GRANTED = { userId: USERS.author.id, companyId: COMPANY_ID }
 
 /** Insert the rows the finding/program probes need, as superuser (bypasses RLS). */
 function seedProbeRows(tag) {
@@ -68,107 +107,184 @@ function cleanup({ instanceId, findingId, programId }) {
   sql(`DELETE FROM audit_programs WHERE id = '${programId}'`)
 }
 
-test.describe('PW-J10 · raw UPDATE as an unprivileged member', () => {
-  test('CONTROL · audit_instances (fixed 2026-07-22) refuses the write', async () => {
+test.describe('PW-J10 · raw UPDATE gated on has_permission(module, "update")', () => {
+  test('CONTROL · audit_instances (fixed 2026-07-22) — denied without permission, applied with it', async () => {
     const rows = seedProbeRows(`ctl-${Date.now()}`)
     try {
       sqlAsAppUser(
         `UPDATE audit_instances SET scope = 'PW-J10 TAMPERED' WHERE id = '${rows.instanceId}';`,
-        ACTOR,
+        DENIED,
       )
       expect(
         sqlValue(`SELECT scope FROM audit_instances WHERE id = '${rows.instanceId}'`),
-        'the tightened audit_instances UPDATE policy must still hold',
+        'no audit_management:update — the write must not take effect',
       ).not.toContain('TAMPERED')
+
+      sqlAsAppUser(
+        `UPDATE audit_instances SET scope = 'PW-J10 GRANTED' WHERE id = '${rows.instanceId}';`,
+        GRANTED,
+      )
+      expect(
+        sqlValue(`SELECT scope FROM audit_instances WHERE id = '${rows.instanceId}'`),
+        'holds audit_management:update — the write must take effect (the gate is not refusing everyone)',
+      ).toBe('PW-J10 GRANTED')
     } finally {
       cleanup(rows)
     }
   })
 
-  test('🔴 audit_findings: severity + assignee are rewritable without permission (FAILS TODAY)', async () => {
+  test('audit_findings: UPDATE requires audit_findings:update', async () => {
     const rows = seedProbeRows(`fnd-${Date.now()}`)
     try {
       sqlAsAppUser(
         `UPDATE audit_findings
             SET severity_score = 9, assigned_to_user_id = '${USERS.auditReader.id}'
           WHERE id = '${rows.findingId}';`,
-        ACTOR,
+        DENIED,
       )
-      const after = sql(
+      const denied = sql(
         `SELECT severity_score, coalesce(assigned_to_user_id::text,'') FROM audit_findings WHERE id = '${rows.findingId}'`,
       ).split('|')
-      expect(
-        Number(after[0]),
-        'severity must not be rewritable without audit_findings:update',
-      ).toBe(1)
-      expect(after[1], 'assignee must not be rewritable without audit_findings:update').toBe('')
+      expect(Number(denied[0]), 'no audit_findings:update — severity must be unchanged').toBe(1)
+      expect(denied[1], 'no audit_findings:update — assignee must be unchanged').toBe('')
+
+      sqlAsAppUser(
+        `UPDATE audit_findings
+            SET severity_score = 9, assigned_to_user_id = '${USERS.author.id}'
+          WHERE id = '${rows.findingId}';`,
+        GRANTED,
+      )
+      const granted = sql(
+        `SELECT severity_score, coalesce(assigned_to_user_id::text,'') FROM audit_findings WHERE id = '${rows.findingId}'`,
+      ).split('|')
+      expect(Number(granted[0]), 'holds audit_findings:update — severity must change').toBe(9)
+      expect(granted[1], 'holds audit_findings:update — assignee must change').toBe(USERS.author.id)
     } finally {
       cleanup(rows)
     }
   })
 
-  test('🔴 audit_programs: schedule is rewritable without permission (FAILS TODAY)', async () => {
+  test('audit_programs: UPDATE requires audit_programs:update', async () => {
     const rows = seedProbeRows(`prg-${Date.now()}`)
     try {
       sqlAsAppUser(
         `UPDATE audit_programs SET name = 'PW-J10 TAMPERED', active = false WHERE id = '${rows.programId}';`,
-        ACTOR,
+        DENIED,
       )
-      const after = sql(
+      const denied = sql(
         `SELECT name, active FROM audit_programs WHERE id = '${rows.programId}'`,
       ).split('|')
-      expect(
-        after[0],
-        'a program name must not be rewritable without audit_programs:update',
-      ).not.toContain('TAMPERED')
-      expect(after[1], 'a recurring schedule must not be silently deactivated').toBe('t')
+      expect(denied[0], 'no audit_programs:update — name must be unchanged').not.toContain(
+        'TAMPERED',
+      )
+      expect(denied[1], 'no audit_programs:update — schedule must not be silently deactivated').toBe(
+        't',
+      )
+
+      sqlAsAppUser(
+        `UPDATE audit_programs SET name = 'PW-J10 GRANTED', active = false WHERE id = '${rows.programId}';`,
+        GRANTED,
+      )
+      const granted = sql(
+        `SELECT name, active FROM audit_programs WHERE id = '${rows.programId}'`,
+      ).split('|')
+      expect(granted[0], 'holds audit_programs:update — name must change').toBe('PW-J10 GRANTED')
+      expect(granted[1], 'holds audit_programs:update — active must change').toBe('f')
     } finally {
       cleanup(rows)
     }
   })
 
-  test('🔴 audit_requirements: clause text is rewritable without permission (FAILS TODAY)', async () => {
+  test('audit_requirements: UPDATE requires audit_standards:update', async () => {
     const clause = AUDIT_STANDARD.clauses.documentControl
     const before = sqlValue(`SELECT title FROM audit_requirements WHERE id = '${clause.id}'`)
-    sqlAsAppUser(
-      `UPDATE audit_requirements SET title = 'PW-J10 TAMPERED' WHERE id = '${clause.id}';`,
-      ACTOR,
-    )
-    const after = sqlValue(`SELECT title FROM audit_requirements WHERE id = '${clause.id}'`)
-    // Restore before asserting — the seeded clause is shared with every other
-    // journey, and this test is expected to fail.
-    sql(`UPDATE audit_requirements SET title = '${before}' WHERE id = '${clause.id}'`)
-    expect(after, 'clause text must not be rewritable without audit_standards:update').toBe(before)
+    try {
+      sqlAsAppUser(
+        `UPDATE audit_requirements SET title = 'PW-J10 TAMPERED' WHERE id = '${clause.id}';`,
+        DENIED,
+      )
+      expect(
+        sqlValue(`SELECT title FROM audit_requirements WHERE id = '${clause.id}'`),
+        'no audit_standards:update — clause text must be unchanged',
+      ).toBe(before)
+
+      sqlAsAppUser(
+        `UPDATE audit_requirements SET title = 'PW-J10 GRANTED' WHERE id = '${clause.id}';`,
+        GRANTED,
+      )
+      expect(
+        sqlValue(`SELECT title FROM audit_requirements WHERE id = '${clause.id}'`),
+        'holds audit_standards:update — clause text must change',
+      ).toBe('PW-J10 GRANTED')
+    } finally {
+      // The seeded clause is shared with every other journey — always restore,
+      // regardless of which assertion above failed.
+      sql(`UPDATE audit_requirements SET title = '${before}' WHERE id = '${clause.id}'`)
+    }
   })
 
-  test('🔴 audit_standards: identity metadata is rewritable without permission (FAILS TODAY)', async () => {
+  test('audit_standards: UPDATE requires audit_standards:update', async () => {
     const before = sqlValue(
       `SELECT coalesce(description,'') FROM audit_standards WHERE id = '${AUDIT_STANDARD.id}'`,
     )
-    sqlAsAppUser(
-      `UPDATE audit_standards SET description = 'PW-J10 TAMPERED' WHERE id = '${AUDIT_STANDARD.id}';`,
-      ACTOR,
-    )
-    const after = sqlValue(
-      `SELECT coalesce(description,'') FROM audit_standards WHERE id = '${AUDIT_STANDARD.id}'`,
-    )
-    sql(`UPDATE audit_standards SET description = '${before}' WHERE id = '${AUDIT_STANDARD.id}'`)
-    expect(after, 'a standard must not be rewritable without audit_standards:update').toBe(before)
+    try {
+      sqlAsAppUser(
+        `UPDATE audit_standards SET description = 'PW-J10 TAMPERED' WHERE id = '${AUDIT_STANDARD.id}';`,
+        DENIED,
+      )
+      expect(
+        sqlValue(
+          `SELECT coalesce(description,'') FROM audit_standards WHERE id = '${AUDIT_STANDARD.id}'`,
+        ),
+        'no audit_standards:update — description must be unchanged',
+      ).toBe(before)
+
+      sqlAsAppUser(
+        `UPDATE audit_standards SET description = 'PW-J10 GRANTED' WHERE id = '${AUDIT_STANDARD.id}';`,
+        GRANTED,
+      )
+      expect(
+        sqlValue(
+          `SELECT coalesce(description,'') FROM audit_standards WHERE id = '${AUDIT_STANDARD.id}'`,
+        ),
+        'holds audit_standards:update — description must change',
+      ).toBe('PW-J10 GRANTED')
+    } finally {
+      sql(`UPDATE audit_standards SET description = '${before}' WHERE id = '${AUDIT_STANDARD.id}'`)
+    }
   })
 
-  test('🔴 audit_standard_versions: version state is rewritable without permission (FAILS TODAY)', async () => {
+  test('audit_standard_versions: UPDATE requires audit_standards:update', async () => {
     const versionId = AUDIT_STANDARD.effectiveVersionId
     const before = sqlValue(
       `SELECT coalesce(change_summary,'') FROM audit_standard_versions WHERE id = '${versionId}'`,
     )
-    sqlAsAppUser(
-      `UPDATE audit_standard_versions SET change_summary = 'PW-J10 TAMPERED' WHERE id = '${versionId}';`,
-      ACTOR,
-    )
-    const after = sqlValue(
-      `SELECT coalesce(change_summary,'') FROM audit_standard_versions WHERE id = '${versionId}'`,
-    )
-    sql(`UPDATE audit_standard_versions SET change_summary = '${before}' WHERE id = '${versionId}'`)
-    expect(after, 'a controlled version row must not be rewritable without permission').toBe(before)
+    try {
+      sqlAsAppUser(
+        `UPDATE audit_standard_versions SET change_summary = 'PW-J10 TAMPERED' WHERE id = '${versionId}';`,
+        DENIED,
+      )
+      expect(
+        sqlValue(
+          `SELECT coalesce(change_summary,'') FROM audit_standard_versions WHERE id = '${versionId}'`,
+        ),
+        'no audit_standards:update — a controlled version row must be unchanged',
+      ).toBe(before)
+
+      sqlAsAppUser(
+        `UPDATE audit_standard_versions SET change_summary = 'PW-J10 GRANTED' WHERE id = '${versionId}';`,
+        GRANTED,
+      )
+      expect(
+        sqlValue(
+          `SELECT coalesce(change_summary,'') FROM audit_standard_versions WHERE id = '${versionId}'`,
+        ),
+        'holds audit_standards:update — the version row must change',
+      ).toBe('PW-J10 GRANTED')
+    } finally {
+      sql(
+        `UPDATE audit_standard_versions SET change_summary = '${before}' WHERE id = '${versionId}'`,
+      )
+    }
   })
 })

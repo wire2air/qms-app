@@ -18,6 +18,15 @@ const canUpdate = computed(() => isAllowed(['teams:update']))
 // (the same permission that governs the roles matrix), not teams:update. The
 // RLS on roles_on_teams enforces this server-side regardless of the UI gate.
 const canManageTeamRoles = computed(() => isAllowed(['role_permission_management:update']))
+// F-08 (docs/modules/groups-teams) — user_on_team_insert_rls is CONDITIONAL:
+// joining/leaving this team needs teams:update alone UNLESS the team currently
+// carries a live role via roles_on_teams, in which case it also needs
+// role_permission_management:update. `teamRoles` below already excludes
+// soft-deleted grants (paranoid query), so this mirrors the RLS clause's own
+// `NOT EXISTS (live roles_on_teams row) OR rpm:update` exactly.
+const canEditMembership = computed(
+  () => canUpdate.value && (teamRoles.value.length === 0 || canManageTeamRoles.value),
+)
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
@@ -305,121 +314,128 @@ const groupDetailConfig = computed(() =>
     </template>
 
     <template v-if="group" #section-details>
-          <div class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
-            <div
-              class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
+      <div class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
+        <div
+          class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
+        >
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <h3
+              class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
             >
-              <div class="tw:flex tw:items-center tw:gap-2">
-                <h3 class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-                  Members
-                </h3>
-                <span
-                  class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
-                >
-                  {{ memberCount }}
-                </span>
-              </div>
-              <!-- Adding a member INSERTs users_on_teams, whose RLS requires
-                   `teams:update`. Only show Add Members when the user holds it —
-                   otherwise the picker appeared but every add hit "Something went
-                   wrong". Mirrors the roles-add control gated on canManageTeamRoles. -->
-              <BaseSelect
-                v-if="canUpdate"
-                :modelValue="userIdsOnTeam"
-                :options="filteredUsers"
-                optionLabel="name"
-                optionValue="id"
-                :multiple="true"
-                @update:modelValue="onAddMembers"
-              >
-                <template #trigger>
-                  <button
-                    class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
-                  >
-                    <IconUserPlus :size="14" />
-                    Add Members
-                  </button>
-                </template>
-              </BaseSelect>
-            </div>
-
-            <!-- Member List -->
-            <div v-if="memberships.length > 0" class="tw:divide-y tw:divide-divider">
-              <div
-                v-for="entry in memberships"
-                :key="entry.m.id"
-                class="tw:flex tw:items-center tw:p-4 tw:hover:bg-main-hover tw:transition-colors"
-              >
-                <UsersListItem
-                  class="tw:w-full"
-                  :user="entry.user"
-                  :clearable="canUpdate"
-                  @clear="onRemoveMember(entry)"
-                />
-              </div>
-            </div>
-
-            <div
-              v-else
-              class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-b-xl"
+              Members
+            </h3>
+            <span
+              class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
             >
-              No members assigned yet.
-            </div>
+              {{ memberCount }}
+            </span>
           </div>
-
-          <!-- Roles granted via this team: every member inherits these roles. -->
-          <div class="tw:mt-6 tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
-            <div
-              class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
-            >
-              <div class="tw:flex tw:items-center tw:gap-2">
-                <h3 class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-                  Roles
-                </h3>
-                <span
-                  class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
-                >
-                  {{ roleIdsOnTeam.length }}
-                </span>
-              </div>
-              <RoleSelectMenu
-                v-if="canManageTeamRoles"
-                :modelValue="roleIdsOnTeam"
-                :multiple="true"
-                @update:modelValue="onRolesChange"
+          <!-- Adding a member INSERTs users_on_teams, whose RLS requires
+                   `teams:update` alone UNLESS this team carries a live role, in
+                   which case it also requires role_permission_management:update
+                   (F-01's fix on user_on_team_insert_rls). Gating on canUpdate
+                   alone (F-08) showed a working-looking control that then hit
+                   "Something went wrong" on exactly the groups where it
+                   mattered most; canEditMembership mirrors the RLS clause. -->
+          <BaseSelect
+            v-if="canEditMembership"
+            :modelValue="userIdsOnTeam"
+            :options="filteredUsers"
+            optionLabel="name"
+            optionValue="id"
+            :multiple="true"
+            @update:modelValue="onAddMembers"
+          >
+            <template #trigger>
+              <button
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
               >
-                <template #button>
-                  <button
-                    class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
-                  >
-                    <IconShieldPlus :size="14" />
-                    Assign Roles
-                  </button>
-                </template>
-              </RoleSelectMenu>
-            </div>
+                <IconUserPlus :size="14" />
+                Add Members
+              </button>
+            </template>
+          </BaseSelect>
+        </div>
 
-            <p class="tw:px-6 tw:pt-3 tw:text-xs tw:text-secondary">
-              Every member of this team inherits these roles in addition to their own.
-            </p>
-
-            <div v-if="roleIdsOnTeam.length > 0" class="tw:flex tw:flex-wrap tw:gap-2 tw:p-4">
-              <RoleBadgeById
-                v-for="roleId in roleIdsOnTeam"
-                :key="roleId"
-                :roleId="roleId"
-                :clearable="canManageTeamRoles"
-                @clear="onRemoveRole(roleId)"
-              />
-            </div>
-
-            <div
-              v-else
-              class="tw:m-4 tw:mt-2 tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-xl"
-            >
-              No roles granted via this team.
-            </div>
+        <!-- Member List -->
+        <div v-if="memberships.length > 0" class="tw:divide-y tw:divide-divider">
+          <div
+            v-for="entry in memberships"
+            :key="entry.m.id"
+            class="tw:flex tw:items-center tw:p-4 tw:hover:bg-main-hover tw:transition-colors"
+          >
+            <UsersListItem
+              class="tw:w-full"
+              :user="entry.user"
+              :clearable="canEditMembership"
+              @clear="onRemoveMember(entry)"
+            />
           </div>
+        </div>
+
+        <div
+          v-else
+          class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-b-xl"
+        >
+          No members assigned yet.
+        </div>
+      </div>
+
+      <!-- Roles granted via this team: every member inherits these roles. -->
+      <div class="tw:mt-6 tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
+        <div
+          class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
+        >
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <h3
+              class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+            >
+              Roles
+            </h3>
+            <span
+              class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
+            >
+              {{ roleIdsOnTeam.length }}
+            </span>
+          </div>
+          <RoleSelectMenu
+            v-if="canManageTeamRoles"
+            :modelValue="roleIdsOnTeam"
+            :multiple="true"
+            @update:modelValue="onRolesChange"
+          >
+            <template #button>
+              <button
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+              >
+                <IconShieldPlus :size="14" />
+                Assign Roles
+              </button>
+            </template>
+          </RoleSelectMenu>
+        </div>
+
+        <p class="tw:px-6 tw:pt-3 tw:text-xs tw:text-secondary">
+          Every member of this team inherits these roles in addition to their own.
+        </p>
+
+        <div v-if="roleIdsOnTeam.length > 0" class="tw:flex tw:flex-wrap tw:gap-2 tw:p-4">
+          <RoleBadgeById
+            v-for="roleId in roleIdsOnTeam"
+            :key="roleId"
+            :roleId="roleId"
+            :clearable="canManageTeamRoles"
+            @clear="onRemoveRole(roleId)"
+          />
+        </div>
+
+        <div
+          v-else
+          class="tw:m-4 tw:mt-2 tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-xl"
+        >
+          No roles granted via this team.
+        </div>
+      </div>
     </template>
   </BaseDetailLayout>
 

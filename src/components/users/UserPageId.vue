@@ -42,6 +42,17 @@ const uploadingAvatar = ref(false)
 const sendingInvite = ref(false)
 const showRoleSelect = ref(false)
 const editingName = ref(false)
+// The first/last name inputs share one edit-mode flag, but each is a
+// separate <input> — moving focus from one to the other (Tab, or a click
+// landing on the second field) fires `blur` on the departing input before
+// focus lands on the next one. A per-input `@blur="editingName = false"`
+// therefore collapsed the whole group mid-edit. `focusout` bubbles to the
+// shared container, and `relatedTarget` (the element gaining focus) lets us
+// only close when focus actually leaves the group.
+function onNameFocusOut(e) {
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return
+  editingName.value = false
+}
 
 const { isSaving, saveError } = useAutoSave(user)
 
@@ -55,7 +66,14 @@ const roleAssignments = useLiveQueryWithDeps(
   { models: ['RoleOnUser'], initial: [] },
 )
 
-const assignedRoleIds = computed(() => roleAssignments.value.map((ra) => ra.roleId))
+// Deduped: legacy databases can hold several live roles_on_users rows for the
+// same (user, role, company) — the partial unique index that prevents that was
+// folded back into an already-applied create migration, so it never ran on
+// pre-existing databases. Without the dedupe the select renders duplicate
+// entries and `toRemove` below repeats an id once per surviving row.
+const assignedRoleIds = computed(() => [
+  ...new Set(roleAssignments.value.map((ra) => ra.roleId)),
+])
 
 const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
   const assignment = db.RoleOnUser.create({ userId, roleId })
@@ -72,8 +90,14 @@ async function handleRolesChange(newRoleIds) {
     await addRoleOnUser({ userId: props.id, roleId })
   }
   for (const roleId of toRemove) {
-    const match = roleAssignments.value.find((ra) => ra.roleId === roleId)
-    if (match) await match.delete()
+    // EVERY live row for the role, not just the first: `.find()` left any
+    // duplicate rows behind, so the assignment looked removed in the UI while
+    // the user kept the grant (RLS and authz.has_permission both read the
+    // surviving rows). See the dedupe note on assignedRoleIds above.
+    const matches = roleAssignments.value.filter((ra) => ra.roleId === roleId)
+    for (const match of matches) {
+      await match.delete()
+    }
   }
   showRoleSelect.value = false
 }
@@ -283,21 +307,19 @@ const userDetailConfig = computed(() =>
     notFoundDescription="This user could not be found."
   >
     <template #title>
-      <div v-if="editingName && canUpdateUser" class="tw:flex tw:gap-2">
+      <div v-if="editingName && canUpdateUser" class="tw:flex tw:gap-2" @focusout="onNameFocusOut">
         <BaseTextInput
           v-model="user.firstName"
           placeholder="First Name"
           size="sm"
           autofocus
           @keyup.enter="editingName = false"
-          @blur="editingName = false"
         />
         <BaseTextInput
           v-model="user.lastName"
           placeholder="Last Name"
           size="sm"
           @keyup.enter="editingName = false"
-          @blur="editingName = false"
         />
       </div>
       <div v-else class="tw:flex tw:items-center tw:gap-2">

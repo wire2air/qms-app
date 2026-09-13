@@ -11,6 +11,42 @@ export const AUTOMATION_TRIGGERS = [
   { value: 'SCHEDULED', label: 'On a daily schedule (time-based)' },
 ]
 
+/**
+ * Mirrors `isModuleObjectType` in the worker's objectRegistry.js. Built-in
+ * object types are PascalCase; an admin-defined module's type IS its
+ * module_key, which is lowercase.
+ */
+export const MODULE_OBJECT_TYPE_RE = /^[a-z][a-z0-9_]*$/
+
+/**
+ * Triggers that actually fire, per object.
+ *
+ * SCHEDULED is served by one job — `evaluate_scheduled_automation.js` — and
+ * that job enumerates the `records` table only. Its first line inside the loop
+ * is `if (!isModuleObjectType(objectType)) continue`, where isModuleObjectType
+ * is `/^[a-z][a-z0-9_]*$/`. Every built-in object type is PascalCase, so all
+ * seven fail it.
+ *
+ * The picker offered SCHEDULED for every object regardless. A rule built that
+ * way saves without complaint, appears in the list marked Active, and is never
+ * evaluated by anything — which is worse than an error, because the person who
+ * built it has every reason to believe the escalation is running.
+ *
+ * The three event-driven triggers are unconditional: they come from the audit
+ * side effect, which watches every object's table.
+ *
+ * @param {string} objectType
+ * @param {{ isModule?: boolean }} [opts]  set when the caller already knows the
+ *   object is a promoted module (module MODE, or an entry built by
+ *   buildModuleAutomationObject) — a module_key is lowercase, so the shape test
+ *   agrees, but the caller's own knowledge is more direct than a regex.
+ */
+export function triggersForObject(objectType, { isModule = false } = {}) {
+  const isModuleObject = isModule || MODULE_OBJECT_TYPE_RE.test(String(objectType ?? ''))
+  return AUTOMATION_TRIGGERS.filter((t) => t.value !== 'SCHEDULED' || isModuleObject)
+}
+
+
 export const OPERATORS_BY_TYPE = {
   string: [
     { value: 'equals', label: 'equals' },

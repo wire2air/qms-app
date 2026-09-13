@@ -83,10 +83,9 @@ test.describe('PW-J2 · cancel an OPEN CR', () => {
     await assignDraftReviewers(page, cr.id)
     await submitCrForApproval(page, cr.id)
 
-    const firstCancel = await page.request.post(
-      `/api/v1/services/changeRequests/${cr.id}/cancel`,
-      { data: { reason: 'E2E setup cancel', method: 'PIN', token: '12345678', provider: null } },
-    )
+    const firstCancel = await page.request.post(`/api/v1/services/changeRequests/${cr.id}/cancel`, {
+      data: { reason: 'E2E setup cancel', method: 'PIN', token: '12345678', provider: null },
+    })
     expect(firstCancel.ok()).toBeTruthy()
 
     const res = await page.request.post(`/api/v1/services/changeRequests/${cr.id}/cancel`, {
@@ -111,8 +110,96 @@ test.describe('PW-J2 · cancel an OPEN CR', () => {
     expect(res.status()).toBe(400)
 
     // The CR is untouched — a rejected cancel must not half-apply.
-    expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'OPEN',
+    expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe('OPEN')
+  })
+
+  // DRAFT → CANCELLED — the one edge of the six in enforce_cr_status_transition
+  // that had no end-to-end coverage. The integration trigger suite
+  // (tests/integration/changeRequests/cr-status-transition-guard.test.js)
+  // exercises all six at the DB, and J2 above covers OPEN → CANCELLED through
+  // the UI, but abandoning a change BEFORE it is ever opened — the ordinary
+  // "we changed our mind" path — was only ever proved in SQL.
+  //
+  // Driven through the REST endpoint rather than the action bar, like the two
+  // negative cases above: the claim under test is the controller + trigger +
+  // ledger, and a button-visibility question would make the assertion about
+  // something else.
+  test('a DRAFT CR can be cancelled — e-signed, and it burns no CR number', async ({ page }) => {
+    test.setTimeout(120_000)
+    const title = uniqueTitle('J2-draftcancel')
+    await createCr(page, title)
+    const cr = findCrByTitle(title)
+    expect(cr.statusId, 'not submitted — still a draft').toBe('DRAFT')
+
+    // Numbers are minted at submit (2026-08-28), precisely so an abandoned
+    // draft leaves no gap in the register. Pin both halves of that rule.
+    expect(
+      sqlValue(`SELECT cr_number IS NULL FROM change_requests WHERE id = '${cr.id}'`),
+      'a draft carries no CR number yet',
+    ).toBe('t')
+
+    const res = await page.request.post(`/api/v1/services/changeRequests/${cr.id}/cancel`, {
+      data: {
+        reason: 'E2E draft cancel — requirement withdrawn before review.',
+        method: 'PIN',
+        token: '12345678',
+        provider: null,
+      },
+    })
+    expect(res.ok(), await res.text()).toBeTruthy()
+
+    await waitForSqlValue(
+      `SELECT count(*) FROM change_requests WHERE id = '${cr.id}' AND status_id = 'CANCELLED'`,
+      { timeoutMs: 30_000, label: 'DRAFT CR CANCELLED' },
     )
+
+    const row = sqlRow(
+      `SELECT cancel_reason, cancelled_at IS NOT NULL, cancelled_by, cr_number IS NULL
+         FROM change_requests WHERE id = '${cr.id}'`,
+    )
+    expect(row[0]).toContain('withdrawn before review')
+    expect(row[1], 'cancelled_at stamped').toBe('t')
+    expect(row[2], 'cancelled_by attributed').toBeTruthy()
+    expect(row[3], 'a cancelled draft still burns no number — the register has no gap').toBe('t')
+
+    // Part-11 ledger row, keyed on the CR subject, exactly as the OPEN path.
+    expect(
+      Number(
+        sqlValue(
+          `SELECT count(*) FROM signatures WHERE change_request_id = '${cr.id}' AND meaning = 'CANCELLED'`,
+        ),
+      ),
+      'exactly one CANCELLED signature for this draft',
+    ).toBe(1)
+
+    // Attributed CANCEL audit row.
+    expect(
+      Number(
+        sqlValue(
+          `SELECT count(*) FROM audit_logs
+            WHERE entity_type = 'ChangeRequest' AND entity_id = '${cr.id}'
+              AND action = 'CANCEL' AND performed_by IS NOT NULL`,
+        ),
+      ),
+      'attributed CANCEL audit row exists',
+    ).toBeGreaterThan(0)
+
+    // A cancelled draft never had a workflow, so nothing should have been made
+    // for it — the cancel path must not spawn one on its way out.
+    expect(
+      Number(
+        sqlValue(
+          `SELECT count(*) FROM workflow_instances
+            WHERE resource_type = 'ChangeRequest' AND resource_id = '${cr.id}'`,
+        ),
+      ),
+      'no workflow instance is created by cancelling a draft',
+    ).toBe(0)
+
+    // Terminal: CANCELLED leaves no outgoing edge, so re-cancelling is 409.
+    const again = await page.request.post(`/api/v1/services/changeRequests/${cr.id}/cancel`, {
+      data: { reason: 'again', method: 'PIN', token: '12345678', provider: null },
+    })
+    expect(again.status()).toBe(409)
   })
 })

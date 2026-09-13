@@ -76,16 +76,13 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     // the controller loads the record at all — an approval grant does not
     // authorise abandoning the change.
     const approverCtx = await browser.newContext({ storageState: AUTH.approver })
-    const res = await approverCtx.request.post(
-      `/api/v1/services/changeRequests/${cr.id}/cancel`,
-      { data: { reason: 'not my CR', method: 'PIN', token: '12345678', provider: null } },
-    )
+    const res = await approverCtx.request.post(`/api/v1/services/changeRequests/${cr.id}/cancel`, {
+      data: { reason: 'not my CR', method: 'PIN', token: '12345678', provider: null },
+    })
     expect(res.status()).toBe(403)
     await approverCtx.close()
 
-    expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe(
-      'OPEN',
-    )
+    expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${cr.id}'`)).toBe('OPEN')
   })
 
   test('the record scope gate: an OWN-scope holder cannot cancel a peer’s CR → 403', async ({
@@ -187,5 +184,66 @@ test.describe('PW-J9 · permission denials + cross-tenant isolation', () => {
     )
     expect(res.status()).toBe(404)
     await altCtx.close()
+  })
+
+  // ── The links read gate (added 2026-09-08) ────────────────────────────────
+  //
+  // GET /changeRequests/:id/links was the module's ONE ungated read: no
+  // enforcePermission on the route and no record check in the controller,
+  // while REST_RLS_ENABLED is off by default so the Sequelize path runs as DB
+  // superuser and no policy fires. Any authenticated member of the tenant —
+  // including one holding zero change_control grants — could enumerate the
+  // affected-item graph of any change request by id. It showed in
+  // tests/__snapshots__/routePermissions.test.js.snap as `(ungated)` and
+  // nobody read the snapshot; these two probes make it a failing assertion.
+  test('a user with no change_control grant cannot read a CR’s links → 403', async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000)
+    const ownerCtx = await browser.newContext({ storageState: AUTH.author })
+    const ownerPage = await ownerCtx.newPage()
+    const title = uniqueTitle('J9-linksverb')
+    await createCr(ownerPage, title)
+    const cr = findCrByTitle(title)
+    await ownerCtx.close()
+
+    // Refused by enforcePermission before the controller loads anything.
+    const ctx = await browser.newContext({ storageState: AUTH.noAccess })
+    const res = await ctx.request.get(`/api/v1/services/changeRequests/${cr.id}/links`)
+    expect(res.status(), 'no change_control grant, no affected-item graph').toBe(403)
+    await ctx.close()
+  })
+
+  test('an OWN-scope holder cannot read a peer’s CR links → 403', async ({ browser }) => {
+    test.setTimeout(150_000)
+    const ownerCtx = await browser.newContext({ storageState: AUTH.author })
+    const ownerPage = await ownerCtx.newPage()
+    const title = uniqueTitle('J9-linksscope')
+    await createCr(ownerPage, title)
+    const cr = findCrByTitle(title)
+    await ownerCtx.close()
+
+    // ownAuthor holds change_control:read at OWN scope, so they sail through
+    // the route's enforcePermission — which checks the VERB only and never
+    // sees the record. The refusal has to come from the controller's
+    // assertCanActOnRecord → authz.scope_allowed(), whose own tier requires
+    // the row's owner to BE the caller. This is the layer the route gate
+    // cannot reach, and the one that distinguishes "has the verb" from "has it
+    // over THIS record".
+    const ownCtx = await browser.newContext({ storageState: AUTH.ownAuthor })
+    const res = await ownCtx.request.get(`/api/v1/services/changeRequests/${cr.id}/links`)
+    expect(res.status()).toBe(403)
+    await ownCtx.close()
+
+    // CONTROL — their OWN change request's links are still readable, so the
+    // gate is refusing the record and not the route.
+    const ownCtx2 = await browser.newContext({ storageState: AUTH.ownAuthor })
+    const ownPage = await ownCtx2.newPage()
+    const ownTitle = uniqueTitle('J9-linksmine')
+    await createCr(ownPage, ownTitle)
+    const ownCr = findCrByTitle(ownTitle)
+    const mine = await ownCtx2.request.get(`/api/v1/services/changeRequests/${ownCr.id}/links`)
+    expect(mine.status(), 'an own-scope owner still reads their own links').toBe(200)
+    await ownCtx2.close()
   })
 })

@@ -127,7 +127,6 @@ declare global {
   const provideAuditLogs: typeof import('./src/composables/useAuditLogs.js').provideAuditLogs
   const provideAuth: typeof import('./src/composables/useAuth.js').provideAuth
   const provideDataTablePersist: typeof import('./src/composables/useDataTablePersist.js').provideDataTablePersist
-  const provideDepartments: typeof import('./src/composables/useDepartments.js').provideDepartments
   const provideImpersonate: typeof import('./src/composables/useImpersonate.js').provideImpersonate
   const provideLocal: typeof import('@vueuse/core').provideLocal
   const providePageInfo: typeof import('./src/composables/usePageInfo.js').providePageInfo
@@ -255,7 +254,6 @@ declare global {
   const useDebounce: typeof import('@vueuse/core').useDebounce
   const useDebounceFn: typeof import('@vueuse/core').useDebounceFn
   const useDebouncedRefHistory: typeof import('@vueuse/core').useDebouncedRefHistory
-  const useDepartments: typeof import('./src/composables/useDepartments.js').useDepartments
   const useDetailLayout: typeof import('./resource/js/shared/composables/useDetailLayout.js').useDetailLayout
   const useDeviceMotion: typeof import('@vueuse/core').useDeviceMotion
   const useDeviceOrientation: typeof import('@vueuse/core').useDeviceOrientation

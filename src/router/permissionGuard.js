@@ -72,8 +72,12 @@ const ADMIN_PERMISSIONS = {
   // route lands at /analytics/create, map it explicitly rather than letting
   // createPermissionFrom() derive a `reports_dashboards:create` nobody holds.
   analytics: 'reports_dashboards:read',
-  'api-keys': 'api_integrations:read',
-  // ai:read is implied by ANY ai grant — run/manage/audit all pass.
+  'service-accounts': 'api_integrations:read',
+  // NOTE (RA-1, 2026-09-07): `read` is no longer implied by any other grant on
+  // a module — authz.effective_permission_strings stopped synthesising it. So
+  // this is now a real `ai:read` requirement, and a role holding only `ai:run`
+  // no longer reaches this route. The comment that used to sit here said the
+  // opposite and had gone stale.
   'api-tokens': 'ai:read',
   'ai-usage': 'ai:read',
   'audit-logs': 'audit_trail:read',
@@ -141,7 +145,24 @@ const SUPPLIER_EXEMPT_SEGMENTS = new Set([
 // So the segment stays open to authenticated internal users, whose visibility is
 // scoped by RLS (and, since the F-04 fix, by the OWNING module's read permission
 // per resource type), and is closed to suppliers outright.
-const SUPPLIER_BLOCKED_SEGMENTS = new Set(['workflow-instances'])
+//
+// `/auditee` (2026-09-08) is the same shape and is here for the same reason.
+// It is in NEITHER map, so `requiredPermissionFor` returns null and both the
+// supplier branch above and the permission check below fell through to
+// `return true` — an EXTERNAL_SUPPLIER could open the company's own
+// certification-audit surface by typing the URL.
+//
+// It is deliberately NOT added to RECORD_LIST_PERMISSIONS, which is what the
+// auditee pack's finding #2 proposed. `audit_instances_sel` admits a row on
+// permission OR audit-team membership OR a shared_with_user grant, so gating
+// `/auditee` on `audit_management:read` would bounce exactly the population
+// the surface exists for — the auditee POC and the invited participants, none
+// of whom need an audit permission to be ON an audit. routeMeta.js's own F-18
+// note (2026-09-07) reached this conclusion independently and named /auditee
+// as one of the routes that must not be gated that way. So: open to
+// authenticated internal users, bounded by RLS, closed to suppliers outright —
+// the /workflow-instances resolution, applied to the same problem.
+const SUPPLIER_BLOCKED_SEGMENTS = new Set(['workflow-instances', 'auditee'])
 
 const NO_ACCESS_PATH = '/no-access'
 

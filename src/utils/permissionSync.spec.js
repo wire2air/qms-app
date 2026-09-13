@@ -83,6 +83,26 @@ describe('permissionSync — the watch list cannot silently rot', () => {
     expect(PERMISSION_MODELS).toContain('RoleModulePermission')
   })
 
+  // docs/modules/groups-teams F-06 — the SECOND path into the same engine.
+  // authz.has_permission resolves a role via roles_on_users OR via
+  // users_on_teams |X| roles_on_teams, so a team's membership or role grants
+  // changing is exactly as permission-affecting as a direct assignment, and
+  // none of the three tables were on this list until this fix.
+  it('✅ watches team membership and role-via-team grants (groups-teams F-06)', () => {
+    expect(PERMISSION_MODELS).toContain('Team')
+    expect(PERMISSION_MODELS).toContain('UserOnTeam')
+    expect(PERMISSION_MODELS).toContain('RoleOnTeam')
+  })
+
+  it('Team, UserOnTeam and RoleOnTeam are real model classes, not signals', () => {
+    // Unlike RoleModulePermission, these three ARE real @ClientModels — the
+    // ordinary sync broadcast already fires for them, so they must resolve via
+    // the model scan, not via SIGNAL_ONLY_TABLES.
+    expect(MODEL_NAMES.has('Team')).toBe(true)
+    expect(MODEL_NAMES.has('UserOnTeam')).toBe(true)
+    expect(MODEL_NAMES.has('RoleOnTeam')).toBe(true)
+  })
+
   it('the grants entry is a signal, deliberately, and NOT a model', () => {
     // authz.role_module_permissions lives outside PostGraphile's `public`
     // schema, so it has no GraphQL type and can never be fetched into IDB.

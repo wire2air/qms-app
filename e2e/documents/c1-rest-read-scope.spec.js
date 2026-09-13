@@ -4,12 +4,29 @@
 //   After: the routes add enforcePermission('document_control','read') → callers
 //   without the read grant get 403.
 //
-// SCOPE NOTE (deferred): these endpoints still run as the DB superuser (RLS
-// bypassed) and filter by companyId only, so read *scope tiers* / draft-privacy
-// are NOT enforced on REST — a user who HAS the read grant can still see
-// company-wide rows here. That remaining scope half of H2 is intentionally left
-// for a follow-up; the app itself reads via GraphQL, where the RLS read gate IS
-// enforced. This test guards only the permission gate that C1 adds.
+// SCOPE NOTE — the deferral STANDS. A 2026-09-08 attempt to AND
+// `authz.scope_allowed('document_control','read', …)` (plus documents_sel's four
+// participant arms) into `listDocuments`/`getDocument`'s `where` was reverted the
+// same day: it broke the documents UI. Every spec in this project that reaches
+// /documents through `createSopDocument` timed out, and an A/B against the same
+// spec was unambiguous — 3/3 pass with the predicate removed, 2/3 fail with it
+// present. The SQL itself is sound (both findAll-with-includes and findOne shapes
+// execute, ~120 ms over 894 rows), so the fault is in how the page consumes the
+// filtered response, and it was never root-caused.
+//
+// So: these endpoints run as the DB superuser (RLS bypassed) and enforce the read
+// PERMISSION but NOT read SCOPE TIERS. Measured 2026-09-08: 47 of 49
+// `document_control:read` grants are `tenant`, where scope_allowed short-circuits
+// true anyway — 2 roles are mis-served. Whoever retries this needs a browser in
+// the loop, not just a backend suite; a green integration test is what made the
+// first attempt look finished.
+//
+// ALSO STILL DEFERRED: draft privacy. documents_sel's permission branch
+// additionally requires an EFFECTIVE version to exist (20260805190000), and the
+// REST handlers do not apply that gate — a tenant-scoped API caller can still
+// list DRAFT documents that GraphQL would hide. See
+// qms/docs/modules/documents/25-hardening-pass-2026-09-08.md §"remaining
+// conditions". This spec guards only the permission gate that C1 adds.
 //
 // Verified through the live local stack (api :4000 ← the role's storageState
 // cookies) — no backend test DB involved.

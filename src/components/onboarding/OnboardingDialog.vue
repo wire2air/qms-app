@@ -1,17 +1,32 @@
 <script setup>
+/**
+ * "Invite Your Team" — reachable from the dashboard via `?onboarding=true`
+ * with no route guard of its own (dashboard.vue:7). Gated here on
+ * `user_management:read`, matching the Users module's own list-page
+ * requirement (permissionGuard.js ADMIN_PERMISSIONS.users) — every other
+ * widget on the dashboard checks its source module's own read permission
+ * before rendering; this dialog used to be the one exception. See
+ * docs/modules/dashboard's 2026-09-07 addendum, finding 2. Without the
+ * permission the roster still isn't blank data — RLS (`users_sel`) narrows a
+ * caller with no qualifying grant to their own row and users sharing a site —
+ * this is defense-in-depth, not the only thing standing in a viewer's way.
+ */
 import { IconUsersGroup, IconUserPlus, IconUsers, IconCheck } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 
 const open = defineModel({
   type: Boolean,
   default: false,
 })
 
-const users = useLiveQuery(
-  async (db) => {
+const canViewRoster = computed(() => isAllowed(['user_management:read']))
+
+const users = useLiveQueryWithDeps(
+  [() => canViewRoster.value],
+  async (db, [canView]) => {
+    if (!canView) return []
     return await db.User.where().exec()
   },
-
   { models: ['User'], initial: [] },
 )
 const showCreateUserDialog = ref(false)
@@ -48,7 +63,7 @@ function finish() {
       <div>
         <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
           <div class="tw:text-sm tw:font-semibold tw:text-secondary">
-            Team Members ({{ users.length }})
+            Team Members<template v-if="canViewRoster"> ({{ users.length }})</template>
           </div>
           <BaseButton @click="showCreateUserDialog = true">
             <IconUserPlus :size="16" class="tw:mr-1.5" />
@@ -57,7 +72,16 @@ function finish() {
         </div>
 
         <div
-          v-if="users.length === 0"
+          v-if="!canViewRoster"
+          class="tw:flex tw:flex-col tw:items-center tw:py-8 tw:text-secondary"
+        >
+          <IconUsers :size="48" class="tw:mb-2 tw:opacity-40" />
+          <div class="tw:text-sm">You don't have permission to view the team roster</div>
+          <div class="tw:text-xs tw:mt-1">You can still add a new team member below</div>
+        </div>
+
+        <div
+          v-else-if="users.length === 0"
           class="tw:flex tw:flex-col tw:items-center tw:py-8 tw:text-secondary"
         >
           <IconUsers :size="48" class="tw:mb-2 tw:opacity-40" />

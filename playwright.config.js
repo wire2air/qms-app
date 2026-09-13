@@ -43,11 +43,24 @@ export default defineConfig({
       testMatch: /fixtures\/auth\.setup\.js/,
     },
     {
+      // Purges the documents previous runs left behind. Same reason as qcSetup
+      // and inspectionsLogsSetup: Document/DocumentVersion/DocumentSection are
+      // synced models, so accumulated rows slow every fresh browser context's
+      // syncEngine bootstrap until UI steps time out. Measured 2026-09-08 at 894
+      // documents in the tenant — 890 of them leftovers — with three successive
+      // no-code-change runs degrading 17 → 10 → 9 passing.
+      // See e2e/fixtures/documents.setup.js.
+      name: 'documentsSetup',
+      testMatch: /fixtures\/documents\.setup\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // The journeys themselves — direct children of e2e/documents only, so the
       // screenshot suite below doesn't inflate this project's runtime.
       name: 'documents',
       testMatch: /documents\/[^/]+\.spec\.js$/,
-      dependencies: ['setup'],
+      dependencies: ['documentsSetup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -170,6 +183,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'groups',
+      testMatch: /groups\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'departments',
       testMatch: /departments\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
@@ -196,6 +215,25 @@ export default defineConfig({
       // this repo does for any module.
       name: 'roles',
       testMatch: /roles\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Service accounts — the machine identities that own API keys, and the
+      // surface that REPLACED personal API keys (deleted 2026-09-09, because
+      // routes/apiKeys.js carried no enforcePermission of any kind: the
+      // permission was checked in the sidebar and nowhere else).
+      //
+      // Two halves, both in e2e/serviceAccounts/ and each with its own helper
+      // module: `api-*.spec.js` exercises the CREDENTIAL (issue a key, use it
+      // against the REST surface, revoke it), `ui-*.spec.js` the admin screen.
+      // They share a tenant and no fixtures — the seed deliberately does NOT
+      // clean service accounts up, because it runs at the start of every
+      // invocation and a shared DELETE would let one suite wipe another's
+      // fixtures mid-test, so each spec names its accounts with its own prefix
+      // and purges only that.
+      name: 'serviceAccounts',
+      testMatch: /serviceAccounts\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -359,6 +397,97 @@ export default defineConfig({
       testMatch: /customFields\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Equipment / calibration programme. The module had no E2E surface at all
+      // until 2026-09-07 — no project, no fixture, and zero equipment rows in
+      // e2e-seed.sql — and the absence was not neutral: with no persona holding
+      // a `calibration_equipment` grant, every write control in the register was
+      // hidden from every persona, so a browser could not have reached the
+      // module's defect even if someone had looked.
+      //
+      // EQ-J3 is why this project is worth more than its test count. E1 was a
+      // live REST privilege escalation: DELETE /v1/services/equipment/:id was
+      // gated on `calibration_equipment:update` while the RLS DELETE policy, the
+      // soft-delete guard trigger (migration 20260907150000) and the register's
+      // own button all demanded `:delete`. REST connects as the superuser, where
+      // the trigger self-skips by design ("the route has already checked"), so
+      // the route WAS the check and it asked the wrong question. J3 probes all
+      // three paths — the hidden button, the syncEngine's paranoid UPDATE, and
+      // the REST route — from the persona that held update and not delete.
+      //
+      // EQ-J4 reaches across into QC on purpose: `requires_calibration` is not
+      // bookkeeping, it is an enforced production control
+      // (inspectionResultService.js refuses a measurement taken with a lapsed
+      // instrument), and the frontend half of it is a banner with no `disabled`,
+      // so only a server-side assertion says anything.
+      name: 'equipment',
+      testMatch: /equipment\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Above the 120s default for the same reason as inspectionsLogs: the
+      // register renders out of IndexedDB, so nothing is readable until the
+      // syncEngine has bootstrapped Equipment into a fresh context, and a
+      // journey that needs a second persona pays that bootstrap again.
+      timeout: 180_000,
+      // The register is a live-query over IndexedDB fed by the sync socket, so
+      // a row written over REST appears only once the broadcast lands. The
+      // helpers already reload-and-retry; one Playwright-level retry covers the
+      // residual lag without masking a real failure — the DB-level probes are
+      // deterministic SQL and fail both attempts when something is genuinely
+      // broken.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Products / Item Master. The module had no browser coverage of any kind
+      // until 2026-09-08 — no project, no specs, and, more to the point, no
+      // persona holding a `products:*` grant. That last absence is why nothing
+      // could have been asserted even if specs had existed: /products is an
+      // ADMIN-tier route (permissionGuard.js ADMIN_PERMISSIONS), so a tenant
+      // with no products grant does not get an empty register, it gets bounced
+      // to /no-access. e2e-seed.sql §37 is that fixture.
+      //
+      // PJ-J5 and PJ-J11 are why this project is worth more than its test
+      // count. `products` has NO REST layer at all — no route gate in front, no
+      // service layer behind — so RLS and four triggers are the only
+      // enforcement the item master has, and until 2026-09-07/08 three of those
+      // four did not exist: any `products:update` holder could tombstone the
+      // entire register (P5), the weaker grant could undo a delete-holder's
+      // decision (P7), and the module's one business rule — no retiring an item
+      // while a live Specification points at it — lived in a Vue component in
+      // front of a syncEngine mutation (P8). Every one of those is probed from
+      // BOTH sides here, because a policy that quietly stopped matching
+      // anything refuses everyone and reads as a perfect guard against the
+      // denial half alone.
+      name: 'products',
+      testMatch: /products\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Above the 120s default, and above `equipment`/`inspectionsLogs`' 180s —
+      // reasoned, not copied. The register is a live query over IndexedDB, so
+      // nothing is readable until the syncEngine has bootstrapped Product into a
+      // fresh context, and this module's journeys additionally need
+      // ProductFamily, ProductType, ProductStatus, ItemCategory, Uom,
+      // Specification, ProductSupplier and ProductOption (the picker's view) in
+      // the same store before a dialog can render its pickers.
+      //
+      // What pushes it past 180s is the PERSONA COUNT. The access-tier and
+      // quick-add files each drive four personas — admin, editor, reader,
+      // owner — and every one is a separate browser context with its own empty
+      // IndexedDB paying that bootstrap again. `createPersonaPool` keeps it to
+      // one bootstrap per persona per file, but the first test in a file can
+      // legitimately pay two of them. Measured: `openRegister`'s 60s + 45s
+      // budget ran out once on a machine also running three other agents'
+      // suites, so it now makes three attempts (60/45/45) and the project
+      // budget has to cover that plus the assertions after it.
+      timeout: 240_000,
+      // A row written in SQL or over the lookup REST routes appears on the page
+      // only once the sync broadcast lands. The helpers already reload-and-retry
+      // (openRegister waits long and reloads once), and one Playwright-level
+      // retry covers the residual lag without masking a real failure: the
+      // DB-level probes are deterministic SQL and fail both attempts when
+      // something is genuinely broken.
+      retries: 1,
       use: { ...devices['Desktop Chrome'] },
     },
     {

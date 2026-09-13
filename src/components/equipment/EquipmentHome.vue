@@ -194,22 +194,21 @@ async function onDelete(row) {
 }
 
 // ─── Record calibration (quick action) ────────────────────────────
-// Stamps "calibrated today" and rolls next_calibration_due forward by the
-// instrument's interval (server-side). Documentation of the event still goes
-// in the Calibration Log. Requires an interval to be set on the instrument.
-const recordingId = ref(null)
-async function recordCalibration(e) {
-  if (recordingId.value) return
-  recordingId.value = e.id
-  try {
-    // Action RPC — the synced row refreshes via the sync socket.
-    await post(`/v1/services/equipment/${e.id}/record-calibration`, {})
-    toast.success(`Calibration recorded for ${e.name}`)
-  } catch (err) {
-    toast.error(err?.message || 'Failed to record calibration')
-  } finally {
-    recordingId.value = null
-  }
+// Stamps the calibration and rolls next_calibration_due forward by the
+// instrument's interval (server-side).
+//
+// This USED to be a bare `post(.../record-calibration, {})` with an empty body,
+// fired straight off the row. It is not a one-click action any more: the call
+// clears the QC capture gate — inspectionResultService.js refuses a measurement
+// taken with a lapsed instrument — so it re-opens an instrument for production
+// use, and the server now demands a Part-11 signature plus certificate and
+// vendor evidence for it (migrations 20260911110000 / 20260911120000). The
+// quick action opens the dialog that collects them.
+const calibrationSubject = ref(null)
+const showRecordCalibration = ref(false)
+function openRecordCalibration(e) {
+  calibrationSubject.value = e
+  showRecordCalibration.value = true
 }
 
 // PM twin of the calibration quick action.
@@ -343,12 +342,11 @@ function onLogBookCreated(logBook) {
             v-if="canUpdate && row.requiresCalibration"
             type="button"
             class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
-            :disabled="recordingId === row.id"
-            title="Mark calibrated today and roll the next-due date forward"
-            @click.stop="recordCalibration(row)"
+            title="Record an e-signed calibration and roll the next-due date forward"
+            @click.stop="openRecordCalibration(row)"
           >
             <IconCalendarCheck :size="14" />
-            {{ recordingId === row.id ? 'Recording…' : 'Record calibration' }}
+            Record calibration
           </button>
           <button
             v-if="canUpdate && row.requiresPm"
@@ -392,5 +390,12 @@ function onLogBookCreated(logBook) {
     v-model="showCreateLogBook"
     :preset="logBookPreset"
     @created="onLogBookCreated"
+  />
+  <!-- The e-signed calibration completion. Outside BaseListLayout for the same
+       reason as the dialogs above — it must stay mounted in every list state. -->
+  <RecordCalibrationDialog
+    v-model="showRecordCalibration"
+    :equipment="calibrationSubject"
+    @recorded="calibrationSubject = null"
   />
 </template>

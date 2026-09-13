@@ -31,20 +31,29 @@ test.describe('C6 · controller archives from the detail (OB-01 reconcile)', () 
     // still hid the action from her. What these rows buy is the ability to SEE
     // the record at all.
     //
-    // The collaborator row alone is not enough, and the comment that used to sit
-    // here ("the read gate keeps drafts private to author/collaborators") is
-    // stale on the document half. Measured against app-db on 2026-08-28 as
-    // app_user with Carla's GUCs: with the users_on_documents row present,
-    // `SELECT … FROM documents WHERE title = 'E2E C6-archive …'` returns ZERO
-    // rows. `documents_sel` has no collaborator branch at all — its reachability
-    // arms are is_owner / author_id / user_id / an assigned DocumentVersion task
-    // / shared_with_user / (read + scope + an EFFECTIVE version exists). Only
-    // `document_version_select_rls` still consults
-    // `is_document_collaborator_or_owner()`, and that is what makes the two
-    // tables disagree: a collaborator can read the DRAFT VERSION but not the
-    // parent DOCUMENT, so the detail page renders skeletons for ever. That
-    // asymmetry is a live product defect; this spec routes around it rather than
-    // pretending the collaborator row works.
+    // ⚠️ HISTORICAL, AS OF 2026-09-08 — the defect this paragraph describes is
+    // FIXED. Migration 20260909120000 adds
+    // `is_document_collaborator_or_owner(documents.id)` to documents_sel's
+    // extra_read_sql, so the collaborator row alone now grants the document
+    // read and the two tables agree. The shared_with_user row below is kept
+    // because it is harmless, because this spec is about the ARCHIVE gate and
+    // not about read visibility, and because keeping it means this spec does
+    // not become a second, indirect test of the collaborator arm — that arm has
+    // its own coverage in
+    // qms/backend/api/tests/integration/documents/documents-collaborator-read.test.js.
+    // The original note, kept because it is the clearest statement of what was
+    // wrong:
+    //
+    //   "The collaborator row alone is not enough … Measured against app-db on
+    //    2026-08-28 as app_user with Carla's GUCs: with the users_on_documents
+    //    row present, `SELECT … FROM documents WHERE title = 'E2E C6-archive …'`
+    //    returns ZERO rows. `documents_sel` has no collaborator branch at all —
+    //    its reachability arms are is_owner / author_id / user_id / an assigned
+    //    DocumentVersion task / shared_with_user / (read + scope + an EFFECTIVE
+    //    version exists). Only `document_version_select_rls` still consults
+    //    `is_document_collaborator_or_owner()`, and that is what makes the two
+    //    tables disagree: a collaborator can read the DRAFT VERSION but not the
+    //    parent DOCUMENT, so the detail page renders skeletons for ever."
     //
     //   users_on_documents  → the DRAFT VERSION (document_version_select_rls)
     //   shared_with_user    → the DOCUMENT row  (documents_sel, no EFFECTIVE

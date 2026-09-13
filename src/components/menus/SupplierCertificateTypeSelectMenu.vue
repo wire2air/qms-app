@@ -2,6 +2,9 @@
 defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
+  // Filter bars want "— All certificate types —"; a form field wants "— None —".
+  // Same prop the documented SiteSelectMenu carries (CLAUDE.md, badge triad).
+  nullLabel: { type: String, default: '— All certificate types —' },
 })
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
@@ -22,7 +25,7 @@ const certificateTypes = useLiveQuery(
     :required="required"
     :multiple="multiple"
     :clearable="!required"
-    nullLabel="— All certificate types —"
+    :nullLabel="nullLabel"
   >
     <template #selected="{ options, remove }">
       <div class="tw:flex tw:flex-wrap tw:gap-1">
