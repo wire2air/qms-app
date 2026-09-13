@@ -19,6 +19,13 @@ export class CustomerComplaintAttachment extends BaseModel {
   // what's granted, so this model must not be paranoid on the client side even
   // though the backend Sequelize model is (that side deletes via the
   // superuser connection, which never goes through this RLS grant at all).
+  //
+  // Declared explicitly rather than just omitted: `false` is already the
+  // BaseModel default, so this changes no behaviour, but the models-wide guard
+  // in workflowClientModelsParanoid.spec.js requires every model carrying a
+  // deletedAt @Property to *state* its choice, so that a forgotten `paranoid`
+  // stays distinguishable from a deliberate one.
+  static paranoid = false
 
   constructor(...args) {
     super(...args)
