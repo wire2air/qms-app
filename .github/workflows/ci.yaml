@@ -1,0 +1,52 @@
+name: CI
+
+# Test CI for the frontend. This repo had no workflows at all before this file.
+#
+# NOTE: qms-app is pnpm, not npm — package.json declares
+# "packageManager": "pnpm@10.9.0" and the lockfile is pnpm-lock.yaml.
+# (docs/plans/ci-testing-pipeline.md predates that and says npm; it is wrong.)
+#
+# Deliberately NOT here:
+#   - prettier --check: 917 files are currently unformatted. Reformat first.
+#   - Playwright E2E: needs the backend stack booted; staged separately.
+
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.9.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # eslint + check-page-layout + check-design-system + check-form-system.
+      # The design-system checker is a RATCHET: each rule carries a baseline
+      # count and fails when the count rises above it. If this job goes red with
+      # "new design-debt added above baseline", fix the occurrence you added —
+      # do not raise the baseline. Sweeping debt down and LOWERING a baseline is
+      # the intended direction of travel.
+      - run: pnpm lint
+
+  unit:
+    name: Unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.9.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # 214 files / 2306 tests, all green as of 2026-09-14.
+      - run: pnpm test

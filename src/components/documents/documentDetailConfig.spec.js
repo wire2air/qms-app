@@ -98,9 +98,12 @@ describe('buildDocumentActions', () => {
     expect(visibleIds({ selectedStatus: 'DRAFT' })).not.toContain('deleteVersion')
   })
 
-  it('Archive needs canDelete and a non-archived document (DC-OB-01)', () => {
-    expect(visibleIds({ canDelete: true, statusId: 'EFFECTIVE' })).toContain('archive')
-    expect(visibleIds({ canDelete: true, statusId: 'ARCHIVED' })).not.toContain('archive')
+  it('Archive needs canArchive and a non-archived document (DC-OB-01)', () => {
+    // DC-OB-01 (reconciled): the gate is `canArchive` — the delete permission
+    // the list view and the documents RLS both use — NOT `canDelete`, which
+    // added an owner/author restriction the backend never applies.
+    expect(visibleIds({ canArchive: true, statusId: 'EFFECTIVE' })).toContain('archive')
+    expect(visibleIds({ canArchive: true, statusId: 'ARCHIVED' })).not.toContain('archive')
     // DC-OB-01: edit access alone (no delete perm / not owner-author) must NOT
     // expose the destructive Archive action.
     expect(visibleIds({ canEdit: true, statusId: 'EFFECTIVE' })).not.toContain('archive')
