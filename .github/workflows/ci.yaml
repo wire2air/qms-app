@@ -24,10 +24,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with: { version: 10.9.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       # eslint + check-page-layout + check-design-system + check-form-system.
@@ -42,7 +42,7 @@ jobs:
     name: Unit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Five specs assert that a frontend mirror has not DRIFTED from the
       # backend source of truth, by reading the backend file off disk:
       #   equipmentSyncModel        → backend/shared/models/equipment.js
@@ -51,8 +51,8 @@ jobs:
       #   notificationRouteParity   → backend/shared/utils/companyAppUrl.js
       #   portalShareEntities       → backend/shared/sharing/sharedWithUserEntities.js
       # All five resolve `<qms-app>/../qms/backend/...`, so qms must land as a
-      # SIBLING of the qms-app checkout — hence `path: ../qms`, which writes one
-      # level above $GITHUB_WORKSPACE (/home/runner/work/qms-app/qms).
+      # SIBLING of the qms-app checkout. checkout cannot write there directly
+      # (see `path` below), so it lands inside and the next step moves it.
       #
       # They are drift detectors, so the correct fix is to give them the file,
       # never to mock it or skip them: a guard that cannot fail is worse than no
@@ -62,8 +62,8 @@ jobs:
       # is scoped to qms-app alone (it 404s on qms). Add a repo secret named
       # QMS_BACKEND_TOKEN: a PAT (or fine-grained token) with read-only
       # Contents access to wire2air/qms.
-      - name: Check out the qms backend as a sibling
-        uses: actions/checkout@v4
+      - name: Check out the qms backend
+        uses: actions/checkout@v5
         with:
           repository: wire2air/qms
           # MUST be develop, and this is not cosmetic. qms's DEFAULT branch is
@@ -79,12 +79,24 @@ jobs:
           # cost of cross-repo parity checks, and it fails LOUD rather than
           # silently passing — which is the trade this guard is built around.
           ref: develop
-          path: ../qms
+          # actions/checkout REFUSES a path outside $GITHUB_WORKSPACE
+          # ("Repository path '/home/runner/work/qms-app/qms' is not under
+          # '/home/runner/work/qms-app/qms-app'"), so it lands inside and the
+          # next step moves it to the sibling slot the specs resolve.
+          path: qms-backend
           token: ${{ secrets.QMS_BACKEND_TOKEN }}
           persist-credentials: false
+
+      # The specs resolve <qms-app>/../qms — i.e. /home/runner/work/qms-app/qms,
+      # one level ABOVE the workspace, which is exactly where checkout will not
+      # write. Moving it is what reproduces the local layout (qability/qms +
+      # qability/qms-app) that these guards were written against. Done before
+      # install so nothing is cached under the temporary name.
+      - name: Move the backend into the sibling slot the specs resolve
+        run: mv qms-backend ../qms
       - uses: pnpm/action-setup@v4
         with: { version: 10.9.0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       # src/content/*.generated.json are gitignored build artifacts, produced
