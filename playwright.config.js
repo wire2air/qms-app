@@ -123,6 +123,25 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Auditee — certification audits where the COMPANY is the one being
+      // audited (/auditee). Same table as `audits`, different surface, and it
+      // had no project and no seeded EXTERNAL row until e2e-seed.sql §40, so no
+      // test could have reached it. The access half matters as much as the
+      // journeys: /auditee carries NO permission gate for internal users by
+      // design (RLS admits invited participants through team membership), so
+      // the specs pin who sees what from both sides.
+      name: 'auditee',
+      testMatch: /auditee\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Same posture as qcInspection / inspectionsLogs / equipment: every
+      // detail page reads its record out of IndexedDB after a REST write, so
+      // readiness depends on a sync broadcast landing. One retry absorbs that
+      // lag; a genuine break fails both attempts, and the DB assertions are
+      // deterministic SQL.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Quality Events. The module had NO E2E surface at all until 2026-08-06 —
       // no project, no fixture, and zero rows in e2e-seed.sql, which is itself
       // part of why its two worst findings shipped. The DB-level fixes carry 39
@@ -197,6 +216,18 @@ export default defineConfig({
     {
       name: 'users',
       testMatch: /users\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Settings & Profile — company settings cards, lookups, organization
+      // security and the self-service /profile page. Its personas (seed §41)
+      // are logged in on demand by e2e/fixtures/settings.js, not by `setup`,
+      // so the project adds nothing to the shared login budget. The company
+      // cards save over GraphQL (company.save() → updateCompany → RLS), not the
+      // REST route the module pack documents — see the fixture's header.
+      name: 'settings',
+      testMatch: /\/settings\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -488,6 +519,27 @@ export default defineConfig({
       // DB-level probes are deterministic SQL and fail both attempts when
       // something is genuinely broken.
       retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Record Sharing — external share links (/share/:token). The only surface
+      // in the product an anonymous browser reads company records through, and
+      // until 2026-09-14 nobody but its author had ever walked it: token → code
+      // → projection → file → revoke. e2e-seed.sql §42 is its fixture.
+      //
+      // retries: 0 is deliberate, not an oversight. The code endpoints sit on
+      // strictAuthLimiter (20 / 15 min / IP, shared with every suite's MFA and
+      // reset flows); a full run spends seven, and a retry replays a serial
+      // file's OTP calls from the start. A flake here should be read, not
+      // re-rolled. See the budget note in e2e/fixtures/recordSharing.js.
+      name: 'recordSharing',
+      testMatch: /recordSharing\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // NC and auditee pages read out of IndexedDB, so a cold context pays one
+      // syncEngine bootstrap before the share card exists; several journeys open
+      // two such contexts.
+      timeout: 180_000,
+      retries: 0,
       use: { ...devices['Desktop Chrome'] },
     },
     {

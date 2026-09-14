@@ -81,6 +81,9 @@ async function revoke() {
     // on screen — there is no cached copy anywhere to clean up.
     toast.success(`Access withdrawn for ${props.row.email}.`)
     emit('close')
+  } catch {
+    // The reason is already on screen (showError). Stay open: the link is
+    // still live, and closing would read as though the withdrawal worked.
   } finally {
     revoking.value = false
   }

@@ -16,7 +16,7 @@ const families = useLiveQuery(
 
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.ProductFamily.where('id', undefined, { force: true }).exec()
+    const all = await db.ProductFamily.where(undefined, undefined, { force: true }).exec()
     return all.filter((f) => f.deletedAt)
   },
   { models: ['ProductFamily'], initial: [] },

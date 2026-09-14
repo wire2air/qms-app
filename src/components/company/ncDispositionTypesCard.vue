@@ -15,14 +15,18 @@ import {
   IconRestore,
   IconCircleCheckFilled,
 } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
+import { isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const isOwner = computed(() => !!currentSession.value?.isOwner)
+// Same gate as the REST routes this card calls (routes/ncDispositionTypes.js —
+// enforcePermission('nc_disposition_types', 'manage')); owners pass via
+// isAllowed's short-circuit. It used to be `isOwner` alone, which hid the editor
+// from the very role holders the server admits.
+const canManage = computed(() => isAllowed(['nc_disposition_types:manage']))
 
 // Active dispositions (paranoid filter — deletedAt is null).
 const dispositions = useLiveQuery(
@@ -35,7 +39,7 @@ const dispositions = useLiveQuery(
 // Used for the "Deactivated" collapsible section + Restore action.
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.NcDispositionType.where('id', undefined, { force: true }).exec()
+    const all = await db.NcDispositionType.where(undefined, undefined, { force: true }).exec()
     return all.filter((d) => d.deletedAt)
   },
 
@@ -52,7 +56,7 @@ const columns = [
   { name: 'displayOrder', label: 'ORDER', field: 'displayOrder', align: 'center' },
 ]
 const rowActions = computed(() =>
-  isOwner.value
+  canManage.value
     ? [
         { key: 'edit', label: 'Edit', icon: IconPencil, onClick: (row) => openEdit(row) },
         {
@@ -217,7 +221,7 @@ const showDeactivated = ref(false)
         Repair / Return-to-Supplier). Scoped to this company — changes only affect your tenant.
       </template>
       <template #actions>
-        <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
+        <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
           <template #icon><IconPlus :size="16" /></template>
           Add Disposition
         </BaseButton>
@@ -225,10 +229,10 @@ const showDeactivated = ref(false)
     </BaseSectionHeader>
 
     <div
-      v-if="!isOwner"
+      v-if="!canManage"
       class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800"
     >
-      Only the company owner can edit shared lookup data. You can view the list below.
+      Editing dispositions needs the NC Disposition Types permission — you can view the list below.
     </div>
 
     <div class="tw:p-4">
@@ -289,7 +293,7 @@ const showDeactivated = ref(false)
               >
             </div>
             <button
-              v-if="isOwner"
+              v-if="canManage"
               class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
               @click="handleRestore(row)"
             >

@@ -77,15 +77,18 @@ watch(activeTab, (v) => {
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
       <div class="tw:max-w-sm">
-        <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Lookup</label>
+        <!-- `label`, not a sibling <label> + `ariaLabel`: BaseSelect names its
+             combobox only through aria-labelledby → its own label, and has no
+             ariaLabel prop, so the picker used to announce as an unnamed
+             combobox (WCAG 4.1.2) with a label that pointed at nothing. -->
         <BaseSelect
           v-model="activeTab"
+          label="Lookup"
           :options="tabs"
           optionLabel="label"
           optionValue="value"
           optionGroup="group"
           :clearable="false"
-          ariaLabel="Select lookup"
         />
       </div>
 
