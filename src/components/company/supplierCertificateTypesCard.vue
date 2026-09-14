@@ -36,7 +36,7 @@ const certificateTypes = useLiveQuery(
 
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.SupplierCertificateType.where('id', undefined, { force: true }).exec()
+    const all = await db.SupplierCertificateType.where(undefined, undefined, { force: true }).exec()
     return all.filter((c) => c.deletedAt)
   },
 

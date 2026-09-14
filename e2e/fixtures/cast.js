@@ -305,6 +305,16 @@ export const USERS = {
     email: 'intadmin@e2e.test',
     name: 'Ingrid Integrations',
   },
+  // §40 (Auditee) — an invited participant on a certification audit. Holds NO
+  // role at all: `audit_instances_sel` admits them only through the
+  // audit_team_members branch, which is the population /auditee exists for.
+  // Any grant here would make every assertion about them pass for the wrong
+  // reason. Fixture ids live in e2e/fixtures/auditee.js.
+  auditeePeer: {
+    id: 'e2e10000-0000-4000-8000-000000000900',
+    email: 'auditeepeer@e2e.test',
+    name: 'Pia Participant',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -388,6 +398,7 @@ export const AUTH = {
   logOperator: 'e2e/.auth/logOperator.json',
   logSupervisor: 'e2e/.auth/logSupervisor.json',
   logAdmin: 'e2e/.auth/logAdmin.json',
+  auditeePeer: 'e2e/.auth/auditeePeer.json',
   altOwner: 'e2e/.auth/altOwner.json',
 }
 

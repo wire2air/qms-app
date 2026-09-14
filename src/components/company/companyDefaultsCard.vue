@@ -66,6 +66,10 @@ const escalationDay = computed({
 // and de-duplicate the list under the admin's cursor ("3, 1" reordering to
 // "1, 3" mid-type). The commit applies the same normalisation the worker does,
 // so the field always redisplays what will actually fire.
+//
+// `Number`, not `parseInt`: the worker drops a non-integer rung
+// (resolveOverdueConfig: [0,-1,2.5,'x',4] → [4]), and parseInt would instead
+// have turned "2.5" into 2 and "3x" into 3 — rungs the admin never typed.
 const reminderDaysDraft = ref(null)
 const reminderDaysDisplay = computed(
   () => reminderDaysDraft.value ?? (overdue.value.reminderDays ?? [3, 6, 9]).join(', '),
@@ -75,7 +79,7 @@ function commitReminderDays() {
     ...new Set(
       String(reminderDaysDraft.value ?? reminderDaysDisplay.value)
         .split(/[\s,;]+/)
-        .map((n) => parseInt(n, 10))
+        .map((n) => Number(n))
         .filter((n) => Number.isInteger(n) && n > 0),
     ),
   ].sort((a, b) => a - b)
@@ -134,6 +138,10 @@ const approvalRuleOptions = [
           </BaseField>
         </div>
 
+        <!-- Every BaseSwitch carries `label`: it renders as the switch's sr-only
+             accessible name. Without it each toggle announced as an unnamed
+             "switch" (WCAG 4.1.2), the visible text beside it being a sibling,
+             not a label. -->
         <div class="tw:flex tw:flex-col tw:gap-4">
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -142,7 +150,10 @@ const approvalRuleOptions = [
               </div>
               <div class="tw:text-xs tw:text-secondary">Workflow steps require an e-signature</div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultWorkflowRequireSignature" />
+            <BaseSwitch
+              v-model="company.settings.defaultWorkflowRequireSignature"
+              label="Require Signature by Default"
+            />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -151,7 +162,10 @@ const approvalRuleOptions = [
               </div>
               <div class="tw:text-xs tw:text-secondary">Workflow steps require a comment</div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultWorkflowRequireComment" />
+            <BaseSwitch
+              v-model="company.settings.defaultWorkflowRequireComment"
+              label="Require Comment by Default"
+            />
           </div>
         </div>
       </div>
@@ -193,7 +207,10 @@ const approvalRuleOptions = [
                 New document templates include training
               </div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultDocumentTemplateTrainingAvailable" />
+            <BaseSwitch
+              v-model="company.settings.defaultDocumentTemplateTrainingAvailable"
+              label="Training Required by Default"
+            />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -204,7 +221,10 @@ const approvalRuleOptions = [
                 Users must complete training after version updates
               </div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultDocumentTemplateRetrainingOnVersion" />
+            <BaseSwitch
+              v-model="company.settings.defaultDocumentTemplateRetrainingOnVersion"
+              label="Retrain on New Version by Default"
+            />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -215,7 +235,10 @@ const approvalRuleOptions = [
                 Documents become effective immediately upon approval
               </div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultDocumentTemplateAutoEffectiveOnApproval" />
+            <BaseSwitch
+              v-model="company.settings.defaultDocumentTemplateAutoEffectiveOnApproval"
+              label="Auto Effective on Approval by Default"
+            />
           </div>
         </div>
       </div>
@@ -263,7 +286,7 @@ const approvalRuleOptions = [
               department supervisor, then silence — the escalation stays the last word.
             </div>
           </div>
-          <BaseSwitch v-model="overdueEnabled" />
+          <BaseSwitch v-model="overdueEnabled" label="Chase overdue tasks" />
         </div>
 
         <div v-if="overdueEnabled" class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">

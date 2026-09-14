@@ -7,7 +7,12 @@ vi.mock('@/utils/currentSession', () => {
   const currentSession = { value: null }
   const isSupplier = {
     get value() {
-      return currentSession.value?.kind === 'EXTERNAL_SUPPLIER'
+      // Per-membership `kind` (companies[activeCompanyId].kind) is the real
+      // payload shape; the top-level read was the 2026-09-14 defect. Both
+      // accepted so existing fixtures keep working.
+      const s = currentSession.value
+      if (!s) return false
+      return (s.companies?.[s.activeCompanyId]?.kind ?? s.kind) === 'EXTERNAL_SUPPLIER'
     },
   }
   function isAllowed(perms) {

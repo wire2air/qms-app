@@ -51,7 +51,12 @@ const categories = useLiveQuery(
 )
 const deactivated = useLiveQuery(
   async (db) =>
-    (await db.EventCategory.where('id', undefined, { force: true }).exec()).filter(
+    // `where(undefined, undefined, …)` is the full scan. `where('id', undefined)`
+    // looks indexed but is not: `id` is not a declared customIndex, so the
+    // QueryBuilder turns it into the in-memory condition `record.id ===
+    // undefined`, which matches NOTHING — the deactivated list was always
+    // empty and Restore was unreachable.
+    (await db.EventCategory.where(undefined, undefined, { force: true }).exec()).filter(
       (d) => d.deletedAt,
     ),
   { models: ['EventCategory'], initial: [] },
