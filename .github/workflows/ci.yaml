@@ -43,10 +43,56 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Five specs assert that a frontend mirror has not DRIFTED from the
+      # backend source of truth, by reading the backend file off disk:
+      #   equipmentSyncModel        → backend/shared/models/equipment.js
+      #   auditConstants            → backend/shared/constants/auditActions.js
+      #   automationObjectsParity   → backend/worker/services/automation/objectRegistry.js
+      #   notificationRouteParity   → backend/shared/utils/companyAppUrl.js
+      #   portalShareEntities       → backend/shared/sharing/sharedWithUserEntities.js
+      # All five resolve `<qms-app>/../qms/backend/...`, so qms must land as a
+      # SIBLING of the qms-app checkout — hence `path: ../qms`, which writes one
+      # level above $GITHUB_WORKSPACE (/home/runner/work/qms-app/qms).
+      #
+      # They are drift detectors, so the correct fix is to give them the file,
+      # never to mock it or skip them: a guard that cannot fail is worse than no
+      # guard, and this repo has been bitten by exactly that twice.
+      #
+      # REQUIRES a secret — wire2air/qms is private and the default GITHUB_TOKEN
+      # is scoped to qms-app alone (it 404s on qms). Add a repo secret named
+      # QMS_BACKEND_TOKEN: a PAT (or fine-grained token) with read-only
+      # Contents access to wire2air/qms.
+      - name: Check out the qms backend as a sibling
+        uses: actions/checkout@v4
+        with:
+          repository: wire2air/qms
+          # MUST be develop, and this is not cosmetic. qms's DEFAULT branch is
+          # main, which is 818 commits behind develop — all five files above
+          # differ between them, and two (objectRegistry.js,
+          # sharedWithUserEntities.js) DO NOT EXIST on main at all. Omitting
+          # `ref` therefore fails two specs with ENOENT and makes the other
+          # three report drift against a stale mirror. Both repos develop on
+          # develop; main is the release branch.
+          #
+          # Known limitation: a backend change still on a qms feature branch
+          # will read as drift here until it merges to develop. That is the
+          # cost of cross-repo parity checks, and it fails LOUD rather than
+          # silently passing — which is the trade this guard is built around.
+          ref: develop
+          path: ../qms
+          token: ${{ secrets.QMS_BACKEND_TOKEN }}
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
         with: { version: 10.9.0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # src/content/*.generated.json are gitignored build artifacts, produced
+      # from content/** by this script. package.json wires it to predev and
+      # prebuild but NOT pretest, so a fresh clone has neither file and six
+      # spec files fail to collect (validationPackage, BaseListLayout,
+      # AuditeeHome, EquipmentHome, SharedRecordsHome, AuditeeAuditPageId).
+      - name: Build content bundles
+        run: node scripts/build-help-content.mjs
       # 214 files / 2306 tests, all green as of 2026-09-14.
       - run: pnpm test
