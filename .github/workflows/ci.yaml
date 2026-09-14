@@ -1,0 +1,110 @@
+name: CI
+
+# Test CI for the frontend. This repo had no workflows at all before this file.
+#
+# NOTE: qms-app is pnpm, not npm — package.json declares
+# "packageManager": "pnpm@10.9.0" and the lockfile is pnpm-lock.yaml.
+# (docs/plans/ci-testing-pipeline.md predates that and says npm; it is wrong.)
+#
+# Deliberately NOT here:
+#   - prettier --check: 917 files are currently unformatted. Reformat first.
+#   - Playwright E2E: needs the backend stack booted; staged separately.
+
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.9.0 }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # eslint + check-page-layout + check-design-system + check-form-system.
+      # The design-system checker is a RATCHET: each rule carries a baseline
+      # count and fails when the count rises above it. If this job goes red with
+      # "new design-debt added above baseline", fix the occurrence you added —
+      # do not raise the baseline. Sweeping debt down and LOWERING a baseline is
+      # the intended direction of travel.
+      - run: pnpm lint
+
+  unit:
+    name: Unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Five specs assert that a frontend mirror has not DRIFTED from the
+      # backend source of truth, by reading the backend file off disk:
+      #   equipmentSyncModel        → backend/shared/models/equipment.js
+      #   auditConstants            → backend/shared/constants/auditActions.js
+      #   automationObjectsParity   → backend/worker/services/automation/objectRegistry.js
+      #   notificationRouteParity   → backend/shared/utils/companyAppUrl.js
+      #   portalShareEntities       → backend/shared/sharing/sharedWithUserEntities.js
+      # All five resolve `<qms-app>/../qms/backend/...`, so qms must land as a
+      # SIBLING of the qms-app checkout. checkout cannot write there directly
+      # (see `path` below), so it lands inside and the next step moves it.
+      #
+      # They are drift detectors, so the correct fix is to give them the file,
+      # never to mock it or skip them: a guard that cannot fail is worse than no
+      # guard, and this repo has been bitten by exactly that twice.
+      #
+      # REQUIRES a secret — wire2air/qms is private and the default GITHUB_TOKEN
+      # is scoped to qms-app alone (it 404s on qms). Add a repo secret named
+      # QMS_BACKEND_TOKEN: a PAT (or fine-grained token) with read-only
+      # Contents access to wire2air/qms.
+      - name: Check out the qms backend
+        uses: actions/checkout@v5
+        with:
+          repository: wire2air/qms
+          # MUST be develop, and this is not cosmetic. qms's DEFAULT branch is
+          # main, which is 818 commits behind develop — all five files above
+          # differ between them, and two (objectRegistry.js,
+          # sharedWithUserEntities.js) DO NOT EXIST on main at all. Omitting
+          # `ref` therefore fails two specs with ENOENT and makes the other
+          # three report drift against a stale mirror. Both repos develop on
+          # develop; main is the release branch.
+          #
+          # Known limitation: a backend change still on a qms feature branch
+          # will read as drift here until it merges to develop. That is the
+          # cost of cross-repo parity checks, and it fails LOUD rather than
+          # silently passing — which is the trade this guard is built around.
+          ref: develop
+          # actions/checkout REFUSES a path outside $GITHUB_WORKSPACE
+          # ("Repository path '/home/runner/work/qms-app/qms' is not under
+          # '/home/runner/work/qms-app/qms-app'"), so it lands inside and the
+          # next step moves it to the sibling slot the specs resolve.
+          path: qms-backend
+          token: ${{ secrets.QMS_BACKEND_TOKEN }}
+          persist-credentials: false
+
+      # The specs resolve <qms-app>/../qms — i.e. /home/runner/work/qms-app/qms,
+      # one level ABOVE the workspace, which is exactly where checkout will not
+      # write. Moving it is what reproduces the local layout (qability/qms +
+      # qability/qms-app) that these guards were written against. Done before
+      # install so nothing is cached under the temporary name.
+      - name: Move the backend into the sibling slot the specs resolve
+        run: mv qms-backend ../qms
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.9.0 }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # src/content/*.generated.json are gitignored build artifacts, produced
+      # from content/** by this script. package.json wires it to predev and
+      # prebuild but NOT pretest, so a fresh clone has neither file and six
+      # spec files fail to collect (validationPackage, BaseListLayout,
+      # AuditeeHome, EquipmentHome, SharedRecordsHome, AuditeeAuditPageId).
+      - name: Build content bundles
+        run: node scripts/build-help-content.mjs
+      # 214 files / 2306 tests, all green as of 2026-09-14.
+      - run: pnpm test

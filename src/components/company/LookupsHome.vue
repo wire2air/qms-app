@@ -77,7 +77,7 @@ watch(activeTab, (v) => {
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
       <div class="tw:max-w-sm">
-        <!-- `label`, not a sibling <label> + `ariaLabel`: BaseSelect names its
+        <!-- `label`, not a sibling label element + `ariaLabel`: BaseSelect names its
              combobox only through aria-labelledby → its own label, and has no
              ariaLabel prop, so the picker used to announce as an unnamed
              combobox (WCAG 4.1.2) with a label that pointed at nothing. -->

@@ -80,7 +80,7 @@ const props = defineProps({
   // Opt-in: below `mobileBreakpoint` render a stacked card list instead of a
   // horizontal-scroll table. Off by default (cards read best when columns declare
   // a `mobile` priority); set `mobileCards` (true) per table to enable.
-  mobileCards: { type: Boolean, default: true },
+  mobileCards: { type: Boolean, default: false },
   mobileBreakpoint: {
     type: String,
     default: 'md',
