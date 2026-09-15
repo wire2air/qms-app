@@ -271,7 +271,18 @@ test.describe('TRN-J11 · a completion signature requires the material to have b
       ).toBe(true)
 
       const assignee = findAssignee(setup.instanceId)
-      expect(assignee?.status, 'control: the learner passed').toBe('COMPLETED')
+      // COMPLETED *or* VERIFIED — and the difference is this spec's own doing.
+      // `requireManagerVerification: false` is set deliberately above (so the
+      // learner's pass is terminal and the material gate is the only variable),
+      // and `submitAssessment` then calls `maybeMoveInstanceToVerification`,
+      // which auto-promotes the assignee past COMPLETED to VERIFIED. The
+      // assignee integrity guard blesses exactly that trusted edge
+      // ('COMPLETED->VERIFIED', the "auto-verify shortcut" in its transition
+      // list). Asserting COMPLETED alone failed here on a correct product.
+      expect(
+        assignee?.status,
+        'control: the learner passed (VERIFIED when no manager verification is required)',
+      ).toMatch(/^(COMPLETED|VERIFIED)$/)
       expect(assignee?.score, 'control: both answers correct scores 100').toBe(100)
       expect(assignee?.signed, 'control: the completion is signed').toBe(true)
     } finally {
@@ -312,7 +323,11 @@ test.describe('TRN-J11 · a completion signature requires the material to have b
       ).toBeGreaterThanOrEqual(400)
 
       const assignee = findAssignee(setup.instanceId)
-      expect(assignee?.status, 'no completion was recorded').not.toBe('COMPLETED')
+      // Neither terminal pass state — see the control's note on the auto-verify
+      // shortcut. Asserting only "not COMPLETED" would pass on a VERIFIED row.
+      expect(assignee?.status, 'no completion was recorded').not.toMatch(
+        /^(COMPLETED|VERIFIED)$/,
+      )
       expect(assignee?.signed, 'no signature was written').toBe(false)
       expect(assignee?.score, 'no score was written').toBeNull()
     } finally {
@@ -365,8 +380,8 @@ test.describe('TRN-J11 · a completion signature requires the material to have b
         res.status(),
         `a forged review claim must not satisfy the gate (got ${res.status()})`,
       ).toBeGreaterThanOrEqual(400)
-      expect(findAssignee(setup.instanceId)?.status, 'no completion was recorded').not.toBe(
-        'COMPLETED',
+      expect(findAssignee(setup.instanceId)?.status, 'no completion was recorded').not.toMatch(
+        /^(COMPLETED|VERIFIED)$/,
       )
     } finally {
       cleanup(setup)
