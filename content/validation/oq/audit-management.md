@@ -67,13 +67,21 @@ URS-AUD-01 … URS-AUD-08. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Create an audit instance, selecting the standard and scope | Audit created with its own identifier |  |  |  |
-| 2 | Attempt to create an audit without a standard or scope | Refused, per configuration — record the behaviour |  |  |  |
+| 2 | Attempt to create an audit without a standard, and without a scheduled date | Refused in each case |  |  |  |
+| 2a | Attempt to create an audit with no scope | Record the observed behaviour — see the note below |  |  |  |
 | 3 | Set the audit dates, type (internal / external / supplier) and auditee | Saved |  |  |  |
 | 4 | Assign a **Lead Auditor** and one further team member | Team assigned; each is notified |  |  |  |
 | 5 | Confirm the requirements from the selected standard are loaded into the audit | All clauses present |  |  |  |
 | 6 | Confirm auditor independence can be evidenced — the assigned auditor is not the owner of the audited area | Record the control used (system or procedural) |  |  |  |
 
 **Audit identifier:** ______________________
+
+> **Scope is not an enforced field.** The standard and the scheduled date are
+> required and refused when absent; **scope is optional** at both the form and the
+> server, so an audit can be created with none. Step 2a therefore records
+> behaviour rather than expecting a refusal. If your procedure requires a scope
+> on every audit, that is a procedural control — state it in your SOP and record
+> it here, rather than logging a deviation against the software.
 
 ### TC-07-04 — Execution against requirements *(URS-AUD-04)*
 
@@ -92,7 +100,7 @@ URS-AUD-01 … URS-AUD-08. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Raise a finding from a nonconformant response | Finding is created and linked to that requirement |  |  |  |
-| 2 | Attempt to raise a finding without a category or description | Refused |  |  |  |
+| 2 | Attempt to raise a finding without a description, and without a finding type | Refused in each case |  |  |  |
 | 3 | Classify the finding (for example major / minor / observation) | Classification saved |  |  |  |
 | 4 | Assign an owner and a due date | Saved; owner is notified |  |  |  |
 | 5 | Record the response, correction and evidence against the finding | Saved |  |  |  |

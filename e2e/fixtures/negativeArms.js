@@ -46,14 +46,32 @@ export const VALIDATION_SUMMARY = /please fix \d+ issues? before continuing/i
  * second half matters because a form that both complains AND writes a partial
  * row is the worst outcome and looks identical from the summary alone.
  *
+ * Not every module has a create *route*. Three shapes exist in this codebase and
+ * all three go through here:
+ *
+ *   · a page      — '/capas/create', submit on screen 2 behind a workflow card
+ *   · a dialog    — Products opens one from the register; there is no URL
+ *   · a nested dialog — an audit finding's dialog lives inside an existing
+ *                   audit's detail page, so `reach` has to navigate, switch tab
+ *                   and open it
+ *
+ * `createPath` is therefore the page you land on, not necessarily "the create
+ * form", and `reach` is what gets you from there to a visible submit control.
+ *
+ * `submitLabel` accepts an array because Audit Instance's dialog renders TWO
+ * submit buttons ('Create' and 'Create & open'), both wired to the same
+ * validation. A single hardcoded name is what broke this helper's first outing
+ * on CAPA, so it is worth being explicit rather than clever.
+ *
  * @param {import('@playwright/test').Page} page
  * @param {object} opts
- * @param {string} opts.createPath route of the create form, e.g. '/capas/create'
- * @param {string} opts.submitLabel accessible name of the submit control
+ * @param {string} opts.createPath page to navigate to first, e.g. '/capas/create'
+ * @param {string|string[]} opts.submitLabel accessible name of the submit
+ *   control; an array means "any of these" (first match wins)
  * @param {() => number} opts.countRows reads the current row count for this
  *   module (SQL), so the arm can prove nothing was written
- * @param {(page) => Promise<void>} [opts.reach] runs after navigation, for
- *   wizards whose first screen is a workflow picker rather than the form
+ * @param {(page) => Promise<void>} [opts.reach] runs after navigation — advance
+ *   a wizard, or open the dialog that holds the form
  */
 export async function expectEmptyFormRefused(
   page,
@@ -64,10 +82,15 @@ export async function expectEmptyFormRefused(
   await page.goto(createPath)
   if (reach) await reach(page)
 
-  const submit = page.getByRole('button', { name: submitLabel })
-  await expect(submit, `${createPath}: submit control must be reachable`).toBeVisible({
-    timeout: 30_000,
-  })
+  const labels = Array.isArray(submitLabel) ? submitLabel : [submitLabel]
+  const submit = labels
+    .map((name) => page.getByRole('button', { name }))
+    .reduce((a, b) => a.or(b))
+    .first()
+  await expect(
+    submit,
+    `${createPath}: submit control must be reachable (tried: ${labels.join(', ')})`,
+  ).toBeVisible({ timeout: 30_000 })
   await submit.click()
 
   await expect(
