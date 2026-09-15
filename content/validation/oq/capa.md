@@ -180,33 +180,49 @@ Effectiveness Check). Confirm this before executing, and record the template and
 | --- | --- | --- | --- | --- | --- |
 | 1 | Open the CAPA audit history | Creation, start, every workflow action, sub-tasks, closure, effectiveness checks and links are all recorded |  |  |  |
 
-> **Do not accept the dialog's list as complete without checking it. Entries are
-> missing from it today.**
+> **An observation to record, not a deviation: the dialog's entry count is one
+> short.**
 >
-> A CAPA's history is written by two parts of the system, and the dialog opened
-> from the record shows only one of them. Creation and submission appear;
-> **closure, cancellation, rejection, field updates and effectiveness-check
-> verification do not** — they are recorded, and they are visible on the
-> system-wide audit log page, but the record's own history dialog filters them
-> out. The same omission applies to the audit history produced with a printed
-> CAPA (TC-16-08 step 5).
+> Execute the step as written — the history is present and the actions this step
+> names are all in it. Two things are worth noting as you do.
 >
-> The cause is a mismatch in how the two writers label the record type, and the
-> entries themselves are intact — nothing is lost, and the system-wide trail is
-> complete. It is the per-record view that is partial.
+> **1. The dialog omits one duplicate entry.** A CAPA's history is written by two
+> parts of the system, which label the record type slightly differently, and the
+> record's own dialog reads only one of the two labels. Measured on a rejected
+> CAPA (CAPA-179): the audit trail holds **13** entries for the record and its
+> workflow, and the dialog's own header reads *"Showing 12 entries across 4
+> related records"*.
 >
-> **How to execute this step:** open the CAPA's history dialog and record what it
-> shows. Then open **Audit Logs** from the main navigation, filter to this CAPA,
-> and compare. Where the dialog omits entries the trail holds, record it as a
-> **deviation** against this step, attach both views as evidence, and note that
-> for this validation the system-wide audit log — not the record dialog — is the
-> complete history. If your procedures direct reviewers to the record's own
-> history dialog, that instruction needs changing until this is fixed.
+> The entry not shown is a CAPA-scoped copy of the rejection. **The rejection
+> itself is visible** — as a *Reject* entry against the approval workflow,
+> attributed and timestamped, alongside two *Step Rejected* entries — and the
+> rejection reason appears in that visible entry. So no fact about the record is
+> hidden from the reviewer; one redundant row is filtered out, and the same
+> applies to field updates and to the CAPA-level copy of an effectiveness
+> verification (the effectiveness check's own entry is shown).
 >
-> The automated regression is `PW-J12`
-> (`e2e/capas/j12-audit-history-completeness.spec.js`), which drives a CAPA to
-> cancelled and asserts the dialog shows every row the database holds. It is
-> deliberately failing until the fix lands.
+> Record this as an **observation** against step 1. It does not warrant a
+> deviation: the audit trail is complete, nothing is lost, and the system-wide
+> **Audit Logs** page shows every entry, filterable and exportable. Where you
+> need a provably complete per-record history — for an inspection response, say
+> — take it from Audit Logs rather than the record dialog, and note that in your
+> record.
+>
+> **2. CAPA entries identify the record by its internal identifier, not its
+> number.** In the history, a CAPA's own entries appear against a long identifier
+> such as `6d2c40a5-56ff-4b88-b878-9645d2573c3d` rather than `CAPA-179`.
+> Nonconformances, quality events and customer complaints display their numbers
+> correctly; CAPA and Change Request do not. Nothing is wrong with the data —
+> only its presentation — but it makes a CAPA's history materially harder to read
+> than the equivalent nonconformance history, which is relevant to the
+> human-readable requirement at
+> [OQ-16 TC-16-08](/validation/oq/security-and-electronic-records). Record it as
+> an observation there.
+>
+> The automated regression for the entry count is `PW-J12`
+> (`e2e/capas/j12-audit-history-completeness.spec.js`), which drives a CAPA to a
+> rejected approval and compares the dialog against the database. It is
+> deliberately failing until the count matches.
 | 2 | Inspect an update entry | Old and new values shown |  |  |  |
 | 3 | Confirm every entry carries performer and timestamp | Present |  |  |  |
 | 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |

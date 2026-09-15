@@ -44,7 +44,7 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-SEC-04 | Permissions restrict each user to the modules and actions granted to their role                                                                                                                             | T      | OQ-16     | TC-16-03     |        |     |
 | URS-SEC-05 | A user cannot reach a record by direct URL that their permissions deny                                                                                                                                      | T      | OQ-16     | TC-16-03     |        |     |
 | URS-SEC-06 | Data of one tenant is not accessible from another                                                                                                                                                           | T      | IQ, OQ-16 | §9, TC-16-04 |        |     |
-| URS-SEC-07 | All create, update and delete actions are captured in a computer-generated, time-stamped audit trail                                                                                                        | T, P   | OQ-16     | TC-16-05     |        |     |
+| URS-SEC-07 | All create, update and delete actions are captured in a computer-generated, time-stamped audit trail                                                                                                        | T      | OQ-16     | TC-16-05     |        |     |
 | URS-SEC-08 | Audit entries cannot be edited or deleted by users, and prior values are preserved                                                                                                                          | T      | OQ-16     | TC-16-06     |        |     |
 | URS-SEC-09 | The audit trail can be filtered and exported for review                                                                                                                                                     | T      | OQ-16     | TC-16-07     |        |     |
 | URS-SEC-10 | Accurate, complete, human-readable copies of records can be produced for inspection                                                                                                                         | T, P   | OQ-16     | TC-16-08     |        |     |
@@ -127,7 +127,7 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-CAP-07 | A "not effective" outcome is recorded and can trigger further action          | T      | OQ-04    | TC-04-07  |        |     |
 | URS-CAP-08 | Cancelling a CAPA requires a recorded reason and signature                    | T      | OQ-04    | TC-04-08  |        |     |
 | URS-CAP-09 | CAPAs can be linked to the nonconformances that caused them, many to one      | T      | OQ-04    | TC-04-09  |        |     |
-| URS-CAP-10 | The full CAPA history is available in the audit trail                         | T, P   | OQ-04    | TC-04-10  |        |     |
+| URS-CAP-10 | The full CAPA history is available in the audit trail                         | T      | OQ-04    | TC-04-10  |        |     |
 
 ## 8. Change Control
 

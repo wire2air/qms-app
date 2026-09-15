@@ -164,23 +164,34 @@ The critical test is step 4: hiding a control is not access control.
 | 4 | Confirm attachments referenced by a record are retrievable | Attachments open |  |  |  |
 | 5 | Confirm the audit history of a record can be produced alongside it | Audit history available in readable form |  |  |  |
 
-> **Step 5 — the history printed with a record is currently incomplete for some
-> modules.** For CAPA, Nonconformance, Change Request and Quality Event records,
-> the audit history included with the printout omits the entries written by the
-> application's own lifecycle actions — closure, cancellation, rejection and
-> field updates — while including creation and submission. Complaint printouts
-> have the same omission even though the complaint's on-screen dialog does not.
+> **Step 5 — two observations to record, neither of them a deviation.**
 >
-> Nothing is lost from the audit trail itself: the entries exist and the
-> system-wide **Audit Logs** page shows them in full, filterable and exportable
-> (TC-16-07). It is the per-record copy that is partial.
+> **The per-record history omits duplicate entries.** For CAPA, Nonconformance,
+> Change Request and Quality Event records, the audit history shown on the record
+> and included with its printout leaves out a small number of redundant entries —
+> a record-scoped copy of an action that is also recorded against the approval
+> workflow. The action itself remains visible, attributed and timestamped, and its
+> reason text appears in the entry that is shown. Measured on one rejected CAPA:
+> 13 entries in the trail, 12 in the record's history.
 >
-> Execute step 5 by comparing the printed history against the same record
-> filtered on the Audit Logs page. Where they differ, record a **deviation**, and
-> satisfy URS-SEC-10 using the Audit Logs export as the complete human-readable
-> history rather than the record printout alone. See the note on
-> [OQ-04 TC-04-10](/validation/oq/capa) for the mechanism and the regression
-> test.
+> Nothing is lost from the audit trail: every entry exists and the system-wide
+> **Audit Logs** page shows them all, filterable and exportable (TC-16-07). Where
+> you must produce a provably complete history — an inspection response, a
+> regulatory submission — take it from Audit Logs rather than the record printout,
+> and say so in your record. That satisfies URS-SEC-10.
+>
+> **CAPA and Change Request entries are identified by internal identifier.** In
+> any audit view, those two record types appear against a long identifier such as
+> `6d2c40a5-56ff-4b88-b878-9645d2573c3d` instead of `CAPA-179` or the change
+> request number. Nonconformances, quality events and customer complaints display
+> their numbers correctly. The data is intact; the presentation is not
+> human-readable in the sense this requirement means, and an inspector reading a
+> CAPA's history would have to resolve identifiers by hand. Record it as an
+> observation against this step and confirm whether your process relies on the
+> record printout for this purpose.
+>
+> See the note on [OQ-04 TC-04-10](/validation/oq/capa) for the mechanism behind
+> the first point and its regression test.
 
 ### TC-16-09 — Signature/record linking *(URS-SEC-11)*
 
