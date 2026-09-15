@@ -107,8 +107,21 @@ async function mintActiveTraining(ctx, tag) {
     },
   ]
 
+  // `managerId` is REQUIRED to publish, and leaving it out costs an hour.
+  // Training's Sequelize `beforeSave` hook throws when status is ACTIVE with no
+  // manager, so activate fails — and because the hook throws a PLAIN Error
+  // rather than a BadRequestError, the API renders it as a bare
+  // 500 "Internal server error" instead of a 400 naming the problem. That is a
+  // real defect (see the note in OQ-02 TC-02-02 / the `activate` arm below);
+  // here it just means the mint must supply a manager like the real UI does.
   const created = await ctx.request.post('/api/v1/services/trainings', {
-    data: { title, assessment, passingScore: 70, maxAttempts: 2 },
+    data: {
+      title,
+      assessment,
+      passingScore: 70,
+      maxAttempts: 2,
+      managerId: USERS.trainingAdmin.id,
+    },
   })
   expect(created.ok(), `mint: create failed — ${await created.text()}`).toBe(true)
 
@@ -343,6 +356,62 @@ test.describe('TRN-J10 · a published training is locked against content edits',
     expect(sqlValue(`SELECT description FROM trainings WHERE id = '${id}'`)).toBe(
       'Clarified wording — no change to what is assessed.',
     )
+
+    cleanup(id)
+    await ctx.close()
+  })
+
+  test('publishing without a manager is refused 400, not 500 — D16', async ({ browser }) => {
+    // FOUND BY THIS SPEC'S OWN SETUP, and expected to FAIL until fixed.
+    //
+    // Publishing a training with no manager of record IS correctly refused —
+    // `Training.beforeSave` throws when status is ACTIVE and managerId is null,
+    // which is the control OQ-02 TC-02-02 step 1 tests. But it throws a PLAIN
+    // `Error`, and `globalErrorHandler` (utils/errorHandler.js) classifies only
+    // ValidationError, AppError, four Sequelize classes, messages starting
+    // "Cannot update", and `error.cause.statusCode`. A bare Error thrown from a
+    // model hook matches none of them, so it falls through to line 132:
+    //
+    //     return sendError(res, req, 500, 'Internal server error')
+    //
+    // The caller gets a 500 with the reason DISCARDED — "Internal server error"
+    // — and the real message is only in the server log. A user who forgets the
+    // manager is told the system broke, not what to fix; an integration cannot
+    // distinguish a validation refusal from an outage and may retry a request
+    // that will never succeed.
+    //
+    // The fix is one word: throw a BadRequestError (or set `cause`) instead of
+    // an Error. Until then this test is red.
+    //
+    // Cost this effort an hour of misdiagnosis: every arm in this file failed
+    // with "mint: activate failed — Internal server error", which reads as a
+    // broken environment, not a missing field.
+    test.setTimeout(90_000)
+    const ctx = await browser.newContext({ storageState: AS })
+    const title = `E2E TRN-J10 nomanager ${uniqueSuffix()}`
+
+    const created = await ctx.request.post('/api/v1/services/trainings', {
+      data: { title, assessment: [], passingScore: 70 }, // deliberately no managerId
+    })
+    expect(created.ok(), `setup: create failed — ${await created.text()}`).toBe(true)
+    const id = sqlValue(`SELECT id FROM trainings WHERE title = '${title}' LIMIT 1`)
+    expect(id).toBeTruthy()
+
+    const res = await ctx.request.post(`/api/v1/services/trainings/${id}/activate`)
+
+    expect(res.ok(), 'publishing without a manager must still be refused').toBe(false)
+    expect(
+      res.status(),
+      `a missing required field is a client error, not a server fault (got ${res.status()})`,
+    ).toBe(400)
+    expect(
+      await res.text(),
+      'the refusal must name the problem, not hide it behind "Internal server error"',
+    ).toMatch(/manager/i)
+    expect(
+      sqlValue(`SELECT status FROM trainings WHERE id = '${id}'`),
+      'and the training stays DRAFT either way',
+    ).toBe('DRAFT')
 
     cleanup(id)
     await ctx.close()

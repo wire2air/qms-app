@@ -60,6 +60,23 @@ URS-TRN-01 … URS-TRN-11. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Remove the training manager and attempt to publish | Publication is refused; a training manager is required |  |  |  |
+
+> **Step 1 — the refusal is correct, but the message is not.** A training with no
+> manager of record genuinely cannot be published, so the control this step tests
+> is present and working. What you will see, however, is a generic failure —
+> **"Internal server error"** — rather than a message telling you a training
+> manager is required. The real reason is written only to the server log.
+>
+> Record step 1 as a **pass with an observation**: the control holds, the
+> feedback does not. Note it in your record if your process relies on the
+> application telling an author what is missing, and raise it as a defect for
+> correction — an integration calling this endpoint cannot tell a validation
+> refusal apart from a system outage, and may keep retrying a request that can
+> never succeed.
+>
+> The automated regression is the `D16` arm of `TRN-J10`
+> (`e2e/training/j10-authoring-lock.spec.js`), which asserts a 400 naming the
+> manager. It is deliberately failing until the fix lands.
 | 2 | Restore the manager and publish | Status becomes active/published |  |  |  |
 | 3 | Attempt to edit the assessment questions after publication | Editing is prevented in the interface |  |  |  |
 | 4 | Attempt to edit the passing score after publication | Editing is prevented in the interface |  |  |  |

@@ -151,6 +151,11 @@ async function launchTrainingWithMaterial(adminCtx, tag) {
     sqlValue(`SELECT assessment::text FROM trainings WHERE id = '${TRAINING.id}'`),
   )
 
+  // `managerId` is required to publish — without it `activate` fails, and the
+  // failure arrives as a bare 500 rather than a 400 (the model's beforeSave hook
+  // throws a plain Error). `requireManagerVerification: false` keeps the
+  // learner's pass terminal so the gate is what this spec measures, but a
+  // manager of record is still mandatory to reach ACTIVE at all.
   const created = await adminCtx.request.post('/api/v1/services/trainings', {
     data: {
       title,
@@ -159,6 +164,7 @@ async function launchTrainingWithMaterial(adminCtx, tag) {
       passingScore: TRAINING.passingScore,
       maxAttempts: TRAINING.maxAttempts,
       requireManagerVerification: false,
+      managerId: USERS.trainingAdmin.id,
       documentIds: [doc.id],
     },
   })

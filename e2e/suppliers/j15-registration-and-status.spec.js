@@ -34,19 +34,29 @@
 //     pin below records that rather than claiming enforcement.
 import { test, expect } from '@playwright/test'
 import { AUTH, SUPPLIER_IDS } from '../fixtures/cast.js'
-import { sql, sqlValue } from '../fixtures/db.js'
+import { sql, sqlRow, sqlValue } from '../fixtures/db.js'
 
 function uniqueSuffix() {
   return String(Date.now()).slice(-8)
 }
 
+/**
+ * Read a supplier's four identifying columns.
+ *
+ * Uses `sqlRow`, NOT `sqlValue` over a `||` concatenation. That was the first
+ * version and it silently returned only the NAME: psql already emits columns
+ * pipe-separated under `-tA`, and `sqlValue` is `sqlRow(...)[0]` — so a
+ * hand-concatenated `a || '|' || b` string gets split on those same pipes and
+ * everything after the first field is dropped. `row.name` then matches, which
+ * is exactly what made the bug look like missing data (`row.code` undefined)
+ * rather than a helper fault. Separate columns + `sqlRow` is the honest read.
+ */
 function supplierRow(id) {
-  const row = sqlValue(
-    `SELECT name || '|' || code || '|' || category || '|' || status_id
-       FROM suppliers WHERE id = '${id}'`,
+  const row = sqlRow(
+    `SELECT name, code, category, status_id FROM suppliers WHERE id = '${id}'`,
   )
   if (!row) return null
-  const [name, code, category, statusId] = row.split('|')
+  const [name, code, category, statusId] = row
   return { name, code, category, statusId }
 }
 
