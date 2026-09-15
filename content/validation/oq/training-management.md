@@ -61,9 +61,39 @@ URS-TRN-01 … URS-TRN-11. See the
 | --- | --- | --- | --- | --- | --- |
 | 1 | Remove the training manager and attempt to publish | Publication is refused; a training manager is required |  |  |  |
 | 2 | Restore the manager and publish | Status becomes active/published |  |  |  |
-| 3 | Attempt to edit the assessment questions after publication | Editing is prevented |  |  |  |
-| 4 | Attempt to edit the passing score after publication | Editing is prevented |  |  |  |
-| 5 | Attempt to change the linked material after publication | Editing is prevented |  |  |  |
+| 3 | Attempt to edit the assessment questions after publication | Editing is prevented in the interface |  |  |  |
+| 4 | Attempt to edit the passing score after publication | Editing is prevented in the interface |  |  |  |
+| 5 | Attempt to change the linked material after publication | Editing is prevented in the interface |  |  |  |
+
+> **Read this before recording steps 3–5 as a pass.** The lock is **interface-only**.
+> Publication genuinely does disable editing in the application — the training
+> detail page stops offering the fields and its auto-save is switched off — so
+> steps 3 to 5 will pass exactly as written, and that is the correct observation
+> to record for the interface.
+>
+> What you must **not** conclude from that pass is that the content is locked at
+> the server. It is not. The published training's assessment, passing score and
+> linked material remain writable through the API and through the data-sync layer
+> by any user who holds the training update permission:
+>
+> - the update endpoint applies those fields with no status check;
+> - the database's own row-level policy for the training table tests tenant and
+>   permission only, and does **not** test status;
+> - no database trigger guards them (the two triggers present cover soft-delete
+>   permission and the audit trail).
+>
+> Consequently a published training's content can be altered after learners have
+> been graded and have signed against it. Record this as a **deviation** with the
+> interface pass noted, and assess the impact for your process: if your users
+> reach this system only through the application, the interface lock plus the
+> audit trail may be an acceptable control, and the justification belongs in your
+> validation report. If API or integration access is granted to anyone, treat it
+> as an open gap and control it procedurally until the server enforces the lock.
+>
+> The automated regression for the correct behaviour is `TRN-J10`
+> (`e2e/training/j10-authoring-lock.spec.js`). It is deliberately **failing**
+> against the current build and turns green when the server-side lock lands — do
+> not tag this test case as automated-and-covered until it does.
 
 ### TC-02-03 — Assignment *(URS-TRN-03)*
 
@@ -82,10 +112,43 @@ URS-TRN-01 … URS-TRN-11. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | As **Trainee A**, open the training task and start it | The material step opens |  |  |  |
-| 2 | Without opening any material, attempt to advance to the assessment | Advancing is prevented |  |  |  |
-| 3 | Open one of two material items and attempt to advance | Still prevented — all items are required |  |  |  |
+| 2 | Without opening any material, attempt to advance to the assessment | Advancing is prevented in the interface |  |  |  |
+| 3 | Open one of two material items and attempt to advance | Still prevented in the interface — all items are required |  |  |  |
 | 4 | Open all material items | Each is marked as reviewed |  |  |  |
 | 5 | Advance to the assessment | Advancing is now permitted |  |  |  |
+
+> **Read this before recording steps 2–3 as a pass.** As with TC-02-02, the
+> enforcement is **interface-only**, and this test case is the more consequential
+> of the two because what it gates is a signed competency record.
+>
+> The trainee's screen does behave as described: the advance control stays
+> disabled until every linked document and every external link has been opened,
+> so steps 2 and 3 will pass as written. Record that for the interface.
+>
+> At the server there is no such requirement. The submission endpoint verifies
+> the trainee's electronic signature, confirms they are assigned, and checks the
+> completion status and attempt count — then grades and records the result. It
+> never asks whether any material was opened. The "reviewed" markers the
+> interface keeps are written by the trainee's own browser into the same field
+> that holds their answers, are never read by any server code, and are not
+> validated on the way in, so they cannot be relied on as evidence either.
+>
+> The practical consequence: a completion can be recorded as passed, scored and
+> **electronically signed** for a trainee who never opened the procedure. For a
+> read-and-understood training that is the entire control.
+>
+> Record this as a **deviation** and assess it for your process. State plainly in
+> your record whether anyone other than the application can reach the submission
+> endpoint. Where trainees use only the application, the interface gate plus the
+> per-launch document-version pinning may be an acceptable control with a written
+> justification; where API access exists, the assurance that a trainee reviewed
+> the material is procedural, not system-enforced, and must be described as such
+> anywhere you rely on these records as training evidence.
+>
+> The automated regression for the correct behaviour is `TRN-J11`
+> (`e2e/training/j11-material-review-gate.spec.js`). It is deliberately
+> **failing** against the current build and turns green when the server enforces
+> the gate — do not tag this test case as automated-and-covered until it does.
 
 ### TC-02-05 — Assessment scoring *(URS-TRN-05)*
 

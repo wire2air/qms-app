@@ -88,9 +88,9 @@ A = Supplier assessment · P = Procedural control (SOP)
 | Req ID     | Requirement                                                                 | Method | Protocol | Test case | Result | Ref |
 | ---------- | --------------------------------------------------------------------------- | ------ | -------- | --------- | ------ | --- |
 | URS-TRN-01 | Training content, material and assessment can be authored                   | T      | OQ-02    | TC-02-01  |        |     |
-| URS-TRN-02 | Publishing locks training content against further edit                      | T      | OQ-02    | TC-02-02  |        |     |
+| URS-TRN-02 | Publishing locks training content against further edit in the application   | T, P   | OQ-02    | TC-02-02  |        |     |
 | URS-TRN-03 | Training is assigned to named individuals and/or roles                      | T      | OQ-02    | TC-02-03  |        |     |
-| URS-TRN-04 | Trainees must review all required material before assessment                | T      | OQ-02    | TC-02-04  |        |     |
+| URS-TRN-04 | Trainees review all required material before assessment in the application  | T, P   | OQ-02    | TC-02-04  |        |     |
 | URS-TRN-05 | Assessments are scored against a configured passing score                   | T      | OQ-02    | TC-02-05  |        |     |
 | URS-TRN-06 | The configured maximum number of attempts is enforced                       | T      | OQ-02    | TC-02-06  |        |     |
 | URS-TRN-07 | Training completion is signed by the trainee                                | T      | OQ-02    | TC-02-07  |        |     |
@@ -224,11 +224,11 @@ A = Supplier assessment · P = Procedural control (SOP)
 | Req ID     | Requirement                                                                        | Method | Protocol | Test case | Result | Ref |
 | ---------- | ---------------------------------------------------------------------------------- | ------ | -------- | --------- | ------ | --- |
 | URS-SUP-01 | Suppliers are registered with identifying and categorisation detail                | T      | OQ-12    | TC-12-01  |        |     |
-| URS-SUP-02 | Supplier qualification is assessed and scored                                      | T      | OQ-12    | TC-12-02  |        |     |
+| URS-SUP-02 | Supplier qualification is assessed and scored                                      | P      | OQ-12    | TC-12-02  |        |     |
 | URS-SUP-03 | Certificates are held with expiry dates and expiry is surfaced                     | T      | OQ-12    | TC-12-03  |        |     |
 | URS-SUP-04 | Approved status is controlled and visible                                          | T      | OQ-12    | TC-12-04  |        |     |
 | URS-SUP-05 | A supplier contact can participate in an assigned record step and see nothing else | T      | OQ-12    | TC-12-05  |        |     |
-| URS-SUP-06 | A supplier can be blocked and requalified, with reasons recorded                   | T      | OQ-12    | TC-12-06  |        |     |
+| URS-SUP-06 | A supplier can be blocked and requalified, under permission control                | T, P   | OQ-12    | TC-12-06  |        |     |
 | URS-SUP-07 | The full supplier history is available in the audit trail                          | T      | OQ-12    | TC-12-07  |        |     |
 
 ## 16. Forms & Workflows

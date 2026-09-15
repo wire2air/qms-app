@@ -59,18 +59,40 @@ URS-SUP-01 … URS-SUP-07. See the
 
 **Supplier code used:** ______________________
 
-### TC-12-02 — Qualification and scoring *(URS-SUP-02)*
+### TC-12-02 — Qualification and scoring *(URS-SUP-02)* — **N/A in this system**
+
+> **Read this before executing.** This product does not provide supplier
+> qualification scoring. There is no qualification assessment record, no criteria
+> set, no derived score, no rating band or threshold, no approver-of-record for a
+> qualification decision, and no derived requalification due date. The module's own
+> design notes state it has no formal qualification workflow.
+>
+> Two adjacent fields exist and are easy to mistake for this capability, so state
+> plainly in your record that they are **not** it:
+>
+> | Field | What it actually is |
+> | --- | --- |
+> | **Risk level** | A self-declared Low / Medium / High selection. Not derived from any assessment, and nothing validates it. |
+> | **Last evaluation date** | A free date field. Nothing computes it, nothing is stored behind it, and no requalification date is derived from it. |
+>
+> **Mark this test case N/A and record the justification.** Supplier qualification
+> is performed outside this system — record where it is performed (your approved
+> supplier SOP, a qualification questionnaire, a spreadsheet or a separate system),
+> how the decision is approved, and how the outcome is traceable to the supplier
+> record here. The fields above may be used to *transcribe* an outcome reached
+> elsewhere; if you do that, say so, and treat them as transcription rather than
+> as the system deriving anything.
+>
+> Do not record a deviation against the software for this test case — an absent
+> capability, excluded with a written justification, is a legitimate validation
+> outcome. An unexplained gap is not.
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Initiate a supplier qualification assessment | Assessment created |  |  |  |
-| 2 | Complete the qualification criteria | Responses saved |  |  |  |
-| 3 | Confirm the resulting score is derived from the responses | Score matches manual calculation |  |  |  |
-| 4 | Confirm the score maps to the correct rating band per your criteria | Band correct |  |  |  |
-| 5 | Test a boundary case — a score exactly at a band threshold | Band assignment matches the SOP |  |  |  |
-| 6 | Record the qualification decision and its approver | Decision and approver recorded |  |  |  |
-| 7 | Confirm the assessment and its date are retained on the supplier record | Retained |  |  |  |
-| 8 | Confirm the requalification due date is derived per your policy | Date correct |  |  |  |
+| 1 | Confirm no qualification-assessment capability is offered in the system | Absent — recorded as N/A above |  |  |  |
+| 2 | Record where supplier qualification IS performed, and how its outcome is approved | Documented |  |  |  |
+| 3 | Where you transcribe an outcome onto the supplier record, confirm the value saves and is retrievable | Saved and retrievable |  |  |  |
+| 4 | Confirm your procedure defines the requalification interval and how it is tracked | Documented — the system does not derive it |  |  |  |
 
 ### TC-12-03 — Certificates and expiry *(URS-SUP-03)*
 
@@ -110,11 +132,29 @@ URS-SUP-01 … URS-SUP-07. See the
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Block the supplier without a reason | Refused, if a reason is required — record the behaviour |  |  |  |
-| 2 | Block with a reason | Status becomes blocked; reason recorded and attributed |  |  |  |
-| 3 | Confirm the blocked status is prominent wherever the supplier appears | Clearly indicated |  |  |  |
-| 4 | Requalify the supplier | Status restored; the requalification is recorded |  |  |  |
-| 5 | Confirm the block and the requalification both remain in history | Both retained |  |  |  |
+| 1 | Block the supplier, and confirm only a holder of the reject capability can do so | Blocking is refused for a user without it |  |  |  |
+| 2 | Block the supplier | Status becomes blocked, attributed to the person who changed it |  |  |  |
+| 3 | Confirm the blocked status is shown wherever the supplier appears — list and record | Status is indicated on both |  |  |  |
+| 4 | Requalify the supplier by returning it to approved | Status restored; only a holder of the approve capability can do it |  |  |  |
+| 5 | Confirm the block and the requalification both remain in the audit trail | Both retained, with performer and timestamp |  |  |  |
+
+> **No reason is captured, and blocking is not styled as an alert.** Two things
+> this test case previously asked for do not exist, and are corrected above rather
+> than left to fail on execution:
+>
+> - **There is no reason field** on a supplier status change — no column, no
+>   prompt, no validation. Blocking cannot be refused for a missing reason,
+>   because there is nothing to omit. If your procedure requires a documented
+>   reason for blocking a supplier, that is a **procedural control** — record it
+>   in your SOP and capture the reason outside the status change.
+> - **Blocked is shown with the standard status badge**, the same treatment every
+>   other status gets, not a banner or a danger colour. It is visible in the
+>   supplier list and on the supplier record; it is not a distinct alert.
+>
+> Also note the system has **no status transition graph**: any status may be set
+> from any other, subject only to the approve / reject capability checks above.
+> Sequencing (for example "a blocked supplier must be requalified before it can
+> be approved") is procedural, not enforced.
 
 ### TC-12-07 — Audit trail *(URS-SUP-07)*
 
