@@ -32,7 +32,7 @@
 //    backend/api/tests/integration/riskAssessment/risk-assessment-rls.test.js.
 import { expect } from '@playwright/test'
 import { AUTH, USERS } from './cast.js'
-import { sqlRow, sqlValue, waitForSqlValue, sqlAsAppUser } from './db.js'
+import { sqlRow, sqlValue, waitForSqlValue } from './db.js'
 import { clickWhenReady } from './documents.js'
 
 const quote = (s) => `'${String(s).replace(/'/g, "''")}'`

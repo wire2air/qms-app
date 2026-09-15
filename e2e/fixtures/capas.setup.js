@@ -29,13 +29,22 @@
 // SIGNATURES. `signatures_capa_id_fkey` is ON DELETE RESTRICT, deliberately —
 // a Part-11 signature must not vanish because someone deleted what it signed.
 // That guarantee is worth more than this cleanup, so the purge works WITH it:
-// it drops the signatures THIS suite's own throwaway CAPAs produced (132
-// measured), explicitly and scoped, rather than relaxing the constraint.
+// it drops the signatures THIS suite's own throwaway CAPAs produced (257
+// measured across all four subject arms), explicitly and scoped, rather than
+// relaxing the constraint.
 //
 // ⚠️ `signatures.workflow_instance_step_id` is ON DELETE **CASCADE**, unlike the
 // RESTRICT on capa_id. So deleting workflow_instance_steps silently removes any
 // signature hanging off them. Deleting the signatures explicitly first (below)
 // makes that cascade a no-op instead of a surprise.
+//
+// That is not hypothetical: a dry run on app-db (2026-09-15) found exactly one
+// signature in this purge's blast radius with capa_id = NULL AND
+// task_instance_id = NULL — reachable ONLY through the workflow step, so the
+// three obvious subject-arm deletes all missed it and the cascade would have
+// taken it silently. The fourth DELETE below exists for that row. Verified
+// after the fix: 0 signatures uncovered, and 0 signatures belonging to
+// non-E2E CAPAs anywhere in the blast radius.
 import { test as setup, expect } from '@playwright/test'
 import { COMPANY_ID } from './cast.js'
 import { sql, sqlValue } from './db.js'
@@ -56,6 +65,19 @@ setup('purge CAPAs from previous RCA / Risk Assessment runs', async () => {
     DELETE FROM signatures WHERE task_instance_id IN (
       SELECT id FROM task_instances
        WHERE entity_type = 'Capa' AND entity_id IN (SELECT id FROM capas WHERE ${MINE}));
+    -- The arm the three above MISS. Measured 2026-09-15 on app-db: one
+    -- signature in this purge's blast radius carries capa_id = NULL AND
+    -- task_instance_id = NULL, hanging off the workflow step alone (a SKIPPED
+    -- meaning, on 'E2E CAPA J10skip 1788778630770'). The DELETE of
+    -- workflow_instances below would have CASCADEd it away silently — the
+    -- exact surprise the ⚠️ note above describes, present in real data rather
+    -- than hypothetically. Delete it explicitly so the cascade stays a no-op.
+    DELETE FROM signatures WHERE workflow_instance_step_id IN (
+      SELECT wis.id FROM workflow_instance_steps wis
+       WHERE wis.workflow_instance_id IN (
+         SELECT id FROM workflow_instances
+          WHERE resource_type = 'Capa'
+            AND resource_id IN (SELECT id FROM capas WHERE ${MINE})));
 
     -- The two derived records these suites exist to produce. Both FK to
     -- workflow_instance_steps with ON DELETE SET NULL, so they would survive
@@ -74,6 +96,19 @@ setup('purge CAPAs from previous RCA / Risk Assessment runs', async () => {
     -- workflow_instance_steps, so this is belt-and-braces before the parents).
     DELETE FROM capa_records WHERE capa_id IN (SELECT id FROM capas WHERE ${MINE});
 
+    -- Two INSTANT-strategy synced tables carry polymorphic Capa pointers with
+    -- NO foreign key to capas, so nothing above reaches them and no cascade
+    -- ever fires: the rows would simply outlive their CAPA and keep paging
+    -- into IndexedDB on every bootstrap — defeating the purpose of this purge.
+    -- Measured 2026-09-15: 318 entity_field_values + 97 notifications.
+    -- (search_entries and record_embeddings hold 868 more, but have no client
+    -- model at all, so they never reach IndexedDB; audit_logs is 'lazy' AND is
+    -- compliance history — both deliberately left alone.)
+    DELETE FROM entity_field_values WHERE entity_type = 'Capa'
+       AND entity_id IN (SELECT id FROM capas WHERE ${MINE});
+    DELETE FROM notifications WHERE resource_type = 'Capa'
+       AND resource_id IN (SELECT id FROM capas WHERE ${MINE});
+
     -- Workflow instances (steps CASCADE off the instance) then tasks.
     DELETE FROM workflow_instances WHERE resource_type = 'Capa'
        AND resource_id IN (SELECT id FROM capas WHERE ${MINE});
@@ -85,6 +120,29 @@ setup('purge CAPAs from previous RCA / Risk Assessment runs', async () => {
 
   const after = Number(sqlValue(`SELECT count(*) FROM capas WHERE ${MINE}`))
   expect(after, `purged ${before} leftover E2E CAPAs`).toBe(0)
+
+  // The FK-less synced tables are the easiest part of this purge to lose: no
+  // constraint fails if a future schema change orphans them again, so nothing
+  // would surface except the slow return of the bootstrap timeouts this
+  // fixture exists to prevent. Assert them by their dangling-pointer shape.
+  expect(
+    Number(
+      sqlValue(
+        `SELECT count(*) FROM entity_field_values efv WHERE efv.entity_type = 'Capa'
+           AND NOT EXISTS (SELECT 1 FROM capas c WHERE c.id = efv.entity_id)`,
+      ),
+    ),
+    'no entity_field_values left pointing at a deleted CAPA',
+  ).toBe(0)
+  expect(
+    Number(
+      sqlValue(
+        `SELECT count(*) FROM notifications n WHERE n.resource_type = 'Capa'
+           AND NOT EXISTS (SELECT 1 FROM capas c WHERE c.id = n.resource_id)`,
+      ),
+    ),
+    'no notifications left pointing at a deleted CAPA',
+  ).toBe(0)
 
   // The seeded workflow fixtures must survive — both suites bind their widget
   // field to a step on these, so losing one fails every journey confusingly.
