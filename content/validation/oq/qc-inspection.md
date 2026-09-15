@@ -179,6 +179,25 @@ URS-QCI-01 … URS-QCI-12. See the
 Line clearance is a **preventive control**, not a record: it must stop sampling,
 not merely warn. Verify the block, not just the form.
 
+> **Prerequisite — line clearance is OFF by default. Turn it on before you
+> start, or every "refused" step below will pass samples through.**
+>
+> A Line Clearance checklist is created for every new tenant automatically, but
+> it ships **not required**: while that setting is off, the system skips the
+> clearance check entirely and sample collection is permitted with no clearance
+> at all. Steps 1, 3 and 6 would then record a false failure against the
+> software.
+>
+> Before executing: open **QC Inspection → Line Clearance** settings and switch
+> the checklist to _required_. Confirm the checklist itself carries the questions
+> your process expects, and record the setting state and the checklist version
+> you executed against — the checklist is snapshotted onto each production lot
+> when the lot is created, so editing it later does not change lots already
+> under inspection.
+>
+> Record here:  **Line clearance required:** ☐ Yes ☐ No  ·  **Checklist
+> reference/version:** ______________________
+
 | #   | Test step                                                                                                | Expected result                                               | Actual result | P/F | Init / Date |
 | --- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------- | --- | ----------- |
 | 1   | On an in-process inspection with a production lot that has no line clearance, attempt to collect samples | Refused — collection is unavailable until the line is cleared |               |     |             |

@@ -167,7 +167,28 @@ URS-WFL-01 … URS-WFL-11. See the
 | 1 | Open a completed record that ran on the retired version | The record opens |  |  |  |
 | 2 | Confirm its workflow history shows the steps as they were on that version | Historical steps accurate |  |  |  |
 | 3 | Confirm the version that ran is identified on the record | Version identified |  |  |  |
-| 4 | Confirm the retired template version can still be viewed | Readable, marked retired |  |  |  |
+| 4 | Confirm the retired workflow version can still be viewed | Readable, marked retired |  |  |  |
+
+> **How a version becomes retired, and what "the version" means here.**
+>
+> There is no retire button. A published workflow version is retired
+> **automatically when you publish a newer version of the same workflow** — the
+> previous published version is moved to retired in the same action. So to reach
+> the starting state this test case assumes: publish version 1, run a record to
+> completion on it, then publish version 2. Version 1 is now retired, and the
+> completed record from step 1 is the one that ran on it.
+>
+> Note also that "template version" throughout this test case means the
+> **approval workflow version**, which is the versioned, retirable artifact that
+> a record's approval runs against and that the record identifies by name and
+> version on its workflow panel. Retired versions stay fully readable and stay
+> referenced by the records that ran on them — they are only withdrawn from the
+> picker for new attachments, which is what step 4 is confirming.
+>
+> A workflow that has ever been published cannot be deleted at all, for this
+> reason; it can only be archived. If you want to confirm that, attempt the
+> deletion — the refusal is the control that protects every completed record's
+> history.
 
 ### TC-13-11 — Audit trail *(URS-WFL-11)*
 

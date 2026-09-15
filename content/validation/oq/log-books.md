@@ -97,9 +97,34 @@ URS-LOG-01 … URS-LOG-09. See the
 | --- | --- | --- | --- | --- | --- |
 | 1 | As **Operator (untrained)** — not trained on the linked document — attempt to make an entry | The entry is **blocked**, with a reason identifying the missing training |  |  |  |
 | 2 | Confirm the block cannot be bypassed by the operator | No override available to the operator |  |  |  |
-| 3 | Complete and verify the required training for that operator | Training verified |  |  |  |
+| 3 | Complete the required training for that operator **and have a manager verify the competency** | Training verified |  |  |  |
 | 4 | Attempt the entry again | The entry is now permitted |  |  |  |
 | 5 | Confirm assigning an untrained operator produces a warning to the assigner | Warning shown at assignment |  |  |  |
+
+> **A passed assessment is not enough — competency must be manager-verified.**
+> Step 3 is written deliberately. The system treats an operator as trained only
+> once their training record reaches **verified** status; a passed-but-unverified
+> assessment leaves the entry block fully in place. If the training you use
+> requires manager verification and you stop at the trainee's own submission, the
+> entry will still be refused and step 4 will fail — that is correct behaviour,
+> not a defect. (Where a training is configured not to require manager
+> verification, the record advances to verified on its own, so the same rule
+> holds either way.)
+>
+> Two further points worth recording as you execute:
+>
+> - **A linked document only gates entries if it carries a training.** The gate
+>   asks whether an active training is bound to the linked document — either the
+>   document's own training or a library training linked to it. A document linked
+>   to the log book with no active training bound to it never blocks anyone, so
+>   confirm the prerequisite is genuinely in place before recording step 1 as a
+>   pass. How the document is linked (implements / references / evidence of) makes
+>   no difference; all three count.
+> - **The entry block is absolute; the assignment warning is not.** A manager may
+>   override at assignment time — they can hand the book to an untrained operator
+>   over the warning in step 5 — but nobody can override at entry time, including
+>   the operator themselves. That asymmetry is by design, and step 2 is testing
+>   the half that has no override.
 
 ### TC-10-06 — Review and sign-off *(URS-LOG-06)*
 

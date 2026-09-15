@@ -147,7 +147,7 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-CMP-01 | Complaints are logged with mandatory detail enforced                     | T      | OQ-06    | TC-06-01  |        |     |
 | URS-CMP-02 | Product, lot and customer detail are captured                            | T      | OQ-06    | TC-06-02  |        |     |
 | URS-CMP-03 | QA review, investigation decision and justification are recorded         | T      | OQ-06    | TC-06-03  |        |     |
-| URS-CMP-04 | Reportability to a regulator is assessed and the decision recorded       | T      | OQ-06    | TC-06-04  |        |     |
+| URS-CMP-04 | Reportability to a regulator is assessed and the decision recorded       | P      | OQ-06    | TC-06-04  |        |     |
 | URS-CMP-05 | A complaint can be escalated to a nonconformance, with the link retained | T      | OQ-06    | TC-06-05  |        |     |
 | URS-CMP-06 | Closure is controlled and recorded                                       | T      | OQ-06    | TC-06-06  |        |     |
 | URS-CMP-07 | A complaint record can be printed in full for inspection                 | T      | OQ-06    | TC-06-07  |        |     |

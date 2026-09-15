@@ -102,8 +102,30 @@ URS-CMP-01 … URS-CMP-08. See the
 | 4 | Confirm the decision, the decider and the date are all recorded | All present |  |  |  |
 | 5 | Confirm the decision appears in the audit trail | Entry present |  |  |  |
 
-> If your configuration does not manage reportability in this system, mark N/A and record
-> where the decision *is* made and how it is traceable to the complaint.
+> **Read this before executing — reportability cannot be entered through the
+> application today.** The escape hatch below is almost certainly the route you
+> must take, and it is worth knowing why rather than discovering it at step 1.
+>
+> The underlying record is fully built: a complaint holds a reportability
+> decision, a reporting scheme, a rationale, the decider, the decision date and a
+> report due date; the API accepts all of them; changes are audit-logged; and the
+> printed complaint renders the decision and rationale. What is missing is the
+> **input** — no screen in the application offers a control that sets any of
+> those fields. They are display- and print-only. So steps 1 to 4 cannot be
+> executed through the interface as written, and step 5 has nothing to produce an
+> entry from.
+>
+> Mark this test case **N/A with justification** and record: where the
+> reportability decision **is** made, who approves it, how it is traceable to this
+> complaint, and how the reporting due date is tracked. If your process needs the
+> decision to live on the complaint record in this system, raise it as a gap —
+> the data model already supports it and only the entry screen is absent, so note
+> in your record that the capability is partially present rather than absent, and
+> that the printed complaint will show these fields as empty.
+>
+> Do not record a deviation against the software for a capability excluded with a
+> written justification. Do record one if you were relying on this test case to
+> evidence a regulatory reporting control.
 
 ### TC-06-05 — Escalation to nonconformance *(URS-CMP-05)*
 
@@ -113,9 +135,30 @@ URS-CMP-01 … URS-CMP-08. See the
 | 2 | Complete the required NC fields and create it | The NC is created |  |  |  |
 | 3 | Confirm the complaint shows the linked nonconformance | Link visible on the complaint |  |  |  |
 | 4 | Confirm the nonconformance shows the originating complaint | Link visible on the NC |  |  |  |
-| 5 | Confirm the complaint's status reflects that it was escalated | Status updated |  |  |  |
+| 5 | Confirm the complaint records the escalation — the linked nonconformance is shown on the complaint, and the complaint is closed | Link present; complaint status is **Closed** |  |  |  |
 | 6 | Where your process links several complaints to one nonconformance, link a second complaint to the same NC | Both complaints appear on the NC |  |  |  |
 | 7 | Confirm the link is recorded in the audit trail | Entry present |  |  |  |
+
+> **There is no "converted" status — the link IS the record of escalation.**
+> Step 5 was reworded for this reason. Converting a complaint sets its status to
+> **Closed**, and the fact that it was escalated lives in the record link to the
+> nonconformance, not in a distinct status value. A dedicated "converted" status
+> existed previously and was deliberately retired as a duplicate of that link.
+> Do not expect a status such as "Converted" or "Escalated"; if you look for one
+> and record a failure, the failure is against a design that was changed on
+> purpose.
+>
+> Two behaviours worth confirming while you are here, both intended:
+>
+> - **Conversion is one-way and one-time.** Attempting to convert a complaint
+>   that has already been converted is refused and names the complaint. Worth
+>   exercising: it is the control that stops one complaint spawning several
+>   nonconformances.
+> - **Several complaints convert into ONE nonconformance in a single action**
+>   (step 6). Each converted complaint is closed and linked to the same
+>   nonconformance, and the new record's description is pre-filled from all of
+>   them. That is the intended route for "these five complaints are one problem",
+>   rather than converting one and manually linking the rest.
 
 ### TC-06-06 — Closure *(URS-CMP-06)*
 
