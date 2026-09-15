@@ -106,6 +106,23 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Complaints — TWO separate authz modules sharing one project. `complaints`
+      // (internal Quality Complaints, table `complaints`) has real own/site/
+      // tenant RLS scope tiers; `complaint_management` (Customer Complaints /
+      // support, table `customer_complaints`) has only tenant + assigned-to.
+      // The module had zero E2E coverage before this — no project, no seed
+      // section (e2e-seed.sql §45) — and the route naming is a trap worth
+      // knowing before touching this suite: `/complaints` (QaComplaintsIndex)
+      // is a QA lens over the INTERNAL `complaints` table despite a stale
+      // in-code comment claiming it shares `customer_complaints`; the separate
+      // `/customer-complaints` route is the actual support surface. J3 pins
+      // that the two never cross.
+      name: 'complaints',
+      testMatch: /complaints\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // The workflow ENGINE itself — the approval machinery Documents/CAPA/NCR/
       // CR/Audits/Training all instantiate. Until this project existed, workflow
       // behaviour was only ever exercised transitively through those six suites,
@@ -287,6 +304,22 @@ export default defineConfig({
       // clients that question has to hold for.
       name: 'suppliers',
       testMatch: /suppliers\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Asset Request — supplier-portal-adjacent: no page of its own, just the
+      // REST surface plus the SuppliersAssetRequestsTab (internal) /
+      // SupplierAssetRequestsList (portal) UI. e2e/suppliers/j12 and j13
+      // already lock F-01 (read exposure) and F-03/F-08 (accept + lifecycle)
+      // at the raw HTTP/SQL layer; this project adds the UI-driven journeys
+      // neither of those exercises (create dialog, review dialog, the portal
+      // upload button) plus tenant isolation and an internal permission
+      // denial. No dedicated setup project — the fixture is one stable row
+      // (e2e-seed.sql §43) reset in each spec's own beforeAll/afterAll rather
+      // than an accumulating one like qcSetup/documentsSetup.
+      name: 'assetRequest',
+      testMatch: /assetRequest\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -540,6 +573,77 @@ export default defineConfig({
       // two such contexts.
       timeout: 180_000,
       retries: 0,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Purges the CAPAs the rca / riskAssessment journeys leave behind. Both
+      // modules are embedded widgets with no entity of their own, so every
+      // journey mints a whole CAPA to carry the widget and nothing ever
+      // removed them. Measured 2026-09-15: 540 CAPAs in E2ELAB, 434 of them
+      // leftovers, plus 3,855 task_instances / 1,929 workflow_instances --
+      // enough syncEngine bootstrap load that UI steps began timing out in
+      // spots that move around the suite (RCA-J1 on 'Start CAPA' inside the
+      // shared createCapa fixture; PW-J3's category create missing its poll,
+      // while the identical sequence driven by hand worked every time).
+      // Same reason as qcSetup / documentsSetup / inspectionsLogsSetup.
+      // See e2e/fixtures/capas.setup.js.
+      name: 'capasSetup',
+      testMatch: /fixtures\/capas\.setup\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Risk Assessment. Had ZERO E2E coverage before this — no project, no
+      // seed section (e2e-seed.sql §44 is new). The module is not a
+      // standalone page a user navigates to: it's an admin CRUD surface
+      // (/risk-assessment-templates) plus a form-builder widget
+      // (RiskAssessmentField.vue, field type `riskAssessment`) embedded in a
+      // CAPA/NCR/CR/Complaint workflow step, which derives a risk_assessments
+      // row server-side the moment that step's task reaches APPROVED. The
+      // journeys drive a dedicated CAPA workflow ("E2E Risk Assessment
+      // Review") built for exactly this, so they never disturb the shared
+      // "E2E CAPA Review & Approval" workflow every other CAPA suite depends
+      // on having an empty step-1 form_schema.
+      //
+      // RA-J3 is why this project is worth more than its test count: it is
+      // the regression guard for F-01 (docs/modules/risk-assessment/11 —
+      // `risk_assessments_update_rls` checked only company_id, no permission
+      // clause at all). CLOSED 2026-09-01 (migration 20260901180000) — this
+      // suite re-verifies it live, probed from both sides the way the
+      // module's own integration suite does (a zero-grant persona is
+      // filtered by the SELECT policy first and would pass against the
+      // defect too; the persona that matters holds capa:read and not
+      // capa:update).
+      name: 'riskAssessment',
+      testMatch: /riskAssessment\/[^/]+\.spec\.js$/,
+      dependencies: ['capasSetup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // RCA (Root Cause Analysis). Had ZERO E2E coverage before this — no
+      // project, no seed section (e2e-seed.sql §46 is new) — on the module
+      // docs/modules/rca/ scored the lowest production-readiness in the
+      // program (29/100, 2026-08-31), headlined by root_causes_update_rls
+      // carrying no permission clause at all (F-01). CLOSED on
+      // harden/rca-risk-assessment-phase1 (22-hardening-pass-2026-09-01.md):
+      // the policy now mirrors INSERT/DELETE's capa|ncr|change_control|
+      // complaints:update four-way OR, and a BEFORE UPDATE trigger
+      // (enforce_root_cause_immutable, ERRCODE QMSRC) refuses to change
+      // anything but deleted_at even for a caller who holds that OR.
+      //
+      // The module's only SCREEN is /rca-templates (Templates CRUD + Categories
+      // admin — root_cause_categories, gated by a single `manage` action
+      // covering create/update/delete, the "no separate read action" shape
+      // that recurs across this codebase). `root_causes` itself — the derived
+      // table the widget's Finalize step writes on workflow-step approval —
+      // has NO screen anywhere (F-08) and no existing workflow step in this
+      // seed carries an `rca`-type form field, so its RLS/immutability
+      // journeys probe the layer the fix actually lives at (`sqlAsAppUser`,
+      // the same role PostGraphile runs every request as) rather than
+      // reaching it through a newly-authored workflow.
+      name: 'rca',
+      testMatch: /rca\/[^/]+\.spec\.js$/,
+      dependencies: ['capasSetup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
