@@ -179,6 +179,34 @@ Effectiveness Check). Confirm this before executing, and record the template and
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Open the CAPA audit history | Creation, start, every workflow action, sub-tasks, closure, effectiveness checks and links are all recorded |  |  |  |
+
+> **Do not accept the dialog's list as complete without checking it. Entries are
+> missing from it today.**
+>
+> A CAPA's history is written by two parts of the system, and the dialog opened
+> from the record shows only one of them. Creation and submission appear;
+> **closure, cancellation, rejection, field updates and effectiveness-check
+> verification do not** — they are recorded, and they are visible on the
+> system-wide audit log page, but the record's own history dialog filters them
+> out. The same omission applies to the audit history produced with a printed
+> CAPA (TC-16-08 step 5).
+>
+> The cause is a mismatch in how the two writers label the record type, and the
+> entries themselves are intact — nothing is lost, and the system-wide trail is
+> complete. It is the per-record view that is partial.
+>
+> **How to execute this step:** open the CAPA's history dialog and record what it
+> shows. Then open **Audit Logs** from the main navigation, filter to this CAPA,
+> and compare. Where the dialog omits entries the trail holds, record it as a
+> **deviation** against this step, attach both views as evidence, and note that
+> for this validation the system-wide audit log — not the record dialog — is the
+> complete history. If your procedures direct reviewers to the record's own
+> history dialog, that instruction needs changing until this is fixed.
+>
+> The automated regression is `PW-J12`
+> (`e2e/capas/j12-audit-history-completeness.spec.js`), which drives a CAPA to
+> cancelled and asserts the dialog shows every row the database holds. It is
+> deliberately failing until the fix lands.
 | 2 | Inspect an update entry | Old and new values shown |  |  |  |
 | 3 | Confirm every entry carries performer and timestamp | Present |  |  |  |
 | 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |

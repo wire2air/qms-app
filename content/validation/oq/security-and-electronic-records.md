@@ -112,6 +112,19 @@ The critical test is step 4: hiding a control is not access control.
 | 6 | Confirm the timestamp is system-generated and matches actual time in the recorded timezone | Timestamp correct; not user-supplied |  |  |  |
 | 7 | Confirm entries attributed to automated processing are identified as system actions, not as a person | Automated actions are distinguishable |  |  |  |
 
+> **Where to look, and one known gap.** Execute this test case on the
+> system-wide **Audit Logs** page, not a record's own history dialog: for several
+> modules the dialog omits the entries written by lifecycle actions — see the
+> note on [OQ-04 TC-04-10](/validation/oq/capa). Steps 1 to 4 are all
+> observable in full on the Audit Logs page.
+>
+> For step 7, note that records created by the system's own scheduled generation
+> — audit instances raised automatically from a recurring programme — produce
+> **no audit entries at all**, rather than entries identified as system actions.
+> Where your process relies on scheduled generation, record this against
+> [OQ-07 TC-07-08](/validation/oq/audit-management), which documents it in
+> detail, and confirm separately how those records' origin is evidenced.
+
 ### TC-16-06 — Audit trail integrity *(URS-SEC-08)*
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
@@ -150,6 +163,24 @@ The critical test is step 4: hiding a control is not access control.
 | 3 | Save one as PDF and confirm nothing is truncated | Complete content in the PDF |  |  |  |
 | 4 | Confirm attachments referenced by a record are retrievable | Attachments open |  |  |  |
 | 5 | Confirm the audit history of a record can be produced alongside it | Audit history available in readable form |  |  |  |
+
+> **Step 5 — the history printed with a record is currently incomplete for some
+> modules.** For CAPA, Nonconformance, Change Request and Quality Event records,
+> the audit history included with the printout omits the entries written by the
+> application's own lifecycle actions — closure, cancellation, rejection and
+> field updates — while including creation and submission. Complaint printouts
+> have the same omission even though the complaint's on-screen dialog does not.
+>
+> Nothing is lost from the audit trail itself: the entries exist and the
+> system-wide **Audit Logs** page shows them in full, filterable and exportable
+> (TC-16-07). It is the per-record copy that is partial.
+>
+> Execute step 5 by comparing the printed history against the same record
+> filtered on the Audit Logs page. Where they differ, record a **deviation**, and
+> satisfy URS-SEC-10 using the Audit Logs export as the complete human-readable
+> history rather than the record printout alone. See the note on
+> [OQ-04 TC-04-10](/validation/oq/capa) for the mechanism and the regression
+> test.
 
 ### TC-16-09 — Signature/record linking *(URS-SEC-11)*
 
