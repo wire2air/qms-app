@@ -125,10 +125,24 @@ URS-AUD-01 … URS-AUD-08. See the
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Open the audit history for the audit instance | Planning, team assignment, every response, findings and closure are recorded |  |  |  |
+| 1 | Open the audit history for an audit instance **created by a person** | Planning, team assignment, every response, findings and closure are recorded |  |  |  |
 | 2 | Confirm a changed response shows its previous value | Old and new values present |  |  |  |
 | 3 | Confirm each entry carries performer and timestamp | Present |  |  |  |
 | 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |
+| 5 | Where you use scheduled audit programmes, open the history of an instance the **generator** created and record what is present | Record the observed behaviour — see the note below |  |  |  |
+
+> **Known limitation — scheduled generation is not attributed.** An audit instance created
+> automatically by a programme's scheduler is not written to the audit trail: the trail
+> omits entries that carry no acting user, and the scheduled job runs without one. Audits
+> created, planned and executed **by people** are recorded normally, as are every response,
+> finding and closure on a generated audit once a person touches it — it is only the
+> automatic creation event that is absent.
+>
+> Assess this against your own intended use. If you rely on scheduled generation for GxP
+> audits, the creation of those audits is evidenced by the programme configuration and its
+> schedule rather than by the record's own trail; record that as your justification, or
+> create in-scope audits manually. Qability has this on its defect register — request the
+> current status for your supplier assessment.
 
 ## 5. Deviation log
 

@@ -2,8 +2,8 @@
 id: oq-risk-management
 title: OQ-08 Risk Management
 sidebar_position: 8
-description: Operational Qualification protocol for risk assessment templates, hazard scoring, risk level derivation, mitigation and residual risk.
-keywords: [OQ, risk management, FMEA, risk assessment, residual risk, ISO 14971, test script]
+description: Operational Qualification protocol for risk assessment templates, scoring, risk level derivation, review and approval.
+keywords: [OQ, risk management, risk assessment, risk matrix, risk level, ISO 14971, test script]
 ---
 
 # OQ-08 — Risk Management
@@ -23,12 +23,19 @@ keywords: [OQ, risk management, FMEA, risk assessment, residual risk, ISO 14971,
 
 To verify that risk assessments are performed against a defined and controlled scoring
 method, that risk levels are derived consistently from the scores entered, and that
-mitigations and residual risk are recorded and approved.
+assessments are reviewed and approved under control.
 
 **The calculation is the critical test.** A risk tool that derives the wrong risk class,
 or that lets one assessor's score mean something different from another's, produces
 decisions that cannot be defended. TC-08-03 verifies the derivation against
 independently calculated expected values — do not skip it.
+
+**How risk is assessed in this product.** A risk assessment is scored **on the record
+being assessed** — a nonconformance, CAPA or change request is assessed as part of its
+workflow, against a configured risk template, and the resulting risk level belongs to that
+record. There is no separate hazard register in which hazards are catalogued, mitigated and
+re-scored. If your procedure requires a standalone hazard register or an FMEA, that
+activity sits outside this system; record where it is performed, and see TC-08-04.
 
 ## 2. Requirements verified
 
@@ -91,16 +98,33 @@ both. This is the evidence that the tool computes what your procedure says.
 | 6 | Change one score on an existing hazard | The risk level recalculates immediately and correctly |  |  |  |
 | 7 | Confirm the risk level cannot be overridden by hand without a record of the override | Override is either prevented or recorded with justification |  |  |  |
 
-### TC-08-04 — Mitigation and residual risk *(URS-RSK-04)*
+### TC-08-04 — Mitigation and residual risk *(URS-RSK-04)* — **normally N/A**
+
+> **Read this before executing.** In this product a risk assessment is scored **once, on
+> the record being assessed** — a nonconformance, CAPA or change request is assessed as
+> part of its workflow, and the assessment belongs to that record. There is no separate
+> hazard register in which a hazard is scored, mitigated, and then re-scored as residual.
+>
+> For most intended uses, **mark this test case N/A and record the justification**: the
+> pre-mitigation / post-mitigation cycle is not how risk is assessed in this system, and
+> the mitigating action is the record itself (the CAPA or change request), not a field on
+> an assessment. Where your procedure requires initial-versus-residual scoring of hazards,
+> that activity sits outside this system — record where it is performed and how it is
+> traceable, exactly as you would for any other excluded function.
+>
+> Execute the steps below **only** if your configuration has been set up to capture both an
+> initial and a residual assessment on the same record. Confirm that with your
+> administrator first; if it has not been, the steps have no surface to test and N/A is the
+> correct disposition.
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Record a mitigation against a hazard | Saved |  |  |  |
-| 2 | Re-score the hazard post-mitigation | Residual risk level is derived from the new scores |  |  |  |
-| 3 | Verify the residual risk level against a hand calculation | Values agree |  |  |  |
-| 4 | Confirm the **initial** risk scores are retained alongside the residual | Both are visible; the original is not overwritten |  |  |  |
-| 5 | Where residual risk remains above the acceptability threshold, confirm this is evident on the record | Unacceptable residual risk is visible, not buried |  |  |  |
-| 6 | Link a mitigation to the record that implements it (for example a CAPA or change request), where your process does so | Link created and visible |  |  |  |
+| 1 | Record the mitigating action for the assessed risk — in this system, the record that implements it | Action recorded and linked |  |  |  |
+| 2 | Where a post-mitigation assessment is configured, score it | A second assessment is recorded against the same record |  |  |  |
+| 3 | Verify the post-mitigation risk level against a hand calculation | Values agree |  |  |  |
+| 4 | Confirm the **initial** assessment is retained alongside it | Both are present; the original is not overwritten |  |  |  |
+| 5 | Where the remaining risk is above your acceptability threshold, confirm this is evident on the record | Unacceptable risk is visible, not buried |  |  |  |
+| 6 | Confirm the assessment is visible from the record that carries it | Assessment visible in context |  |  |  |
 
 ### TC-08-05 — Review and approval *(URS-RSK-05)*
 

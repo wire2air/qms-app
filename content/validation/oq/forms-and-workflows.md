@@ -101,10 +101,20 @@ URS-WFL-01 … URS-WFL-11. See the
 | --- | --- | --- | --- | --- | --- |
 | 1 | Attempt to launch the workflow while the version is still a draft | Not available |  |  |  |
 | 2 | Publish the version | Status becomes published and it becomes launchable |  |  |  |
-| 3 | Attempt to add, remove or edit a step in the published version | Prevented |  |  |  |
+| 3 | Edit a step in the published version, then confirm a workflow **already in flight** is unaffected by that edit | The running instance keeps the rules it started under |  |  |  |
 | 4 | Create a new draft from the published version | New draft created with the steps copied |  |  |  |
 | 5 | Modify and publish the new version | New version published; the earlier becomes retired |  |  |  |
 | 6 | Confirm records already running on the earlier version continue on that version | In-flight runs are unaffected by the new version |  |  |  |
+
+> **Editing a published version is permitted, by design — step 3 tests the control that
+> matters instead.** Blocking the edit outright would also block the publish and retire
+> transitions, which run through the same permissions, and it would do nothing for
+> instances already running against a template edited earlier. The enforced invariant is
+> narrower and stronger: the step's control fields — whether a signature is required, and
+> the approval rule — are **frozen onto each workflow instance when it starts**, so editing
+> the published template cannot retroactively change the rules of an approval in progress.
+> Verify that, not the absence of the edit. If your procedure requires published templates
+> to be immutable, implement it as a procedural control and record it here.
 
 ### TC-13-06 — Sequential activation *(URS-WFL-06)*
 

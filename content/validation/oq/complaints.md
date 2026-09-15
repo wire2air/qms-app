@@ -1,14 +1,14 @@
 ---
 id: oq-complaints
-title: OQ-06 Complaints
+title: OQ-06 Quality Complaints
 sidebar_position: 6
-description: Operational Qualification protocol for complaint intake, QA review, reportability assessment, escalation to nonconformance and closure.
-keywords: [OQ, complaint, customer complaint, QA review, reportability, escalation, test script]
+description: Operational Qualification protocol for the internal quality complaint record — intake, QA review, reportability assessment, escalation to nonconformance and closure.
+keywords: [OQ, complaint, quality complaint, QA review, reportability, escalation, test script]
 ---
 
-# OQ-06 — Complaints
+# OQ-06 — Quality Complaints
 
-**Document ID:** VAL-OQ-06 · **Version:** 1.0 · **Module:** Complaints
+**Document ID:** VAL-OQ-06 · **Version:** 1.0 · **Module:** Quality Complaints
 
 | Role | Name | Title | Signature | Date |
 | --- | --- | --- | --- | --- |
@@ -28,6 +28,14 @@ escalated to a nonconformance where warranted — with the link between the two 
 For medical-device manufacturers, complaint handling is a specifically inspected process
 (21 CFR 820.198). The decision *not* to investigate is as regulated as the decision to
 investigate, and must carry a justification. TC-06-03 tests exactly that.
+
+**This is a different module from OQ-17.** This protocol covers **Quality Complaints**, the
+internal QA-investigation record. The customer-facing intake and response module is
+**Complaint Management**, covered by
+[OQ-17 Customer Complaint Management](/validation/oq/customer-complaints). The two use
+different tables, different permissions and different lifecycles, and are granted to users
+independently. If your organisation uses only one of them, execute only the corresponding
+protocol and record the exclusion in the Validation Master Plan.
 
 ## 2. Requirements verified
 

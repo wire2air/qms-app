@@ -30,20 +30,20 @@ describe('validation bundle', () => {
   const slugs = new Set(validation.articles.map((a) => a.slug))
 
   it('ships the framework documents and one protocol per module', () => {
-    expect(validation.articles).toHaveLength(22)
-    // 6 framework + 16 OQ. The OQ count is the customer-facing promise.
-    expect(validation.articles.filter((a) => a.category === 'oq')).toHaveLength(16)
+    expect(validation.articles).toHaveLength(23)
+    // 6 framework + 17 OQ. The OQ count is the customer-facing promise.
+    expect(validation.articles.filter((a) => a.category === 'oq')).toHaveLength(17)
     expect(validation.articles.filter((a) => a.category === 'framework')).toHaveLength(6)
   })
 
-  it('numbers the OQ protocols 01–16 with no gaps or duplicates', () => {
+  it('numbers the OQ protocols 01–17 with no gaps or duplicates', () => {
     const numbers = validation.articles
       .filter((a) => a.category === 'oq')
       .map((a) => a.title.match(/^OQ-(\d{2})/)?.[1])
     expect(numbers.every(Boolean)).toBe(true)
     expect([...new Set(numbers)].sort()).toEqual(numbers.slice().sort())
     expect(numbers.slice().sort()).toEqual(
-      Array.from({ length: 16 }, (_, i) => String(i + 1).padStart(2, '0')),
+      Array.from({ length: 17 }, (_, i) => String(i + 1).padStart(2, '0')),
     )
   })
 

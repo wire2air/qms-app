@@ -140,7 +140,7 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-CHG-05 | Implementation and closure are recorded, with signature where required  | T      | OQ-05    | TC-05-05  |        |     |
 | URS-CHG-06 | The full change history is available in the audit trail                 | T      | OQ-05    | TC-05-06  |        |     |
 
-## 9. Complaints
+## 9. Quality Complaints
 
 | Req ID     | Requirement                                                              | Method | Protocol | Test case | Result | Ref |
 | ---------- | ------------------------------------------------------------------------ | ------ | -------- | --------- | ------ | --- |
@@ -173,7 +173,7 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-RSK-01 | Risk assessment templates define the scoring method in use  | T      | OQ-08    | TC-08-01  |        |     |
 | URS-RSK-02 | A risk assessment is created and hazards recorded           | T      | OQ-08    | TC-08-02  |        |     |
 | URS-RSK-03 | Risk level is derived consistently from the recorded scores | T      | OQ-08    | TC-08-03  |        |     |
-| URS-RSK-04 | Mitigations are recorded and residual risk re-scored        | T      | OQ-08    | TC-08-04  |        |     |
+| URS-RSK-04 | Mitigations are recorded and residual risk re-scored        | T, P   | OQ-08    | TC-08-04  |        |     |
 | URS-RSK-05 | Risk assessments are reviewed and approved                  | T      | OQ-08    | TC-08-05  |        |     |
 | URS-RSK-06 | The full risk history is available in the audit trail       | T      | OQ-08    | TC-08-06  |        |     |
 
@@ -269,29 +269,48 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-RET-05 | A register of retained samples can be produced                         | T      | OQ-15    | TC-15-05  |        |     |
 | URS-RET-06 | The full sample history is available in the audit trail                | T      | OQ-15    | TC-15-06  |        |     |
 
-## 19. Coverage summary
+## 19. Customer Complaint Management
+
+Applies to the customer-facing **Complaint Management** module, verified by
+[OQ-17](/validation/oq/customer-complaints). Distinct from §9, which covers the internal
+Quality Complaints record. Organisations using only one module should mark the other
+section not applicable, with the reason.
+
+| Req ID     | Requirement                                                                            | Method | Protocol | Test case | Result | Ref |
+| ---------- | -------------------------------------------------------------------------------------- | ------ | -------- | --------- | ------ | --- |
+| URS-CCM-01 | Customer complaints are logged with mandatory detail enforced and uniquely identified   | T      | OQ-17    | TC-17-01  |        |     |
+| URS-CCM-02 | Classification, product and customer detail are captured, with attachments             | T      | OQ-17    | TC-17-02  |        |     |
+| URS-CCM-03 | Acceptance and assignment are controlled and attributed                                 | T      | OQ-17    | TC-17-03  |        |     |
+| URS-CCM-04 | Correspondence and resolution are recorded and attributed                               | T      | OQ-17    | TC-17-04  |        |     |
+| URS-CCM-05 | Closure is controlled, and where configured requires approval with an electronic signature | T   | OQ-17    | TC-17-05  |        |     |
+| URS-CCM-06 | A complaint can be escalated to a nonconformance, the link retained, and escalation is final | T | OQ-17  | TC-17-06  |        |     |
+| URS-CCM-07 | A customer complaint record can be printed in full for inspection                       | T      | OQ-17    | TC-17-07  |        |     |
+| URS-CCM-08 | The full complaint history is available in the audit trail                              | T      | OQ-17    | TC-17-08  |        |     |
+
+## 20. Coverage summary
 
 Complete after execution.
 
 | Module              | Requirements | Verified | Excluded (justified) | Open |
 | ------------------- | ------------ | -------- | -------------------- | ---- |
-| Cross-cutting (SEC) | 20           |          |                      |      |
+| Cross-cutting (SEC) | 23           |          |                      |      |
 | Document Control    | 16           |          |                      |      |
 | Training            | 11           |          |                      |      |
 | Nonconformance      | 10           |          |                      |      |
 | CAPA                | 10           |          |                      |      |
 | Change Control      | 6            |          |                      |      |
-| Complaints          | 8            |          |                      |      |
+| Quality Complaints  | 8            |          |                      |      |
+| Customer Complaints | 8            |          |                      |      |
 | Audit Management    | 8            |          |                      |      |
 | Risk Management     | 6            |          |                      |      |
-| QC Inspection       | 10           |          |                      |      |
+| QC Inspection       | 12           |          |                      |      |
 | Log Books           | 9            |          |                      |      |
 | Equipment           | 6            |          |                      |      |
 | Supplier Management | 7            |          |                      |      |
 | Forms & Workflows   | 11           |          |                      |      |
 | Item Master         | 6            |          |                      |      |
 | Retain Samples      | 6            |          |                      |      |
-| **Total**           | **150**      |          |                      |      |
+| **Total**           | **163**      |          |                      |      |
 
 | Role             | Name | Signature | Date |
 | ---------------- | ---- | --------- | ---- |
