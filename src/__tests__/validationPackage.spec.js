@@ -30,10 +30,10 @@ describe('validation bundle', () => {
   const slugs = new Set(validation.articles.map((a) => a.slug))
 
   it('ships the framework documents and one protocol per module', () => {
-    expect(validation.articles).toHaveLength(23)
-    // 6 framework + 17 OQ. The OQ count is the customer-facing promise.
+    expect(validation.articles).toHaveLength(24)
+    // 7 framework + 17 OQ. The OQ count is the customer-facing promise.
     expect(validation.articles.filter((a) => a.category === 'oq')).toHaveLength(17)
-    expect(validation.articles.filter((a) => a.category === 'framework')).toHaveLength(6)
+    expect(validation.articles.filter((a) => a.category === 'framework')).toHaveLength(7)
   })
 
   it('numbers the OQ protocols 01–17 with no gaps or duplicates', () => {

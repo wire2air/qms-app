@@ -9,7 +9,7 @@
 // (`e2e/README.md`, inspectionsLogs / IL-D1) is to pin an open defect AS IT
 // BEHAVES so the suite stays green. That choice is wrong here — a green test
 // asserting "a completion can be signed without opening the material" would be
-// evidence FOR the defect, and OQ-02 TC-02-06 would trace to it. So these fail
+// evidence FOR the defect, and OQ-02 TC-02-04 would trace to it. So these fail
 // until the server enforces the gate, and go green as the fix lands.
 //
 // Do NOT invert them into known-gap pins. If the gap is accepted as intended,

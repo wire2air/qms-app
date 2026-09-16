@@ -61,12 +61,33 @@ URS-CMP-01 … URS-CMP-08. See the
 | --- | --- | --- | --- | --- | --- |
 | 1 | As **Intake User**, start logging a complaint | The form opens |  |  |  |
 | 2 | Attempt to submit with the subject empty | Refused |  |  |  |
-| 3 | Attempt to submit with the description empty | Refused — the complaint narrative is mandatory |  |  |  |
-| 4 | Attempt to submit without the product | Refused |  |  |  |
-| 5 | Attempt to submit without the lot / batch reference | Refused |  |  |  |
+| 3 | Attempt to submit with the description empty | Refused **by the entry form only** — see the note |  |  |  |
+| 4 | Attempt to submit without the product | Refused **by the entry form only** |  |  |  |
+| 5 | Attempt to submit without the lot / batch reference | Refused **by the entry form only** |  |  |  |
 | 6 | Complete all required fields and submit | The complaint is created with its own number |  |  |  |
-| 7 | Confirm the number is unique and follows the configured pattern | Number correct |  |  |  |
-| 8 | Confirm the date received and the recorder are captured | Both recorded |  |  |  |
+| 7 | Confirm the number follows the sequence | Number correct — see the note on uniqueness |  |  |  |
+| 8 | Confirm the **creation date** and the recorder are captured | Both recorded — there is no separate date-received field |  |  |  |
+
+> **Read this before recording steps 2 to 8.**
+>
+> **Only the subject is mandatory at the server.** Steps 3, 4 and 5 are enforced by the
+> entry form, and through the application the refusals are real — record them. Beneath it,
+> a complaint created through the data interface or the API needs **only a subject**;
+> description, product and lot are all optional there. Record steps 3 to 5 as
+> interface-level controls, and if your risk assessment depends on mandatory narrative,
+> product or lot capture, control access to those interfaces procedurally.
+>
+> **Step 7 — the number is sequential but its uniqueness is not sealed.** Numbers are
+> allocated from a locked counter, so duplicates are not expected in practice, but there is
+> **no database constraint preventing one** — unlike the customer-complaint register, which
+> has one. Confirm the number follows the sequence; do not attempt to prove uniqueness, and
+> record the absent constraint if your procedure relies on it. The prefix is fixed in the
+> product; there is no configurable numbering pattern to check.
+>
+> **Step 8 — there is no "date received" field.** The complaint records its creation date
+> and its recorder, and nothing else date-wise. If your process must capture when a
+> complaint was *received* as distinct from when it was *logged*, that has nowhere to go —
+> record it as a gap and capture it in the narrative.
 
 **Complaint number:** ______________________
 
@@ -192,14 +213,59 @@ URS-CMP-01 … URS-CMP-08. See the
 | 4 | Confirm each entry carries performer and timestamp | Present |  |  |  |
 | 5 | Confirm no audit entry can be edited or deleted | None available |  |  |  |
 
-## 5. Deviation log
+## 5. Controls this protocol does not test
+
+The behaviours below are present in the product but are **not exercised by any test case
+above**. A risk assessment may require the organisation to cover them with its own test
+cases or procedural controls. Two known product defects are recorded at the end.
+
+- **The lifecycle seal at the database** — the application's data interface can never change
+  a complaint's status, and a complaint may only be created in draft or open. This is what
+  makes the closure gate unbypassable, and no test case attempts a direct status write.
+  Note its limit: the seal covers the **status column only**, so other fields — including
+  the reportability decision, the investigation waiver and the closure approver — are not
+  protected by it and can be written on a closed record through the data interface.
+- **Cancellation is terminal, and a closed complaint may be reopened** — both are permitted
+  by the database's transition rules. This protocol has no cancel and no reopen test case.
+  See the defect note below before testing reopen.
+- **Scope narrowing on reads** — a site-scoped reader sees only complaints at their sites,
+  enforced by row-level policy on the application's own read path. Note a documented
+  consequence: a complaint with **no site** is invisible to a purely site-scoped reader.
+- **Three visibility routes that bypass permission** — a complaint is also visible to its
+  owner, to anyone holding an assigned task on it, and to anyone it has been explicitly
+  shared with. No test case probes these.
+- **The closure completeness gate** — closure is refused while any workflow step remains
+  open, and the refusal is server-side. TC-06-06 gestures at it but never asserts the
+  refusal.
+- **A record-level re-check on closure** — the closure permission is evaluated a second time
+  against the specific record after the route-level check.
+- **Electronic signature on a workflow step rejection** — where a step requires one, a
+  rejection cannot be recorded without it, and a signature record is written. A Part 11
+  control with no test case in this protocol.
+- **The one-time conversion guard** — a complaint already escalated to a nonconformance
+  cannot be escalated again, and the refusal names the existing complaint. TC-06-05
+  describes this in its note but gives it no numbered step, so it is not evidenced.
+- **Duplicate-complaint search and linking** — searching for similar complaints and linking
+  them is a permission-gated feature with no test case.
+- **Audit Trail read is a separate grant** — from Complaints read. TC-06-08 assumes the
+  reviewer can open the trail; a complaints-only grant cannot.
+
+**Two product defects found while writing this protocol.** Neither is a protocol error:
+
+- **The Reopen action does not work.** A closed complaint offers a Reopen control, but the
+  action it calls does not exist on the server, so it fails. The database and the permission
+  model both support reopening — only the endpoint is missing. Do not add a reopen test case
+  until this is corrected; record it as a known defect.
+- **No uniqueness constraint on the complaint number** — see TC-06-01 step 7.
+
+## 6. Deviation log
 
 | # | Step ref | Description | Impact assessment | Disposition | Retest result | Closed by / Date |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 |  |  |  |  |  |  |
 | 2 |  |  |  |  |  |  |
 
-## 6. Execution summary
+## 7. Execution summary
 
 | Test case | Steps | Passed | Failed | N/A | Deviation ref |
 | --- | --- | --- | --- | --- | --- |

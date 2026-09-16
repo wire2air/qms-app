@@ -179,6 +179,10 @@ Effectiveness Check). Confirm this before executing, and record the template and
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Open the CAPA audit history | Creation, start, every workflow action, sub-tasks, closure, effectiveness checks and links are all recorded |  |  |  |
+| 2 | Inspect an update entry | Old and new values shown |  |  |  |
+| 3 | Confirm every entry carries performer and timestamp | Present |  |  |  |
+| 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |
+| 5 | Print the CAPA and confirm the signatures and history are included | Complete copy produced |  |  |  |
 
 > **An observation to record, not a deviation: the dialog's entry count is one
 > short.**
@@ -223,10 +227,6 @@ Effectiveness Check). Confirm this before executing, and record the template and
 > (`e2e/capas/j12-audit-history-completeness.spec.js`), which drives a CAPA to a
 > rejected approval and compares the dialog against the database. It is
 > deliberately failing until the count matches.
-| 2 | Inspect an update entry | Old and new values shown |  |  |  |
-| 3 | Confirm every entry carries performer and timestamp | Present |  |  |  |
-| 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |
-| 5 | Print the CAPA and confirm the signatures and history are included | Complete copy produced |  |  |  |
 
 ## 5. Deviation log
 

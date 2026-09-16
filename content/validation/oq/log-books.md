@@ -84,12 +84,32 @@ URS-LOG-01 … URS-LOG-09. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | As **Operator (trained)**, open the log book and start an entry | Entry form opens with the frozen field set |  |  |  |
-| 2 | Attempt to submit with a required field empty | Refused |  |  |  |
-| 3 | Attempt to enter a value outside the configured numeric limits | Refused or flagged — record the behaviour |  |  |  |
+| 2 | Attempt to submit with a required field empty | Refused **by the entry form only** — see the note |  |  |  |
+| 3 | Attempt to enter a value outside the configured numeric limits | Refused **by the entry form only** — the value is accepted if the form is bypassed |  |  |  |
 | 4 | Complete and submit the entry, signing where required | Entry saved and signed |  |  |  |
 | 5 | Confirm the entry records who made it and the actual time it was made | Attribution and system timestamp present |  |  |  |
 | 6 | Confirm the recorded time is system-generated and not editable by the operator | Timestamp not user-controlled |  |  |  |
-| 7 | Where the form captures an activity date distinct from the entry time, confirm both are stored | Both present |  |  |  |
+| 7 | Confirm the entry's **activity date** is recorded alongside the entry time | Both stored — but the activity date cannot be set through the interface; read the note |  |  |  |
+
+> **Read this before recording steps 2, 3 and 7.**
+>
+> **Steps 2 and 3 are interface controls, and nothing enforces them beneath.** The entry
+> form applies the field set's required flags and numeric limits, so through the application
+> the refusals are real and should be recorded. The server performs **no validation of the
+> entry content at all** — an entry submitted directly to the data interface with a required
+> field empty, or a numeric value far outside its limits, is accepted and stored. Record
+> steps 2 and 3 against the interface, and record this limitation. If your risk assessment
+> relies on limit enforcement for GMP data, control access to the data interface
+> procedurally and state that justification.
+>
+> **Step 7 — the activity date exists, is sealed, and has no input control.** Every entry
+> stores an activity date separately from its submission time, and once written **neither
+> can ever be changed**, by any user or by the application itself. But no entry surface
+> offers the activity date, so through the interface it always equals the submission time
+> and you cannot make the two differ. Record both values as stored and note that they match.
+> See *Controls this protocol does not test* for the consequence: the data interface does
+> accept a caller-supplied activity date, without any bound on how far in the past or future
+> it may be.
 
 ### TC-10-05 — Training gate *(URS-LOG-05)*
 
@@ -158,9 +178,21 @@ URS-LOG-01 … URS-LOG-09. See the
 | --- | --- | --- | --- | --- | --- |
 | 1 | Print the log book register for a date range | A paginated register is produced |  |  |  |
 | 2 | Confirm every entry in the range is present, with operator, timestamp and values | All entries present |  |  |  |
-| 3 | Confirm review sign-offs appear on the register | Sign-offs shown |  |  |  |
-| 4 | Confirm corrections are identifiable on the register | Corrections visible |  |  |  |
+| 3 | Confirm review sign-offs appear on the register | **Only the entry's status appears** — the signature detail is not on the register |  |  |  |
+| 4 | Confirm corrections are identifiable on the register | **Not identifiable** — the register prints the corrected value with no marker |  |  |  |
 | 5 | Save as PDF and confirm nothing is truncated | Complete |  |  |  |
+
+> **Read this before recording steps 3 and 4.** The register prints each entry's
+> identifier, submission time, operator, status and the field values you select. It does
+> **not** print signature detail, and it does not mark an entry that has been corrected — an
+> amended entry appears with its corrected value only. Neither is a loss of the underlying
+> record: the review signature and the full correction history, including every superseded
+> value, are held against the entry and are visible on the entry itself and in its audit
+> trail. It is the register view that omits them.
+>
+> Record steps 3 and 4 as observed, and if your procedure uses this register as the
+> inspection-facing log, evidence sign-offs and corrections from the entry records instead
+> and say so in your report.
 
 **Attach the register as objective evidence.**
 
@@ -173,14 +205,50 @@ URS-LOG-01 … URS-LOG-09. See the
 | 3 | Confirm each entry carries performer and timestamp | Present |  |  |  |
 | 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |
 
-## 5. Deviation log
+## 5. Controls this protocol does not test
+
+The behaviours below are present in the product but are **not exercised by any test case
+above**. A risk assessment may require the organisation to cover them with its own test
+cases or procedural controls.
+
+- **A back-dated activity date accepted through the data interface** — the highest-value
+  omission. An entry's activity date may be supplied by the caller with **no check that it
+  is not in the past or the future**, and the database then makes it permanently
+  unchangeable. A back-dated entry is therefore sealed as authoritative. The interface never
+  exposes the field (TC-10-04 step 7), so this is reachable only through the data interface.
+  Recommended test: attempt it, and if it succeeds, control data-interface access
+  procedurally and record the justification against contemporaneity.
+- **The full set of frozen contract fields** — TC-10-02 tests that fields cannot be added,
+  removed or renamed once the book is active. The same protection also covers the book's
+  **signature-required** and **review-required** settings, its edit window, its record
+  classification, its equipment link and its code. Turning off signature or review
+  requirement on a live book is the most consequential configuration change in the module
+  and no test case attempts it.
+- **The entry lifecycle seal** — an entry's status can only follow the permitted sequence,
+  and the database refuses any direct status change from the application's data interface.
+  This closed a defect by which an entry's own author could reopen their sealed entry,
+  approve it past the reviewer, or void it without a reason. No test case attempts a direct
+  lifecycle write.
+- **Entries cannot be deleted at all** — there is no deletion path, for any user.
+- **The edit window** — an entry is editable by its submitter only until its window closes,
+  after which it seals automatically; an edit within the window appends a revision rather
+  than overwriting. The protocol never states the window as a control or tests its expiry.
+- **Operator flags** — any member may raise a flag on an entry, which creates a supervisor
+  review task and an immediate notification; resolving it is permission-gated. A
+  GMP-relevant "the operator noticed something" channel with no test case.
+- **Reviewer site scoping** — a named reviewer must also hold access to the book's site.
+  TC-10-06 tests reviewer against non-reviewer, not the site dimension.
+- **A book must be active to accept entries** — a draft, inactive or obsolete book refuses
+  them. TC-10-02 activates a book but never tests the negative.
+
+## 6. Deviation log
 
 | # | Step ref | Description | Impact assessment | Disposition | Retest result | Closed by / Date |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 |  |  |  |  |  |  |
 | 2 |  |  |  |  |  |  |
 
-## 6. Execution summary
+## 7. Execution summary
 
 | Test case | Steps | Passed | Failed | N/A | Deviation ref |
 | --- | --- | --- | --- | --- | --- |

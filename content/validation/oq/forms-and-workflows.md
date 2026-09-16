@@ -136,6 +136,32 @@ URS-WFL-01 … URS-WFL-11. See the
 | 3 | On step 3 (**ANY**), have **Approver A** approve | The step completes immediately without Approver B |  |  |  |
 | 4 | Confirm Approver B's task for step 3 is withdrawn or closed | No stale task remains |  |  |  |
 | 5 | Confirm both approvers' actions are recorded on the ALL step | Both recorded individually |  |  |  |
+| 6 | **On the ANY step (step 3), inspect the per-approver record for Approver B — who never acted** | **Approver B is recorded as having approved.** This is the expected *observation*, not the required behaviour — raise it as a deviation and read the note |  |  |  |
+
+> **Read this before executing TC-13-07, and do not stop at step 5.** Steps 1 to 5 will all
+> pass. They are correct as far as they go — but none of them looks at the place where this
+> requirement is not met, so an execution that ends at step 5 produces a clean record over a
+> known non-conformance. Step 6 exists to prevent that.
+>
+> **What the product does.** When an ANY step is satisfied by a single approval, the
+> per-approver record for **every** assignee on that step is set to approved — including
+> assignees who never acted, and including one who had explicitly declined or been
+> reassigned. Under the **ALL** rule the same behaviour is harmless, because the step is
+> only reached once everyone genuinely has approved; that is why step 5 passes and why the
+> defect is invisible from steps 1 to 5.
+>
+> **What is not affected, which bounds the deviation.** No electronic signature is created
+> for a user who did not sign — the signature ledger stays truthful, and so does the task
+> list, where the untaken task is correctly closed as superseded (step 4). The falsification
+> is confined to the per-approver assignment record. The consequence is that two records of
+> the same event disagree, and the per-approver one cannot be relied on to show who
+> actually approved.
+>
+> **How to record it.** Execute step 6, record the observation, and raise a deviation
+> against URS-WFL-07. Until it is corrected, do not rely on the per-approver record as
+> evidence of individual approval on any step using the ANY rule; the signature record is
+> the reliable evidence. Assess whether any of your own procedures cite per-approver
+> approval history, and control those procedurally.
 
 ### TC-13-08 — Mandatory comments and signatures *(URS-WFL-08)*
 

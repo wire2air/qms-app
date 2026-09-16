@@ -60,6 +60,10 @@ URS-TRN-01 … URS-TRN-11. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Remove the training manager and attempt to publish | Publication is refused; a training manager is required |  |  |  |
+| 2 | Restore the manager and publish | Status becomes active/published |  |  |  |
+| 3 | Attempt to edit the assessment questions after publication | Editing is prevented in the interface |  |  |  |
+| 4 | Attempt to edit the passing score after publication | Editing is prevented in the interface |  |  |  |
+| 5 | Attempt to change the linked material after publication | Editing is prevented in the interface |  |  |  |
 
 > **Step 1 — the refusal is correct, but the message is not.** A training with no
 > manager of record genuinely cannot be published, so the control this step tests
@@ -77,10 +81,6 @@ URS-TRN-01 … URS-TRN-11. See the
 > The automated regression is the `D16` arm of `TRN-J10`
 > (`e2e/training/j10-authoring-lock.spec.js`), which asserts a 400 naming the
 > manager. It is deliberately failing until the fix lands.
-| 2 | Restore the manager and publish | Status becomes active/published |  |  |  |
-| 3 | Attempt to edit the assessment questions after publication | Editing is prevented in the interface |  |  |  |
-| 4 | Attempt to edit the passing score after publication | Editing is prevented in the interface |  |  |  |
-| 5 | Attempt to change the linked material after publication | Editing is prevented in the interface |  |  |  |
 
 > **Read this before recording steps 3–5 as a pass.** The lock is **interface-only**.
 > Publication genuinely does disable editing in the application — the training
@@ -109,8 +109,8 @@ URS-TRN-01 … URS-TRN-11. See the
 >
 > The automated regression for the correct behaviour is `TRN-J10`
 > (`e2e/training/j10-authoring-lock.spec.js`). It is deliberately **failing**
-> against the current build and turns green when the server-side lock lands — do
-> not tag this test case as automated-and-covered until it does.
+> against the current build and passes once the server-side lock lands. Do not
+> tag this test case as automated-and-covered until it does.
 
 ### TC-02-03 — Assignment *(URS-TRN-03)*
 
@@ -164,8 +164,8 @@ URS-TRN-01 … URS-TRN-11. See the
 >
 > The automated regression for the correct behaviour is `TRN-J11`
 > (`e2e/training/j11-material-review-gate.spec.js`). It is deliberately
-> **failing** against the current build and turns green when the server enforces
-> the gate — do not tag this test case as automated-and-covered until it does.
+> **failing** against the current build and passes once the server enforces the
+> gate. Do not tag this test case as automated-and-covered until it does.
 
 ### TC-02-05 — Assessment scoring *(URS-TRN-05)*
 
