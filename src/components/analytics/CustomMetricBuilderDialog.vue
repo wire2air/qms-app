@@ -296,10 +296,30 @@ const numerator = computed({
   },
 })
 
+// Name uniqueness (case-insensitive, per company) — backed by the DB
+// analytics_custom_metrics_name_uniq partial index. Excludes the current row
+// in edit mode. Checked client-side so a duplicate is caught before Create is
+// even clickable, instead of surfacing as an opaque save failure.
+const nameAvailable = useLiveQueryWithDeps(
+  [() => props.metric?.id, () => form.value.name],
+  async (db, [id, name]) => {
+    const n = (name || '').trim().toLowerCase()
+    if (!n) return true
+    const all = await db.AnalyticsCustomMetric.where().exec()
+    return !all.some((m) => (m.name || '').trim().toLowerCase() === n && m.id !== id)
+  },
+  { models: ['AnalyticsCustomMetric'], initial: true },
+)
+const nameInUseError = computed(() =>
+  form.value.name.trim() && !nameAvailable.value
+    ? 'A metric with this name already exists'
+    : '',
+)
+
 const problem = computed(() =>
   definitionProblem(form.value.definition, form.value, props.dimensionCap),
 )
-const canSave = computed(() => !problem.value && !saving.value)
+const canSave = computed(() => !problem.value && nameAvailable.value && !saving.value)
 
 /**
  * The reason to SHOW, which is not always the reason to BLOCK.
@@ -316,6 +336,10 @@ const canSave = computed(() => !problem.value && !saving.value)
  * nothing is hidden — only deferred until it is fair to say it.
  */
 const visibleProblem = computed(() => {
+  // A duplicate name is already shown inline on the field itself once
+  // touched — repeating it in the footer banner would just say the same
+  // thing twice.
+  if (nameTouched.value && nameInUseError.value) return null
   if (!problem.value) return null
   // Nothing has been chosen yet: the form is a question, not a failure.
   if (!form.value.definition.sourceTable) return null
@@ -358,11 +382,15 @@ async function save() {
         definition: form.value.definition,
       },
     })
+    // useLiveMutation already caught and toasted a failed save, returning
+    // undefined instead of rethrowing — treating that as success here closed
+    // the dialog and showed a SECOND, contradictory "Metric created" toast on
+    // top of the error, while nothing was actually written (e.g. a duplicate
+    // name hitting analytics_custom_metrics_name_uniq).
+    if (!saved) return
     toast.success(props.metric ? 'Metric updated' : 'Metric created')
     emit('saved', saved)
     open.value = false
-  } catch (err) {
-    toast.error(err?.message || 'Could not save the metric')
   } finally {
     saving.value = false
   }
@@ -430,6 +458,7 @@ async function save() {
             label="Name"
             placeholder="e.g. Open documents by site"
             required
+            :errorMsg="nameTouched ? nameInUseError : ''"
             @blur="nameTouched = true"
           />
           <BaseTextarea
@@ -559,7 +588,7 @@ async function save() {
         :loading="saving"
         :disabled="!canSave"
         :submitLabel="metric ? 'Save changes' : 'Create metric'"
-        :submitTitle="problem || undefined"
+        :submitTitle="nameInUseError || problem || undefined"
         :error="visibleProblem || ''"
         @cancel="close"
         @submit="save"

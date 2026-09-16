@@ -102,22 +102,30 @@ export async function directSaveStrategy(instance) {
 function runSave(instance, schema, pk, id, tableName, state, queueKey) {
   const promise = _executeSave(instance, schema, pk, id, tableName)
   state.inFlight = promise
-  promise.finally(() => {
-    state.inFlight = null
-    if (state.pendingPromise) {
-      const pendingResolve = state.pendingResolve
-      const pendingReject = state.pendingReject
-      state.pendingPromise = null
-      state.pendingResolve = null
-      state.pendingReject = null
-      runSave(instance, schema, pk, id, tableName, state, queueKey).then(
-        pendingResolve,
-        pendingReject,
-      )
-    } else {
-      saveStates.delete(queueKey)
-    }
-  })
+  // `.finally()` returns its own promise that mirrors `promise`'s rejection.
+  // That derived promise is only used for bookkeeping here and is never
+  // awaited by anyone — without the trailing .catch(), a rejected `promise`
+  // (e.g. a unique-constraint violation) leaves it as an unhandled rejection
+  // even though `promise` itself (returned below, to the real caller) is
+  // properly caught there.
+  promise
+    .finally(() => {
+      state.inFlight = null
+      if (state.pendingPromise) {
+        const pendingResolve = state.pendingResolve
+        const pendingReject = state.pendingReject
+        state.pendingPromise = null
+        state.pendingResolve = null
+        state.pendingReject = null
+        runSave(instance, schema, pk, id, tableName, state, queueKey).then(
+          pendingResolve,
+          pendingReject,
+        )
+      } else {
+        saveStates.delete(queueKey)
+      }
+    })
+    .catch(() => {})
   return promise
 }
 
