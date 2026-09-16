@@ -22,7 +22,7 @@
  * because a status vocabulary changed underneath it. If the list did not say so,
  * the only symptom would be a tile that quietly stopped appearing.
  */
-import { canManageCustomMetrics } from '@/utils/analyticsCustomMetricAccess.js'
+import { canManageCustomMetrics, moduleLabel } from '@/utils/analyticsCustomMetricAccess.js'
 import { currentSession } from '@/utils/currentSession'
 import {
   IconMathFunction,
@@ -112,14 +112,6 @@ async function togglePublish(m) {
   } catch (err) {
     toast.error(err?.message || 'Could not change whether this metric is published')
   }
-}
-
-/** Title-cased module slug, matching the builder. */
-function moduleLabel(id) {
-  return String(id ?? '')
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
 }
 </script>
 

@@ -14,6 +14,27 @@
  * compiler would reject anyway, and a field the registry gains appears here with
  * no frontend change at all.
  *
+ * ── HOW IT IS ORGANISED, AND WHY THAT ORDER ─────────────────────────────────
+ * Two questions and a sentence:
+ *
+ *   Module + date  — which records, and the date they are counted by
+ *   Name           — what to call it, and an optional description
+ *   →  a plain-English summary of what will be counted
+ *   ▸  Refine (optional) — percentages, filters, breakdowns, period
+ *
+ * The summary is the load-bearing part. Every control above it answers one
+ * question about the metric in isolation; nothing else in the form tells you
+ * whether the eleven answers add up to the thing you were asked for, and a
+ * definition is not something a non-analyst can read back off a row of selects.
+ * It is rendered from the same definition that will be saved, so it cannot
+ * describe a metric other than the one being built.
+ *
+ * Everything optional starts collapsed and every optional field has a default
+ * that is right for most metrics (count, monthly, no direction), so a first
+ * metric is genuinely three answers. Editing an existing metric auto-expands the
+ * refinements if it uses any — nothing saved is ever hidden from the person
+ * editing it.
+ *
  * ── WHY compileError IS SHOWN AS PROMINENTLY AS IT IS ───────────────────────
  * A save that "worked" but produced no usable metric is the confusing outcome,
  * and it is reachable: the client's checks are a deliberate subset of the
@@ -21,27 +42,21 @@
  * happens the row still exists — it is a draft that does not compile — and the
  * banner is the only thing that says so. Silence here would leave a metric that
  * is saved, listed, and quietly absent from every dashboard.
- *
- * ── THE ONE THING THIS DOES NOT DO YET ──────────────────────────────────────
- * Filter values are typed, not picked. The registry names a `lookupTable` for
- * every enum and uuid field, so a picker is buildable — it needs a mapping from
- * a Postgres table name to the SyncEngine model that mirrors it, which does not
- * exist yet. Typed values are validated by the compiler and quote_literal()'d, so
- * this is a usability gap and not a correctness one. It is called out on the
- * field itself rather than left for the user to discover.
  */
 import {
   MEASURES,
   MEASURE_OPTIONS,
-  OP_OPTIONS,
-  VALUELESS_OPS,
   DIRECTION_OPTIONS,
   GRAIN_OPTIONS,
   blankDefinition,
-  blankFilter,
   definitionProblem,
+  describeDefinition,
+  lookupModelName,
+  lookupRowLabel,
+  moduleLabel,
+  recordLabel,
 } from '@/utils/analyticsCustomMetricAccess.js'
-import { IconPlus, IconTrash, IconAlertTriangle, IconChevronRight } from '@tabler/icons-vue'
+import { IconAlertTriangle, IconChevronRight, IconSparkles } from '@tabler/icons-vue'
 
 const props = defineProps({
   /** An existing AnalyticsCustomMetric row, or null to create. */
@@ -59,11 +74,15 @@ const toast = useToast()
 const saving = ref(false)
 const form = ref(blank())
 
-// Collapsed by default so a new metric is three fields — name, module, what's
-// counted — instead of the full eleven. Auto-expanded when editing a metric
-// that already uses any of the advanced options, so nothing saved is ever
-// hidden from the person editing it.
+// Collapsed by default so a new metric is three answers instead of eleven.
+// Auto-expanded when editing a metric that already uses any of them.
 const showAdvanced = ref(false)
+
+// Whether the name field has been visited — see `visibleProblem`. Declared up
+// here, not next to the computed that reads it: the seed watcher below runs
+// immediately at setup and assigns it, which a later `const` would have made a
+// temporal-dead-zone throw before the dialog rendered at all.
+const nameTouched = ref(false)
 
 function hasAdvancedContent(metric) {
   if (!metric) return false
@@ -91,11 +110,11 @@ function blank() {
 /**
  * True while the form is being filled from an existing row.
  *
- * ⚠ Load-bearing. The two watchers below clear dependent fields when the module
- * or the source table changes, which is right when a PERSON changes them and
- * wrong when the form is merely being populated: seeding an existing metric
- * moves sourceTable from null to its saved value, which looks identical to a
- * user picking it, and the reset then wiped the saved filters and groupBy.
+ * ⚠ Load-bearing. The watchers below clear dependent fields when the module or
+ * the source table changes, which is right when a PERSON changes them and wrong
+ * when the form is merely being populated: seeding an existing metric moves
+ * sourceTable from null to its saved value, which looks identical to a user
+ * picking it, and the reset then wiped the saved filters and groupBy.
  *
  * The failure was almost invisible, which is why it survived a build, four lints
  * and a full unit run. `timeField` came back anyway — BaseSelect's autoFill
@@ -119,6 +138,7 @@ watch(
   () => {
     if (!open.value) return
     seeding.value = true
+    nameTouched.value = !!props.metric
     showAdvanced.value = hasAdvancedContent(props.metric)
     // Cleared on the next tick, AFTER the reset watchers have flushed for this
     // change. Clearing it synchronously would leave them firing against a form
@@ -145,35 +165,37 @@ watch(
 
 // ── the registry, sliced the way the form needs it ──────────────────────────
 const modules = computed(() => {
-  const seen = new Map()
-  for (const f of props.fields) if (!seen.has(f.moduleId)) seen.set(f.moduleId, f.moduleId)
-  return [...seen.keys()].sort().map((id) => ({ value: id, label: moduleLabel(id) }))
+  const seen = new Set()
+  for (const f of props.fields) seen.add(f.moduleId)
+  return [...seen].sort().map((id) => ({ value: id, label: moduleLabel(id) }))
 })
 
-/** Module ids are snake_case slugs; the nav shows title case. */
-function moduleLabel(id) {
-  return String(id ?? '')
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-}
-
-const moduleFields = computed(() =>
-  props.fields.filter((f) => f.moduleId === form.value.moduleId),
-)
+const moduleFields = computed(() => props.fields.filter((f) => f.moduleId === form.value.moduleId))
 
 const sourceTables = computed(() => {
   const seen = new Set()
   for (const f of moduleFields.value) seen.add(f.sourceTable)
-  return [...seen].sort().map((t) => ({ value: t, label: sourceLabel(t) }))
+  return [...seen].sort().map((t) => ({ value: t, label: recordLabel(t) }))
 })
 
-function sourceLabel(t) {
-  return String(t ?? '')
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-}
+/**
+ * Every module in the registry has exactly one source table today, so asking
+ * which one is asking a question with one possible answer — and it is asked in
+ * the vocabulary of the schema. Picked automatically, and the control is hidden
+ * unless a module genuinely offers a choice.
+ */
+const needsSourceChoice = computed(() => sourceTables.value.length > 1)
+
+watch(
+  sourceTables,
+  (list) => {
+    if (seeding.value) return
+    if (list.length === 1 && form.value.definition.sourceTable !== list[0].value) {
+      form.value.definition.sourceTable = list[0].value
+    }
+  },
+  { immediate: true },
+)
 
 const tableFields = computed(() =>
   moduleFields.value
@@ -182,9 +204,7 @@ const tableFields = computed(() =>
     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
 )
 
-const dateFields = computed(() =>
-  tableFields.value.filter((f) => f.kind === 'date').map(asOption),
-)
+const dateFields = computed(() => tableFields.value.filter((f) => f.kind === 'date').map(asOption))
 const filterFields = computed(() => tableFields.value.filter((f) => f.filterable).map(asOption))
 const groupFields = computed(() => tableFields.value.filter((f) => f.groupable).map(asOption))
 const numberFields = computed(() =>
@@ -193,6 +213,43 @@ const numberFields = computed(() =>
 
 function asOption(f) {
   return { value: f.columnName, label: f.label }
+}
+
+/**
+ * The real values behind every filterable field of the chosen table, so a
+ * condition is picked rather than typed from memory.
+ *
+ * One query for the whole table rather than one per condition row: the same
+ * lookup feeds the field pickers AND the summary sentence, the rows are small
+ * static reference data already in IndexedDB, and a per-row query would re-read
+ * the same statuses every time someone adds a condition.
+ *
+ * `models: '*'` because which models these are is only known at runtime, from
+ * `lookupTable` — useLiveQuery fixes its subscription list at setup. These are
+ * reference tables that essentially never change, so the wildcard costs a
+ * debounced re-read on unrelated syncs and nothing else.
+ */
+const lookupOptions = useLiveQueryWithDeps(
+  [() => tableFields.value.map((f) => `${f.columnName}:${f.lookupTable ?? ''}`).join('|')],
+  async (db) => {
+    const out = {}
+    for (const f of tableFields.value) {
+      if (!f.lookupTable || !f.filterable) continue
+      const modelName = lookupModelName(db, f.lookupTable)
+      if (!modelName) continue
+      const rows = await db[modelName].where().exec()
+      out[f.columnName] = rows
+        .map((r) => ({ value: r.id, label: lookupRowLabel(r) }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    }
+    return out
+  },
+  { initial: {} },
+)
+
+/** A stored code or uuid, as its label — used by the summary sentence. */
+function valueLabel(column, value) {
+  return (lookupOptions.value?.[column] ?? []).find((o) => o.value === value)?.label ?? ''
 }
 
 // Changing the module or the source table invalidates every field chosen under
@@ -223,8 +280,7 @@ const measureType = computed({
     // Rebuilt rather than mutated: switching away from a ratio must drop its
     // numerator, and switching away from a sum must drop its field, or the
     // leftover key travels to the compiler and is rejected.
-    form.value.definition.measure =
-      type === MEASURES.RATIO ? { type, numerator: [blankFilter()] } : { type }
+    form.value.definition.measure = type === MEASURES.RATIO ? { type, numerator: [] } : { type }
   },
 })
 
@@ -233,33 +289,46 @@ const needsMeasureField = computed(() =>
 )
 const isRatio = computed(() => measureType.value === MEASURES.RATIO)
 
-const problem = computed(() => definitionProblem(form.value.definition, form.value, props.dimensionCap))
+const numerator = computed({
+  get: () => form.value.definition.measure?.numerator ?? [],
+  set: (rows) => {
+    form.value.definition.measure.numerator = rows
+  },
+})
+
+const problem = computed(() =>
+  definitionProblem(form.value.definition, form.value, props.dimensionCap),
+)
 const canSave = computed(() => !problem.value && !saving.value)
 
-// ── filter rows ─────────────────────────────────────────────────────────────
-function addFilter(list) {
-  list.push(blankFilter())
-}
-function removeFilter(list, i) {
-  list.splice(i, 1)
-}
-
 /**
- * Values are held as an array but edited as one comma-separated line.
+ * The reason to SHOW, which is not always the reason to BLOCK.
  *
- * Split on save rather than on every keystroke: splitting live turns "CLOSED, "
- * into an empty second value the moment the comma is typed, and the row then
- * reports itself invalid while the user is still mid-word.
+ * `problem` gates the save and is checked in save order, so on an untouched form
+ * it reads "Give the metric a name." — a red error about a field that is not on
+ * screen yet (the name section only appears once there are records to name) and
+ * that nobody has been asked to fill in. That is a complaint, not guidance, and
+ * it made the dialog look broken the moment it opened.
+ *
+ * So the inline error waits until the thing it names has actually been put to
+ * the user. The submit button stays disabled either way and carries the same
+ * text as its tooltip, and the name field carries its own required marker, so
+ * nothing is hidden — only deferred until it is fair to say it.
  */
-function valuesText(f) {
-  return (f.values ?? []).join(', ')
-}
-function setValues(f, text) {
-  f.values = String(text ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
+const visibleProblem = computed(() => {
+  if (!problem.value) return null
+  // Nothing has been chosen yet: the form is a question, not a failure.
+  if (!form.value.definition.sourceTable) return null
+  // The name is asked for but never yet visited, and is empty because it has
+  // never been filled rather than because it was emptied.
+  if (!form.value.name.trim() && !nameTouched.value) return null
+  return problem.value
+})
+
+/** What this metric will count, in words. Null while there is nothing to describe. */
+const summary = computed(() =>
+  describeDefinition(form.value.definition, form.value, tableFields.value, valueLabel),
+)
 
 const saveMetric = useLiveMutation(async (db, payload) => {
   if (payload.id) {
@@ -304,7 +373,7 @@ async function save() {
   <BaseDialog
     v-model="open"
     :title="metric ? 'Edit metric' : 'New metric'"
-    subtitle="Describe the question. The server works out how to count it, and every reader still sees only the records their own access allows."
+    subtitle="Answer two questions. Qability works out how to count it, and every reader still sees only the records their own access allows."
     size="2xl"
     persistent
     showClose
@@ -323,72 +392,93 @@ async function save() {
         :message="metric.compileError"
       />
 
+      <!-- What is being measured -->
       <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
-        <BaseTextInput
-          v-model="form.name"
-          label="Metric name"
-          placeholder="e.g. Open documents by site"
-        />
         <BaseSelect
           v-model="form.moduleId"
           label="Module"
+          placeholder="Choose the records to measure…"
           :options="modules"
           :searchable="false"
           required
+          :autoFill="false"
+        />
+        <BaseSelect
+          v-if="needsSourceChoice"
+          v-model="form.definition.sourceTable"
+          label="Which records"
+          :options="sourceTables"
+          :searchable="false"
+          required
+        />
+        <BaseSelect
+          v-if="form.definition.sourceTable"
+          v-model="form.definition.timeField"
+          label="Count each record by which date?"
+          :options="dateFields"
+          :searchable="false"
+          required
+          hint="A record is counted in the period this date falls in."
         />
       </div>
 
-      <BaseTextarea
-        v-model="form.description"
-        label="Description"
-        :rows="2"
-        placeholder="What this measures, and who reads it."
+      <!-- What it is called -->
+      <div v-if="form.definition.sourceTable" class="tw:border-t tw:border-divider tw:pt-4">
+        <div class="tw:flex tw:flex-col tw:gap-3">
+          <BaseTextInput
+            v-model="form.name"
+            label="Name"
+            placeholder="e.g. Open documents by site"
+            required
+            @blur="nameTouched = true"
+          />
+          <BaseTextarea
+            v-model="form.description"
+            label="Description"
+            :rows="2"
+            placeholder="What this measures, and who reads it."
+          />
+        </div>
+      </div>
+
+      <!--
+        The sentence. Rendered from the definition that will actually be saved,
+        so it is a readback and not a second description that can drift.
+      -->
+      <BaseBanner
+        v-if="summary"
+        tone="info"
+        :icon="IconSparkles"
+        title="What this metric will show"
+        :message="summary"
       />
 
-      <template v-if="form.moduleId">
-        <div class="tw:border-t tw:border-divider tw:pt-4">
-          <BaseText weight="medium" class="tw:mb-2">What is counted</BaseText>
-          <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
-            <BaseSelect
-              v-model="form.definition.sourceTable"
-              label="Records"
-              :options="sourceTables"
-              :searchable="false"
-              required
-            />
-            <BaseSelect
-              v-model="form.definition.timeField"
-              label="Counted by date"
-              :options="dateFields"
-              :searchable="false"
-              :disabled="!form.definition.sourceTable"
-              required
-            />
-          </div>
-        </div>
+      <template v-if="form.definition.sourceTable">
+        <button
+          type="button"
+          class="tw:flex tw:w-full tw:items-center tw:justify-between tw:rounded tw:border tw:border-dashed tw:border-divider tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-primary"
+          :aria-expanded="showAdvanced"
+          aria-controls="metric-advanced-section"
+          @click="showAdvanced = !showAdvanced"
+        >
+          <span>Refine it — percentages, filters, breakdowns (optional)</span>
+          <IconChevronRight
+            :size="16"
+            aria-hidden="true"
+            class="tw:transition-transform"
+            :class="{ 'tw:rotate-90': showAdvanced }"
+          />
+        </button>
 
-        <template v-if="form.definition.sourceTable">
-          <button
-            type="button"
-            class="tw:flex tw:w-full tw:items-center tw:justify-between tw:rounded tw:border tw:border-dashed tw:border-divider tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-primary"
-            :aria-expanded="showAdvanced"
-            aria-controls="metric-advanced-section"
-            @click="showAdvanced = !showAdvanced"
-          >
-            <span>Add filters, grouping, or a ratio (optional)</span>
-            <IconChevronRight
-              :size="16"
-              aria-hidden="true"
-              class="tw:transition-transform"
-              :class="{ 'tw:rotate-90': showAdvanced }"
-            />
-          </button>
-
-          <div v-show="showAdvanced" id="metric-advanced-section" class="tw:flex tw:flex-col tw:gap-4">
+        <div
+          v-show="showAdvanced"
+          id="metric-advanced-section"
+          class="tw:flex tw:flex-col tw:gap-4"
+        >
           <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
             <BaseSelect
               v-model="measureType"
-              label="Measurement"
+              label="What number do you want?"
               :options="MEASURE_OPTIONS"
               optionDescription="description"
               :searchable="false"
@@ -397,9 +487,10 @@ async function save() {
             <BaseSelect
               v-if="needsMeasureField"
               v-model="form.definition.measure.field"
-              label="Field to measure"
+              label="Of which field?"
               :options="measureType === MEASURES.COUNT_DISTINCT ? filterFields : numberFields"
               :searchable="false"
+              :autoFill="false"
               required
             />
           </div>
@@ -409,105 +500,57 @@ async function save() {
                at all", and merging the two lists is how people build a
                percentage that is always 100%. -->
           <div v-if="isRatio" class="tw:rounded tw:border tw:border-divider tw:p-3">
-            <div class="tw:mb-2 tw:flex tw:items-center tw:justify-between">
-              <BaseText weight="medium">Counted as a success when…</BaseText>
-              <BaseButton size="sm" variant="outline" @click="addFilter(form.definition.measure.numerator)">
-                <IconPlus :size="14" aria-hidden="true" />
-                Add condition
-              </BaseButton>
-            </div>
-            <div
-              v-for="(f, i) in form.definition.measure.numerator"
-              :key="`num-${i}`"
-              class="tw:mb-2 tw:grid tw:items-end tw:gap-2 tw:sm:grid-cols-[1fr_1fr_1fr_auto]"
-            >
-              <BaseSelect v-model="f.field" label="Field" :options="filterFields" :searchable="false" />
-              <BaseSelect v-model="f.op" label="Comparison" :options="OP_OPTIONS" :searchable="false" />
-              <BaseTextInput
-                v-if="!VALUELESS_OPS.includes(f.op)"
-                :modelValue="valuesText(f)"
-                label="Values"
-                placeholder="CLOSED, CANCELLED"
-                hint="Comma separated"
-                @update:modelValue="setValues(f, $event)"
-              />
-              <BaseButton
-                size="sm"
-                variant="ghost"
-                aria-label="Remove condition"
-                @click="removeFilter(form.definition.measure.numerator, i)"
-              >
-                <IconTrash :size="14" aria-hidden="true" />
-              </BaseButton>
-            </div>
+            <MetricConditionList
+              v-model="numerator"
+              title="Counted as a success when…"
+              addLabel="Add condition"
+              removeLabel="Remove condition"
+              emptyText="Add at least one condition — it is the top half of the percentage."
+              :fields="filterFields"
+              :lookupOptions="lookupOptions"
+            />
           </div>
 
-          <!-- Shared filters. -->
           <div class="tw:border-t tw:border-divider tw:pt-4">
-            <div class="tw:mb-2 tw:flex tw:items-center tw:justify-between">
-              <BaseText weight="medium">Only include records where…</BaseText>
-              <BaseButton size="sm" variant="outline" @click="addFilter(form.definition.filters)">
-                <IconPlus :size="14" aria-hidden="true" />
-                Add filter
-              </BaseButton>
-            </div>
-            <BaseText v-if="!form.definition.filters.length" variant="caption" color="secondary">
-              No filters — every record counts.
-            </BaseText>
-            <div
-              v-for="(f, i) in form.definition.filters"
-              :key="`flt-${i}`"
-              class="tw:mb-2 tw:grid tw:items-end tw:gap-2 tw:sm:grid-cols-[1fr_1fr_1fr_auto]"
-            >
-              <BaseSelect v-model="f.field" label="Field" :options="filterFields" :searchable="false" />
-              <BaseSelect v-model="f.op" label="Comparison" :options="OP_OPTIONS" :searchable="false" />
-              <BaseTextInput
-                v-if="!VALUELESS_OPS.includes(f.op)"
-                :modelValue="valuesText(f)"
-                label="Values"
-                placeholder="CLOSED, CANCELLED"
-                hint="Comma separated, exactly as stored"
-                @update:modelValue="setValues(f, $event)"
-              />
-              <BaseButton
-                size="sm"
-                variant="ghost"
-                aria-label="Remove filter"
-                @click="removeFilter(form.definition.filters, i)"
-              >
-                <IconTrash :size="14" aria-hidden="true" />
-              </BaseButton>
-            </div>
+            <MetricConditionList
+              v-model="form.definition.filters"
+              title="Only include records where…"
+              addLabel="Add filter"
+              removeLabel="Remove filter"
+              emptyText="No filters — every record counts."
+              :fields="filterFields"
+              :lookupOptions="lookupOptions"
+            />
           </div>
 
           <!-- Grouping. The cap comes from the rollup, not from this form. -->
           <div class="tw:border-t tw:border-divider tw:pt-4">
             <BaseSelect
               v-model="form.definition.groupBy"
-              label="Split by"
+              label="Break the number down by"
               :options="groupFields"
               multiple
               :searchable="false"
-              :hint="`Up to ${dimensionCap}. This is what a breakdown can be split on later.`"
+              :hint="`Optional, up to ${dimensionCap}. Lets a reader split this metric by site, status and so on.`"
             />
           </div>
 
           <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
             <BaseSelect
+              v-model="form.grain"
+              label="How often is it reported?"
+              :options="GRAIN_OPTIONS"
+              :searchable="false"
+            />
+            <BaseSelect
               v-model="form.direction"
               label="Which way is good?"
               :options="DIRECTION_OPTIONS"
               :searchable="false"
-            />
-            <BaseSelect
-              v-model="form.grain"
-              label="Reported by"
-              :options="GRAIN_OPTIONS"
-              :searchable="false"
+              hint="Decides which way a trend arrow counts as an improvement."
             />
           </div>
-          </div>
-        </template>
+        </div>
       </template>
     </div>
 
@@ -517,7 +560,7 @@ async function save() {
         :disabled="!canSave"
         :submitLabel="metric ? 'Save changes' : 'Create metric'"
         :submitTitle="problem || undefined"
-        :error="problem || ''"
+        :error="visibleProblem || ''"
         @cancel="close"
         @submit="save"
       />
