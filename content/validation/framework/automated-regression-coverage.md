@@ -78,11 +78,11 @@ Across the 163 baseline requirements in the Traceability Matrix:
 
 | Status                       | Requirements | Share |
 | ---------------------------- | ------------ | ----- |
-| Covered                      | 61           | 37%   |
+| Covered                      | 62           | 38%   |
 | Partial                      | 55           | 34%   |
 | Not automated                | 34           | 21%   |
 | N/A (not verifiable by test) | 7            | 4%    |
-| Product non-conformant       | 5            | 3%    |
+| Product non-conformant       | 4            | 2%    |
 | Gap pinned                   | 1            | 1%    |
 | **Total**                    | **163**      |       |
 
@@ -93,7 +93,7 @@ dedicated, isolated test tenant. Tests assert against the database as well as th
 so a control that exists only in the interface is recorded as such rather than passing
 silently.
 
-**Read the two middle rows together.** Covered and Partial account for 71% of
+**Read the two middle rows together.** Covered and Partial account for 72% of
 requirements, but *Partial means your testing still carries the remainder*. The Note on
 every Partial row names the untested part. There is no row where a gap has been left
 unstated.
@@ -120,11 +120,11 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | 13 | Log Books ([OQ-10](/validation/oq/log-books))                                  | 9    | 3   | 1    | 5    | —   | —   | —   |
 | 14 | Equipment & Calibration ([OQ-11](/validation/oq/equipment-calibration))         | 6    | 3   | 2    | 1    | —   | —   | —   |
 | 15 | Supplier Management ([OQ-12](/validation/oq/supplier-management))               | 7    | 1   | 2    | 2    | 1   | —   | 1   |
-| 16 | Forms & Workflows ([OQ-13](/validation/oq/forms-and-workflows))                 | 11   | 4   | 3    | 3    | —   | 1   | —   |
+| 16 | Forms & Workflows ([OQ-13](/validation/oq/forms-and-workflows))                 | 11   | 5   | 3    | 3    | —   | —   | —   |
 | 17 | Item Master ([OQ-14](/validation/oq/item-master))                              | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 18 | Retain Samples ([OQ-15](/validation/oq/retain-samples))                         | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 2   | 1    | 5    | —   | —   | —   |
-| **Total** |                                                                        | **163** | **61** | **55** | **34** | **7** | **5** | **1** |
+| **Total** |                                                                        | **163** | **62** | **55** | **34** | **7** | **4** | **1** |
 
 **Three things to take from this table.**
 
@@ -145,7 +145,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 
 ## Requirements where the product does not currently conform
 
-Five requirements have a test that asserts what the requirement demands, and the product
+Four requirements have a test that asserts what the requirement demands, and the product
 does not currently satisfy it. These are the rows to read before you plan your execution,
 because in each case the protocol's own note tells you what you will actually observe.
 
@@ -155,7 +155,6 @@ because in each case the protocol's own note tells you what you will actually ob
 | URS-TRN-04 | Trainees review all material before assessment        | Enforced in the browser only; a completion can be scored and signed without the material (defect D14)   | [OQ-02](/validation/oq/training-management) TC-02-04       |
 | URS-CAP-10 | The full CAPA history is available in the audit trail | The per-record dialog omits entries written under the other record-type spelling; the trail itself is complete (defect D9) | [OQ-04](/validation/oq/capa) TC-04-10                      |
 | URS-AUD-08 | Audit history is captured in the audit trail          | Writes made by the scheduled audit generator leave no trail entry                                       | [OQ-07](/validation/oq/audit-management)                   |
-| URS-WFL-07 | Approval rules record each approver's action          | Under an ANY rule the ledger can record a user who never approved as having approved                     | [OQ-13](/validation/oq/forms-and-workflows) TC-13-07       |
 
 :::warning Two of these bear directly on Part 11 signed records
 **URS-TRN-04** is the most consequential in this document. A read-and-understood training
@@ -379,7 +378,7 @@ assessment and the wording to record.
 | URS-WFL-04 | Covered | `e2e/workflow/j1-template-authoring.spec.js` — "the 4-step wizard writes a mixed ACTION/APPROVAL/DELAY design graph — entirely over SyncEngine" | Template authoring of a mixed-step design graph is asserted. |
 | URS-WFL-05 | Covered | `e2e/workflow/j5-control-field-snapshot.spec.js` — "BLOCKS the F-05 bypass: flipping requireEsignature on the PUBLISHED template does not disarm a live approval" | Control-field snapshot prevents disarming a live approval. |
 | URS-WFL-06 | Covered | `e2e/workflow/j4-reviewer-picker-instantiation.spec.js` — "picking a reviewer per step mints one instance, one step per template step, one ledger row per reviewer, and activates only the first root step" | Instantiation with per-step reviewers and correct activation is asserted. |
-| URS-WFL-07 | Product non-conformant | `e2e/workflow/j6-multi-approver-rules.spec.js` — "DEFECT PIN — ANY stamps APPROVED on the ledger row of a user who never approved" | Under the ANY rule the per-approver record marks every assignee approved, including one who never acted. No signature is forged. See [OQ-13](/validation/oq/forms-and-workflows) TC-13-07 step 6. |
+| URS-WFL-07 | Covered | `e2e/workflow/j6-multi-approver-rules.spec.js` — "ANY records ONLY the approver who acted — the other assignee is not stamped APPROVED" | Both rules asserted, including that an ANY step records the acting approver and no one else. Previously non-conformant; the test was inverted from a defect pin when the fix landed. |
 | URS-WFL-08 | Partial | `e2e/workflow/j16-per-module-reject-signature.spec.js` — "rejecting an e-sign-required step through the per-module endpoint demands a signature, then writes one" | Not covered: the mandatory-comment setting, which does not gate completion. |
 | URS-WFL-09 | Covered | `e2e/workflow/j7-reject-and-resubmit.spec.js` — "rejecting a step terminates the whole cycle and returns the record to the owner" | Rejection terminates the cycle and returns the record to its owner. |
 | URS-WFL-10 | Not automated | — | Reading a retired workflow version, or a record that ran on one, has no test. |

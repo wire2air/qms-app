@@ -204,34 +204,37 @@ test.describe('PW-J6 · multi-approver ALL vs ANY', () => {
     )
   })
 
-  test('DEFECT PIN — ANY stamps APPROVED on the ledger row of a user who never approved', async ({
+  test('ANY records ONLY the approver who acted — the other assignee is not stamped APPROVED', async ({
     page,
     browser,
   }) => {
     test.setTimeout(240_000)
 
-    // ⚠️ THIS TEST ASSERTS BEHAVIOUR THAT IS WRONG. It is a tripwire, not a
-    // guarantee. Invert it (to 'ASSIGNED', or a new SUPERSEDED/'NOT_REQUIRED'
-    // state) the day the defect below is fixed — do not delete it.
+    // FORWARD REGRESSION GUARD. This was a defect pin asserting 'APPROVED' for a
+    // user who never acted; it is inverted here because the defect is fixed —
+    // per its own instruction, inverted rather than deleted.
     //
-    // `approveTaskInstance` closes a satisfied step with an UNCONDITIONAL bulk
-    // update (workflowInstanceService.js:1064):
+    // `approveTaskInstance` used to close a satisfied step with an UNCONDITIONAL
+    // bulk update:
     //
     //     UserOnWorkflowInstanceStep.update({ statusId: 'APPROVED' },
     //       { where: { workflowInstanceStepId: instanceStep.id } })
     //
-    // — no filter on who actually acted. Under ALL that is harmless: every row
-    // approved. Under ANY it writes APPROVED onto the ledger row of an approver
-    // who did nothing, and `users_on_workflow_instance_steps` is precisely the
-    // table PW-J12 calls "the row that records WHO APPROVED WHAT".
+    // — no filter on who actually acted. Under ALL that was harmless: every row
+    // had approved. Under ANY it wrote APPROVED onto the ledger row of an
+    // approver who did nothing, and `users_on_workflow_instance_steps` is
+    // precisely the table PW-J12 calls "the row that records WHO APPROVED WHAT".
+    // With no status predicate it also overwrote REASSIGNED / REJECTED /
+    // CANCELLED rows, recording an assignee who explicitly declined as approving.
     //
-    // The TASK ledger stays truthful (SUPERSEDED — asserted above), so the two
-    // ledgers now disagree about the same event. For a Part-11 approval record
-    // that is the wrong one to have lying: an audit reading the assignment table
-    // sees two signatories on a step that only one person signed.
+    // The write is now scoped to the acting assignee and to the three statuses
+    // the DB trigger permits to become an approval (PENDING / ASSIGNED /
+    // REASSIGNED), and it runs BEFORE the rule check so that on an ALL step the
+    // earlier approvers — who return at `!isSatisfied` — are still recorded.
     //
-    // Same statement also overwrites REASSIGNED / REJECTED / CANCELLED rows on
-    // the step, so an assignee who explicitly declined is recorded as approving.
+    // What this guards: the assignment ledger and the task ledger must agree.
+    // The non-approver's task is SUPERSEDED (asserted above) and their
+    // assignment row must NOT say APPROVED.
     const { crId, instanceId } = await createLiveWorkflowInstance(page, 'J6-anyledger')
     const { step1 } = firstStepOf(instanceId)
 
@@ -249,17 +252,25 @@ test.describe('PW-J6 · multi-approver ALL vs ANY', () => {
     })
     expect(res.status, errorMessage(res.body)).toBe(200)
 
+    // The acting approver IS recorded — without this arm the test would pass on a
+    // fix that simply stopped writing the ledger altogether.
     await expect
-      .poll(() => assignmentStatus(step1.id, USERS.approver.id), {
-        message: 'DEFECT: the non-approving assignee is recorded as having APPROVED',
+      .poll(() => assignmentStatus(step1.id, USERS.reviewer.id), {
+        message: 'the approver who actually acted must be recorded as APPROVED',
         timeout: 30_000,
       })
       .toBe('APPROVED')
 
-    // No signature was manufactured for them, which bounds the blast radius:
-    // the falsification is in the assignment ledger, not the Part-11 signature
-    // table. Worth pinning — it is the reason this is a data-integrity defect
-    // rather than a forged signature.
+    // ...and the assignee who never acted is NOT. This is the regression that
+    // mattered: it must never read APPROVED again.
+    expect(
+      assignmentStatus(step1.id, USERS.approver.id),
+      'an assignee who never acted must not be recorded as having APPROVED',
+    ).not.toBe('APPROVED')
+
+    // No signature is manufactured for them either, which bounded the original
+    // blast radius: the falsification was in the assignment ledger, not the
+    // Part-11 signature table.
     const sigs = sqlValue(
       `SELECT count(*) FROM signatures s
          JOIN task_instances ti ON ti.id = s.task_instance_id
