@@ -41,7 +41,7 @@ import {
   blankFilter,
   definitionProblem,
 } from '@/utils/analyticsCustomMetricAccess.js'
-import { IconPlus, IconTrash, IconAlertTriangle } from '@tabler/icons-vue'
+import { IconPlus, IconTrash, IconAlertTriangle, IconChevronRight } from '@tabler/icons-vue'
 
 const props = defineProps({
   /** An existing AnalyticsCustomMetric row, or null to create. */
@@ -58,6 +58,24 @@ const open = defineModel('open', { type: Boolean, default: false })
 const toast = useToast()
 const saving = ref(false)
 const form = ref(blank())
+
+// Collapsed by default so a new metric is three fields — name, module, what's
+// counted — instead of the full eleven. Auto-expanded when editing a metric
+// that already uses any of the advanced options, so nothing saved is ever
+// hidden from the person editing it.
+const showAdvanced = ref(false)
+
+function hasAdvancedContent(metric) {
+  if (!metric) return false
+  const def = metric.definition ?? {}
+  return (
+    (def.measure?.type ?? MEASURES.COUNT) !== MEASURES.COUNT ||
+    (def.filters ?? []).length > 0 ||
+    (def.groupBy ?? []).length > 0 ||
+    (metric.direction ?? 'neutral') !== 'neutral' ||
+    (metric.grain ?? 'month') !== 'month'
+  )
+}
 
 function blank() {
   return {
@@ -101,6 +119,7 @@ watch(
   () => {
     if (!open.value) return
     seeding.value = true
+    showAdvanced.value = hasAdvancedContent(props.metric)
     // Cleared on the next tick, AFTER the reset watchers have flushed for this
     // change. Clearing it synchronously would leave them firing against a form
     // that is already seeded, which is the bug this flag exists for.
@@ -349,6 +368,23 @@ async function save() {
         </div>
 
         <template v-if="form.definition.sourceTable">
+          <button
+            type="button"
+            class="tw:flex tw:w-full tw:items-center tw:justify-between tw:rounded tw:border tw:border-dashed tw:border-divider tw:px-3 tw:py-2 tw:text-sm tw:font-medium tw:text-primary"
+            :aria-expanded="showAdvanced"
+            aria-controls="metric-advanced-section"
+            @click="showAdvanced = !showAdvanced"
+          >
+            <span>Add filters, grouping, or a ratio (optional)</span>
+            <IconChevronRight
+              :size="16"
+              aria-hidden="true"
+              class="tw:transition-transform"
+              :class="{ 'tw:rotate-90': showAdvanced }"
+            />
+          </button>
+
+          <div v-show="showAdvanced" id="metric-advanced-section" class="tw:flex tw:flex-col tw:gap-4">
           <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
             <BaseSelect
               v-model="measureType"
@@ -469,6 +505,7 @@ async function save() {
               :options="GRAIN_OPTIONS"
               :searchable="false"
             />
+          </div>
           </div>
         </template>
       </template>
