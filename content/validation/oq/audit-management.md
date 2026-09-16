@@ -67,13 +67,21 @@ URS-AUD-01 … URS-AUD-08. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Create an audit instance, selecting the standard and scope | Audit created with its own identifier |  |  |  |
-| 2 | Attempt to create an audit without a standard or scope | Refused, per configuration — record the behaviour |  |  |  |
+| 2 | Attempt to create an audit without a standard, and without a scheduled date | Refused in each case |  |  |  |
+| 2a | Attempt to create an audit with no scope | Record the observed behaviour — see the note below |  |  |  |
 | 3 | Set the audit dates, type (internal / external / supplier) and auditee | Saved |  |  |  |
 | 4 | Assign a **Lead Auditor** and one further team member | Team assigned; each is notified |  |  |  |
 | 5 | Confirm the requirements from the selected standard are loaded into the audit | All clauses present |  |  |  |
 | 6 | Confirm auditor independence can be evidenced — the assigned auditor is not the owner of the audited area | Record the control used (system or procedural) |  |  |  |
 
 **Audit identifier:** ______________________
+
+> **Scope is not an enforced field.** The standard and the scheduled date are
+> required and refused when absent; **scope is optional** at both the form and the
+> server, so an audit can be created with none. Step 2a therefore records
+> behaviour rather than expecting a refusal. If your procedure requires a scope
+> on every audit, that is a procedural control — state it in your SOP and record
+> it here, rather than logging a deviation against the software.
 
 ### TC-07-04 — Execution against requirements *(URS-AUD-04)*
 
@@ -92,7 +100,7 @@ URS-AUD-01 … URS-AUD-08. See the
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Raise a finding from a nonconformant response | Finding is created and linked to that requirement |  |  |  |
-| 2 | Attempt to raise a finding without a category or description | Refused |  |  |  |
+| 2 | Attempt to raise a finding without a description, and without a finding type | Refused in each case |  |  |  |
 | 3 | Classify the finding (for example major / minor / observation) | Classification saved |  |  |  |
 | 4 | Assign an owner and a due date | Saved; owner is notified |  |  |  |
 | 5 | Record the response, correction and evidence against the finding | Saved |  |  |  |
@@ -125,10 +133,24 @@ URS-AUD-01 … URS-AUD-08. See the
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Open the audit history for the audit instance | Planning, team assignment, every response, findings and closure are recorded |  |  |  |
+| 1 | Open the audit history for an audit instance **created by a person** | Planning, team assignment, every response, findings and closure are recorded |  |  |  |
 | 2 | Confirm a changed response shows its previous value | Old and new values present |  |  |  |
 | 3 | Confirm each entry carries performer and timestamp | Present |  |  |  |
 | 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |
+| 5 | Where you use scheduled audit programmes, open the history of an instance the **generator** created and record what is present | Record the observed behaviour — see the note below |  |  |  |
+
+> **Known limitation — scheduled generation is not attributed.** An audit instance created
+> automatically by a programme's scheduler is not written to the audit trail: the trail
+> omits entries that carry no acting user, and the scheduled job runs without one. Audits
+> created, planned and executed **by people** are recorded normally, as are every response,
+> finding and closure on a generated audit once a person touches it — it is only the
+> automatic creation event that is absent.
+>
+> Assess this against your own intended use. If you rely on scheduled generation for GxP
+> audits, the creation of those audits is evidenced by the programme configuration and its
+> schedule rather than by the record's own trail; record that as your justification, or
+> create in-scope audits manually. Qability has this on its defect register — request the
+> current status for your supplier assessment.
 
 ## 5. Deviation log
 

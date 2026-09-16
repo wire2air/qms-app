@@ -95,41 +95,64 @@ URS-CAP-01 … URS-CAP-10. See the
 | 3 | Complete or cancel all remaining steps and sub-tasks | No open work remains |  |  |  |
 | 4 | Confirm closure is now offered | Closure available |  |  |  |
 
-### TC-04-05 — Closure with signature and effectiveness scheduling *(URS-CAP-05)*
+### TC-04-05 — Closure with signature *(URS-CAP-05)*
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Initiate closure | The dialog requires an effectiveness check date |  |  |  |
-| 2 | Select a preset interval and confirm the resulting date is calculated correctly from the closure date | Date correct |  |  |  |
-| 3 | Enter closure comments | Accepted |  |  |  |
-| 4 | Enter an **incorrect** signing credential | Closure refused; the CAPA remains open |  |  |  |
-| 5 | Enter the correct credential | Status becomes **Closed**; signature recorded |  |  |  |
-| 6 | Inspect the signature | Name, date/time and meaning present |  |  |  |
-| 7 | Confirm an effectiveness check has been scheduled for the chosen date | Check exists and is pending |  |  |  |
-| 8 | Attempt to edit the closed CAPA | Editing prevented |  |  |  |
+| 1 | Initiate closure | The closure dialog opens, asking for closure comments |  |  |  |
+| 2 | Enter closure comments | Accepted |  |  |  |
+| 3 | Enter an **incorrect** signing credential | Closure refused; the CAPA remains open |  |  |  |
+| 4 | Enter the correct credential | Status becomes **Closed**; signature recorded |  |  |  |
+| 5 | Inspect the signature | Name, date/time and meaning present |  |  |  |
+| 6 | Attempt to edit the closed CAPA | Editing prevented |  |  |  |
+| 7 | Where the workflow carries a deferred effectiveness step, confirm closing does **not** cancel it | The scheduled step survives closure |  |  |  |
 
-**Effectiveness check date set:** ______________
+> **The effectiveness check is a workflow step, not a closure field.** Closure does not
+> ask for an effectiveness date and does not schedule a separate check. Effectiveness is
+> configured as a **delay step** on the CAPA workflow template (see TC-04-06), which parks
+> until its due date, is explicitly permitted to outlive closure, and records its verdict
+> when it fires. If your configured workflow has no such step, the CAPA is closed without a
+> scheduled effectiveness verification — record that as a configuration finding against
+> your own procedure, not as a software defect.
 
 ### TC-04-06 — Effectiveness verification *(URS-CAP-06)*
 
+**Prerequisite:** the CAPA workflow template used for this test carries a **delay step
+configured to capture an effectiveness verdict**. The shipped default CAPA workflow
+includes one as its fourth stage (Investigation → Action Plan → Implementation →
+Effectiveness Check). Confirm this before executing, and record the template and step used.
+
+**Template / step under test:** ______________________________________________
+
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | On the effectiveness check due date, confirm a verification task is raised to the responsible person | Task appears for the CAPA owner |  |  |  |
-| 2 | Open the check and attempt to complete it without an outcome | Refused |  |  |  |
-| 3 | Attempt to complete it without verification notes | Refused; notes are required |  |  |  |
-| 4 | Select outcome **Effective**, enter notes, and complete with signature | The check is recorded as effective and signed |  |  |  |
-| 5 | Inspect the signature and notes | Both retained on the record |  |  |  |
-| 6 | Confirm the completed check appears in the check history | Present in history |  |  |  |
+| 1 | Advance the workflow to the effectiveness step | The step parks as scheduled, showing its due date |  |  |  |
+| 2 | Close the CAPA while the step is still parked | Closure is permitted and the step survives it |  |  |  |
+| 3 | On the due date, confirm a verification task is raised to the responsible person | Task appears for the assignee |  |  |  |
+| 4 | Attempt to complete the step without recording a verdict | Refused |  |  |  |
+| 5 | Attempt to complete it without comments, where comments are configured as required | Refused |  |  |  |
+| 6 | Record the verdict **Effective**, enter comments, and complete with signature where required | Verdict recorded as effective and signed |  |  |  |
+| 7 | Inspect the recorded verdict, comments and signature | All three retained on the step |  |  |  |
+| 8 | Confirm the verdict is reportable — that is, visible on the CAPA without opening the workflow step | Verdict surfaced on the record or register |  |  |  |
+
+> Waiting out a real interval is not required. Agree with QA in advance how the due date is
+> reached for the purposes of this test — advancing the configured delay, or scheduling a
+> short interval — and record the method used in the actual-result column. The verdict path
+> exercised must be the production one.
 
 ### TC-04-07 — Not-effective outcome *(URS-CAP-07)*
 
 | # | Test step | Expected result | Actual result | P/F | Init / Date |
 | --- | --- | --- | --- | --- | --- |
-| 1 | On a second closed CAPA, complete its effectiveness check with outcome **Not Effective** and notes | Outcome recorded |  |  |  |
-| 2 | Confirm the record makes the not-effective outcome plainly visible | Outcome is not buried; it is evident on the record |  |  |  |
-| 3 | Renew the check with a new due date, where supported | A further check is scheduled |  |  |  |
-| 4 | Confirm the earlier not-effective result remains in the history and is not overwritten | Original outcome retained |  |  |  |
-| 5 | Confirm your procedure's follow-up action can be initiated (for example a new CAPA or reopening) | Follow-up path exists — record what it is |  |  |  |
+| 1 | On a second CAPA, reach its effectiveness step and record the verdict **Not Effective** with comments | Verdict recorded |  |  |  |
+| 2 | Confirm the record makes the not-effective verdict plainly visible | Verdict is not buried; it is evident on the record |  |  |  |
+| 3 | Where the step permits extension, extend the delay and confirm the bound on extensions is enforced | Extension permitted up to the configured maximum, then refused |  |  |  |
+| 4 | Confirm the earlier not-effective verdict remains recorded and is not overwritten | Original verdict retained |  |  |  |
+| 5 | Confirm your procedure's follow-up action can be initiated (for example a new CAPA, or reopening this one) | Follow-up path exists — record what it is |  |  |  |
+
+> A failed check is recorded as the **verdict** `Not Effective`; it does not send the
+> workflow step backwards. Reopening a closed CAPA is a separate action with its own
+> permission — record which route your procedure uses.
 
 ### TC-04-08 — Cancellation *(URS-CAP-08)*
 
@@ -160,6 +183,50 @@ URS-CAP-01 … URS-CAP-10. See the
 | 3 | Confirm every entry carries performer and timestamp | Present |  |  |  |
 | 4 | Confirm no audit entry can be edited or deleted | None available |  |  |  |
 | 5 | Print the CAPA and confirm the signatures and history are included | Complete copy produced |  |  |  |
+
+> **An observation to record, not a deviation: the dialog's entry count is one
+> short.**
+>
+> Execute the step as written — the history is present and the actions this step
+> names are all in it. Two things are worth noting as you do.
+>
+> **1. The dialog omits one duplicate entry.** A CAPA's history is written by two
+> parts of the system, which label the record type slightly differently, and the
+> record's own dialog reads only one of the two labels. Measured on a rejected
+> CAPA (CAPA-179): the audit trail holds **13** entries for the record and its
+> workflow, and the dialog's own header reads *"Showing 12 entries across 4
+> related records"*.
+>
+> The entry not shown is a CAPA-scoped copy of the rejection. **The rejection
+> itself is visible** — as a *Reject* entry against the approval workflow,
+> attributed and timestamped, alongside two *Step Rejected* entries — and the
+> rejection reason appears in that visible entry. So no fact about the record is
+> hidden from the reviewer; one redundant row is filtered out, and the same
+> applies to field updates and to the CAPA-level copy of an effectiveness
+> verification (the effectiveness check's own entry is shown).
+>
+> Record this as an **observation** against step 1. It does not warrant a
+> deviation: the audit trail is complete, nothing is lost, and the system-wide
+> **Audit Logs** page shows every entry, filterable and exportable. Where you
+> need a provably complete per-record history — for an inspection response, say
+> — take it from Audit Logs rather than the record dialog, and note that in your
+> record.
+>
+> **2. CAPA entries identify the record by its internal identifier, not its
+> number.** In the history, a CAPA's own entries appear against a long identifier
+> such as `6d2c40a5-56ff-4b88-b878-9645d2573c3d` rather than `CAPA-179`.
+> Nonconformances, quality events and customer complaints display their numbers
+> correctly; CAPA and Change Request do not. Nothing is wrong with the data —
+> only its presentation — but it makes a CAPA's history materially harder to read
+> than the equivalent nonconformance history, which is relevant to the
+> human-readable requirement at
+> [OQ-16 TC-16-08](/validation/oq/security-and-electronic-records). Record it as
+> an observation there.
+>
+> The automated regression for the entry count is `PW-J12`
+> (`e2e/capas/j12-audit-history-completeness.spec.js`), which drives a CAPA to a
+> rejected approval and compares the dialog against the database. It is
+> deliberately failing until the count matches.
 
 ## 5. Deviation log
 

@@ -64,9 +64,24 @@ URS-QCI-01 … URS-QCI-12. See the
 | 2   | Add a numeric characteristic with a lower and upper limit, a target and a unit   | Saved                                                       |               |     |             |
 | 3   | Add an attribute (pass/fail) characteristic                                      | Saved                                                       |               |     |             |
 | 4   | Add a characteristic marked critical                                             | Saved and flagged                                           |               |     |             |
-| 5   | Attempt to save a numeric characteristic where the lower limit exceeds the upper | Refused                                                     |               |     |             |
+| 5   | Attempt to save a numeric characteristic where the lower limit exceeds the upper | **Accepted** — no layer refuses it. Record as a deviation; read the note |               |     |             |
 | 6   | Approve/release the specification                                                | Specification becomes usable                                |               |     |             |
 | 7   | Attempt to edit an approved specification                                        | Prevented, or requires a new version — record the behaviour |               |     |             |
+
+> **Read this before recording steps 5 and 7.**
+>
+> **Step 5 — the control does not exist.** Nothing checks that the lower limit is below the
+> upper: not the entry form, not the server, not the database. An inverted specification
+> saves successfully. It then behaves in the worst possible way — because each limit is
+> tested independently, **every** result against that characteristic is evaluated as
+> failing, with no warning that the specification itself is malformed. Record step 5 as a
+> deviation, and satisfy yourself procedurally that limits are checked at specification
+> approval.
+>
+> **Step 7 — the lock is in the application, not the database.** An approved specification
+> cannot be edited through the application, which requires a new version instead. That check
+> is in server-side application code, so it holds for the application's own interfaces; it
+> is not a database constraint. Record what you observe through the interface.
 
 **Specification reference:** ******\_\_****** **Characteristic used for OOS test:** ******\_\_******
 **Limits:** LSL **\_\_\_\_** USL **\_\_\_\_**
@@ -105,11 +120,31 @@ URS-QCI-01 … URS-QCI-12. See the
 | --- | -------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------- | --- | ----------- |
 | 1   | As **QC Inspector**, record an in-specification numeric result                         | Saved and evaluated as conforming                        |               |     |             |
 | 2   | Record an attribute result                                                             | Saved                                                    |               |     |             |
-| 3   | Attempt to enter text into a numeric characteristic                                    | Refused                                                  |               |     |             |
-| 4   | Attempt to submit with a required characteristic unrecorded                            | Refused                                                  |               |     |             |
+| 3   | Attempt to enter text into a numeric characteristic                                    | Not accepted as a numeric result — see the note          |               |     |             |
+| 4   | Attempt to mark the inspection **Complete** with any characteristic unrecorded         | Refused, naming what is outstanding                      |               |     |             |
 | 5   | Where per-sample capture is configured, record results for each sample individually    | Each sample's result is stored separately and attributed |               |     |             |
 | 6   | Confirm each result records who entered it and when                                    | Attribution and timestamp present                        |               |     |             |
-| 7   | Amend a recorded result and confirm the original value is preserved in the audit trail | Original retained; change recorded                       |               |     |             |
+| 7   | Amend a recorded result and look for the original value | **The original is not retained** — read the note and record a deviation |               |     |             |
+
+> **Read this before recording steps 3, 4 and 7.**
+>
+> **Step 3 is an interface control only.** The entry form presents a numeric field, so text
+> cannot normally be typed. The server does **not** reject a non-numeric value sent to it —
+> it records the result as *not assessable* rather than refusing the write. Record what the
+> interface does, and record that the refusal is not enforced beneath it.
+>
+> **Step 4 fires at Complete, not at submission.** The completeness check runs when the
+> inspection is marked complete, and it requires **every** characteristic on every sample —
+> there is no per-characteristic "required" flag to set. Submitting for review does not
+> trigger it. One caveat: if the lot carries no specification snapshot at all, the check
+> passes vacuously, so use a lot with a specification.
+>
+> **Step 7 — the original value is overwritten.** Amending a result replaces the stored
+> value in place, and this module's results are not among the tables whose field-level
+> changes are captured, so the prior value is not recoverable from the audit trail either.
+> The amendment's performer and time are recorded; the superseded value is not. Record this
+> as a deviation and, if your process depends on result-level correction history, control it
+> procedurally — for example by requiring a new inspection rather than an amendment.
 
 ### TC-09-05 — Out-of-specification detection _(URS-QCI-05)_
 
@@ -169,15 +204,52 @@ URS-QCI-01 … URS-QCI-12. See the
 
 | #   | Test step                                          | Expected result                                                                                | Actual result | P/F | Init / Date |
 | --- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------- | --- | ----------- |
-| 1   | Open the lot's audit history                       | Lot creation, every result entry and amendment, defects, disposition and approval are recorded |               |     |             |
-| 2   | Inspect an amended result                          | Original and new values both shown                                                             |               |     |             |
+| 1   | Open the lot's **History** panel                   | Lot creation, check-in/out, production-lot changes, sample collection, line clearance, start, completion and reopen are recorded |               |     |             |
+| 2   | Open the record's **audit trail** and inspect the disposition and status changes | Old and new values shown for the tracked fields |               |     |             |
 | 3   | Confirm each entry carries performer and timestamp | Present                                                                                        |               |     |             |
 | 4   | Confirm no audit entry can be edited or deleted    | None available                                                                                 |               |     |             |
+
+> **Read this before executing TC-09-10 — there are two different surfaces, and the
+> original wording conflated them.**
+>
+> The lot's **History** panel lists significant lot-level actions from a fixed set of event
+> types. It does **not** contain per-result entries, result amendments, or defect logging —
+> those event types do not exist, so do not look for them there and do not record their
+> absence as a failure of step 1.
+>
+> The record's **audit trail** is the separate surface that carries field-level before and
+> after values, and for this module it tracks the lot's status, disposition, quality state,
+> linked nonconformance and the specification and sampling plan it was judged against.
+> Step 2 belongs there. Per TC-09-04 step 7, **individual result values are not tracked by
+> either surface**.
+>
+> Step 4 can only be evidenced as an absence — no interface anywhere offers editing or
+> deleting an audit entry, so there is no action to attempt. The underlying protection is
+> covered by [OQ-16](/validation/oq/security-and-electronic-records) TC-16-06.
 
 ### TC-09-11 — Line clearance gates collection _(URS-QCI-11)_
 
 Line clearance is a **preventive control**, not a record: it must stop sampling,
 not merely warn. Verify the block, not just the form.
+
+> **Prerequisite — line clearance is OFF by default. Turn it on before you
+> start, or every "refused" step below will pass samples through.**
+>
+> A Line Clearance checklist is created for every new tenant automatically, but
+> it ships **not required**: while that setting is off, the system skips the
+> clearance check entirely and sample collection is permitted with no clearance
+> at all. Steps 1, 3 and 6 would then record a false failure against the
+> software.
+>
+> Before executing: open **QC Inspection → Line Clearance** settings and switch
+> the checklist to _required_. Confirm the checklist itself carries the questions
+> your process expects, and record the setting state and the checklist version
+> you executed against — the checklist is snapshotted onto each production lot
+> when the lot is created, so editing it later does not change lots already
+> under inspection.
+>
+> Record here:  **Line clearance required:** ☐ Yes ☐ No  ·  **Checklist
+> reference/version:** ______________________
 
 | #   | Test step                                                                                                | Expected result                                               | Actual result | P/F | Init / Date |
 | --- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------- | --- | ----------- |
@@ -196,10 +268,29 @@ not merely warn. Verify the block, not just the form.
 | 1   | As **QC Inspector**, check in to an in-process inspection, recording shift and production lot        | Check-in recorded and attributed                                                                    |               |     |             |
 | 2   | As a **second inspector**, take over the inspection                                                  | Takeover is explicit; the record shows who was responsible for each period                          |               |     |             |
 | 3   | Collect a set of sample units                                                                        | Units appended, stamped with the server time and the acting inspector, tagged to the production lot |               |     |             |
-| 4   | Where the sampling plan sets a collection interval, attempt a further collection immediately         | Refused until shortly before the next collection is due                                             |               |     |             |
-| 5   | Confirm the record indicates when the next collection is due                                         | Due time shown; a warning appears as it approaches and once overdue                                 |               |     |             |
+| 4   | Where the sampling plan sets a collection interval, attempt a further collection immediately         | **Permitted** — the interval is guidance, not a gate. Mark N/A or record the observation            |               |     |             |
+| 5   | Confirm whether the record indicates when the next collection is due                                 | **No due time, approaching warning or overdue warning is displayed.** Mark N/A                      |               |     |             |
 | 6   | Confirm collection timestamps are server-generated and cannot be edited by the inspector             | Times are system-recorded, not user-entered                                                         |               |     |             |
 | 7   | Confirm samples collected before and after a production-lot change are attributed to the correct lot | Attribution correct for each                                                                        |               |     |             |
+
+> **Read this before executing steps 4 and 5 — the sampling cadence is not enforced, and
+> nothing displays it.**
+>
+> The sampling plan's collection interval is **advisory**. It guides and pre-fills the
+> collect-samples action; it does not restrict when a collection may be made. A second
+> collection made immediately after the first will **succeed**. Collecting more units than
+> the plan's size is likewise permitted by design.
+>
+> There is also **no surface anywhere that shows a next-collection due time**, and no
+> approaching or overdue warning exists to observe. Steps 4 and 5 therefore cannot pass as
+> originally written. Mark them **N/A** with this justification, or record the observed
+> behaviour — do not record either as a failure of a control, because no such control is
+> claimed by the product.
+>
+> If your process depends on a timed sampling cadence, it must be controlled procedurally,
+> and that justification belongs in your validation report. The controls that *are* enforced
+> on this test case are the check-in requirement (step 1), server-generated timestamps
+> (step 6) and production-lot attribution (step 7).
 
 ## 5. Deviation log
 
@@ -222,6 +313,8 @@ not merely warn. Verify the block, not just the form.
 | TC-09-08  |       |        |        |     |               |
 | TC-09-09  |       |        |        |     |               |
 | TC-09-10  |       |        |        |     |               |
+| TC-09-11  |       |        |        |     |               |
+| TC-09-12  |       |        |        |     |               |
 
 **Overall result:** ☐ Pass ☐ Pass with deviations (all closed) ☐ Fail
 

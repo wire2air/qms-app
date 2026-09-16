@@ -101,10 +101,20 @@ URS-WFL-01 … URS-WFL-11. See the
 | --- | --- | --- | --- | --- | --- |
 | 1 | Attempt to launch the workflow while the version is still a draft | Not available |  |  |  |
 | 2 | Publish the version | Status becomes published and it becomes launchable |  |  |  |
-| 3 | Attempt to add, remove or edit a step in the published version | Prevented |  |  |  |
+| 3 | Edit a step in the published version, then confirm a workflow **already in flight** is unaffected by that edit | The running instance keeps the rules it started under |  |  |  |
 | 4 | Create a new draft from the published version | New draft created with the steps copied |  |  |  |
 | 5 | Modify and publish the new version | New version published; the earlier becomes retired |  |  |  |
 | 6 | Confirm records already running on the earlier version continue on that version | In-flight runs are unaffected by the new version |  |  |  |
+
+> **Editing a published version is permitted, by design — step 3 tests the control that
+> matters instead.** Blocking the edit outright would also block the publish and retire
+> transitions, which run through the same permissions, and it would do nothing for
+> instances already running against a template edited earlier. The enforced invariant is
+> narrower and stronger: the step's control fields — whether a signature is required, and
+> the approval rule — are **frozen onto each workflow instance when it starts**, so editing
+> the published template cannot retroactively change the rules of an approval in progress.
+> Verify that, not the absence of the edit. If your procedure requires published templates
+> to be immutable, implement it as a procedural control and record it here.
 
 ### TC-13-06 — Sequential activation *(URS-WFL-06)*
 
@@ -126,6 +136,24 @@ URS-WFL-01 … URS-WFL-11. See the
 | 3 | On step 3 (**ANY**), have **Approver A** approve | The step completes immediately without Approver B |  |  |  |
 | 4 | Confirm Approver B's task for step 3 is withdrawn or closed | No stale task remains |  |  |  |
 | 5 | Confirm both approvers' actions are recorded on the ALL step | Both recorded individually |  |  |  |
+| 6 | **On the ANY step (step 3), inspect the per-approver record for both approvers** | Approver A, who acted, is recorded as approved. **Approver B, who never acted, is not** |  |  |  |
+
+> **Read this before executing step 6 — it exists because steps 1 to 5 cannot see the
+> control it tests.** Steps 1 to 5 all pass whether or not individual approval is recorded
+> correctly, because none of them inspects the per-approver record on the **ANY** step.
+> Step 6 is the only step that does, and it is the one that evidences URS-WFL-07.
+>
+> **What step 6 checks, and why both halves matter.** Under the ANY rule a single approval
+> completes the step. The per-approver record must then show the approver who acted as
+> approved, and must **not** show the other assignee as approved. Check both: a record that
+> shows nobody as approved is as wrong as one that shows everybody.
+>
+> **If Approver B is recorded as approved, raise a deviation.** Earlier releases set every
+> assignee on a satisfied ANY step to approved, including assignees who had declined or been
+> reassigned. If you observe that, the per-approver record cannot be relied on as evidence
+> of individual approval; the electronic signature record can, because no signature was ever
+> created for a user who did not sign. Record which behaviour you observe, and note the
+> system version — this is the step that distinguishes the two.
 
 ### TC-13-08 — Mandatory comments and signatures *(URS-WFL-08)*
 
@@ -157,7 +185,28 @@ URS-WFL-01 … URS-WFL-11. See the
 | 1 | Open a completed record that ran on the retired version | The record opens |  |  |  |
 | 2 | Confirm its workflow history shows the steps as they were on that version | Historical steps accurate |  |  |  |
 | 3 | Confirm the version that ran is identified on the record | Version identified |  |  |  |
-| 4 | Confirm the retired template version can still be viewed | Readable, marked retired |  |  |  |
+| 4 | Confirm the retired workflow version can still be viewed | Readable, marked retired |  |  |  |
+
+> **How a version becomes retired, and what "the version" means here.**
+>
+> There is no retire button. A published workflow version is retired
+> **automatically when you publish a newer version of the same workflow** — the
+> previous published version is moved to retired in the same action. So to reach
+> the starting state this test case assumes: publish version 1, run a record to
+> completion on it, then publish version 2. Version 1 is now retired, and the
+> completed record from step 1 is the one that ran on it.
+>
+> Note also that "template version" throughout this test case means the
+> **approval workflow version**, which is the versioned, retirable artifact that
+> a record's approval runs against and that the record identifies by name and
+> version on its workflow panel. Retired versions stay fully readable and stay
+> referenced by the records that ran on them — they are only withdrawn from the
+> picker for new attachments, which is what step 4 is confirming.
+>
+> A workflow that has ever been published cannot be deleted at all, for this
+> reason; it can only be archived. If you want to confirm that, attempt the
+> deletion — the refusal is the control that protects every completed record's
+> history.
 
 ### TC-13-11 — Audit trail *(URS-WFL-11)*
 
