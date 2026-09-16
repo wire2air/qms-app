@@ -65,7 +65,7 @@ URS-CMP-01 … URS-CMP-08. See the
 | 4 | Attempt to submit without the product | Refused **by the entry form only** |  |  |  |
 | 5 | Attempt to submit without the lot / batch reference | Refused **by the entry form only** |  |  |  |
 | 6 | Complete all required fields and submit | The complaint is created with its own number |  |  |  |
-| 7 | Confirm the number follows the sequence | Number correct — see the note on uniqueness |  |  |  |
+| 7 | Confirm the number follows the sequence and is unique | Number correct and unique |  |  |  |
 | 8 | Confirm the **creation date** and the recorder are captured | Both recorded — there is no separate date-received field |  |  |  |
 
 > **Read this before recording steps 2 to 8.**
@@ -77,12 +77,13 @@ URS-CMP-01 … URS-CMP-08. See the
 > interface-level controls, and if your risk assessment depends on mandatory narrative,
 > product or lot capture, control access to those interfaces procedurally.
 >
-> **Step 7 — the number is sequential but its uniqueness is not sealed.** Numbers are
-> allocated from a locked counter, so duplicates are not expected in practice, but there is
-> **no database constraint preventing one** — unlike the customer-complaint register, which
-> has one. Confirm the number follows the sequence; do not attempt to prove uniqueness, and
-> record the absent constraint if your procedure relies on it. The prefix is fixed in the
-> product; there is no configurable numbering pattern to check.
+> **Step 7 — uniqueness is enforced at the database, per tenant.** Numbers are allocated
+> from a locked per-company counter and a database constraint refuses a second live
+> complaint with the same number in the same company. Numbers restart per tenant, so the
+> same number legitimately exists in another company. Two cases are deliberately permitted:
+> a draft that has not yet been numbered, and a deleted complaint retaining its number —
+> neither blocks a live record. The prefix is fixed in the product; there is no configurable
+> numbering pattern to check, so confirm the sequence rather than a format setting.
 >
 > **Step 8 — there is no "date received" field.** The complaint records its creation date
 > and its recorder, and nothing else date-wise. If your process must capture when a
@@ -256,7 +257,9 @@ cases or procedural controls. Two known product defects are recorded at the end.
   action it calls does not exist on the server, so it fails. The database and the permission
   model both support reopening — only the endpoint is missing. Do not add a reopen test case
   until this is corrected; record it as a known defect.
-- **No uniqueness constraint on the complaint number** — see TC-06-01 step 7.
+- **~~No uniqueness constraint on the complaint number~~** — corrected. The constraint now
+  exists; see TC-06-01 step 7. If you are validating a system version that predates it,
+  uniqueness rests on the allocation counter alone.
 
 ## 6. Deviation log
 
