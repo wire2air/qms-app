@@ -139,6 +139,21 @@ function moduleLabel(plan) {
       </template>
     </PageHeader>
 
+    <!-- The entitlement data below is CORRECT but almost entirely UNENFORCED.
+         `requireEntitlement()` exists in backend/api/utils/permissions.js and is
+         mounted on ZERO of the 88 route files; the FE never reads the
+         `entitledModules` the session endpoint returns. Only `portal` (and
+         analytics, via its own feature check) actually gate. Until that is
+         wired, narrowing a plan's bundle changes nothing a user can see, so say
+         so here rather than let an operator believe a module was switched off. -->
+    <div
+      class="tw:mb-4 tw:rounded-lg tw:border tw:border-warning/40 tw:bg-warning/10 tw:px-4 tw:py-3 tw:text-xs tw:text-on-main"
+    >
+      <span class="tw:font-semibold">Plans are not enforced yet.</span>
+      Bundles are stored correctly, but only the customer portal checks them today — every other
+      module stays reachable regardless of the plan. Use roles and permissions to restrict access.
+    </div>
+
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-16">
       <BaseSpinner />
     </div>
@@ -209,11 +224,14 @@ function moduleLabel(plan) {
         />
         <p v-if="createNameError" class="tw:text-xs tw:text-bad">{{ createNameError }}</p>
         <BaseTextarea v-model="createForm.description" label="Description" :rows="2" />
-        <BaseSwitch v-model="createForm.entitlesAllModules" label="Entitle all modules" />
-        <p class="tw:text-xs tw:text-secondary">
-          "Entitle all modules" covers every current and future module — use it for an Unlimited
-          tier. Otherwise pick the bundled modules after creating, via Edit.
-        </p>
+        <div>
+          <p class="tw:text-secondary tw:mb-1">Entitle all modules</p>
+          <BaseSwitch v-model="createForm.entitlesAllModules" label="Entitle all modules" />
+          <p class="tw:text-xs tw:text-secondary tw:mt-1">
+            On, the plan covers every current and future module — use it for an Unlimited tier. Off,
+            pick the bundled modules after creating, via Edit.
+          </p>
+        </div>
       </div>
       <template #footer="{ close }">
         <BaseButton variant="secondary" :disabled="creating" @click="close">Cancel</BaseButton>
@@ -234,9 +252,30 @@ function moduleLabel(plan) {
         />
         <p v-if="editNameError" class="tw:text-xs tw:text-bad">{{ editNameError }}</p>
         <BaseTextarea v-model="editForm.description" label="Description" :rows="2" />
-        <div class="tw:flex tw:items-center tw:gap-6">
-          <BaseSwitch v-model="editForm.isActive" label="Active" />
-          <BaseSwitch v-model="editForm.entitlesAllModules" label="Entitle all modules" />
+        <!-- BaseSwitch renders its `label` prop as sr-only text, so a visible
+             label has to be written alongside it — the same pattern the rest of
+             the app uses. Without this both toggles render as bare switches with
+             nothing to say which is which. -->
+        <div class="tw:grid tw:grid-cols-2 tw:gap-6">
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Active</p>
+            <BaseSwitch v-model="editForm.isActive" label="Active" />
+            <!-- Deliberately vague: `is_active` is not enforced anywhere today.
+                 setCompanyPlan() checks the plan EXISTS but never its active
+                 flag, and module_entitled() never reads it either — so an
+                 inactive plan can still be assigned and still entitles. Don't
+                 promise a restriction the backend does not apply. -->
+            <p class="tw:text-xs tw:text-secondary tw:mt-1">
+              Marks a plan as retired. Tenants already on it keep their access.
+            </p>
+          </div>
+          <div>
+            <p class="tw:text-secondary tw:mb-1">Entitle all modules</p>
+            <BaseSwitch v-model="editForm.entitlesAllModules" label="Entitle all modules" />
+            <p class="tw:text-xs tw:text-secondary tw:mt-1">
+              On, the plan includes every current and future module. Off, pick the bundle below.
+            </p>
+          </div>
         </div>
         <div v-if="!editForm.entitlesAllModules">
           <p class="tw:text-secondary tw:text-xs tw:mb-1">Bundled modules</p>
