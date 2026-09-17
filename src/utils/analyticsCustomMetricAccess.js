@@ -27,6 +27,23 @@ export const MEASURES = {
   RATIO: 'ratio',
 }
 
+/**
+ * What the builder offers.
+ *
+ * ── countDistinct IS DELIBERATELY ABSENT ────────────────────────────────────
+ * "How many different suppliers" is a question people genuinely want, and it is
+ * not offered because the storage cannot answer it honestly. Figures are rolled
+ * up per period/scope bucket and added together at read time, and
+ * COUNT(DISTINCT x) does not survive that: a supplier appearing in all twelve
+ * months contributes twelve, not one. There is no arrangement of numerator and
+ * denominator that fixes it — it needs the raw rows at read time (which defeats
+ * the rollup) or an HLL sketch (which the rollup has no column for).
+ *
+ * The compiler REFUSES it as of migration 20260917240000, so leaving it here
+ * would offer a choice that fails on Save. Removed from the menu instead, and
+ * the compiler's refusal remains as the backstop for a definition written by
+ * any other path.
+ */
 export const MEASURE_OPTIONS = [
   {
     value: MEASURES.COUNT,
@@ -37,11 +54,6 @@ export const MEASURE_OPTIONS = [
     value: MEASURES.RATIO,
     label: 'Percentage',
     description: 'What share of them meet a condition — closed on time, verified, and so on.',
-  },
-  {
-    value: MEASURES.COUNT_DISTINCT,
-    label: 'Number of different values',
-    description: 'How many different sites, owners or suppliers appear.',
   },
   { value: MEASURES.SUM, label: 'Total', description: 'Adds a number field up.' },
   { value: MEASURES.AVG, label: 'Average', description: 'The average of a number field.' },

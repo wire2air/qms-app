@@ -420,22 +420,27 @@ export const METRIC_TEMPLATES = [
     },
   },
   {
-    id: 'ncr-products-affected',
+    id: 'ncr-by-product',
     moduleId: 'ncr',
-    name: 'Products affected by nonconformances',
-    description: 'How many different products appear on nonconformances in each period.',
-    // countDistinct, which answers a question no count can: ten nonconformances
-    // against one product is a product problem, and against ten products is a
-    // process one. The compiler only requires the field be registered and
-    // filterable — unlike sum and avg, it does not have to be a number.
+    name: 'Nonconformances by product',
+    description: 'Which products nonconformances are raised against, in each period.',
+    // Was a countDistinct ("how many DIFFERENT products"), which the storage
+    // cannot answer honestly: figures are rolled up per period/scope bucket and
+    // added at read time, so a product appearing in all four quarters counted
+    // four times. The compiler refuses countDistinct as of 20260917240000.
+    //
+    // Counting BY product answers the same business question — ten
+    // nonconformances against one product is a product problem, against ten
+    // products a process one — and a count grouped by a dimension is additive,
+    // so the breakdown and its total are both true.
     direction: 'lower_is_better',
     grain: 'quarter',
     definition: {
       sourceTable: 'nonconformances',
       timeField: 'created_at',
-      measure: { type: MEASURES.COUNT_DISTINCT, field: 'product_id' },
-      filters: [],
-      groupBy: [],
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'product_id', op: 'isNotNull', values: [] }],
+      groupBy: ['product_id'],
     },
   },
   {
@@ -1199,24 +1204,22 @@ export const METRIC_TEMPLATES = [
       groupBy: ['department_id'],
     },
   },
-  {
-    id: 'finding-avg-risk',
-    moduleId: 'audit_findings',
-    name: 'Average finding risk score',
-    description: 'The mean risk score of findings raised in each period.',
-    // The one template anywhere that is not a count. risk_score is a number
-    // column, which the compiler requires for avg — a non-numeric field is
-    // rejected with "is not a number, so it cannot be summed or averaged".
-    direction: 'lower_is_better',
-    grain: 'quarter',
-    definition: {
-      sourceTable: 'audit_findings',
-      timeField: 'created_at',
-      measure: { type: MEASURES.AVG, field: 'risk_score' },
-      filters: [],
-      groupBy: [],
-    },
-  },
+  // ── "Average finding risk/severity score" are deliberately NOT here ───────
+  // Two avg templates were removed on 2026-09-17. They were arithmetically
+  // broken (the compiler gave avg no denominator, so the rollup summed the
+  // per-bucket averages and a mean score of ~7 rendered as ~280) and migration
+  // 20260917240000 fixes that by compiling avg as sum/count.
+  //
+  // They are still not offered, because the fix carries a presentational cost:
+  // analytics_compose_value divides for exactly two units, 'percent' and
+  // 'days', so a plain mean has to be declared 'days' and the formatter then
+  // renders a risk score as "7.2 days". Correct number, wrong noun — and a
+  // starting template is the wrong place to hand someone that.
+  //
+  // `finding-total-risk` below is the honest version of the same question: a
+  // sum is additive, so it needs no unit gymnastics. avg remains available in
+  // the builder for anyone who wants it on a field that IS measured in days.
+  // Restore these once a 'mean' unit exists in analytics_compose_value.
   {
     id: 'finding-total-risk',
     moduleId: 'audit_findings',
@@ -1235,21 +1238,6 @@ export const METRIC_TEMPLATES = [
       filters: [
         { field: 'status_id', op: 'in', values: ['OPEN', 'IN_REVIEW', 'IN_REMEDIATION'] },
       ],
-      groupBy: [],
-    },
-  },
-  {
-    id: 'finding-avg-severity',
-    moduleId: 'audit_findings',
-    name: 'Average finding severity score',
-    description: 'The mean severity score of findings raised in each period.',
-    direction: 'lower_is_better',
-    grain: 'quarter',
-    definition: {
-      sourceTable: 'audit_findings',
-      timeField: 'created_at',
-      measure: { type: MEASURES.AVG, field: 'severity_score' },
-      filters: [],
       groupBy: [],
     },
   },
