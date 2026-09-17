@@ -56,6 +56,14 @@ export function useListReorder(containerRef, getList, opts = {}) {
     filter,
     draggable,
     onEnd,
+    // The class SortableJS puts on the drop placeholder while dragging. Purely
+    // cosmetic, and forwarded rather than hardcoded because a consumer may
+    // already have a styled ghost: DashboardHome had a 40%-opacity
+    // `.dashboard-ghost` that silently vanished when it moved onto this
+    // composable, since the options below were built from a fixed list and a
+    // caller's ghostClass was dropped without a word. The same shape of defect
+    // as the `onEnd` note further down.
+    ghostClass,
     announce = (_item, to, total) => `Moved to position ${to + 1} of ${total}.`,
   } = typeof opts === 'string' ? { handle: opts } : opts
 
@@ -90,6 +98,7 @@ export function useListReorder(containerRef, getList, opts = {}) {
     ...(handle ? { handle } : {}),
     ...(filter ? { filter, preventOnFilter: false } : {}),
     ...(draggable ? { draggable } : {}),
+    ...(ghostClass ? { ghostClass } : {}),
     animation: 150,
     onUpdate(e) {
       moveItem(e.oldIndex, e.newIndex)

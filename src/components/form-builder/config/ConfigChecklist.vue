@@ -157,6 +157,31 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
   <div class="tw:flex tw:flex-col tw:gap-4">
     <div class="tw:flex tw:flex-col tw:gap-3">
       <BaseText as="div" variant="overline">Rows</BaseText>
+      <!--
+        Keyed by INDEX, deliberately, and it is the lesser of two evils rather
+        than an oversight — the columns below are keyed by identity and the
+        reasoning for the difference is the whole point.
+
+        An index key means a reordered row keeps its DOM node and has its
+        contents rewritten, so the caret (and any uncommitted IME composition)
+        stays with the POSITION instead of following the row that moved. That
+        is a real defect. But a row is a bare string, and every identity we
+        could key on instead is worse:
+
+          - The string itself collides. `addRow()` pushes '', so two fresh
+            rows are identical the moment you add them, and duplicate keys make
+            Vue patch the wrong node — a harder failure than a misplaced caret.
+          - A generated id would have to live ON the row, i.e. turn `rows` from
+            string[] into object[]. That shape is persisted and read positionally
+            by consumers that are NOT in this file: aiFormSerialize.js drops any
+            row that is not `typeof r === 'string'`, hydrateChecklistRows()
+            filters the same way, and lineClearance.js / BaseChecklist index
+            answers by row POSITION. Widening the shape here would silently
+            truncate checklists on the AI round-trip.
+
+        So the caret defect stays until `rows` gets a schema decision of its
+        own; fixing it from this file alone would corrupt saved templates.
+      -->
       <div ref="rowsRef" class="tw:contents">
         <div
           v-for="(row, index) in field.rows"
@@ -209,10 +234,25 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
 
     <div class="tw:flex tw:flex-col tw:gap-3">
       <BaseText as="div" variant="overline">Columns</BaseText>
+      <!--
+        Keyed on the column OBJECT, not the index — same reason as
+        ReportBuilderDialog's sections: with an index key a dragged column keeps
+        its DOM node and only has its contents rewritten, so the label input's
+        caret and any in-flight IME composition stay at the POSITION rather than
+        following the column that moved. Keying on identity moves the node with
+        its data.
+
+        Unlike the rows above, this is safe here without touching the persisted
+        shape: columns are ALREADY objects, `addColumn()` pushes a fresh literal
+        per call, and useListReorder only splices — it never rebuilds an entry —
+        so every element is unique by reference even when two labels read the
+        same. `col.value` would NOT do: updateColumnValue() leaves it '' until a
+        label is typed, so two new columns would share a key.
+      -->
       <div ref="columnsRef" class="tw:contents">
         <div
           v-for="(col, index) in field.columns"
-          :key="'col-' + index"
+          :key="col"
           class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
         >
           <div class="tw:flex tw:flex-col tw:gap-3">
