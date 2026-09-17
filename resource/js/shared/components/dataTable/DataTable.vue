@@ -972,7 +972,7 @@ defineExpose({ table })
                 role="separator"
                 aria-orientation="vertical"
                 :aria-label="`Resize ${column.columnDef.meta.col.label}`"
-                class="tw:absolute tw:top-0 tw:right-0 tw:z-10 tw:h-full tw:w-1.5 tw:cursor-col-resize tw:touch-none tw:select-none tw:transition-colors hover:tw:bg-primary/40"
+                class="tw:absolute tw:top-0 tw:right-0 tw:z-10 tw:h-full tw:w-1.5 tw:cursor-col-resize tw:touch-none tw:select-none tw:transition-colors tw:hover:bg-primary/40"
                 :class="column.getIsResizing() ? 'tw:bg-primary' : ''"
                 @click.stop
                 @mousedown="headerById[column.id]?.getResizeHandler()?.($event)"

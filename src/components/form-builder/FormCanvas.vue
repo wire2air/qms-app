@@ -89,6 +89,99 @@ useSortable(canvasRef, props.fields, {
   },
 })
 
+// ── Keyboard reorder (WCAG 2.1.1) ───────────────────────────────────────────
+// The grip on every card is a real <button>: it takes focus and announces
+// itself as an action. Until now its only handler was `@click.stop`, so a
+// keyboard user reached a control that advertised a capability it did not
+// have — worse than an unreachable grip, because the dead end is only found
+// after trying.
+//
+// This MIRRORS `src/composables/useListReorder.js` (its onKeydown / moveItem /
+// refocus / live-region design) rather than importing it: that composable
+// supports only handle/filter/draggable/onEnd/announce, while this canvas
+// needs `group` + `onAdd` + the ghost/chosen/drag classes for CROSS-CONTAINER
+// drags (palette → canvas, canvas → a layout field's children). Swapping to it
+// would trade this defect for the loss of every cross-container drag, so the
+// raw `useSortable` above keeps the mouse path and this adds the keyboard one
+// beside it.
+//
+// SCOPE: within-container reorder only. Moving a field BETWEEN containers by
+// keyboard (out of a section, into a row) is deliberately NOT implemented —
+// that is a new capability, not an accessibility fix, and it needs a target
+// picker of its own. Mouse drag remains the only cross-container path.
+
+const KEY_STEP = { ArrowUp: -1, ArrowDown: 1, Home: 'first', End: 'last' }
+
+let liveRegionEl = null
+function liveRegion() {
+  if (liveRegionEl) return liveRegionEl
+  liveRegionEl = document.createElement('div')
+  liveRegionEl.setAttribute('aria-live', 'polite')
+  liveRegionEl.setAttribute('aria-atomic', 'true')
+  // Inline rather than a utility class: this node is appended to <body>,
+  // outside this component's scoped styles, so a visually-hidden helper that
+  // stopped applying would leave the announcement visible in the corner.
+  liveRegionEl.style.cssText =
+    'position:absolute;width:1px;height:1px;margin:-1px;padding:0;' +
+    'overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;'
+  document.body.appendChild(liveRegionEl)
+  return liveRegionEl
+}
+
+function fieldLabel(field) {
+  return field?.label || field?.name || field?.type || 'Field'
+}
+
+function onCanvasKeydown(e) {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+  const step = KEY_STEP[e.key]
+  if (step === undefined) return
+  // Only the grip drives a reorder. Without this, arrows typed into a card's
+  // in-place label editor would move the card instead of the caret.
+  if (!e.target?.closest?.('.drag-handle')) return
+
+  const container = canvasRef.value
+  if (!container) return
+
+  // `props.fields` IS the array the sortable above mutates (useSortable was
+  // handed this same reference), and it is the host's reactive `schema` — both
+  // FormBuilder and MiniFormBuilder persist through a `watch(schema, …,
+  // { deep: true })`, so splicing it here saves exactly like a mouse drag.
+  const list = props.fields
+  if (!Array.isArray(list) || list.length < 2) return
+
+  const items = Array.from(container.children)
+  const item = items.find((el) => el.contains(e.target))
+  if (!item) return
+
+  const from = items.indexOf(item)
+  if (from < 0 || from >= list.length) return
+  const to = step === 'first' ? 0 : step === 'last' ? list.length - 1 : from + step
+  if (to < 0 || to >= list.length) return // already at the end — let the key be
+
+  e.preventDefault()
+  const [moved] = list.splice(from, 1)
+  list.splice(to, 0, moved)
+
+  liveRegion().textContent = `${fieldLabel(moved)} moved to position ${to + 1} of ${list.length}.`
+  refocusGrip(to)
+}
+
+// Keep the grip focused after the list re-renders, so a run of presses keeps
+// moving the SAME field instead of dropping focus to <body> after the first.
+async function refocusGrip(index) {
+  await nextTick()
+  const container = canvasRef.value
+  if (!container) return
+  const grip = Array.from(container.children)[index]?.querySelector('.drag-handle')
+  if (grip && typeof grip.focus === 'function') grip.focus()
+}
+
+onBeforeUnmount(() => {
+  liveRegionEl?.remove()
+  liveRegionEl = null
+})
+
 function onSelectField(path) {
   emit('selectField', path)
 }
@@ -151,6 +244,7 @@ function onPickType(type) {
       'tw:border-primary tw:bg-primary/50': bordered && isDragging,
       'tw:items-center tw:justify-center': fields.length === 0,
     }"
+    @keydown="onCanvasKeydown"
   >
     <BaseEmptyState
       v-if="fields.length === 0"

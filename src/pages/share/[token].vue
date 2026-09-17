@@ -373,7 +373,7 @@ onMounted(() => {
             <li v-for="item in packageRecord.items" :key="item.id">
               <button
                 type="button"
-                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer hover:tw:bg-black/5"
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-black/5"
                 :disabled="loadingItem"
                 @click="openPackageItem(item)"
               >
@@ -398,7 +398,7 @@ onMounted(() => {
           <div v-if="openedItem" class="tw:mb-4 tw:flex tw:items-center tw:gap-2 tw:print:hidden">
             <button
               type="button"
-              class="tw:text-sm tw:text-primary hover:tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              class="tw:text-sm tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
               @click="closePackageItem"
             >
               ← All shared records
@@ -406,7 +406,7 @@ onMounted(() => {
             <span class="tw:flex-1" />
             <button
               type="button"
-              class="tw:text-sm tw:text-primary hover:tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              class="tw:text-sm tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
               @click="printPage"
             >
               Print
@@ -455,7 +455,7 @@ onMounted(() => {
                       :href="f.url"
                       target="_blank"
                       rel="noopener"
-                      class="tw:flex tw:items-center tw:gap-2 tw:text-primary hover:tw:underline"
+                      class="tw:flex tw:items-center tw:gap-2 tw:text-primary tw:hover:underline"
                     >
                       <IconPaperclip :size="14" class="tw:shrink-0" />
                       <span class="tw:truncate">{{ f.name }}</span>
@@ -485,7 +485,7 @@ onMounted(() => {
                   :href="f.url"
                   target="_blank"
                   rel="noopener"
-                  class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-primary hover:tw:underline"
+                  class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-primary tw:hover:underline"
                 >
                   <IconPaperclip :size="14" class="tw:shrink-0" />
                   <span class="tw:truncate">{{ f.name }}</span>
