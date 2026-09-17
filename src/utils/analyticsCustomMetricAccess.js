@@ -127,6 +127,119 @@ export function humaniseCode(value) {
 }
 
 /**
+ * Adverbs for the grain, because the sentence needs "reported monthly" rather
+ * than "reported Monthly" — GRAIN_OPTIONS holds the label for a dropdown, which
+ * is a different job.
+ */
+const GRAIN_SENTENCE = {
+  day: 'daily',
+  week: 'weekly',
+  month: 'monthly',
+  quarter: 'quarterly',
+  year: 'yearly',
+}
+
+/**
+ * The sentence the compiler WILL write, shown before the save that writes it.
+ *
+ * ── WHY THIS MIRRORS THE COMPILER INSTEAD OF READING BETTER ────────────────
+ * analytics_compile_custom_metric() already generates a calculation_note, and
+ * that note is what appears next to the figure on every tile, report section and
+ * alert from then on. If this helper phrased the same definition differently, a
+ * user would read one sentence while building and a permanently different one
+ * afterwards — and the mismatch would look like a bug in whichever they saw
+ * second. So the clause ORDER below is the compiler's, not a nicer one:
+ *
+ *     <measure> [where <conditions>], counted by <date> [, grouped by <dims>]
+ *
+ * with the grain appended, which the compiler's note omits because grain is a
+ * column on the row rather than part of the definition it reads.
+ *
+ * It follows that "Counts records where Status is Open" is deliberate, and
+ * "Counts open CAPAs" — which reads better — is deliberately not attempted.
+ * Producing that would mean inflecting a module noun and folding a filter into
+ * an adjective, correctly, for arbitrary registry fields. The compiler does not
+ * try, and a prettier sentence here would only be one that disagrees.
+ *
+ * ── WHAT IT REFUSES TO DESCRIBE ────────────────────────────────────────────
+ * A ratio's numerator. The compiler does not describe it either — a percentage's
+ * note reads "The share of records where <shared filters>" and the numerator
+ * predicate appears in no prose anywhere in the product. Inventing a description
+ * here would be this helper claiming knowledge nothing else has.
+ *
+ * Returns null rather than a guess whenever a piece is missing or a field is not
+ * in the registry, so the caller can stay silent instead of printing half a
+ * sentence that changes meaning on the next keystroke.
+ *
+ * @param {object} definition The in-progress definition.
+ * @param {{ grain?: string }} meta
+ * @param {Array} fields Registry rows for the CURRENT module and source table.
+ * @returns {string|null}
+ */
+export function definitionSentence(definition, meta = {}, fields = []) {
+  if (!definition?.sourceTable || !definition?.timeField) return null
+
+  function labelOf(column) {
+    return fields.find((f) => f.columnName === column)?.label ?? null
+  }
+
+  const timeLabel = labelOf(definition.timeField)
+  if (!timeLabel) return null
+
+  const type = definition.measure?.type ?? MEASURES.COUNT
+  const needsField = [MEASURES.SUM, MEASURES.AVG, MEASURES.COUNT_DISTINCT].includes(type)
+  if (needsField && !labelOf(definition.measure?.field)) return null
+
+  // The same wording as the compiler's CASE, including "The share of records".
+  const OPENING = {
+    [MEASURES.COUNT]: 'Counts records',
+    [MEASURES.COUNT_DISTINCT]: 'Counts distinct values',
+    [MEASURES.SUM]: 'Adds up values',
+    [MEASURES.AVG]: 'Averages values',
+    [MEASURES.RATIO]: 'The share of records',
+  }
+  let sentence = OPENING[type]
+  if (!sentence) return null
+
+  // Joined with "and", matching array_to_string(v_notes, ' and '). Never "or",
+  // and never nested: the compiler joins predicates with AND and there is no
+  // way for a definition to express anything else.
+  const notes = []
+  for (const f of definition.filters ?? []) {
+    const label = labelOf(f.field)
+    if (!label) return null
+    if (f.op === 'isNull') {
+      notes.push(`${label} is not set`)
+    } else if (f.op === 'isNotNull') {
+      notes.push(`${label} is set`)
+    } else {
+      const values = f.values ?? []
+      if (!values.length) return null
+      notes.push(`${label} is ${f.op === 'notIn' ? 'not ' : ''}${values.map(humaniseCode).join(' or ')}`)
+    }
+  }
+  if (notes.length) sentence += ` where ${notes.join(' and ')}`
+
+  // The label as written, not lowercased — the same reasoning the compiler
+  // records: the registry says "Last reviewed" and "Raised", and lowercasing
+  // produced "counted by raised", which reads like a typo.
+  sentence += `, counted by ${timeLabel}`
+
+  const groups = []
+  for (const column of definition.groupBy ?? []) {
+    const label = labelOf(column)
+    if (!label) return null
+    groups.push(label)
+  }
+  if (groups.length) sentence += `, grouped by ${groups.join(' and ')}`
+
+  const grain = GRAIN_SENTENCE[meta.grain ?? 'month']
+  if (grain) sentence += `, reported ${grain}`
+
+  return `${sentence}.`
+}
+
+/**
  * The reason a definition cannot be saved yet, or null.
  *
  * Phrased as a sentence a person can act on, and kept to the checks that are

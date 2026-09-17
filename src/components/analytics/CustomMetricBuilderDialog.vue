@@ -40,8 +40,10 @@ import {
   blankDefinition,
   blankFilter,
   definitionProblem,
+  definitionSentence,
 } from '@/utils/analyticsCustomMetricAccess.js'
-import { IconPlus, IconTrash, IconAlertTriangle } from '@tabler/icons-vue'
+import { templatesForModule } from '@/utils/analyticsMetricTemplates.js'
+import { IconPlus, IconTrash, IconAlertTriangle, IconSparkles } from '@tabler/icons-vue'
 
 const props = defineProps({
   /** An existing AnalyticsCustomMetric row, or null to create. */
@@ -90,6 +92,56 @@ function blank() {
  */
 const seeding = ref(false)
 
+/**
+ * Hold `seeding` true until the reset watchers have flushed for this change.
+ *
+ * ⚠ THE OBVIOUS IMPLEMENTATION OF THIS IS WRONG, AND IT WAS SHIPPED.
+ * The original cleared the flag in `nextTick(() => { seeding.value = false })`,
+ * whose comment says it runs "AFTER the reset watchers have flushed". It does
+ * not. A default `watch` is a PRE-flush watcher: it runs in the scheduler's
+ * pre-queue, ahead of nextTick callbacks. Measured ordering for
+ * `seeding = true; nextTick(clear); form.value = {...}`:
+ *
+ *     flag cleared        ← nextTick ran FIRST
+ *     watcher seeding=false
+ *
+ * So the guard was already false by the time the watcher it guards consulted
+ * it, and the reset it exists to suppress ran anyway.
+ *
+ * The edit path survived this by luck rather than by the flag. Replacing
+ * `form.value` wholesale makes the moduleId watcher fire and blank the
+ * definition — but the very next statement assigned the seeded definition over
+ * the top, so the damage was overwritten within the same tick and nothing was
+ * visible. That luck does not extend to a template, which writes the definition
+ * as part of the same object replacement rather than after it; there the blanked
+ * definition is the one that survives.
+ *
+ * `flush: 'post'` is what the original comment described: it runs after the
+ * component's pre-flush watchers for the same tick, so the flag is true exactly
+ * while they look at it. Verified by the template specs, which fail without it.
+ */
+function seedForm(next) {
+  seeding.value = true
+  const stop = watch(
+    () => [form.value.moduleId, form.value.definition.sourceTable],
+    () => {
+      seeding.value = false
+      stop()
+    },
+    { flush: 'post' },
+  )
+  form.value = next
+  // A seed that changes NEITHER watched value — reopening an unchanged metric —
+  // leaves the watcher above waiting for a change that never comes. Clearing on
+  // the next tick as well is harmless when the watcher already fired (the flag
+  // is false and stop() has run) and is the only thing that clears it when it
+  // did not.
+  nextTick(() => {
+    seeding.value = false
+    stop()
+  })
+}
+
 // Re-seed on open, so cancelling and reopening does not resurrect the abandoned
 // draft. JSON round-trip rather than structuredClone: `props.metric` is a live
 // SyncEngine row and its `definition` arrives wrapped in a Vue reactive Proxy,
@@ -100,26 +152,21 @@ watch(
   () => [open.value, props.metric?.id],
   () => {
     if (!open.value) return
-    seeding.value = true
-    // Cleared on the next tick, AFTER the reset watchers have flushed for this
-    // change. Clearing it synchronously would leave them firing against a form
-    // that is already seeded, which is the bug this flag exists for.
-    nextTick(() => {
-      seeding.value = false
-    })
-    form.value = props.metric
-      ? {
-          name: props.metric.name ?? '',
-          description: props.metric.description ?? '',
-          moduleId: props.metric.moduleId ?? null,
-          direction: props.metric.direction ?? 'neutral',
-          grain: props.metric.grain ?? 'month',
-          definition: {
-            ...blankDefinition(),
-            ...JSON.parse(JSON.stringify(props.metric.definition ?? {})),
-          },
-        }
-      : blank()
+    seedForm(
+      props.metric
+        ? {
+            name: props.metric.name ?? '',
+            description: props.metric.description ?? '',
+            moduleId: props.metric.moduleId ?? null,
+            direction: props.metric.direction ?? 'neutral',
+            grain: props.metric.grain ?? 'month',
+            definition: {
+              ...blankDefinition(),
+              ...JSON.parse(JSON.stringify(props.metric.definition ?? {})),
+            },
+          }
+        : blank(),
+    )
   },
   { immediate: true },
 )
@@ -217,6 +264,56 @@ const isRatio = computed(() => measureType.value === MEASURES.RATIO)
 const problem = computed(() => definitionProblem(form.value.definition, form.value, props.dimensionCap))
 const canSave = computed(() => !problem.value && !saving.value)
 
+// ── templates ───────────────────────────────────────────────────────────────
+/**
+ * Offered only when CREATING, and only until the form has been started.
+ *
+ * Not on the edit path: applying one would silently replace a definition that is
+ * already in use by dashboards, reports and alerts, and the card gives no hint
+ * that it would. Hidden once a module is chosen for a milder reason — by then
+ * the user has told us what they are doing, and a row of cards offering to throw
+ * it away is noise.
+ */
+const templates = computed(() =>
+  props.metric || form.value.moduleId ? [] : templatesForModule(),
+)
+
+/**
+ * Fill the whole form from a template.
+ *
+ * ⚠ Goes through seedForm(), and must. Assigning moduleId fires the watcher that
+ * blanks the definition, and assigning sourceTable fires the one that clears
+ * timeField, filters and groupBy — so a template applied directly loses every
+ * filter and breakdown it carries, leaving a form that looks half-filled for no
+ * visible reason.
+ *
+ * This is the same trap the edit path documents, and it is where that path's
+ * guard turned out to be broken: see seedForm(). The edit path survived a
+ * non-working flag by accident; a template does not, which is how the defect was
+ * finally caught.
+ */
+function applyTemplate(t) {
+  seedForm({
+    name: t.name,
+    description: t.description ?? '',
+    moduleId: t.moduleId,
+    direction: t.direction ?? 'neutral',
+    grain: t.grain ?? 'month',
+    definition: { ...blankDefinition(), ...JSON.parse(JSON.stringify(t.definition)) },
+  })
+}
+
+/**
+ * The sentence the compiler will store, or null while it cannot be known.
+ *
+ * Passed `tableFields` rather than the whole registry so a column name can only
+ * resolve against the table actually selected — a label from another table would
+ * describe a metric that does not exist.
+ */
+const sentence = computed(() =>
+  definitionSentence(form.value.definition, form.value, tableFields.value),
+)
+
 // ── filter rows ─────────────────────────────────────────────────────────────
 function addFilter(list) {
   list.push(blankFilter())
@@ -304,55 +401,84 @@ async function save() {
         :message="metric.compileError"
       />
 
-      <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
-        <BaseTextInput
-          v-model="form.name"
-          label="Metric name"
-          placeholder="e.g. Open documents by site"
-        />
-        <BaseSelect
-          v-model="form.moduleId"
-          label="Module"
-          :options="modules"
-          :searchable="false"
-          required
+      <!-- Start from a template. Shown only while creating and only before a
+           module is picked, so it is an offer at the start rather than a
+           standing invitation to discard work. -->
+      <div v-if="templates.length" class="tw:rounded tw:border tw:border-divider tw:p-3">
+        <BaseText weight="medium" class="tw:mb-1">Start with a template</BaseText>
+        <BaseText variant="caption" color="secondary" class="tw:mb-3">
+          A common quality measure, filled in and ready to adjust. Or fill in the form below to
+          start from scratch.
+        </BaseText>
+        <ContentGrid min="15rem">
+          <BaseClickableRow
+            v-for="t in templates"
+            :key="t.id"
+            :aria-label="`Use template ${t.name}`"
+            class="tw:rounded tw:border tw:border-divider tw:p-2 tw:hover:border-primary"
+            @click="applyTemplate(t)"
+          >
+            <div class="tw:flex tw:items-start tw:gap-2">
+              <IconSparkles :size="14" class="tw:mt-0.5 tw:shrink-0" aria-hidden="true" />
+              <div class="tw:min-w-0">
+                <BaseText weight="medium">{{ t.name }}</BaseText>
+                <BaseText variant="caption" color="secondary">{{ t.description }}</BaseText>
+              </div>
+            </div>
+          </BaseClickableRow>
+        </ContentGrid>
+      </div>
+
+      <!-- A. WHAT ──────────────────────────────────────────────────────────── -->
+      <div>
+        <BaseText weight="medium">What are you measuring?</BaseText>
+        <BaseText variant="caption" color="secondary" class="tw:mb-2">
+          Use a name your quality team will recognise on a dashboard.
+        </BaseText>
+        <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
+          <BaseTextInput
+            v-model="form.name"
+            label="Metric name"
+            placeholder="e.g. Open documents by site"
+          />
+          <BaseSelect
+            v-model="form.moduleId"
+            label="Module"
+            :options="modules"
+            :searchable="false"
+            required
+          />
+        </div>
+        <BaseTextarea
+          v-model="form.description"
+          label="Description"
+          :rows="2"
+          class="tw:mt-3"
+          placeholder="What this measures, and who reads it."
         />
       </div>
 
-      <BaseTextarea
-        v-model="form.description"
-        label="Description"
-        :rows="2"
-        placeholder="What this measures, and who reads it."
-      />
-
       <template v-if="form.moduleId">
+        <!-- B. WHICH RECORDS ─────────────────────────────────────────────── -->
         <div class="tw:border-t tw:border-divider tw:pt-4">
-          <BaseText weight="medium" class="tw:mb-2">What is counted</BaseText>
-          <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
-            <BaseSelect
-              v-model="form.definition.sourceTable"
-              label="Records"
-              :options="sourceTables"
-              :searchable="false"
-              required
-            />
-            <BaseSelect
-              v-model="form.definition.timeField"
-              label="Counted by date"
-              :options="dateFields"
-              :searchable="false"
-              :disabled="!form.definition.sourceTable"
-              required
-            />
-          </div>
+          <BaseText weight="medium">Which records should we measure?</BaseText>
+          <BaseText variant="caption" color="secondary" class="tw:mb-2">
+            The records this metric counts, and what it works out about them.
+          </BaseText>
+          <BaseSelect
+            v-model="form.definition.sourceTable"
+            label="Records"
+            :options="sourceTables"
+            :searchable="false"
+            required
+          />
         </div>
 
         <template v-if="form.definition.sourceTable">
           <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
             <BaseSelect
               v-model="measureType"
-              label="Measurement"
+              label="What to work out"
               :options="MEASURE_OPTIONS"
               optionDescription="description"
               :searchable="false"
@@ -406,15 +532,23 @@ async function save() {
             </div>
           </div>
 
-          <!-- Shared filters. -->
+          <!-- C. WHICH ARE INCLUDED ────────────────────────────────────────
+               Every row here is joined with AND, because that is the only thing
+               the compiler can express. The heading says "all of" rather than
+               leaving it implied: a user who assumes OR would build a filter
+               that silently returns nothing. -->
           <div class="tw:border-t tw:border-divider tw:pt-4">
-            <div class="tw:mb-2 tw:flex tw:items-center tw:justify-between">
-              <BaseText weight="medium">Only include records where…</BaseText>
+            <div class="tw:mb-1 tw:flex tw:items-center tw:justify-between">
+              <BaseText weight="medium">Which records should be included?</BaseText>
               <BaseButton size="sm" variant="outline" @click="addFilter(form.definition.filters)">
                 <IconPlus :size="14" aria-hidden="true" />
                 Add filter
               </BaseButton>
             </div>
+            <BaseText variant="caption" color="secondary" class="tw:mb-2">
+              Add a filter to measure only some records. A record must match
+              <strong>all</strong> of them to be counted.
+            </BaseText>
             <BaseText v-if="!form.definition.filters.length" variant="caption" color="secondary">
               No filters — every record counts.
             </BaseText>
@@ -444,11 +578,37 @@ async function save() {
             </div>
           </div>
 
-          <!-- Grouping. The cap comes from the rollup, not from this form. -->
+          <!-- D. WHEN ──────────────────────────────────────────────────────
+               Its own section rather than a field beside "Records", because
+               which date a record is counted by is the single most consequential
+               choice in the form and the one most often got wrong. A CAPA raised
+               in March and closed in June is a March figure or a June figure
+               depending only on this. -->
           <div class="tw:border-t tw:border-divider tw:pt-4">
+            <BaseText weight="medium">When should a record count?</BaseText>
+            <BaseText variant="caption" color="secondary" class="tw:mb-2">
+              The date that decides which period a record falls into. Counting by when something
+              was raised answers a different question from counting by when it was closed.
+            </BaseText>
+            <BaseSelect
+              v-model="form.definition.timeField"
+              label="Counted by date"
+              :options="dateFields"
+              :searchable="false"
+              required
+            />
+          </div>
+
+          <!-- E. BREAKDOWN. The cap comes from the rollup, not from this form. -->
+          <div class="tw:border-t tw:border-divider tw:pt-4">
+            <BaseText weight="medium">How should the results be broken down?</BaseText>
+            <BaseText variant="caption" color="secondary" class="tw:mb-2">
+              Optional. Choose a field to compare the figure across groups — by department, by
+              site, by severity. Leave it empty for a single total.
+            </BaseText>
             <BaseSelect
               v-model="form.definition.groupBy"
-              label="Split by"
+              label="Break down by"
               :options="groupFields"
               multiple
               :searchable="false"
@@ -456,19 +616,52 @@ async function save() {
             />
           </div>
 
-          <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
-            <BaseSelect
-              v-model="form.direction"
-              label="Which way is good?"
-              :options="DIRECTION_OPTIONS"
-              :searchable="false"
-            />
-            <BaseSelect
-              v-model="form.grain"
-              label="Reported by"
-              :options="GRAIN_OPTIONS"
-              :searchable="false"
-            />
+          <!-- F. PERFORMANCE ─────────────────────────────────────────────── -->
+          <div class="tw:border-t tw:border-divider tw:pt-4">
+            <BaseText weight="medium">How should performance be interpreted?</BaseText>
+            <BaseText variant="caption" color="secondary" class="tw:mb-2">
+              How a dashboard should colour a rise or a fall, and how often the figure is
+              reported.
+            </BaseText>
+            <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
+              <BaseSelect
+                v-model="form.direction"
+                label="Direction"
+                :options="DIRECTION_OPTIONS"
+                :searchable="false"
+              />
+              <BaseSelect
+                v-model="form.grain"
+                label="Reported"
+                :options="GRAIN_OPTIONS"
+                :searchable="false"
+              />
+            </div>
+          </div>
+
+          <!--
+            The definition, in words.
+
+            ⚠ There are NO FIGURES here, and that is not a limitation being worked
+            around. The metric does not exist until it is saved and compiled, and
+            its first figures arrive with the next rollup refresh — so any number
+            shown at this point would be invented. In a product where every tile
+            prints the timestamp its figure was computed at, a plausible-looking
+            fabricated count is worse than no preview at all.
+
+            The sentence is what CAN honestly be shown, and it is the same
+            sentence the compiler will store and every tile will display.
+          -->
+          <div
+            v-if="sentence"
+            class="tw:rounded tw:border tw:border-divider tw:bg-gray-50 tw:p-3"
+          >
+            <BaseText weight="medium" class="tw:mb-1">What this metric will measure</BaseText>
+            <BaseText>{{ sentence }}</BaseText>
+            <BaseText variant="caption" color="secondary" class="tw:mt-2">
+              Figures appear once the metric is saved, published and the next analytics refresh
+              has run. Every reader sees only the records their own access allows.
+            </BaseText>
           </div>
         </template>
       </template>

@@ -513,6 +513,7 @@ declare module 'vue' {
     CustomFieldsCreateSection: typeof import('./src/components/customFields/CustomFieldsCreateSection.vue')['default']
     CustomFieldsHome: typeof import('./src/components/customFields/CustomFieldsHome.vue')['default']
     CustomMetricBuilderDialog: typeof import('./src/components/analytics/CustomMetricBuilderDialog.vue')['default']
+    'CustomMetricBuilderDialog.spec': typeof import('./src/components/analytics/CustomMetricBuilderDialog.spec.js')['default']
     CustomMetricsHome: typeof import('./src/components/analytics/CustomMetricsHome.vue')['default']
     CustomPlanTableFields: typeof import('./src/components/qcInspection/CustomPlanTableFields.vue')['default']
     DashboardCapasDue: typeof import('./src/components/dashboard/DashboardCapasDue.vue')['default']
