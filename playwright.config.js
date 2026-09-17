@@ -430,6 +430,31 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Permissions & Authorization — the cross-cutting module that decides,
+      // for every other module, who may do what. It had no project here at all
+      // until 2026-09-17, which its own production-readiness doc named as one
+      // of the two hard zeros holding the module's score down: the decision
+      // engine has 151 integration tests and the enforcement WIRING had none.
+      //
+      // Most cases here probe the POLICY layer directly through `sqlAsAppUser`
+      // rather than driving a browser, and that is deliberate rather than a
+      // shortcut. A permission denial in this product is usually a zero-row
+      // SELECT or a trigger refusal, neither of which the DOM can distinguish
+      // from an empty table; and the defects these journeys pin (F-27's
+      // unreachable delete policies, the dormant workflow verbs) live
+      // specifically on the GraphQL/SQL path that a UI test never takes. The
+      // journeys that ARE about the UI agreeing with the transport drive the
+      // browser and the database in the same test.
+      //
+      // No `dependencies: ['setup']` on the SQL-layer files would be wrong even
+      // though they never open a page: they read personas and grants the e2e
+      // seed creates, and `setup` is what applies it.
+      name: 'permissions',
+      testMatch: /permissions\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // App Builder — Forms. The headline here is the public fill surface: an
       // unauthenticated read that used to serve any ACTIVE template in any
       // tenant to anyone holding the row's UUID, now a server-minted revocable
