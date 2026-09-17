@@ -252,7 +252,7 @@ function questionOf(w) {
             <button
               data-drag-handle
               type="button"
-              class="tw:cursor-grab tw:rounded tw:p-1 tw:text-secondary hover:tw:text-on-main"
+              class="tw:cursor-grab tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main"
               :aria-label="`Reorder ${widgetLabel(w)}. Use arrow keys to move it, Home or End to send it to either end.`"
               aria-keyshortcuts="ArrowUp ArrowDown Home End"
             >
@@ -260,7 +260,7 @@ function questionOf(w) {
             </button>
             <button
               type="button"
-              class="tw:rounded tw:p-1 tw:text-secondary hover:tw:text-on-main"
+              class="tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main"
               aria-label="Edit widget"
               @click="editWidget(w)"
             >
@@ -268,7 +268,7 @@ function questionOf(w) {
             </button>
             <button
               type="button"
-              class="tw:rounded tw:p-1 tw:text-secondary hover:tw:text-bad"
+              class="tw:rounded tw:p-1 tw:text-secondary tw:hover:text-bad"
               aria-label="Remove widget"
               @click="confirmRemove(w)"
             >

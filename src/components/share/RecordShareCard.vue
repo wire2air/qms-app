@@ -182,7 +182,7 @@ async function revoke(link) {
           <button
             v-if="canShare"
             type="button"
-            class="tw:text-secondary hover:tw:text-red-600"
+            class="tw:text-secondary tw:hover:text-red-600"
             :aria-label="`Withdraw access for ${link.email}`"
             :disabled="revoking === link.id"
             @click="revoke(link)"

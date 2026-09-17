@@ -629,7 +629,7 @@ const detailConfig = computed(() =>
             <a
               v-else-if="auditInstance.externalAuditorEmail"
               :href="`mailto:${auditInstance.externalAuditorEmail}`"
-              class="tw:text-primary hover:tw:underline"
+              class="tw:text-primary tw:hover:underline"
               >{{ auditInstance.externalAuditorEmail }}</a
             >
             <BaseText v-else>—</BaseText>

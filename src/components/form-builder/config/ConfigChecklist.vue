@@ -20,8 +20,21 @@ function columnInputTypeItems(col) {
 // row onwards.
 const rowsRef = ref(null)
 const columnsRef = ref(null)
-useListReorder(rowsRef, () => field.value?.rows, '.checklist-row-handle')
-useListReorder(columnsRef, () => field.value?.columns, '.checklist-col-handle')
+// Named announcements rather than the composable's generic fallback: a
+// checklist can run to a dozen rows, and "Moved to position 3 of 9" leaves a
+// screen-reader user to work out WHICH row moved. An unlabelled row is
+// described by the position it landed in, which is the number the listener is
+// about to see beside it.
+useListReorder(rowsRef, () => field.value?.rows, {
+  handle: '.checklist-row-handle',
+  announce: (row, to, total) =>
+    `${String(row || '').trim() || `Row ${to + 1}`} moved to position ${to + 1} of ${total}.`,
+})
+useListReorder(columnsRef, () => field.value?.columns, {
+  handle: '.checklist-col-handle',
+  announce: (col, to, total) =>
+    `${col?.label?.trim() || `Column ${to + 1}`} moved to position ${to + 1} of ${total}.`,
+})
 
 function addRow() {
   if (!field.value.rows) {
@@ -151,12 +164,28 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
           class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
         >
           <div class="tw:flex tw:gap-2 tw:items-center">
-            <span
+            <!--
+              A real <button>, not a <span>, and that is load-bearing rather
+              than tidiness. useListReorder gates its keyboard path on
+              `e.target.closest(handle)` — an element that cannot take focus can
+              never BE the target of a keydown, so as a <span> this grip had the
+              arrow-key handler attached and permanently unreachable. The
+              aria-label did not help either: on a <span> with no role it is
+              largely ignored by assistive tech, so the control neither
+              announced itself nor did anything.
+
+              That is the exact failure the composable's own docblock describes
+              (a control advertising a capability it does not have) — the
+              wrapper was fixed in 2026-08-19, this consumer was not.
+            -->
+            <button
+              type="button"
               class="checklist-row-handle tw:shrink-0 tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary"
-              :aria-label="`Drag to reorder row ${index + 1}`"
+              :aria-label="`Reorder row ${index + 1}. Use arrow keys to move it, Home or End to send it to either end.`"
+              aria-keyshortcuts="ArrowUp ArrowDown Home End"
             >
-              <IconGripVertical :size="15" />
-            </span>
+              <IconGripVertical :size="15" aria-hidden="true" />
+            </button>
             <div class="tw:flex-1">
               <BaseTextInput v-model="field.rows[index]" placeholder="Row Label" size="sm" />
             </div>
@@ -188,12 +217,15 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
         >
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div class="tw:flex tw:gap-2 tw:items-center">
-              <span
+              <!-- A <button> for the same reason as the row grip above. -->
+              <button
+                type="button"
                 class="checklist-col-handle tw:shrink-0 tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary"
-                :aria-label="`Drag to reorder column ${index + 1}`"
+                :aria-label="`Reorder column ${index + 1}. Use arrow keys to move it, Home or End to send it to either end.`"
+                aria-keyshortcuts="ArrowUp ArrowDown Home End"
               >
-                <IconGripVertical :size="15" />
-              </span>
+                <IconGripVertical :size="15" aria-hidden="true" />
+              </button>
               <div class="tw:flex-1">
                 <BaseTextInput
                   v-model="col.label"

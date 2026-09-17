@@ -1048,6 +1048,7 @@ declare module 'vue' {
     ReportScheduleDialog: typeof import('./src/components/analytics/ReportScheduleDialog.vue')['default']
     ReportScheduleRuns: typeof import('./src/components/analytics/ReportScheduleRuns.vue')['default']
     ReportSchedulesTab: typeof import('./src/components/analytics/ReportSchedulesTab.vue')['default']
+    ReportSectionMetricList: typeof import('./src/components/analytics/ReportSectionMetricList.vue')['default']
     ReportsHome: typeof import('./src/components/analytics/ReportsHome.vue')['default']
     ResetPasswordForm: typeof import('./src/components/auth/ResetPasswordForm.vue')['default']
     RetainSampleCreateDialog: typeof import('./src/components/qcInspection/RetainSampleCreateDialog.vue')['default']
