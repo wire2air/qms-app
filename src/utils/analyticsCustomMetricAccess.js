@@ -30,7 +30,7 @@ export const MEASURES = {
 export const MEASURE_OPTIONS = [
   {
     value: MEASURES.COUNT,
-    label: 'Count of records',
+    label: 'Number of records',
     description: 'How many there are. The usual starting point.',
   },
   {
@@ -40,11 +40,11 @@ export const MEASURE_OPTIONS = [
   },
   {
     value: MEASURES.COUNT_DISTINCT,
-    label: 'Count of distinct values',
+    label: 'Number of different values',
     description: 'How many different sites, owners or suppliers appear.',
   },
-  { value: MEASURES.SUM, label: 'Sum of a number', description: 'Adds a numeric field up.' },
-  { value: MEASURES.AVG, label: 'Average of a number', description: 'The mean of a numeric field.' },
+  { value: MEASURES.SUM, label: 'Total', description: 'Adds a number field up.' },
+  { value: MEASURES.AVG, label: 'Average', description: 'The average of a number field.' },
 ]
 
 /**

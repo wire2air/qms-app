@@ -97,21 +97,40 @@ const dimensionMode = computed(() => currentRule.value?.dimension ?? 'none')
 const dimensionHint = computed(() => {
   if (!metric.value) return null
   if (dimensionMode.value === 'none') {
-    return `A ${currentRule.value?.label?.toLowerCase() ?? 'single number'} shows one total, so there is nothing to split by.`
+    return `A ${currentRule.value?.label?.toLowerCase() ?? 'single number'} shows one total, so there is nothing to show separately.`
   }
-  const declared = (metric.value.dimensions || []).length
-  const capacity = metric.value.dimensionCapacity
-  const base = `This metric is pre-aggregated, so it can only be split by the ${declared} dimension${declared === 1 ? '' : 's'} it was rolled up with${capacity ? ` (of a possible ${capacity})` : ''}.`
+  // Named, not counted. "the 1 dimension it was rolled up with" told the reader
+  // how many there were and left them to guess which — and "dimension",
+  // "pre-aggregated" and "rolled up" are three pieces of warehouse vocabulary in
+  // one sentence, none of which a quality manager has any reason to know.
+  // Labelled through dimensionOptionsFor() rather than off the raw key, so the
+  // names in this sentence are the same strings the picker below shows. A
+  // catalog dimension carries only {key, expr, filterKey} — there is no label on
+  // it — and printing the key would say "root_cause" where the dropdown says
+  // "Root cause".
+  const declared = dimensionOptionsFor(metric.value, question.value?.viz)
+    .filter((o) => !o.scope)
+    .map((o) => o.label)
+  const base = declared.length
+    ? `This metric was set up to break down by ${declared.join(', ')}. To add another, edit the metric.`
+    : 'This metric was not set up with a breakdown. To add one, edit the metric.'
   if (currentRule.value?.source === SOURCE.BREAKDOWN) {
-    return `${base} Site, department and owner are always available for this chart type.`
+    return `${base} Site, department and owner can also be used here.`
   }
-  return `${base} Site, department and owner can only be used on the chart types that rank a period, not on ones that plot over time.`
+  return `${base} Site, department and owner can only be used on charts that rank a period, not on ones that plot over time.`
 })
 
 // Comparison only changes what `metric_value` returns, and the single-number
 // tile is the only one that renders a delta — so offering it elsewhere would be
 // a control that does nothing.
 const showCompare = computed(() => currentRule.value?.source === SOURCE.VALUE)
+
+/**
+ * Which accordion panels are open. Closed on arrival, and it stays a ref rather
+ * than a prop: whether someone opened Options is a property of this editing
+ * session, not of the question being edited.
+ */
+const openOptions = ref([])
 
 const COMPARE_OPTIONS = [
   { value: 'previous_period', label: 'vs previous period' },
@@ -209,10 +228,10 @@ function onMetricChange(metricKey) {
         v-if="dimensionMode !== 'none'"
         :modelValue="question.dimension"
         :options="dimensionOptions"
-        label="Split by"
+        label="Show separately by"
         :required="dimensionMode === 'required'"
         :clearable="dimensionMode === 'optional'"
-        :nullLabel="dimensionMode === 'optional' ? 'No split (total)' : null"
+        :nullLabel="dimensionMode === 'optional' ? 'Combined total' : null"
         :searchable="false"
         @update:modelValue="(v) => patch({ dimension: v })"
       >
@@ -227,6 +246,23 @@ function onMetricChange(metricKey) {
         {{ dimensionHint }}
       </BaseText>
 
+      <!--
+        Everything below is optional and defaulted.
+
+        Metric and Visualisation are the two answers that cannot be guessed; the
+        period defaults to a sensible relative window, the comparison only
+        decorates a single-number tile with an arrow, and a blank title falls
+        back to the metric's own name. Presented flat, those three read as three
+        more decisions to make before the tile works — which is how a two-choice
+        task came to look like a five-field form.
+      -->
+      <BaseAccordion
+        v-model="openOptions"
+        :items="[{ value: 'options', title: 'Options' }]"
+        :level="4"
+      >
+        <template #options>
+          <div class="tw:flex tw:flex-col tw:gap-4">
       <div class="tw:grid tw:grid-cols-1 tw:gap-4 tw:sm:grid-cols-2">
         <BaseSelect
           :modelValue="question.periodToken || DEFAULT_PERIOD_TOKEN"
@@ -242,7 +278,8 @@ function onMetricChange(metricKey) {
           v-if="showCompare"
           :modelValue="question.compare || 'previous_period'"
           :options="COMPARE_OPTIONS"
-          label="Compare against"
+          label="Show change vs"
+          hint="Adds an up or down arrow against the earlier period. It does not change the number itself."
           :required="true"
           :searchable="false"
           @update:modelValue="(v) => patch({ compare: v })"
@@ -277,6 +314,9 @@ function onMetricChange(metricKey) {
         :placeholder="metric.name || 'Tile title'"
         @update:modelValue="(v) => patch({ title: v || null })"
       />
+          </div>
+        </template>
+      </BaseAccordion>
     </template>
   </div>
 </template>

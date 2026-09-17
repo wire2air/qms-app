@@ -71,10 +71,23 @@ const OPEN_CAPAS = METRIC_TEMPLATES.find((t) => t.id === 'capa-open')
 const BY_DEPARTMENT = METRIC_TEMPLATES.find((t) => t.id === 'capa-by-department')
 
 describe('CustomMetricBuilderDialog — templates', () => {
-  it('offers templates when creating', () => {
+  it('opens on the chooser, not the form', () => {
+    // Template-first: the cards ARE the dialog, so the common case finishes in
+    // two clicks and the blank form is the escape hatch rather than the default.
     const w = mountDialog()
-    expect(w.text()).toContain('Start with a template')
+    expect(w.vm.choosing).toBe(true)
     expect(w.text()).toContain(OPEN_CAPAS.name)
+    expect(w.text()).toContain('Create your own')
+    // None of the form's questions are on screen yet.
+    expect(w.text()).not.toContain('What are you measuring?')
+  })
+
+  it('shows the form once "Create your own" is taken', async () => {
+    const w = mountDialog()
+    w.vm.startFromScratch()
+    await nextTick()
+    expect(w.vm.choosing).toBe(false)
+    expect(w.text()).toContain('What are you measuring?')
   })
 
   it('offers none when editing an existing metric', async () => {
@@ -97,7 +110,8 @@ describe('CustomMetricBuilderDialog — templates', () => {
       },
     })
     await nextTick()
-    expect(w.text()).not.toContain('Start with a template')
+    expect(w.vm.choosing).toBe(false)
+    expect(w.text()).not.toContain('Create your own')
   })
 
   it('keeps the filters it applied — the reset watchers must not fire', async () => {
@@ -173,7 +187,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
 describe('CustomMetricBuilderDialog — the definition panel', () => {
   it('says nothing until the definition can be described', () => {
     const w = mountDialog()
-    expect(w.text()).not.toContain('What this metric will measure')
+    expect(w.text()).not.toContain("What you'll see")
   })
 
   it('describes the metric once it is complete', async () => {
@@ -181,7 +195,7 @@ describe('CustomMetricBuilderDialog — the definition panel', () => {
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
-    expect(w.text()).toContain('What this metric will measure')
+    expect(w.text()).toContain("What you'll see")
     expect(w.text()).toContain('Counts records where Status is Open, counted by Raised')
   })
 
@@ -207,8 +221,14 @@ describe('CustomMetricBuilderDialog — the definition panel', () => {
     await nextTick()
     await nextTick()
 
-    const panel = w.text().split('What this metric will measure')[1] ?? ''
-    expect(panel).not.toMatch(/\d/)
+    const panel = w.text().split("What you'll see")[1] ?? ''
+    // No figure, no delta, no percentage — the three shapes a fabricated result
+    // would take. Asserted as shapes rather than "contains no digit", because a
+    // filter value legitimately may contain one (a grade, a class, a revision)
+    // and banning digits outright would fail for a reason that is not the rule.
+    expect(panel).not.toMatch(/\b\d+(\.\d+)?%/) // a percentage
+    expect(panel).not.toMatch(/[↑↓]\s*\d/) // a trend delta
+    expect(panel).not.toMatch(/\b\d{2,}\b/) // a record count
     expect(panel).toContain('Figures appear once the metric is saved')
   })
 })

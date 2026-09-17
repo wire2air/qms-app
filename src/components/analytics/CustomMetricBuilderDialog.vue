@@ -41,9 +41,16 @@ import {
   blankFilter,
   definitionProblem,
   definitionSentence,
+  humaniseCode,
 } from '@/utils/analyticsCustomMetricAccess.js'
 import { templatesForModule } from '@/utils/analyticsMetricTemplates.js'
-import { IconPlus, IconTrash, IconAlertTriangle, IconSparkles } from '@tabler/icons-vue'
+import {
+  IconPlus,
+  IconTrash,
+  IconAlertTriangle,
+  IconSparkles,
+  IconPencil,
+} from '@tabler/icons-vue'
 
 const props = defineProps({
   /** An existing AnalyticsCustomMetric row, or null to create. */
@@ -261,6 +268,27 @@ const needsMeasureField = computed(() =>
 )
 const isRatio = computed(() => measureType.value === MEASURES.RATIO)
 
+/**
+ * What the chosen measurement needs next.
+ *
+ * The dropdown's own descriptions are truncated to one line, so the two options
+ * that need a SECOND answer — a percentage needs its success condition, a total
+ * or average needs a number column — say so here where there is room. The other
+ * three need nothing further and get no hint rather than a filler sentence.
+ */
+const measureHint = computed(() => {
+  if (isRatio.value) {
+    return 'A percentage needs a success condition as well — set it below.'
+  }
+  if ([MEASURES.SUM, MEASURES.AVG].includes(measureType.value)) {
+    return 'Works on number fields only, so the list below is short.'
+  }
+  if (measureType.value === MEASURES.COUNT_DISTINCT) {
+    return 'Counts how many different values appear, not how many records.'
+  }
+  return ''
+})
+
 const problem = computed(() => definitionProblem(form.value.definition, form.value, props.dimensionCap))
 const canSave = computed(() => !problem.value && !saving.value)
 
@@ -274,9 +302,51 @@ const canSave = computed(() => !problem.value && !saving.value)
  * the user has told us what they are doing, and a row of cards offering to throw
  * it away is noise.
  */
-const templates = computed(() =>
-  props.metric || form.value.moduleId ? [] : templatesForModule(),
+const templates = computed(() => (props.metric ? [] : templatesForModule()))
+
+/**
+ * True while the template chooser is the whole dialog.
+ *
+ * ── WHY THIS IS A MODE RATHER THAN A PANEL ABOVE THE FORM ──────────────────
+ * The first version showed the cards and the empty form together. That reads as
+ * "here are some shortcuts, and here is the real work" — so the form is what the
+ * user starts filling in, and the templates are decoration they scroll past.
+ *
+ * Making it a choice inverts that. Most people want one of eight common
+ * measures and should be finished in two clicks; the blank form is the escape
+ * hatch for the minority who want something else. Showing one at a time is what
+ * says so.
+ *
+ * Never shown when editing: a template would silently replace a definition that
+ * dashboards, reports and alerts may already be built on.
+ */
+const choosing = ref(false)
+
+watch(
+  () => [open.value, props.metric?.id],
+  () => {
+    if (open.value) choosing.value = !props.metric
+  },
+  { immediate: true },
 )
+
+function startFromScratch() {
+  choosing.value = false
+}
+
+/** Templates grouped by module, so the chooser reads as a QMS menu. */
+const templateGroups = computed(() => {
+  const groups = new Map()
+  for (const t of templates.value) {
+    if (!groups.has(t.moduleId)) groups.set(t.moduleId, [])
+    groups.get(t.moduleId).push(t)
+  }
+  return [...groups.entries()].map(([moduleId, items]) => ({
+    moduleId,
+    label: moduleLabel(moduleId),
+    items,
+  }))
+})
 
 /**
  * Fill the whole form from a template.
@@ -293,6 +363,7 @@ const templates = computed(() =>
  * finally caught.
  */
 function applyTemplate(t) {
+  choosing.value = false
   seedForm({
     name: t.name,
     description: t.description ?? '',
@@ -313,6 +384,42 @@ function applyTemplate(t) {
 const sentence = computed(() =>
   definitionSentence(form.value.definition, form.value, tableFields.value),
 )
+
+// ── the configuration, read back ────────────────────────────────────────────
+// Each of these restates something the form already holds. That is the point:
+// the panel is a CHECK before saving, not a computation, so nothing here may
+// derive a fact the user did not enter.
+const measureLabel = computed(
+  () => MEASURE_OPTIONS.find((o) => o.value === measureType.value)?.label ?? '—',
+)
+
+const grainLabel = computed(
+  () => GRAIN_OPTIONS.find((o) => o.value === form.value.grain)?.label ?? '—',
+)
+
+function fieldLabel(column) {
+  return tableFields.value.find((f) => f.columnName === column)?.label ?? column
+}
+
+/** "Status is Open, and Priority is High" — or null when there are none. */
+const filterSummary = computed(() => {
+  const parts = []
+  for (const f of form.value.definition.filters ?? []) {
+    if (!f.field) continue
+    const label = fieldLabel(f.field)
+    if (f.op === 'isNull') parts.push(`${label} is not set`)
+    else if (f.op === 'isNotNull') parts.push(`${label} is set`)
+    else if ((f.values ?? []).length) {
+      parts.push(`${label} is ${f.op === 'notIn' ? 'not ' : ''}${f.values.map(humaniseCode).join(' or ')}`)
+    }
+  }
+  return parts.length ? parts.join(', and ') : null
+})
+
+const breakdownSummary = computed(() => {
+  const labels = (form.value.definition.groupBy ?? []).map(fieldLabel)
+  return labels.length ? labels.join(', ') : null
+})
 
 // ── filter rows ─────────────────────────────────────────────────────────────
 function addFilter(list) {
@@ -381,8 +488,12 @@ async function save() {
 <template>
   <BaseDialog
     v-model="open"
-    :title="metric ? 'Edit metric' : 'New metric'"
-    subtitle="Describe the question. The server works out how to count it, and every reader still sees only the records their own access allows."
+    :title="choosing ? 'What would you like to track?' : metric ? 'Edit metric' : 'New metric'"
+    :subtitle="
+      choosing
+        ? undefined
+        : 'Describe the question. The server works out how to count it, and every reader still sees only the records their own access allows.'
+    "
     size="2xl"
     persistent
     showClose
@@ -401,34 +512,46 @@ async function save() {
         :message="metric.compileError"
       />
 
-      <!-- Start from a template. Shown only while creating and only before a
-           module is picked, so it is an offer at the start rather than a
-           standing invitation to discard work. -->
-      <div v-if="templates.length" class="tw:rounded tw:border tw:border-divider tw:p-3">
-        <BaseText weight="medium" class="tw:mb-1">Start with a template</BaseText>
-        <BaseText variant="caption" color="secondary" class="tw:mb-3">
-          A common quality measure, filled in and ready to adjust. Or fill in the form below to
-          start from scratch.
+      <!-- ── THE CHOOSER ───────────────────────────────────────────────────
+           The whole dialog while it is open, not a panel above the form. Most
+           people want one of these and are finished in two clicks; the blank
+           form is the escape hatch, not the main event. -->
+      <template v-if="choosing">
+        <BaseText variant="caption" color="secondary">
+          Pick a common quality measure to start from — you can change any part of it before
+          saving.
         </BaseText>
-        <ContentGrid min="15rem">
-          <BaseClickableRow
-            v-for="t in templates"
-            :key="t.id"
-            :aria-label="`Use template ${t.name}`"
-            class="tw:rounded tw:border tw:border-divider tw:p-2 tw:hover:border-primary"
-            @click="applyTemplate(t)"
-          >
-            <div class="tw:flex tw:items-start tw:gap-2">
-              <IconSparkles :size="14" class="tw:mt-0.5 tw:shrink-0" aria-hidden="true" />
-              <div class="tw:min-w-0">
-                <BaseText weight="medium">{{ t.name }}</BaseText>
-                <BaseText variant="caption" color="secondary">{{ t.description }}</BaseText>
-              </div>
-            </div>
-          </BaseClickableRow>
-        </ContentGrid>
-      </div>
 
+        <div v-for="group in templateGroups" :key="group.moduleId">
+          <BaseText weight="medium" class="tw:mb-2">{{ group.label }}</BaseText>
+          <ContentGrid min="15rem">
+            <BaseClickableRow
+              v-for="t in group.items"
+              :key="t.id"
+              :aria-label="`Track ${t.name}`"
+              class="tw:rounded tw:border tw:border-divider tw:p-3 tw:hover:border-primary"
+              @click="applyTemplate(t)"
+            >
+              <div class="tw:flex tw:items-start tw:gap-2">
+                <IconSparkles :size="14" class="tw:mt-0.5 tw:shrink-0" aria-hidden="true" />
+                <div class="tw:min-w-0">
+                  <BaseText weight="medium">{{ t.name }}</BaseText>
+                  <BaseText variant="caption" color="secondary">{{ t.description }}</BaseText>
+                </div>
+              </div>
+            </BaseClickableRow>
+          </ContentGrid>
+        </div>
+
+        <div class="tw:border-t tw:border-divider tw:pt-3">
+          <BaseButton variant="outline" size="sm" @click="startFromScratch">
+            <IconPencil :size="14" aria-hidden="true" />
+            Create your own
+          </BaseButton>
+        </div>
+      </template>
+
+      <template v-else>
       <!-- A. WHAT ──────────────────────────────────────────────────────────── -->
       <div>
         <BaseText weight="medium">What are you measuring?</BaseText>
@@ -481,6 +604,7 @@ async function save() {
               label="What to work out"
               :options="MEASURE_OPTIONS"
               optionDescription="description"
+              :hint="measureHint"
               :searchable="false"
               required
             />
@@ -499,13 +623,28 @@ async function save() {
                at all", and merging the two lists is how people build a
                percentage that is always 100%. -->
           <div v-if="isRatio" class="tw:rounded tw:border tw:border-divider tw:p-3">
-            <div class="tw:mb-2 tw:flex tw:items-center tw:justify-between">
+            <div class="tw:mb-1 tw:flex tw:items-center tw:justify-between">
               <BaseText weight="medium">Counted as a success when…</BaseText>
               <BaseButton size="sm" variant="outline" @click="addFilter(form.definition.measure.numerator)">
                 <IconPlus :size="14" aria-hidden="true" />
                 Add condition
               </BaseButton>
             </div>
+            <!--
+              Says the quiet part, because a percentage is the one measurement
+              here with TWO halves and the picker above gives no hint of it.
+
+              The sentence about filters applying to both is the load-bearing
+              one. Without it the natural thing to do is filter the records down
+              to the very thing being measured — filter Status is Closed, then
+              call Closed a success — which yields a metric that reads 100% in
+              every period and looks like it is working.
+            -->
+            <BaseText variant="caption" color="secondary" class="tw:mb-3">
+              A percentage is a fraction: these conditions decide the top half, and every record
+              this metric includes is the bottom half. Any filters you set above apply to
+              <strong>both</strong>, so do not repeat them here.
+            </BaseText>
             <div
               v-for="(f, i) in form.definition.measure.numerator"
               :key="`num-${i}`"
@@ -656,8 +795,33 @@ async function save() {
             v-if="sentence"
             class="tw:rounded tw:border tw:border-divider tw:bg-gray-50 tw:p-3"
           >
-            <BaseText weight="medium" class="tw:mb-1">What this metric will measure</BaseText>
-            <BaseText>{{ sentence }}</BaseText>
+            <BaseText weight="medium" class="tw:mb-2">What you'll see</BaseText>
+
+            <!-- The configuration, read back as a list. Deliberately the same
+                 facts the form holds rather than anything computed: it is here
+                 so the last thing before Save is a check, not a discovery. -->
+            <dl class="tw:grid tw:gap-x-3 tw:gap-y-1 tw:sm:grid-cols-[auto_1fr]">
+              <BaseText as="dt" variant="caption" color="secondary">Metric</BaseText>
+              <BaseText as="dd">{{ form.name || 'Not named yet' }}</BaseText>
+
+              <BaseText as="dt" variant="caption" color="secondary">Calculation</BaseText>
+              <BaseText as="dd">{{ measureLabel }}</BaseText>
+
+              <template v-if="filterSummary">
+                <BaseText as="dt" variant="caption" color="secondary">Filters</BaseText>
+                <BaseText as="dd">{{ filterSummary }}</BaseText>
+              </template>
+
+              <template v-if="breakdownSummary">
+                <BaseText as="dt" variant="caption" color="secondary">Breakdown</BaseText>
+                <BaseText as="dd">{{ breakdownSummary }}</BaseText>
+              </template>
+
+              <BaseText as="dt" variant="caption" color="secondary">Time</BaseText>
+              <BaseText as="dd">{{ grainLabel }}</BaseText>
+            </dl>
+
+            <BaseText class="tw:mt-3">{{ sentence }}</BaseText>
             <BaseText variant="caption" color="secondary" class="tw:mt-2">
               Figures appear once the metric is saved, published and the next analytics refresh
               has run. Every reader sees only the records their own access allows.
@@ -665,13 +829,16 @@ async function save() {
           </div>
         </template>
       </template>
+      </template>
     </div>
 
-    <template #footer="{ close }">
+    <!-- No footer while choosing: there is nothing to save yet, and a disabled
+         Save button next to the cards reads as "these do not work". -->
+    <template v-if="!choosing" #footer="{ close }">
       <BaseDialogFooter
         :loading="saving"
         :disabled="!canSave"
-        :submitLabel="metric ? 'Save changes' : 'Create metric'"
+        :submitLabel="metric ? 'Save changes' : 'Save metric'"
         :submitTitle="problem || undefined"
         :error="problem || ''"
         @cancel="close"
