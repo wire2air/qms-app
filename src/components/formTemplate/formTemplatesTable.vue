@@ -1,5 +1,5 @@
 <script setup>
-import { IconEye, IconEdit, IconBrush, IconTrash } from '@tabler/icons-vue'
+import { IconEye, IconEdit, IconBrush, IconArchive, IconShare, IconCopy } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -11,34 +11,44 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  canDelete: {
+  canClone: {
     type: Boolean,
     default: false,
   },
 })
 
-const emit = defineEmits(['delete'])
+const emit = defineEmits(['archive', 'clone'])
 
 const router = useRouter()
 
 const showPreviewDialog = ref(false)
 const previewTemplate = ref(null)
 
-const columns = [
-  { name: 'title', label: 'TEMPLATE NAME', field: 'title', align: 'left', sortable: true },
-  { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
-  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+const formStatuses = useLiveQuery((db) => db.FormStatus.where().exec(), {
+  models: ['FormStatus'],
+  initial: [],
 })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    statusId: { filterType: 'select', filterOptions: selectOpts(formStatuses.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'title', label: 'TEMPLATE NAME', field: 'title', align: 'left', sortable: true },
+    { name: 'version', label: 'VERSION', field: 'version', align: 'left', sortable: true },
+    { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 const previewSchema = computed(() => {
   if (!previewTemplate.value?.schema) return []
@@ -61,32 +71,65 @@ function openPreview(row) {
   showPreviewDialog.value = true
 }
 
+const shareTemplate = ref(null)
+const showShare = ref(false)
+function openShare(row) {
+  shareTemplate.value = row
+  showShare.value = true
+}
+
 function rowMenuItems(row) {
   const items = [{ name: 'View', icon: IconEye, click: () => navigateToTemplate(row) }]
   if (props.canUpdate) {
     items.push({ name: 'Design', icon: IconBrush, click: () => navigateToTemplate(row, 'schema') })
   }
   items.push({ name: 'Preview', icon: IconEdit, click: () => openPreview(row) })
-  if (props.canDelete) {
-    items.push({ name: 'Delete', icon: IconTrash, click: () => emit('delete', row) })
+  // Every template is shareable: module → internal create link; plain form →
+  // public anonymous fill link. The dialog picks the right one.
+  items.push({ name: 'Share link', icon: IconShare, click: () => openShare(row) })
+  if (props.canClone) {
+    items.push({ name: 'Clone', icon: IconCopy, click: () => emit('clone', row) })
+  }
+  // Archive-only lifecycle: templates are never deleted (archived rows are the
+  // version history; existing records keep referencing them by id).
+  if (props.canUpdate) {
+    items.push({
+      name: row.statusId === 'ARCHIVED' ? 'Restore' : 'Archive',
+      icon: IconArchive,
+      click: () => emit('archive', row),
+    })
   }
   return items
 }
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    filterable
+    exportManager
+    exportFilename="form-templates.csv"
+  >
     <!-- Title Column -->
     <template #body-cell-title="{ row }">
-      <div class="tw:flex tw:flex-col tw:cursor-pointer" @click="navigateToTemplate(row)">
+      <BaseClickableRow
+        class="tw:flex tw:flex-col"
+        :to="getCompanyPath(`/templates/${row.id}`)"
+        :aria-label="`Open template ${row.title}`"
+      >
         <span class="tw:font-bold tw:text-on-main">{{ row.title }}</span>
         <span class="tw:text-xs tw:text-secondary">{{ row.code }}</span>
-      </div>
+      </BaseClickableRow>
     </template>
 
     <!-- Version Column -->
     <template #body-cell-version="{ row }">
-      <span class="tw:text-sm tw:text-secondary tw:font-mono">v{{ row.version }}</span>
+      <span class="tw:text-sm tw:text-secondary">v{{ row.version }}</span>
     </template>
 
     <!-- Status Column -->
@@ -105,7 +148,7 @@ function rowMenuItems(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 
   <!-- Preview Dialog -->
   <BaseDialog v-model="showPreviewDialog" maxWidth="full">
@@ -116,4 +159,6 @@ function rowMenuItems(row) {
       @close="showPreviewDialog = false"
     />
   </BaseDialog>
+
+  <ShareFormDialog v-model="showShare" :template="shareTemplate" />
 </template>

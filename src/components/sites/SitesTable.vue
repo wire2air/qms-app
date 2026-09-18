@@ -1,5 +1,6 @@
 <script setup>
-import { IconEdit, IconTrash } from '@tabler/icons-vue'
+import { IconEdit, IconTrash, IconUsers } from '@tabler/icons-vue'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
   rows: {
@@ -22,22 +23,22 @@ const props = defineProps({
 
 const emit = defineEmits(['delete', 'edit'])
 
-const columns = [
-  { name: 'name', label: 'SITE NAME', field: 'name', align: 'left', sortable: true },
-  { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
-  { name: 'address', label: 'ADDRESS', field: 'address', align: 'left', sortable: true },
-  { name: 'timezone', label: 'TIMEZONE', field: 'timezone', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+const columns = computed(() => {
+  const filterCfg = {
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'SITE NAME', field: 'name', align: 'left', sortable: true },
+    { name: 'code', label: 'CODE', field: 'code', align: 'left', sortable: true },
+    { name: 'address', label: 'ADDRESS', field: 'address', align: 'left', sortable: true },
+    { name: 'timezone', label: 'TIMEZONE', field: 'timezone', align: 'left', sortable: true },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function onEdit(row) {
   emit('edit', row)
@@ -47,8 +48,23 @@ function confirmDelete(row) {
   emit('delete', row)
 }
 
+// "Who can see this site?" — the inverse of a user's site list, and the way
+// auditors actually ask. Read-only visibility is gated on user_management:read;
+// the drawer itself gates removal on :update.
+const canViewMembers = computed(() => isAllowed(['user_management:read']))
+const membersDrawer = ref(false)
+const membersSiteId = ref(null)
+
+function openMembers(row) {
+  membersSiteId.value = row.id
+  membersDrawer.value = true
+}
+
 function rowMenuItems(row) {
   const items = []
+  if (canViewMembers.value) {
+    items.push({ name: 'View members', icon: IconUsers, click: () => openMembers(row) })
+  }
   if (props.canUpdate) {
     items.push({ name: 'Edit', icon: IconEdit, click: () => onEdit(row) })
   }
@@ -60,15 +76,36 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
     rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    exportManager
+    exportFilename="sites.csv"
   >
     <template #body-cell-name="{ row }">
-      <div class="tw:font-bold tw:text-on-main">{{ row.name }}</div>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <span class="tw:font-bold tw:text-on-main">{{ row.name }}</span>
+        <!--
+          A deactivated site is otherwise invisible here, while quietly
+          disappearing from every user-assignment picker. Surfacing it on the row
+          is what makes that behaviour diagnosable instead of mysterious.
+          `!== false` so rows predating the column don't all read as inactive.
+        -->
+        <BaseBadge
+          v-if="row.isActive === false"
+          class="tw:bg-amber-100 tw:text-amber-700"
+          title="Existing assignments are kept; this site is not offered for new ones."
+        >
+          Not accepting assignments
+        </BaseBadge>
+      </div>
     </template>
 
     <template #body-cell-code="{ row }">
@@ -91,9 +128,11 @@ function rowMenuItems(row) {
     </template>
 
     <template #body-cell-actions="{ row }">
-      <div v-if="canUpdate || canDelete" class="tw:flex tw:justify-end">
+      <div v-if="rowMenuItems(row).length" class="tw:flex tw:justify-end">
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
+
+  <SiteMembersDrawer v-model="membersDrawer" :siteId="membersSiteId" />
 </template>

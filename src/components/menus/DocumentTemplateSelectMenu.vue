@@ -8,6 +8,14 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  // "— None —" rather than "— All templates —": the only caller is the
+  // document CREATE form, where the null option means "don't use a template"
+  // (2026-08-16), not "any of them". A filter mounting this should pass the
+  // all-of-them phrasing explicitly.
+  nullLabel: {
+    type: String,
+    default: '— None —',
+  },
 })
 
 const modelValue = defineModel({
@@ -19,45 +27,32 @@ const modelValue = defineModel({
 // are not yet usable; ARCHIVED templates are read-only and not re-attachable.
 const templates = useLiveQuery(
   async (db) => db.DocumentTemplate.where('statusId', 'PUBLISHED').exec(),
-  { initial: [] },
-)
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+  { models: ['DocumentTemplate'], initial: [] },
+)
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="templates" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <DocumentTemplateBadgeById
-              v-for="templateId in getArray()"
-              :key="templateId"
-              :documentTemplateId="templateId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(templateId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Templates
-          </span>
-        </template>
-        <template v-else>
-          <DocumentTemplateBadgeById
-            v-if="modelValue"
-            :documentTemplateId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Template
-          </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="templates"
+    optionLabel="name"
+    optionValue="id"
+    :nullLabel="nullLabel"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <DocumentTemplateBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :documentTemplateId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

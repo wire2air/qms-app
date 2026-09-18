@@ -1,32 +1,58 @@
 <script setup>
-import { isAllowed } from '@/utils/currentSession.js'
+// `embedded` lets a host page (DocumentsHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
+import { humanizeFilter } from '@/composables/useListPrint.js'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { IconFileDescription, IconPlus } from '@tabler/icons-vue'
+import { IconFileDescription, IconFileImport, IconPlus } from '@tabler/icons-vue'
 
 const router = useRouter()
 
-const filters = ref({
-  search: '',
-  documentTypeId: null,
-  documentTemplateId: null,
-  departmentId: null,
-  statusId: null,
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `documents`.
+const list = useListLayout({
+  filters: {
+    // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    // (Free-text search now lives in the table toolbar, not here.)
+    documentTypeId: [],
+    departmentId: [],
+    statusId: [],
+    // Deep-link only (e.g. from a template) — single value, no toolbar control.
+    documentTemplateId: null,
+    // Quick view (the pill row). Defaults to 'all': unlike NC/CAPA, a document
+    // register is normally read whole — the controlled set includes the
+    // superseded and archived versions, and hiding them by default would
+    // misrepresent what is under control.
+    activeFilter: 'all',
+  },
+  total: () => documents.value.length,
+  empty: () => documents.value.length === 0,
+  loading: () => allDocuments.value === undefined,
+  syncUrl: true,
 })
 
 const allDocuments = useLiveQueryWithDeps(
   [
-    () => filters.value.documentTypeId,
-    () => filters.value.documentTemplateId,
-    () => filters.value.departmentId,
+    () => list.filters.value.documentTypeId,
+    () => list.filters.value.documentTemplateId,
+    () => list.filters.value.departmentId,
   ],
-  async (db, [documentTypeId, documentTemplateId, departmentId]) => {
-    let q = db.Document.where()
-    if (documentTypeId) q = q.where('documentTypeId', documentTypeId)
-    if (documentTemplateId) q = q.where('documentTemplateId', documentTemplateId)
-    if (departmentId) q = q.where('departmentId', departmentId)
-    return q.exec()
+  async (db, [documentTypeIds, documentTemplateId, departmentIds]) => {
+    let rows = await db.Document.where().exec()
+    if (Array.isArray(documentTypeIds) && documentTypeIds.length)
+      rows = rows.filter((d) => documentTypeIds.includes(d.documentTypeId))
+    if (documentTemplateId) rows = rows.filter((d) => d.documentTemplateId === documentTemplateId)
+    if (Array.isArray(departmentIds) && departmentIds.length)
+      rows = rows.filter((d) => departmentIds.includes(d.departmentId))
+    return rows
   },
-  { initial: [] },
+
+  { models: ['Document'], initial: [] },
 )
 
 const currentVersionStatusByDocId = useLiveQueryWithDeps(
@@ -41,7 +67,8 @@ const currentVersionStatusByDocId = useLiveQueryWithDeps(
     for (const v of versions) map[v.documentId] = v.statusId
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const latestVersionStatusByDocId = useLiveQueryWithDeps(
@@ -62,30 +89,44 @@ const latestVersionStatusByDocId = useLiveQueryWithDeps(
     for (const [docId, v] of Object.entries(map)) statusMap[docId] = v.statusId
     return statusMap
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
+// Quick views. A document's meaningful state lives on its VERSIONS, not the
+// document row — "effective" means it has an effective current version, "in
+// review" means its latest version is mid-approval. So each pill tests the
+// version-status maps above rather than d.statusId.
+function applyActiveFilter(rows, af, currentStatuses, latestStatuses) {
+  const userId = currentSession.value?.userId
+  if (af === 'effective') return rows.filter((d) => currentStatuses[d.id] === 'EFFECTIVE')
+  if (af === 'in_review')
+    return rows.filter((d) => ['IN_REVIEW', 'CHANGES_REQUESTED'].includes(latestStatuses[d.id]))
+  if (af === 'draft') return rows.filter((d) => latestStatuses[d.id] === 'DRAFT')
+  if (af === 'mine') return rows.filter((d) => d.authorId === userId || d.userId === userId)
+  if (af === 'archived')
+    return rows.filter((d) => ['ARCHIVED', 'SUPERSEDED'].includes(latestStatuses[d.id]))
+  return rows // 'all'
+}
+
 const documents = computed(() => {
-  let list = allDocuments.value ?? []
-  const statusId = filters.value.statusId
-  if (statusId) {
-    const currentStatuses = currentVersionStatusByDocId.value ?? {}
-    const latestStatuses = latestVersionStatusByDocId.value ?? {}
-    list = list.filter(
+  let rows = allDocuments.value ?? []
+  const currentStatuses = currentVersionStatusByDocId.value ?? {}
+  const latestStatuses = latestVersionStatusByDocId.value ?? {}
+  const statusIds = list.filters.value.statusId
+  if (Array.isArray(statusIds) && statusIds.length) {
+    rows = rows.filter(
       (d) =>
-        d.statusId === statusId ||
-        currentStatuses[d.id] === statusId ||
-        latestStatuses[d.id] === statusId,
+        statusIds.includes(d.statusId) ||
+        statusIds.includes(currentStatuses[d.id]) ||
+        statusIds.includes(latestStatuses[d.id]),
     )
   }
-  if (!filters.value.search) return list
-  const q = filters.value.search.toLowerCase()
-  return list.filter(
-    (d) => d.title?.toLowerCase().includes(q) || d.docNumber?.toLowerCase().includes(q),
-  )
+  return applyActiveFilter(rows, list.filters.value.activeFilter, currentStatuses, latestStatuses)
 })
 
 const allDocumentsForStats = useLiveQuery(async (db) => db.Document.where().exec(), {
+  models: ['Document'],
   initial: [],
 })
 
@@ -100,7 +141,9 @@ const stats = computed(() => {
 
 const statsTotal = computed(() => (allDocumentsForStats.value ?? []).length)
 
-const canCreate = computed(() => isAllowed(['documents:create']))
+// Create needs read too: the create mutation reads the new row back through the
+// `documents:read` RLS SELECT policy, so create-without-read fails at the DB.
+const canCreate = computed(() => isAllowed(['document_control:create', 'document_control:read']))
 
 function navigateToCreate() {
   router.push(getCompanyPath('/documents/create'))
@@ -112,42 +155,64 @@ function navigateToDetail(row) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconFileDescription :size="24" class="tw:text-primary" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Documents</h2>
-      </div>
-    </SafeTeleport>
+  <BaseListLayout
+    :embedded="embedded"
+    title="Documents"
+    :icon="IconFileDescription"
+    subtitle="Manage controlled documents, versions, and approvals."
+    :state="list.state.value"
+    contentOwnsEmpty
+  >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        Documents
+        <HelpButton slug="KB/documents/document-control" :size="16" />
+      </span>
+    </template>
 
-    <SafeTeleport to="#main-header-actions">
+    <template #actions>
+      <ListPrintButton
+        entity="Document"
+        title="Document Register"
+        :rows="documents"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
+      <!-- Migration aid (moved out of the sidebar 2026-08-28): create-gated so
+           document consumers aren't invited to discover a bulk importer. -->
+      <BaseButton
+        v-if="canCreate"
+        variant="outline"
+        :to="getCompanyPath('/document-imports')"
+      >
+        <IconFileImport :size="16" class="tw:mr-1" />
+        Bulk Import
+      </BaseButton>
       <BaseButton v-if="canCreate" @click="navigateToCreate">
         <IconPlus :size="16" class="tw:mr-1" />
         Create Document
       </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Documents</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage controlled documents, versions, and approvals.
-        </div>
-      </div>
-    </div>
+    </template>
 
     <!-- Stats Cards -->
-    <DocumentsStatsCards :stats="stats" :total="statsTotal" />
+    <template #stats>
+      <DocumentsStatsCards :stats="stats" :total="statsTotal" />
+    </template>
 
     <!-- Filter Toolbar -->
-    <DocumentsFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <DocumentsFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <!-- Documents Table -->
     <DocumentsTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
       :rows="documents"
       :loading="allDocuments === undefined"
+      :emptyLabel="
+        list.hasActiveFilters.value ? 'No documents match your filters' : 'No documents yet'
+      "
       @view="navigateToDetail"
     />
-  </div>
+  </BaseListLayout>
 </template>

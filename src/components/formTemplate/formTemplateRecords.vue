@@ -25,10 +25,14 @@ const props = defineProps({
 
 const toast = useToast()
 
-const template = useLiveQueryWithDeps([() => props.templateId], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.templateId],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const templateRecords = useLiveQueryWithDeps(
   [() => props.templateId],
@@ -36,8 +40,31 @@ const templateRecords = useLiveQueryWithDeps(
     if (!id) return []
     return db.Record.where('templateId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['Record'], initial: [] },
 )
+
+// Records F-14. The CREATED BY column bound `row.user` — a relation that does
+// not exist. SyncEngine models are flat: models/record.js declares scalar FKs
+// (`userId`, `ownerUserId`) and the engine has no relation decorator at all, so
+// `row.user` was structurally always undefined and the column rendered '-' for
+// every row that ever existed. It rendered '-' in the CSV and Excel exports too,
+// which is the half that matters: an exported submission register with no
+// attribution is not a record of who submitted anything.
+//
+// Resolved from `userId` against the local User store instead. Indexed once
+// rather than per cell — this table renders every submission of a template.
+const allUsers = useLiveQuery((db) => db.User.where().exec(), {
+  models: ['User'],
+  initial: [],
+})
+const usersById = computed(() => new Map((allUsers.value || []).map((u) => [u.id, u])))
+
+/** "First Last<sep>email", or '-'. `sep` is a newline on screen, a space in exports. */
+function createdByLabel(row, sep = ' ') {
+  const user = usersById.value.get(row?.userId)
+  return user ? `${user.firstName} ${user.lastName}${sep}${user.email}` : '-'
+}
 
 const recordsLoading = computed(() => templateRecords.value === undefined)
 const schema = computed(() => template.value?.schema || [])
@@ -58,13 +85,8 @@ const editingField = ref(null)
 const editSaving = ref(false)
 const showEditDialog = ref(false)
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 // ---- Helpers ----
 function getRawValue(obj, path) {
@@ -99,7 +121,8 @@ function extractTemplateLeafFields(templateItems) {
       if (item.type === 'separator') return
       if (['section', 'row', 'column'].includes(item.type)) {
         const newPath = item.name ? [...path, item.name] : path
-        if (item.children) walk(item.children, newPath)
+        const kids = item.children || item.fields
+        if (kids) walk(kids, newPath)
         return
       }
       if (item.type === 'repeater') return
@@ -123,7 +146,8 @@ const schemaFields = computed(() => {
       const newDataPath = item.name ? (dataPath ? `${dataPath}.${item.name}` : item.name) : dataPath
 
       if (['section', 'row', 'column'].includes(item.type)) {
-        if (item.children) extractFields(item.children, newDataPath)
+        const kids = item.children || item.fields
+        if (kids) extractFields(kids, newDataPath)
         return
       }
 
@@ -163,7 +187,8 @@ const exportSchemaFields = computed(() => {
 
       if (['section', 'row', 'column'].includes(item.type)) {
         const newLabelParts = item.label ? [...labelParts, item.label] : labelParts
-        if (item.children) extractFields(item.children, newDataPath, newLabelParts)
+        const kids = item.children || item.fields
+        if (kids) extractFields(kids, newDataPath, newLabelParts)
         return
       }
 
@@ -226,8 +251,7 @@ const columns = computed(() => {
     {
       name: 'createdBy',
       label: 'CREATED BY',
-      field: (row) =>
-        row.user ? `${row.user.firstName} ${row.user.lastName} \n ${row.user.email}` : '-',
+      field: (row) => createdByLabel(row, ' \n '),
       align: 'left',
       sortable: true,
       editable: false,
@@ -278,8 +302,7 @@ const exportColumns = computed(() => {
     {
       name: 'createdBy',
       label: 'CREATED BY',
-      field: (row) =>
-        row.user ? `${row.user.firstName} ${row.user.lastName} ${row.user.email}` : '-',
+      field: (row) => createdByLabel(row),
       align: 'left',
       sortable: true,
     },
@@ -579,12 +602,12 @@ async function handleExport(format) {
           </button>
           <div
             v-if="showColumnMenu"
-            class="tw:absolute tw:right-0 tw:top-full tw:z-50 tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:min-w-64 tw:max-w-96 tw:max-h-80 tw:overflow-y-auto"
+            class="tw:absolute tw:right-0 tw:top-full tw:z-modal tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg tw:min-w-64 tw:max-w-96 tw:max-h-80 tw:overflow-y-auto"
           >
             <div
               class="tw:flex tw:justify-between tw:items-center tw:p-3 tw:border-b tw:border-divider"
             >
-              <span class="tw:text-sm tw:font-semibold tw:text-on-main">Show/Hide Columns</span>
+              <BaseText as="h4" variant="body" weight="semibold">Show/Hide Columns</BaseText>
               <button
                 class="tw:text-xs tw:text-primary tw:hover:underline"
                 @click="toggleAllColumns"
@@ -630,14 +653,14 @@ async function handleExport(format) {
             <IconFilter :size="18" />
             <span
               v-if="advancedFilters.length > 0"
-              class="tw:absolute tw:-top-1 tw:-right-1 tw:size-4 tw:rounded-full tw:bg-primary tw:text-white tw:text-[10px] tw:flex tw:items-center tw:justify-center"
+              class="tw:absolute tw:-top-1 tw:-right-1 tw:size-4 tw:rounded-full tw:bg-primary tw:text-white tw:text-micro tw:flex tw:items-center tw:justify-center"
             >
               {{ advancedFilters.length }}
             </span>
           </button>
           <div
             v-if="showFilterMenu"
-            class="tw:absolute tw:right-0 tw:top-full tw:z-50 tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg"
+            class="tw:absolute tw:right-0 tw:top-full tw:z-modal tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:shadow-lg"
           >
             <FormTemplateRecordsAdvancedFilter v-model="advancedFilters" :columns="columns" />
           </div>
@@ -653,12 +676,14 @@ async function handleExport(format) {
     />
 
     <!-- Table -->
-    <BaseTable
+    <DataTable
       v-else
       v-model:pagination="pagination"
+      v-model:sort="sort"
       :columns="activeColumns"
       :rows="filteredRecords"
       :loading="recordsLoading"
+      :mobileCards="false"
       class="tw:flex-1"
     >
       <template #body-cell-statusId="{ row }">
@@ -672,16 +697,13 @@ async function handleExport(format) {
       </template>
 
       <template #body-cell-createdBy="{ row }">
-        <div v-if="row.user" class="tw:flex tw:flex-col">
-          <span class="tw:font-medium">{{ row.user.firstName }} {{ row.user.lastName }}</span>
-          <span class="tw:text-xs tw:text-secondary">{{ row.user.email }}</span>
-        </div>
+        <UserBadgeById v-if="row.userId" :userId="row.userId" />
         <span v-else class="tw:text-secondary">-</span>
       </template>
 
-      <template #body-cell="{ row, column }">
+      <template #body-cell="{ row, col: column }">
         <template v-if="column.fieldType === 'repeater'">
-          <div
+          <BaseClickableRow
             v-for="(preview, idx) in [
               getRepeaterPreview(
                 getRawValue(row.payload, column.name) || [],
@@ -689,8 +711,10 @@ async function handleExport(format) {
               ),
             ]"
             :key="idx"
-            :class="['tw:max-w-80', isColumnEditable(column.name) ? 'tw:cursor-pointer' : '']"
-            @click="isColumnEditable(column.name) && openCellEdit(row, column.name)"
+            :disabled="!isColumnEditable(column.name)"
+            class="tw:max-w-80"
+            :aria-label="`Edit ${column.label}`"
+            @click="openCellEdit(row, column.name)"
           >
             <template v-if="preview.text !== '-'">
               <span
@@ -702,19 +726,20 @@ async function handleExport(format) {
               >
             </template>
             <span v-else class="tw:text-secondary">-</span>
-          </div>
+          </BaseClickableRow>
         </template>
         <template
           v-else-if="
             schemaFields.find((f) => f.name === column.name) && isColumnEditable(column.name)
           "
         >
-          <div
-            class="tw:cursor-pointer tw:max-w-60 tw:overflow-hidden tw:whitespace-nowrap tw:text-ellipsis"
+          <BaseClickableRow
+            class="tw:max-w-60 tw:overflow-hidden tw:whitespace-nowrap tw:text-ellipsis"
+            :aria-label="`Edit ${column.label}`"
             @click="openCellEdit(row, column.name)"
           >
             {{ getFieldValue(row.payload, column.name) }}
-          </div>
+          </BaseClickableRow>
         </template>
         <template v-else-if="schemaFields.find((f) => f.name === column.name)">
           <div class="tw:max-w-60 tw:overflow-hidden tw:whitespace-nowrap tw:text-ellipsis">
@@ -725,12 +750,12 @@ async function handleExport(format) {
           {{ typeof column.field === 'function' ? column.field(row) : row[column.field] }}
         </template>
       </template>
-    </BaseTable>
+    </DataTable>
 
     <!-- Inline Edit Dialog -->
     <BaseDialog v-model="showEditDialog" maxWidth="lg">
       <div class="tw:flex tw:justify-between tw:items-center tw:mb-4">
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">
           Edit: {{ editingField?.label || '' }}
         </h3>
         <button

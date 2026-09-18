@@ -1,0 +1,9 @@
+{
+  "label": "Forms & Workflows",
+  "position": 7,
+  "link": {
+    "type": "generated-index",
+    "title": "Forms & Workflows",
+    "description": "Form templates, the form builder, and configurable workflows."
+  }
+}

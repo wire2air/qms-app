@@ -15,7 +15,7 @@ const props = defineProps({
 
 const toast = useToast()
 
-const confirmRemove = ref({ open: false, link: null })
+const { confirm } = useConfirm()
 
 const links = useLiveQueryWithDeps(
   [() => props.versionId],
@@ -24,11 +24,18 @@ const links = useLiveQueryWithDeps(
     const all = await db.DocumentLink.where().exec()
     return all.filter((l) => l.fromDocumentVersionId === versionId)
   },
-  { initial: [] },
+
+  { models: ['DocumentLink'], initial: [] },
 )
 
-const allDocuments = useLiveQuery(async (db) => db.Document.where().exec(), { initial: [] })
-const allVersions = useLiveQuery(async (db) => db.DocumentVersion.where().exec(), { initial: [] })
+const allDocuments = useLiveQuery(async (db) => db.Document.where().exec(), {
+  models: ['Document'],
+  initial: [],
+})
+const allVersions = useLiveQuery(async (db) => db.DocumentVersion.where().exec(), {
+  models: ['DocumentVersion'],
+  initial: [],
+})
 
 const documentsById = computed(() => {
   const map = {}
@@ -42,9 +49,22 @@ const versionsById = computed(() => {
   return map
 })
 
+// Only documents with at least one EFFECTIVE version are pickable as
+// link targets — auditors / authors shouldn't link to drafts or
+// retired/superseded copies. `allDocuments` itself stays unfiltered so
+// the `documentsById` resolution map can still render the title of an
+// already-linked document that has since been superseded.
+const effectiveDocumentIds = computed(() => {
+  const ids = new Set()
+  for (const v of allVersions.value) {
+    if (v.statusId === 'EFFECTIVE') ids.add(v.documentId)
+  }
+  return ids
+})
+
 const availableDocuments = computed(() =>
   (allDocuments.value ?? [])
-    .filter((d) => d.id !== props.documentId)
+    .filter((d) => d.id !== props.documentId && effectiveDocumentIds.value.has(d.id))
     .map((d) => ({ id: d.id, name: `${d.docNumber} - ${d.title}` })),
 )
 
@@ -97,14 +117,15 @@ async function onAddLink() {
 }
 
 async function onDeleteLink(link) {
-  confirmRemove.value = { open: true, link }
-}
-
-async function confirmDeleteLink() {
-  if (!confirmRemove.value.link) return
-  await confirmRemove.value.link.delete()
+  const ok = await confirm({
+    title: 'Remove Link',
+    message: 'Are you sure you want to remove this link?',
+    okLabel: 'Remove',
+    danger: true,
+  })
+  if (!ok) return
+  await link.delete()
   toast.success('Link removed')
-  confirmRemove.value = { open: false, link: null }
 }
 
 function openAddDialog() {
@@ -125,13 +146,14 @@ function getLinkTypeBadgeClass(linkType) {
 
 <template>
   <div class="tw:p-6">
-    <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-      <h3 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Document Links</h3>
-      <BaseButton variant="outline" @click="openAddDialog">
-        <IconLinkPlus :size="16" class="tw:mr-1" />
-        Add Link
-      </BaseButton>
-    </div>
+    <BaseSectionHeader title="Document Links" :level="3" size="section-title" class="tw:mb-4">
+      <template #actions>
+        <BaseButton variant="outline" @click="openAddDialog">
+          <IconLinkPlus :size="16" class="tw:mr-1" />
+          Add Link
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <!-- Links List -->
     <div v-if="links.length > 0" class="tw:space-y-2">
@@ -178,23 +200,23 @@ function getLinkTypeBadgeClass(linkType) {
     <!-- Add Link Dialog -->
     <BaseDialog v-model="showAddDialog" title="Add Document Link" persistent>
       <div class="tw:space-y-4">
-        <div>
-          <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-            >Target Document</label
-          >
-          <BaseSelectMenu
+        <BaseField label="Target Document">
+          <BaseSelect
             v-model="linkForm.targetDocumentId"
-            :items="availableDocuments"
+            :options="availableDocuments"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Select a document"
             :required="true"
           />
-        </div>
-        <div>
-          <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-            >Link Type</label
-          >
-          <BaseSelectMenu
+        </BaseField>
+        <BaseField label="Link Type">
+          <BaseSelect
             v-model="linkForm.linkType"
-            :items="[
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Select a link type"
+            :options="[
               { id: 'RELATED', name: 'Related' },
               { id: 'SUPERSEDES', name: 'Supersedes' },
               { id: 'REFERENCES', name: 'References' },
@@ -203,25 +225,16 @@ function getLinkTypeBadgeClass(linkType) {
             ]"
             :required="true"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer>
-        <div class="tw:flex tw:justify-end tw:gap-2">
-          <BaseButton variant="outline" @click="showAddDialog = false">Cancel</BaseButton>
-          <BaseButton :disabled="!linkForm.targetDocumentId" @click="onAddLink"
-            >Add Link</BaseButton
-          >
-        </div>
+        <BaseDialogFooter
+          submitLabel="Add Link"
+          :disabled="!linkForm.targetDocumentId"
+          @cancel="showAddDialog = false"
+          @submit="onAddLink"
+        />
       </template>
     </BaseDialog>
-
-    <!-- Confirm Remove Dialog -->
-    <ConfirmDialog
-      v-model="confirmRemove.open"
-      title="Remove Link"
-      message="Are you sure you want to remove this link?"
-      okLabel="Remove"
-      @ok="confirmDeleteLink"
-    />
   </div>
 </template>

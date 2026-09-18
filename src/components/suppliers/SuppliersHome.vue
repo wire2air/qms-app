@@ -1,42 +1,90 @@
 <script setup>
-import { IconTruck, IconUsers } from '@tabler/icons-vue'
+import {
+  IconTruck,
+  IconUsers,
+  IconAlertTriangle,
+  IconShieldCheck,
+  IconCircleCheck,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
-const canCreateSupplier = computed(() => isAllowed(['suppliers:create']))
-const canUpdateSupplier = computed(() => isAllowed(['suppliers:update']))
-const canDeleteSupplier = computed(() => isAllowed(['suppliers:delete']))
+// Create needs read too: the create mutation reads the new row back through the
+// `suppliers:read` RLS SELECT policy, so create-without-read fails at the DB.
+const canCreateSupplier = computed(() =>
+  isAllowed(['supplier_management:create', 'supplier_management:read']),
+)
+const canUpdateSupplier = computed(() => isAllowed(['supplier_management:update']))
+const canDeleteSupplier = computed(() => isAllowed(['supplier_management:delete']))
 
-const filters = ref({ search: '', statusId: null, category: null, riskLevel: null })
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `suppliers`.
+const list = useListLayout({
+  // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+  filters: { statusId: [], category: [], riskLevel: [] },
+  total: () => suppliers.value.length,
+  empty: () => suppliers.value.length === 0,
+  syncUrl: true,
+})
 
 const suppliers = useLiveQueryWithDeps(
   [
-    () => filters.value.search,
-    () => filters.value.statusId,
-    () => filters.value.category,
-    () => filters.value.riskLevel,
+    () => list.filters.value.statusId,
+    () => list.filters.value.category,
+    () => list.filters.value.riskLevel,
   ],
-  async (db, [search, statusId, category, riskLevel]) => {
+  async (db, [statusIds, categories, riskLevels]) => {
     let results = await db.Supplier.where().exec()
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q),
-      )
-    }
-    if (statusId) results = results.filter((s) => s.statusId === statusId)
-    if (category) results = results.filter((s) => s.category === category)
-    if (riskLevel) results = results.filter((s) => s.riskLevel === riskLevel)
+    if (statusIds?.length) results = results.filter((s) => statusIds.includes(s.statusId))
+    if (categories?.length) results = results.filter((s) => categories.includes(s.category))
+    if (riskLevels?.length) results = results.filter((s) => riskLevels.includes(s.riskLevel))
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Supplier'], initial: [] },
 )
 
-const confirmDialog = ref(null)
+const allSuppliers = useLiveQuery((db) => db.Supplier.where().exec(), {
+  models: ['Supplier'],
+  initial: [],
+})
+
+// Compact KPI strip (list-page metrics bar) — matches the other QMS list pages.
+const kpiItems = computed(() => {
+  const all = allSuppliers.value
+  const byRisk = (r) => all.filter((s) => s.riskLevel === r).length
+  return [
+    {
+      key: 'total',
+      label: 'Total suppliers',
+      value: all.length,
+      icon: IconUsers,
+      color: 'primary',
+    },
+    {
+      key: 'high',
+      label: 'High risk',
+      value: byRisk('High'),
+      icon: IconAlertTriangle,
+      color: 'red',
+      emphasize: byRisk('High') > 0,
+    },
+    {
+      key: 'medium',
+      label: 'Medium risk',
+      value: byRisk('Medium'),
+      icon: IconShieldCheck,
+      color: 'amber',
+    },
+    { key: 'low', label: 'Low risk', value: byRisk('Low'), icon: IconCircleCheck, color: 'green' },
+  ]
+})
+
+const { confirm } = useConfirm()
 
 function onCreateSupplier() {
   router.push(getCompanyPath('/suppliers/create'))
@@ -46,66 +94,41 @@ function onEditSupplier(row) {
   router.push(getCompanyPath(`/suppliers/${row.id}`))
 }
 
-function onDeleteSupplier(row) {
-  confirmDialog.value = {
+async function onDeleteSupplier(row) {
+  const ok = await confirm({
     title: 'Delete Supplier',
     message: `Are you sure you want to delete "${row.name}" (${row.code})? This cannot be undone.`,
     okLabel: 'Delete',
-    onOk: async () => {
-      await row.delete()
-      confirmDialog.value = null
-    },
-  }
+    danger: true,
+  })
+  if (ok) await row.delete()
 }
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTruck class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Suppliers</h2>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
+  <BaseListLayout
+    helpSlug="KB/suppliers/suppliers"
+    title="Suppliers"
+    :icon="IconTruck"
+    subtitle="Manage and evaluate your global network of manufacturing partners."
+    :state="list.state.value"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No suppliers match your filters' : 'No suppliers yet'
+    "
+  >
+    <template #actions>
       <BaseButton v-if="canCreateSupplier" @click="onCreateSupplier">
         <span>Create New Supplier</span>
       </BaseButton>
-    </SafeTeleport>
+    </template>
 
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Suppliers</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage and evaluate your global network of manufacturing partners.
-        </div>
-      </div>
-    </div>
+    <template #stats>
+      <BaseStatStrip :items="kpiItems" />
+    </template>
 
-    <!-- Stats Card -->
-    <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-4 tw:gap-4">
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <div class="tw:flex tw:items-center tw:gap-4">
-          <div
-            class="tw:w-12 tw:h-12 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center"
-          >
-            <IconUsers :size="24" />
-          </div>
-          <div>
-            <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-              Total Suppliers
-            </div>
-            <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-              {{ suppliers.length }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <SuppliersFilterToolbar v-model:filters="filters" />
+    <template #filters>
+      <SuppliersFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <SuppliersTable
       :rows="suppliers"
@@ -114,13 +137,5 @@ function onDeleteSupplier(row) {
       @delete="onDeleteSupplier"
       @edit="onEditSupplier"
     />
-  </div>
-
-  <ConfirmDialog
-    v-if="confirmDialog"
-    :modelValue="true"
-    v-bind="confirmDialog"
-    @update:modelValue="confirmDialog = null"
-    @ok="confirmDialog?.onOk"
-  />
+  </BaseListLayout>
 </template>

@@ -1,6 +1,7 @@
 <script setup>
 import { IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { selectableSites } from '@/utils/siteOptions.js'
 
 const props = defineProps({
   required: {
@@ -15,6 +16,31 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  isFilter: {
+    type: Boolean,
+    default: false,
+  },
+  // Opt IN to the inactive-site gate. `is_active` governs who may be NEWLY
+  // ASSIGNED TO a site — it is a user-placement rule, not a global "this site is
+  // hidden" flag, and the backend scopes it exactly that way
+  // (api/utils/siteAssignment.js).
+  //
+  // This menu is mounted at ~20 sites — CAPA/NC/CR/audit/supplier/log-book
+  // record fields, the departments filter, the training report filter, the form
+  // builder. Gating them all would mean that deactivating a site removes it from
+  // the FILTERS you need to work through the records still open there, and blocks
+  // creating a department at a site mid-closeout. That is the opposite of the
+  // retain-what-exists behaviour the flag was designed for.
+  //
+  // So: default off, and turned on only where a site is being attached to a USER.
+  forAssignment: {
+    type: Boolean,
+    default: false,
+  },
+  nullLabel: {
+    type: String,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -22,7 +48,13 @@ const modelValue = defineModel({
   default: null,
 })
 
-const sites = useLiveQuery((db) => db.Site.where().exec(), { initial: [] })
+const allSites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
+
+// Inactive sites can't be NEWLY assigned, but one that is ALREADY selected must
+// keep being offered — see selectableSites for why.
+const sites = computed(() =>
+  props.forAssignment ? selectableSites(allSites.value, modelValue.value) : allSites.value,
+)
 
 const canCreateSite = computed(() => props.allowCreate && isAllowed(['sites:create']))
 
@@ -52,47 +84,39 @@ function onSiteCreated(newSite) {
   nextTick(() => createIconRef.value?.focus?.())
 }
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+const resolvedNullLabel = computed(
+  () => props.nullLabel ?? (props.isFilter ? '— All sites —' : '— Select site —'),
+)
 </script>
 
 <template>
   <div class="tw:flex tw:items-center tw:gap-2">
     <div class="tw:flex-1 tw:min-w-0">
-      <BaseSelectMenu v-model="modelValue" :items="sites" :required="required" :multiple="multiple">
-        <template #button="scope">
-          <slot name="button" v-bind="scope">
-            <!-- MULTIPLE MODE -->
-            <template v-if="multiple">
-              <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-                <SiteBadgeById
-                  v-for="siteId in getArray()"
-                  :key="siteId"
-                  :siteId="siteId"
-                  :clearable="!required || getArray().length > 1"
-                  @clear="() => scope.clear(siteId)"
-                />
-              </div>
-              <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Sites
-              </BaseBadge>
-            </template>
+      <BaseSelect
+        v-model="modelValue"
+        :options="sites"
+        optionLabel="name"
+        optionValue="id"
+        :nullLabel="resolvedNullLabel"
+        :required="props.required"
+        :multiple="props.multiple"
+        :clearable="!props.required && !props.multiple"
+      >
+        <!-- Consumer may fully replace the trigger with a compact "+ Add" button. -->
+        <template v-if="$slots.button" #trigger="scope">
+          <slot name="button" v-bind="scope" />
+        </template>
 
-            <!-- SINGLE MODE -->
-            <template v-else>
-              <SiteBadgeById
-                v-if="modelValue"
-                :siteId="modelValue"
-                :clearable="!required"
-                selectable
-                @clear="() => scope.clear(modelValue)"
-              />
-              <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Site
-              </BaseBadge>
-            </template>
-          </slot>
+        <template #selected="{ options, remove }">
+          <div class="tw:flex tw:flex-wrap tw:gap-1">
+            <SiteBadgeById
+              v-for="o in options"
+              :key="o.value"
+              :siteId="o.value"
+              :clearable="props.multiple && (!props.required || options.length > 1)"
+              @clear="() => remove(o)"
+            />
+          </div>
         </template>
 
         <template v-if="canCreateSite" #footer="{ close }">
@@ -105,7 +129,7 @@ function getArray() {
             Add New Site
           </button>
         </template>
-      </BaseSelectMenu>
+      </BaseSelect>
     </div>
 
     <SitesCreateUpdateDialog

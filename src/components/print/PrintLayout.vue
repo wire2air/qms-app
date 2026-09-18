@@ -1,7 +1,7 @@
 <script setup>
 import { IconPrinter, IconX, IconBuilding } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
-import { currentSession } from '@/utils/currentSession.js'
+import { currentSession, isAllowed } from '@/utils/currentSession.js'
 
 /**
  * Shared print chrome. Every printable module wraps its body in this so we
@@ -14,6 +14,9 @@ import { currentSession } from '@/utils/currentSession.js'
  *   - status (prop)             — drives the prominent status badge ("DRAFT" / "EFFECTIVE" / …)
  *   - identifier (prop)         — short string shown in the footer ("SOP-001 v1.2")
  *   - auditEntities (prop)      — list of {entityType, entityId} to pull audit history for
+ *
+ * The audit + signatures sections need `audit_trail:read`; without it they are
+ * replaced by a printed notice rather than omitted (see canReadAuditTrail).
  *
  * Per-company branding is read from company.settings.printSettings with
  * sensible fallbacks to plain company fields. Branding-only customization
@@ -31,12 +34,40 @@ const props = defineProps({
   auditEntities: { type: Array, default: () => [] },
   // If false, hide the audit + signatures sections
   showAudit: { type: Boolean, default: true },
+  // Initial page orientation. Wide-table modules (e.g. a multi-column log
+  // book) pass 'landscape' so the printout opens ready to fit; the user can
+  // still flip it in the toolbar.
+  defaultOrientation: {
+    type: String,
+    default: 'portrait',
+    validator: (v) => ['portrait', 'landscape'].includes(v),
+  },
 })
 
-const company = useLiveQuery(async (db) => {
-  const all = await db.Company.where().exec()
-  return all[0] ?? null
-})
+// ─── Page orientation ──────────────────────────────────────────────────────
+// Drives a reactive @page rule (below) + the on-screen preview width, so a
+// wide table can print on landscape A4 instead of being clipped by portrait.
+const orientation = ref(props.defaultOrientation)
+watch(
+  () => props.defaultOrientation,
+  (v) => {
+    orientation.value = v
+  },
+)
+// @page can't be scoped by class, so we render it into a live <style> whose
+// text updates with the toggle. This is the single source of the page size —
+// the static stylesheet no longer sets one.
+const pageCss = computed(
+  () => `@page { size: A4 ${orientation.value}; margin: 15mm 15mm 20mm 15mm; }`,
+)
+
+const company = useLiveQuery(
+  async (db) => {
+    const all = await db.Company.where().exec()
+    return all[0] ?? null
+  },
+  { models: ['Company'] },
+)
 
 const branding = computed(() => {
   const settings = company.value?.settings ?? {}
@@ -46,9 +77,7 @@ const branding = computed(() => {
     name: company.value?.name ?? '—',
     address: ps.address || settings.address || settings.companyAddress || null,
     code: company.value?.code,
-    footerText:
-      ps.footerText ||
-      'Verify the current effective version before use.',
+    footerText: ps.footerText || 'Verify the current effective version before use.',
     accentColor: ps.accentColor || null,
   }
 })
@@ -59,7 +88,8 @@ const accentStyle = computed(() =>
 
 const statusClass = computed(() => {
   const s = (props.status ?? '').toUpperCase()
-  if (s === 'EFFECTIVE' || s === 'VERIFIED' || s === 'COMPLETED' || s === 'CLOSED') return 'print-status-effective'
+  if (s === 'EFFECTIVE' || s === 'VERIFIED' || s === 'COMPLETED' || s === 'CLOSED')
+    return 'print-status-effective'
   if (s === 'DRAFT' || s === 'REJECTED' || s === 'OPEN') return 'print-status-draft'
   if (s === 'IN_REVIEW' || s === 'APPROVED' || s === 'IN_PROGRESS') return 'print-status-review'
   if (s === 'SUPERSEDED' || s === 'ARCHIVED' || s === 'CANCELLED') return 'print-status-archived'
@@ -67,6 +97,23 @@ const statusClass = computed(() => {
 })
 
 // ─── Audit + signatures ──────────────────────────────────────────────────
+// BOTH blocks below are derived from db.AuditLog, and `audit_log_select_rls`
+// now bounds that table on `audit_trail:read` instead of `document_control:read`
+// — a grant most roles do not hold. Nothing errors when it is missing: the
+// bootstrap simply syncs zero rows, the query returns [], and the sections
+// `v-if` themselves away. On screen that is merely thin; on a printed
+// controlled copy it is a compliance failure, because a copy that prints with
+// no signature block is indistinguishable from a record that was never signed
+// — and paper carries no way to ask.
+//
+// So the sections do not vanish. When the trail is unreadable they are replaced
+// by a printed notice that says why, which travels with the copy. Deriving the
+// signature block from the audit trail at all is the deeper mistake — there is
+// a real Part 11 `signatures` ledger — but it cannot be fixed here: that table
+// has no client model, is absent from the sync publication, and reaches a
+// Document only indirectly, through the task_instance that was signed.
+const canReadAuditTrail = computed(() => isAllowed(['audit_trail:read']))
+
 const SIGNATURE_ACTIONS = ['APPROVE', 'SET_EFFECTIVE']
 
 // auditLogs query — uses the compound [entityType+entityId] index. There is
@@ -87,7 +134,8 @@ const auditLogs = useLiveQueryWithDeps(
       .sort((a, b) => (b.performedAt?.toMillis?.() ?? 0) - (a.performedAt?.toMillis?.() ?? 0))
       .slice(0, 30)
   },
-  { initial: [] },
+
+  { models: ['AuditLog'], initial: [] },
 )
 
 const performerIds = computed(() => [
@@ -105,7 +153,8 @@ const performers = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 const signatures = computed(() =>
@@ -208,120 +257,179 @@ onBeforeUnmount(() => {
        Teleporting sidesteps the entire chain. #app already has
        `tw:print:hidden`, so it disappears during print. -->
   <Teleport to="#print-portal">
-    <div class="print-root" :style="accentStyle">
-    <!-- Toolbar — hidden when printing -->
-    <div class="print-toolbar tw:no-print">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <button
-          class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:bg-primary tw:text-white tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:hover:bg-primary/90"
-          @click="reprint"
-        >
-          <IconPrinter :size="14" /> Print
-        </button>
-        <button
-          class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:border tw:border-divider tw:px-3 tw:py-1.5 tw:text-sm tw:text-secondary tw:hover:bg-main-hover"
-          @click="close"
-        >
-          <IconX :size="14" /> Close
-        </button>
-      </div>
-      <div class="tw:text-xs tw:text-secondary">
-        Use your browser's Print dialog → "Save as PDF" for a controlled PDF.
-      </div>
-    </div>
-
-    <article class="print-page">
-      <!-- Company header (every printout looks identical here) -->
-      <header class="print-header">
-        <div class="print-header-logo">
-          <img
-            v-if="branding.logoUrl"
-            :src="branding.logoUrl"
-            :alt="`${branding.name} logo`"
-            class="print-logo-img"
-          />
-          <div v-else class="print-logo-fallback">
-            <IconBuilding :size="40" />
-            <span>Company Logo</span>
+    <!-- Live @page rule — its size follows the orientation toggle. Kept as a
+         rendered <style> because CSS @page can't be targeted by a class. -->
+    <component :is="'style'">{{ pageCss }}</component>
+    <div
+      class="print-root"
+      :class="{ 'print-landscape': orientation === 'landscape' }"
+      :style="accentStyle"
+    >
+      <!-- Toolbar — hidden when printing -->
+      <div class="print-toolbar tw:no-print">
+        <div class="tw:flex tw:items-center tw:gap-2">
+          <button
+            class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:bg-primary tw:text-white tw:px-3 tw:py-1.5 tw:text-sm tw:font-medium tw:hover:bg-primary/90"
+            @click="reprint"
+          >
+            <IconPrinter :size="14" /> Print
+          </button>
+          <!-- Orientation — flip to landscape when the content is wide. -->
+          <div class="print-orient" role="group" aria-label="Page orientation">
+            <button
+              type="button"
+              :class="{ 'print-orient-active': orientation === 'portrait' }"
+              :aria-pressed="orientation === 'portrait'"
+              @click="orientation = 'portrait'"
+            >
+              Portrait
+            </button>
+            <button
+              type="button"
+              :class="{ 'print-orient-active': orientation === 'landscape' }"
+              :aria-pressed="orientation === 'landscape'"
+              @click="orientation = 'landscape'"
+            >
+              Landscape
+            </button>
           </div>
+          <button
+            class="tw:flex tw:items-center tw:gap-1.5 tw:rounded tw:border tw:border-divider tw:px-3 tw:py-1.5 tw:text-sm tw:text-secondary tw:hover:bg-main-hover"
+            @click="close"
+          >
+            <IconX :size="14" /> Close
+          </button>
         </div>
-        <div class="print-header-text">
-          <div class="print-company-name">{{ branding.name }}</div>
-          <div v-if="branding.address" class="print-company-meta">{{ branding.address }}</div>
-          <div v-if="branding.code" class="print-company-meta">{{ branding.code }}</div>
+        <div class="tw:text-xs tw:text-secondary">
+          Wide table? Switch to Landscape. Then Print → "Save as PDF" for a controlled PDF.
         </div>
-        <div v-if="status" class="print-status-block">
-          <span class="print-status-badge" :class="statusClass">{{ status }}</span>
-        </div>
-      </header>
+      </div>
 
-      <!-- Module-specific title / meta -->
-      <section v-if="$slots.title" class="print-title-section">
-        <slot name="title" />
-      </section>
+      <article class="print-page">
+        <!-- Company header (every printout looks identical here) -->
+        <header class="print-header">
+          <div class="print-header-logo">
+            <img
+              v-if="branding.logoUrl"
+              :src="branding.logoUrl"
+              :alt="`${branding.name} logo`"
+              class="print-logo-img"
+            />
+            <div v-else class="print-logo-fallback">
+              <IconBuilding :size="40" />
+              <span>Company Logo</span>
+            </div>
+          </div>
+          <div class="print-header-text">
+            <div class="print-company-name">{{ branding.name }}</div>
+            <div v-if="branding.address" class="print-company-meta">{{ branding.address }}</div>
+            <div v-if="branding.code" class="print-company-meta">{{ branding.code }}</div>
+          </div>
+          <div v-if="status" class="print-status-block">
+            <span class="print-status-badge" :class="statusClass">{{ status }}</span>
+          </div>
+        </header>
 
-      <!-- Module-specific body -->
-      <section class="print-body-section">
-        <slot />
-      </section>
+        <!-- Module-specific title / meta -->
+        <section v-if="$slots.title" class="print-title-section">
+          <slot name="title" />
+        </section>
 
-      <!-- Approvals & Signatures -->
-      <section v-if="showAudit && signatures.length > 0" class="print-signatures">
-        <h2>Approvals &amp; Signatures</h2>
-        <table class="print-sig-table">
-          <thead>
-            <tr><th>Action</th><th>Signed by</th><th>Date</th><th>IP</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="(sig, i) in signatures" :key="i">
-              <td>{{ sig.action }}</td>
-              <td>{{ sig.who }}</td>
-              <td>{{ fmtAuditTime(sig.when) }}</td>
-              <td>{{ sig.ip ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        <!-- Module-specific body -->
+        <section class="print-body-section">
+          <slot />
+        </section>
 
-      <!-- Audit history -->
-      <section v-if="showAudit && auditLogs.length > 0" class="print-audit">
-        <h2>Recent Audit History</h2>
-        <table class="print-audit-table">
-          <thead>
-            <tr><th>When</th><th>Who</th><th>What</th><th>Target</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="(log, i) in auditLogs.slice(0, 10)" :key="i">
-              <td>{{ fmtAuditTime(log.performedAt) }}</td>
-              <td>{{ performers[log.performedBy] ?? '—' }}</td>
-              <td>{{ log.action }}</td>
-              <td>{{ log.entityType }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        <!-- Approvals & Signatures / Audit history — unavailable.
+             One notice for both, because they have one source and one reason
+             for being missing. It prints: the person holding the paper is not
+             the person who printed it, and is the one who needs to be told
+             that "no signatures shown" here does not mean "not signed". -->
+        <section v-if="showAudit && !canReadAuditTrail" class="print-signatures">
+          <h2>Approvals &amp; Signatures</h2>
+          <p class="print-restricted">
+            <strong>Not shown on this copy.</strong>
+            The signature block and audit history are part of the platform audit trail, which the
+            user who printed this copy is not permitted to read.
+            <strong>Their absence is not evidence that this record is unsigned.</strong>
+            Reprint via a user holding the Audit Trail permission, or view the record's approvals in
+            Qability, before relying on this copy as signed evidence.
+          </p>
+        </section>
 
-      <!-- Footer — every printed controlled copy needs: status + approval +
+        <section
+          v-if="showAudit && canReadAuditTrail && signatures.length > 0"
+          class="print-signatures"
+        >
+          <h2>Approvals &amp; Signatures</h2>
+          <table class="print-sig-table">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Signed by</th>
+                <th>Date</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(sig, i) in signatures" :key="i">
+                <td>{{ sig.action }}</td>
+                <td>{{ sig.who }}</td>
+                <td>{{ fmtAuditTime(sig.when) }}</td>
+                <td>{{ sig.ip ?? '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Audit history — covered by the notice above when unreadable. -->
+        <section v-if="showAudit && canReadAuditTrail && auditLogs.length > 0" class="print-audit">
+          <h2>Recent Audit History</h2>
+          <table class="print-audit-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Who</th>
+                <th>What</th>
+                <th>Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(log, i) in auditLogs.slice(0, 10)" :key="i">
+                <td>{{ fmtAuditTime(log.performedAt) }}</td>
+                <td>{{ performers[log.performedBy] ?? '—' }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.entityType }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Footer — every printed controlled copy needs: status + approval +
            print provenance. Auditors scan these lines to confirm a copy is
            valid at the time of inspection. -->
-      <footer class="print-footer">
-        <div v-if="statusFooterLine" class="print-footer-status">
-          {{ statusFooterLine }}
-        </div>
-        <div v-if="latestApproval" class="print-footer-approval">
-          Approved by {{ latestApproval.who }} on {{ fmtAuditTime(latestApproval.when) }}
-        </div>
-        <div class="print-footer-provenance">
-          {{ branding.name }}{{ identifier ? ` · ${identifier}` : '' }}
-        </div>
-        <div class="print-footer-provenance">
-          Printed by {{ printedBy }} · {{ generatedAt }}
-        </div>
-        <div v-if="branding.footerText" class="print-footer-disclaimer">
-          {{ branding.footerText }}
-        </div>
-      </footer>
-    </article>
+        <footer class="print-footer">
+          <div v-if="statusFooterLine" class="print-footer-status">
+            {{ statusFooterLine }}
+          </div>
+          <div v-if="latestApproval" class="print-footer-approval">
+            Approved by {{ latestApproval.who }} on {{ fmtAuditTime(latestApproval.when) }}
+          </div>
+          <!-- The footer is the part an auditor scans first, so the approval
+               line must not simply go missing: "no approval line" and "the
+               printer could not see the approval" have to read differently. -->
+          <div v-else-if="showAudit && !canReadAuditTrail" class="print-footer-approval">
+            Approval details not shown — printed by a user without audit trail access
+          </div>
+          <div class="print-footer-provenance">
+            {{ branding.name }}{{ identifier ? ` · ${identifier}` : '' }}
+          </div>
+          <div class="print-footer-provenance">Printed by {{ printedBy }} · {{ generatedAt }}</div>
+          <div v-if="branding.footerText" class="print-footer-disclaimer">
+            {{ branding.footerText }}
+          </div>
+        </footer>
+      </article>
     </div>
   </Teleport>
 </template>
@@ -358,6 +466,38 @@ onBeforeUnmount(() => {
   background: white;
   padding: 20mm 18mm;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Landscape: widen the on-screen preview page + toolbar to A4-landscape so
+   the user sees the true printable width before printing. The @page rule
+   (rendered above) sets the actual paper size. */
+.print-landscape .print-page,
+.print-landscape .print-toolbar {
+  max-width: 297mm;
+}
+
+/* Orientation segmented toggle */
+.print-orient {
+  display: inline-flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.print-orient button {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: white;
+  color: #6b7280;
+  border: 0;
+  cursor: pointer;
+}
+.print-orient button + button {
+  border-left: 1px solid #e5e7eb;
+}
+.print-orient-active {
+  background: #eef2ff !important;
+  color: #1d4ed8 !important;
+  font-weight: 600;
 }
 
 .print-header {
@@ -401,7 +541,9 @@ onBeforeUnmount(() => {
   font-size: 11px;
   color: #4b5563;
 }
-.print-status-block { text-align: right; }
+.print-status-block {
+  text-align: right;
+}
 .print-status-badge {
   display: inline-block;
   padding: 4px 10px;
@@ -411,39 +553,77 @@ onBeforeUnmount(() => {
   letter-spacing: 0.5px;
   border: 1.5px solid currentColor;
 }
-.print-status-effective { color: #047857; background: #d1fae5; }
-.print-status-draft     { color: #92400e; background: #fef3c7; }
-.print-status-review    { color: #1d4ed8; background: #dbeafe; }
-.print-status-archived  { color: #6b7280; background: #f3f4f6; }
-.print-status-default   { color: #374151; background: #f3f4f6; }
+.print-status-effective {
+  color: #047857;
+  background: #d1fae5;
+}
+.print-status-draft {
+  color: #92400e;
+  background: #fef3c7;
+}
+.print-status-review {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+.print-status-archived {
+  color: #6b7280;
+  background: #f3f4f6;
+}
+.print-status-default {
+  color: #374151;
+  background: #f3f4f6;
+}
 
-.print-title-section { margin: 20px 0 24px; }
-.print-body-section { margin: 0; }
+.print-title-section {
+  margin: 20px 0 24px;
+}
+.print-body-section {
+  margin: 0;
+}
 
-.print-signatures, .print-audit {
+.print-signatures,
+.print-audit {
   margin-top: 24px;
   break-inside: avoid-page;
 }
-.print-signatures h2, .print-audit h2 {
+.print-signatures h2,
+.print-audit h2 {
   font-size: 14px;
   font-weight: 700;
   margin: 0 0 8px;
   padding-bottom: 4px;
   border-bottom: 1px solid #e5e7eb;
 }
-.print-sig-table, .print-audit-table {
+/* Deliberately loud on paper — boxed and amber rather than grey body text.
+   This is the one block a reader must not skim past, because skimming it is
+   exactly how an unavailable signature block gets read as an absent one. */
+.print-restricted {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #d97706;
+  border-left-width: 4px;
+  background: #fffbeb;
+  color: #78350f;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.print-sig-table,
+.print-audit-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 10px;
 }
-.print-sig-table th, .print-audit-table th {
+.print-sig-table th,
+.print-audit-table th {
   background: #f9fafb;
   text-align: left;
   padding: 5px 8px;
   border: 1px solid #e5e7eb;
   font-weight: 600;
 }
-.print-sig-table td, .print-audit-table td {
+.print-sig-table td,
+.print-audit-table td {
   padding: 5px 8px;
   border: 1px solid #e5e7eb;
 }
@@ -483,15 +663,23 @@ onBeforeUnmount(() => {
      content can paginate past the viewport. #app is `tw:print:hidden` and
      the print-root is teleported into #print-portal (sibling of #app), so
      no other shell overrides are needed. */
-  html, body {
+  html,
+  body {
     background: white !important;
     margin: 0;
     padding: 0;
     height: auto !important;
     overflow: visible !important;
   }
-  .print-root { position: static; padding: 0; background: white; }
-  .print-toolbar, .tw\:no-print { display: none !important; }
+  .print-root {
+    position: static;
+    padding: 0;
+    background: white;
+  }
+  .print-toolbar,
+  .tw\:no-print {
+    display: none !important;
+  }
   .print-page {
     max-width: none;
     margin: 0;
@@ -500,13 +688,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@page {
-  size: A4;
-  margin: 15mm 15mm 20mm 15mm;
-  @bottom-center {
-    content: 'Page ' counter(page) ' of ' counter(pages);
-    font-size: 9px;
-    color: #6b7280;
-  }
-}
+/* NOTE: the @page size is set by the reactive <style> rendered in the
+   template (pageCss) so the orientation toggle can change it — CSS @page
+   can't be scoped by a class. Keep page size OUT of this static block. */
 </style>

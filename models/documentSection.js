@@ -33,6 +33,9 @@ export class DocumentSection extends BaseModel {
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String, required: true }) sectionType = 'text'
   @Property({ type: String }) content = /** @type {string|null} */ (null)
+  // Author-facing guidance copied from the template section at create time.
+  // Plain text — rendered as text, never HTML.
+  @Property({ type: String }) instructions = /** @type {string|null} */ (null)
   @Property({ type: Array }) attachments = /** @type {Array|null} */ (null)
   @Property({ type: Number }) order = 1
   @Property({ type: Boolean }) isAddOn = false

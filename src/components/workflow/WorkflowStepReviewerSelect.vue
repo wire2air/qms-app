@@ -34,6 +34,17 @@ const props = defineProps({
   isSupplierFacing: { type: Boolean, default: false },
   supplierId: { type: String, default: null },
   ownerId: { type: String, default: null },
+  // Synthesized steps (admin-defined modules) have no WorkflowStepRole rows yet
+  // — pass their role ids directly. When null, fall back to querying by step.id.
+  roleIds: { type: Array, default: null },
+  // Opt-in smart default (internal steps only): on EVERY step whose candidate
+  // pool contains this user, pre-assign them (rule 2026-08-10: the initiator
+  // is auto-assigned wherever they qualify — changeable per step). On the
+  // required first step it additionally falls back to their department
+  // supervisor, then the first candidate. Used by NC create (initiator) and
+  // the QC disposition submit (submitter). Omit (null) to keep the plain
+  // first-candidate default on the required step only (CAPA behaviour).
+  preferUserId: { type: String, default: null },
 })
 
 const modelValue = defineModel({ type: String, default: null })
@@ -47,9 +58,7 @@ const numberLabel = computed(() => {
 })
 
 const isApprovalStep = computed(() => props.step?.stepType === 'APPROVAL')
-const usesSupplierPicker = computed(
-  () => props.isSupplierFacing && !isApprovalStep.value,
-)
+const usesSupplierPicker = computed(() => props.isSupplierFacing && !isApprovalStep.value)
 
 // No `initial: []` here on purpose: we need to distinguish
 //   stepRoles === undefined → IDB query still loading
@@ -60,15 +69,18 @@ const usesSupplierPicker = computed(
 // for role-gated steps and auto-selected a user who shouldn't have been
 // eligible (see the LogBook submit-dialog regression report).
 const stepRoles = useLiveQueryWithDeps(
-  [() => props.step.id],
-  async (db, [stepId]) => {
+  [() => props.step.id, () => props.roleIds],
+
+  async (db, [stepId, roleIds]) => {
+    if (roleIds != null) return [] // roles supplied via prop (synthesized step)
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
+  { models: ['WorkflowStepRole'] },
 )
 
-const stepRolesLoaded = computed(() => stepRoles.value !== undefined)
-const stepRoleIds = computed(() => (stepRoles.value ?? []).map((r) => r.roleId))
+const stepRolesLoaded = computed(() => props.roleIds != null || stepRoles.value !== undefined)
+const stepRoleIds = computed(() => props.roleIds ?? (stepRoles.value ?? []).map((r) => r.roleId))
 
 // Resolve role names for the empty-state hint — when a step has roles
 // and no eligible users hold them, the hint reads "No users assigned
@@ -83,7 +95,8 @@ const stepRoleNames = useLiveQueryWithDeps(
     const roles = await Promise.all(ids.map((id) => db.Role.findByPk(id)))
     return roles.filter(Boolean).map((r) => r.name)
   },
-  { initial: [] },
+
+  { models: ['Role'], initial: [] },
 )
 
 // Role-less step → all active internal users (no-friction rule for
@@ -106,7 +119,8 @@ const internalCandidates = useLiveQueryWithDeps(
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
     return users.filter((u) => u && u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
   },
-  { initial: [] },
+
+  { models: ['User', 'RoleOnUser'], initial: [] },
 )
 
 const supplierCandidates = useLiveQueryWithDeps(
@@ -121,11 +135,33 @@ const supplierCandidates = useLiveQueryWithDeps(
         u.userStatusId === 'ACTIVE',
     )
   },
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
+// Eligibility is the step's ROLE membership (+ pickers' site visibility) —
+// no submitter exclusion: a user may review their own submission and hold
+// multiple steps (user decision 2026-08-07).
 const candidateUsers = computed(() =>
   usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value,
+)
+
+// Smart-default support: the preferred user + their department supervisor.
+// (No `initial` on supervisorId so we can wait for it to resolve before
+// falling back to the first candidate.)
+const preferUser = useLiveQueryWithDeps(
+  [() => props.preferUserId],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
+)
+const supervisorId = useLiveQueryWithDeps(
+  [() => preferUser.value?.departmentId],
+  async (db, [deptId]) => {
+    if (!deptId) return null
+    const dept = await db.Department.findByPk(deptId)
+    return dept?.supervisorUserId ?? null
+  },
+  { models: ['Department'] },
 )
 
 // Auto-select sensible default on the first required step:
@@ -135,14 +171,30 @@ const candidateUsers = computed(() =>
 //  - Anywhere else → first available candidate.
 let autoSelectDone = false
 watch(
-  [candidateUsers, modelValue, usesSupplierPicker, () => props.ownerId, internalCandidates],
-  ([users, currentId, supplierMode, ownerId, internals]) => {
-    if (!props.required || autoSelectDone) return
+  [
+    candidateUsers,
+    modelValue,
+    usesSupplierPicker,
+    () => props.ownerId,
+    internalCandidates,
+    () => props.preferUserId,
+    supervisorId,
+  ],
+  ([users, currentId, supplierMode, ownerId, internals, preferId, supId]) => {
+    if (autoSelectDone) return
     if (currentId != null) {
       autoSelectDone = true
       return
     }
-    if (!supplierMode && props.isSupplierFacing && isApprovalStep.value && ownerId) {
+    // Supplier-facing approval steps keep preferring the owner (CFR-21
+    // attestation) ahead of any preferUserId — required step only, as before.
+    if (
+      props.required &&
+      !supplierMode &&
+      props.isSupplierFacing &&
+      isApprovalStep.value &&
+      ownerId
+    ) {
       const ownerCandidate = internals.find((u) => u.id === ownerId)
       if (ownerCandidate) {
         autoSelectDone = true
@@ -150,7 +202,35 @@ watch(
         return
       }
     }
+    // Preferred-user default — EVERY step, not just the required one: a step
+    // whose candidate pool contains the preferred user (NC initiator / QC
+    // submitter) is pre-assigned to them. `users` stays [] until the step's
+    // role query resolves, so this can't misfire on a transient pool.
+    if (preferId && !supplierMode) {
+      const self = users.find((u) => u.id === preferId)
+      if (self) {
+        autoSelectDone = true
+        modelValue.value = self.id
+        return
+      }
+    }
     if (!users.length) return
+    // Required first step: prefer the preferred user's department supervisor
+    // before the generic first candidate (QC semantic).
+    if (props.required && preferId && !supplierMode) {
+      // Wait for the supervisor lookup before falling back to the first candidate.
+      if (supId === undefined) return
+      const supervisor = supId ? users.find((u) => u.id === supId) : null
+      if (supervisor) {
+        autoSelectDone = true
+        modelValue.value = supervisor.id
+        return
+      }
+    }
+    // Every step defaults to SOMEONE (first candidate) — deterministic
+    // replacement for BaseSelect's disabled auto-fill. NC skips server-side
+    // role expansion, so a step left unpicked here would reach activation
+    // with zero reviewers and strand the workflow (F-12 guard).
     autoSelectDone = true
     modelValue.value = users[0].id
   },
@@ -171,7 +251,7 @@ watch(
       <div
         class="tw:rounded-full tw:flex tw:items-center tw:justify-center tw:font-bold tw:shrink-0"
         :class="[
-          isChild ? 'tw:w-5 tw:h-5 tw:text-[10px]' : 'tw:w-6 tw:h-6 tw:text-xs',
+          isChild ? 'tw:w-5 tw:h-5 tw:text-micro' : 'tw:w-6 tw:h-6 tw:text-xs',
           modelValue ? 'tw:bg-primary tw:text-white' : 'tw:bg-main-hover tw:text-secondary',
         ]"
       >
@@ -183,14 +263,14 @@ watch(
       </span>
       <span
         v-if="usesSupplierPicker"
-        class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
+        class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5"
         :title="`Candidates are active users at this ${module.displayName}'s supplier.`"
       >
         Supplier picker
       </span>
       <span
         v-else-if="isSupplierFacing && isApprovalStep"
-        class="tw:text-[10px] tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
+        class="tw:text-micro tw:rounded tw:bg-amber-50 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
         title="Approval steps stay internal even on supplier-facing records."
       >
         Approval · Internal only
@@ -200,12 +280,15 @@ watch(
     <!-- Picker — :required="true" always so the "All" null option
          never shows on a reviewer picker. The parent's `required`
          drives the "must pick before submit" rule on the first step. -->
+    <!-- :autoFill=false — BaseSelect's first-option fill would RACE the
+         initiator default below; this component is the only writer. -->
     <UserSelectMenu
       v-if="usesSupplierPicker"
       v-model="modelValue"
       kind="EXTERNAL_SUPPLIER"
       :supplierId="supplierId"
       :required="true"
+      :autoFill="false"
     />
     <UserSelectMenu
       v-else
@@ -213,6 +296,7 @@ watch(
       kind="INTERNAL"
       :roleIdsFilter="stepRoleIds.length ? stepRoleIds : null"
       :required="true"
+      :autoFill="false"
     />
 
     <div

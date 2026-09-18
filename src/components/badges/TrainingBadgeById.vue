@@ -3,10 +3,14 @@ const props = defineProps({
   trainingId: { type: String, default: null },
 })
 
-const training = useLiveQueryWithDeps([() => props.trainingId], async (db, [trainingId]) => {
-  if (!trainingId) return null
-  return db.Training.findByPk(trainingId)
-})
+const training = useLiveQueryWithDeps(
+  [() => props.trainingId],
+  async (db, [trainingId]) => {
+    if (!trainingId) return null
+    return db.Training.findByPk(trainingId)
+  },
+  { models: ['Training'] },
+)
 </script>
 
 <template>

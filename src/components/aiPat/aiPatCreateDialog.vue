@@ -98,11 +98,9 @@ function handleDialogClose() {
             :error="nameError"
             autofocus
           />
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Expires At</label>
-            <BaseDatePicker v-model="form.expiresAt" />
-            <p class="tw:text-xs tw:text-secondary">Leave empty for no expiration</p>
-          </div>
+          <BaseField label="Expires At" hint="Leave empty for no expiration">
+            <BaseDateField v-model="form.expiresAt" mode="date" />
+          </BaseField>
         </div>
       </div>
     </template>
@@ -124,7 +122,7 @@ function handleDialogClose() {
             :modelValue="createdToken"
             readonly
             :type="revealed ? 'text' : 'password'"
-            class="tw:flex-1 tw:font-mono"
+            class="tw:flex-1"
           />
           <button
             class="tw:rounded-lg tw:border tw:border-divider tw:p-2 tw:hover:bg-main-hover tw:transition-colors"
@@ -145,9 +143,9 @@ function handleDialogClose() {
 
         <div class="tw:text-xs tw:text-secondary">
           Configure your MCP client to send this as the
-          <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">Authorization</code> header
+          <code class="tw:bg-main-hover tw:px-1 tw:rounded">Authorization</code> header
           when calling
-          <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">/v1/services/ai/mcp</code>.
+          <code class="tw:bg-main-hover tw:px-1 tw:rounded">/v1/services/ai/mcp</code>.
         </div>
       </div>
     </template>

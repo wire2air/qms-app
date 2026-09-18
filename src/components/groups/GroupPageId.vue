@@ -1,8 +1,9 @@
 <script setup>
-import { IconCamera, IconBuilding, IconUserPlus, IconCopy } from '@tabler/icons-vue'
-import { getCompanyPath } from '@/utils/routeHelpers'
+import { IconCamera, IconBuilding, IconUserPlus, IconCopy, IconShieldPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { uploadFile } from '@/utils/uploadService.js'
+import { buildGroupSections } from './groupDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -12,13 +13,30 @@ const props = defineProps({
 })
 
 const canUpdate = computed(() => isAllowed(['teams:update']))
+// Granting a role to a team confers authority to every member — a
+// privilege-escalation surface, so it is gated on role_permission_management
+// (the same permission that governs the roles matrix), not teams:update. The
+// RLS on roles_on_teams enforces this server-side regardless of the UI gate.
+const canManageTeamRoles = computed(() => isAllowed(['role_permission_management:update']))
+// F-08 (docs/modules/groups-teams) — user_on_team_insert_rls is CONDITIONAL:
+// joining/leaving this team needs teams:update alone UNLESS the team currently
+// carries a live role via roles_on_teams, in which case it also needs
+// role_permission_management:update. `teamRoles` below already excludes
+// soft-deleted grants (paranoid query), so this mirrors the RLS clause's own
+// `NOT EXISTS (live roles_on_teams row) OR rpm:update` exactly.
+const canEditMembership = computed(
+  () => canUpdate.value && (teamRoles.value.length === 0 || canManageTeamRoles.value),
+)
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
-const group = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Team.findByPk(id))
+const group = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Team.findByPk(id), {
+  models: ['Team'],
+})
 const users = useLiveQuery(
   async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 const userMapById = computed(() => {
   const map = new Map()
@@ -35,7 +53,8 @@ const memberships = useLiveQueryWithDeps(
     )
     return resolved.filter((e) => e.user)
   },
-  { initial: [] },
+
+  { models: ['UserOnTeam'], initial: [] },
 )
 
 const loading = computed(() => group.value === undefined)
@@ -54,42 +73,33 @@ const filteredUsers = computed(() => {
 
 // ─── Breadcrumbs ──────────────────────────────────────────────────────────────
 
-const breadcrumbItems = computed(() => [
-  { label: 'Groups', to: getCompanyPath('/groups') },
-  { label: group.value?.name || 'Loading...' },
-])
-
 // ─── Auto-save ────────────────────────────────────────────────────────────────
 
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
 const editingName = ref(false)
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!group.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await group.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  group,
-  (g) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (g) debouncedSave()
-  },
-  { deep: true },
+// Name uniqueness (case-insensitive, per company) — backed by the DB
+// teams_company_name_unique partial index, same check GroupsCreateDialog runs
+// on create. The rename field had no equivalent: nothing stopped the autosave
+// from firing a mutation the DB's unique index was always going to reject,
+// which PostGraphile then reported as an opaque masked GraphQLError ("An
+// error occurred (logged with hash: ...)") instead of a usable message.
+const allTeams = useLiveQuery((db) => db.Team.where().exec(), { models: ['Team'], initial: [] })
+const nameAvailable = computed(() => {
+  const n = (group.value?.name || '').trim().toLowerCase()
+  if (!n) return true
+  return !allTeams.value.some(
+    (t) => t.id !== props.id && (t.name || '').trim().toLowerCase() === n,
+  )
+})
+const nameInUseError = computed(() =>
+  group.value?.name && !nameAvailable.value ? 'A group with this name already exists' : '',
 )
+
+// Blocks the autosave entirely while the typed name collides, rather than
+// letting it round-trip to a guaranteed DB rejection. Other fields on this
+// page save through their own explicit .save() calls (avatar, membership),
+// so this only withholds the deep-watch save this hook drives.
+const { isSaving, saveError } = useAutoSave(group, { enabled: nameAvailable })
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -150,246 +160,317 @@ async function onRemoveMember(entry) {
   await entry.m.delete()
 }
 
+// ─── Roles granted via this team ────────────────────────────────────────────
+
+const teamRoles = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.RoleOnTeam.where('teamId', id).exec(),
+  { models: ['RoleOnTeam'], initial: [] },
+)
+const roleIdsOnTeam = computed(() => teamRoles.value.map((rt) => rt.roleId))
+const teamRoleMapByRoleId = computed(() => {
+  const map = new Map()
+  teamRoles.value.forEach((rt) => map.set(rt.roleId, rt))
+  return map
+})
+
+const addRoleToTeam = useLiveMutation(async (db, roleId) => {
+  const existing = await db.RoleOnTeam.where('teamId', props.id, { force: true })
+    .where('roleId', roleId)
+    .first()
+  if (existing) {
+    await existing.restore()
+  } else {
+    const rt = db.RoleOnTeam.create({ teamId: props.id, roleId })
+    await rt.save()
+  }
+})
+
+async function onRolesChange(roleIds) {
+  const toAdd = roleIds.filter((id) => !roleIdsOnTeam.value.includes(id))
+  const toRemove = roleIdsOnTeam.value.filter((id) => !roleIds.includes(id))
+  await Promise.all(toAdd.map((roleId) => addRoleToTeam(roleId)))
+  await Promise.all(toRemove.map((roleId) => teamRoleMapByRoleId.value.get(roleId)?.delete()))
+}
+
+async function onRemoveRole(roleId) {
+  await teamRoleMapByRoleId.value.get(roleId)?.delete()
+}
+
 // ─── Misc ─────────────────────────────────────────────────────────────────────
 
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text)
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Groups', to: getCompanyPath('/groups') },
+  { label: group.value?.name || 'Team' },
+])
+const groupDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    sections: buildGroupSections(group.value),
+  }),
+)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbItems" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <div
-          v-if="isSaving"
-          class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
-        >
-          <div
-            class="tw:size-3 tw:animate-spin tw:rounded-full tw:border tw:border-primary tw:border-t-transparent"
-          />
-          Saving...
-        </div>
+  <BaseDetailLayout
+    :config="groupDetailConfig"
+    :record="group"
+    :loading="loading"
+    :notFound="!loading && !group"
+    notFoundTitle="Team not found"
+    notFoundDescription="This team could not be found."
+  >
+    <template #title>
+      <div v-if="editingName && canUpdate" class="tw:flex tw:flex-col tw:gap-1">
+        <BaseTextInput
+          v-model="group.name"
+          placeholder="Group name"
+          size="sm"
+          autofocus
+          :errorMsg="nameInUseError"
+          @keyup.enter="!nameInUseError && (editingName = false)"
+          @blur="editingName = false"
+        />
       </div>
-    </SafeTeleport>
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="canUpdate ? 'tw:hover:text-primary' : ''"
+        :disabled="!canUpdate"
+        aria-label="Edit group name"
+        @click="canUpdate && (editingName = true)"
+      >
+        {{ group?.name || 'Team' }}
+      </BaseClickableRow>
+    </template>
 
-    <!-- Loading State -->
-    <div
-      v-if="loading"
-      class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:flex-1 tw:py-8"
-    >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
-      <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading team...</div>
-    </div>
+    <template #status>
+      <BaseBadge v-if="group?.isLeadership" class="tw:bg-primary/10 tw:text-primary">
+        Leadership
+      </BaseBadge>
+    </template>
 
-    <!-- Content -->
-    <div v-else-if="group" class="tw:overflow-y-auto">
-      <div class="tw:max-w-5xl tw:mx-auto tw:p-8 tw:space-y-8">
-        <!-- Error Banner -->
-        <div
-          v-if="saveError"
-          class="tw:p-3 tw:bg-red-50 tw:text-red-600 tw:text-sm tw:rounded-lg tw:border tw:border-red-200"
-        >
-          {{ saveError }}
-        </div>
+    <template v-if="group" #meta>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        <IconBuilding :size="14" />
+        {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
+      </span>
+    </template>
 
-        <!-- Profile Header -->
-        <div class="tw:bg-sidebar tw:border tw:border-divider tw:p-6 tw:rounded-xl tw:shadow-sm">
-          <div
-            class="tw:flex tw:flex-col tw:md:flex-row tw:items-start tw:md:items-center tw:justify-between tw:gap-6"
-          >
-            <div class="tw:flex tw:items-center tw:gap-6">
-              <!-- Avatar -->
-              <div
-                class="tw:relative tw:group"
-                :class="{ 'tw:cursor-pointer': canUpdate }"
-                @click="openAvatarDialog"
-              >
-                <TeamAvatar :team="group" class="tw:size-20" />
-                <div
-                  v-if="canUpdate"
-                  class="tw:absolute tw:inset-0 tw:bg-black/50 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:pointer-events-none"
-                >
-                  <IconCamera :size="28" class="tw:text-white" />
-                </div>
-              </div>
+    <template #actions>
+      <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary">
+        <BaseSpinner size="xs" />
+        Saving...
+      </div>
+      <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
+    </template>
 
-              <!-- Name & Leadership -->
-              <div>
-                <div class="tw:flex tw:items-center tw:gap-3 tw:mb-1">
-                  <template v-if="editingName && canUpdate">
-                    <BaseTextInput
-                      v-model="group.name"
-                      placeholder="Group name"
-                      size="sm"
-                      @keyup.enter="editingName = false"
-                      @blur="editingName = false"
-                    />
-                  </template>
-                  <h2
-                    v-else
-                    class="tw:text-2xl tw:font-bold tw:text-on-main"
-                    :class="{ 'tw:cursor-pointer tw:hover:text-primary': canUpdate }"
-                    @click="canUpdate && (editingName = true)"
-                  >
-                    {{ group.name || 'Team' }}
-                  </h2>
-                  <span
-                    v-if="group.isLeadership"
-                    class="tw:text-xs tw:font-semibold tw:bg-primary/10 tw:text-primary tw:px-2.5 tw:py-1 tw:rounded-full"
-                  >
-                    Leadership
-                  </span>
-                </div>
-                <p class="tw:text-secondary tw:flex tw:items-center tw:gap-1.5 tw:text-sm">
-                  <IconBuilding :size="14" />
-                  {{ memberCount }} member{{ memberCount !== 1 ? 's' : '' }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
-          <!-- Team Overview Card -->
-          <div class="tw:lg:col-span-1 tw:space-y-6">
-            <div
-              class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm tw:overflow-hidden"
+    <template v-if="group" #rail>
+      <BaseRailCard title="Team Settings">
+        <div class="tw:flex tw:flex-col tw:gap-5">
+          <!-- Avatar -->
+          <div class="tw:flex tw:justify-center">
+            <BaseClickableRow
+              class="tw:relative tw:group"
+              :disabled="!canUpdate"
+              aria-label="Change group avatar"
+              @click="openAvatarDialog"
             >
-              <div class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover">
-                <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
-                  Team Settings
-                </h3>
+              <TeamAvatar :team="group" class="tw:size-20" />
+              <div
+                v-if="canUpdate"
+                class="tw:absolute tw:inset-0 tw:bg-black/50 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:pointer-events-none"
+              >
+                <IconCamera :size="28" class="tw:text-white" />
               </div>
-              <div class="tw:p-6 tw:space-y-5">
-                <!-- Team ID -->
-                <div>
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Team ID</label>
-                  <div class="tw:flex tw:items-center tw:gap-2 tw:group">
-                    <code
-                      class="tw:text-xs tw:text-on-main tw:bg-main tw:font-mono tw:break-all tw:p-1 tw:rounded tw:flex-1"
-                    >
-                      {{ id }}
-                    </code>
-                    <button
-                      class="tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:p-1 tw:rounded tw:hover:bg-main-hover"
-                      @click="copyToClipboard(id)"
-                    >
-                      <IconCopy :size="14" class="tw:text-secondary" />
-                    </button>
-                  </div>
-                </div>
+            </BaseClickableRow>
+          </div>
 
-                <!-- Color -->
-                <div v-if="canUpdate">
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
-                  <BaseColorPicker v-model="group.color" />
-                </div>
-                <div v-else>
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
-                  <span
-                    class="tw:inline-block tw:size-6 tw:rounded-full tw:border tw:border-divider"
-                    :style="{ backgroundColor: group.color }"
-                  />
-                </div>
-
-                <!-- Leadership Toggle -->
-                <div>
-                  <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Type</label>
-                  <label
-                    v-if="canUpdate"
-                    class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer"
-                  >
-                    <BaseSwitch v-model="group.isLeadership" />
-                    <span class="tw:text-sm tw:text-on-main">Leadership Team</span>
-                  </label>
-                  <span v-else-if="group.isLeadership" class="tw:text-sm tw:text-on-main">
-                    Leadership Team
-                  </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">Standard Team</span>
-                </div>
-              </div>
+          <!-- Team ID -->
+          <div>
+            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Team ID</label>
+            <div class="tw:flex tw:items-center tw:gap-2 tw:group">
+              <code
+                class="tw:text-xs tw:text-on-main tw:bg-main tw:break-all tw:p-1 tw:rounded tw:flex-1"
+              >
+                {{ id }}
+              </code>
+              <button
+                class="tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:p-1 tw:rounded tw:hover:bg-main-hover"
+                @click="copyToClipboard(id)"
+              >
+                <IconCopy :size="14" class="tw:text-secondary" />
+              </button>
             </div>
           </div>
 
-          <!-- Members Section -->
-          <div class="tw:lg:col-span-2 tw:space-y-6">
-            <div class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
-              <div
-                class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
-              >
-                <div class="tw:flex tw:items-center tw:gap-2">
-                  <h3 class="tw:font-bold tw:text-on-main tw:text-sm tw:uppercase tw:tracking-wide">
-                    Members
-                  </h3>
-                  <span
-                    class="tw:text-[10px] tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
-                  >
-                    {{ memberCount }}
-                  </span>
-                </div>
-                <BaseSelectMenu
-                  :modelValue="userIdsOnTeam"
-                  :items="filteredUsers"
-                  :required="true"
-                  :multiple="true"
-                  @update:modelValue="onAddMembers"
-                >
-                  <template #button="scope">
-                    <slot name="button" v-bind="scope">
-                      <button
-                        class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
-                      >
-                        <IconUserPlus :size="14" />
-                        Add Members
-                      </button>
-                    </slot>
-                  </template>
-                </BaseSelectMenu>
-              </div>
+          <!-- Color -->
+          <div>
+            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Group Color</label>
+            <BaseColorPicker v-if="canUpdate" v-model="group.color" />
+            <span
+              v-else
+              class="tw:inline-block tw:size-6 tw:rounded-full tw:border tw:border-divider"
+              :style="{ backgroundColor: group.color }"
+            />
+          </div>
 
-              <!-- Member List -->
-              <div v-if="memberships.length > 0" class="tw:divide-y tw:divide-divider">
-                <div
-                  v-for="entry in memberships"
-                  :key="entry.m.id"
-                  class="tw:flex tw:items-center tw:p-4 tw:hover:bg-main-hover tw:transition-colors"
-                >
-                  <UsersListItem
-                    class="tw:w-full"
-                    :user="entry.user"
-                    :clearable="canUpdate"
-                    @clear="onRemoveMember(entry)"
-                  />
-                </div>
-              </div>
-
-              <div
-                v-else
-                class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-b-xl"
-              >
-                No members assigned yet.
-              </div>
-            </div>
+          <!-- Leadership Toggle -->
+          <div>
+            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">Type</label>
+            <label v-if="canUpdate" class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
+              <BaseSwitch v-model="group.isLeadership" />
+              <span class="tw:text-sm tw:text-on-main">Leadership Team</span>
+            </label>
+            <span v-else-if="group.isLeadership" class="tw:text-sm tw:text-on-main">
+              Leadership Team
+            </span>
+            <span v-else class="tw:text-sm tw:text-secondary">Standard Team</span>
           </div>
         </div>
-      </div>
-    </div>
+      </BaseRailCard>
+    </template>
 
-    <!-- Avatar Management Dialog -->
-    <ImageCropDialog
-      v-model="showAvatarDialog"
-      :currentImageUrl="group?.avatar"
-      title="Team Avatar"
-      :aspectRatio="1"
-      @save="handleAvatarSave"
-      @delete="handleAvatarDelete"
-    />
-  </div>
+    <template v-if="group" #section-details>
+      <div class="tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
+        <div
+          class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
+        >
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <h3
+              class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+            >
+              Members
+            </h3>
+            <span
+              class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
+            >
+              {{ memberCount }}
+            </span>
+          </div>
+          <!-- Adding a member INSERTs users_on_teams, whose RLS requires
+                   `teams:update` alone UNLESS this team carries a live role, in
+                   which case it also requires role_permission_management:update
+                   (F-01's fix on user_on_team_insert_rls). Gating on canUpdate
+                   alone (F-08) showed a working-looking control that then hit
+                   "Something went wrong" on exactly the groups where it
+                   mattered most; canEditMembership mirrors the RLS clause. -->
+          <BaseSelect
+            v-if="canEditMembership"
+            :modelValue="userIdsOnTeam"
+            :options="filteredUsers"
+            optionLabel="name"
+            optionValue="id"
+            :multiple="true"
+            @update:modelValue="onAddMembers"
+          >
+            <template #trigger>
+              <button
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+              >
+                <IconUserPlus :size="14" />
+                Add Members
+              </button>
+            </template>
+          </BaseSelect>
+        </div>
+
+        <!-- Member List -->
+        <div v-if="memberships.length > 0" class="tw:divide-y tw:divide-divider">
+          <div
+            v-for="entry in memberships"
+            :key="entry.m.id"
+            class="tw:flex tw:items-center tw:p-4 tw:hover:bg-main-hover tw:transition-colors"
+          >
+            <UsersListItem
+              class="tw:w-full"
+              :user="entry.user"
+              :clearable="canEditMembership"
+              @clear="onRemoveMember(entry)"
+            />
+          </div>
+        </div>
+
+        <div
+          v-else
+          class="tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-b-xl"
+        >
+          No members assigned yet.
+        </div>
+      </div>
+
+      <!-- Roles granted via this team: every member inherits these roles. -->
+      <div class="tw:mt-6 tw:bg-sidebar tw:border tw:border-divider tw:rounded-xl tw:shadow-sm">
+        <div
+          class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between tw:bg-main-hover"
+        >
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <h3
+              class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+            >
+              Roles
+            </h3>
+            <span
+              class="tw:text-micro tw:font-bold tw:bg-main tw:border tw:border-divider tw:px-2 tw:py-0.5 tw:rounded-full tw:text-secondary"
+            >
+              {{ roleIdsOnTeam.length }}
+            </span>
+          </div>
+          <RoleSelectMenu
+            v-if="canManageTeamRoles"
+            :modelValue="roleIdsOnTeam"
+            :multiple="true"
+            @update:modelValue="onRolesChange"
+          >
+            <template #button>
+              <button
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+              >
+                <IconShieldPlus :size="14" />
+                Assign Roles
+              </button>
+            </template>
+          </RoleSelectMenu>
+        </div>
+
+        <p class="tw:px-6 tw:pt-3 tw:text-xs tw:text-secondary">
+          Every member of this team inherits these roles in addition to their own.
+        </p>
+
+        <div v-if="roleIdsOnTeam.length > 0" class="tw:flex tw:flex-wrap tw:gap-2 tw:p-4">
+          <RoleBadgeById
+            v-for="roleId in roleIdsOnTeam"
+            :key="roleId"
+            :roleId="roleId"
+            :clearable="canManageTeamRoles"
+            @clear="onRemoveRole(roleId)"
+          />
+        </div>
+
+        <div
+          v-else
+          class="tw:m-4 tw:mt-2 tw:p-8 tw:text-center tw:text-secondary tw:text-sm tw:border-dashed tw:border-2 tw:border-divider tw:rounded-xl"
+        >
+          No roles granted via this team.
+        </div>
+      </div>
+    </template>
+  </BaseDetailLayout>
+
+  <!-- Avatar Management Dialog -->
+  <ImageCropDialog
+    v-model="showAvatarDialog"
+    :currentImageUrl="group?.avatar"
+    title="Team Avatar"
+    :aspectRatio="1"
+    @save="handleAvatarSave"
+    @delete="handleAvatarDelete"
+  />
 </template>

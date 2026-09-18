@@ -51,9 +51,24 @@ const previewUrl = ref(null)
 const cameraError = ref(null)
 const uploading = ref(false)
 
+// Memoize the blob URL for a raw File and revoke the previous one, so we don't
+// leak a new object URL on every recompute (a computed must stay side-effect-free).
+const fileObjectUrl = ref(null)
+watch(
+  modelValue,
+  (val) => {
+    if (fileObjectUrl.value) {
+      URL.revokeObjectURL(fileObjectUrl.value)
+      fileObjectUrl.value = null
+    }
+    if (val instanceof File) fileObjectUrl.value = URL.createObjectURL(val)
+  },
+  { immediate: true },
+)
+
 const displayUrl = computed(() => {
   if (modelValue.value instanceof File) {
-    return URL.createObjectURL(modelValue.value)
+    return fileObjectUrl.value
   }
   if (typeof modelValue.value === 'string' && modelValue.value) {
     return modelValue.value
@@ -199,6 +214,9 @@ onBeforeUnmount(() => {
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value)
   }
+  if (fileObjectUrl.value) {
+    URL.revokeObjectURL(fileObjectUrl.value)
+  }
 })
 
 defineExpose({ openCamera, triggerFileInput, clearImage, capturePhoto })
@@ -263,7 +281,7 @@ defineExpose({ openCamera, triggerFileInput, clearImage, capturePhoto })
     <!-- Camera dialog -->
     <div
       v-if="cameraDialogOpen"
-      class="tw:fixed tw:inset-0 tw:z-50 tw:bg-black/60 tw:flex tw:items-center tw:justify-center tw:p-4"
+      class="tw:fixed tw:inset-0 tw:z-modal tw:bg-black/60 tw:flex tw:items-center tw:justify-center tw:p-4"
       @click.self="closeCamera"
     >
       <div class="tw:bg-white tw:rounded-xl tw:overflow-hidden tw:w-full tw:max-w-sm tw:shadow-xl">

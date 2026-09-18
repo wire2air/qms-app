@@ -19,41 +19,35 @@ const props = defineProps({
 
 const router = useRouter()
 
-const pendingDelete = shallowRef(null)
-const openDeleteDialog = computed({
-  get: () => pendingDelete.value !== null,
-  set: (val) => {
-    if (!val) pendingDelete.value = null
-  },
+const { confirm } = useConfirm()
+
+const columns = computed(() => {
+  const filterCfg = {
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
+    {
+      name: 'description',
+      label: 'DESCRIPTION',
+      field: 'description',
+      align: 'left',
+      sortable: false,
+    },
+    {
+      name: 'optionsCount',
+      label: 'OPTIONS',
+      field: 'optionsCount',
+      align: 'center',
+      sortable: false,
+    },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: '', field: 'actions', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
 
-const columns = [
-  { name: 'name', label: 'NAME', field: 'name', align: 'left', sortable: true },
-  {
-    name: 'description',
-    label: 'DESCRIPTION',
-    field: 'description',
-    align: 'left',
-    sortable: false,
-  },
-  {
-    name: 'optionsCount',
-    label: 'OPTIONS',
-    field: 'optionsCount',
-    align: 'center',
-    sortable: false,
-  },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'right' },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function rowMenuItems(row) {
   if (!props.canDelete) return []
@@ -61,16 +55,17 @@ function rowMenuItems(row) {
     {
       name: 'Delete',
       icon: IconTrash,
-      click: () => {
-        pendingDelete.value = row
+      click: async () => {
+        const ok = await confirm({
+          title: 'Delete Option Set',
+          message: `Are you sure you want to delete '${row.name}'? This cannot be undone.`,
+          okLabel: 'Delete',
+          danger: true,
+        })
+        if (ok) await row.delete()
       },
     },
   ]
-}
-
-async function executeDelete() {
-  await pendingDelete.value.delete()
-  pendingDelete.value = null
 }
 
 function onRowClick(row) {
@@ -79,12 +74,18 @@ function onRowClick(row) {
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
     rowKey="id"
+    :mobileCards="false"
+    searchable
+    filterable
+    exportManager
+    exportFilename="option-sets.csv"
     @rowClick="onRowClick"
   >
     <template #body-cell-name="{ row }">
@@ -108,13 +109,5 @@ function onRowClick(row) {
         <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
-
-  <ConfirmDialog
-    :modelValue="openDeleteDialog"
-    title="Delete Option Set"
-    :message="`Are you sure you want to delete '${pendingDelete?.name}'? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="executeDelete"
-  />
+  </DataTable>
 </template>

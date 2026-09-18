@@ -1,7 +1,6 @@
 import js from '@eslint/js'
 import globals from 'globals'
 import pluginVue from 'eslint-plugin-vue'
-import pluginQuasar from '@quasar/app-vite/eslint'
 import prettierSkipFormatting from '@vue/eslint-config-prettier/skip-formatting'
 import eslintAutoImport from './eslint-auto-import.js'
 import babelParser from '@babel/eslint-parser'
@@ -20,18 +19,12 @@ export default [
     },
   },
   {
-    /**
-     * Ignore the following files.
-     * Please note that pluginQuasar.configs.recommended() already ignores
-     * the "node_modules" folder for you (and all other Quasar project
-     * relevant folders and files).
-     *
-     * ESLint requires "ignores" key to be the only one in this object
-     */
-    // ignores: []
+    // Global ignores (previously provided by the Quasar eslint preset).
+    // ESLint already ignores node_modules/ and .git/ by default.
+    // ESLint requires "ignores" to be the only key in this object.
+    ignores: ['dist', 'dist-ssr', 'public', '*.local'],
   },
 
-  ...pluginQuasar.configs.recommended(),
   js.configs.recommended,
 
   /**
@@ -133,6 +126,40 @@ export default [
   {
     files: ['syncEngine/**/*.js'], // Target the specific folder
     rules: { 'no-console': 'off' }, // Disable the rule here
+  },
+
+  {
+    /**
+     * Design-system guardrail: forbid hardcoded hex colors inside Tailwind
+     * arbitrary-value classes (e.g. tw:bg-[#1e293b], tw:text-[#4ade80]) within
+     * component code. These bypass the token system and break dark mode.
+     * Use a token instead: tw:bg-card, tw:text-primary, tw:border-divider, etc.
+     * See src/css/tokens.css. For an intentionally theme-independent dark
+     * surface (code blocks, dark-asset previews) use tw:bg-code.
+     *
+     * Promoted to "error" — the scope is at zero violations, so this now
+     * prevents any new drift. The larger arbitrary font-size cleanup
+     * (tw:text-[11px] ×400+) is tracked separately and not enforced here.
+     */
+    files: ['src/components/**/*.{vue,js}', 'resource/js/shared/components/**/*.{vue,js}'],
+    rules: {
+      'vue/no-restricted-syntax': [
+        'error',
+        {
+          selector: 'VLiteral[value=/-\\[#[0-9a-fA-F]{3,8}\\]/]',
+          message:
+            'Hardcoded hex in a Tailwind class bypasses the design tokens and breaks dark mode. Use a token (tw:bg-card, tw:text-primary, tw:border-divider…). See src/css/tokens.css.',
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Literal[value=/-\\[#[0-9a-fA-F]{3,8}\\]/]',
+          message:
+            'Hardcoded hex in a Tailwind class bypasses the design tokens and breaks dark mode. Use a token (tw:bg-card, tw:text-primary, tw:border-divider…). See src/css/tokens.css.',
+        },
+      ],
+    },
   },
 
   prettierSkipFormatting,

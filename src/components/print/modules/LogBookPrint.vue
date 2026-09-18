@@ -39,10 +39,12 @@ const props = defineProps({
 
 const template = useLiveQueryWithDeps(
   [() => props.templateId],
+
   async (db, [tid]) => {
     if (!tid) return null
     return db.LogBook.findByPk(tid)
   },
+  { models: ['LogBook'] },
 )
 
 const records = useLiveQueryWithDeps(
@@ -62,7 +64,8 @@ const records = useLiveQueryWithDeps(
       (a, b) => (a.submittedAt?.toMillis?.() ?? 0) - (b.submittedAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['FieldRecord'], initial: [] },
 )
 
 // Pull only the current revisions for the records in view (one IDB
@@ -85,7 +88,8 @@ const payloadByRecordId = useLiveQueryWithDeps(
     }
     return out
   },
-  { initial: new Map() },
+
+  { models: ['FieldRecordRevision'], initial: new Map() },
 )
 
 function payloadFor(record) {
@@ -110,6 +114,13 @@ const visibleColumns = computed(() => {
   return scalarFields.value.filter((f) => keys.includes(f.name))
 })
 
+// The table has 4 fixed columns (Entry ID / Submitted / Submitter / Status)
+// plus one per chosen field. Once that runs past ~6 total it stops fitting
+// portrait A4, so open in landscape by default; the user can flip it back.
+const printOrientation = computed(() =>
+  4 + visibleColumns.value.length > 6 ? 'landscape' : 'portrait',
+)
+
 // Submitter name resolution — one map for everyone in the range.
 const submitterIds = computed(() => [
   ...new Set(records.value.map((r) => r.submittedByUserId).filter(Boolean)),
@@ -127,7 +138,8 @@ const userMap = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 function userName(id) {
@@ -171,6 +183,7 @@ onMounted(() => {
     :identifier="identifier"
     :auditEntities="auditEntities"
     :showAudit="false"
+    :defaultOrientation="printOrientation"
   >
     <template #title>
       <div class="lb-print-code">{{ template?.code }}</div>
@@ -181,9 +194,7 @@ onMounted(() => {
             <th>Log book</th>
             <td colspan="3">
               <strong>{{ template?.title || '—' }}</strong>
-              <span v-if="template?.code" class="lb-print-meta-code">
-                · {{ template.code }}
-              </span>
+              <span v-if="template?.code" class="lb-print-meta-code"> · {{ template.code }} </span>
             </td>
           </tr>
           <tr>
@@ -203,9 +214,7 @@ onMounted(() => {
     </template>
 
     <div v-if="!ready" class="tw:py-10 tw:text-secondary tw:text-center">Loading log book…</div>
-    <div v-else-if="records.length === 0" class="lb-print-empty">
-      No entries in this range.
-    </div>
+    <div v-else-if="records.length === 0" class="lb-print-empty">No entries in this range.</div>
     <div v-else class="lb-print-body">
       <table class="lb-print-entries">
         <thead>
@@ -272,7 +281,9 @@ onMounted(() => {
   color: #6b7280;
   font-size: 10px;
 }
-.lb-print-body { font-size: 10px; }
+.lb-print-body {
+  font-size: 10px;
+}
 .lb-print-empty {
   padding: 30px 0;
   text-align: center;
@@ -299,7 +310,9 @@ onMounted(() => {
   letter-spacing: 0.3px;
   color: #6b7280;
 }
-.lb-print-entries tr:nth-child(even) td { background: #fafafa; }
+.lb-print-entries tr:nth-child(even) td {
+  background: #fafafa;
+}
 .lb-print-id {
   font-family: ui-monospace, SFMono-Regular, monospace;
   white-space: nowrap;

@@ -14,7 +14,7 @@ const SCHEME_MAP = {
   APPROVED: { class: 'tw:bg-green-100 tw:text-green-700', dot: 'tw:bg-green-600' },
   PENDING: { class: 'tw:bg-amber-100 tw:text-amber-700', dot: 'tw:bg-amber-600' },
   REJECTED: { class: 'tw:bg-red-100 tw:text-red-700', dot: 'tw:bg-red-600' },
-  BLOCKED: { class: 'tw:bg-slate-100 tw:text-slate-600', dot: 'tw:bg-slate-500' },
+  BLOCKED: { class: 'tw:bg-gray-100 tw:text-gray-600', dot: 'tw:bg-gray-500' },
 }
 
 const scheme = (id) =>

@@ -3,7 +3,8 @@ import { IconBell } from '@tabler/icons-vue'
 
 const notifications = useLiveQuery(
   async (db) => db.Notification.where().orderBy('createdAt', 'desc').exec(),
-  { initial: [] },
+
+  { models: ['Notification'], initial: [] },
 )
 
 const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).length)
@@ -18,7 +19,7 @@ const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).
         <IconBell :size="20" class="tw:text-on-main" />
         <span
           v-if="unreadCount > 0"
-          class="tw:absolute tw:top-0.5 tw:right-0.5 tw:min-w-4 tw:h-4 tw:bg-red-500 tw:text-white tw:text-[10px] tw:font-bold tw:rounded-full tw:flex tw:items-center tw:justify-center tw:px-0.5"
+          class="tw:absolute tw:top-0.5 tw:right-0.5 tw:min-w-4 tw:h-4 tw:bg-red-500 tw:text-white tw:text-micro tw:font-bold tw:rounded-full tw:flex tw:items-center tw:justify-center tw:px-0.5"
         >
           {{ unreadCount > 99 ? '99+' : unreadCount }}
         </span>

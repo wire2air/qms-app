@@ -42,12 +42,12 @@ const documentSections = computed(() => props.version.sections || [])
             {{ version.statusName || version.statusId }}
           </BaseBadge>
 
-          <span class="tw:text-secondary tw:text-sm tw:font-mono">
+          <span class="tw:text-secondary tw:text-sm">
             {{ document.docNumber }} v{{ versionLabel }}
           </span>
         </div>
         <h2
-          class="tw:font-extrabold tw:text-on-sidebar tw:leading-tight"
+          class="tw:font-bold tw:text-on-sidebar tw:leading-tight"
           :class="dense ? 'tw:text-xl' : 'tw:text-3xl'"
         >
           {{ document.title }}
@@ -82,8 +82,11 @@ const documentSections = computed(() => props.version.sections || [])
           </h3>
 
           <!-- Section Content -->
+          <!-- 'textAttachment' shows both; each branch is an independent
+               v-if so the combined type falls into both rather than needing
+               its own copy of either. -->
           <BaseRichTextEditor
-            v-if="section.sectionType === 'text'"
+            v-if="section.sectionType === 'text' || section.sectionType === 'textAttachment'"
             :key="section.id"
             :modelValue="section.content"
             :editable="false"
@@ -91,7 +94,7 @@ const documentSections = computed(() => props.version.sections || [])
           />
 
           <BaseUploader
-            v-if="section.sectionType === 'attachment'"
+            v-if="section.sectionType === 'attachment' || section.sectionType === 'textAttachment'"
             :modelValue="section.attachments"
             :readonly="true"
             hideHeader

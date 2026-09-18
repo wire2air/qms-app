@@ -27,6 +27,14 @@ const props = defineProps({
   isSupplierFacing: { type: Boolean, default: false },
   supplierId: { type: String, default: null },
   ownerId: { type: String, default: null },
+  // Smart default forwarded to every step row: a step whose candidate
+  // pool contains this user is pre-assigned to them (e.g. the NC
+  // initiator). Omit to keep the plain first-step-only default.
+  preferUserId: { type: String, default: null },
+  // Dialog-only mode: suppress the inline version select. Used when the
+  // parent renders the workflow selection elsewhere (NC create's
+  // workflow-first screen) but still needs the submit-time reviewer dialog.
+  hideSelect: { type: Boolean, default: false },
 })
 const emit = defineEmits(['submit'])
 const modelValue = defineModel({ type: String })
@@ -38,7 +46,8 @@ const steps = useLiveQueryWithDeps(
     if (!versionId) return []
     return db.WorkflowStep.where('workflowVersionId', versionId).orderBy('stepOrder', 'asc').exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 // Flatten as root1, root1.child1, root1.child2, root2, … so children
@@ -112,7 +121,11 @@ defineExpose({ submit })
 </script>
 
 <template>
-  <WorkflowVersionSelect v-model="modelValue" :moduleId="module.workflowVersionModuleId" />
+  <WorkflowVersionSelect
+    v-if="!hideSelect"
+    v-model="modelValue"
+    :moduleId="module.workflowVersionModuleId"
+  />
 
   <BaseDialog v-model="submitDialogOpen" title="Assign Step Reviewers" maxWidth="lg" persistent>
     <div class="tw:space-y-3 tw:py-2">
@@ -132,16 +145,17 @@ defineExpose({ submit })
         :isSupplierFacing="props.isSupplierFacing"
         :supplierId="props.supplierId"
         :ownerId="props.ownerId"
+        :preferUserId="props.preferUserId"
       />
     </div>
 
     <template #footer="{ close }">
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" @click="handleCancel(close)">Cancel</BaseButton>
-        <BaseButton variant="primary" :disabled="!firstStepHasUser" @click="handleConfirm">
-          Confirm
-        </BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Confirm"
+        :disabled="!firstStepHasUser"
+        @cancel="handleCancel(close)"
+        @submit="handleConfirm"
+      />
     </template>
   </BaseDialog>
 </template>

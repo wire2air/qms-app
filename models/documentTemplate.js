@@ -33,7 +33,14 @@ export class DocumentTemplate extends BaseModel {
   @Property({ type: Boolean }) autoEffectiveOnApproval = true
   @Property({ type: Boolean }) showSectionTitles = true
   @Property({ type: Array }) sections = []
-  @Property({ type: String }) relatedStandardId = ''
+  // Approval flow, owned by the template (2026-08-15): the companion APPROVAL
+  // workflow whose published version every document created from this template
+  // inherits. Who signs what lives on that workflow's STEPS, not here — see
+  // documentTemplateApprovalFlow.js.
+  @Property({ type: String }) workflowId = null
+  // Nullable UUID FK to the RelatedStandard lookup — default null (not '') so an
+  // unset value never sends an empty string into the UUID FK column.
+  @Property({ type: String }) relatedStandardId = null
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })

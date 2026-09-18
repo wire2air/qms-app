@@ -1,5 +1,5 @@
 <script setup>
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, currentSession, canUseAi } from '@/utils/currentSession.js'
 import { IconMessageCheck, IconMessageExclamation, IconLoader2, IconTrash } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -38,17 +38,22 @@ const section = useLiveQueryWithDeps(
 )
 
 const canUpdateSection = computed(
-  () => props.canEdit && section.value && isAllowed(['documents:update']),
+  () => props.canEdit && section.value && isAllowed(['document_control:update']),
 )
 
 const canDeleteSection = computed(() => canUpdateSection.value && section.value?.isAddOn === true)
 
-const confirmDelete = ref(false)
+const { confirm } = useConfirm()
 
 async function deleteSection() {
   if (!section.value) return
-  await section.value.delete()
-  confirmDelete.value = false
+  const ok = await confirm({
+    title: 'Delete Section',
+    message: `Are you sure you want to delete '${section.value.title}'? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await section.value.delete()
 }
 
 // ── Auto-save on any change while the section is editable ──────
@@ -93,15 +98,29 @@ async function handleAttachmentsChange(next) {
   }
 }
 
+// RichTextAttachments owns attachments as its own model. Bridge it to the same
+// synchronous persist the uploader uses, so a file added inside the combined
+// control saves exactly like one added to an attachment-only section — a
+// writable computed rather than a v-model on the raw field, because that path
+// must not be swallowed by the debounced content save.
+const attachmentsProxy = computed({
+  get: () => section.value?.attachments ?? [],
+  set: (next) => {
+    handleAttachmentsChange(next)
+  },
+})
+
 // ── Reviewer comments ───────────────────────────────────────────
 const rejectedTask = useLiveQueryWithDeps(
   [() => props.documentVersionId],
+
   async (db, [versionId]) => {
     if (!versionId) return null
     return db.TaskInstance.where('[entityType+entityId]', ['DocumentVersion', versionId])
       .where('statusId', 'REJECTED')
       .first()
   },
+  { models: ['TaskInstance'] },
 )
 
 const reviewerComment = useLiveQueryWithDeps(
@@ -156,41 +175,78 @@ const debouncedSaveComment = useDebounceFn(async () => {
 
 <template>
   <div v-if="section" class="tw:break-inside-avoid">
-    <!-- Section Title -->
-    <div v-if="canUpdateSection" class="tw:flex tw:items-center tw:gap-2 tw:mb-4">
+    <!-- Section Title — editable only for user-added (add-on) sections. Sections
+         inherited from a template are fixed (can't be deleted), so their title
+         is locked too and renders as an H2 heading for a clean document flow. -->
+    <div
+      v-if="canUpdateSection && section.isAddOn"
+      class="tw:flex tw:items-center tw:gap-2 tw:mb-4"
+    >
       <span>{{ index + 1 }}.</span>
       <BaseTextInput v-model="section.title" size="sm" class="tw:flex-1" />
       <button
         v-if="canDeleteSection"
         class="tw:p-1.5 tw:rounded tw:text-red-400 tw:hover:text-red-600 tw:hover:bg-red-50 tw:transition-colors tw:print:hidden"
         title="Delete section"
-        @click="confirmDelete = true"
+        @click="deleteSection"
       >
         <IconTrash :size="16" />
       </button>
     </div>
-    <h3
+    <h2
       v-else
-      class="tw:font-bold tw:flex tw:items-center tw:gap-2"
+      class="tw:font-bold tw:flex tw:items-center tw:gap-2 tw:mb-4"
       :class="dense ? 'tw:text-base' : 'tw:text-xl'"
     >
       <span>{{ index + 1 }}.</span>
       <span>{{ section.title }}</span>
-    </h3>
+    </h2>
+
+    <!-- Guidance from the template, above the body it describes. Screen only:
+         it tells the author what to write, so it is not part of the controlled
+         document and must not print. -->
+    <SectionInstructions
+      :instructions="section.instructions"
+      class="tw:-mt-2 tw:mb-3 tw:print:hidden"
+    />
 
     <!-- Section Content -->
     <div class="section-content">
+      <!-- 'textAttachment' is ONE control, not an editor stacked on an
+           uploader (user request 2026-08-16) — RichTextAttachments already is
+           that control. It runs in separateAttachments mode so body and files
+           stay in their own columns: document_sections.attachments is read by
+           sectionIsIncomplete() and printed by snapshotPrint, and folding them
+           into `content` would break both. -->
+      <RichTextAttachments
+        v-if="section.sectionType === 'textAttachment'"
+        :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
+        v-model="section.content"
+        v-model:attachments="attachmentsProxy"
+        :separateAttachments="true"
+        :sectionNumber="index + 1"
+        :readonly="!canUpdateSection"
+      >
+        <template #toolbar-extra="{ editor }">
+          <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+        </template>
+      </RichTextAttachments>
+
       <BaseRichTextEditor
-        v-if="section.sectionType === 'text'"
+        v-else-if="section.sectionType === 'text'"
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         v-model="section.content"
         :editable="canUpdateSection"
         :sectionNumber="index + 1"
         class="tw:border-0! tw:min-h-fit!"
-      />
+      >
+        <template #toolbar-extra="{ editor }">
+          <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+        </template>
+      </BaseRichTextEditor>
 
       <BaseUploader
-        v-if="section.sectionType === 'attachment'"
+        v-else-if="section.sectionType === 'attachment'"
         :key="`${section.id}-${canUpdateSection ? 'editable' : 'readonly'}`"
         :modelValue="section.attachments"
         :readonly="!canUpdateSection"
@@ -234,13 +290,5 @@ const debouncedSaveComment = useDebounceFn(async () => {
         {{ reviewerComment.body }}
       </p>
     </div>
-
-    <ConfirmDialog
-      v-model="confirmDelete"
-      title="Delete Section"
-      :message="`Are you sure you want to delete '${section.title}'? This cannot be undone.`"
-      okLabel="Delete"
-      @ok="deleteSection"
-    />
   </div>
 </template>

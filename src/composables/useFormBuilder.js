@@ -2,43 +2,71 @@
  * Form Builder Composable
  * State management for the visual form builder
  */
-import { FIELD_TYPES_CONFIG, FIELD_TYPES } from '@/constants/formBuilderConfig'
+import { FIELD_TYPES, FIELD_WIDTHS, FIELD_KIND_OPTIONS } from '@/constants/formBuilderConfig'
+// Field factory + AI hydration live in aiFormHydrate so non-builder hosts
+// (e.g. the workflow AI generator building per-step formSchemas) share them.
+import {
+  getDefaultFieldConfig,
+  defaultFieldLabel,
+  fieldNameExists,
+  generateFieldName,
+  hydrateAiField,
+  hydrateAiFields,
+  hydrateChecklistRows,
+  hydrateChecklistColumns,
+} from '@/utils/aiFormHydrate'
 
-// Get default field configuration based on type
-function getDefaultFieldConfig(type) {
-  const typeConfig = FIELD_TYPES_CONFIG[type]
+const VALID_WIDTHS = new Set(FIELD_WIDTHS.map((w) => w.value))
 
-  // Deep clone to avoid shared references for arrays/objects (e.g. options, children)
-  return JSON.parse(
-    JSON.stringify({
-      type,
-      ...FIELD_TYPES_CONFIG.base,
-      ...typeConfig,
-    }),
-  )
+// The field types the AI generator can emit (mirror of FIELD_TYPE_IDS in the
+// backend form.generate_schema task). In EDIT mode, a field whose current type
+// is OUTSIDE this set (repeater, lookup, rca, file, photo, inputTable, …) can't
+// be rebuilt from an AI descriptor, so it is always preserved wholesale by name
+// rather than re-hydrated.
+const AI_CURATED_TYPES = new Set([
+  'input', 'textarea', 'number', 'email', 'phone', 'select', 'checkbox', 'optionGroup',
+  'checklist', 'datetime', 'rating', 'toggle', 'textEditor', 'signature', 'header', 'instructions',
+])
+
+// Flatten a schema tree into a name → field-clone map (walks section children),
+// so an AI edit can restore an untouched/heavy field verbatim by its name.
+function indexFieldsByName(fields, map) {
+  for (const field of fields) {
+    if (field?.name) map.set(field.name, JSON.parse(JSON.stringify(field)))
+    if (Array.isArray(field?.children)) indexFieldsByName(field.children, map)
+  }
 }
 
-// Generate a unique field name
-function generateFieldName(type, existingFields) {
-  const baseName = type.toLowerCase()
-  let counter = 1
-  let name = `${baseName}_${counter}`
-
-  function fieldNameExists(fields, targetName) {
-    for (const field of fields) {
-      if (field.name === targetName) return true
-      if (field.children && fieldNameExists(field.children, targetName)) return true
-      if (field.template && fieldNameExists(field.template, targetName)) return true
-    }
-    return false
+// EDIT mode: keep an existing field object wholesale (its exact type + all heavy
+// internals: repeater templates, lookup config, options, checklist grid) and
+// overlay only the lightweight edits the AI expressed. Used when the AI echoed a
+// field's name without changing its type.
+function overlayExistingField(existing, node) {
+  const f = JSON.parse(JSON.stringify(existing))
+  if (typeof node.label === 'string' && node.label.trim()) {
+    f.label = node.label.trim()
+    if (f.type === 'header') f.text = f.label
   }
-
-  while (fieldNameExists(existingFields, name)) {
-    counter++
-    name = `${baseName}_${counter}`
+  if (typeof node.required === 'boolean') f.required = node.required
+  if (typeof node.placeholder === 'string') f.placeholder = node.placeholder
+  if (typeof node.hint === 'string') f.hint = node.hint
+  if (typeof node.width === 'string' && VALID_WIDTHS.has(node.width)) f.width = node.width
+  // Numeric bounds — "change the range to 2-8" on a kept number field.
+  if (Number.isFinite(node.min)) f.min = node.min
+  if (Number.isFinite(node.max)) f.max = node.max
+  // Only overlay options for types that actually use them.
+  if (['select', 'optionGroup', 'checkbox'].includes(f.type) && Array.isArray(node.options)) {
+    const opts = node.options.filter((o) => typeof o === 'string' && o.trim()).map((o) => o.trim())
+    if (opts.length) f.options = opts
   }
-
-  return name
+  // Checklist grid edits on a kept checklist field.
+  if (f.type === 'checklist') {
+    const rows = hydrateChecklistRows(node.rows)
+    const columns = hydrateChecklistColumns(node.columns)
+    if (rows.length) f.rows = rows
+    if (columns.length) f.columns = columns
+  }
+  return f
 }
 
 export function useFormBuilder(initialSchema = []) {
@@ -154,11 +182,19 @@ export function useFormBuilder(initialSchema = []) {
 
     const config = getDefaultFieldConfig(type)
     config.name = generateFieldName(type, schema.value)
-    config.label = FIELD_TYPES[type]?.label || type
+    config.label = defaultFieldLabel(type)
 
     let newPath
     if (parentPath !== null) {
       const parent = getFieldByPath(schema.value, parentPath)
+      // Self-contained step sections (Approval / Effectiveness Check) carry no
+      // form — refuse inserts into them no matter which path asked (2026-08-28).
+      if (
+        parent?.type === 'section' &&
+        ['APPROVAL', 'DELAY'].includes(parent?.routing?.type)
+      ) {
+        return null
+      }
       if (parent) {
         // Inherit colClass from parent row if available
         if (parent.type === 'row' && parent.colClass) {
@@ -221,6 +257,26 @@ export function useFormBuilder(initialSchema = []) {
     }
   }
 
+  /**
+   * Move a section's children OUT — inserted into the section's own container
+   * right after it (2026-08-28). Self-contained step sections (Approval /
+   * Effectiveness Check) carry no form, so fields trapped inside them render
+   * nowhere; this is the one-click rescue the canvas offers.
+   */
+  function hoistChildren(path) {
+    const section = getFieldByPath(schema.value, path)
+    const kids = section?.children
+    if (!kids?.length) return
+    saveToHistory()
+    const parts = String(path).split('.')
+    const idx = parseInt(parts.pop(), 10)
+    const container =
+      parts.length === 0 ? schema.value : getFieldByPath(schema.value, parts.join('.'))
+    if (!Array.isArray(container) || Number.isNaN(idx)) return
+    const moved = kids.splice(0, kids.length)
+    container.splice(idx + 1, 0, ...moved)
+  }
+
   // Update a field's configuration - DEPRECATED in favor of direct mutation
   function updateField(path, updates) {
     // saveToHistory() // Handled by watcher
@@ -276,6 +332,49 @@ export function useFormBuilder(initialSchema = []) {
   }
 
   // Duplicate a field
+  /**
+   * Convert a field to another KIND (see FIELD_KIND_OPTIONS) in place — the
+   * type picker beside the label on the canvas.
+   *
+   * Keeps what belongs to the QUESTION (name, label, description, required,
+   * width, visibility) and swaps everything that belongs to the WIDGET for
+   * the new type's factory defaults. `name` in particular must survive: it's
+   * the answer key, so changing it would orphan every value already captured
+   * against this field.
+   *
+   * Options carry over between option-based kinds (Multiple choice ↔
+   * Checkboxes ↔ Dropdown), which is the common switch and the one where
+   * losing the list would hurt most.
+   */
+  const OPTION_BASED = new Set(['optionGroup', 'select'])
+
+  function changeFieldKind(path, kindId) {
+    const field = getFieldByPath(schema.value, path)
+    const kind = FIELD_KIND_OPTIONS.find((k) => k.id === kindId)
+    if (!field || !kind) return
+    if (kind.type === field.type && (kind.groupType ?? null) === (field.groupType ?? null)) return
+
+    saveToHistory()
+
+    const fresh = getDefaultFieldConfig(kind.type)
+    const next = {
+      ...fresh,
+      ...(kind.groupType ? { groupType: kind.groupType } : {}),
+      // Question-level identity, preserved across the conversion.
+      name: field.name,
+      label: field.label,
+      hint: field.hint ?? '',
+      required: field.required ?? false,
+      width: field.width ?? 'full',
+      hidden: field.hidden ?? false,
+    }
+    if (OPTION_BASED.has(kind.type) && OPTION_BASED.has(field.type) && field.options?.length) {
+      next.options = JSON.parse(JSON.stringify(field.options))
+    }
+
+    setFieldByPath(schema.value, path, next)
+  }
+
   function duplicateField(path) {
     saveToHistory()
 
@@ -345,6 +444,41 @@ export function useFormBuilder(initialSchema = []) {
     })
   }
 
+  // Build one field from an AI descriptor. In EDIT mode (existingByName given)
+  // a name-matched field is preserved wholesale unless the AI genuinely retyped
+  // it to another curated type; heavy/non-curated fields are always preserved.
+  function buildFieldFromNode(node, root, existingByName, reservedNames) {
+    const name = typeof node.name === 'string' && node.name.trim() ? node.name.trim() : null
+    const existing = name ? existingByName.get(name) : null
+    if (existing && !fieldNameExists(root, name)) {
+      const existingCurated = FIELD_TYPES[existing.type] && AI_CURATED_TYPES.has(existing.type)
+      const nodeCurated = node.type && FIELD_TYPES[node.type] && AI_CURATED_TYPES.has(node.type)
+      const typeChanged = existingCurated && nodeCurated && node.type !== existing.type
+      // Preserve unless the user retyped a curated field to another curated type.
+      if (!typeChanged) return overlayExistingField(existing, node)
+      // Retype: rebuild fresh but keep the stable name (answers don't orphan).
+    }
+    return hydrateAiField(node, root, reservedNames)
+  }
+
+  // Replace the whole schema with an AI-generated / AI-edited form. Fields
+  // carrying a shared `section` label are grouped into real `section` containers
+  // (in first-appearance order); ungrouped fields sit at the top level.
+  // Overwrites the current schema (undoable via history). When `preserveFrom` is
+  // supplied (EDIT mode), fields the AI echoed by name are restored from it
+  // verbatim so existing (and heavy) fields — and answers bound to them — survive.
+  function applyAiSchema(aiResult, { preserveFrom = null } = {}) {
+    const fields = Array.isArray(aiResult?.fields) ? aiResult.fields : []
+    const existingByName = new Map()
+    if (Array.isArray(preserveFrom)) indexFieldsByName(preserveFrom, existingByName)
+
+    const newSchema = hydrateAiFields(fields, {
+      buildField: (node, root, reserved) => buildFieldFromNode(node, root, existingByName, reserved),
+    })
+
+    importSchema(newSchema)
+  }
+
   // Clear all fields
   function clearSchema() {
     saveToHistory()
@@ -362,11 +496,13 @@ export function useFormBuilder(initialSchema = []) {
     // Actions
     addField,
     removeField,
+    hoistChildren,
     updateField, // Deprecated but kept for compatibility
     moveField,
     selectField,
     clearSelection,
     duplicateField,
+    changeFieldKind,
 
     // History
     undo,
@@ -377,6 +513,7 @@ export function useFormBuilder(initialSchema = []) {
     // Import/Export
     exportSchema,
     importSchema,
+    applyAiSchema,
     clearSchema,
 
     // Utilities

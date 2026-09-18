@@ -1,37 +1,85 @@
 <script setup>
-import { IconAlertCircle, IconAlertTriangle, IconClock, IconCircleCheck } from '@tabler/icons-vue'
+// `embedded` lets a host page (NonconformancesHomeTabs) own the real PageHeader while
+// this component keeps its own actions row. Without it the tab shell and the
+// list would each teleport a header and the page would show two titles.
+defineProps({
+  embedded: { type: Boolean, default: false },
+})
+
+import { humanizeFilter } from '@/composables/useListPrint.js'
+import { IconAlertCircle, IconAlertTriangle, IconCircleCheck } from '@tabler/icons-vue'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
+import { matchesDateFilter } from '@/utils/dateRanges.js'
+import {
+  useEffectivenessIndex,
+  matchesEffectivenessFilter,
+} from '@/composables/useEffectivenessRollup.js'
 
 const router = useRouter()
+const route = useRoute()
 
-const canCreate = computed(() => isAllowed(['nonconformances:create']))
-const canUpdate = computed(() => isAllowed(['nonconformances:update']))
-const canDelete = computed(() => isAllowed(['nonconformances:delete']))
+const canCreate = computed(() => isAllowed(['ncr:create']))
+const canUpdate = computed(() => isAllowed(['ncr:update']))
+const canDelete = computed(() => isAllowed(['ncr:delete']))
 
-const filters = ref({ search: '', statusId: null, severityId: null, typeId: null })
-const activeFilter = ref('all_open')
+const { confirm } = useConfirm()
+const toast = useToast()
+
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty` are lazy getters that read `ncs`. `activeFilter` (the
+// quick-filter pill) lives in the same filter bag so it shares URL-sync +
+// page-reset behavior.
+const list = useListLayout({
+  filters: {
+    // Multi-select dimensions (Linear-style filter menu) — arrays of ids.
+    // (Free-text search now lives in the table toolbar, not here.)
+    statusId: [],
+    severityId: [],
+    typeId: [],
+    supplierId: route.query.supplierId ? [route.query.supplierId] : [],
+    createdAt: null,
+    effectiveness: [],
+    activeFilter: 'all_open',
+  },
+  total: () => ncs.value.length,
+  empty: () => ncs.value.length === 0,
+  syncUrl: true,
+})
+
+// Supplier deep-link: /nonconformances?supplierId=… prefilters to one supplier.
+watch(
+  () => route.query.supplierId,
+  (v) => (list.filters.value.supplierId = v ? [v] : []),
+)
+const filterSupplier = useLiveQueryWithDeps(
+  [() => list.filters.value.supplierId?.[0] ?? null],
+  async (db, [id]) => (id ? db.Supplier.findByPk(id) : null),
+  { models: ['Supplier'] },
+)
+function clearSupplierFilter() {
+  list.filters.value.supplierId = []
+  const q = { ...route.query }
+  delete q.supplierId
+  router.replace({ query: q })
+}
 
 const CLOSED_STATUSES = ['CLOSED']
-const OPEN_STATUSES = ['DRAFT', 'UNDER_REVIEW']
+const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
-function applyFilters(results, search, statusId, severityId, typeId) {
-  if (search) {
-    const q = search.toLowerCase()
-    results = results.filter(
-      (r) => r.title?.toLowerCase().includes(q) || r.ncNumber?.toLowerCase().includes(q),
-    )
-  }
-  if (statusId) results = results.filter((r) => r.statusId === statusId)
-  if (severityId) results = results.filter((r) => r.severityId === severityId)
-  if (typeId) results = results.filter((r) => r.typeId === typeId)
+function applyFilters(results, statusIds, severityIds, typeIds) {
+  if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
+  if (severityIds?.length) results = results.filter((r) => severityIds.includes(r.severityId))
+  if (typeIds?.length) results = results.filter((r) => typeIds.includes(r.typeId))
   return results
 }
 
 function applyActiveFilter(results, af) {
-  const now = DateTime.now()
   const userId = currentSession.value?.userId
+  // Explicit rather than relying on the fallthrough below: 'all' is a real
+  // choice (the whole register, closed included), not an unrecognised value.
+  if (af === 'all') return results
   if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
   if (af === 'mine')
     return results.filter((r) => r.ownerId === userId && OPEN_STATUSES.includes(r.statusId))
@@ -39,31 +87,47 @@ function applyActiveFilter(results, af) {
     return results.filter((r) => r.severityId === 'CRITICAL' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'major')
     return results.filter((r) => r.severityId === 'MAJOR' && OPEN_STATUSES.includes(r.statusId))
-  if (af === 'overdue')
-    return results.filter((r) => r.dueDate && r.dueDate < now && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
   return results
 }
 
-const allNcs = useLiveQuery((db) => db.Nonconformance.where().exec(), { initial: [] })
+// resourceId → current workflow instance, for the effectiveness filter (reads
+// the trigger-maintained rollup columns — no step digging).
+const effectivenessIndex = useEffectivenessIndex(() => 'Nonconformance')
+
+const allNcs = useLiveQuery((db) => db.Nonconformance.where().exec(), {
+  models: ['Nonconformance'],
+  initial: [],
+})
 
 const ncs = useLiveQueryWithDeps(
   [
-    () => filters.value.search,
-    () => filters.value.statusId,
-    () => filters.value.severityId,
-    () => filters.value.typeId,
-    () => activeFilter.value,
+    () => list.filters.value.statusId,
+    () => list.filters.value.severityId,
+    () => list.filters.value.typeId,
+    () => list.filters.value.activeFilter,
+    () => list.filters.value.supplierId,
+    () => list.filters.value.createdAt,
+    () => list.filters.value.effectiveness,
+    () => effectivenessIndex.value,
   ],
-  async (db, [search, statusId, severityId, typeId, af]) => {
+  async (db, [statusIds, severityIds, typeIds, af, supplierIds, createdAt, effectiveness]) => {
     let results = await db.Nonconformance.where().exec()
-    results = applyFilters(results, search, statusId, severityId, typeId)
+    results = applyFilters(results, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
+    if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
+    if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
+    if (effectiveness?.length) {
+      results = results.filter((r) =>
+        matchesEffectivenessFilter(effectivenessIndex.value.get(r.id), effectiveness),
+      )
+    }
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Nonconformance'], initial: [] },
 )
 
 const stats = computed(() => {
@@ -71,125 +135,128 @@ const stats = computed(() => {
   const now = DateTime.now()
   const startOfMonth = now.startOf('month')
   const openNcs = all.filter((r) => OPEN_STATUSES.includes(r.statusId))
-  const overdue = openNcs.filter((r) => r.dueDate && r.dueDate < now)
   const criticalOpen = openNcs.filter((r) => r.severityId === 'CRITICAL')
   const closedThisMonth = all.filter(
     (r) => CLOSED_STATUSES.includes(r.statusId) && r.closedAt && r.closedAt >= startOfMonth,
   )
   return {
     open: openNcs.length,
-    overdue: overdue.length,
     criticalOpen: criticalOpen.length,
     closedThisMonth: closedThisMonth.length,
   }
 })
 
+// Compact KPI strip (list-page metrics bar, not a dashboard card grid).
+const kpiItems = computed(() => [
+  { key: 'open', label: 'Open NCs', value: stats.value.open, icon: IconAlertCircle, color: 'blue' },
+  {
+    key: 'critical',
+    label: 'Critical open',
+    value: stats.value.criticalOpen,
+    icon: IconAlertTriangle,
+    color: 'amber',
+    emphasize: stats.value.criticalOpen > 0,
+  },
+  {
+    key: 'closed',
+    label: 'Closed this month',
+    value: stats.value.closedThisMonth,
+    icon: IconCircleCheck,
+    color: 'green',
+  },
+])
+
 function onRaiseNc() {
   router.push(getCompanyPath('/nonconformances/create'))
+}
+
+// The table emits `delete`; without a listener the row-menu Delete did nothing
+// (no dialog, no removal). Confirm, then soft-delete (the model is paranoid).
+async function onDeleteNc(row) {
+  const label = row.ncNumber ? `${row.ncNumber} — ${row.title}` : row.title
+  const ok = await confirm({
+    title: 'Delete Nonconformance',
+    message: `Delete nonconformance '${label}'? It will be removed from the list.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await row.delete()
+    toast.success('Nonconformance deleted')
+  } catch (e) {
+    toast.error(e?.message || 'Failed to delete nonconformance')
+  }
 }
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Nonconformances</h2>
-      </div>
-    </SafeTeleport>
+  <BaseListLayout
+    :embedded="embedded"
+    title="Nonconformances"
+    subtitle="Track, investigate and close nonconformances."
+    :state="list.state.value"
+    contentOwnsEmpty
+  >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-2">
+        Nonconformances
+        <span
+          class="tw:rounded-full tw:bg-main-selected tw:px-2 tw:py-0.5 tw:text-caption tw:font-semibold tw:text-secondary tw:tabular-nums"
+        >
+          {{ ncs.length }}
+        </span>
+        <HelpButton slug="KB/quality/nonconformances" :size="16" />
+      </span>
+    </template>
 
-    <SafeTeleport to="#main-header-actions">
+    <template #actions>
+      <ListPrintButton
+        entity="Nonconformance"
+        title="Nonconformance Register"
+        :rows="ncs"
+        :filterLabel="humanizeFilter(list.filters.value.activeFilter)"
+      />
       <BaseButton v-if="canCreate" variant="primary" @click="onRaiseNc">Raise NC</BaseButton>
-    </SafeTeleport>
+    </template>
 
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Nonconformances</div>
-      <div class="tw:text-sm tw:text-secondary">Track, investigate and close nonconformances.</div>
-    </div>
+    <template #stats>
+      <BaseStatStrip :items="kpiItems" />
+    </template>
 
-    <!-- Stat Cards -->
-    <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
+    <template #filters>
       <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
+        v-if="supplierFilter"
+        class="tw:flex tw:items-center tw:gap-2 tw:mb-3 tw:text-sm tw:bg-blue-50 tw:border tw:border-blue-200 tw:text-blue-800 tw:rounded-lg tw:px-3 tw:py-2"
       >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+        <span
+          >Filtered by supplier: <strong>{{ filterSupplier?.name || '…' }}</strong></span
         >
-          <IconAlertCircle :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Open NCs
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.open }}</div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-red-50 tw:text-red-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
+        <button
+          type="button"
+          class="tw:ml-auto tw:text-blue-700 tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-xs tw:font-medium"
+          @click="clearSupplierFilter"
         >
-          <IconClock :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Overdue
-          </div>
-          <div
-            class="tw:text-2xl tw:font-black"
-            :class="stats.overdue > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
-          >
-            {{ stats.overdue }}
-          </div>
-        </div>
+          Clear
+        </button>
       </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconAlertTriangle :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Critical open
-          </div>
-          <div
-            class="tw:text-2xl tw:font-black"
-            :class="stats.criticalOpen > 0 ? 'tw:text-amber-600' : 'tw:text-on-sidebar'"
-          >
-            {{ stats.criticalOpen }}
-          </div>
-        </div>
-      </div>
-      <div
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
-      >
-        <div
-          class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-green-50 tw:text-green-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
-        >
-          <IconCircleCheck :size="20" />
-        </div>
-        <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
-            Closed this month
-          </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
-            {{ stats.closedThisMonth }}
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <NonconformancesFilterToolbar v-model:filters="filters" v-model:activeFilter="activeFilter" />
+      <NonconformancesFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
     <NonconformancesTable
+      v-model:activeFilter="list.filters.value.activeFilter"
+      v-model:filters="list.filters.value"
       :rows="ncs"
+      :emptyLabel="
+        list.hasActiveFilters.value
+          ? 'No nonconformances match your filters'
+          : 'No nonconformances yet'
+      "
       :canUpdate="canUpdate"
       :canDelete="canDelete"
       @edit="(row) => router.push(getCompanyPath(`/nonconformances/${row.id}`))"
+      @delete="onDeleteNc"
     />
-  </div>
+  </BaseListLayout>
 </template>

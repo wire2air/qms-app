@@ -84,7 +84,9 @@ watch(show, (open) => {
         </div>
         <div class="tw:flex tw:flex-col tw:min-w-0">
           <span class="tw:text-2xl tw:font-bold tw:text-on-main">AI Summary</span>
-          <span v-if="documentTitle" class="tw:text-sm tw:text-secondary tw:truncate">{{ documentTitle }}</span>
+          <span v-if="documentTitle" class="tw:text-sm tw:text-secondary tw:truncate">{{
+            documentTitle
+          }}</span>
         </div>
       </div>
     </template>
@@ -112,17 +114,13 @@ watch(show, (open) => {
       <div class="tw:flex tw:flex-col tw:gap-4">
         <!-- TL;DR -->
         <div>
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-1">
-            TL;DR
-          </div>
+          <BaseText variant="overline" class="tw:block tw:mb-1">TL;DR</BaseText>
           <div class="tw:text-sm tw:text-on-main tw:leading-relaxed">{{ result.tldr }}</div>
         </div>
 
         <!-- Key points -->
         <div>
-          <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-2">
-            Key points
-          </div>
+          <BaseText variant="overline" class="tw:block tw:mb-2">Key points</BaseText>
           <ul class="tw:list-disc tw:pl-5 tw:flex tw:flex-col tw:gap-1 tw:text-sm tw:text-on-main">
             <li v-for="(point, i) in result.keyPoints" :key="i">{{ point }}</li>
           </ul>
@@ -130,17 +128,21 @@ watch(show, (open) => {
 
         <!-- Meta -->
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-3 tw:gap-3">
-          <div class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-sidebar tw:border tw:border-divider">
+          <div
+            class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-sidebar tw:border tw:border-divider"
+          >
             <IconUsers :size="16" class="tw:text-primary tw:mt-0.5 tw:flex-none" />
             <div class="tw:min-w-0">
-              <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase">Audience</div>
+              <BaseText variant="overline">Audience</BaseText>
               <div class="tw:text-sm tw:text-on-main">{{ result.audience }}</div>
             </div>
           </div>
-          <div class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-sidebar tw:border tw:border-divider">
+          <div
+            class="tw:flex tw:items-start tw:gap-2 tw:p-3 tw:rounded-lg tw:bg-sidebar tw:border tw:border-divider"
+          >
             <IconClock :size="16" class="tw:text-primary tw:mt-0.5 tw:flex-none" />
             <div class="tw:min-w-0">
-              <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase">Read time</div>
+              <BaseText variant="overline">Read time</BaseText>
               <div class="tw:text-sm tw:text-on-main">{{ result.estimatedReadMinutes }} min</div>
             </div>
           </div>
@@ -150,7 +152,7 @@ watch(show, (open) => {
           >
             <IconShieldCheck :size="16" class="tw:text-primary tw:mt-0.5 tw:flex-none" />
             <div class="tw:min-w-0">
-              <div class="tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase">Compliance</div>
+              <BaseText variant="overline">Compliance</BaseText>
               <div class="tw:text-sm tw:text-on-main">{{ result.complianceNotes }}</div>
             </div>
           </div>

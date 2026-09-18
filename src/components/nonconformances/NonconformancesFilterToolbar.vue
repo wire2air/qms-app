@@ -1,59 +1,120 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
+/**
+ * Applied-filter token bar for the NC register. The filter MENU and the quick
+ * views now live in the table toolbar — see NonconformancesTable — so this
+ * renders only the removable tokens for what is currently applied, and
+ * disappears entirely when nothing is.
+ */
+import { IconX } from '@tabler/icons-vue'
+import { EFFECTIVENESS_FILTER_OPTIONS } from '@/composables/useEffectivenessRollup.js'
 
 const filters = defineModel('filters', { type: Object, required: true })
-const activeFilter = defineModel('activeFilter', { type: String, required: true })
 
-const filterPills = [
-  { value: 'all_open', label: 'All open' },
-  { value: 'mine', label: 'My NCs' },
-  { value: 'critical', label: 'Critical' },
-  { value: 'major', label: 'Major' },
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'closed', label: 'Closed' },
-]
+function arr(key) {
+  return Array.isArray(filters.value[key]) ? filters.value[key] : []
+}
+function removeValue(key, value) {
+  filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
+}
+const hasChips = computed(
+  () =>
+    arr('statusId').length ||
+    arr('severityId').length ||
+    arr('typeId').length ||
+    arr('supplierId').length ||
+    arr('effectiveness').length ||
+    filters.value.createdAt,
+)
+
+const EFFECTIVENESS_CHIP_LABELS = Object.fromEntries(
+  EFFECTIVENESS_FILTER_OPTIONS.map((o) => [o.value, o.label]),
+)
+
+function clearAll() {
+  filters.value = {
+    ...filters.value,
+    statusId: [],
+    severityId: [],
+    typeId: [],
+    supplierId: [],
+    effectiveness: [],
+    createdAt: null,
+  }
+}
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-2">
-    <div class="tw:bg-main-hover tw:rounded-lg">
-      <div class="tw:flex tw:items-center tw:p-2 tw:gap-2 tw:flex-wrap">
-        <div class="tw:w-full tw:md:w-1/3 tw:relative">
-          <IconSearch
-            :size="16"
-            class="tw:absolute tw:left-2 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-          />
-          <BaseTextInput
-            v-model="filters.search"
-            placeholder="Search NC number, title…"
-            class="tw:pl-7"
-          />
-        </div>
-        <div class="tw:w-full tw:md:w-1/6">
-          <NcStatusSelectMenu v-model="filters.statusId" />
-        </div>
-        <div class="tw:w-full tw:md:w-1/6">
-          <NcSeveritySelectMenu v-model="filters.severityId" />
-        </div>
-        <div class="tw:w-full tw:md:w-1/6">
-          <NcTypeSelectMenu v-model="filters.typeId" />
-        </div>
-      </div>
-    </div>
-    <div class="tw:flex tw:gap-2 tw:flex-wrap tw:items-center">
+  <!-- Sticky token bar: pins below the app bar while the list scrolls. -->
+  <div
+    v-if="hasChips"
+    class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-wrap tw:items-center tw:gap-1.5 tw:bg-main tw:pt-1 tw:pb-2.5"
+  >
+    <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+      Filters
+    </span>
+    <NcStatusBadgeById
+      v-for="id in arr('statusId')"
+      :key="`st-${id}`"
+      :statusId="id"
+      clearable
+      @clear="removeValue('statusId', id)"
+    />
+    <NcSeverityBadgeById
+      v-for="id in arr('severityId')"
+      :key="`sv-${id}`"
+      :severityId="id"
+      clearable
+      @clear="removeValue('severityId', id)"
+    />
+    <NcTypeBadgeById
+      v-for="id in arr('typeId')"
+      :key="`ty-${id}`"
+      :typeId="id"
+      clearable
+      @clear="removeValue('typeId', id)"
+    />
+    <SupplierBadgeById
+      v-for="id in arr('supplierId')"
+      :key="`sp-${id}`"
+      :supplierId="id"
+      clearable
+      @clear="removeValue('supplierId', id)"
+    />
+    <span
+      v-for="v in arr('effectiveness')"
+      :key="`ef-${v}`"
+      class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+    >
+      Effectiveness: {{ EFFECTIVENESS_CHIP_LABELS[v] ?? v }}
       <button
-        v-for="pill in filterPills"
-        :key="pill.value"
-        class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
-        :class="
-          activeFilter === pill.value
-            ? 'tw:bg-blue-50 tw:text-blue-700 tw:border-blue-300'
-            : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
-        "
-        @click="activeFilter = pill.value"
+        type="button"
+        class="tw:rounded tw:p-0.5 tw:hover:text-bad"
+        :aria-label="`Remove effectiveness filter ${EFFECTIVENESS_CHIP_LABELS[v] ?? v}`"
+        @click="removeValue('effectiveness', v)"
       >
-        {{ pill.label }}
+        <IconX :size="12" />
       </button>
-    </div>
+    </span>
+    <span
+      v-if="filters.createdAt"
+      class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-md tw:border tw:border-divider tw:bg-card tw:py-0.5 tw:ps-2 tw:pe-1 tw:text-xs tw:text-secondary"
+    >
+      Created date
+      <button
+        type="button"
+        aria-label="Clear date filter"
+        class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
+        @click="filters.createdAt = null"
+      >
+        <IconX class="tw:size-3" />
+      </button>
+    </span>
+    <button
+      type="button"
+      class="tw:ms-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+      @click="clearAll"
+    >
+      Clear all
+    </button>
   </div>
 </template>

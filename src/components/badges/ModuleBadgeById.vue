@@ -12,7 +12,8 @@ const module = useLiveQueryWithDeps(
     if (!moduleId) return null
     return db.Module.findByPk(moduleId)
   },
-  { initial: null },
+
+  { models: ['Module'], initial: null },
 )
 </script>
 

@@ -1,7 +1,8 @@
+import { defineComponent, ref, computed, h, onMounted } from 'vue'
 import { DateTime } from 'luxon'
-import { defineComponent, ref, computed, h } from 'vue'
 import { useVModels } from '@vueuse/core'
 import { getProp, injectMultipleProps, setProp } from '@shared/composables/object.js'
+import { LOOKUP_MENUS } from '@/components/menus/lookupMenus.js'
 import {
   IconStar,
   IconStarFilled,
@@ -11,21 +12,70 @@ import {
   IconChevronRight,
 } from '@tabler/icons-vue'
 import BaseTextInput from '@shared/components/BaseTextInput.vue'
+import BaseEmailInput from '@shared/components/BaseEmailInput.vue'
+import BasePhoneInput from '@shared/components/BasePhoneInput.vue'
 import BaseCheckbox from '@shared/components/BaseCheckbox.vue'
 import BaseSwitch from '@shared/components/BaseSwitch.vue'
 import BaseColorPicker from '@shared/components/BaseColorPicker.vue'
+import BaseSignaturePad from '@shared/components/BaseSignaturePad.vue'
 import BaseRichTextEditor from '@/components/editor/BaseRichTextEditor.vue'
-import BaseDatePicker from '@shared/components/BaseDatePicker.vue'
-import BaseTimePicker from '@shared/components/BaseTimePicker.vue'
-import BaseDateTimePicker from '@shared/components/BaseDateTimePicker.vue'
+import BaseVoiceButton from '@shared/components/BaseVoiceButton.vue'
+import AiTextAssistButton from '@/components/ai/AiTextAssistButton.vue'
+import { canUseAi } from '@/utils/currentSession.js'
+import RichTextAttachments from '@/components/shared/RichTextAttachments.vue'
+import { tableStyleClasses, cx } from '@/utils/tableStyle'
+import BaseDateField from '@shared/components/BaseDateField.vue'
 import OptionSetSelect from '@/components/common/OptionSetSelect.vue'
 import OptionSetOptionGroup from '@/components/common/OptionSetOptionGroup.vue'
 import BaseChecklist from '@shared/components/BaseChecklist.vue'
 import { useValidator } from '@shared/composables/validator.js'
 import BasePhoto from '@shared/components/BasePhoto.vue'
+import BaseSpinner from '@shared/components/BaseSpinner.vue'
 import BaseUploader from '@/components/common/BaseUploader.vue'
-import { required } from '@vuelidate/validators'
+import { required, email as emailValidator, helpers } from '@vuelidate/validators'
 import { getFormComponent } from './formComponentRegistry.js'
+import { fieldWidthSpan } from '@/constants/formBuilderConfig'
+import { LOOKUP_CASCADES } from '@/constants/formBuilderConfig'
+
+// Entity pickers a `lookup` field can render, keyed by field.lookupEntity.
+// THE shared map — every lookup surface renders from it; see lookupMenus.js.
+
+function safeRegExp(src) {
+  try {
+    return src ? new RegExp(src) : null
+  } catch {
+    return null
+  }
+}
+
+// A phone passes if: a custom regex matches; else its national digit count
+// equals the mask's '#' count; else it has at least 7 digits. Empty passes —
+// `required` owns emptiness.
+function makePhoneValidator(field) {
+  const re = safeRegExp(field.formatRegex)
+  const maskCount = field.mask ? (field.mask.match(/#/g) || []).length : 0
+  return (value) => {
+    if (!helpers.req(value)) return true
+    const v = String(value)
+    if (re) return re.test(v)
+    const national = v.replace(/^\+\d{1,4}\s*/, '').replace(/\D/g, '')
+    return maskCount ? national.length === maskCount : national.length >= 7
+  }
+}
+
+// Built-in validation rules an input field's type contributes, on top of
+// `required`. Email → email check (or a custom regex); phone → phone check.
+function buildTypeRules(field) {
+  const rules = {}
+  if (field.type === 'email') {
+    const re = safeRegExp(field.formatRegex)
+    if (re) rules.format = helpers.withMessage('Invalid format.', helpers.regex(re))
+    else rules.email = helpers.withMessage('Enter a valid email address.', emailValidator)
+  } else if (field.type === 'phone') {
+    rules.phone = helpers.withMessage('Enter a valid phone number.', makePhoneValidator(field))
+  }
+  return rules
+}
 
 export default defineComponent({
   name: 'DynamicForm',
@@ -57,6 +107,43 @@ export default defineComponent({
     const innerLoading = ref(false)
     const collapsedSections = ref({})
 
+    // The value a `defaultToday` datetime field seeds into a NEW entry, in the
+    // same shape BaseDateField emits (valueFormat 'iso'): full ISO for datetime,
+    // date-only ISO for date, minutes-since-midnight for time.
+    function defaultDateValue(field) {
+      const now = DateTime.now()
+      if (field.mode === 'time') return now.hour * 60 + now.minute
+      if (field.mode === 'date') return now.toISODate()
+      return now.toISO()
+    }
+
+    // Seed defaults for brand-new entries once on mount. A field is seeded only
+    // when its stored value is `undefined` (never set) — an explicit `null`
+    // (user-cleared) is left alone, so this never clobbers an existing entry a
+    // user intentionally blanked. Skipped entirely for readonly/disabled views.
+    function seedFieldDefaults(fields, ancestors) {
+      for (const field of fields) {
+        if (!field || typeof field !== 'object') continue
+        const nextAncestors = field.name ? [...ancestors, field.name] : ancestors
+        if (['section', 'row', 'column'].includes(field.type)) {
+          if (Array.isArray(field.children)) seedFieldDefaults(field.children, nextAncestors)
+          continue
+        }
+        if (field.type === 'datetime' && field.defaultToday && field.name) {
+          const path = nextAncestors.join('.')
+          if (getProp(modelValue.value, path) === undefined) {
+            if (!modelValue.value) modelValue.value = {}
+            setProp(modelValue.value, path, defaultDateValue(field), true)
+          }
+        }
+      }
+    }
+
+    onMounted(() => {
+      if (props.readonly || props.disabled) return
+      seedFieldDefaults(props.fields || [], [])
+    })
+
     const computedLoading = computed({
       get: () => {
         if (typeof props.loading === 'boolean') {
@@ -76,6 +163,7 @@ export default defineComponent({
         if (field.required) {
           obj.required = required
         }
+        Object.assign(obj, buildTypeRules(field))
       }
 
       if ('children' in field && Array.isArray(field.children)) {
@@ -105,11 +193,31 @@ export default defineComponent({
 
     // Check if field should be visible based on condition
     function isFieldVisible(field) {
+      if (field.hidden) return false // "Hide field" — omit from the rendered form
       if (!field.condition) return true
       if (typeof field.condition === 'function') {
         return field.condition(modelValue.value)
       }
       return true
+    }
+
+    /**
+     * First field definition with this name, anywhere in the schema —
+     * containers (children / fields) and repeater templates included. Names
+     * are unique per scope by construction (uniqueFieldName /
+     * uniqueColumnName), so first-match is the right answer.
+     */
+    function findFieldDefByName(fields, name) {
+      for (const f of fields || []) {
+        if (!f || typeof f !== 'object') continue
+        if (f.name === name && f.type !== 'row' && f.type !== 'column') return f
+        const nested = f.children || f.fields || f.template
+        if (Array.isArray(nested)) {
+          const hit = findFieldDefByName(nested, name)
+          if (hit) return hit
+        }
+      }
+      return null
     }
 
     function getFieldScope(data) {
@@ -159,6 +267,33 @@ export default defineComponent({
         newValue.splice(index, 1)
         setProp(modelValue.value, path, newValue, true)
       }
+    }
+
+    // AI writing assist — ON BY DEFAULT for every rich-text field (user
+    // decision 2026-08-10), mounted through the editor's #toolbar-extra seam
+    // (AI sidecar isolation) and gated by the org's AI add-on (canUseAi).
+    // The editor hides its built-in dictation mic whenever a toolbar-extra
+    // slot is supplied, so the slot re-mounts the mic alongside the assist.
+    function richTextToolbarSlots() {
+      if (!canUseAi.value) return undefined
+      return {
+        'toolbar-extra': ({ editor, append }) => [
+          editor ? h(AiTextAssistButton, { editor }) : null,
+          append ? h(BaseVoiceButton, { append }) : null,
+        ],
+      }
+    }
+
+    // Label row for controls that don't take a `label` prop (rich text,
+    // dates, lookups, sliders, ratings…). Appends the red asterisk on
+    // required fields — these hand-rolled rows never showed one, so a
+    // required rich-text field looked optional until submit failed.
+    function fieldLabelRow(field) {
+      if (!field.label) return null
+      return h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' }, [
+        field.label,
+        field.required ? h('span', { class: 'tw:text-red-500 tw:ml-0.5' }, '*') : null,
+      ])
     }
 
     function createFieldComponent(field, scope) {
@@ -223,18 +358,26 @@ export default defineComponent({
             type: field.type === 'input' || field.type === 'text' ? 'text' : field.type,
           })
 
+        case 'email':
+          return h(BaseEmailInput, inputFieldProps)
+
+        case 'phone':
+          return h(BasePhoneInput, {
+            ...inputFieldProps,
+            defaultCountry: field.defaultCountry,
+            mask: field.mask,
+          })
+
         case 'textarea':
           // BaseRichTextEditor doesn't accept a `label` prop, so wrap with an
           // explicit label row. Same reason datetime/colorPicker/slider do.
           return h('div', { class: 'tw:flex tw:flex-col' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
-            h(BaseRichTextEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+            fieldLabelRow(field),
+            h(
+              BaseRichTextEditor,
+              { ...inputFieldProps, editable: !inputFieldProps.readonly },
+              richTextToolbarSlots(),
+            ),
           ])
 
         case 'number':
@@ -248,34 +391,68 @@ export default defineComponent({
 
         case 'textEditor':
           return h('div', { class: 'tw:flex tw:flex-col' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
-            h(BaseRichTextEditor, { ...inputFieldProps, editable: !inputFieldProps.readonly }),
+            fieldLabelRow(field),
+            h(
+              BaseRichTextEditor,
+              { ...inputFieldProps, editable: !inputFieldProps.readonly },
+              richTextToolbarSlots(),
+            ),
           ])
+
+        // Rich text plus its attachments. One field replaces the
+        // textEditor+file pair.
+        //
+        // TWO payload keys, not one packed string. It used to write
+        //
+        //     "<html>\n[qms-attachments]::[{assetId,name}…]"
+        //
+        // so the attachment list could not be queried, reported on, or read by
+        // print/export without parsing a marker out of a text column — the file
+        // was a real cloud asset, but the REFERENCE to it was a substring.
+        //
+        // A field named `investigation` now writes `investigation` (the html)
+        // and `investigation_attachments` (the list). Plural, because it is a
+        // list and a singular name invites `payload.x_attachment.name` coming
+        // back undefined.
+        //
+        // RichTextAttachments already had this mode — built for document
+        // sections, whose attachments column gates submit and feeds the
+        // controlled PDF. DynamicForm simply never passed it, so every other
+        // user of the type was stuck with the packed string. Old records still
+        // read correctly: the component falls back to the marker when the
+        // separate key is empty.
+        case 'richTextAttachment': {
+          const attachmentsPath = `${scope.path}_attachments`
+          return h('div', { class: 'tw:flex tw:flex-col' }, [
+            fieldLabelRow(field),
+            h(
+              RichTextAttachments,
+              {
+                ...inputFieldProps,
+                separateAttachments: true,
+                attachments: getProp(modelValue.value, attachmentsPath) ?? [],
+                'onUpdate:attachments': (val) => {
+                  if (!modelValue.value) modelValue.value = {}
+                  setProp(modelValue.value, attachmentsPath, val, true)
+                },
+              },
+              richTextToolbarSlots(),
+            ),
+          ])
+        }
 
         case 'date': {
           const isDisabled = props.disabled || field.disabled
-          const dtValue = scope.value ? DateTime.fromISO(scope.value) : null
-          // BaseDatePicker doesn't take a `label` prop either.
           return h('div', { class: 'tw:flex tw:flex-col' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
-            h(BaseDatePicker, {
+            fieldLabelRow(field),
+            h(BaseDateField, {
               ...inputFieldProps,
-              modelValue: dtValue,
+              mode: 'date',
+              valueFormat: 'iso',
+              modelValue: scope.value || null,
               disabled: isDisabled,
-              'onUpdate:modelValue': (dt) => {
-                scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
+              'onUpdate:modelValue': (v) => {
+                scope.value = v || null
               },
             }),
           ])
@@ -283,50 +460,43 @@ export default defineComponent({
 
         case 'datetime': {
           const isDisabled = props.disabled || field.disabled
-          const dtValue = scope.value ? DateTime.fromISO(scope.value) : null
-          const onUpdate = (dt) => {
-            scope.value = DateTime.isDateTime(dt) ? dt.toISO() : null
-          }
           const mode = field.mode || 'datetime'
-          // BaseDatePicker / BaseDateTimePicker / BaseTimePicker don't take a
-          // label prop, so wrap them in a div with a label row — mirrors the
-          // colorPicker / slider cases above. Without this, datetime fields
-          // render value-only with no label header.
-          const labelEl = field.label
-            ? h(
-                'div',
-                { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                field.label,
-              )
-            : null
-          if (mode === 'date') {
-            return h('div', { class: 'tw:flex tw:flex-col' }, [
-              labelEl,
-              h(BaseDatePicker, {
-                modelValue: dtValue,
-                disabled: isDisabled,
-                'onUpdate:modelValue': onUpdate,
-              }),
-            ])
-          }
+          const labelEl = fieldLabelRow(field)
+
           if (mode === 'time') {
+            // Stored as minutes-since-midnight; bridge to a HH:mm string for the field.
+            const mins = Number(scope.value ?? 0)
+            const hh = String(Math.floor(mins / 60)).padStart(2, '0')
+            const mm = String(mins % 60).padStart(2, '0')
             return h('div', { class: 'tw:flex tw:flex-col' }, [
               labelEl,
-              h(BaseTimePicker, {
-                timeInMins: scope.value ?? 0,
+              h(BaseDateField, {
+                mode: 'time',
+                valueFormat: 'iso',
+                modelValue: mins ? `${hh}:${mm}` : null,
                 disabled: isDisabled,
-                'onUpdate:timeInMins': (val) => {
-                  scope.value = val
+                'onUpdate:modelValue': (v) => {
+                  if (!v) return (scope.value = 0)
+                  const [h2, m2] = String(v).split(':').map(Number)
+                  scope.value = h2 * 60 + m2
                 },
               }),
             ])
           }
+
           return h('div', { class: 'tw:flex tw:flex-col' }, [
             labelEl,
-            h(BaseDateTimePicker, {
-              modelValue: dtValue,
+            h(BaseDateField, {
+              mode: mode === 'date' ? 'date' : 'datetime',
+              valueFormat: 'iso',
+              modelValue: scope.value || null,
               disabled: isDisabled,
-              'onUpdate:modelValue': onUpdate,
+              // Optional per-field bounds: no past / no future dates (author opt-in).
+              minDate: field.noPastDates ? DateTime.now().startOf('day') : null,
+              maxDate: field.noFutureDates ? DateTime.now().endOf('day') : null,
+              'onUpdate:modelValue': (v) => {
+                scope.value = v || null
+              },
             }),
           ])
         }
@@ -339,6 +509,28 @@ export default defineComponent({
             h(BaseColorPicker, fieldProps),
           ])
 
+        case 'signature':
+          // BaseSignaturePad's model is a String data-URL; it only takes
+          // height/penColor/disabled, so pass those explicitly rather than the
+          // generic fieldProps (which carry label/required/etc it doesn't use).
+          return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
+            field.label
+              ? h('div', { class: 'tw:text-sm tw:font-medium tw:text-secondary' }, field.label)
+              : null,
+            h(BaseSignaturePad, {
+              modelValue: scope.value ?? '',
+              height: field.height || 180,
+              disabled:
+                props.readonly || field.readonly || props.disabled || field.disabled || false,
+              [updateModelValueEvent]: (val) => {
+                scope.value = val
+              },
+            }),
+            field.hint
+              ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint)
+              : null,
+          ])
+
         case 'select':
           return h(OptionSetSelect, {
             ...selectFieldProps,
@@ -346,15 +538,72 @@ export default defineComponent({
             optionSet: field.optionSet,
           })
 
+        case 'lookup': {
+          const commonProps = {
+            modelValue: scope.value,
+            'onUpdate:modelValue': (val) => {
+              scope.value = val
+            },
+            required: field.required,
+            disabled:
+              props.readonly || field.readonly || props.disabled || field.disabled
+                ? true
+                : undefined,
+          }
+          // Option-set-sourced lookup — same FK key select fields use, so
+          // freezing/readonly resolution reuse the option-set machinery.
+          if (field.lookupEntity === 'optionSet' && field.optionSetId) {
+            return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
+              fieldLabelRow(field),
+              h(OptionSetSelect, {
+                ...commonProps,
+                optionSetId: field.optionSetId,
+                optionSet: field.optionSet,
+              }),
+              field.hint ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint) : null,
+            ])
+          }
+          const Menu = LOOKUP_MENUS[field.lookupEntity || 'product']
+          // Cascading lookup (2026-08-26): when the author picked a parent
+          // field, narrow this menu's options by the parent's CURRENT value —
+          // e.g. Department options filtered by the chosen Site. The prop name
+          // comes from LOOKUP_CASCADES keyed on (child entity, parent entity);
+          // an empty parent applies no filter (full list).
+          const cascadeProps = {}
+          if (field.parentField && field.lookupEntity) {
+            const parentDef = findFieldDefByName(props.fields, field.parentField)
+            const propName =
+              parentDef?.lookupEntity &&
+              LOOKUP_CASCADES[field.lookupEntity]?.[parentDef.lookupEntity]
+            if (propName) {
+              // SIBLING scope, not the form root: inside an input-table row
+              // the parent column's value lives on the ROW object
+              // (table.3.site), so swap the last path segment — which also
+              // reduces to the flat key on a top-level field (2026-08-27).
+              const p = String(scope?.path ?? field.name ?? '')
+              const parentPath = p.includes('.')
+                ? `${p.slice(0, p.lastIndexOf('.') + 1)}${field.parentField}`
+                : field.parentField
+              cascadeProps[propName] = getProp(modelValue.value, parentPath) || null
+            }
+          }
+          const control = Menu
+            ? h(Menu, { ...commonProps, ...cascadeProps })
+            : h(
+                'div',
+                { class: 'tw:text-sm tw:text-red-500' },
+                `Unknown lookup source: ${field.lookupEntity}`,
+              )
+          return h('div', { class: 'tw:flex tw:flex-col tw:gap-1' }, [
+            fieldLabelRow(field),
+            control,
+            field.hint ? h('div', { class: 'tw:text-xs tw:text-secondary' }, field.hint) : null,
+          ])
+        }
+
         case 'slider':
           return h('div', { class: 'tw:px-2' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
+            fieldLabelRow(field),
             h('div', { class: 'tw:flex tw:items-center tw:gap-3' }, [
               h('input', {
                 type: 'range',
@@ -392,8 +641,13 @@ export default defineComponent({
         case 'file':
           return h(BaseUploader, {
             ...fieldProps,
+            // All form uploads land in the ASSET bucket; the old per-field
+            // "File Type" category (company logo / avatar / editor image) was a
+            // storage-bucket concept, not a form concern, so it's no longer set.
             fileType: field.fileType || 'ASSET',
-            accept: field.accept || 'image/*,video/*,application/pdf,.docx,.doc',
+            // Blank accept = any readable format (a QMS default). Only restrict
+            // when the author explicitly set an allow-list on the field.
+            accept: field.accept || '',
             label: field.label || 'Supporting Documents',
             maxSize: field.maxSize || 100 * 1024 * 1024,
             multiple: field.multiple !== false,
@@ -405,13 +659,7 @@ export default defineComponent({
           const currentVal = scope.value || 0
           const isDisabled = props.readonly || field.readonly || props.disabled || field.disabled
           return h('div', { class: 'tw:py-1' }, [
-            field.label
-              ? h(
-                  'div',
-                  { class: 'tw:text-sm tw:font-medium tw:text-secondary tw:mb-1' },
-                  field.label,
-                )
-              : null,
+            fieldLabelRow(field),
             h(
               'div',
               { class: 'tw:flex tw:gap-1' },
@@ -435,7 +683,8 @@ export default defineComponent({
           ])
         }
 
-        case 'checklist':
+        case 'checklist': {
+          const ts = tableStyleClasses(field)
           return h(BaseChecklist, {
             ...fieldProps,
             rows: field.rows || [],
@@ -445,11 +694,13 @@ export default defineComponent({
             optionValue: field.optionValue,
             hint: field.hint,
             dense: field.dense,
-            tableClass: field.tableClass,
-            headerClass: field.headerClass,
-            rowLabelClass: field.rowLabelClass,
-            cellClass: field.cellClass,
+            tableClass: cx(field.tableClass, ts.tableClass),
+            headerClass: cx(field.headerClass, ts.headerClass, ts.headerCellClass),
+            rowLabelClass: cx(field.rowLabelClass, ts.cellClass),
+            cellClass: cx(field.cellClass, ts.cellClass),
+            rowClass: ts.rowClass,
           })
+        }
 
         case 'photo':
           return h(BasePhoto, {
@@ -465,16 +716,22 @@ export default defineComponent({
         default: {
           const custom = getFormComponent(field.type)
           if (custom) {
-            return h(custom.component, {
-              modelValue: scope.value ?? {},
-              field,
-              readonly: props.readonly || field.readonly,
-              disabled: props.disabled || field.disabled,
-              formValues: modelValue.value,
-              'onUpdate:modelValue': (val) => {
-                scope.value = val
-              },
-            })
+            // Registered tool widgets (RCA, Risk Assessment) render their own
+            // internal chrome but never the authored field label — give them
+            // the standard label row so a required widget shows its asterisk.
+            return h('div', { class: 'tw:flex tw:flex-col' }, [
+              fieldLabelRow(field),
+              h(custom.component, {
+                modelValue: scope.value ?? {},
+                field,
+                readonly: props.readonly || field.readonly,
+                disabled: props.disabled || field.disabled,
+                formValues: modelValue.value,
+                'onUpdate:modelValue': (val) => {
+                  scope.value = val
+                },
+              }),
+            ])
           }
           return h(
             'div',
@@ -495,6 +752,13 @@ export default defineComponent({
       if (items.length === 0 && minItems > 0) {
         const initialItems = Array.from({ length: minItems }, () => ({}))
         setProp(modelValue.value, path, initialItems, true)
+      }
+
+      // Table layout — each item is a row, the item label is a fixed first
+      // column, and each template field is a column. Same data model as the
+      // card layout (paths unchanged), so switching layout doesn't move data.
+      if (field.layout === 'table') {
+        return createRepeaterTable(field, path, minItems, maxItems)
       }
 
       const repeaterItems = items.map((item, itemIndex) => {
@@ -537,6 +801,126 @@ export default defineComponent({
         field.label ? h('div', { class: 'tw:text-base tw:mb-2' }, field.label) : null,
         ...repeaterItems,
         !props.readonly && !props.disabled && items.length < maxItems
+          ? h(
+              'button',
+              {
+                class:
+                  'tw:mt-2 tw:flex tw:items-center tw:gap-1 tw:px-3 tw:py-1.5 tw:text-primary tw:rounded-lg tw:hover:bg-primary/10 tw:transition-colors tw:text-sm tw:font-medium',
+                onClick: () => addRepeaterItem(field, path),
+              },
+              [h(IconPlus, { size: 14 }), field.addLabel || 'Add Item'],
+            )
+          : null,
+      ])
+    }
+
+    function createRepeaterTable(field, path, minItems, maxItems) {
+      const items = getProp(modelValue.value, path) || []
+      const canEdit = !props.readonly && !props.disabled
+      const ts = tableStyleClasses(field)
+
+      // Columns are the template fields. The seeded Input Table wraps them in a
+      // single row (template[0]); a hand-built repeater may list them flat.
+      const rowWrap =
+        field.template.length === 1 && field.template[0].type === 'row'
+          ? field.template[0]
+          : null
+      const columns = rowWrap ? rowWrap.children || [] : field.template
+
+      // Cell path must match the card layout exactly. When the columns live in a
+      // named row wrapper, that name is part of the item's key path.
+      const cellAncestors = (i) => {
+        const a = [path, String(i)]
+        if (rowWrap && rowWrap.name) a.push(rowWrap.name)
+        return a
+      }
+
+      // The fixed row-label column ("Product 1", …). Authors can turn it off
+      // in the field settings when the rows need no running label
+      // (user request 2026-08-27).
+      const showRowLabels = field.showRowLabels !== false
+      const headerCells = [
+        showRowLabels
+          ? h(
+              'th',
+              {
+                class: cx(
+                  'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5 tw:w-px tw:whitespace-nowrap',
+                  ts.headerClass,
+                  ts.headerCellClass,
+                ),
+              },
+              '',
+            )
+          : null,
+        ...columns.map((col) =>
+          h(
+            'th',
+            {
+              class: cx(
+                'tw:text-left tw:text-sm tw:font-medium tw:px-2 tw:py-1.5',
+                ts.headerClass,
+                ts.headerCellClass,
+              ),
+            },
+            col.label || '',
+          ),
+        ),
+        canEdit ? h('th', { class: cx('tw:w-px', ts.headerClass) }, '') : null,
+      ]
+
+      const bodyRows = items.map((item, i) => {
+        const cells = [
+          showRowLabels
+            ? h(
+                'td',
+                {
+                  class: cx(
+                    'tw:px-2 tw:py-1.5 tw:text-sm tw:text-on-main tw:whitespace-nowrap tw:align-middle',
+                    ts.cellClass,
+                  ),
+                },
+                `${field.itemLabel || 'Item'} ${i + 1}`,
+              )
+            : null,
+          ...columns.map((col, ci) =>
+            // label blanked — the column header carries it, not each cell.
+            h('td', { class: cx('tw:px-2 tw:py-1.5 tw:align-top', ts.cellClass) }, [
+              createField({ ...col, label: '' }, cellAncestors(i), ci),
+            ]),
+          ),
+          canEdit
+            ? h(
+                'td',
+                { class: cx('tw:px-2 tw:py-1.5 tw:align-middle', ts.cellClass) },
+                items.length > minItems
+                  ? [
+                      h(
+                        'button',
+                        {
+                          class:
+                            'tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors',
+                          onClick: () => removeRepeaterItem(field, path, i),
+                        },
+                        [h(IconTrash, { size: 16 })],
+                      ),
+                    ]
+                  : [],
+              )
+            : null,
+        ]
+        return h('tr', { key: i, class: cx('tw:border-t tw:border-divider', ts.rowClass) }, cells)
+      })
+
+      return h('div', { class: ['repeater-field', field.class], style: field.style }, [
+        field.label ? h('div', { class: 'tw:text-base tw:mb-2' }, field.label) : null,
+        h('div', { class: 'tw:overflow-x-auto tw:border tw:border-divider tw:rounded-lg' }, [
+          h('table', { class: cx('tw:w-full tw:border-collapse', ts.tableClass) }, [
+            h('thead', {}, [h('tr', {}, headerCells)]),
+            h('tbody', {}, bodyRows),
+          ]),
+        ]),
+        canEdit && items.length < maxItems
           ? h(
               'button',
               {
@@ -598,8 +982,8 @@ export default defineComponent({
         h('div', { class: 'tw:text-base tw:mb-4 tw:font-medium' }, field.label),
         h(
           'div',
-          { class: 'tw:flex tw:flex-col tw:gap-4' },
-          createFields(field.children, sectionAncestors),
+          { class: 'tw:grid tw:grid-cols-1 tw:sm:grid-cols-12 tw:gap-4' },
+          createGridFields(field.children, sectionAncestors),
         ),
       ])
     }
@@ -626,6 +1010,24 @@ export default defineComponent({
           style: field.style,
           innerHTML: field.html || '',
         })
+      }
+
+      if (field.type === 'header') {
+        // Display-only heading + optional subheading. No payload value.
+        const sizeClass =
+          { default: 'tw:text-xl', large: 'tw:text-3xl', small: 'tw:text-base' }[
+            field.size || 'large'
+          ] || 'tw:text-3xl'
+        const alignClass =
+          { left: 'tw:text-left', center: 'tw:text-center', right: 'tw:text-right' }[
+            field.align || 'center'
+          ] || 'tw:text-center'
+        return h('div', { class: ['header-field tw:mb-2', alignClass, field.class], style: field.style }, [
+          h('div', { class: [sizeClass, 'tw:font-bold tw:text-on-main'] }, field.text || ''),
+          field.subtext
+            ? h('div', { class: 'tw:text-sm tw:text-secondary tw:mt-1' }, field.subtext)
+            : null,
+        ])
       }
 
       if (field.type === 'section') {
@@ -713,6 +1115,31 @@ export default defineComponent({
         .filter((field) => field !== null)
     }
 
+    // Width-aware variant: each field becomes a cell in a 12-column grid,
+    // spanning its `width` (full/half/third/quarter) so fields pack into rows.
+    // The caller MUST render the result inside GRID_CONTAINER_CLASS. The span
+    // is an inline style (Tailwind can't JIT a dynamic col-span-N); on the
+    // mobile single-column grid every span clamps to full width. Layout fields
+    // (section/row/column) default to full and keep their own inner layout.
+    function createGridFields(fields, ancestors = []) {
+      if (!fields) {
+        return []
+      }
+
+      return fields
+        .map((field, index) => {
+          const vnode = createField(field, ancestors, index)
+          if (vnode === null) return null
+          const span = fieldWidthSpan(field.width)
+          return h(
+            'div',
+            { key: field.name || index, style: { gridColumn: `span ${span} / span ${span}` } },
+            [vnode],
+          )
+        })
+        .filter((vnode) => vnode !== null)
+    }
+
     async function submit(e) {
       if (e?.preventDefault) e.preventDefault()
       computedLoading.value = true
@@ -727,8 +1154,15 @@ export default defineComponent({
       }
     }
 
-    // Expose submit for parent components to call via ref
-    expose({ submit })
+    // Validate-only: touch + run all rules, returning a boolean without
+    // emitting 'submit'. Lets a parent gate its own save on this form's
+    // validity (e.g. required custom fields on a create form).
+    async function validate() {
+      return await validator.value.$validate()
+    }
+
+    // Expose submit + validate for parent components to call via ref
+    expose({ submit, validate })
 
     return () => {
       const contents = []
@@ -737,7 +1171,13 @@ export default defineComponent({
         contents.push(slots.header())
       }
 
-      contents.push(h('div', { class: 'tw:flex tw:flex-col tw:gap-4' }, createFields(props.fields)))
+      contents.push(
+        h(
+          'div',
+          { class: 'tw:grid tw:grid-cols-1 tw:sm:grid-cols-12 tw:gap-4' },
+          createGridFields(props.fields),
+        ),
+      )
 
       if (slots.footer) {
         contents.push(slots.footer({ submit }))
@@ -751,12 +1191,7 @@ export default defineComponent({
               class:
                 'tw:absolute tw:inset-0 tw:bg-white/70 tw:flex tw:items-center tw:justify-center tw:z-10',
             },
-            [
-              h('div', {
-                class:
-                  'tw:size-10 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent',
-              }),
-            ],
+            [h(BaseSpinner, { size: 'lg' })],
           ),
         )
       }

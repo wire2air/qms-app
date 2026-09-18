@@ -1,14 +1,16 @@
 <script setup>
-import { IconMessage, IconPlus, IconTrash } from '@tabler/icons-vue'
+import { IconMessage, IconTrash } from '@tabler/icons-vue'
 import { useChatThreads } from '@/composables/useChatThreads'
 
-defineProps({
+const props = defineProps({
   activeThreadId: { type: String, default: null },
+  // Filter to one context kind (e.g. 'form_builder' for the docked assistant).
+  kind: { type: String, default: null },
 })
 
-const emit = defineEmits(['select', 'new', 'delete'])
+const emit = defineEmits(['select', 'delete'])
 
-const threads = useChatThreads()
+const threads = useChatThreads({ kind: props.kind })
 
 function formatRelative(dt) {
   if (!dt) return ''
@@ -26,14 +28,6 @@ function formatRelative(dt) {
 
 <template>
   <div class="tw:flex tw:flex-col tw:h-full tw:gap-2 tw:p-2">
-    <button
-      class="tw:w-full tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:font-semibold tw:rounded-lg tw:bg-primary tw:text-white tw:hover:bg-primary/90 tw:transition-colors"
-      @click="emit('new')"
-    >
-      <IconPlus :size="16" />
-      New chat
-    </button>
-
     <div class="tw:flex-1 tw:overflow-y-auto tw:flex tw:flex-col tw:gap-1">
       <template v-if="threads.length === 0">
         <div class="tw:text-xs tw:text-secondary tw:px-3 tw:py-4 tw:text-center">
@@ -53,8 +47,9 @@ function formatRelative(dt) {
         <IconMessage :size="14" class="tw:text-secondary tw:mt-1 tw:flex-none" />
         <div class="tw:flex-1 tw:min-w-0">
           <div class="tw:truncate tw:font-medium">{{ t.title || 'New conversation' }}</div>
-          <div class="tw:text-xs tw:text-secondary">
+          <div class="tw:text-xs tw:text-secondary tw:truncate">
             {{ formatRelative(t.lastMessageAt ?? t.createdAt) }}
+            <template v-if="t.context?.builderTitle"> · {{ t.context.builderTitle }}</template>
           </div>
         </div>
         <span

@@ -16,7 +16,8 @@ const status = useLiveQueryWithDeps(
     if (!statusId) return null
     return db.ProductStatus.findByPk(statusId)
   },
-  { initial: null },
+
+  { models: ['ProductStatus'], initial: null },
 )
 </script>
 

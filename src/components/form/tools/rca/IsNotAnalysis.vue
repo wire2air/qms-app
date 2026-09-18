@@ -3,9 +3,19 @@ const props = defineProps({
   config: { type: Object, required: true },
   modelValue: { type: Object, default: () => ({}) },
   readonly: { type: Boolean, default: false },
+  /**
+   * The problem, carried in from the parent record — the NC's description via
+   * the field's `problemField`. Every other method shows it; this one did not,
+   * so an Is/Is-Not analysis opened with no statement of what is being analysed
+   * and the reader had to go back to the record to find out (2026-08-20).
+   */
+  problem: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])
+
+// The inherited value wins; the local one is the fallback for an analysis that
+// is not attached to a record. Mirrors FishboneAnalysis.
 
 function updateCell(idx, key, val) {
   const dimensions = (props.modelValue.dimensions ?? []).map((d, i) =>
@@ -14,9 +24,6 @@ function updateCell(idx, key, val) {
   emit('update:modelValue', { ...props.modelValue, dimensions })
 }
 
-function updateProbableCauses(val) {
-  emit('update:modelValue', { ...props.modelValue, probableCauses: val })
-}
 </script>
 
 <template>
@@ -26,13 +33,19 @@ function updateProbableCauses(val) {
       <table class="tw:w-full tw:text-sm">
         <thead>
           <tr>
-            <th class="tw:text-left tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:pb-2 tw:w-28">
+            <th
+              class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:w-28"
+            >
               Dimension
             </th>
-            <th class="tw:text-left tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:pb-2 tw:px-2 tw:text-green-700">
+            <th
+              class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:px-2 tw:text-green-700"
+            >
               IS
             </th>
-            <th class="tw:text-left tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:pb-2 tw:px-2 tw:text-red-600">
+            <th
+              class="tw:text-left tw:text-table-header tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:px-2 tw:text-red-600"
+            >
               IS NOT
             </th>
           </tr>
@@ -69,16 +82,8 @@ function updateProbableCauses(val) {
       </table>
     </div>
 
-    <!-- Probable causes -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <label class="tw:text-sm tw:font-medium tw:text-on-main">Probable Causes</label>
-      <BaseTextarea
-        :modelValue="modelValue.probableCauses ?? ''"
-        placeholder="Based on the IS / IS NOT analysis, what are the probable causes?"
-        :rows="3"
-        :readonly="readonly"
-        @update:modelValue="updateProbableCauses"
-      />
-    </div>
+    <!-- "Probable Causes" removed 2026-08-24: it existed in no other method,
+         and the shared Root Causes box below the tool is where causes land —
+         a second free-text causes field was the same answer in two places. -->
   </div>
 </template>

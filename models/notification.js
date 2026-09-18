@@ -30,8 +30,14 @@ export class Notification extends BaseModel {
   @Property({ type: String, required: true }) notificationTypeId = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) message = ''
-  @Property({ type: String, required: true }) resourceType = ''
-  @Property({ type: String, required: true }) resourceId = ''
+  // Not every notification is tied to a resource (system / broadcast notifications
+  // have neither). These are backend-created and the client only ever *updates*
+  // isRead/readAt, so a full-instance validate() on save must not reject a
+  // resourceless row — marking such a notification read was throwing
+  // "Field 'resourceId' is required". NotificationsItem already treats a missing
+  // resourceType/resourceId as "no link".
+  @Property({ type: String }) resourceType = ''
+  @Property({ type: String }) resourceId = ''
   @Property({ type: Boolean }) isRead = false
   @Property({ type: DateTime }) readAt = null
   @Property({ type: String }) createdBy = ''

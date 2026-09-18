@@ -1,22 +1,5 @@
 // app global css in SCSS form
 
-// Gap utility classes using Quasar's predefined space variables
-// Generates: .gap-none, .gap-xs, .gap-sm, .gap-md, .gap-lg, .gap-xl
-// Also: .gap-x-* (column-gap) and .gap-y-* (row-gap)
-
-.q-focusable.w-tonal {
-  .q-focus-helper {
-    background: currentcolor;
-    opacity: 0.2;
-  }
-
-  &:hover {
-    .q-focus-helper {
-      opacity: 0.35;
-    }
-  }
-}
-
 a {
   text-decoration: none;
   color: inherit;
@@ -24,20 +7,6 @@ a {
 
 p {
   margin: initial;
-}
-
-.q-btn--rectangle {
-  border-radius: var(--tw-radius-lg);
-}
-
-.q-field__control {
-  background-color: var(--tw-color-main);
-}
-
-.q-field--standard {
-  .q-field__control {
-    padding-left: 9px !important;
-  }
 }
 
 input::-webkit-outer-spin-button,
@@ -49,12 +18,4 @@ input::-webkit-inner-spin-button {
 /* Firefox */
 input[type='number'] {
   -moz-appearance: textfield;
-}
-
-.q-dialog__inner > form {
-  pointer-events: all;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  will-change: scroll-position;
-  border-radius: 8px;
 }

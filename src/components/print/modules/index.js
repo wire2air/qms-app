@@ -22,8 +22,38 @@ export const printModules = {
   //   LogBook     — many entries from one log book, date-range filtered
   FieldRecord: () => import('./FieldRecordPrint.vue'),
   LogBook: () => import('./LogBookPrint.vue'),
-  // Future:
-  // Nonconformance: () => import('./NonconformancePrint.vue'),
+  // Audit report — header + conformance score + requirement results + findings.
+  AuditInstance: () => import('./AuditInstancePrint.vue'),
+  // Training Matrix report — employee × training with roles/status/type, filtered.
+  TrainingMatrix: () => import('./TrainingMatrixPrint.vue'),
+  // QC inspection report — one inspection lot (meta, sampling, production lots +
+  // line clearance, per-characteristic results, disposition).
+  InspectionLot: () => import('./InspectionLotPrint.vue'),
+  // Retain samples:
+  //   RetainSampleLabel    — box label(s) with QR (?size=a4 sheet | 4x2 thermal)
+  //   RetainSampleRegister — inventory report, ?state= filtered
+  RetainSampleLabel: () => import('./RetainSampleLabelPrint.vue'),
+  RetainSampleRegister: () => import('./RetainSampleRegisterPrint.vue'),
+  // Quality complaint — header + narrative + product/classification/customer +
+  // QA assessment. Mirrors the detail page's post-rail-restructure order.
+  Complaint: () => import('./ComplaintPrint.vue'),
+  // Validation package — one qualification protocol / framework document, for
+  // the customer to execute on paper and sign. Takes ?slug=, not ?id=: the
+  // content ships with the app rather than living in the customer's data.
+  ValidationProtocol: () => import('./ValidationProtocolPrint.vue'),
+  // The quality-event chain. All three share recordPrint.css so a Quality
+  // Event, the NC it escalated to and the CAPA that followed print as one
+  // document family.
+  Nonconformance: () => import('./NonconformancePrint.vue'),
+  QualityEvent: () => import('./QualityEventPrint.vue'),
+  ChangeRequest: () => import('./ChangeRequestPrint.vue'),
+  // Generic register printout — one table for every list page (CAPA, NC,
+  // Change Control, Quality Events, Documents, Audits, QC lots, Submissions).
+  // Takes ?entity= + ?scope=current|all; see composables/useListPrint.js.
+  RecordList: () => import('./RecordListPrint.vue'),
+  // Admin-defined module records (Deviation, …) — ONE entry for every
+  // promoted form module: the record's template supplies the layout.
+  ModuleRecord: () => import('./ModuleRecordPrint.vue'),
 }
 
 export function resolveModule(name) {

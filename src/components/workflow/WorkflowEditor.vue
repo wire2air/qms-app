@@ -1,13 +1,27 @@
 <script setup>
-import { IconHistory, IconLock, IconCheck, IconArchive, IconRestore, IconTrash } from '@tabler/icons-vue'
+import {
+  IconHistory,
+  IconLock,
+  IconCheck,
+  IconArchive,
+  IconRestore,
+  IconTrash,
+  IconAlertCircle,
+  IconStar,
+  IconStarFilled,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { copyVersionSteps } from './workflowVersionCopy.js'
+import { isApprovalOnlyModule } from './workflowModule.js'
+import { toggleWorkflowDefault } from './workflowDefault.js'
 
 const props = defineProps({
   id: { type: String, required: true },
 })
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const route = useRoute()
 const router = useRouter()
 
@@ -53,30 +67,31 @@ watch(
 )
 
 // --- Live data ---
-const workflow = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Workflow.findByPk(id),
+const workflow = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Workflow.findByPk(id),
+  { models: ['Workflow'] },
 )
 
-// CC mirrors CAPA's authoring capabilities — full step config (outcomes,
-// send-back targets, form schema), opt-in child steps per root step, and
-// nested child-step rendering. Step type (ACTION / APPROVAL) is a
-// per-step toggle now, so we leave the approvalRule unforced for CC and
-// Document workflows and let the author pick ALL vs ANY on each APPROVAL
-// step. NC + CAPA keep their forced rule for backwards compat.
-const WORKFLOW_MODULES_WITH_STEP_CONFIG = ['NON_CONFORMANCE', 'CAPA', 'CHANGE_CONTROL']
+// Child steps (runtime sub-tasks) are a CAPA / Change Control capability.
+// (The per-step "Allowed Outcomes" picker that used to be gated here was
+// dead UI — permanently v-show="false" — and went away with the 2026-08-15
+// step-panel trim. The engine derives outcomes from the step type.)
 const MODULES_WITH_CHILD_STEPS = ['CAPA', 'CHANGE_CONTROL']
-const showAllowedOutcomes = computed(() =>
-  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
-)
-const showFormSchema = computed(() =>
-  WORKFLOW_MODULES_WITH_STEP_CONFIG.includes(workflow.value?.moduleId),
-)
+// Task forms exist only in RECORD workflows. Approval flows (Document
+// Control, Log Book, Audit Standard, Audit Instance, QC) gate a transition —
+// reviewers approve or reject, there is nothing to fill in — so they can't
+// contain a Task step at all and never show the Task Form tab. See
+// allowedStepTypes() in workflowModule.js for the map and its rationale.
+//
+// (2026-08-14 briefly derived this from whether a module's runtime renders
+// <WorkflowStep>. That answered "can a form display?" when the real question
+// is "is this module about capturing work?" — hence the explicit map.)
+const showFormSchema = computed(() => !isApprovalOnlyModule(workflow.value?.moduleId))
 const showAllowChildSteps = computed(() =>
   MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
 )
-const showChildSteps = computed(() =>
-  MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
-)
+const showChildSteps = computed(() => MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId))
 // Workflow templates assign approvers by ROLE only. The specific
 // reviewer (a named user) is chosen by the owner when the workflow is
 // attached to an entity and submitted (the reviewer-per-step picker
@@ -107,7 +122,8 @@ const versions = useLiveQueryWithDeps(
       return b.versionMinor - a.versionMinor
     })
   },
-  { initial: [] },
+
+  { models: ['WorkflowVersion'], initial: [] },
 )
 
 const steps = useLiveQueryWithDeps(
@@ -116,8 +132,28 @@ const steps = useLiveQueryWithDeps(
     if (!versionId) return []
     return db.WorkflowStep.where('workflowVersionId', versionId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
+
+// (Step renaming lives on WorkflowStepCard now — the expanded panel has no
+// header to hang it off, and the card is where the name is shown.)
+
+// ─── Secondary step config, opened from a step header ────────────────────────
+const settingsDialogOpen = ref(false)
+const settingsStepId = ref(null)
+const assigneesDialogOpen = ref(false)
+const assigneesStepId = ref(null)
+
+function openStepSettings(id) {
+  settingsStepId.value = id
+  settingsDialogOpen.value = true
+}
+
+function openStepAssignees(id) {
+  assigneesStepId.value = id
+  assigneesDialogOpen.value = true
+}
 
 watch(
   versions,
@@ -153,10 +189,72 @@ const selectedVersion = computed(
 )
 
 // --- Computed ---
-const breadcrumbItems = computed(() => [
-  { label: 'Workflows', to: getCompanyPath('/workflow-templates') },
-  { label: workflow.value?.name || 'Edit Workflow' },
-])
+// The editor is mounted under BOTH /workflow-templates/:id (from the merged
+// Templates list) and /approval-flows/:id (from Approval Flows). Derive the
+// list to go back to from where we actually are, rather than hard-coding
+// /workflow-templates and dumping approval-flow authors on the other page.
+const listPath = computed(() =>
+  route.path.includes('/approval-flows') ? '/approval-flows' : '/workflow-templates',
+)
+const listLabel = computed(() =>
+  listPath.value === '/approval-flows' ? 'Approval Flows' : 'Templates',
+)
+
+// A document template's approval flow is an ordinary workflow edited here, but
+// you got here FROM the template — so go back there, not to a list this
+// workflow is deliberately hidden from (2026-08-15).
+const owningDocumentTemplate = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    const templates = await db.DocumentTemplate.where().exec()
+    return templates.find((t) => t.workflowId === id) ?? null
+  },
+  { models: ['DocumentTemplate'], initial: null },
+)
+
+// A template-owned flow is published/archived BY its template — the template's
+// status transitions drive the version lifecycle (2026-08-15). Showing Publish
+// / Reopen for Editing / Archive here would give the same flow two lifecycles to
+// operate and let it drift out of step with the template that owns it.
+const isTemplateOwned = computed(() => !!owningDocumentTemplate.value)
+
+// Default-for-module toggle. Needs every sibling workflow, because the
+// previous default has to be cleared before this one is set — see
+// workflowDefault.js.
+const siblingWorkflows = useLiveQuery((db) => db.Workflow.where().exec(), {
+  models: ['Workflow'],
+  initial: [],
+})
+const canToggleDefault = computed(() => isAllowed(['workflows_templates:update']))
+const defaultBusy = ref(false)
+
+async function handleToggleDefault() {
+  if (!workflow.value || defaultBusy.value) return
+  defaultBusy.value = true
+  try {
+    toast.success(await toggleWorkflowDefault(workflow.value, siblingWorkflows.value))
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update the default workflow')
+  } finally {
+    defaultBusy.value = false
+  }
+}
+
+const breadcrumbItems = computed(() => {
+  const owner = owningDocumentTemplate.value
+  if (owner) {
+    return [
+      { label: 'Templates', to: getCompanyPath('/workflow-templates') },
+      { label: owner.name, to: getCompanyPath(`/document-templates/${owner.id}`) },
+      { label: 'Approval Flow' },
+    ]
+  }
+  return [
+    { label: listLabel.value, to: getCompanyPath(listPath.value) },
+    { label: workflow.value?.name || 'Edit Workflow' },
+  ]
+})
 
 const versionLabel = computed(() => {
   const v = selectedVersion.value
@@ -172,12 +270,12 @@ const isDraftVersion = computed(() => selectedVersion.value?.statusId === 'DRAFT
 
 const canUpdate = computed(() => {
   if (!workflow.value || !selectedVersion.value) return false
-  return isDraftVersion.value && isAllowed(['workflows:update'])
+  return isDraftVersion.value && isAllowed(['workflows_templates:update'])
 })
 
 const canCreateDraft = computed(() => {
   const haveDraftVersion = versions.value.some((v) => v.statusId === 'DRAFT')
-  return isAllowed(['workflows:update']) && !haveDraftVersion
+  return isAllowed(['workflows_templates:update']) && !haveDraftVersion
 })
 
 // ─── Version / workflow lifecycle (keyed off the SELECTED version) ──
@@ -188,8 +286,18 @@ const canCreateDraft = computed(() => {
 // be attached to records / have in-flight instances).
 const isArchived = computed(() => workflow.value?.statusId === 'ARCHIVED')
 const isOnlyVersion = computed(() => (versions.value?.length ?? 0) <= 1)
-const canArchiveWorkflow = computed(() => isAllowed(['workflows:update']))
-const canDeleteWorkflow = computed(() => isAllowed(['workflows:delete']))
+const canArchiveWorkflow = computed(() => isAllowed(['workflows_templates:update']))
+// F-20 — gate on `:update`, NOT `:delete`, because `:update` is what the delete
+// actually needs. `Workflow` is a paranoid client model, so `workflow.delete()`
+// is a GraphQL **UPDATE** that stamps `deleted_at`; at the DB it lands on the
+// `workflows_upd` RLS policy, which checks
+// `has_permission('workflows_templates','update')`. The `workflows_del` policy
+// (correctly gated on `:delete`) is dormant — no app path issues a real SQL
+// DELETE against `workflows`. Gating the button on `:delete` therefore showed a
+// functionally inert button to a `:delete`-only role and hid a working one from
+// a `:update`-only role. The only consumer of `:delete` is the UI-orphaned REST
+// route DELETE /v1/services/workflows/:id.
+const canDeleteWorkflow = computed(() => isAllowed(['workflows_templates:update']))
 const workflowStatusBusy = ref(false)
 
 async function setWorkflowStatus(statusId) {
@@ -212,19 +320,22 @@ async function handleDeleteDraft() {
   const message = onlyVersion
     ? `Delete workflow '${workflow.value?.name}'? It has never been published.`
     : 'Discard this draft version? It has never been published and will be removed.'
-  if (!confirm(message)) return
+  if (!(await confirm({ message, danger: true }))) return
   workflowStatusBusy.value = true
   try {
     if (onlyVersion) {
       // Draft is the workflow's only version → remove the whole workflow.
       await workflow.value.delete()
       toast.success('Workflow deleted')
-      router.push(getCompanyPath('/workflow-templates'))
+      router.push(getCompanyPath(listPath.value))
       return
     }
-    // Published version(s) exist → discard just this draft version
-    // (soft-delete); the versions watcher reselects another version.
-    await selectedVersion.value.delete()
+    // Published version(s) exist → discard just this draft version. HARD-delete
+    // it (steps cascade) so its version number is freed for reuse — the unique
+    // (workflow, major, minor) index isn't partial, so a soft-deleted draft
+    // would otherwise block re-creating that version. The versions watcher
+    // reselects another version.
+    await selectedVersion.value.hardDelete()
     toast.success('Draft discarded')
     selectedVersionId.value = null
   } catch (err) {
@@ -236,21 +347,68 @@ async function handleDeleteDraft() {
 
 // --- Handlers ---
 
-const handlePublish = useLiveMutation(async () => {
+// ─── Publish readiness ────────────────────────────────────────────────────────
+// Publishing opens a readiness checklist instead of firing blind: WARNINGS for
+// Action/Delay steps with no task form (assignee could only comment — almost
+// always a config gap) and INFO notes for role-less steps (allowed by design —
+// the submitter picks any active user). Nothing hard-blocks; the user confirms
+// with eyes open.
+const allStepRoles = useLiveQueryWithDeps(
+  [() => steps.value.map((s) => s.id).join(',')],
+  async (db, [idsStr]) => {
+    if (!idsStr) return []
+    const lists = await Promise.all(
+      idsStr.split(',').map((id) => db.WorkflowStepRole.where('stepId', id).exec()),
+    )
+    return lists.flat()
+  },
+
+  { models: ['WorkflowStepRole'], initial: [] },
+)
+
+const publishReadiness = computed(() => {
+  const warnings = []
+  const infos = []
+  const roleStepIds = new Set(allStepRoles.value.map((r) => r.stepId))
+  const ordered = [...steps.value].sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0))
+  for (const s of ordered) {
+    const label = `Step ${s.stepOrder} — ${s.name || 'Untitled'}`
+    // DELAY excluded (2026-08-29): an Effectiveness Check is self-contained —
+    // formless is its correct shape, not a configuration gap.
+    if (
+      showFormSchema.value &&
+      s.stepType !== 'APPROVAL' &&
+      s.stepType !== 'DELAY' &&
+      (s.formSchema?.length ?? 0) === 0
+    ) {
+      warnings.push(
+        `${label}: no task form. The assignee can only comment and mark complete — no data is captured.`,
+      )
+    }
+    if (!roleStepIds.has(s.id)) {
+      infos.push(`${label}: no roles assigned — the submitter will pick any active user.`)
+    }
+  }
+  return { warnings, infos }
+})
+
+const showPublishDialog = ref(false)
+
+function handlePublish() {
   if (!isDraftVersion.value) {
     toast.warning('Switch to a draft version to publish.')
     return
   }
+  showPublishDialog.value = true
+}
 
-  // Role assignment is OPTIONAL — a step without any role just means the
-  // submit-time picker will show all active users. So publishing a draft
-  // with role-less steps is allowed; no gate here.
-
+const executePublish = useLiveMutation(async () => {
   publishing.value = true
   try {
     selectedVersion.value.statusId = 'PUBLISHED'
     await selectedVersion.value.save()
     toast.success('Workflow published successfully')
+    showPublishDialog.value = false
   } finally {
     publishing.value = false
   }
@@ -259,19 +417,38 @@ const handlePublish = useLiveMutation(async () => {
 const creatingDraft = ref(false)
 
 const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }) => {
-  const sourceVersions = await db.WorkflowVersion.where('workflowId', workflowId, {
-    force: true,
-  }).exec()
-  const sortedVersions = sourceVersions.sort((a, b) => {
-    if (a.versionMajor !== b.versionMajor) {
-      return b.versionMajor - a.versionMajor
-    }
-    return b.versionMinor - a.versionMinor
-  })
+  // Two different questions, two different queries.
+  //
+  // CLONE SOURCE — live versions only: copying a discarded draft's steps would
+  // resurrect work someone deliberately threw away.
+  //
+  // NEXT NUMBER — every version, including soft-deleted ones. The unique index
+  // `workflow_versions_workflow_version_unique (workflow_id, version_major,
+  // version_minor)` has no `WHERE deleted_at IS NULL`, so a discarded 1.1 still
+  // owns that slot forever. Numbering from live rows alone therefore picked a
+  // number already taken and the insert failed with 23505 — "reopen CAPA
+  // template" was dead for any workflow with a discarded draft (reported
+  // 2026-08-18; 2 of 72 workflows were already in that state).
+  //
+  // So numbers only ever go up, and a discarded 1.1 is never reissued. That is
+  // also the right answer for a QMS: two different versions both called 1.1
+  // would make the audit trail ambiguous about which one an entry refers to.
+  const byVersionDesc = (a, b) =>
+    a.versionMajor !== b.versionMajor
+      ? b.versionMajor - a.versionMajor
+      : b.versionMinor - a.versionMinor
 
-  const sourceVersion = sortedVersions[0]
-  const currentVersionMajor = sourceVersion ? sourceVersion.versionMajor : 0
-  const currentVersionMinor = sourceVersion ? sourceVersion.versionMinor : 0
+  const liveVersions = (await db.WorkflowVersion.where('workflowId', workflowId).exec()).sort(
+    byVersionDesc,
+  )
+  const allVersions = (
+    await db.WorkflowVersion.where('workflowId', workflowId, { force: true }).exec()
+  ).sort(byVersionDesc)
+
+  const sourceVersion = liveVersions[0]
+  const highest = allVersions[0]
+  const currentVersionMajor = highest ? highest.versionMajor : 0
+  const currentVersionMinor = highest ? highest.versionMinor : 0
   const newMajor = majorBump ? currentVersionMajor + 1 : currentVersionMajor
   const newMinor = majorBump ? 0 : currentVersionMinor + 1
 
@@ -283,63 +460,9 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
   })
   await newVersion.save()
 
-  const sourceSteps = await db.WorkflowStep.where('workflowVersionId', sourceVersion?.id).exec()
-
-  // First pass: create all new steps and build old→new id map
-  const idMap = {}
-  const stepPairs = []
-
-  for (const step of sourceSteps) {
-    const newStep = db.WorkflowStep.create({
-      workflowVersionId: newVersion.id,
-      name: step.name,
-      description: step.description,
-      stepOrder: step.stepOrder,
-      approvalRule: step.approvalRule,
-      slaDays: step.slaDays,
-      requireComments: step.requireComments,
-      requireEsignature: step.requireEsignature,
-      allowChildSteps: step.allowChildSteps ?? false,
-      formSchema: JSON.parse(JSON.stringify(step.formSchema ?? [])),
-    })
-    await newStep.save()
-    idMap[step.id] = newStep.id
-    stepPairs.push({ oldStep: step, newStep })
-
-    const users = await db.WorkflowStepUser.where('stepId', step.id).exec()
-    for (const su of users) {
-      const newSu = db.WorkflowStepUser.create({ stepId: newStep.id, userId: su.userId })
-      await newSu.save()
-    }
-
-    const roles = await db.WorkflowStepRole.where('stepId', step.id).exec()
-    for (const sr of roles) {
-      const newSr = db.WorkflowStepRole.create({ stepId: newStep.id, roleId: sr.roleId })
-      await newSr.save()
-    }
-
-    const outcomes = await db.AllowedOutcomeOnStep.where('stepId', step.id).exec()
-    for (const o of outcomes) {
-      const newO = db.AllowedOutcomeOnStep.create({
-        stepId: newStep.id,
-        outcomeId: o.outcomeId,
-      })
-      await newO.save()
-    }
-  }
-
-  // Second pass: remap parentStepId and clone send-back targets through the idMap
-  for (const { oldStep, newStep } of stepPairs) {
-    if (oldStep.parentStepId && idMap[oldStep.parentStepId]) {
-      newStep.parentStepId = idMap[oldStep.parentStepId]
-      await newStep.save()
-    }
-
-    // StepSendBackTarget rows are no longer carried forward — the engine
-    // computes send-back targets at runtime (parent step → entity owner;
-    // child task → parent step's assignee). Any legacy rows on the source
-    // version stay dead in place; the new version doesn't reference them.
-  }
+  // Steps + per-step users/roles/outcomes + parent remap — shared with the
+  // template list's Clone action (workflowVersionCopy.js).
+  await copyVersionSteps(db, sourceVersion?.id, newVersion.id)
 
   return newVersion
 })
@@ -347,9 +470,13 @@ const createDraftMutation = useLiveMutation(async (db, { workflowId, majorBump }
 async function handleCreateDraft(majorBump = false) {
   creatingDraft.value = true
   try {
-    await createDraftMutation({ workflowId: props.id, majorBump })
+    const newVersion = await createDraftMutation({ workflowId: props.id, majorBump })
     toast.success('New draft version created')
-    selectedVersionId.value = null
+    // Land ON the new draft (user report 2026-08-10). Clearing to null relied
+    // on the versions-watch fallback, but that watch prefers the
+    // ?version=<label> still in the URL — the published one — so the editor
+    // snapped straight back to the locked version.
+    selectedVersionId.value = newVersion?.id ?? null
   } catch {
     toast.error('Failed to create draft version')
   } finally {
@@ -367,50 +494,22 @@ function handleVersionSelect(version, close) {
   close()
 }
 
-const isFirstLoad = ref(true)
-
-const debouncedSaveVersion = useDebounceFn(() => {
-  if (!selectedVersion.value) return
-  selectedVersion.value.save()
-}, 1000)
-
-const debounedSaveWorkflow = useDebounceFn(() => {
-  if (!workflow.value) return
-  workflow.value.save()
-}, 1000)
-
-watch(
-  selectedVersion,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    debouncedSaveVersion()
-  },
-  { deep: true },
-)
-
-watch(
-  workflow,
-  (oldValue) => {
-    // undefined on initial load, we only want to trigger save on subsequent changes
-    if (oldValue === undefined) {
-      return
-    }
-    debounedSaveWorkflow()
-  },
-  { deep: true },
-)
+useAutoSave(selectedVersion, { debounce: 1000 })
+useAutoSave(workflow, { debounce: 1000 })
 
 watch(steps, () => {
+  // `selectedStepId` just tracks "the step being worked on" for hosts/telemetry
+  // — expansion state lives in WorkflowStepList (every step starts expanded).
+  // Never auto-select; a stale id (deleted step) simply clears.
   if (!steps.value.some((s) => s.id === selectedStepId.value)) {
-    selectedStepId.value = steps.value[0]?.id ?? null
+    selectedStepId.value = null
   }
 })
 </script>
 
 <template>
+  <!-- Full-canvas editor: exempt from BasePage (a designer surface that fills the
+       viewport with its own panes/scroll, not a content page). See CLAUDE.md "Page layout". -->
   <div class="tw:flex tw:flex-col tw:h-full tw:overflow-hidden">
     <!-- Loading State -->
     <div v-if="!workflow" class="tw:flex tw:items-center tw:justify-center tw:h-full">
@@ -445,7 +544,7 @@ watch(steps, () => {
             <template #content="{ close }">
               <div class="tw:w-64 tw:py-2">
                 <p
-                  class="tw:px-3 tw:py-1 tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide"
+                  class="tw:px-3 tw:py-1 tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
                 >
                   Version History
                 </p>
@@ -478,15 +577,57 @@ watch(steps, () => {
 
           <div class="tw:h-6 tw:w-px tw:bg-divider"></div>
 
-          <template v-if="canUpdate">
+          <!-- Default for the module (user request 2026-08-16). Hidden for a
+               template-owned flow: those are Document Control workflows, where
+               isDefault already marks the ad-hoc flow used by template-less
+               documents. Letting this toggle move that marker would quietly
+               repoint every such document. -->
+          <BaseTooltip
+            v-if="!isTemplateOwned && workflow"
+            :content="
+              workflow.isDefault
+                ? 'Auto-selected for new records in this module'
+                : 'Make this the workflow auto-selected for new records in this module'
+            "
+          >
+            <button
+              type="button"
+              :disabled="!canToggleDefault || defaultBusy"
+              class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded-lg tw:border tw:px-2.5 tw:py-1.5 tw:text-xs tw:font-medium tw:transition-colors tw:disabled:opacity-50"
+              :class="
+                workflow.isDefault
+                  ? 'tw:border-amber-300 tw:bg-amber-50 tw:text-amber-700'
+                  : 'tw:border-divider tw:text-secondary tw:hover:text-primary tw:hover:border-primary/50'
+              "
+              :aria-pressed="!!workflow.isDefault"
+              @click="handleToggleDefault"
+            >
+              <component
+                :is="workflow.isDefault ? IconStarFilled : IconStar"
+                :size="14"
+                :class="workflow.isDefault ? 'tw:text-amber-500' : ''"
+              />
+              Default
+            </button>
+          </BaseTooltip>
+
+          <span v-if="isTemplateOwned" class="tw:text-xs tw:text-secondary">
+            Published with its document template
+          </span>
+          <template v-else-if="canUpdate">
             <BaseButton :isLoading="publishing" @click="handlePublish"> Publish </BaseButton>
           </template>
+          <!-- "Reopen for Editing" rather than "Create New Draft" (user
+               request 2026-08-16): from a published version the intent is to
+               make this editable again, which is what the reader is looking
+               for. That a new draft version is how it happens is mechanism.
+               Matches the same action on a published Document Template. -->
           <BaseButton
-            v-if="canCreateDraft"
+            v-if="!isTemplateOwned && canCreateDraft"
             :isLoading="creatingDraft"
             @click="handleCreateDraft(false)"
           >
-            Create New Draft
+            Reopen for Editing
           </BaseButton>
 
           <!-- Lifecycle keyed off the selected version: a DRAFT is
@@ -494,7 +635,7 @@ watch(steps, () => {
                a published version archives/restores the workflow (it may
                be attached to records). -->
           <BaseButton
-            v-if="isDraftVersion && canDeleteWorkflow"
+            v-if="!isTemplateOwned && isDraftVersion && canDeleteWorkflow"
             variant="ghost"
             class="tw:text-red-600"
             :isLoading="workflowStatusBusy"
@@ -504,7 +645,7 @@ watch(steps, () => {
             {{ isOnlyVersion ? 'Delete' : 'Discard Draft' }}
           </BaseButton>
           <BaseButton
-            v-else-if="isArchived && canArchiveWorkflow"
+            v-else-if="!isTemplateOwned && isArchived && canArchiveWorkflow"
             variant="ghost"
             :isLoading="workflowStatusBusy"
             @click="setWorkflowStatus('ACTIVE')"
@@ -513,7 +654,7 @@ watch(steps, () => {
             Restore
           </BaseButton>
           <BaseButton
-            v-else-if="canArchiveWorkflow"
+            v-else-if="!isTemplateOwned && canArchiveWorkflow"
             variant="ghost"
             :isLoading="workflowStatusBusy"
             @click="setWorkflowStatus('ARCHIVED')"
@@ -544,71 +685,153 @@ watch(steps, () => {
       >
         <IconLock :size="20" class="tw:text-amber-600" />
         <span class="tw:text-sm tw:text-amber-800 tw:font-medium">
-          This version is published and locked. Create a new draft to make changes.
+          This version is published and locked. Reopen it for editing to make changes.
         </span>
       </div>
 
-      <!-- Global Settings -->
-      <div class="tw:flex tw:flex-col tw:bg-main tw:border-b tw:border-divider tw:px-6 tw:py-4">
-        <div>
-          <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1.5">
-            Workflow Name
-          </label>
-          <BaseTextInput
-            v-model="workflow.name"
-            name="name"
-            placeholder="e.g. Global SOP Multi-Stage Workflow"
+      <!-- Global Settings — name and description stacked on their own rows,
+           aligned to the same centered column as the workflow canvas below
+           (user request 2026-08-13). -->
+      <div class="tw:bg-main tw:border-b tw:border-divider tw:py-4">
+        <div
+          class="tw:w-full tw:max-w-3xl tw:mx-auto tw:px-4 tw:md:px-8 tw:flex tw:flex-col tw:gap-4"
+        >
+          <BaseField v-slot="{ id: fieldId }" label="Workflow Name">
+            <BaseTextInput
+              :id="fieldId"
+              v-model="workflow.name"
+              name="name"
+              placeholder="e.g. Global SOP Multi-Stage Workflow"
+              :disabled="!canUpdate"
+            />
+          </BaseField>
+
+          <BaseTextarea
+            v-model="workflow.description"
+            name="description"
+            label="Description"
+            placeholder="Describe the purpose of this workflow"
             :disabled="!canUpdate"
+            autosize
+            :maxRows="2"
           />
         </div>
-
-        <BaseTextarea
-          v-model="workflow.description"
-          name="description"
-          label="Description"
-          placeholder="Describe the purpose of this workflow"
-          :disabled="!canUpdate"
-          class="tw:mt-4"
-          autosize
-          :maxRows="4"
-        />
       </div>
 
-      <!-- Two-Pane Designer -->
-      <div v-if="selectedVersion" class="tw:flex tw:flex-1 tw:overflow-hidden">
-        <!-- Left Pane: Step List -->
+      <!-- Workflow canvas — steps as a top-to-bottom flow. Clicking a step
+           EXPANDS its configuration in place, under the card (user request
+           2026-08-14; was a dialog, and before that a two-pane split). The
+           flow stays visible above and below while you configure. -->
+      <div v-if="selectedVersion" class="tw:flex-1 tw:overflow-y-auto tw:bg-main">
         <WorkflowStepList
           v-model:stepId="selectedStepId"
           :versionId="selectedVersionId"
           :canUpdate="canUpdate"
           :showChildSteps="showChildSteps"
-        />
-
-        <!-- Right Pane: Step Editor -->
-        <div class="tw:flex-1 tw:overflow-y-auto tw:bg-main tw:p-8">
-          <div v-if="selectedStepId" class="tw:max-w-4xl tw:mx-auto tw:space-y-10">
-            <WorkflowStepEditor
-              :stepId="selectedStepId"
-              :canUpdate="canUpdate"
-              :showAllowedOutcomes="showAllowedOutcomes"
-              :showFormSchema="showFormSchema"
-              :showAllowChildSteps="showAllowChildSteps"
-              :stepApproversTab="stepApproversTab"
-              :selectedApprovalRule="selectedApprovalRule"
-            />
-          </div>
-
-          <div
-            v-else
-            class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full tw:gap-4 tw:text-secondary"
-          >
-            <IconCheck :size="48" class="tw:opacity-30" />
-            <p class="tw:text-sm tw:font-medium">
-              Select a step from the left panel or use the 'Add Step' button to get started.
-            </p>
-          </div>
-        </div>
+          :moduleId="workflow?.moduleId"
+          @openSettings="openStepSettings"
+          @openAssignees="openStepAssignees"
+        >
+          <!-- Expanded step configuration — no header (user request
+               2026-08-15): the card directly above already carries the step
+               number, name, type and the collapse chevron, so a second title
+               row was pure duplication. Renaming lives on the card's title.
+               Everything autosaves. -->
+          <template #stepEditor="{ stepId: expandedStepId }">
+            <!-- No border/rounding of its own — this renders inside the step
+                 card, below its header divider (one panel per step). -->
+            <div class="tw:bg-sidebar tw:p-4 tw:md:p-5">
+              <WorkflowStepEditor
+                :stepId="expandedStepId"
+                :canUpdate="canUpdate"
+                :showFormSchema="showFormSchema"
+                :selectedApprovalRule="selectedApprovalRule"
+                @openAssignees="openStepAssignees(expandedStepId)"
+              />
+            </div>
+          </template>
+        </WorkflowStepList>
       </div>
+
+      <!-- Secondary step config — one instance each, driven by the gear /
+           people buttons on any step's header. Work whether or not that step
+           is expanded, so each dialog owns its own load + autosave. -->
+      <WorkflowStepSettingsDialog
+        v-model="settingsDialogOpen"
+        :stepId="settingsStepId"
+        :canUpdate="canUpdate"
+        :showAllowChildSteps="showAllowChildSteps"
+      />
+      <WorkflowStepAssigneesDialog
+        v-if="assigneesStepId"
+        v-model="assigneesDialogOpen"
+        :stepId="assigneesStepId"
+        :canUpdate="canUpdate"
+        :stepApproversTab="stepApproversTab"
+      />
     </template>
+
+    <!-- Publish readiness — checklist confirm instead of blind publish -->
+    <BaseDialog v-model="showPublishDialog" title="Publish Workflow" maxWidth="lg">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <div
+          v-if="!publishReadiness.warnings.length && !publishReadiness.infos.length"
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-good/10 tw:border tw:border-good/30"
+        >
+          <IconCheck :size="16" class="tw:text-good tw:shrink-0 tw:mt-0.5" />
+          <p class="tw:text-sm tw:text-on-main">
+            All steps have task forms and assignees. Publishing makes
+            <strong>v{{ versionLabel }}</strong> the active version for new records.
+          </p>
+        </div>
+
+        <div
+          v-if="publishReadiness.warnings.length"
+          class="tw:rounded-lg tw:bg-warning/10 tw:border tw:border-warning/30 tw:p-3 tw:space-y-2"
+        >
+          <p class="tw:text-xs tw:font-bold tw:text-warning tw:flex tw:items-center tw:gap-1.5">
+            <IconAlertCircle :size="14" /> Review before publishing
+          </p>
+          <ul class="tw:space-y-1">
+            <li
+              v-for="(w, i) in publishReadiness.warnings"
+              :key="`w${i}`"
+              class="tw:text-xs tw:text-warning"
+            >
+              {{ w }}
+            </li>
+          </ul>
+        </div>
+
+        <div
+          v-if="publishReadiness.infos.length"
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:p-3 tw:space-y-2"
+        >
+          <p class="tw:text-xs tw:font-semibold tw:text-secondary">Good to know</p>
+          <ul class="tw:space-y-1">
+            <li
+              v-for="(n, i) in publishReadiness.infos"
+              :key="`i${i}`"
+              class="tw:text-xs tw:text-secondary"
+            >
+              {{ n }}
+            </li>
+          </ul>
+        </div>
+
+        <p v-if="publishReadiness.warnings.length" class="tw:text-caption tw:text-secondary">
+          You can publish anyway, or go back and add task forms first (Task Form tab on each step).
+        </p>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          :submitLabel="publishReadiness.warnings.length ? 'Publish Anyway' : 'Publish'"
+          :loading="publishing"
+          :disabled="publishing"
+          @cancel="close"
+          @submit="executePublish"
+        />
+      </template>
+    </BaseDialog>
   </div>
 </template>

@@ -2,7 +2,7 @@
 import { IconSchool, IconCalendar, IconUsers, IconClock, IconSparkles } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { DateTime } from 'luxon'
-import { currentSession } from '@/utils/currentSession.js'
+import { currentSession, canUseAi } from '@/utils/currentSession.js'
 
 const props = defineProps({
   documentId: { type: String, required: true },
@@ -14,7 +14,9 @@ const toast = useToast()
 // The currently selected version (for editing trainingConfig in DRAFT / IN_REVIEW)
 const selectedVersion = useLiveQueryWithDeps(
   [() => props.versionId],
+
   async (db, [id]) => (id ? db.DocumentVersion.findByPk(id) : null),
+  { models: ['DocumentVersion'] },
 )
 
 // Document + collaborator context. Editable by: original doc creator
@@ -23,7 +25,9 @@ const selectedVersion = useLiveQueryWithDeps(
 // and other permission-holders are read-only.
 const document = useLiveQueryWithDeps(
   [() => props.documentId],
+
   async (db, [id]) => (id ? db.Document.findByPk(id) : null),
+  { models: ['Document'] },
 )
 
 const collaboratorRecords = useLiveQueryWithDeps(
@@ -33,7 +37,8 @@ const collaboratorRecords = useLiveQueryWithDeps(
     const rows = await db.UserOnDocument.where().exec()
     return rows.filter((r) => r.documentId === docId && !r.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['UserOnDocument'], initial: [] },
 )
 
 const isAuthorisedEditor = computed(() => {
@@ -55,7 +60,7 @@ const isEditable = computed(
 // require training to be enabled because there's no point generating
 // questions for a version where training won't run.
 const canGenerateQuestions = computed(
-  () => isEditable.value && selectedVersion.value?.trainingConfig?.enabled,
+  () => canUseAi.value && isEditable.value && selectedVersion.value?.trainingConfig?.enabled,
 )
 const showGenerateDialog = ref(false)
 
@@ -172,7 +177,7 @@ function ensureConfig() {
       completionDueDays: 7,
       passingScore: 80,
       maxAttempts: 1,
-      roleIds: [],
+      curriculumIds: [],
       userIds: [],
       assessment: [],
     }
@@ -183,16 +188,19 @@ watch(selectedVersion, ensureConfig, { immediate: true })
 // Find the auto-Training for this document
 const training = useLiveQueryWithDeps(
   [() => props.documentId],
+
   async (db, [docId]) => {
     if (!docId) return null
     const all = await db.Training.where().exec()
     return all.find((t) => t.sourceDocumentId === docId) ?? null
   },
+  { models: ['Training'] },
 )
 
 // Most recent instance — retraining flow can spawn new instances, show the latest
 const latestInstance = useLiveQueryWithDeps(
   [() => training.value?.id],
+
   async (db, [trainingId]) => {
     if (!trainingId) return null
     const all = await db.TrainingInstance.where('trainingId', trainingId).exec()
@@ -201,6 +209,7 @@ const latestInstance = useLiveQueryWithDeps(
       (newest.createdAt?.toMillis?.() ?? 0) > (inst.createdAt?.toMillis?.() ?? 0) ? newest : inst,
     )
   },
+  { models: ['TrainingInstance'] },
 )
 
 // All instances (for the history list)
@@ -211,7 +220,8 @@ const allInstances = useLiveQueryWithDeps(
     const all = await db.TrainingInstance.where('trainingId', trainingId).exec()
     return all.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['TrainingInstance'], initial: [] },
 )
 
 // Assignees for the latest instance
@@ -221,7 +231,8 @@ const assignees = useLiveQueryWithDeps(
     if (!instanceId) return []
     return db.TrainingAssignee.where('trainingInstanceId', instanceId).exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingAssignee'], initial: [] },
 )
 
 const stats = computed(() => {
@@ -258,12 +269,11 @@ const libraryLinks = useLiveQueryWithDeps(
     const rows = await db.TrainingDocumentLink.where().exec()
     return rows.filter((l) => l.documentId === docId && !l.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['TrainingDocumentLink'], initial: [] },
 )
 
-const libraryTrainingIds = computed(() => [
-  ...new Set(libraryLinks.value.map((l) => l.trainingId)),
-])
+const libraryTrainingIds = computed(() => [...new Set(libraryLinks.value.map((l) => l.trainingId))])
 
 const libraryTrainings = useLiveQueryWithDeps(
   [() => libraryTrainingIds.value.join(',')],
@@ -274,7 +284,8 @@ const libraryTrainings = useLiveQueryWithDeps(
     // Exclude the auto-training (covered by the section above).
     return found.filter((t) => t && t.sourceDocumentId !== props.documentId)
   },
-  { initial: [] },
+
+  { models: ['Training'], initial: [] },
 )
 
 const trainingsById = computed(() => {
@@ -296,11 +307,10 @@ const libraryInstances = useLiveQueryWithDeps(
       const rows = await db.TrainingInstance.where('trainingId', id).exec()
       all.push(...rows)
     }
-    return all.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return all.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['TrainingInstance'], initial: [] },
 )
 
 // Per-instance assignee rows (full detail) so each instance card can render
@@ -318,7 +328,8 @@ const libraryAssigneesByInstance = useLiveQueryWithDeps(
     }
     return out
   },
-  { initial: {} },
+
+  { models: ['TrainingAssignee'], initial: {} },
 )
 
 function libraryAssigneeStats(instanceId) {
@@ -333,16 +344,17 @@ function libraryAssigneeStats(instanceId) {
 </script>
 
 <template>
-  <div class="tw:max-w-360 tw:mx-auto tw:px-6 tw:py-8 tw:w-full tw:flex tw:flex-col tw:gap-5">
+  <div class="tw:py-8 tw:w-full tw:flex tw:flex-col tw:gap-5">
     <!-- Edit-in-place training config for DRAFT / REJECTED / CHANGES_REQUESTED versions -->
     <div v-if="isEditable && selectedVersion?.trainingConfig" class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
+        <BaseText variant="overline">
           Training config for this version
           <span class="tw:font-normal tw:text-on-sidebar tw:ml-1">
-            (v{{ selectedVersion.versionMajor }}.{{ selectedVersion.versionMinor }} · {{ selectedVersion.statusId }})
+            (v{{ selectedVersion.versionMajor }}.{{ selectedVersion.versionMinor }} ·
+            {{ selectedVersion.statusId }})
           </span>
-        </p>
+        </BaseText>
         <div class="tw:flex tw:items-center tw:gap-3">
           <button
             v-if="canGenerateQuestions"
@@ -377,33 +389,39 @@ function libraryAssigneeStats(instanceId) {
     />
 
     <!-- No training configured AND not on an editable version → empty state -->
-    <div v-else-if="!training" class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:text-center">
+    <BaseCard v-else-if="!training" class="tw:text-center" padding="lg">
       <IconSchool :size="48" class="tw:mx-auto tw:mb-3 tw:text-gray-300" />
       <p class="tw:text-sm tw:text-secondary">
         No training has been configured for this document yet.
       </p>
-    </div>
+    </BaseCard>
 
     <!-- No instances launched yet (training exists but doc never became effective) -->
-    <div v-else-if="!latestInstance" class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-8 tw:text-center">
+    <BaseCard v-else-if="!latestInstance" class="tw:text-center" padding="lg">
       <IconSchool :size="48" class="tw:mx-auto tw:mb-3 tw:text-gray-300" />
       <p class="tw:text-sm tw:text-secondary">
-        Training is configured. The first training instance will launch when this document becomes effective.
+        Training is configured. The first training instance will launch when this document becomes
+        effective.
       </p>
-    </div>
+    </BaseCard>
 
     <template v-else>
       <!-- Header: latest instance summary -->
       <RouterLink
         :to="getCompanyPath(`/training-instances/${latestInstance.id}`)"
-        class="tw:block tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:hover:bg-gray-50 tw:transition-colors tw:no-underline"
+        class="tw:block tw:bg-card tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:hover:bg-gray-50 tw:transition-colors tw:no-underline"
       >
         <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-3">
           <div>
-            <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">{{ latestInstance.snapshot?.title || training.title }}</h2>
-            <p class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
+            <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">
+              {{ latestInstance.snapshot?.title || training.title }}
+            </h2>
+            <p
+              class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:items-center tw:gap-3 tw:flex-wrap"
+            >
               <span class="tw:flex tw:items-center tw:gap-1">
-                <IconCalendar :size="12" /> Launched {{ latestInstance.createdAt?.formatDate('date') }}
+                <IconCalendar :size="12" /> Launched
+                {{ latestInstance.createdAt?.formatDate('date') }}
               </span>
               <span
                 v-if="latestInstance.dueDate"
@@ -422,36 +440,70 @@ function libraryAssigneeStats(instanceId) {
         </div>
 
         <!-- Summary stats -->
-        <div class="tw:grid tw:grid-cols-5 tw:gap-3 tw:mt-4">
+        <div class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-3 tw:lg:grid-cols-5 tw:gap-3 tw:mt-4">
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Total</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Total
+            </p>
             <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">{{ stats.total }}</p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Verified</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Verified
+            </p>
             <p class="tw:text-lg tw:font-bold tw:text-green-600">{{ stats.verified }}</p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Pending</p>
-            <p class="tw:text-lg tw:font-bold tw:text-amber-600">{{ stats.completed + stats.inProgress }}</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Pending
+            </p>
+            <p class="tw:text-lg tw:font-bold tw:text-amber-600">
+              {{ stats.completed + stats.inProgress }}
+            </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Failed</p>
-            <p class="tw:text-lg tw:font-bold" :class="stats.failed > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'">{{ stats.failed }}</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Failed
+            </p>
+            <p
+              class="tw:text-lg tw:font-bold"
+              :class="stats.failed > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
+            >
+              {{ stats.failed }}
+            </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Retrain</p>
-            <p class="tw:text-lg tw:font-bold" :class="stats.retrainRequired > 0 ? 'tw:text-orange-600' : 'tw:text-on-sidebar'">{{ stats.retrainRequired }}</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Retrain
+            </p>
+            <p
+              class="tw:text-lg tw:font-bold"
+              :class="stats.retrainRequired > 0 ? 'tw:text-orange-600' : 'tw:text-on-sidebar'"
+            >
+              {{ stats.retrainRequired }}
+            </p>
           </div>
         </div>
       </RouterLink>
 
       <!-- Assignees list -->
-      <div class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5">
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-sidebar tw:mb-3 tw:flex tw:items-center tw:gap-2">
+      <BaseCard>
+        <BaseText as="h3" weight="bold" class="tw:mb-3 tw:flex tw:items-center tw:gap-2">
           <IconUsers :size="16" /> Assignees ({{ assignees.length }})
-        </h3>
-        <div v-if="!assignees.length" class="tw:text-sm tw:text-secondary tw:italic">No assignees on this instance.</div>
+        </BaseText>
+        <div v-if="!assignees.length" class="tw:text-sm tw:text-secondary tw:italic">
+          No assignees on this instance.
+        </div>
         <div v-else class="tw:flex tw:flex-col tw:gap-1">
           <div
             v-for="a in assignees"
@@ -460,13 +512,19 @@ function libraryAssigneeStats(instanceId) {
           >
             <UserBadgeById :userId="a.userId" />
             <span class="tw:text-xs tw:text-secondary">
-              <template v-if="a.completedAt">Completed {{ a.completedAt.formatDate('date') }}</template>
+              <template v-if="a.completedAt"
+                >Completed {{ a.completedAt.formatDate('date') }}</template
+              >
               <template v-else>—</template>
             </span>
             <span
               v-if="a.score !== null"
               class="tw:text-sm tw:font-semibold tw:w-12 tw:text-right"
-              :class="a.status === 'VERIFIED' || a.status === 'COMPLETED' ? 'tw:text-green-600' : 'tw:text-red-600'"
+              :class="
+                a.status === 'VERIFIED' || a.status === 'COMPLETED'
+                  ? 'tw:text-green-600'
+                  : 'tw:text-red-600'
+              "
             >
               {{ a.score }}%
             </span>
@@ -474,11 +532,11 @@ function libraryAssigneeStats(instanceId) {
             <TrainingAssigneeStatusBadgeById :statusId="a.status" />
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- History (prior instances from retraining) -->
-      <div v-if="allInstances.length > 1" class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5">
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-sidebar tw:mb-3">Training History</h3>
+      <BaseCard v-if="allInstances.length > 1">
+        <BaseText as="h3" weight="bold" class="tw:mb-3">Training History</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mb-3">
           Each document revision (or retraining triggered by the manager) launches a new instance.
         </p>
@@ -492,12 +550,14 @@ function libraryAssigneeStats(instanceId) {
           >
             <span class="tw:text-sm tw:text-on-sidebar">
               Launched {{ inst.createdAt?.formatDate('date') }}
-              <span v-if="inst.id === latestInstance.id" class="tw:text-xs tw:text-primary tw:ml-2">· current</span>
+              <span v-if="inst.id === latestInstance.id" class="tw:text-xs tw:text-primary tw:ml-2"
+                >· current</span
+              >
             </span>
             <TrainingInstanceStatusBadgeById :statusId="inst.status" :showDot="false" />
           </RouterLink>
         </div>
-      </div>
+      </BaseCard>
     </template>
 
     <!-- Library Training History — shown regardless of whether this doc has
@@ -508,19 +568,17 @@ function libraryAssigneeStats(instanceId) {
          WHO completed WHICH training on this document and when. -->
     <div v-if="libraryInstances.length" class="tw:flex tw:flex-col tw:gap-3">
       <div class="tw:flex tw:flex-col tw:gap-1">
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-sidebar">
-          Library Training Referencing This Document
-        </h3>
+        <BaseText as="h3" weight="bold"> Library Training Referencing This Document </BaseText>
         <p class="tw:text-xs tw:text-secondary">
           Trainings from the Training Library that include this document as a reference. Each
           instance shows its assignees and completion status.
         </p>
       </div>
 
-      <div
+      <BaseCard
         v-for="inst in libraryInstances"
         :key="inst.id"
-        class="tw:bg-white tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:flex tw:flex-col tw:gap-4"
+        class="tw:flex tw:flex-col tw:gap-4"
       >
         <!-- Instance header — click-through to the full instance page -->
         <RouterLink
@@ -528,14 +586,12 @@ function libraryAssigneeStats(instanceId) {
           class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:no-underline"
         >
           <div class="tw:flex tw:flex-col tw:gap-1 tw:min-w-0 tw:flex-1">
-            <h4 class="tw:text-base tw:font-semibold tw:text-on-sidebar tw:truncate">
+            <BaseText as="h4" weight="semibold" truncate>
               {{
                 inst.snapshot?.title || trainingsById[inst.trainingId]?.title || 'Untitled training'
               }}
-            </h4>
-            <p
-              class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-3 tw:flex-wrap"
-            >
+            </BaseText>
+            <p class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
               <span class="tw:flex tw:items-center tw:gap-1">
                 <IconCalendar :size="12" /> Launched {{ inst.createdAt?.formatDate('date') }}
               </span>
@@ -555,27 +611,43 @@ function libraryAssigneeStats(instanceId) {
         </RouterLink>
 
         <!-- Per-instance stats strip (mirrors the auto-training card above) -->
-        <div class="tw:grid tw:grid-cols-4 tw:gap-3">
+        <div class="tw:grid tw:grid-cols-2 tw:sm:grid-cols-4 tw:gap-3">
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Assigned</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Assigned
+            </p>
             <p class="tw:text-lg tw:font-bold tw:text-on-sidebar">
               {{ libraryAssigneeStats(inst.id).total }}
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Verified</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Verified
+            </p>
             <p class="tw:text-lg tw:font-bold tw:text-green-600">
               {{ libraryAssigneeStats(inst.id).verified }}
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Completed</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Completed
+            </p>
             <p class="tw:text-lg tw:font-bold tw:text-amber-600">
               {{ libraryAssigneeStats(inst.id).completed }}
             </p>
           </div>
           <div class="tw:bg-gray-50 tw:rounded-lg tw:px-3 tw:py-2">
-            <p class="tw:text-[10px] tw:uppercase tw:font-bold tw:text-secondary">Failed</p>
+            <p
+              class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+            >
+              Failed
+            </p>
             <p class="tw:text-lg tw:font-bold tw:text-red-600">
               {{ libraryAssigneeStats(inst.id).failed }}
             </p>
@@ -584,13 +656,11 @@ function libraryAssigneeStats(instanceId) {
 
         <!-- Assignees list (same row layout as the auto-training section) -->
         <div>
-          <h5
-            class="tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-2 tw:flex tw:items-center tw:gap-2"
-          >
+          <BaseText variant="overline" class="tw:mb-2 tw:flex tw:items-center tw:gap-2">
             <IconUsers :size="14" /> Assignees ({{
               (libraryAssigneesByInstance[inst.id] ?? []).length
             }})
-          </h5>
+          </BaseText>
           <div
             v-if="!(libraryAssigneesByInstance[inst.id] ?? []).length"
             class="tw:text-sm tw:text-secondary tw:italic"
@@ -626,7 +696,7 @@ function libraryAssigneeStats(instanceId) {
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
     </div>
   </div>
 </template>

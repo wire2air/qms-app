@@ -35,5 +35,8 @@ defineProps({
       {{ title }}
     </p>
     <p v-if="description" class="tw:text-xs tw:text-secondary tw:mt-1">{{ description }}</p>
+    <div v-if="$slots.action" :class="dense ? 'tw:mt-2' : 'tw:mt-4'">
+      <slot name="action" />
+    </div>
   </div>
 </template>

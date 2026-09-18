@@ -6,48 +6,39 @@ defineProps({
 
 const modelValue = defineModel({ type: [String, Array, null], default: null })
 
-// Only ACTIVE, non-doc-driven trainings show in the picker. Doc-driven trainings
-// are launched by the document effective trigger, not via direct selection.
+// ACTIVE trainings — including document-driven ones, so they can be added to
+// curricula (the doc-effective flow also auto-adds them to the selected curricula).
 const trainings = useLiveQuery(
   async (db) =>
     db.Training.where()
       .exec()
-      .then((all) => all.filter((t) => t.status === 'ACTIVE' && !t.sourceDocumentId)),
-  { initial: [] },
-)
+      .then((all) => all.filter((t) => t.status === 'ACTIVE')),
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+  { models: ['Training'], initial: [] },
+)
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="trainings" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <TrainingBadgeById
-              v-for="trainingId in getArray()"
-              :key="trainingId"
-              :trainingId="trainingId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(trainingId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Trainings</span>
-        </template>
-        <template v-else>
-          <TrainingBadgeById
-            v-if="modelValue"
-            :trainingId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Training</span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="trainings"
+    optionLabel="title"
+    optionValue="id"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All trainings —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <TrainingBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :trainingId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

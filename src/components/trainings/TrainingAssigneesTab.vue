@@ -14,7 +14,8 @@ const trainingRoles = useLiveQueryWithDeps(
     if (!trainingId) return []
     return db.TrainingRole.where('trainingId', trainingId).exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingRole'], initial: [] },
 )
 
 const trainingUsers = useLiveQueryWithDeps(
@@ -23,7 +24,8 @@ const trainingUsers = useLiveQueryWithDeps(
     if (!trainingId) return []
     return db.TrainingUser.where('trainingId', trainingId).exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingUser'], initial: [] },
 )
 
 const roleIds = computed(() => trainingRoles.value.map((r) => r.roleId))
@@ -32,16 +34,14 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
 
 <template>
   <div class="tw:space-y-4">
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
-        <IconUsers :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-main">Assignees</h2>
-      </div>
-      <BaseButton v-if="canUpdate" variant="outline" size="sm" @click="dialogOpen = true">
-        <template #icon><IconEdit :size="14" /></template>
-        Manage Assignees
-      </BaseButton>
-    </div>
+    <BaseSectionHeader title="Assignees" :icon="IconUsers" :level="2" size="section-title">
+      <template #actions>
+        <BaseButton v-if="canUpdate" variant="outline" size="sm" @click="dialogOpen = true">
+          <template #icon><IconEdit :size="14" /></template>
+          Manage Assignees
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
     <p class="tw:text-xs tw:text-secondary">
       All users with the assigned roles, plus directly assigned users, will receive this training
@@ -50,9 +50,9 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
 
     <div class="tw:border tw:border-divider tw:rounded-xl tw:p-6 tw:space-y-5">
       <div>
-        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-          Assigned Roles
-        </label>
+        <BaseText variant="overline" weight="bold" class="tw:block tw:mb-2"
+          >Assigned Roles</BaseText
+        >
         <div v-if="roleIds.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
           <RoleBadgeById v-for="roleId in roleIds" :key="roleId" :roleId="roleId" />
         </div>
@@ -60,9 +60,9 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
       </div>
 
       <div>
-        <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-          Assigned Users
-        </label>
+        <BaseText variant="overline" weight="bold" class="tw:block tw:mb-2"
+          >Assigned Users</BaseText
+        >
         <div v-if="userIds.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
           <UserBadgeById v-for="userId in userIds" :key="userId" :userId="userId" />
         </div>
@@ -70,10 +70,6 @@ const userIds = computed(() => trainingUsers.value.map((u) => u.userId))
       </div>
     </div>
 
-    <TrainingAssigneesDialog
-      v-model="dialogOpen"
-      :trainingId="trainingId"
-      :canUpdate="canUpdate"
-    />
+    <TrainingAssigneesDialog v-model="dialogOpen" :trainingId="trainingId" :canUpdate="canUpdate" />
   </div>
 </template>

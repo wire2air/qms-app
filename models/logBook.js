@@ -29,7 +29,7 @@ export class LogBook extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
 
   @Property({ type: String, required: true }) code = ''
-  @Property({ type: String }) codePrefix = 'FRM-{DEPTCODE}-{TYPECODE}'
+  @Property({ type: String }) codePrefix = 'LOG-{DEPTCODE}-{TYPECODE}'
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
 
@@ -41,11 +41,26 @@ export class LogBook extends BaseModel {
 
   // Equipment / department / free-text location references
   @Property({ type: String }) equipmentId = ''
+  // Auto-roll the linked instrument's calibration when an entry is finalized
+  // (calibration date = submit timestamp; next-due = + the instrument interval).
+  @Property({ type: Boolean }) syncsEquipmentCalibration = false
+  // PM twin — entry submit/approval rolls equipment.nextPmDue.
+  @Property({ type: Boolean }) syncsEquipmentPm = false
+  // Scheduling lives on the book (2026-08-06): AD_HOC | RECURRING | TRIGGER.
+  @Property({ type: String }) scheduleMode = 'AD_HOC'
+  // RECURRING: { cron, timezone, windowMinutes, startOffsetMinutes, onWindowExpire }
+  @Property({ type: Object }) schedule = {}
+  @Property({ type: Number }) graceMinutes = 60
+  // RECURRING only: false = notification-only occurrences (no tasks).
+  @Property({ type: Boolean }) generateTasks = true
+  // TRIGGER only: 'CALIBRATION' | 'PM'.
+  @Property({ type: String }) triggerSource = ''
   @Property({ type: String }) departmentId = ''
   @Property({ type: String }) location = ''
 
-  // Compliance references
-  @Property({ type: String }) relatedStandardId = ''
+  // Compliance references — nullable UUID FK to the RelatedStandard lookup,
+  // default null (not '') so an unset value never hits the UUID FK column.
+  @Property({ type: String }) relatedStandardId = null
   @Property({ type: String }) regulatoryCitation = ''
   @Property({ type: Number }) retentionMonths = null
 
@@ -55,20 +70,31 @@ export class LogBook extends BaseModel {
   @Property({ type: Number }) editWindowMinutes = null
   @Property({ type: Boolean }) signatureRequired = false
   @Property({ type: Boolean }) reviewRequired = false
+  // Allow supervisor over-the-shoulder approval at the operator's workstation
+  // (PIN, no session switch). Only meaningful with reviewRequired.
+  @Property({ type: Boolean }) overTheShoulderReview = false
   @Property({ type: String }) notifyOnSubmit = 'DIGEST'
 
   // Form definition
   @Property({ type: Array }) schema = /** @type {Array} */ ([])
   @Property({ type: Number }) schemaVersion = 1
 
-  @Property({ type: String }) statusId = 'ACTIVE'
+  // Lifecycle (supersede model 2026-08-08): DRAFT → UNDER_REVIEW →
+  // (REJECTED) → ACTIVE → INACTIVE/OBSOLETE. Contract freezes on ACTIVE.
+  @Property({ type: String }) statusId = 'DRAFT'
+  // Why the book was obsoleted (required on that transition; audit-recorded).
+  @Property({ type: String }) statusReason = ''
   @Property({ type: String }) createdBy = ''
 
-  // Controlled-version pointers (source of truth is LogBookVersion).
-  @Property({ type: String }) currentEffectiveVersionId = ''
-  @Property({ type: String }) latestDraftVersionId = ''
   // Attached approval workflow (PUBLISHED workflow version).
   @Property({ type: String }) workflowVersionId = ''
+  // ── Supersede lineage + approval lifecycle ──
+  @Property({ type: String }) supersedesLogBookId = ''
+  @Property({ type: Number }) generation = 1
+  @Property({ type: String }) changeSummary = ''
+  @Property({ type: String }) rejectionComment = ''
+  @Property({ type: String }) workflowInstanceId = ''
+  @Property({ type: DateTime }) effectiveAt = /** @type {DateTime} */ (null)
 
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })

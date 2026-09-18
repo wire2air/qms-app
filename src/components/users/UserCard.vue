@@ -19,20 +19,34 @@ const roles = useLiveQueryWithDeps(
     const list = await Promise.all(assignments.map((ra) => db.Role.findByPk(ra.roleId)))
     return list.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser', 'Role'], initial: [] },
 )
 
 const site = useLiveQueryWithDeps(
   [() => props.user?.siteId],
+
   async (db, [siteId]) => (siteId ? db.Site.findByPk(siteId) : null),
+  { models: ['Site'] },
 )
 
 const department = useLiveQueryWithDeps(
   [() => props.user?.departmentId],
+
   async (db, [deptId]) => (deptId ? db.Department.findByPk(deptId) : null),
+  { models: ['Department'] },
 )
 
 const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
+
+// Invited but not yet accepted. There is no INVITED row in `user_statuses` —
+// acceptance is what flips the record to ACTIVE — so this state is INACTIVE
+// plus a sent invitation, and badging it as plain "Inactive" makes an onboarding
+// user indistinguishable from a disabled one. Matches the "Invited" quick-filter
+// pill on the roster.
+const pendingInvite = computed(
+  () => props.user?.userStatusId !== 'ACTIVE' && !!props.user?.inviteSent,
+)
 </script>
 
 <template>
@@ -49,10 +63,16 @@ const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
         <span v-if="user.jobTitle" class="tw:text-xs tw:text-secondary tw:truncate">
           {{ user.jobTitle }}
         </span>
+        <BaseBadge
+          v-if="pendingInvite"
+          class="tw:mt-1 tw:self-start tw:text-micro tw:bg-blue-100 tw:text-blue-700"
+        >
+          Invited
+        </BaseBadge>
         <UserStatusBadgeById
-          v-if="user.userStatusId"
+          v-else-if="user.userStatusId"
           :statusId="user.userStatusId"
-          class="tw:mt-1 tw:self-start tw:text-[10px]"
+          class="tw:mt-1 tw:self-start tw:text-micro"
         />
       </div>
     </div>
@@ -73,14 +93,12 @@ const profileLink = computed(() => getCompanyPath(`/users/${props.user?.id}`))
     </div>
 
     <div v-if="roles.length" class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-[10px] tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
-        Roles
-      </div>
+      <BaseText variant="overline">Roles</BaseText>
       <div class="tw:flex tw:flex-wrap tw:gap-1">
         <BaseBadge
           v-for="role in roles"
           :key="role.id"
-          class="tw:text-[10px] tw:bg-main-hover tw:text-on-main"
+          class="tw:text-micro tw:bg-main-hover tw:text-on-main"
         >
           {{ role.name }}
         </BaseBadge>

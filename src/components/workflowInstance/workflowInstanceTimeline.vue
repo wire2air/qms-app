@@ -20,6 +20,7 @@ const props = defineProps({
 // WorkflowStep template fetch.
 const stepEntries = useLiveQueryWithDeps(
   [() => props.workflowInstanceId],
+
   async (db, [workflowInstanceId]) => {
     if (!workflowInstanceId) return []
     const instanceSteps = await db.WorkflowInstanceStep.where(
@@ -59,6 +60,7 @@ const stepEntries = useLiveQueryWithDeps(
     })
     return entries
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const loading = computed(() => stepEntries.value === undefined)
@@ -75,12 +77,10 @@ function stepState(step) {
 
 <template>
   <div class="tw:space-y-4">
-    <h2 class="tw:text-lg tw:font-bold tw:text-on-main tw:px-1">Workflow</h2>
+    <h2 class="tw:text-lg tw:font-semibold tw:text-on-main tw:px-1">Workflow</h2>
 
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-12">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:h-8 tw:w-8 tw:border-2 tw:border-primary tw:border-t-transparent"
-      />
+      <BaseSpinner size="md" />
     </div>
 
     <div
@@ -107,7 +107,7 @@ function stepState(step) {
         <!-- Completed step icon -->
         <div
           v-if="stepState(entry.instanceStep) === 'completed'"
-          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-emerald-500 tw:flex tw:items-center tw:justify-center tw:text-white tw:z-10"
+          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-emerald-500 tw:flex tw:items-center tw:justify-center tw:text-white tw:z-raised"
         >
           <IconCheck :size="14" />
         </div>
@@ -115,7 +115,7 @@ function stepState(step) {
         <!-- Active step icon -->
         <div
           v-else-if="stepState(entry.instanceStep) === 'active'"
-          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-primary tw:flex tw:items-center tw:justify-center tw:text-white tw:z-10 tw:shadow-[0_0_10px_rgba(19,109,236,0.3)]"
+          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-primary tw:flex tw:items-center tw:justify-center tw:text-white tw:z-raised tw:shadow-[0_0_10px_rgba(19,109,236,0.3)]"
         >
           <IconHourglass :size="14" />
         </div>
@@ -123,7 +123,7 @@ function stepState(step) {
         <!-- Rejected step icon -->
         <div
           v-else-if="stepState(entry.instanceStep) === 'rejected'"
-          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-red-500 tw:flex tw:items-center tw:justify-center tw:text-white tw:z-10"
+          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-red-500 tw:flex tw:items-center tw:justify-center tw:text-white tw:z-raised"
         >
           <IconX :size="14" />
         </div>
@@ -131,7 +131,7 @@ function stepState(step) {
         <!-- Changes Requested step icon -->
         <div
           v-else-if="stepState(entry.instanceStep) === 'changesRequested'"
-          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-orange-500 tw:flex tw:items-center tw:justify-center tw:text-white tw:z-10"
+          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-orange-500 tw:flex tw:items-center tw:justify-center tw:text-white tw:z-raised"
         >
           <IconPencil :size="14" />
         </div>
@@ -139,7 +139,7 @@ function stepState(step) {
         <!-- Pending step icon -->
         <div
           v-else
-          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-main tw:border-2 tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-secondary tw:z-10"
+          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-main tw:border-2 tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-secondary tw:z-raised"
         >
           <IconLock :size="14" />
         </div>

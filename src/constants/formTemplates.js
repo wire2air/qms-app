@@ -163,10 +163,22 @@ export const QMS_TEMPLATES = [
               'Is the workspace clean and organized?',
               'Are records signed and dated according to GDP?',
             ],
+            // ONE mutually-exclusive Option Group ("Multiple choice"), not
+            // three standalone radio columns (fixed 2026-08-16). Separate radio
+            // COLUMNS are the pattern the Line Clearance seed warns about:
+            // radio has no sibling-clear across columns, so re-answering a row
+            // leaves the previous column's key behind and the row reads as two
+            // contradictory answers. An optionGroup stores one value under one
+            // key. `inline` lays the choices out horizontally, as they were.
             columns: [
-              { label: 'Compliant', value: 'compliant', inputType: 'radio' },
-              { label: 'Non-Compliant', value: 'nonCompliant', inputType: 'radio' },
-              { label: 'N/A', value: 'na', inputType: 'radio' },
+              {
+                label: 'Result',
+                value: 'result',
+                inputType: 'optionGroup',
+                groupType: 'radio',
+                inline: true,
+                options: ['Compliant', 'Non-Compliant', 'N/A'],
+              },
             ],
           },
           {
@@ -302,3 +314,138 @@ export const QMS_TEMPLATES = [
     ],
   },
 ]
+
+/**
+ * QMS_BLOCKS — fragment-shaped presets for FORM BLOCKS: reusable sections
+ * embedded inside a host (workflow step task forms, child-step forms, QC
+ * checklists). Unlike QMS_TEMPLATES these are NOT whole standalone forms —
+ * each captures one step's evidence. Checklists follow the house pattern:
+ * ONE `select` verdict column (Yes/No/N/A) + a text Comments column (radio +
+ * text mixes break answer persistence).
+ */
+export const QMS_BLOCKS = [
+  {
+    title: 'Task / Action',
+    code: 'BLK-TASK',
+    schema: [
+      {
+        type: 'richTextAttachment',
+        name: 'description',
+        label: 'Description',
+        required: true,
+        placeholder: 'Describe what was done…',
+      },
+    ],
+  },
+  {
+    title: 'Yes / No / N.A. Checklist',
+    code: 'BLK-CHECKLIST',
+    schema: [
+      {
+        type: 'checklist',
+        name: 'checklist',
+        label: 'Checklist',
+        required: true,
+        rows: [
+          'Work area inspected',
+          'Documentation reviewed',
+          'Requirements verified',
+          'Records updated',
+          'Follow-up actions identified',
+        ],
+        columns: [
+          {
+            label: 'Verdict',
+            value: 'verdict',
+            inputType: 'select',
+            options: ['Yes', 'No', 'N/A'],
+          },
+          { label: 'Comments', value: 'comments', inputType: 'text' },
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Containment Actions',
+    code: 'BLK-CONTAINMENT',
+    schema: [
+      {
+        type: 'textEditor',
+        name: 'containmentActions',
+        label: 'Containment actions taken',
+        required: true,
+        placeholder: 'What was done to contain the issue…',
+      },
+      {
+        type: 'textEditor',
+        name: 'affectedScope',
+        label: 'Affected lots / scope',
+        required: false,
+      },
+      { type: 'datetime', name: 'containmentDate', label: 'Containment date', required: true },
+      { type: 'file', name: 'evidence', label: 'Evidence', required: false, multiple: true },
+    ],
+  },
+  {
+    title: 'Root Cause Narrative',
+    code: 'BLK-ROOTCAUSE',
+    schema: [
+      {
+        type: 'textEditor',
+        name: 'rootCause',
+        label: 'Root cause analysis',
+        required: true,
+        placeholder: 'What caused the issue and how was it determined…',
+      },
+      {
+        type: 'file',
+        name: 'supportingFiles',
+        label: 'Supporting files',
+        required: false,
+        multiple: true,
+      },
+    ],
+  },
+  {
+    title: 'Sign-off',
+    code: 'BLK-SIGNOFF',
+    schema: [
+      { type: 'signature', name: 'signature', label: 'Signature', required: true },
+      {
+        type: 'textarea',
+        name: 'signoffComments',
+        label: 'Comments',
+        required: false,
+        placeholder: 'Any notes for the record…',
+      },
+    ],
+  },
+]
+
+/**
+ * The form every Task (ACTION) step starts with: describe what was done, and
+ * attach the evidence. Seeded automatically when a Task step is created —
+ * the Add-Step wizard used to ask "blank, a QMS preset, or a saved block?"
+ * before you could even name the step, which is a design decision nobody has
+ * the context for at that moment (user request 2026-08-15). The step editor's
+ * Task Form tab still swaps in a block or edits the fields afterwards.
+ *
+ * Mirrors TASK_ACTION_SCHEMA in bootstrapCompanyDefaults, so a hand-added step
+ * matches the seeded workflows' steps.
+ */
+export const STANDARD_TASK_FORM = [
+  // ONE richTextAttachment (user 2026-08-29): body + evidence in one field,
+  // stored as separate payload keys (`description` + `description_attachments`).
+  {
+    name: 'description',
+    label: 'Description',
+    type: 'richTextAttachment',
+    required: true,
+    placeholder: 'Describe what was done…',
+  },
+]
+
+/** Fresh deep copy — callers persist this onto a step and then edit it. */
+export function standardTaskForm() {
+  return JSON.parse(JSON.stringify(STANDARD_TASK_FORM))
+}

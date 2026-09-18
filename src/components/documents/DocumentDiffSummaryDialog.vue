@@ -142,12 +142,10 @@ watch(show, (open) => {
 
         <!-- Changed sections -->
         <div v-if="result.changedSections?.length">
-          <div
-            class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-2"
-          >
+          <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2 tw:mb-2">
             <IconPencil :size="14" />
             Changed ({{ result.changedSections.length }})
-          </div>
+          </BaseText>
           <div class="tw:flex tw:flex-col tw:gap-2">
             <div
               v-for="(s, i) in result.changedSections"
@@ -166,7 +164,7 @@ watch(show, (open) => {
         <!-- Added sections -->
         <div v-if="result.addedSections?.length">
           <div
-            class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-green-700 tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-2"
+            class="tw:flex tw:items-center tw:gap-2 tw:text-caption tw:text-green-700 tw:font-semibold tw:uppercase tw:tracking-wider tw:mb-2"
           >
             <IconPlus :size="14" />
             Added ({{ result.addedSections.length }})
@@ -186,7 +184,7 @@ watch(show, (open) => {
         <!-- Removed sections -->
         <div v-if="result.removedSections?.length">
           <div
-            class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-red-700 tw:font-semibold tw:uppercase tw:tracking-wide tw:mb-2"
+            class="tw:flex tw:items-center tw:gap-2 tw:text-caption tw:text-red-700 tw:font-semibold tw:uppercase tw:tracking-wider tw:mb-2"
           >
             <IconMinus :size="14" />
             Removed ({{ result.removedSections.length }})
@@ -204,7 +202,11 @@ watch(show, (open) => {
         </div>
 
         <div
-          v-if="!result.changedSections?.length && !result.addedSections?.length && !result.removedSections?.length"
+          v-if="
+            !result.changedSections?.length &&
+            !result.addedSections?.length &&
+            !result.removedSections?.length
+          "
           class="tw:text-sm tw:text-secondary tw:italic tw:text-center tw:py-4"
         >
           No substantive section-level differences found.

@@ -11,6 +11,8 @@ const SCHEME_MAP = {
   REJECTED: { class: 'tw:bg-red-100 tw:text-red-700' },
   CHANGES_REQUESTED: { class: 'tw:bg-orange-100 tw:text-orange-700' },
   PENDING: { class: 'tw:bg-gray-100 tw:text-gray-600' },
+  SCHEDULED: { class: 'tw:bg-indigo-100 tw:text-indigo-700' },
+  SKIPPED: { class: 'tw:bg-gray-100 tw:text-gray-500' },
   ASSIGNED: { class: 'tw:bg-indigo-100 tw:text-indigo-700' },
   CANCELLED: { class: 'tw:bg-gray-100 tw:text-gray-600' },
 }

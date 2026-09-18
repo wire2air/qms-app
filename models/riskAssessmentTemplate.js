@@ -15,6 +15,12 @@ export class RiskAssessmentTemplate extends BaseModel {
     if (!this.companyId) {
       this.companyId = currentSession.value?.companyId || ''
     }
+    // Stamp the creator so the "Own" access scope can be enforced by RLS
+    // (owner_col = created_by). Without this the row's owner is NULL and an
+    // Own-scoped user could neither see nor create their own templates.
+    if (!this.createdBy) {
+      this.createdBy = currentSession.value?.userId || null
+    }
     if (!this.id) {
       this.id = crypto.randomUUID()
     }

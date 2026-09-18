@@ -8,7 +8,7 @@ defineProps({
 </script>
 
 <template>
-  <DocumentsHome v-if="!id" />
+  <DocumentsHomeTabs v-if="!id" />
   <DocumentsCreate v-else-if="id === 'create'" />
   <DocumentsPageId v-else :id="id" :key="id" />
 </template>

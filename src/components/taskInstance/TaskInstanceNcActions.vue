@@ -5,9 +5,11 @@ import {
   IconInfoCircle,
   IconUserCheck,
   IconBan,
+  IconCalendarTime,
 } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
+import { DELAY_PRESETS } from '@/components/workflow/delayPresets.js'
 
 const props = defineProps({
   taskInstanceId: { type: String, required: true },
@@ -89,7 +91,26 @@ const OUTCOME_CONFIG = computed(() => ({
     icon: IconBan,
     needsComment: true,
   },
+  // DELAY steps only (filtered in the render loop): push the step's wake-up
+  // out by N days. The engine supersedes this task and re-assigns when the
+  // new time arrives. No e-sign — it's a deferral, not a sign-off.
+  EXTEND_DELAY: {
+    label: 'Extend Delay',
+    variant: 'outline',
+    icon: IconCalendarTime,
+    needsComment: true,
+    commentRequired: true,
+    needsDays: true,
+  },
 }))
+
+// EXTEND_DELAY renders only on DELAY steps with extension runway left.
+const isDelayExtendable = computed(
+  () =>
+    props.instanceStep?.stepType === 'DELAY' &&
+    (props.instanceStep?.delayExtensionCount ?? 0) <
+      (props.instanceStep?.maxDelayExtensions ?? 1),
+)
 
 // ── State ────────────────────────────────────────────────────────────────────
 const showConfirmDialog = ref(false)
@@ -97,7 +118,11 @@ const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
 const reassignToUserId = ref(null)
+const extendByDays = ref(null)
 const actionLoading = ref(false)
+const reassignError = ref('')
+const commentError = ref('')
+const daysError = ref('')
 
 // Candidate users for reassignment (step roles → RoleOnUser → User, excluding current user)
 const stepRoles = useLiveQueryWithDeps(
@@ -106,7 +131,8 @@ const stepRoles = useLiveQueryWithDeps(
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 
 const reassignCandidates = useLiveQueryWithDeps(
@@ -121,7 +147,8 @@ const reassignCandidates = useLiveQueryWithDeps(
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
     return users.filter(Boolean)
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser', 'User'], initial: [] },
 )
 
 const currentUserId = computed(() => currentSession.value?.id)
@@ -177,9 +204,13 @@ function onOutcomeClick(outcomeId) {
   pendingOutcomeId.value = outcomeId
   comment.value = ''
   reassignToUserId.value = null
+  extendByDays.value = null
+  reassignError.value = ''
+  commentError.value = ''
+  daysError.value = ''
 
   const config = OUTCOME_CONFIG.value[outcomeId]
-  if (config?.needsComment || config?.needsUser) {
+  if (config?.needsComment || config?.needsUser || config?.needsDays) {
     showConfirmDialog.value = true
   } else if (props.workflowStep?.requireEsignature) {
     showEsignDialog.value = true
@@ -189,19 +220,27 @@ function onOutcomeClick(outcomeId) {
 }
 
 function onConfirmDialog() {
+  reassignError.value = ''
+  commentError.value = ''
+  daysError.value = ''
   if (pendingConfig.value?.needsUser && !reassignToUserId.value) {
-    toast.warning('Please select a user to reassign to')
+    reassignError.value = 'Please select a user to reassign to'
+    return
+  }
+  if (pendingConfig.value?.needsDays && !(extendByDays.value >= 1)) {
+    daysError.value = 'Enter the number of days to extend by'
     return
   }
   if (pendingConfig.value?.commentRequired && !comment.value.trim()) {
-    toast.warning('A comment is required')
+    commentError.value = 'A comment is required'
     return
   }
   showConfirmDialog.value = false
   // SEND_BACK on NC = reject task back to owner. No e-sign needed for a
   // rejection — semantically it's the assignee bowing out, not an
-  // attested decision.
-  if (pendingOutcomeId.value === 'SEND_BACK') {
+  // attested decision. EXTEND_DELAY is likewise a deferral, not a
+  // sign-off — no e-sign.
+  if (['SEND_BACK', 'EXTEND_DELAY'].includes(pendingOutcomeId.value)) {
     submitAction({})
     return
   }
@@ -242,6 +281,9 @@ async function submitAction({ method, provider, token } = {}) {
     if (provider) body.provider = provider
     if (comment.value) body.comment = comment.value
     if (reassignToUserId.value) body.reassignToUserId = reassignToUserId.value
+    if (pendingConfig.value?.needsDays && extendByDays.value >= 1) {
+      body.extendByDays = extendByDays.value
+    }
 
     await post(`/v1/services/taskInstances/${props.taskInstanceId}/action`, body)
     toast.success(`${pendingConfig.value?.label ?? 'Action'} completed`)
@@ -262,7 +304,8 @@ async function submitAction({ method, provider, token } = {}) {
         v-if="
           OUTCOME_CONFIG[allowed.outcomeId] &&
           !hideOutcomes.includes(allowed.outcomeId) &&
-          (allowed.outcomeId !== 'CANCEL' || isOwner)
+          (allowed.outcomeId !== 'CANCEL' || isOwner) &&
+          (allowed.outcomeId !== 'EXTEND_DELAY' || isDelayExtendable)
         "
         :key="allowed.id"
         :title="outcomeTitle(allowed.outcomeId)"
@@ -283,10 +326,7 @@ async function submitAction({ method, provider, token } = {}) {
     <!-- Confirm / comment dialog -->
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <!-- Reassign user picker -->
-      <div v-if="pendingConfig?.needsUser" class="tw:mb-4">
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Reassign to <span class="tw:text-red-500">*</span>
-        </label>
+      <BaseField v-if="pendingConfig?.needsUser" label="Reassign to" required class="tw:mb-4">
         <div class="tw:flex tw:flex-col tw:gap-2">
           <label
             v-for="user in filteredReassignCandidates"
@@ -303,6 +343,7 @@ async function submitAction({ method, provider, token } = {}) {
               type="radio"
               :value="user.id"
               class="tw:accent-primary"
+              @change="reassignError = ''"
             />
             <div class="tw:flex-1 tw:min-w-0">
               <div class="tw:text-sm tw:font-medium tw:text-on-main">
@@ -315,14 +356,53 @@ async function submitAction({ method, provider, token } = {}) {
             No eligible users available for reassignment.
           </p>
         </div>
-      </div>
+        <BaseErrorText v-if="reassignError" class="tw:mt-1">{{ reassignError }}</BaseErrorText>
+      </BaseField>
 
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          {{ pendingOutcomeId === 'SEND_BACK' ? 'Reason for sending back' : 'Comment' }}
-          <span v-if="pendingConfig?.commentRequired" class="tw:text-red-500">*</span>
-        </label>
+      <!-- Extend-delay window picker (presets + custom days) -->
+      <BaseField
+        v-if="pendingConfig?.needsDays"
+        v-slot="{ id: fieldId }"
+        label="Extend by"
+        required
+        class="tw:mb-4"
+      >
+        <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+          <button
+            v-for="preset in DELAY_PRESETS"
+            :key="preset.days"
+            type="button"
+            class="tw:px-3 tw:py-1 tw:rounded-full tw:text-xs tw:font-medium tw:border tw:transition-colors"
+            :class="
+              extendByDays === preset.days
+                ? 'tw:bg-primary tw:text-white tw:border-primary'
+                : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:bg-main-hover'
+            "
+            @click="((extendByDays = preset.days), (daysError = ''))"
+          >
+            {{ preset.label }}
+          </button>
+          <BaseTextInput
+            :id="fieldId"
+            v-model.number="extendByDays"
+            type="number"
+            placeholder="Custom"
+            inputClass="tw:w-24"
+            :min="1"
+            @input="daysError = ''"
+          />
+          <span class="tw:text-xs tw:font-medium tw:text-secondary">days from today</span>
+        </div>
+        <BaseErrorText v-if="daysError" class="tw:mt-1">{{ daysError }}</BaseErrorText>
+      </BaseField>
+
+      <BaseField
+        v-slot="{ id: fieldId }"
+        :label="pendingOutcomeId === 'SEND_BACK' ? 'Reason for sending back' : 'Comment'"
+        :required="pendingConfig?.commentRequired"
+      >
         <textarea
+          :id="fieldId"
           v-model="comment"
           rows="3"
           class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
@@ -331,8 +411,10 @@ async function submitAction({ method, provider, token } = {}) {
               ? 'Why are you sending this back to the owner?'
               : 'Add a comment…'
           "
+          @input="commentError = ''"
         />
-      </div>
+        <BaseErrorText v-if="commentError" class="tw:mt-1">{{ commentError }}</BaseErrorText>
+      </BaseField>
 
       <template #footer="{ close }">
         <BaseButton variant="outline" @click="close">Cancel</BaseButton>

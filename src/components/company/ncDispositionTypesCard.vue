@@ -8,34 +8,73 @@
  * owner. Soft-delete (paranoid) preserves historical NC references.
  */
 
-import { IconPlus, IconPencil, IconTrash, IconRestore, IconCircleCheckFilled } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
-import { post, patch, del } from '@/api'
+import {
+  IconPlus,
+  IconPencil,
+  IconTrash,
+  IconRestore,
+  IconCircleCheckFilled,
+} from '@tabler/icons-vue'
+import { isAllowed } from '@/utils/currentSession.js'
+import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
+const { confirm } = useConfirm()
 
-const isOwner = computed(() => !!currentSession.value?.isOwner)
+// Same gate as the REST routes this card calls (routes/ncDispositionTypes.js —
+// enforcePermission('nc_disposition_types', 'manage')); owners pass via
+// isAllowed's short-circuit. It used to be `isOwner` alone, which hid the editor
+// from the very role holders the server admits.
+const canManage = computed(() => isAllowed(['nc_disposition_types:manage']))
 
 // Active dispositions (paranoid filter — deletedAt is null).
 const dispositions = useLiveQuery(
-  async (db) =>
-    db.NcDispositionType.where().orderBy('displayOrder', 'asc').exec(),
-  { initial: [] },
+  async (db) => db.NcDispositionType.where().orderBy('displayOrder', 'asc').exec(),
+
+  { models: ['NcDispositionType'], initial: [] },
 )
 
 // Deactivated (soft-deleted) — read with force=true to bypass paranoid.
 // Used for the "Deactivated" collapsible section + Restore action.
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.NcDispositionType.where('id', undefined, { force: true }).exec()
+    const all = await db.NcDispositionType.where(undefined, undefined, { force: true }).exec()
     return all.filter((d) => d.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['NcDispositionType'], initial: [] },
+)
+
+// Active-list table config (DataTable). Name carries a description subline, Code
+// renders as a chip, and Tracks Cost renders an icon — all via slots; per-row
+// Edit/Deactivate come from rowActions (owner-only — null hides the actions column).
+const columns = [
+  { name: 'name', label: 'NAME', field: 'name', align: 'left' },
+  { name: 'code', label: 'CODE', field: 'code', align: 'left' },
+  { name: 'tracksCost', label: 'TRACKS COST', field: 'tracksCost', align: 'center' },
+  { name: 'displayOrder', label: 'ORDER', field: 'displayOrder', align: 'center' },
+]
+const rowActions = computed(() =>
+  canManage.value
+    ? [
+        { key: 'edit', label: 'Edit', icon: IconPencil, onClick: (row) => openEdit(row) },
+        {
+          key: 'deactivate',
+          label: 'Deactivate',
+          icon: IconTrash,
+          danger: true,
+          onClick: (row) => handleDeactivate(row),
+        },
+      ]
+    : null,
 )
 
 // ─── Dialog state ────────────────────────────────────────────────────────────
 const showEditDialog = ref(false)
 const editing = ref(null) // null = new row, otherwise existing row
+const formRef = ref(null)
+const saveError = ref('')
 const form = ref({
   code: '',
   name: '',
@@ -69,6 +108,14 @@ watch(
   },
 )
 
+// Reset dialog state on open so a previous error or dirty state never bleeds
+// into the next invocation.
+watch(showEditDialog, (val) => {
+  if (val) {
+    saveError.value = ''
+  }
+})
+
 function openAdd() {
   editing.value = null
   codeDirty.value = false
@@ -97,12 +144,9 @@ function openEdit(row) {
   showEditDialog.value = true
 }
 
-async function handleSave() {
-  if (!form.value.name.trim()) {
-    toast.warning('Name is required')
-    return
-  }
+async function onValidSubmit() {
   saving.value = true
+  saveError.value = ''
   try {
     if (editing.value) {
       await patch(`/v1/services/ncDispositionTypes/${editing.value.id}`, {
@@ -113,11 +157,6 @@ async function handleSave() {
       })
       toast.success('Disposition updated')
     } else {
-      if (!form.value.code.trim()) {
-        toast.warning('Code is required')
-        saving.value = false
-        return
-      }
       await post('/v1/services/ncDispositionTypes', {
         code: form.value.code.trim().toUpperCase(),
         name: form.value.name.trim(),
@@ -129,7 +168,7 @@ async function handleSave() {
     }
     showEditDialog.value = false
   } catch (e) {
-    toast.error(e.message || 'Failed to save')
+    saveError.value = e.message || 'Failed to save'
   } finally {
     saving.value = false
   }
@@ -137,9 +176,12 @@ async function handleSave() {
 
 async function handleDeactivate(row) {
   if (
-    !window.confirm(
-      `Deactivate "${row.name}"? Existing NC rows referencing this disposition will keep their reference; new NCs won't see it in the picker.`,
-    )
+    !(await confirm({
+      title: 'Deactivate disposition',
+      message: `Deactivate "${row.name}"? Existing NC rows referencing this disposition will keep their reference; new NCs won't see it in the picker.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   ) {
     return
   }
@@ -167,93 +209,67 @@ const showDeactivated = ref(false)
   <div
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="NC Disposition Types"
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <div>
-        <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">NC Disposition Types</h2>
-        <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          The disposition options reviewers pick when closing out a nonconformance.
-          Toggle <strong>Tracks cost</strong> for dispositions that generate Cost of NC
-          (Scrap / Rework / Repair / Return-to-Supplier). Scoped to this company —
-          changes only affect your tenant.
-        </p>
-      </div>
-      <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
-        <template #icon><IconPlus :size="16" /></template>
-        Add Disposition
-      </BaseButton>
-    </div>
+      <template #subtitle>
+        The disposition options reviewers pick when closing out a nonconformance. Toggle
+        <strong>Tracks cost</strong> for dispositions that generate Cost of NC (Scrap / Rework /
+        Repair / Return-to-Supplier). Scoped to this company — changes only affect your tenant.
+      </template>
+      <template #actions>
+        <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
+          <template #icon><IconPlus :size="16" /></template>
+          Add Disposition
+        </BaseButton>
+      </template>
+    </BaseSectionHeader>
 
-    <div v-if="!isOwner" class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800">
-      Only the company owner can edit shared lookup data. You can view the list below.
+    <div
+      v-if="!canManage"
+      class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800"
+    >
+      Editing dispositions needs the NC Disposition Types permission — you can view the list below.
     </div>
 
     <div class="tw:p-4">
-      <table class="tw:w-full tw:text-sm">
-        <thead>
-          <tr class="tw:text-left tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:tracking-wider tw:border-b tw:border-divider">
-            <th class="tw:px-3 tw:py-2">Name</th>
-            <th class="tw:px-3 tw:py-2">Code</th>
-            <th class="tw:px-3 tw:py-2 tw:text-center">Tracks Cost</th>
-            <th class="tw:px-3 tw:py-2 tw:text-center">Order</th>
-            <th class="tw:px-3 tw:py-2 tw:text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in dispositions"
-            :key="row.id"
-            class="tw:border-b tw:border-divider"
-          >
-            <td class="tw:px-3 tw:py-3">
-              <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
-              <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
-                {{ row.description }}
-              </div>
-            </td>
-            <td class="tw:px-3 tw:py-3">
-              <code class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary">
-                {{ row.code }}
-              </code>
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-center">
-              <IconCircleCheckFilled
-                v-if="row.tracksCost"
-                :size="18"
-                class="tw:text-green-600 tw:inline"
-              />
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-center tw:text-secondary">
-              {{ row.displayOrder }}
-            </td>
-            <td class="tw:px-3 tw:py-3 tw:text-right">
-              <div v-if="isOwner" class="tw:flex tw:items-center tw:justify-end tw:gap-1">
-                <button
-                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-main-hover tw:hover:text-primary"
-                  title="Edit"
-                  @click="openEdit(row)"
-                >
-                  <IconPencil :size="16" />
-                </button>
-                <button
-                  class="tw:p-1.5 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600"
-                  title="Deactivate"
-                  @click="handleDeactivate(row)"
-                >
-                  <IconTrash :size="16" />
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!dispositions.length">
-            <td colspan="5" class="tw:px-3 tw:py-6 tw:text-center tw:text-sm tw:text-secondary tw:italic">
-              No active dispositions. Add one above.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <DataTable
+        :rows="dispositions"
+        :columns="columns"
+        :rowActions="rowActions"
+        rowKey="id"
+        :mobileCards="false"
+        hidePagination
+        searchable
+        filterable
+        exportManager
+        exportFilename="nc-dispositions.csv"
+        persistKey="lookups:ncDispositions"
+        noDataLabel="No active dispositions. Add one above."
+      >
+        <template #body-cell-name="{ row }">
+          <div class="tw:font-medium tw:text-on-sidebar">{{ row.name }}</div>
+          <div v-if="row.description" class="tw:text-xs tw:text-secondary tw:mt-0.5">
+            {{ row.description }}
+          </div>
+        </template>
+        <template #body-cell-code="{ row }">
+          <code class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary">
+            {{ row.code }}
+          </code>
+        </template>
+        <template #body-cell-tracksCost="{ row }">
+          <IconCircleCheckFilled
+            v-if="row.tracksCost"
+            :size="18"
+            class="tw:text-green-600 tw:inline"
+          />
+          <span v-else class="tw:text-secondary">—</span>
+        </template>
+      </DataTable>
 
       <!-- Deactivated section (collapsed by default) -->
       <div v-if="deactivated.length" class="tw:mt-4 tw:border-t tw:border-divider tw:pt-4">
@@ -271,10 +287,13 @@ const showDeactivated = ref(false)
           >
             <div>
               <span class="tw:font-medium tw:text-secondary tw:line-through">{{ row.name }}</span>
-              <code class="tw:text-[10px] tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary">{{ row.code }}</code>
+              <code
+                class="tw:text-micro tw:px-1.5 tw:py-0.5 tw:ml-2 tw:rounded tw:bg-white tw:text-secondary"
+                >{{ row.code }}</code
+              >
             </div>
             <button
-              v-if="isOwner"
+              v-if="canManage"
               class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
               @click="handleRestore(row)"
             >
@@ -286,71 +305,101 @@ const showDeactivated = ref(false)
       </div>
     </div>
 
-    <BaseDialog v-model="showEditDialog" :title="editing ? 'Edit Disposition' : 'Add Disposition'" maxWidth="md">
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Name <span class="tw:text-red-500">*</span>
-          </p>
-          <BaseTextInput v-model="form.name" placeholder="e.g. Donate to Training" />
-        </div>
-        <div v-if="!editing">
-          <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">
-              Code <span class="tw:text-red-500">*</span>
-              <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
-                (auto-derived from name)
-              </span>
+    <BaseDialog
+      v-model="showEditDialog"
+      :title="editing ? 'Edit Disposition' : 'Add Disposition'"
+      maxWidth="md"
+    >
+      <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+        <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+          <BaseField label="Name" required :value="form.name" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.name"
+                placeholder="e.g. Donate to Training"
+              />
+            </template>
+          </BaseField>
+
+          <div v-if="!editing">
+            <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+              >
+                Code <span class="tw:text-red-500">*</span>
+                <span class="tw:font-normal tw:normal-case tw:text-secondary tw:ml-1">
+                  (auto-derived from name)
+                </span>
+              </p>
+              <button
+                type="button"
+                class="tw:text-caption tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="codeEditable = !codeEditable"
+              >
+                {{ codeEditable ? 'Lock' : 'Edit' }}
+              </button>
+            </div>
+            <BaseField :value="form.code" :rules="[required()]">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.code"
+                  placeholder="DONATE_TO_TRAINING"
+                  :disabled="!codeEditable"
+                  @input="codeDirty = true"
+                />
+              </template>
+            </BaseField>
+            <p class="tw:text-caption tw:text-secondary tw:mt-1">
+              SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this
+              disposition — cannot be changed later. We generate it from the name; click
+              <strong>Edit</strong> to override.
             </p>
-            <button
-              type="button"
-              class="tw:text-[11px] tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
-              @click="codeEditable = !codeEditable"
-            >
-              {{ codeEditable ? 'Lock' : 'Edit' }}
-            </button>
           </div>
-          <BaseTextInput
-            v-model="form.code"
-            placeholder="DONATE_TO_TRAINING"
-            :disabled="!codeEditable"
-            @input="codeDirty = true"
-          />
-          <p class="tw:text-[11px] tw:text-secondary tw:mt-1">
-            SCREAMING_SNAKE_CASE. Stable identifier saved on every NC row that uses this
-            disposition — cannot be changed later. We generate it from the name; click
-            <strong>Edit</strong> to override.
-          </p>
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Description</p>
-          <BaseTextarea
-            v-model="form.description"
-            :rows="2"
-            placeholder="Optional description shown alongside the option in the picker"
-          />
-        </div>
-        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-          <div>
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Display Order</p>
-            <BaseTextInput v-model.number="form.displayOrder" type="number" :min="0" />
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Tracks Cost</p>
-            <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
-              <BaseSwitch v-model="form.tracksCost" />
-              <span class="tw:text-xs tw:text-secondary">
-                Require Cost of NC when this disposition is picked
-              </span>
-            </label>
+
+          <BaseField label="Description" :value="form.description">
+            <template #default="field">
+              <BaseTextarea
+                v-bind="field"
+                v-model="form.description"
+                :rows="2"
+                placeholder="Optional description shown alongside the option in the picker"
+              />
+            </template>
+          </BaseField>
+
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+            <BaseField label="Display Order" :value="form.displayOrder">
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="form.displayOrder"
+                  type="number"
+                  :min="0"
+                />
+              </template>
+            </BaseField>
+            <BaseField label="Tracks Cost">
+              <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer">
+                <BaseSwitch v-model="form.tracksCost" />
+                <span class="tw:text-xs tw:text-secondary">
+                  Require Cost of NC when this disposition is picked
+                </span>
+              </label>
+            </BaseField>
           </div>
         </div>
-      </div>
+      </BaseForm>
+
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="saving" :disabled="saving" @click="handleSave">
-          {{ editing ? 'Save' : 'Add' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="editing ? 'Save' : 'Add'"
+          :loading="saving"
+          :error="saveError"
+          @cancel="close"
+          @submit="formRef.submit()"
+        />
       </template>
     </BaseDialog>
   </div>

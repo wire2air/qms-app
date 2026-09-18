@@ -1,0 +1,120 @@
+// Central authz-module → icon registry, mirroring the left-nav's per-module
+// icons (MainSidebar) so any surface that lists modules by id — the user
+// Effective Permissions panel, permission matrices, audit views — renders the
+// SAME icon the user sees in the navigation. Keys are authz.modules ids.
+// Unknown/unmapped modules fall back to a neutral shield.
+import {
+  IconAlertCircle,
+  IconArchive,
+  IconArrowsShuffle,
+  IconArticle,
+  IconBolt,
+  IconBook,
+  IconBooks,
+  IconBuilding,
+  IconBuildingCommunity,
+  IconCalendarEvent,
+  IconCertificate,
+  IconChartDots,
+  IconChecklist,
+  IconClipboardCheck,
+  IconClipboardList,
+  IconEye,
+  IconFileText,
+  IconFlask,
+  IconForms,
+  IconGauge,
+  IconHeadset,
+  IconKey,
+  IconLayoutGrid,
+  IconList,
+  IconListDetails,
+  IconMessageReport,
+  IconPackage,
+  IconReplace,
+  IconRobot,
+  IconRoute,
+  IconRuler,
+  IconShield,
+  IconShieldCheck,
+  IconSitemap,
+  IconSpray,
+  IconStack2,
+  IconTable,
+  IconTool,
+  IconTruck,
+  IconUserCheck,
+  IconUsers,
+  IconUsersGroup,
+} from '@tabler/icons-vue'
+
+const MODULE_ICONS = {
+  // Quality records
+  ncr: IconAlertCircle,
+  capa: IconShield,
+  change_control: IconReplace,
+  complaints: IconMessageReport,
+  complaint_management: IconHeadset,
+  quality_events: IconEye,
+  document_control: IconFileText,
+  audit_management: IconChecklist,
+  audit_findings: IconChecklist,
+  audit_programs: IconChecklist,
+  // QC inspection family
+  inspection_qc: IconClipboardCheck,
+  inspection_spec: IconRuler,
+  inspection_plan: IconChartDots,
+  inspection_standards: IconGauge,
+  inspection_catalog: IconFlask,
+  inspection_settings: IconSpray,
+  inspection_templates: IconClipboardList,
+  retain_samples: IconArchive,
+  // Inspections & logs
+  field_records: IconClipboardList,
+  inspections: IconClipboardList,
+  log_books: IconBook,
+  // Training
+  training: IconBooks,
+  training_instances: IconCalendarEvent,
+  training_verifications: IconCertificate,
+  training_curricula: IconRoute,
+  training_matrix: IconUserCheck,
+  // Templates
+  workflows_templates: IconArrowsShuffle,
+  forms_templates: IconForms,
+  form_blocks: IconStack2,
+  document_templates: IconArticle,
+  custom_fields: IconListDetails,
+  rca_templates: IconSitemap,
+  risk_assessment_templates: IconLayoutGrid,
+  // Master data
+  supplier_management: IconTruck,
+  calibration_equipment: IconTool,
+  products: IconPackage,
+  // App builder
+  records: IconTable,
+  option_sets: IconList,
+  // Lookup taxonomies (Lookups page)
+  company_settings: IconList,
+  nc_issue_types: IconList,
+  nc_disposition_types: IconList,
+  root_cause_categories: IconList,
+  hazard_categories: IconList,
+  supplier_certificate_types: IconList,
+  audit_finding_categories: IconList,
+  audit_standard_types: IconList,
+  // Administration
+  user_management: IconUsers,
+  teams: IconUsersGroup,
+  sites: IconBuilding,
+  departments: IconBuildingCommunity,
+  role_permission_management: IconShield,
+  security: IconShield,
+  api_integrations: IconKey,
+  automation_rules: IconBolt,
+  ai: IconRobot,
+}
+
+export function moduleIcon(moduleId) {
+  return MODULE_ICONS[moduleId] || IconShieldCheck
+}

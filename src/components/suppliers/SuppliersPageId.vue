@@ -1,6 +1,11 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { isAllowed } from '@/utils/currentSession.js'
+import {
+  buildSupplierBanners,
+  buildSupplierSections,
+  buildSupplierActions,
+} from './supplierDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -11,53 +16,30 @@ const props = defineProps({
 
 const route = useRoute()
 const router = useRouter()
-const canUpdate = computed(() => isAllowed(['suppliers:update']))
+const canUpdate = computed(() => isAllowed(['supplier_management:update']))
 
-const supplier = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Supplier.findByPk(id),
+const supplier = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Supplier.findByPk(id),
+  { models: ['Supplier'] },
 )
 
 const loading = computed(() => supplier.value === undefined)
 
 const breadcrumbs = computed(() => [
   { label: 'Suppliers', to: getCompanyPath('/suppliers') },
-  { label: supplier.value?.name || 'Loading...' },
+  { label: supplier.value?.name || (supplier.value === null ? 'Not found' : 'Loading...') },
 ])
 
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!supplier.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await supplier.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  supplier,
-  (s) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (s) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(supplier)
 
 const tabs = [
   { value: 'overview', label: 'Overview' },
+  { value: 'company-profile', label: 'Company Profile' },
+  { value: 'locations', label: 'Locations & Contacts' },
+  { value: 'quality-records', label: 'Quality Records' },
   { value: 'users', label: 'Users' },
   { value: 'documents', label: 'Documents' },
-  { value: 'shared-documents', label: 'Shared Documents' },
   { value: 'asset-requests', label: 'Asset Requests' },
   { value: 'evaluations', label: 'Evaluations' },
 ]
@@ -70,107 +52,109 @@ const activeTab = computed({
     router.replace({ query: { ...route.query, tab: value } })
   },
 })
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const supplierBanners = computed(() =>
+  buildSupplierBanners(supplier.value, { canUpdate: canUpdate.value }),
+)
+const supplierActions = computed(() => buildSupplierActions({}, {}))
+const supplierDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => supplierBanners.value,
+    actions: supplierActions.value,
+    sections: buildSupplierSections(supplier.value),
+  }),
+)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
-        Saving...
-      </div>
-      <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
-    </SafeTeleport>
-
-    <!-- Loading State -->
-    <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-16">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
+  <BaseDetailLayout
+    :config="supplierDetailConfig"
+    :record="supplier"
+    :loading="loading"
+    :notFound="!loading && !supplier"
+    notFoundTitle="Supplier not found"
+    notFoundDescription="This supplier could not be found."
+  >
+    <template #title>
+      <BaseTextInput
+        v-if="editingName && canUpdate"
+        v-model="supplier.name"
+        size="sm"
+        autofocus
+        @keyup.enter="editingName = false"
+        @blur="editingName = false"
       />
-      <div class="tw:text-sm tw:text-secondary tw:mt-3">Loading supplier...</div>
-    </div>
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="canUpdate ? 'tw:hover:text-primary' : ''"
+        :disabled="!canUpdate"
+        aria-label="Edit supplier name"
+        @click="canUpdate && (editingName = true)"
+      >
+        {{ supplier?.name }}
+      </BaseClickableRow>
+    </template>
 
-    <!-- Content -->
-    <div v-else-if="supplier" class="tw:overflow-y-auto">
-      <div class="tw:max-w-5xl tw:mx-auto tw:p-8 tw:space-y-8">
-        <!-- Header Section -->
-        <section
-          class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:justify-between tw:gap-4"
-        >
-          <div class="tw:space-y-1">
-            <div class="tw:flex tw:items-center tw:gap-3">
-              <template v-if="editingName && canUpdate">
-                <BaseTextInput
-                  v-model="supplier.name"
-                  size="sm"
-                  @keyup.enter="editingName = false"
-                  @blur="editingName = false"
-                />
-              </template>
-              <h1
-                v-else
-                class="tw:text-2xl tw:font-bold tw:text-on-main tw:tracking-tight tw:cursor-pointer tw:hover:text-primary"
-                @click="canUpdate && (editingName = true)"
-              >
-                {{ supplier.name }}
-              </h1>
-              <SupplierStatusSelectMenu
-                v-if="canUpdate"
-                v-model="supplier.statusId"
-                :required="true"
-              />
-              <SupplierStatusBadgeById v-else :statusId="supplier.statusId" />
-            </div>
-            <p class="tw:text-secondary tw:text-sm">{{ supplier.code }} • Supplier Record</p>
-          </div>
-        </section>
+    <template #status>
+      <SupplierStatusSelectMenu
+        v-if="canUpdate"
+        v-model="supplier.statusId"
+        :required="true"
+      />
+      <SupplierStatusBadgeById v-else :statusId="supplier.statusId" />
+    </template>
 
-        <!-- Tab Navigation -->
-        <div class="tw:flex tw:gap-8 tw:border-b tw:border-divider tw:overflow-x-auto">
-          <button
-            v-for="tab in tabs"
-            :key="tab.value"
-            class="tw:pb-3 tw:text-sm tw:font-medium tw:whitespace-nowrap tw:flex tw:items-center tw:gap-2 tw:transition-colors"
-            :class="
-              activeTab === tab.value
-                ? 'tw:text-primary tw:border-b-2 tw:border-primary tw:font-bold'
-                : 'tw:text-secondary tw:hover:text-on-main'
-            "
-            @click="activeTab = tab.value"
-          >
-            {{ tab.label }}
-          </button>
+    <template v-if="supplier" #meta>
+      <span class="">{{ supplier.code }}</span>
+      <span> · Supplier Record</span>
+    </template>
+
+    <template #actions>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
+          <BaseSpinner size="sm" />
+          Saving...
         </div>
-
-        <!-- Tab Content -->
-        <SuppliersOverview
-          v-if="activeTab === 'overview'"
-          :supplier="supplier"
-          :canUpdate="canUpdate"
-          :supplierId="props.id"
-        />
-        <SuppliersUsersTab
-          v-else-if="activeTab === 'users'"
-          :supplierId="props.id"
-          :canUpdate="canUpdate"
-        />
-        <SuppliersDocumentsTab v-else-if="activeTab === 'documents'" :supplier="supplier" />
-        <SuppliersSharedDocumentsTab
-          v-else-if="activeTab === 'shared-documents'"
-          :supplierId="props.id"
-        />
-        <SuppliersAssetRequestsTab
-          v-else-if="activeTab === 'asset-requests'"
-          :supplierId="props.id"
-        />
-        <SuppliersEvaluationsTab v-else-if="activeTab === 'evaluations'" :supplier="supplier" />
+        <p v-else-if="saveError" class="tw:text-sm tw:text-red-500">{{ saveError }}</p>
+        <DetailActionBar :actions="supplierActions" />
       </div>
-    </div>
-  </div>
+    </template>
+
+    <template v-if="supplier" #section-details>
+      <!-- Tab Navigation + Content -->
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Supplier sections">
+        <div class="tw:mt-6">
+          <BaseTabPanel value="overview">
+            <SuppliersOverview :supplier="supplier" :canUpdate="canUpdate" :supplierId="props.id" />
+          </BaseTabPanel>
+          <BaseTabPanel value="company-profile">
+            <SuppliersCompanyProfileTab :supplier="supplier" :canUpdate="canUpdate" />
+          </BaseTabPanel>
+          <BaseTabPanel value="locations">
+            <SuppliersLocationsContactsTab :supplierId="props.id" :canUpdate="canUpdate" />
+          </BaseTabPanel>
+          <BaseTabPanel value="users">
+            <SuppliersUsersTab :supplierId="props.id" :canUpdate="canUpdate" />
+          </BaseTabPanel>
+          <BaseTabPanel value="quality-records">
+            <SuppliersPerformanceTab :supplierId="props.id" :canUpdate="canUpdate" />
+          </BaseTabPanel>
+          <BaseTabPanel value="documents">
+            <SuppliersDocumentsTab :supplier="supplier" />
+          </BaseTabPanel>
+          <BaseTabPanel value="asset-requests">
+            <SuppliersAssetRequestsTab :supplierId="props.id" />
+          </BaseTabPanel>
+          <BaseTabPanel value="evaluations">
+            <SuppliersEvaluationsTab :supplier="supplier" />
+          </BaseTabPanel>
+        </div>
+      </BaseTabs>
+    </template>
+  </BaseDetailLayout>
 </template>

@@ -1,17 +1,18 @@
 <script setup>
 import {
-  IconShieldCheck,
   IconCircleCheck,
   IconLogout,
   IconBuilding,
   IconTag,
   IconLoader,
   IconCircleX,
+  IconKey,
 } from '@tabler/icons-vue'
 import LoginForm from '@/components/auth/LoginForm.vue'
 import TimezoneDropdown from '@/components/common/TimezoneDropdown.vue'
 import { useCompanyForm } from '@/composables/useCompanyForm.js'
 import { currentSession, initSession, logoutCurrentSession } from '@/utils/currentSession.js'
+import { gotoTenant } from '@/utils/tenant.js'
 
 defineOptions({
   name: 'SignupPage',
@@ -36,11 +37,12 @@ async function checkSession() {
   try {
     await initSession()
 
-    // If user already has companies, redirect to first company
+    // If user already has companies, forward into the first one's subdomain
+    // (via the backend auth handoff, so the session cookie lands there too).
     const companies = currentSession.value?.companies
     if (companies && Object.keys(companies).length > 0) {
       const firstCompanyCode = Object.values(companies)[0].code
-      window.location.href = `/${firstCompanyCode}/`
+      gotoTenant(firstCompanyCode, '/dashboard')
       return
     }
 
@@ -72,9 +74,7 @@ onMounted(async () => {
     v-if="sessionLoading"
     class="tw:w-full tw:h-full tw:flex tw:flex-col tw:items-center tw:justify-center"
   >
-    <div
-      class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-4 tw:border-primary tw:border-t-transparent"
-    ></div>
+    <BaseSpinner size="lg" />
     <div class="tw:text-secondary tw:mt-4">Loading...</div>
   </div>
 
@@ -85,10 +85,7 @@ onMounted(async () => {
       class="tw:flex-1 tw:bg-linear-to-br tw:from-indigo-900 tw:to-indigo-700 tw:hidden md:tw:flex tw:items-center tw:justify-center tw:p-12 tw:text-white"
     >
       <div class="tw:max-w-sm">
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <IconShieldCheck :size="48" />
-          <h1 class="tw:text-5xl tw:font-bold tw:m-2">QMS</h1>
-        </div>
+        <BrandLogo tone="mono" class="tw:h-12 tw:mb-4" />
         <p class="tw:text-lg tw:opacity-90 tw:mb-12">Quality Management System</p>
         <div class="tw:flex tw:flex-col tw:gap-2">
           <div class="tw:flex tw:items-center tw:gap-2">
@@ -123,8 +120,7 @@ onMounted(async () => {
       class="tw:flex-1 tw:bg-linear-to-br tw:from-indigo-900 tw:to-indigo-700 tw:hidden md:tw:flex tw:items-center tw:justify-center tw:p-12 tw:text-white"
     >
       <div class="tw:max-w-sm">
-        <IconShieldCheck :size="48" />
-        <h1 class="tw:text-5xl tw:font-bold tw:my-2">QMS</h1>
+        <BrandLogo tone="mono" class="tw:h-12 tw:mb-4" />
         <p class="tw:text-lg tw:opacity-90 tw:mb-12">Quality Management System</p>
         <div class="tw:flex tw:flex-col tw:gap-4">
           <div class="tw:flex tw:items-center tw:gap-2">
@@ -233,6 +229,34 @@ onMounted(async () => {
               :disabled="isSubmitting"
             />
 
+            <!-- Invitation Code -->
+            <div>
+              <div
+                class="tw:flex tw:items-center tw:gap-1.5 tw:mb-2 tw:text-sm tw:font-medium tw:text-on-main"
+              >
+                <IconKey :size="16" class="tw:text-secondary" />
+                Invitation Code
+              </div>
+              <BaseOtpInput
+                v-model="companyForm.invitationCode"
+                :length="8"
+                charset="alnum"
+                :disabled="isSubmitting"
+                :errorMsg="
+                  companyForm.invitationCode.length > 0 &&
+                  !/^[A-Z0-9]{8}$/.test(companyForm.invitationCode.toUpperCase())
+                    ? 'Invitation code must be 8 characters'
+                    : companyForm.submitted && !companyForm.invitationCode.trim()
+                      ? 'Invitation code is required'
+                      : ''
+                "
+              />
+              <p class="tw:text-xs tw:text-secondary tw:mt-2">
+                Don't have a code? Contact
+                <a href="mailto:info@qability.net" class="tw:text-primary">info@qability.net</a>
+              </p>
+            </div>
+
             <!-- Error Message -->
             <div v-if="submitError" class="tw:text-red-600 tw:text-xs">
               {{ submitError }}
@@ -248,9 +272,7 @@ onMounted(async () => {
                 v-if="isSubmitting"
                 class="tw:inline-flex tw:items-center tw:justify-center tw:gap-2"
               >
-                <span
-                  class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-                ></span>
+                <BaseSpinner size="sm" color="white" />
                 Creating...
               </span>
               <span v-else>Create Organization</span>

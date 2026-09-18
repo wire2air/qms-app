@@ -399,16 +399,12 @@ function handleSubmit(data, done) {
 </script>
 
 <template>
-  <div class="tw:p-5 tw:bg-main tw:min-h-screen">
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between tw:mb-12">
-      <div>
-        <div class="tw:text-3xl tw:font-bold tw:text-on-main">Form Templates</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Create and manage dynamic form templates for your organization.
-        </div>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-3">
+  <BasePage width="standard">
+    <PageHeader
+      title="Form Templates"
+      subtitle="Create and manage dynamic form templates for your organization."
+    >
+      <template #actions>
         <label
           class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:text-sm tw:text-secondary"
         >
@@ -428,8 +424,8 @@ function handleSubmit(data, done) {
           <IconPlus :size="16" />
           New Template
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <div class="tw:grid tw:grid-cols-12 tw:gap-8">
       <!-- Form Preview Section -->
@@ -470,9 +466,7 @@ function handleSubmit(data, done) {
                     @click="submit"
                   >
                     <span v-if="isSubmitting" class="tw:inline-flex tw:items-center tw:gap-2">
-                      <span
-                        class="tw:size-3.5 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:inline-block"
-                      ></span>
+                      <BaseSpinner size="sm" color="white" />
                       Submitting...
                     </span>
                     <span v-else>Submit</span>
@@ -495,7 +489,7 @@ function handleSubmit(data, done) {
           </div>
           <div class="tw:p-4">
             <pre
-              class="tw:bg-[#1e293b] tw:text-[#4ade80] tw:p-4 tw:rounded-lg tw:font-mono tw:text-xs tw:overflow-x-auto tw:max-h-100 tw:m-0"
+              class="tw:bg-code tw:text-green-500 tw:p-4 tw:rounded-lg tw:text-xs tw:overflow-x-auto tw:max-h-100 tw:m-0"
             >
               {{ JSON.stringify(formData, null, 2) }}
             </pre>
@@ -574,7 +568,7 @@ function handleSubmit(data, done) {
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>
 
 <style lang="scss" scoped>

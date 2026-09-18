@@ -26,12 +26,15 @@ export class Capa extends BaseModel {
   @Property({ type: String }) capaNumber = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String }) statusId = 'DRAFT'
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) priorityId = ''
   @Property({ type: String, required: true }) typeId = ''
   @Property({ type: String, required: true }) sourceType = ''
   @Property({ type: String, required: true }) siteId = ''
   @Property({ type: String, required: true }) departmentId = ''
+  // Shared quality category (EventCategory) — same taxonomy as Quality Event
+  // and NC, carried down the QE → NC → CAPA chain.
+  @Property({ type: String }) categoryId = /** @type {String} */ (null)
   @Property({ type: String, required: true }) ownerId = ''
   @Property({ type: String }) workflowVersionId = /** @type {String} */ (null)
   @Property({ type: String }) sourceId = /** @type {String} */ (null)
@@ -52,6 +55,9 @@ export class Capa extends BaseModel {
   // Reviewer map { workflowStepId: [userId, …] } held on the row from
   // create-time until submitCapaForReview consumes it to seed the workflow.
   @Property({ type: Object }) pendingReviewers = /** @type {Object} */ ({})
+  @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   @Property({ type: String, required: true }) createdBy = ''
   @Property({ type: String, required: true }) updatedBy = ''
   @Property({ type: String }) supplierId = null

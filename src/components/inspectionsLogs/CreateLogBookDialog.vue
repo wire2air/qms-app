@@ -1,6 +1,11 @@
 <script setup>
-import { IconX, IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. The logBooks
+// endpoint validates edit-window pairing, classification, status and uniqueness
+// server-side before the row lands; SyncEngine catches up via the sync push.
 import { post } from '@/api'
+import { required } from '@shared/components/form/validators.js'
+import WorkflowVersionSelect from '@/components/documents/WorkflowVersionSelect.vue'
 
 /**
  * Dedicated wizard for creating a Log Book (an Inspections & Logs
@@ -26,20 +31,30 @@ import { post } from '@/api'
  * app uses.
  */
 
+const props = defineProps({
+  // Create-from-equipment flow: pre-links the instrument, preselects its
+  // site, suggests a title, and (when triggerSource is set) arms the
+  // TRIGGER schedule so the book follows the equipment's due dates.
+  preset: { type: Object, default: null },
+})
 const emit = defineEmits(['created'])
 const open = defineModel({ type: Boolean, default: false })
-const toast = useToast()
+
+const formRef = ref(null)
+const saveError = ref('')
 
 // Form state -----------------------------------------------------------
 const title = ref('')
-// Code prefix template. The literal `FRM` is the convention default; the
+// Code prefix template. The literal `LOG` is the convention default; the
 // {DEPTCODE} / {TYPECODE} placeholders are resolved server-side from the
 // selected Department + LogBookType so the final code matches what the
 // FE preview shows. Users can flatten this to a literal string if they
 // don't want the templating.
-const codePrefix = ref('FRM-{DEPTCODE}-{TYPECODE}')
+const codePrefix = ref('{TYPECODE}-LOG-{DEPTCODE}')
 const description = ref('')
-const selectedSites = ref([])
+// UI decision 2026-08-05: a log book belongs to ONE site (the pivot table
+// stays — only the UI narrowed; existing multi-site rows are untouched).
+const selectedSiteId = ref(null)
 
 // Taxonomy + routing (Round 0 additions)
 const logBookTypeId = ref(null)
@@ -47,6 +62,22 @@ const supervisorUserId = ref(null)
 const equipmentId = ref(null)
 const departmentId = ref(null)
 const location = ref('')
+
+// Prefill location from the selected instrument (equipment carries its own
+// location) — only when the field is still empty, so a manual entry is kept.
+const selectedEquipment = useLiveQueryWithDeps(
+  [() => equipmentId.value],
+  async (db, [id]) => (id ? db.Equipment.findByPk(id) : null),
+  { models: ['Equipment'] },
+)
+watch(selectedEquipment, (eq) => {
+  if (eq?.locationText && !location.value?.trim()) location.value = eq.locationText
+  // Equipment is the source of truth for the supervisor: mirror the
+  // custodian whenever the linked instrument has one (server enforces too).
+  if (eq?.ownerUserId) supervisorUserId.value = eq.ownerUserId
+})
+
+const supervisorLocked = computed(() => !!selectedEquipment.value?.ownerUserId)
 
 // Compliance references
 const relatedStandardId = ref(null)
@@ -59,10 +90,32 @@ const editWindowMode = ref('TIME_WINDOW')
 const editWindowMinutes = ref(15)
 const signatureRequired = ref(false)
 const reviewRequired = ref(false)
+const overTheShoulderReview = ref(false)
 
 // Collapse state for the two optional sections.
 const showReferences = ref(false)
 const showCompliance = ref(false)
+
+// Optional starting point — a LOG FORM (a form block categorised for log
+// books) whose fields are DEEP-COPIED into the new log book's schema at
+// create. A true snapshot: editing or archiving the log form later never
+// touches this book, and the copy is frozen when the book is published.
+// General form blocks (task forms / QC checklists) are excluded — log books
+// build only from Log Forms.
+const formBlocks = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where('statusId', 'ACTIVE').exec())
+      .filter((t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') === 'LOG_FORM')
+      .sort((a, b) => a.title.localeCompare(b.title)),
+  { models: ['FormTemplate'], initial: [] },
+)
+const startingBlockId = ref(null)
+
+// Approval workflow (supersede model: every book is born DRAFT and must be
+// approved before it accepts entries). WorkflowVersionSelect auto-picks the
+// module's default — the seeded "Default Log Book Approval" — so authors
+// only change this deliberately.
+const workflowVersionId = ref(null)
 
 // Catalog for the Log Book Type dropdown — globals + tenant additions.
 // SyncEngine model includes both because the RLS SELECT policy allows
@@ -72,22 +125,25 @@ const logBookTypes = useLiveQuery(
     const rows = await db.LogBookType.where().exec()
     return rows.sort((a, b) => (a.sequence ?? 100) - (b.sequence ?? 100))
   },
-  { initial: [] },
+
+  { models: ['LogBookType'], initial: [] },
 )
 
 // Equipment dropdown — uses EquipmentSelectMenu (added with the
 // Equipment module follow-up). Hides RETIRED equipment by default.
 
 const isSubmitting = ref(false)
+const presetTrigger = ref(null)
 
 // Reset state every time the dialog opens. Re-opening after a cancel
 // shouldn't carry stale draft values.
 watch(open, (isOpen) => {
   if (!isOpen) return
   title.value = ''
-  codePrefix.value = 'FRM-{DEPTCODE}-{TYPECODE}'
+  codePrefix.value = '{TYPECODE}-LOG-{DEPTCODE}'
   description.value = ''
-  selectedSites.value = []
+  selectedSiteId.value = null
+  startingBlockId.value = null
   logBookTypeId.value = null
   supervisorUserId.value = null
   equipmentId.value = null
@@ -99,10 +155,20 @@ watch(open, (isOpen) => {
   editWindowMode.value = 'TIME_WINDOW'
   editWindowMinutes.value = 15
   signatureRequired.value = false
+  presetTrigger.value = null
+  if (props.preset) {
+    title.value = props.preset.title ?? ''
+    equipmentId.value = props.preset.equipmentId ?? null
+    selectedSiteId.value = props.preset.siteId ?? null
+    supervisorUserId.value = props.preset.supervisorUserId ?? null
+    presetTrigger.value = props.preset.triggerSource ?? null
+  }
   reviewRequired.value = false
+  overTheShoulderReview.value = false
   showReferences.value = false
   showCompliance.value = false
   isSubmitting.value = false
+  saveError.value = ''
 })
 
 // Derived classification — what we stamp on template.config and how
@@ -142,23 +208,38 @@ const policySummary = computed(() => {
 // without round-tripping. Unresolvable placeholders stay literal
 // (the server resolves the canonical value at save and rejects if
 // the dependency is missing).
-const departments = useLiveQuery(async (db) => db.Department.where().exec(), { initial: [] })
-const departmentById = computed(
-  () => new Map(departments.value.map((d) => [d.id, d])),
-)
-const logBookTypeById = computed(
-  () => new Map(logBookTypes.value.map((t) => [t.id, t])),
-)
+const departments = useLiveQuery(async (db) => db.Department.where().exec(), {
+  models: ['Department'],
+  initial: [],
+})
+const departmentById = computed(() => new Map(departments.value.map((d) => [d.id, d])))
+const logBookTypeById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t])))
 
 const resolvedCodePreview = computed(() => {
   const template = (codePrefix.value || '').trim()
   if (!template) return ''
   const deptCode = departmentById.value.get(departmentId.value)?.code
-  const typeCode = logBookTypeById.value.get(logBookTypeId.value)?.id
+  // The type's admin-set prefix wins (Lookups → Log Book Types); empty
+  // falls back to the type code — mirrors the server's resolveCodePrefix.
+  // Placeholder aliases match the server EXACTLY ({DEPTCODE}/{DEPARTMENT_CODE},
+  // {TYPECODE}/{TYPE_CODE}) — anything else previews unresolved, as the
+  // server would reject it.
+  const type = logBookTypeById.value.get(logBookTypeId.value)
+  const typeCode = type ? type.prefix || type.code : null
   return template
-    .replace(/\{DEPT_?CODE\}/gi, deptCode ? deptCode.toUpperCase() : '{DEPTCODE}')
-    .replace(/\{TYPE_?CODE\}/gi, typeCode ? typeCode.toUpperCase() : '{TYPECODE}')
+    .replace(/\{(DEPTCODE|DEPARTMENT_CODE)\}/gi, () =>
+      deptCode ? deptCode.toUpperCase() : '{DEPTCODE}',
+    )
+    .replace(/\{(TYPECODE|TYPE_CODE)\}/gi, () =>
+      typeCode ? typeCode.toUpperCase() : '{TYPECODE}',
+    )
 })
+
+// Record numbers are stamped uppercased server-side (fieldRecordService) —
+// preview what entries will actually look like.
+const entryNumberPreview = computed(() =>
+  resolvedCodePreview.value ? `${resolvedCodePreview.value.toUpperCase()}-0001` : '',
+)
 
 const isFormValid = computed(
   () =>
@@ -171,7 +252,7 @@ const isFormValid = computed(
     // separate concern — see architecture_security_tiers memory.)
     !!logBookTypeId.value &&
     !!supervisorUserId.value &&
-    selectedSites.value.length > 0,
+    !!selectedSiteId.value,
 )
 
 // Save — goes through REST so the logBookService can validate cron-y
@@ -185,9 +266,13 @@ const createSiteOnLogBook = useLiveMutation(async (db, { logBookId, siteId }) =>
 })
 
 async function save() {
-  if (!isFormValid.value) return
+  if (!isFormValid.value || isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
+    const startingBlock = startingBlockId.value
+      ? formBlocks.value.find((t) => t.id === startingBlockId.value)
+      : null
     const res = await post('/v1/services/logBooks', {
       title: title.value.trim(),
       codePrefix: codePrefix.value.trim(),
@@ -202,148 +287,200 @@ async function save() {
       retentionMonths: retentionMonths.value || null,
       recordClassification: derivedClassification.value,
       editWindowMode: editWindowMode.value,
-      editWindowMinutes:
-        editWindowMode.value === 'TIME_WINDOW' ? editWindowMinutes.value : null,
+      editWindowMinutes: editWindowMode.value === 'TIME_WINDOW' ? editWindowMinutes.value : null,
       signatureRequired: signatureRequired.value,
       reviewRequired: reviewRequired.value,
+      overTheShoulderReview: reviewRequired.value && overTheShoulderReview.value,
       notifyOnSubmit: 'DIGEST',
-      schema: [],
-      statusId: 'ACTIVE',
+      ...(presetTrigger.value
+        ? {
+            scheduleMode: 'TRIGGER',
+            triggerSource: presetTrigger.value,
+            syncsEquipmentCalibration: presetTrigger.value === 'CALIBRATION',
+            syncsEquipmentPm: presetTrigger.value === 'PM',
+          }
+        : {}),
+      // Snapshot, not reference: the block's fields are copied by value.
+      schema: Array.isArray(startingBlock?.schema)
+        ? JSON.parse(JSON.stringify(startingBlock.schema))
+        : [],
+      workflowVersionId: workflowVersionId.value || null,
     })
     const logBook = res?.logBook ?? res
     // Site links are SyncEngine-native — no service validation needed,
     // and going through IDB keeps the live-query on the templates page
     // up-to-date immediately.
-    for (const siteId of selectedSites.value) {
+    for (const siteId of [selectedSiteId.value]) {
       await createSiteOnLogBook({ logBookId: logBook.id, siteId })
+    }
+    // Equipment flow: auto-assign the custodian as the default logger so
+    // the trigger/schedule has an audience from day one (user decision
+    // 2026-08-06). Best-effort — the Assignments tab manages it after.
+    if (props.preset?.supervisorUserId && logBook?.id) {
+      try {
+        await post('/v1/services/formAssignments', {
+          logBookId: logBook.id,
+          assignedUserIds: [props.preset.supervisorUserId],
+          active: true,
+        })
+      } catch {
+        // Non-fatal — the submit-time reminder covers a missing audience.
+      }
     }
     emit('created', logBook)
     open.value = false
   } catch (err) {
-    toast.error(err?.message || 'Failed to create log book')
+    saveError.value = err?.message || 'Failed to create log book'
   } finally {
     isSubmitting.value = false
   }
 }
-
-function close() {
-  open.value = false
-}
 </script>
 
 <template>
-  <BaseDialog v-model="open" maxWidth="2xl" persistent>
-    <div class="tw:flex tw:justify-between tw:items-center tw:mb-4">
-      <div>
-        <div class="tw:text-xl tw:font-bold tw:text-on-main">New Log Book</div>
-        <div class="tw:text-xs tw:text-secondary">
-          Define what gets logged. You'll build the form fields next.
-        </div>
-      </div>
-      <button
-        class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover"
-        @click="close"
-      >
-        <IconX :size="20" />
-      </button>
-    </div>
-
-    <div class="tw:flex tw:flex-col tw:gap-4">
-      <!-- Title -->
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Log Book Name <span class="tw:text-bad">*</span>
-        </label>
-        <BaseTextInput v-model="title" placeholder="e.g. Daily Warehouse Temperature Log" />
-      </div>
-
-      <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
-           placeholders, resolved server-side from the selected
-           Department + LogBookType. Defaults to FRM-{DEPTCODE}-{TYPECODE}. -->
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Record Id Prefix <span class="tw:text-bad">*</span>
-        </label>
-        <BaseTextInput v-model="codePrefix" placeholder="FRM-{DEPTCODE}-{TYPECODE}" />
-        <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
-          <div>
-            Use
-            <span class="tw:font-mono tw:text-on-main">{DEPTCODE}</span>
-            and
-            <span class="tw:font-mono tw:text-on-main">{TYPECODE}</span>
-            to insert the selected Department + Log Book Type. Leave plain text
-            for a literal code.
-          </div>
-          <div>
-            Resolved:
-            <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}</span>
-            · entries numbered
-            <span class="tw:font-mono tw:text-on-main">{{ resolvedCodePreview }}-0001</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Description -->
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">Description (optional)</label>
-        <BaseTextarea v-model="description" :rows="2" placeholder="What this log book is for" />
-      </div>
-
-      <!-- Type + Supervisor (always visible — these are the load-bearing
-           routing fields for the digest / approval flow). -->
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">
-            Type <span class="tw:text-bad">*</span>
-          </label>
+  <BaseDialog
+    v-model="open"
+    maxWidth="2xl"
+    persistent
+    showClose
+    title="New Log Book"
+    subtitle="Define what gets logged. You'll build the form fields next."
+  >
+    <BaseForm ref="formRef" hideFooter @submit="save">
+      <!-- Log Book Type FIRST: picking it drives the {TYPECODE} prefix the
+           Record Id Prefix preview shows right below. -->
+      <BaseField label="Log Book Type" required :value="logBookTypeId" :rules="[required()]">
+        <template #default="field">
           <select
+            v-bind="field"
             v-model="logBookTypeId"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
           >
-            <option :value="null" disabled>— Pick a type —</option>
+            <option :value="null" disabled>— Pick a log book type —</option>
             <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
-              {{ t.name }}
+              {{ t.name }}{{ t.prefix ? ` (${t.prefix})` : '' }}
             </option>
           </select>
           <div
             v-if="logBookTypes.length === 0"
-            class="tw:text-[11px] tw:text-amber-700 tw:italic tw:mt-1"
+            class="tw:text-caption tw:text-amber-700 tw:italic tw:mt-1"
           >
-            No categories loaded yet — the seeded global types sync on the next bootstrap. If
-            this persists, hard-refresh the page to re-bootstrap IndexedDB.
+            No log book types yet — they're seeded per company (Lookups → Log Book Types). If this
+            persists, hard-refresh the page to re-bootstrap IndexedDB.
           </div>
-        </div>
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">
-            Supervisor <span class="tw:text-bad">*</span>
-          </label>
-          <UserSelectMenu v-model="supervisorUserId" />
-          <div class="tw:text-xs tw:text-secondary tw:mt-1">
-            Who reviews submissions + gets daily digests + flag alerts.
+        </template>
+      </BaseField>
+
+      <!-- Title -->
+      <BaseField label="Log Book Name" required :value="title" :rules="[required()]">
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="title"
+            placeholder="e.g. Daily Warehouse Temperature Log"
+          />
+        </template>
+      </BaseField>
+
+      <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
+           placeholders, resolved server-side from the selected
+           Department + LogBookType. Defaults to {TYPECODE}-LOG-{DEPTCODE}
+           so the type's prefix leads the record ID. -->
+      <BaseField label="Record Id Prefix" required :value="codePrefix" :rules="[required()]">
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="codePrefix"
+            placeholder="{TYPECODE}-LOG-{DEPTCODE}"
+          />
+          <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
+            <div>
+              Use
+              <span class="tw:text-on-main">{DEPTCODE}</span>
+              and
+              <span class="tw:text-on-main">{TYPECODE}</span>
+              to insert the Department code + the Log Book Type's prefix (set under Lookups →
+              Log Book Types). Leave plain text for a literal code.
+            </div>
+            <div>
+              Resolved:
+              <span class="tw:text-on-main">{{ resolvedCodePreview }}</span>
+              · entries numbered
+              <span class="tw:text-on-main">{{ entryNumberPreview }}</span>
+            </div>
           </div>
-        </div>
+        </template>
+      </BaseField>
+
+      <!-- Description -->
+      <BaseField v-slot="{ id: fieldId }" label="Description" optional>
+        <BaseTextarea
+          :id="fieldId"
+          v-model="description"
+          :rows="2"
+          placeholder="What this log book is for"
+        />
+      </BaseField>
+
+      <!-- Starting point — copies a Log Form's fields into the new book. -->
+      <BaseField
+        v-slot="{ id: fieldId }"
+        label="Start from a Log Form"
+        optional
+        hint="Copies the Log Form's fields in as a starting point — later changes to the Log Form never affect this log book (its fields freeze when the book is published)."
+      >
+        <select
+          :id="fieldId"
+          v-model="startingBlockId"
+          class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+        >
+          <option :value="null">Blank — build the fields from scratch</option>
+          <option v-for="b in formBlocks" :key="b.id" :value="b.id">
+            {{ b.title }} ({{ b.schema?.length ?? 0 }} fields)
+          </option>
+        </select>
+        <p v-if="formBlocks.length === 0" class="tw:text-xs tw:text-secondary tw:mt-1">
+          No Log Forms yet — create reusable templates under
+          <strong>Inspections &amp; Logs → Log Forms</strong>.
+        </p>
+      </BaseField>
+
+      <!-- Supervisor (always visible — the load-bearing routing field for
+           the digest / approval flow; Log Book Type moved to the top). -->
+      <div class="tw:grid tw:grid-cols-1 tw:gap-3">
+        <BaseField
+          label="Supervisor"
+          required
+          hint="Who reviews submissions + gets daily digests + flag alerts."
+          :value="supervisorUserId"
+          :rules="[required()]"
+        >
+          <UserSelectMenu v-model="supervisorUserId" :disabled="supervisorLocked" />
+          <div v-if="supervisorLocked" class="tw:text-caption tw:text-secondary tw:mt-1">
+            Follows the equipment custodian (source of truth).
+          </div>
+        </BaseField>
       </div>
 
       <!-- Site availability + Department. Sites anchor the log book
            operationally; Department feeds {DEPTCODE} in the Record ID
            prefix, so it sits here (not buried in References). -->
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">
-            Sites <span class="tw:text-bad">*</span>
-          </label>
-          <SiteSelectMenu v-model="selectedSites" multiple />
+        <BaseField
+          label="Sites"
+          required
+          hint="Pick at least one site where this log book can be filled."
+          :value="selectedSiteId"
+          :rules="[required('Pick a site.')]"
+        >
+          <SiteSelectMenu v-model="selectedSiteId" :required="true" />
+        </BaseField>
+        <BaseField label="Department">
+          <DepartmentSelectMenu v-model="departmentId" :siteId="selectedSiteId" />
           <div class="tw:text-xs tw:text-secondary tw:mt-1">
-            Pick at least one site where this log book can be filled.
+            Feeds <span class="">{DEPTCODE}</span> in the Record ID prefix.
           </div>
-        </div>
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Department</label>
-          <DepartmentSelectMenu v-model="departmentId" />
-          <div class="tw:text-xs tw:text-secondary tw:mt-1">
-            Feeds <span class="tw:font-mono">{DEPTCODE}</span> in the Record ID prefix.
-          </div>
-        </div>
+        </BaseField>
       </div>
 
       <!-- References — equipment / location. Collapsed by default because
@@ -357,25 +494,21 @@ function close() {
           <span class="tw:font-medium">References</span>
           <component :is="showReferences ? IconChevronUp : IconChevronDown" :size="16" />
         </button>
-        <div
-          v-if="showReferences"
-          class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3"
-        >
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Equipment
-            </label>
+        <div v-if="showReferences" class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3">
+          <BaseField label="Equipment">
             <EquipmentSelectMenu v-model="equipmentId" />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Location
-            </label>
-            <BaseTextInput v-model="location" placeholder="e.g. Room 201, Cold Store, Line 3" />
-            <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-              Where this log is performed. Equipment covers the asset/line; this is the spot.
-            </p>
-          </div>
+          </BaseField>
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Location"
+            hint="Where this log is performed. Equipment covers the asset/line; this is the spot."
+          >
+            <BaseTextInput
+              :id="fieldId"
+              v-model="location"
+              placeholder="e.g. Room 201, Cold Store, Line 3"
+            />
+          </BaseField>
         </div>
       </div>
 
@@ -389,56 +522,43 @@ function close() {
           <span class="tw:font-medium">Compliance</span>
           <component :is="showCompliance ? IconChevronUp : IconChevronDown" :size="16" />
         </button>
-        <div
-          v-if="showCompliance"
-          class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3"
-        >
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Related standard
-            </label>
+        <div v-if="showCompliance" class="tw:px-3 tw:pb-3 tw:pt-1 tw:flex tw:flex-col tw:gap-3">
+          <BaseField label="Related standard">
             <RelatedStandardSelectMenu v-model="relatedStandardId" />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Regulatory citation
-            </label>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Regulatory citation">
             <BaseTextInput
+              :id="fieldId"
               v-model="regulatoryCitation"
               placeholder="e.g. ISO 9001 §7.5.3.2 / 21 CFR 211.184"
             />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              Retention (months) — leave blank for indefinite
-            </label>
+          </BaseField>
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Retention (months) — leave blank for indefinite"
+            hint="Captured for future archival. No automated cleanup yet."
+          >
             <input
+              :id="fieldId"
               v-model.number="retentionMonths"
               type="number"
               min="1"
               max="600"
               class="tw:w-40 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
             />
-            <div class="tw:text-xs tw:text-secondary tw:mt-1">
-              Captured for future archival. No automated cleanup yet.
-            </div>
-          </div>
+          </BaseField>
         </div>
       </div>
 
       <!-- Behavior settings — these define the policy. We derive the
            classification label from them at save time. -->
       <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-          Entry policy
-        </div>
+        <BaseText variant="overline">Entry policy</BaseText>
 
         <!-- Edit window -->
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Edit window
-          </label>
+        <BaseField v-slot="{ id: fieldId }" label="Edit window">
           <select
+            :id="fieldId"
             v-model="editWindowMode"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1.5 tw:text-sm"
           >
@@ -447,19 +567,22 @@ function close() {
             <option value="UNTIL_NEXT_ENTRY">Until next entry from the same user</option>
             <option value="UNTIL_REVIEW">Until reviewed</option>
           </select>
-          <div v-if="editWindowMode === 'TIME_WINDOW'" class="tw:mt-2">
-            <label class="tw:text-xs tw:text-secondary tw:block tw:mb-1">
-              Lock after (minutes)
-            </label>
+          <BaseField
+            v-if="editWindowMode === 'TIME_WINDOW'"
+            v-slot="{ id: minutesId }"
+            label="Lock after (minutes)"
+            class="tw:mt-2"
+          >
             <input
+              :id="minutesId"
               v-model.number="editWindowMinutes"
               type="number"
               min="1"
               max="2880"
               class="tw:w-32 tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
             />
-          </div>
-        </div>
+          </BaseField>
+        </BaseField>
 
         <!-- E-sig + review -->
         <div class="tw:flex tw:flex-col tw:gap-2">
@@ -470,6 +593,18 @@ function close() {
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
             <input v-model="reviewRequired" type="checkbox" />
             <span>Require reviewer approval before locking</span>
+          </label>
+          <label
+            v-if="reviewRequired"
+            class="tw:flex tw:items-start tw:gap-2 tw:text-sm tw:text-on-main tw:pl-6"
+          >
+            <input v-model="overTheShoulderReview" type="checkbox" class="tw:mt-0.5" />
+            <span>
+              Allow over-the-shoulder review
+              <span class="tw:block tw:text-caption tw:text-secondary">
+                The supervisor can sign off at the operator's workstation with their PIN — no logout.
+              </span>
+            </span>
           </label>
         </div>
 
@@ -482,14 +617,28 @@ function close() {
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Footer -->
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-6">
-      <BaseButton variant="outline" :disabled="isSubmitting" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="!isFormValid || isSubmitting" @click="save">
-        {{ isSubmitting ? 'Creating…' : 'Create &amp; Build Form' }}
-      </BaseButton>
-    </div>
+      <!-- Approval workflow — the book starts as a DRAFT and routes through
+           this workflow before it can accept entries. -->
+      <div class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:flex tw:flex-col tw:gap-2">
+        <BaseText variant="overline">Approval</BaseText>
+        <p class="tw:text-xs tw:text-secondary">
+          The log book is created as a <strong>Draft</strong>. Build the log template, then submit
+          it through this workflow — it starts accepting entries once approved.
+        </p>
+        <WorkflowVersionSelect v-model="workflowVersionId" moduleId="LOG_BOOK" dense />
+      </div>
+    </BaseForm>
+
+    <!-- Footer — pinned to the bottom by BaseDialog's #footer region -->
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Create Draft & Build Form"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="close"
+        @submit="formRef?.submit()"
+      />
+    </template>
   </BaseDialog>
 </template>

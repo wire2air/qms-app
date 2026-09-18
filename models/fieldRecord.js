@@ -42,19 +42,32 @@ export class FieldRecord extends BaseModel {
   @Property({ type: DateTime, required: true }) submittedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true }) effectiveAt = /** @type {DateTime} */ (null)
 
-  @Property({ type: DateTime }) lockAt = /** @type {DateTime} */ (null)
-  @Property({ type: String }) lockReason = ''
+  // `excludeFromGraphQL: ['update']` keeps these out of the generated
+  // `updateFieldRecord` mutation entirely (hydration.js `computeUpdatePatch`
+  // drops them from every patch), so nothing the client does can carry them.
+  // The client half of inspections-logs finding #2: the RLS UPDATE policy
+  // admitted the record's own submitter with no permission at all, and a
+  // hand-rolled mutation still reaches PostGraphile as `app_user` — only
+  // enforce_field_record_lifecycle (20260901160000) actually stops that.
+  // Nothing in src/ writes these today; this is what keeps it that way.
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) lockAt = /** @type {DateTime} */ (
+    null
+  )
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) lockReason = ''
 
-  @Property({ type: String }) statusId = 'SUBMITTED'
-  @Property({ type: String }) currentRevisionId = ''
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'SUBMITTED'
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) currentRevisionId = ''
   @Property({ type: String }) assignmentInstanceId = ''
   @Property({ type: String }) parentRecordId = ''
 
-  @Property({ type: DateTime }) voidedAt = /** @type {DateTime} */ (null)
-  @Property({ type: String }) voidedByUserId = ''
-  @Property({ type: String }) voidReason = ''
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) voidedAt = /** @type {DateTime} */ (
+    null
+  )
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) voidedByUserId = ''
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) voidReason = ''
 
-  @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) deletedAt =
+    /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })

@@ -52,7 +52,9 @@ function open(instanceStepId) {
 // ─── Step + role lookups ─────────────────────────────────────────────────────
 const reassignInstanceStep = useLiveQueryWithDeps(
   [() => reassignStepInstanceId.value],
+
   async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 
 // Eligible reviewers come from two unioned sources: template-side
@@ -63,23 +65,26 @@ const reassignInstanceStep = useLiveQueryWithDeps(
 // WorkflowStepReviewerSelect (a0cfa8d).
 const reassignStepRoles = useLiveQueryWithDeps(
   [() => reassignInstanceStep.value?.stepId],
+
   async (db, [stepId]) => {
     if (!stepId) return []
     return db.WorkflowStepRole.where('stepId', stepId).exec()
   },
+  { models: ['WorkflowStepRole'] },
 )
 
 const reassignInstanceStepRoles = useLiveQueryWithDeps(
   [() => reassignStepInstanceId.value],
+
   async (db, [id]) => {
     if (!id) return []
     return db.RoleOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
   },
+  { models: ['RoleOnWorkflowInstanceStep'] },
 )
 
 const reassignRolesLoaded = computed(
-  () =>
-    reassignStepRoles.value !== undefined && reassignInstanceStepRoles.value !== undefined,
+  () => reassignStepRoles.value !== undefined && reassignInstanceStepRoles.value !== undefined,
 )
 
 const reassignEffectiveRoleIds = computed(() => {
@@ -98,7 +103,8 @@ const reassignEffectiveRoleNames = useLiveQueryWithDeps(
     const roles = await Promise.all(ids.map((id) => db.Role.findByPk(id)))
     return roles.filter(Boolean).map((r) => r.name)
   },
-  { initial: [] },
+
+  { models: ['Role'], initial: [] },
 )
 
 // ─── Candidate pool ──────────────────────────────────────────────────────────
@@ -118,7 +124,8 @@ const reassignCandidates = useLiveQueryWithDeps(
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
     return users.filter((u) => u && u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
   },
-  { initial: [] },
+
+  { models: ['User', 'RoleOnUser'], initial: [] },
 )
 
 const currentlyAssignedUserIds = useLiveQueryWithDeps(
@@ -132,7 +139,8 @@ const currentlyAssignedUserIds = useLiveQueryWithDeps(
     const TERMINAL = new Set(['REASSIGNED', 'REJECTED', 'CANCELLED'])
     return assignments.filter((a) => !TERMINAL.has(a.statusId)).map((a) => a.userId)
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 function isUserAlreadyAssigned(userId) {
@@ -143,13 +151,10 @@ async function handleReassign() {
   if (!reassignStepInstanceId.value || !reassignToUserId.value) return
   reassigning.value = true
   try {
-    await post(
-      `/v1/services/${props.module.apiPath}/${props.resourceId}/reassignStepReviewer`,
-      {
-        workflowInstanceStepId: reassignStepInstanceId.value,
-        toUserId: reassignToUserId.value,
-      },
-    )
+    await post(`/v1/services/${props.module.apiPath}/${props.resourceId}/reassignStepReviewer`, {
+      workflowInstanceStepId: reassignStepInstanceId.value,
+      toUserId: reassignToUserId.value,
+    })
     showDialog.value = false
     toast.success('Reviewer reassigned successfully')
   } catch (e) {
@@ -167,10 +172,7 @@ defineExpose({ open })
 
 <template>
   <BaseDialog v-model="showDialog" title="Reassign Task" maxWidth="md">
-    <div class="tw:mb-4">
-      <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-2">
-        Select new reviewer <span class="tw:text-red-500">*</span>
-      </label>
+    <BaseField label="Select new reviewer" required class="tw:mb-4">
       <div class="tw:flex tw:flex-col tw:gap-2">
         <label
           v-for="user in reassignCandidates"
@@ -196,7 +198,7 @@ defineExpose({ open })
               {{ [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email }}
               <span
                 v-if="isUserAlreadyAssigned(user.id)"
-                class="tw:text-[10px] tw:font-medium tw:text-secondary tw:ml-1"
+                class="tw:text-micro tw:font-medium tw:text-secondary tw:ml-1"
               >
                 (Currently assigned)
               </span>
@@ -230,7 +232,7 @@ defineExpose({ open })
           No active internal users in your company.
         </p>
       </div>
-    </div>
+    </BaseField>
     <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-3 tw:border-t tw:border-divider">
       <BaseButton variant="outline" @click="showDialog = false">Cancel</BaseButton>
       <BaseButton

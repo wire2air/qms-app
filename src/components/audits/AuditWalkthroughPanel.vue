@@ -1,0 +1,1050 @@
+<script setup>
+/**
+ * Guided audit walkthrough (#23). One requirement per step, with a collapsible
+ * clause rail on the left. Each step gives the auditor everything to CONDUCT
+ * the assessment — guidance, expected evidence, people/roles to interview, and
+ * a question checklist — then capture the result, notes, evidence and who was
+ * interviewed.
+ *
+ * Persistence mirrors the old execution panel: a result must be picked before
+ * the response (and its checklist / interviewees / notes) saves. Once a result
+ * exists, edits auto-save (debounced).
+ */
+import {
+  IconChevronLeft,
+  IconChevronDown,
+  IconChevronRight,
+  IconX,
+  IconUser,
+  IconPlus,
+  IconList,
+  IconNotebook,
+  IconGavel,
+  IconListCheck,
+} from '@tabler/icons-vue'
+import { canUseAi } from '@/utils/currentSession'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { post } from '@/api'
+
+const props = defineProps({
+  auditInstance: { type: Object, required: true },
+  readonly: { type: Boolean, default: false },
+})
+
+const toast = useToast()
+
+// Frozen clause snapshot: { requirementId, parentId, clauseNumber, title,
+// questions, peopleToInterview, guidance, expectedEvidence, description, … }.
+//
+// Two formats exist in snapshots: the guided-audit CHECKLIST arrays
+// (questions / evidenceItems), and the older singular TEXT fields (`question`,
+// `expectedEvidence`) the 361-clause seeds use. The notebook only ever
+// rendered the arrays, so audits built on legacy standards showed the auditor
+// NO questions (reported 2026-08-24) and no Expected Evidence checklist.
+// Normalise here with DETERMINISTIC ids so asked/answered state keyed on item
+// ids survives reloads. Legacy expectedEvidence follows the CSV convention:
+// multiple items in one string separated by " | " (or line breaks).
+const clauses = computed(() =>
+  (props.auditInstance.requirementSchema || []).map((c) => {
+    const out = { ...c }
+    if (!c.questions?.length && c.question) {
+      out.questions = [{ id: `legacy-${c.requirementId}`, text: c.question }]
+    }
+    if (!c.evidenceItems?.length && c.expectedEvidence) {
+      out.evidenceItems = String(c.expectedEvidence)
+        .split(/\s*\|\s*|\n+/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .map((t, i) => ({ id: `legacy-ev-${c.requirementId}-${i}`, text: t }))
+    }
+    return out
+  }),
+)
+
+const responsesById = useLiveQueryWithDeps(
+  [() => props.auditInstance.id],
+  async (db, [instanceId]) => {
+    if (!instanceId) return {}
+    const rows = await db.AuditRequirementResponse.where('auditInstanceId', instanceId).exec()
+    return Object.fromEntries(rows.map((r) => [r.requirementId, r]))
+  },
+
+  { models: ['AuditRequirementResponse'], initial: {} },
+)
+
+const RESULTS = [
+  { id: 'CONFORMING', name: 'Conforming' },
+  { id: 'MINOR_NC', name: 'Minor NC' },
+  { id: 'MAJOR_NC', name: 'Major NC' },
+  { id: 'OFI', name: 'OFI' },
+  { id: 'NA', name: 'N/A' },
+]
+
+// ── Clause tree (arbitrary nesting depth via parent_id) ─────────────────────
+const ROOT = '__root__'
+const childrenByParent = computed(() => {
+  const ids = new Set(clauses.value.map((c) => c.requirementId))
+  const m = {}
+  for (const c of clauses.value) {
+    // Dangling/absent parent → treat as a root so nothing is ever dropped.
+    const key = c.parentId && ids.has(c.parentId) ? c.parentId : ROOT
+    ;(m[key] ??= []).push(c)
+  }
+  return m
+})
+// Full depth-first order — EVERY clause is a step (any nesting level).
+const orderedSteps = computed(() => {
+  const out = []
+  const walk = (parentKey, depth) => {
+    for (const c of childrenByParent.value[parentKey] ?? []) {
+      out.push({ ...c, depth })
+      walk(c.requirementId, depth + 1)
+    }
+  }
+  walk(ROOT, 0)
+  return out
+})
+
+// Rail rows — same DFS but stops descending into collapsed nodes. The node
+// itself still shows so it can be expanded again.
+const railRows = computed(() => {
+  const out = []
+  const walk = (parentKey, depth) => {
+    for (const c of childrenByParent.value[parentKey] ?? []) {
+      const kids = childrenByParent.value[c.requirementId] ?? []
+      out.push({ ...c, depth, hasChildren: kids.length > 0 })
+      if (kids.length && !collapsed[c.requirementId]) walk(c.requirementId, depth + 1)
+    }
+  }
+  walk(ROOT, 0)
+  return out
+})
+
+const currentReqId = ref(null)
+watch(
+  orderedSteps,
+  (steps) => {
+    if (!steps.length) {
+      currentReqId.value = null
+    } else if (!steps.some((s) => s.requirementId === currentReqId.value)) {
+      currentReqId.value = steps[0].requirementId
+    }
+  },
+  { immediate: true },
+)
+
+const currentClause = computed(
+  () => clauses.value.find((c) => c.requirementId === currentReqId.value) ?? null,
+)
+const currentIndex = computed(() =>
+  orderedSteps.value.findIndex((s) => s.requirementId === currentReqId.value),
+)
+const currentResponse = computed(() => responsesById.value[currentReqId.value] ?? null)
+
+// A clause with sub-clauses is a section heading (ISO 4–10 style) — assessed
+// via its leaves, not at this level. The walkthrough shows a section overview
+// for these instead of the capture panels.
+const currentChildren = computed(() => childrenByParent.value[currentReqId.value] ?? [])
+const currentHasChildren = computed(() => currentChildren.value.length > 0)
+
+// Clause rail visibility — collapsible on every screen size. Defaults open on
+// desktop (≥1280), closed on iPad/phone (the auditor works clause-by-clause
+// there; the list is one tap away); resetting to the layout default when the
+// breakpoint is crossed.
+const isDesktop = useMediaQuery('(min-width: 1280px)')
+const railOpen = ref(isDesktop.value)
+watch(isDesktop, (d) => {
+  railOpen.value = d
+})
+function goToStep(reqId) {
+  currentReqId.value = reqId
+  // On a narrow screen the rail overlays the step; close it after picking.
+  if (!isDesktop.value) railOpen.value = false
+}
+function prevStep() {
+  if (currentIndex.value > 0)
+    currentReqId.value = orderedSteps.value[currentIndex.value - 1].requirementId
+}
+function nextStep() {
+  if (currentIndex.value < orderedSteps.value.length - 1)
+    currentReqId.value = orderedSteps.value[currentIndex.value + 1].requirementId
+}
+
+// Rail collapse state (per section). Default expanded.
+const collapsed = reactive({})
+function toggleSection(id) {
+  collapsed[id] = !collapsed[id]
+}
+
+const progress = computed(() => {
+  // Only leaf clauses (actual requirements) count toward completion — parent /
+  // section headers are exempt, matching the close-out gate. Assessed = carries
+  // a verdict; in-progress responses (#27) don't count.
+  const leaves = clauses.value.filter((c) => !childrenByParent.value[c.requirementId]?.length)
+  const total = leaves.length
+  if (!total) return { done: 0, total: 0, pct: 0 }
+  const done = leaves.filter((c) => responsesById.value[c.requirementId]?.resultId).length
+  return { done, total, pct: Math.round((done / total) * 100) }
+})
+
+// ── Per-requirement capture buffers (checklist / interviewees / notes) ──────
+// Seeded from the saved response; the source of truth once saved.
+const buffers = reactive({})
+function ensureBuffer(reqId) {
+  if (!reqId) return null
+  if (!buffers[reqId]) {
+    const r = responsesById.value[reqId]
+    buffers[reqId] = {
+      questionChecklist: r?.questionChecklist ? { ...r.questionChecklist } : {},
+      observationChecklist: r?.observationChecklist ? { ...r.observationChecklist } : {},
+      evidenceChecklist: r?.evidenceChecklist ? { ...r.evidenceChecklist } : {},
+      peopleInterviewed: Array.isArray(r?.peopleInterviewed) ? [...r.peopleInterviewed] : [],
+      comments: r?.comments ?? '',
+      auditorNotes: r?.auditorNotes ?? '',
+    }
+  }
+  return buffers[reqId]
+}
+const currentBuffer = computed(() => ensureBuffer(currentReqId.value))
+
+// Reseed a buffer if the server response arrives/changes and the user hasn't
+// started editing it locally.
+watch(responsesById, (map) => {
+  for (const [reqId, r] of Object.entries(map)) {
+    if (!buffers[reqId]) continue
+    // Only refresh fields the user hasn't diverged on is hard to track cheaply;
+    // keep it simple — leave existing local buffers alone once created.
+    void r
+  }
+})
+
+const saving = reactive({})
+// resultId may be null (#27): an in-progress response saves notes / checklists
+// / interviewees / evidence before the auditor picks a verdict.
+async function saveResponse(reqId, resultId) {
+  if (props.readonly || !reqId) return null
+  const buf = ensureBuffer(reqId)
+  saving[reqId] = true
+  try {
+    const data = await post(`/v1/services/auditInstances/${props.auditInstance.id}/responses`, {
+      requirementId: reqId,
+      resultId: resultId ?? null,
+      comments: buf.comments?.trim() || null,
+      auditorNotes: buf.auditorNotes?.trim() || null,
+      questionChecklist: buf.questionChecklist,
+      observationChecklist: buf.observationChecklist,
+      evidenceChecklist: buf.evidenceChecklist,
+      peopleInterviewed: buf.peopleInterviewed,
+    })
+    return data?.response?.id ?? null
+  } catch (e) {
+    toast.error(e.message || 'Failed to save')
+    return null
+  } finally {
+    saving[reqId] = false
+  }
+}
+
+function pickResult(resultId) {
+  saveResponse(currentReqId.value, resultId)
+}
+
+// Save in-progress capture data, preserving any verdict already chosen (or null).
+const debouncedSave = useDebounceFn(() => {
+  const reqId = currentReqId.value
+  if (!reqId) return
+  saveResponse(reqId, responsesById.value[reqId]?.resultId ?? null)
+}, 600)
+
+// Materialise the response row right away — the evidence panel needs a saved
+// response id to attach uploads/photos to, and we allow that before a verdict.
+async function ensureResponse() {
+  const reqId = currentReqId.value
+  if (!reqId) return null
+  if (currentResponse.value?.id) return currentResponse.value.id
+  return await saveResponse(reqId, currentResponse.value?.resultId ?? null)
+}
+
+// Per-item ratings for observations/evidence only. Questions deliberately have
+// NO per-item verdict (user call 2026-08-24): they exist to run the interview —
+// tick nothing, note everything — and the auditor makes the one verdict in
+// Result & Finding after reviewing all of it. Severity (Major/Minor/OFI)
+// likewise stays the clause-level Result.
+const OBSERVATION_STATUSES = [
+  { id: 'OK', name: 'OK', active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600' },
+  { id: 'CONCERN', name: 'Concern', active: 'tw:bg-amber-500 tw:text-white tw:border-amber-500' },
+  { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
+]
+const EVIDENCE_STATUSES = [
+  {
+    id: 'PROVIDED',
+    name: 'Provided',
+    active: 'tw:bg-emerald-600 tw:text-white tw:border-emerald-600',
+  },
+  { id: 'PARTIAL', name: 'Partial', active: 'tw:bg-amber-500 tw:text-white tw:border-amber-500' },
+  { id: 'MISSING', name: 'Missing', active: 'tw:bg-red-600 tw:text-white tw:border-red-600' },
+  { id: 'NA', name: 'N/A', active: 'tw:bg-gray-400 tw:text-white tw:border-gray-400' },
+]
+
+// Checklists — `field` is questionChecklist | observationChecklist | evidenceChecklist.
+// Item shape is now { status, note }; clicking the active status again clears it.
+function setChecklistStatus(field, id, status) {
+  if (props.readonly) return
+  const map = (currentBuffer.value[field] ??= {})
+  const item = (map[id] ??= { status: null, note: '' })
+  item.status = item.status === status ? null : status
+  debouncedSave()
+}
+function setChecklistNote(field, id, note) {
+  const map = (currentBuffer.value[field] ??= {})
+  const item = (map[id] ??= { status: null, note: '' })
+  item.note = note
+  debouncedSave()
+}
+function checklistState(field, id) {
+  return currentBuffer.value?.[field]?.[id] ?? { status: null, note: '' }
+}
+
+// Notebook view controls (sticky across clauses): collapse the whole panel,
+// and hide already-rated items so the auditor can focus on what's left.
+const notebookOpen = ref(true)
+const hideAnswered = ref(false)
+const currentHasChecklistItems = computed(() => {
+  const cl = currentClause.value
+  return !!(cl && (cl.questions?.length || cl.observations?.length || cl.evidenceItems?.length))
+})
+function visibleItems(field, items) {
+  if (!hideAnswered.value) return items || []
+  return (items || []).filter((it) => {
+    const st = checklistState(field, it.id)
+    // Questions carry no status — a written note is what "answered" means.
+    return field === 'questionChecklist' ? !st.note?.trim() : !st.status
+  })
+}
+
+// Roll-up of the per-item ratings for the current clause — drives the summary
+// line + non-binding suggested verdict in the Result panel. Never auto-creates
+// a finding; it just tells the auditor what to address.
+const clauseSummary = computed(() => {
+  const cl = currentClause.value
+  const empty = { parts: [], flags: 0, assessed: 0, suggested: null }
+  if (!cl) return empty
+  const stat = (field, id) => currentBuffer.value?.[field]?.[id]?.status
+  let missing = 0,
+    partial = 0,
+    concern = 0,
+    assessed = 0
+  for (const o of cl.observations || []) {
+    const s = stat('observationChecklist', o.id)
+    if (s) assessed++
+    if (s === 'CONCERN') concern++
+  }
+  for (const e of cl.evidenceItems || []) {
+    const s = stat('evidenceChecklist', e.id)
+    if (s) assessed++
+    if (s === 'MISSING') missing++
+    else if (s === 'PARTIAL') partial++
+  }
+  const parts = []
+  if (missing) parts.push(`${missing} missing`)
+  if (partial) parts.push(`${partial} partial`)
+  if (concern) parts.push(`${concern} concern${concern > 1 ? 's' : ''}`)
+  const flags = missing + partial + concern
+  let suggested = null
+  if (missing) suggested = 'NC'
+  else if (partial || concern) suggested = 'OFI'
+  else if (assessed > 0) suggested = 'CONFORMING'
+  return { parts, flags, assessed, suggested }
+})
+const SUGGESTED_LABEL = {
+  NC: 'a nonconformity (pick Minor or Major)',
+  OFI: 'an opportunity for improvement (OFI)',
+  CONFORMING: 'Conforming',
+}
+
+// People interviewed (hybrid)
+const pickUserId = ref(null)
+const manualName = ref('')
+const manualTitle = ref('')
+// The picker inputs are draft state for the CURRENT clause only — reset them
+// when navigating to another step so a half-entered pick doesn't carry over.
+watch(currentReqId, () => {
+  pickUserId.value = null
+  manualName.value = ''
+  manualTitle.value = ''
+})
+function addUserInterviewee() {
+  if (!pickUserId.value) return
+  const buf = currentBuffer.value
+  if (!buf.peopleInterviewed.some((p) => p.userId === pickUserId.value))
+    buf.peopleInterviewed.push({ userId: pickUserId.value })
+  pickUserId.value = null
+  debouncedSave()
+}
+function addManualInterviewee() {
+  const name = manualName.value.trim()
+  if (!name) return
+  currentBuffer.value.peopleInterviewed.push({ name, title: manualTitle.value.trim() || null })
+  manualName.value = ''
+  manualTitle.value = ''
+  debouncedSave()
+}
+function removeInterviewee(idx) {
+  currentBuffer.value.peopleInterviewed.splice(idx, 1)
+  debouncedSave()
+}
+
+function setComments(v) {
+  currentBuffer.value.comments = v
+  debouncedSave()
+}
+function setAuditorNotes(v) {
+  currentBuffer.value.auditorNotes = v
+  debouncedSave()
+}
+
+// Voice-note transcript arrives as a marker-wrapped HTML block — APPEND to
+// the auditor's notes, never replace (user rule 2026-08-24).
+function appendVoiceTranscript(block) {
+  setAuditorNotes((currentBuffer.value?.auditorNotes || '') + block)
+}
+
+// Deterministic Summarize — assembles Finding Notes from the notebook with no
+// AI: the flagged items (+ their notes) and the auditor's notes. Fast, reliable,
+// offline-friendly; the auditor edits it into the final finding.
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+function summarizeFinding() {
+  const cl = currentClause.value
+  if (!cl) return
+  const buf = currentBuffer.value
+  const stat = (field, id) => buf?.[field]?.[id]?.status
+  const noteOf = (field, id) => buf?.[field]?.[id]?.note
+  const flagged = []
+  for (const e of cl.evidenceItems || []) {
+    const s = stat('evidenceChecklist', e.id)
+    if (s === 'MISSING' || s === 'PARTIAL')
+      flagged.push({
+        tag: s === 'MISSING' ? 'Missing' : 'Partial',
+        text: e.text,
+        note: noteOf('evidenceChecklist', e.id),
+      })
+  }
+  for (const o of cl.observations || []) {
+    if (stat('observationChecklist', o.id) === 'CONCERN')
+      flagged.push({ tag: 'Concern', text: o.text, note: noteOf('observationChecklist', o.id) })
+  }
+
+  // Interview notes: whatever the auditor wrote against a question while
+  // asking it. There is no per-question verdict — the notes ARE the capture.
+  const asked = (cl.questions || [])
+    .map((q) => ({ text: q.text, note: noteOf('questionChecklist', q.id) }))
+    .filter((q) => q.note && q.note.trim())
+
+  const html = [`<p><strong>${escapeHtml(cl.clauseNumber)} — ${escapeHtml(cl.title)}</strong></p>`]
+  if (asked.length) {
+    html.push('<p><strong>Interview notes:</strong></p><ul>')
+    for (const q of asked) {
+      html.push(`<li>${escapeHtml(q.text)} — ${escapeHtml(q.note)}</li>`)
+    }
+    html.push('</ul>')
+  }
+  if (flagged.length) {
+    html.push('<p><strong>Findings:</strong></p><ul>')
+    for (const f of flagged) {
+      html.push(
+        `<li>[${f.tag}] ${escapeHtml(f.text)}${f.note ? ` — ${escapeHtml(f.note)}` : ''}</li>`,
+      )
+    }
+    html.push('</ul>')
+  } else {
+    html.push('<p>No nonconformities identified — clause met.</p>')
+  }
+  if (buf?.auditorNotes && buf.auditorNotes.trim()) {
+    html.push('<p><strong>Auditor notes:</strong></p>')
+    html.push(buf.auditorNotes) // already HTML from the editor
+  }
+  setComments(html.join('\n'))
+  toast.success('Summary added to Finding Notes — review and edit.')
+}
+</script>
+
+<template>
+  <div class="tw:flex tw:flex-col tw:gap-3">
+    <!-- Progress header -->
+    <div
+      class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:pb-3 tw:border-b tw:border-divider"
+    >
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <!-- Clause-list toggle — collapses/expands the rail on every screen. -->
+        <BaseButton v-if="clauses.length" variant="outline" size="sm" @click="railOpen = !railOpen">
+          <template #icon><IconList :size="16" /></template>
+          {{ railOpen ? 'Hide clauses' : 'Clauses' }}
+        </BaseButton>
+        <div class="tw:text-sm tw:font-medium">
+          {{ progress.done }} / {{ progress.total }} assessed
+        </div>
+        <div class="tw:w-32 tw:h-2 tw:bg-main-hover tw:rounded-full tw:overflow-hidden">
+          <div
+            class="tw:h-full tw:bg-primary tw:transition-all"
+            :style="{ width: progress.pct + '%' }"
+          />
+        </div>
+        <div class="tw:text-xs tw:text-secondary">{{ progress.pct }}%</div>
+      </div>
+      <span v-if="readonly" class="tw:text-caption tw:text-secondary tw:italic tw:font-medium">
+        Read-only ({{ auditInstance.statusId }})
+      </span>
+    </div>
+
+    <div
+      v-if="!clauses.length"
+      class="tw:py-12 tw:text-center tw:text-sm tw:text-secondary tw:italic"
+    >
+      No clauses on this audit.
+    </div>
+
+    <div v-else class="tw:flex tw:flex-col tw:lg:flex-row tw:gap-4 tw:items-start">
+      <!-- ── Left rail: clause tree (arbitrary depth, indented by level).
+           Hidden by default below lg; toggled via the "Clauses" button so the
+           walkthrough gets full width on iPad/phone. Always shown on lg+. ── -->
+      <div
+        v-if="railOpen"
+        class="tw:w-full tw:lg:w-64 tw:shrink-0 tw:border tw:border-divider tw:rounded-lg tw:overflow-hidden tw:max-h-[70vh] tw:overflow-y-auto"
+      >
+        <div
+          v-for="row in railRows"
+          :key="row.requirementId"
+          class="tw:flex tw:items-center tw:border-b tw:border-divider tw:last:border-0"
+          :style="{ paddingLeft: row.depth * 14 + 'px' }"
+        >
+          <button
+            v-if="row.hasChildren"
+            type="button"
+            class="tw:p-2 tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            :title="collapsed[row.requirementId] ? 'Expand' : 'Collapse'"
+            @click="toggleSection(row.requirementId)"
+          >
+            <IconChevronRight v-if="collapsed[row.requirementId]" :size="15" />
+            <IconChevronDown v-else :size="15" />
+          </button>
+          <span v-else class="tw:w-7 tw:shrink-0" />
+          <button
+            type="button"
+            class="tw:flex-1 tw:min-w-0 tw:text-left tw:py-1.5 tw:pr-2 tw:cursor-pointer tw:border-0 tw:flex tw:items-center tw:gap-1.5"
+            :class="
+              currentReqId === row.requirementId
+                ? 'tw:bg-primary/10'
+                : 'tw:bg-transparent tw:hover:bg-main-hover'
+            "
+            @click="goToStep(row.requirementId)"
+          >
+            <span class="tw:text-micro tw:text-secondary">{{
+              row.clauseNumber
+            }}</span>
+            <span
+              class="tw:text-xs tw:truncate"
+              :class="row.depth === 0 ? 'tw:font-semibold' : ''"
+              >{{ row.title }}</span
+            >
+            <span
+              v-if="responsesById[row.requirementId]?.resultId"
+              class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
+              title="Assessed"
+            />
+            <span
+              v-else-if="responsesById[row.requirementId]"
+              class="tw:ml-auto tw:size-1.5 tw:rounded-full tw:bg-amber-400 tw:shrink-0"
+              title="In progress — no verdict yet"
+            />
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Main: current step ── -->
+      <div v-if="currentClause" class="tw:flex-1 tw:min-w-0 tw:flex tw:flex-col tw:gap-4">
+        <!-- Header + step nav -->
+        <div class="tw:flex tw:items-start tw:justify-between tw:gap-3">
+          <div class="tw:min-w-0">
+            <div class="tw:flex tw:items-center tw:gap-2">
+              <span class="tw:text-xs tw:text-secondary">{{
+                currentClause.clauseNumber
+              }}</span>
+              <BaseText as="h3" class="tw:text-base tw:font-semibold tw:text-on-main">
+                {{ currentClause.title }}
+              </BaseText>
+              <span
+                v-if="currentClause.riskWeight && currentClause.riskWeight !== 1"
+                class="tw:text-micro tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:font-semibold"
+                title="Risk weight"
+                >×{{ currentClause.riskWeight }}</span
+              >
+            </div>
+          </div>
+          <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+            <span class="tw:text-xs tw:text-secondary"
+              >{{ currentIndex + 1 }} / {{ orderedSteps.length }}</span
+            >
+            <!-- Big, colored, on every screen size (iPad-first, 2026-08-24):
+                 these are the auditor's most-pressed controls on the floor. -->
+            <BaseButton
+              variant="primary"
+              size="lg"
+              class="tw:font-semibold"
+              :disabled="currentIndex <= 0"
+              @click="prevStep"
+            >
+              <template #icon><IconChevronLeft :size="20" /></template>
+              Prev
+            </BaseButton>
+            <BaseButton
+              variant="primary"
+              size="lg"
+              class="tw:font-semibold"
+              :disabled="currentIndex >= orderedSteps.length - 1"
+              @click="nextStep"
+            >
+              Next
+              <IconChevronRight :size="20" />
+            </BaseButton>
+          </div>
+        </div>
+
+        <!-- Guidance panels -->
+        <div class="tw:grid tw:grid-cols-1 tw:gap-3">
+          <div v-if="currentClause.description" class="tw:bg-main-hover/40 tw:rounded tw:p-3">
+            <BaseText variant="overline" class="tw:block tw:mb-0.5">Description</BaseText>
+            <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
+              {{ currentClause.description }}
+            </p>
+          </div>
+          <div v-if="currentClause.guidance" class="tw:bg-blue-50 tw:rounded tw:p-3">
+            <p
+              class="tw:text-caption tw:font-semibold tw:text-blue-700 tw:uppercase tw:tracking-wide tw:mb-0.5"
+            >
+              Guidance
+            </p>
+            <p class="tw:text-sm tw:text-on-main tw:whitespace-pre-line">
+              {{ currentClause.guidance }}
+            </p>
+          </div>
+          <!-- Expected Evidence is rendered as the checklist below (#24); the
+               legacy free-text block is intentionally not shown to avoid
+               duplicating the same content. -->
+        </div>
+
+        <!-- People / roles to interview (guidance from the standard) -->
+        <div v-if="currentClause.peopleToInterview?.length">
+          <BaseText variant="overline" class="tw:block tw:mb-1">People / roles to interview</BaseText>
+          <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+            <span
+              v-for="(role, ri) in currentClause.peopleToInterview"
+              :key="ri"
+              class="tw:text-xs tw:bg-main-hover tw:rounded tw:px-2 tw:py-0.5"
+              >{{ role }}</span
+            >
+          </div>
+        </div>
+
+        <!-- Section overview — this clause has sub-clauses, so it's a heading
+             (ISO 4–10 style). No verdict is captured here; the auditor assesses
+             its leaves. -->
+        <div
+          v-if="currentHasChildren"
+          class="tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:bg-main-hover/30"
+        >
+          <p class="tw:text-xs tw:text-secondary tw:mb-2">
+            This is a section heading — assess its sub-clauses. No result is recorded at this level.
+          </p>
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <button
+              v-for="child in currentChildren"
+              :key="child.requirementId"
+              type="button"
+              class="tw:flex tw:items-center tw:gap-2 tw:text-left tw:rounded tw:px-2 tw:py-1.5 tw:bg-white tw:border tw:border-divider tw:hover:border-primary tw:cursor-pointer"
+              @click="goToStep(child.requirementId)"
+            >
+              <span class="tw:text-micro tw:text-secondary tw:shrink-0">{{
+                child.clauseNumber
+              }}</span>
+              <span class="tw:text-sm tw:flex-1 tw:min-w-0 tw:truncate">{{ child.title }}</span>
+              <span
+                v-if="responsesById[child.requirementId]?.resultId"
+                class="tw:size-1.5 tw:rounded-full tw:bg-emerald-500 tw:shrink-0"
+                title="Assessed"
+              />
+              <span
+                v-else-if="responsesById[child.requirementId]"
+                class="tw:size-1.5 tw:rounded-full tw:bg-amber-400 tw:shrink-0"
+                title="In progress"
+              />
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Auditor's Notebook (private working area) ──────────────────
+             The auditor's own material for forming a judgment — checklists,
+             who was interviewed, evidence, photos, voice + free-form notes.
+             NOT included in the finding; only the Result + Finding Notes
+             (below) are shared. Hidden on section headings (#parent). -->
+        <div
+          v-if="!currentHasChildren"
+          class="tw:border tw:border-slate-200 tw:rounded-lg tw:overflow-hidden tw:bg-slate-50/40"
+        >
+          <div
+            class="tw:bg-slate-100 tw:px-3 tw:py-2 tw:border-b tw:border-slate-200 tw:flex tw:items-center tw:justify-between tw:gap-2"
+          >
+            <div class="tw:flex tw:items-center tw:gap-1.5 tw:min-w-0">
+              <IconNotebook :size="14" class="tw:text-secondary tw:shrink-0" />
+              <p
+                class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wide tw:text-secondary tw:truncate"
+              >
+                Auditor's Notebook
+                <span class="tw:font-normal tw:normal-case tw:text-secondary"
+                  >— private, not shared in the finding</span
+                >
+              </p>
+            </div>
+            <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
+              <button
+                v-if="notebookOpen && currentHasChecklistItems"
+                type="button"
+                class="tw:text-micro tw:font-medium tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                @click="hideAnswered = !hideAnswered"
+              >
+                {{ hideAnswered ? 'Show all' : 'Hide answered' }}
+              </button>
+              <button
+                type="button"
+                class="tw:text-secondary tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:flex tw:items-center"
+                :title="notebookOpen ? 'Collapse notebook' : 'Expand notebook'"
+                @click="notebookOpen = !notebookOpen"
+              >
+                <IconChevronDown v-if="notebookOpen" :size="16" />
+                <IconChevronRight v-else :size="16" />
+              </button>
+            </div>
+          </div>
+          <div v-show="notebookOpen" class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
+            <!-- Checklists: Questions (ask/confirm), Observations (watch),
+                 Expected Evidence (records to collect). Each item: tick + note. -->
+            <div
+              v-for="cl in [
+                {
+                  items: currentClause.questions,
+                  field: 'questionChecklist',
+                  label: 'Questions',
+                  statuses: null,
+                },
+                {
+                  items: currentClause.observations,
+                  field: 'observationChecklist',
+                  label: 'Observations',
+                  statuses: OBSERVATION_STATUSES,
+                },
+                {
+                  items: currentClause.evidenceItems,
+                  field: 'evidenceChecklist',
+                  label: 'Expected Evidence',
+                  statuses: EVIDENCE_STATUSES,
+                },
+              ]"
+              :key="cl.field"
+            >
+              <template v-if="visibleItems(cl.field, cl.items).length">
+                <BaseText variant="overline" class="tw:block tw:mb-1.5">{{ cl.label }}</BaseText>
+                <div class="tw:flex tw:flex-col tw:gap-2">
+                  <div
+                    v-for="item in visibleItems(cl.field, cl.items)"
+                    :key="item.id"
+                    class="tw:flex tw:flex-col tw:gap-1.5 tw:border tw:border-divider tw:rounded tw:p-2 tw:bg-white"
+                  >
+                    <!-- Text + status on one row; the status group wraps below
+                         the text on a narrow (mobile) screen. -->
+                    <div
+                      class="tw:flex tw:flex-wrap tw:items-center tw:justify-between tw:gap-x-3 tw:gap-y-1"
+                    >
+                      <p class="tw:text-sm tw:text-on-main tw:flex-1 tw:min-w-48">
+                        {{ item.text }}
+                      </p>
+                      <div
+                        v-if="cl.statuses"
+                        class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:shrink-0"
+                      >
+                        <button
+                          v-for="st in cl.statuses"
+                          :key="st.id"
+                          type="button"
+                          class="tw:text-micro tw:font-semibold tw:rounded tw:px-2 tw:py-0.5 tw:border tw:cursor-pointer tw:transition-colors"
+                          :disabled="readonly"
+                          :class="
+                            checklistState(cl.field, item.id).status === st.id
+                              ? st.active
+                              : 'tw:bg-white tw:text-secondary tw:border-divider tw:hover:border-primary tw:hover:text-primary'
+                          "
+                          @click="setChecklistStatus(cl.field, item.id, st.id)"
+                        >
+                          {{ st.name }}
+                        </button>
+                      </div>
+                    </div>
+                    <BaseTextInput
+                      v-if="!readonly"
+                      :modelValue="checklistState(cl.field, item.id).note"
+                      size="sm"
+                      :placeholder="cl.statuses ? 'Note (optional)' : 'Interview notes…'"
+                      @update:modelValue="(v) => setChecklistNote(cl.field, item.id, v)"
+                    />
+                    <p
+                      v-else-if="checklistState(cl.field, item.id).note"
+                      class="tw:text-xs tw:text-secondary tw:italic"
+                    >
+                      {{ checklistState(cl.field, item.id).note }}
+                    </p>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- People interviewed (hybrid) -->
+            <div>
+              <BaseText variant="overline" class="tw:block tw:mb-1">People interviewed</BaseText>
+              <div
+                v-if="currentBuffer?.peopleInterviewed?.length"
+                class="tw:flex tw:flex-wrap tw:gap-1.5 tw:mb-2"
+              >
+                <span
+                  v-for="(p, pi) in currentBuffer.peopleInterviewed"
+                  :key="pi"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:bg-main-hover tw:rounded tw:pl-1.5 tw:pr-1 tw:py-0.5"
+                >
+                  <template v-if="p.userId">
+                    <IconUser :size="12" /><UserBadgeById :userId="p.userId" />
+                  </template>
+                  <template v-else
+                    >{{ p.name
+                    }}<span v-if="p.title" class="tw:text-secondary">
+                      — {{ p.title }}</span
+                    ></template
+                  >
+                  <button
+                    v-if="!readonly"
+                    type="button"
+                    class="tw:text-secondary tw:hover:text-red-600 tw:rounded tw:cursor-pointer tw:bg-transparent tw:border-0"
+                    @click="removeInterviewee(pi)"
+                  >
+                    <IconX :size="12" />
+                  </button>
+                </span>
+              </div>
+              <div v-if="!readonly" class="tw:flex tw:flex-col tw:gap-2">
+                <!-- Pick an internal/external user -->
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <!-- #7 — supplier audits interview supplier users; internal
+                       audits interview internal staff. Mirrors the auditee picker. -->
+                  <UserSelectMenu
+                    v-model="pickUserId"
+                    :kind="
+                      auditInstance.programTypeId === 'SUPPLIER' ? 'EXTERNAL_SUPPLIER' : 'INTERNAL'
+                    "
+                    :supplierId="
+                      auditInstance.programTypeId === 'SUPPLIER' ? auditInstance.supplierId : null
+                    "
+                    nullLabel="Select a user…"
+                    class="tw:flex-1"
+                  />
+                  <BaseButton
+                    variant="outline"
+                    size="sm"
+                    :disabled="!pickUserId"
+                    @click="addUserInterviewee"
+                    >Add</BaseButton
+                  >
+                </div>
+                <!-- Or add manually -->
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <BaseTextInput
+                    v-model="manualName"
+                    size="sm"
+                    placeholder="Name"
+                    class="tw:flex-1"
+                  />
+                  <BaseTextInput
+                    v-model="manualTitle"
+                    size="sm"
+                    placeholder="Title (optional)"
+                    class="tw:flex-1"
+                  />
+                  <BaseButton
+                    variant="outline"
+                    size="sm"
+                    :disabled="!manualName.trim()"
+                    @click="addManualInterviewee"
+                  >
+                    <template #icon><IconPlus :size="14" /></template>
+                    Add
+                  </BaseButton>
+                </div>
+              </div>
+            </div>
+
+            <!-- Evidence & photos — scoped to this clause's response. Available
+                 before a verdict (#27): the first attach materialises the response. -->
+            <div>
+              <BaseText variant="overline" class="tw:block tw:mb-1">Evidence &amp; Photos</BaseText>
+              <AuditEvidencePanel
+                v-if="currentResponse?.id"
+                :auditInstance="auditInstance"
+                scope="response"
+                :scopeId="currentResponse.id"
+                :readonly="readonly"
+              />
+              <div v-else-if="!readonly" class="tw:flex tw:items-center tw:gap-2">
+                <BaseButton
+                  variant="outline"
+                  size="sm"
+                  :loading="saving[currentReqId]"
+                  @click="ensureResponse"
+                >
+                  <template #icon><IconPlus :size="14" /></template>
+                  Add evidence / photo
+                </BaseButton>
+                <span class="tw:text-xs tw:text-secondary tw:italic"
+                  >Saved against this clause as you capture.</span
+                >
+              </div>
+              <p v-else class="tw:text-xs tw:text-secondary tw:italic">No evidence captured.</p>
+            </div>
+
+            <!-- Voice notes — record spoken notes for this clause (#2). -->
+            <div>
+              <BaseText variant="overline" class="tw:block tw:mb-1">Voice Notes</BaseText>
+              <AuditVoiceNotesPanel
+                :auditInstance="auditInstance"
+                :scopeId="currentResponse?.id ?? null"
+                :readonly="readonly"
+                :ensureResponse="ensureResponse"
+                @transcribed="appendVoiceTranscript"
+              />
+            </div>
+
+            <!-- Auditor Notes — private free-form notebook (dictate-to-text). -->
+            <div>
+              <BaseText variant="overline" class="tw:block tw:mb-1">Auditor Notes</BaseText>
+              <BaseRichTextField
+                :modelValue="currentBuffer?.auditorNotes"
+                :editable="!readonly"
+                placeholder="Your private working notes for this clause — observations, leads to follow, reminders…"
+                class="tw:[&_.ProseMirror]:min-h-24"
+                @update:modelValue="setAuditorNotes"
+              >
+                <template #toolbar-extra="{ editor, append }">
+                  <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+                  <AiVoiceToTextButton v-if="canUseAi" :append="append" />
+                </template>
+              </BaseRichTextField>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Result → finding (shared). The verdict + Finding Notes become
+             the finding / report seen by the auditee/supplier. Hidden on
+             section headings (no verdict captured at parent level). -->
+        <div
+          v-if="!currentHasChildren"
+          class="tw:border tw:border-blue-200 tw:rounded-lg tw:overflow-hidden tw:bg-blue-50/30"
+        >
+          <div
+            class="tw:bg-blue-50 tw:px-3 tw:py-2 tw:border-b tw:border-blue-200 tw:flex tw:items-center tw:gap-1.5"
+          >
+            <IconGavel :size="14" class="tw:text-blue-700 tw:shrink-0" />
+            <p class="tw:text-caption tw:font-bold tw:uppercase tw:tracking-wide tw:text-blue-700">
+              Result &amp; Finding
+              <span class="tw:font-normal tw:normal-case tw:text-blue-700/70"
+                >— shared in the finding / report</span
+              >
+            </p>
+          </div>
+          <div class="tw:p-3 tw:flex tw:flex-col tw:gap-4">
+            <!-- Verdict -->
+            <div>
+              <BaseText variant="overline" class="tw:block tw:mb-1.5">Result</BaseText>
+              <!-- Roll-up of the notebook ratings — what to address + a
+                   non-binding suggested verdict. The auditor still decides. -->
+              <div
+                v-if="clauseSummary.parts.length || clauseSummary.suggested"
+                class="tw:mb-2 tw:text-caption tw:flex tw:flex-wrap tw:gap-x-2 tw:gap-y-0.5"
+              >
+                <span v-if="clauseSummary.parts.length" class="tw:text-red-700 tw:font-medium">
+                  Flags: {{ clauseSummary.parts.join(' · ') }}
+                </span>
+                <span v-if="clauseSummary.suggested" class="tw:text-secondary">
+                  Suggested: {{ SUGGESTED_LABEL[clauseSummary.suggested] }}
+                </span>
+              </div>
+              <div class="tw:flex tw:flex-wrap tw:gap-1.5">
+                <button
+                  v-for="r in RESULTS"
+                  :key="r.id"
+                  type="button"
+                  class="tw:text-caption tw:font-semibold tw:rounded tw:px-2.5 tw:py-1 tw:cursor-pointer tw:border tw:transition-colors"
+                  :disabled="readonly || saving[currentReqId]"
+                  :class="
+                    currentResponse?.resultId === r.id
+                      ? 'tw:bg-primary tw:text-white tw:border-primary'
+                      : 'tw:bg-white tw:text-on-main tw:border-divider tw:hover:border-primary tw:hover:text-primary'
+                  "
+                  @click="pickResult(r.id)"
+                >
+                  {{ r.name }}
+                </button>
+              </div>
+              <p
+                v-if="!currentResponse?.resultId"
+                class="tw:text-caption tw:text-secondary tw:italic tw:mt-1"
+              >
+                Work through your notebook above, then pick a result to record the verdict.
+                Everything saves as you go.
+              </p>
+            </div>
+
+            <!-- Finding Notes — included in the finding / report (shared). For
+                 an NC result this seeds the auto-finding description. -->
+            <div>
+              <div class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:mb-1">
+                <BaseText variant="overline">Finding Notes</BaseText>
+                <!-- Deterministic: extract flagged items + notes. No AI. -->
+                <button
+                  v-if="!readonly"
+                  type="button"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-caption tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:bg-transparent tw:border-0 tw:cursor-pointer"
+                  title="Summarize the flagged items + notes into Finding Notes"
+                  @click="summarizeFinding"
+                >
+                  <IconListCheck :size="14" />
+                  Summarize
+                </button>
+              </div>
+              <BaseRichTextEditor
+                :modelValue="currentBuffer?.comments"
+                :editable="!readonly"
+                placeholder="The note that goes into the finding for this clause (shared in reports)…"
+                class="tw:[&_.ProseMirror]:min-h-24"
+                @update:modelValue="setComments"
+              >
+                <template #toolbar-extra="{ editor, append }">
+                  <AiTextAssistButton v-if="canUseAi && editor" :editor="editor" />
+                  <AiVoiceToTextButton v-if="canUseAi" :append="append" />
+                </template>
+              </BaseRichTextEditor>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

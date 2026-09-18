@@ -35,15 +35,19 @@ const props = defineProps({
 const emit = defineEmits(['reassign'])
 
 const toast = useToast()
-const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
-const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
-  id ? db.WorkflowInstanceStep.findByPk(id) : null,
+const instanceStep = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const stepDefinition = useLiveQueryWithDeps(
   [() => instanceStep.value?.stepId],
+
   async (db, [stepId]) => (stepId ? db.WorkflowStep.findByPk(stepId) : null),
+  { models: ['WorkflowStep'] },
 )
 
 const formSchema = computed(() => instanceStep.value?.formSchema || [])
@@ -55,11 +59,14 @@ const assignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 const activeAssigneeId = computed(() => {
-  const active = assignments.value.find((a) => a.statusId === 'ASSIGNED' || a.statusId === 'PENDING')
+  const active = assignments.value.find(
+    (a) => a.statusId === 'ASSIGNED' || a.statusId === 'PENDING',
+  )
   return active?.userId || null
 })
 
@@ -68,6 +75,7 @@ const activeAssigneeId = computed(() => {
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
+
   async (db, [stepInstanceId, userId]) => {
     if (!stepInstanceId || !userId) return null
     const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
@@ -78,6 +86,7 @@ const currentUserTask = useLiveQueryWithDeps(
       tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
     )
   },
+  { models: ['TaskInstance'] },
 )
 
 const isAssignee = computed(() => !!currentUserTask.value)
@@ -88,8 +97,10 @@ const canReassign = computed(
 )
 
 // CAPA status — reopen is blocked once the CAPA is terminal.
-const capa = useLiveQueryWithDeps([() => props.capaId], async (db, [id]) =>
-  id ? db.Capa.findByPk(id) : null,
+const capa = useLiveQueryWithDeps(
+  [() => props.capaId],
+  async (db, [id]) => (id ? db.Capa.findByPk(id) : null),
+  { models: ['Capa'] },
 )
 const capaIsTerminal = computed(
   () => capa.value?.statusId === 'CLOSED' || capa.value?.statusId === 'CANCELLED',
@@ -100,6 +111,7 @@ const capaIsTerminal = computed(
 // APPROVED). The backend re-checks; this is just UI gating.
 const parentReviewerAssignment = useLiveQueryWithDeps(
   [() => instanceStep.value?.parentInstanceStepId, () => currentUserId.value],
+
   async (db, [parentInstanceStepId, userId]) => {
     if (!parentInstanceStepId || !userId) return null
     const rows = await db.UserOnWorkflowInstanceStep.where(
@@ -112,6 +124,7 @@ const parentReviewerAssignment = useLiveQueryWithDeps(
       ) ?? null
     )
   },
+  { models: ['UserOnWorkflowInstanceStep'] },
 )
 const isParentReviewer = computed(() => !!parentReviewerAssignment.value)
 const canReopen = computed(
@@ -153,8 +166,7 @@ async function handleReopen() {
 // terminal alongside APPROVED.
 const canCancelStep = computed(
   () =>
-    props.isOwner &&
-    ['PENDING', 'IN_PROGRESS', 'SENT_BACK'].includes(instanceStep.value?.statusId),
+    props.isOwner && ['PENDING', 'IN_PROGRESS', 'SENT_BACK'].includes(instanceStep.value?.statusId),
 )
 
 const showCancelDialog = ref(false)
@@ -346,10 +358,7 @@ async function performComplete(esign = null) {
         >
           <IconArrowBackUp :size="14" class="tw:text-amber-600" />
         </div>
-        <div
-          v-else
-          class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white"
-        />
+        <div v-else class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white" />
       </div>
 
       <!-- Title block -->
@@ -363,24 +372,20 @@ async function performComplete(esign = null) {
         <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
           {{ displayNumber }}. {{ instanceStep.name || 'Step' }}
         </span>
-        <BaseBadge class="tw:text-[10px]" :class="getStepStatusClass(instanceStep.statusId)">
+        <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
         <BaseBadge
           v-if="dueDate && instanceStep.statusId === 'IN_PROGRESS'"
-          class="tw:text-[10px]"
+          class="tw:text-micro"
           :class="
             overdue
               ? 'tw:bg-red-100 tw:text-red-700 tw:font-semibold'
               : 'tw:bg-gray-100 tw:text-gray-600'
           "
         >
-          <template v-if="overdue">
-            Overdue · {{ daysOverdue }}d
-          </template>
-          <template v-else>
-            Due {{ dueDate.formatDate('date') }}
-          </template>
+          <template v-if="overdue"> Overdue · {{ daysOverdue }}d </template>
+          <template v-else> Due {{ dueDate.formatDate('date') }} </template>
         </BaseBadge>
       </button>
 
@@ -453,9 +458,7 @@ async function performComplete(esign = null) {
            text from the BaseTextarea. v-html handles both — plain text
            with no tags renders as-is. -->
       <div v-if="instanceStep.description" class="tw:mb-3">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-1 tw:uppercase tw:tracking-wider">
-          Instructions
-        </div>
+        <BaseText variant="overline" class="tw:block tw:mb-1">Instructions</BaseText>
         <div
           class="tw:text-sm tw:text-on-main tw:leading-relaxed"
           v-html="instanceStep.description"
@@ -475,6 +478,17 @@ async function performComplete(esign = null) {
       >
         No form on this task — clicking "Complete &amp; Advance" closes it.
       </div>
+
+      <!-- Second Mark Complete below the form (user request 2026-08-16) —
+           same reason as the parent step: after filling it in, the header
+           action is off screen. Only when there IS a form to scroll past.
+           Same handler and disabled state as the header button. -->
+      <div v-if="isAssignee && hasForm" class="tw:flex tw:justify-end tw:pt-1">
+        <BaseButton :disabled="submitting" :isLoading="submitting" @click.stop="onCompleteClick">
+          <template #icon><IconCheck :size="16" /></template>
+          {{ submitting ? 'Completing…' : 'Mark Complete' }}
+        </BaseButton>
+      </div>
     </div>
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
@@ -486,67 +500,59 @@ async function performComplete(esign = null) {
         >
           <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⨯</div>
           <div class="tw:text-sm tw:text-red-800">
-            Cancels this sub-task. Any open assignment and task instance
-            for it is closed. The parent stage's "all sub-tasks done"
-            check will then treat this one as completed.
+            Cancels this sub-task. Any open assignment and task instance for it is closed. The
+            parent stage's "all sub-tasks done" check will then treat this one as completed.
           </div>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Reason (optional)
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Reason" optional>
           <BaseTextarea
+            :id="fieldId"
             v-model="cancelReason"
             :rows="3"
             placeholder="Why is this sub-task being cancelled?"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
+        <BaseDialogFooter
+          submitLabel="Cancel Task"
+          submitVariant="danger"
           :loading="cancelling"
-          :disabled="cancelling"
-          @click="handleCancelStep"
-        >
-          Cancel Task
-        </BaseButton>
+          @cancel="close"
+          @submit="handleCancelStep"
+        />
       </template>
     </BaseDialog>
 
     <BaseDialog v-model="showReopenDialog" title="Reopen Task" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <div class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200">
+        <div
+          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+        >
           <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⤺</div>
           <div class="tw:text-sm tw:text-amber-800">
-            Sends this task back to its assignee for revision. They get a
-            fresh task on this step and can edit their existing answers.
-            Other tasks are not affected. Your feedback is recorded in the
-            audit log.
+            Sends this task back to its assignee for revision. They get a fresh task on this step
+            and can edit their existing answers. Other tasks are not affected. Your feedback is
+            recorded in the audit log.
           </div>
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
-            Feedback / Reason
-          </p>
+        <BaseField v-slot="{ id: fieldId }" label="Feedback / Reason">
           <BaseTextarea
+            :id="fieldId"
             v-model="reopenReason"
             :rows="3"
             placeholder="What needs to be revised on this task?"
           />
-        </div>
+        </BaseField>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="reopening" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Reopen Task"
           :loading="reopening"
-          :disabled="!reopenReason.trim() || reopening"
-          @click="handleReopen"
-        >
-          Reopen Task
-        </BaseButton>
+          :disabled="!reopenReason.trim()"
+          @cancel="close"
+          @submit="handleReopen"
+        />
       </template>
     </BaseDialog>
   </div>

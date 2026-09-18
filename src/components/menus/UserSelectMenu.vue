@@ -6,13 +6,19 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Forwarded to BaseSelect: opt out of the required first-option auto-fill
+  // when the caller owns defaulting (reviewer pickers).
+  autoFill: {
+    type: Boolean,
+    default: true,
+  },
   multiple: {
     type: Boolean,
     default: false,
   },
   nullLabel: {
     type: String,
-    default: 'All',
+    default: '— Select User —',
   },
   // Set true on admin screens that need to show inactive/invited users too
   includeInactive: {
@@ -44,6 +50,16 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // Restrict to users in a given department (null = no department filter).
+  departmentId: {
+    type: String,
+    default: null,
+  },
+  // Restrict to users at a given site (null = no site filter).
+  siteId: {
+    type: String,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -52,18 +68,29 @@ const modelValue = defineModel({
 })
 
 const users = useLiveQueryWithDeps(
-  [() => props.kind, () => props.supplierId, () => props.includeInactive],
-  async (db, [kind, supplierId, includeInactive]) => {
+  [
+    () => props.kind,
+    () => props.supplierId,
+    () => props.includeInactive,
+    () => props.departmentId,
+    () => props.siteId,
+  ],
+  async (db, [kind, supplierId, includeInactive, departmentId, siteId]) => {
     const all = await db.User.where().exec()
     return all
+      // Service accounts never reach here: User.hiddenFromLists drops them
+      // from every list query in the engine, so this menu needs no filter.
       .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
       .filter((u) => (kind ? u.kind === kind : true))
       .filter((u) =>
         kind === 'EXTERNAL_SUPPLIER' && supplierId ? u.supplierId === supplierId : true,
       )
+      .filter((u) => (departmentId ? u.departmentId === departmentId : true))
+      .filter((u) => (siteId ? u.siteId === siteId : true))
       .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}` }))
   },
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const roleById = useLiveQuery(
@@ -71,7 +98,8 @@ const roleById = useLiveQuery(
     const roles = await db.Role.where().exec()
     return Object.fromEntries(roles.map((r) => [r.id, r]))
   },
-  { initial: {} },
+
+  { models: ['Role'], initial: {} },
 )
 
 const roleIdsOnUsers = useLiveQuery(
@@ -84,7 +112,8 @@ const roleIdsOnUsers = useLiveQuery(
     })
     return map
   },
-  { initial: {} },
+
+  { models: ['RoleOnUser'], initial: {} },
 )
 
 const rolesByUserId = computed(() => {
@@ -111,66 +140,49 @@ const filteredUsers = computed(() => {
   })
 })
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="filteredUsers"
+    :options="filteredUsers"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
+    :autoFill="autoFill"
     :multiple="multiple"
+    :clearable="!required"
     :nullLabel="nullLabel"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
-            <UserBadgeById
-              v-for="userId in getArray()"
-              :key="userId"
-              :userId="userId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(userId)"
-            />
-            <!-- Explicit "add more" affordance — without it the badge
-                 row visually reads as final / single-select. Click is
-                 captured by the surrounding popover trigger and opens
-                 the menu. -->
-            <span
-              class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-1.5 tw:py-0.5 tw:cursor-pointer tw:border tw:border-dashed tw:border-primary/40"
-            >
-              <IconPlus :size="12" />
-              Add
-            </span>
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Users </span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <UserBadgeById
-            v-if="modelValue"
-            :userId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select User </span>
-        </template>
-      </slot>
-    </template>
-
-    <template #item="{ item }">
-      <div class="tw:flex tw:flex-col">
-        <span>{{ item.name }}</span>
-        <span v-if="rolesByUserId[item.id]" class="tw:text-xs tw:text-placeholder">
-          {{ rolesByUserId[item.id] }}
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
+        <UserBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :userId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+        <!-- Explicit "add more" affordance — without it the badge row visually
+             reads as final / single-select. Click bubbles to the trigger and
+             opens the menu. -->
+        <span
+          v-if="multiple"
+          class="tw:inline-flex tw:items-center tw:gap-0.5 tw:text-xs tw:font-medium tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-1.5 tw:py-0.5 tw:cursor-pointer tw:border tw:border-dashed tw:border-primary/40"
+        >
+          <IconPlus :size="12" />
+          Add
         </span>
       </div>
     </template>
-  </BaseSelectMenu>
+
+    <template #option="{ opt }">
+      <div class="tw:flex tw:flex-col">
+        <span>{{ opt.label }}</span>
+        <span v-if="rolesByUserId[opt.value]" class="tw:text-xs tw:text-placeholder">
+          {{ rolesByUserId[opt.value] }}
+        </span>
+      </div>
+    </template>
+  </BaseSelect>
 </template>

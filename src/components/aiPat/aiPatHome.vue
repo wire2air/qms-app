@@ -1,7 +1,30 @@
 <script setup>
 import { IconRobot, IconPlus } from '@tabler/icons-vue'
 
+/**
+ * API Tokens (AI PATs) — list page.
+ *
+ * Built on the Enterprise Page Framework list template: `useListLayout`
+ * (resolved content state) + `BaseListLayout` (header / state region).
+ * No filters — tokens are listed newest-first. PAT create/return uses
+ * action-RPC endpoints (handled inside AiPatCreateDialog), not entity CRUD.
+ */
 const showCreateDialog = ref(false)
+
+// Resolved content state (no filters). Declared before the live query because
+// the getters lazily read `tokens`. No `initial` so `tokens === undefined`
+// drives the loading state until the first result lands.
+const list = useListLayout({
+  total: () => tokens.value?.length ?? 0,
+  loading: () => tokens.value === undefined,
+  empty: () => tokens.value?.length === 0,
+})
+
+const tokens = useLiveQuery(
+  async (db) => db.AiPat.where().orderBy('createdAt', 'desc').exec(),
+
+  { models: ['AiPat'] },
+)
 
 function openDialog() {
   showCreateDialog.value = true
@@ -9,34 +32,30 @@ function openDialog() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconRobot class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">API Tokens</h2>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
+  <BaseListLayout
+    title="API Tokens"
+    :icon="IconRobot"
+    subtitle="Personal access tokens for connecting external AI clients (Claude Desktop, IDEs) to the QMS MCP server. Tokens carry your identity and permissions — keep them secret."
+    :state="list.state.value"
+    :emptyIcon="IconRobot"
+    emptyTitle="No API tokens yet"
+    emptyDescription="Create a token to connect an external AI client (Claude Desktop, IDE) to QMS."
+  >
+    <template #actions>
       <BaseButton @click="openDialog">
         <IconPlus class="tw:size-4" />
         Create Token
       </BaseButton>
-    </SafeTeleport>
+    </template>
 
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">API Tokens</div>
-        <div class="tw:text-sm tw:text-secondary tw:max-w-2xl">
-          Personal access tokens for connecting external AI clients (Claude Desktop, IDEs) to the
-          QMS MCP server. Tokens carry your identity and permissions — keep them secret.
-        </div>
-      </div>
-    </div>
+    <template #empty-action>
+      <BaseButton @click="openDialog">Create Token</BaseButton>
+    </template>
 
-    <AiPatList @create="openDialog" />
-  </div>
+    <AiPatList :tokens="tokens" />
 
+  </BaseListLayout>
+
+  <!-- Outside BaseListLayout so it stays mounted in the empty state. -->
   <AiPatCreateDialog v-model="showCreateDialog" />
 </template>

@@ -21,26 +21,37 @@ const props = defineProps({
   },
 })
 
-const document = useLiveQueryWithDeps([() => props.documentId], async (db, [id]) => {
-  return db.Document.findByPk(id)
-})
-
-const currentVersion = useLiveQueryWithDeps([() => props.versionId], async (db, [id]) => {
-  return id ? db.DocumentVersion.findByPk(id) : null
-})
-
-const canEdit = computed(
-  () =>
-    isAllowed(['documents:update']) && document.value?.statusId !== 'ARCHIVED' && !props.reviewMode,
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => {
+    return db.Document.findByPk(id)
+  },
+  { models: ['Document'] },
 )
 
-const canUpdateVersion = computed(() => {
-  return (
-    canEdit.value &&
-    currentVersion.value &&
-    ['DRAFT', 'REJECTED'].includes(currentVersion.value.statusId)
-  )
-})
+const currentVersion = useLiveQueryWithDeps(
+  [() => props.versionId],
+  async (db, [id]) => {
+    return id ? db.DocumentVersion.findByPk(id) : null
+  },
+  { models: ['DocumentVersion'] },
+)
+
+// Editable only while the SELECTED version is a working draft (DRAFT/REJECTED).
+// Once submitted for review, approved, or effective, the title and everything
+// else is locked. `document.statusId` is only ACTIVE/ARCHIVED, so the version
+// status is what gates editing.
+const canEdit = computed(
+  () =>
+    isAllowed(['document_control:update']) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    !props.reviewMode &&
+    ['DRAFT', 'REJECTED'].includes(currentVersion.value?.statusId),
+)
+
+// canEdit now already encodes the version-status gate; kept as a named alias
+// for the sections list, which reads it as its edit permission.
+const canUpdateVersion = canEdit
 
 const versionLabel = computed(() => {
   const v = currentVersion.value
@@ -69,19 +80,27 @@ const versionLabel = computed(() => {
             <DocumentPeriodicReviewBadge :document="document" :canEdit="canEdit" />
           </div>
 
-          <span class="tw:text-secondary tw:text-sm tw:font-mono">
-            {{ document.docNumber }} v{{ versionLabel }}
+          <span class="tw:text-secondary tw:text-sm">
+            <template v-if="document.docNumber">{{ document.docNumber }} </template>v{{
+              versionLabel
+            }}
           </span>
         </div>
+        <!-- Typography must go through inputClass — plain class lands on the
+             wrapper while the inner <input> keeps its own tw:text-sm, leaving
+             the document's H1 tiny. -->
         <BaseTextInput
           v-if="canEdit"
           v-model="document.title"
-          class="tw:font-extrabold"
-          :class="dense ? 'tw:text-xl' : 'tw:text-3xl'"
+          :inputClass="
+            dense
+              ? 'tw:text-xl! tw:font-bold tw:leading-tight tw:py-2'
+              : 'tw:text-3xl! tw:font-bold tw:leading-tight tw:py-2'
+          "
         />
         <h2
           v-else
-          class="tw:font-extrabold tw:text-on-sidebar tw:leading-tight"
+          class="tw:font-bold tw:text-on-sidebar tw:leading-tight"
           :class="dense ? 'tw:text-xl' : 'tw:text-3xl'"
         >
           {{ document.title }}
@@ -131,6 +150,10 @@ const versionLabel = computed(() => {
         />
       </div>
     </div>
+
+    <!-- Attested review decisions, newest first — the plural answer to
+         "show me the review decisions for this SOP". Self-hides when none. -->
+    <DocumentReviewHistory :documentId="document.id" class="tw:mt-4" />
   </div>
 </template>
 

@@ -9,6 +9,7 @@ import {
   IconCode,
   IconLink,
   IconPhoto,
+  IconCamera,
   IconTable,
   IconHighlight,
   IconH3,
@@ -26,7 +27,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['toggleLink', 'uploadImage'])
+const emit = defineEmits(['toggleLink', 'uploadImage', 'takePhoto'])
 
 const toolbarItems = [
   { icon: IconBold, action: 'bold', label: 'Bold' },
@@ -46,6 +47,7 @@ const toolbarItems = [
   { icon: IconLink, action: 'link', label: 'Link', custom: true },
   { divider: true },
   { icon: IconPhoto, action: 'image', label: 'Insert Image', custom: true },
+  { icon: IconCamera, action: 'camera', label: 'Take Photo', custom: true },
   { divider: true },
   { icon: IconTable, action: 'table', label: 'Insert Table', custom: true },
   { divider: true },
@@ -62,6 +64,11 @@ function executeCommand(item) {
 
   if (item.custom && item.action === 'image') {
     openImageFilePicker()
+    return
+  }
+
+  if (item.custom && item.action === 'camera') {
+    emit('takePhoto')
     return
   }
 
@@ -114,7 +121,7 @@ function isActive(item) {
 
 <template>
   <div
-    class="tw:flex tw:items-center tw:gap-1 tw:p-2 tw:bg-sidebar tw:border-b tw:border-divider tw:rounded-t"
+    class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:p-1 tw:bg-sidebar tw:border-b tw:border-divider tw:rounded-t"
   >
     <template v-for="(item, index) in toolbarItems" :key="index">
       <div v-if="item.divider" class="tw:w-px tw:h-5 tw:bg-divider tw:mx-0.5" />
@@ -139,5 +146,7 @@ function isActive(item) {
         <component :is="item.icon" v-else :size="18" />
       </button>
     </template>
+    <!-- Injected sidecar tools (e.g. voice-to-text), pushed to the right. -->
+    <div class="tw:ml-auto tw:flex tw:items-center tw:gap-1"><slot /></div>
   </div>
 </template>

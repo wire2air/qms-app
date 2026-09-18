@@ -1,13 +1,10 @@
 <script setup>
-import { micromark } from 'micromark'
-import { IconX } from '@tabler/icons-vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+import { IconX, IconEye, IconEyeOff } from '@tabler/icons-vue'
 
 // --- Props & models ---
 const props = defineProps({
-  modelValue: {
-    type: [String, Number],
-    default: '',
-  },
   label: {
     type: String,
     default: '',
@@ -28,6 +25,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Control id — pair with a <label for> (e.g. BaseField provides this).
+  id: {
+    type: String,
+    default: undefined,
+  },
   errorMsg: {
     type: String,
     default: '',
@@ -43,6 +45,7 @@ const props = defineProps({
         'text',
         'password',
         'email',
+        'tel',
         'datetime-local',
         'date',
         'number',
@@ -76,6 +79,14 @@ const props = defineProps({
     type: String,
     default: undefined,
   },
+  // Needs to be a declared prop, not a fallthrough attr: this component's root
+  // is a wrapper <div>, so an undeclared `maxlength` lands on that div and
+  // silently does nothing to the field. Same reason min/max/step/pattern are
+  // declared above.
+  maxlength: {
+    type: [Number, String],
+    default: undefined,
+  },
   inputClass: {
     type: String,
     default: '',
@@ -99,27 +110,58 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Opt out of the show/hide toggle that `type="password"` fields get by
+  // default — e.g. e-signature PIN fields that stay masked.
+  noReveal: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // --- Emits ---
-const emit = defineEmits(['update:modelValue', 'blur', 'focus'])
+defineEmits(['blur', 'focus'])
+
+const model = defineModel({ type: [String, Number], default: '' })
 
 // --- Use ---
 const slots = useSlots()
 
 // --- Vars ---
 const inputEl = ref(null)
+// Stable id for label↔input pairing + aria wiring. Falls back to `name`, then
+// a generated id, so existing `label`+`name` usages get a working `for`/`id`.
+const generatedId = useId()
+const inputId = computed(() => props.id || props.name || generatedId)
+const errId = computed(() => `${inputId.value}-error`)
+
 // --- Handlers ---
 function focus() {
   inputEl.value?.focus()
 }
 
 const showClearBtn = computed(() => {
-  return props.clearBtn && Boolean(props.modelValue)
+  return props.clearBtn && Boolean(model.value)
 })
 
 function clear() {
-  emit('update:modelValue', '')
+  model.value = ''
+}
+
+// Password fields get a show/hide toggle unless `noReveal` is set. When
+// revealed, the native input type flips to `text` so the value is visible.
+const revealed = ref(false)
+const showReveal = computed(() => props.type === 'password' && !props.noReveal)
+const effectiveType = computed(() =>
+  showReveal.value && revealed.value ? 'text' : props.type,
+)
+
+// Browser spellcheck only makes sense for free-text inputs — never on emails,
+// passwords, numbers, phone numbers, URLs, etc.
+const spellcheckAttr = computed(() =>
+  ['text', 'search', undefined, null, ''].includes(props.type) ? 'true' : 'false',
+)
+function toggleReveal() {
+  revealed.value = !revealed.value
 }
 
 // --- Watchers & computed ---
@@ -127,8 +169,8 @@ const inline = computed(() => props.labelLeft || props.labelRight)
 
 const cssClass = computed(() => {
   let c =
-    'tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:text-sm tw:text-main-text tw:placeholder-main-text-muted tw:transition-[border-color,box-shadow] tw:duration-200 tw:focus:outline-none tw:focus:border-primary tw:focus:ring-2 tw:focus:ring-primary/30 tw:disabled:cursor-not-allowed tw:disabled:opacity-60 tw:disabled:bg-main-unselected'
-  if (props.size === 'sm') c += ' tw:py-1.5 tw:text-12'
+    'tw:w-full tw:rounded-lg tw:border tw:border-input-border tw:bg-sidebar tw:text-sm tw:text-main-text tw:placeholder-main-text-muted tw:transition-[border-color,box-shadow] tw:duration-200 tw:focus:outline-none tw:focus:border-primary tw:focus:ring-2 tw:focus:ring-primary/30 tw:disabled:cursor-not-allowed tw:disabled:opacity-60 tw:disabled:bg-main-unselected'
+  if (props.size === 'sm') c += ' tw:py-1.5 tw:text-xs'
   else c += ' tw:py-2.5'
 
   // Left padding - conditional based on icon slot
@@ -138,8 +180,10 @@ const cssClass = computed(() => {
     c += ' tw:pl-3'
   }
 
-  // Right padding - conditional based on clear button
-  if (props.clearBtn) {
+  // Right padding - reserve room for the clear button and/or reveal toggle
+  if (props.clearBtn && showReveal.value) {
+    c += ' tw:pr-16'
+  } else if (props.clearBtn || showReveal.value) {
     c += ' tw:pr-10'
   } else {
     c += ' tw:pr-3'
@@ -147,6 +191,15 @@ const cssClass = computed(() => {
 
   if (props.inputClass) c += ' ' + props.inputClass
   return c
+})
+
+// Render the optional markdown `instructions` to sanitized HTML (links open in
+// a new tab). marked + DOMPurify (project deps) — replaces the micromark dep
+// and closes the unsanitized-v-html XSS gap.
+const renderedInstructions = computed(() => {
+  if (!props.instructions) return ''
+  const html = DOMPurify.sanitize(marked.parse(props.instructions, { async: false }))
+  return html.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer" ')
 })
 
 // --- Lifecycle hooks & related ---
@@ -169,15 +222,14 @@ defineExpose({
     >
       <label
         v-if="label || slots.label"
-        class="tw:dark:text-white"
+        class="tw:text-label tw:font-medium tw:text-on-main"
         :class="{
           'tw:inline-block': !inline,
           'tw:-mb-2': !inline && size === 'md',
-          'tw:text-12': size === 'sm',
           'tw:mr-2': labelLeft,
           'tw:ml-2': labelRight,
         }"
-        :for="name"
+        :for="inputId"
       >
         <slot name="label">
           {{ label }}
@@ -186,12 +238,11 @@ defineExpose({
       </label>
       <div
         v-if="instructions"
-        class="tw:text-grey-5 tw:dark:text-grey-4 tw:max-w-none tw:dark:prose-invert [&>p>a]:tw:underline"
+        class="tw:text-caption tw:text-secondary tw:max-w-none tw:dark:prose-invert [&>p>a]:tw:underline"
         :class="{
-          'tw:text-14 tw:mb-4': size === 'md',
-          'tw:text-12': size === 'sm',
+          'tw:mb-4': size === 'md',
         }"
-        v-html="micromark(instructions).replace('href=', 'target=\'_blank\' href=')"
+        v-html="renderedInstructions"
       />
     </div>
     <div class="tw:relative tw:w-full">
@@ -203,35 +254,52 @@ defineExpose({
         <slot name="icon" />
       </div>
       <input
+        :id="inputId"
         ref="inputEl"
         :class="cssClass"
         :name="name"
-        :value="modelValue"
+        :value="model"
         :placeholder="placeholder"
         :disabled="disabled"
         :aria-disabled="disabled"
-        :type="type"
+        :aria-invalid="errorMsg ? 'true' : undefined"
+        :aria-describedby="errorMsg ? errId : undefined"
+        :type="effectiveType"
         :required="required"
         :min="min"
         :max="max"
         :step="step"
         :pattern="pattern"
+        :maxlength="maxlength"
+        :spellcheck="spellcheckAttr"
         dir="auto"
         autocomplete="off"
-        @input="$emit('update:modelValue', $event.target.value)"
+        @input="model = $event.target.value"
         @blur="$emit('blur', $event)"
         @focus="$emit('focus', $event)"
       />
       <BaseButton
         v-if="showClearBtn"
         variant="transparent"
-        class="tw:absolute tw:right-1 tw:top-1/2 tw:-translate-y-1/2"
+        class="tw:absolute tw:top-1/2 tw:-translate-y-1/2"
+        :class="showReveal ? 'tw:right-9' : 'tw:right-1'"
+        aria-label="Clear"
         @click="clear"
       >
         <IconX class="tw:size-5" />
       </BaseButton>
+      <BaseButton
+        v-if="showReveal"
+        variant="transparent"
+        class="tw:absolute tw:right-1 tw:top-1/2 tw:-translate-y-1/2 tw:text-main-text-hover"
+        :aria-label="revealed ? 'Hide password' : 'Show password'"
+        @click="toggleReveal"
+      >
+        <IconEyeOff v-if="revealed" class="tw:size-5" />
+        <IconEye v-else class="tw:size-5" />
+      </BaseButton>
     </div>
 
-    <p v-if="errorMsg" class="tw:text-14 tw:mt-2 tw:text-red">{{ errorMsg }}</p>
+    <BaseErrorText v-if="errorMsg" :id="errId" class="tw:mt-2">{{ errorMsg }}</BaseErrorText>
   </div>
 </template>

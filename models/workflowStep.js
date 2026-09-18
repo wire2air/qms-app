@@ -28,9 +28,21 @@ export class WorkflowStep extends BaseModel {
   @Property({ type: String, required: true }) approvalRule = 'ALL'
   @Property({ type: String, required: true }) stepType = 'ACTION'
   @Property({ type: Number }) slaDays = 10
+  // DELAY steps: days to wait after the previous step before activating.
+  @Property({ type: Number }) delayDays = /** @type {Number} */ (null)
+  // DELAY steps: fixed activation date — wins over delayDays when set.
+  @Property({ type: DateTime }) delayUntilDate = /** @type {DateTime} */ (null)
+  // DELAY steps: how many times the wake-up can be pushed out (null = 1).
+  @Property({ type: Number }) maxDelayExtensions = /** @type {Number} */ (null)
+  // Fixed deadline — wins over slaDays at activation (resolveStepDueDate).
+  @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
+  // DELAY steps: does this step record an effectiveness verdict on completion?
+  @Property({ type: Boolean }) capturesEffectiveness = false
   @Property({ type: Boolean }) requireComments = false
   @Property({ type: Boolean }) requireEsignature = false
   @Property({ type: Boolean }) allowChildSteps = false
+  @Property({ type: Boolean }) externalSupplier = false
+  @Property({ type: Boolean }) adobeEsignRequired = false
   @Property({ type: Array }) formSchema = /** @type {Array} */ ([])
   @Property({ type: String }) parentStepId = /** @type {String} */ (null)
   @Property({ type: String, required: true }) companyId = ''

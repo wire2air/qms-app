@@ -2,11 +2,14 @@
 import {
   IconTool,
   IconPlus,
-  IconSearch,
   IconAlertCircle,
   IconCalendar,
+  IconCalendarCheck,
+  IconTrash,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { getCompanyPath } from '@/utils/routeHelpers'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { DateTime } from 'luxon'
 
 /**
@@ -14,25 +17,38 @@ import { DateTime } from 'luxon'
  * Filterable by status / category / site / department; admins with
  * `equipment:create` can add new records.
  *
- * Row-level editing is not in this round; minor inline edits
- * (location, notes) can land later via an inline-edit pattern. For now
- * the page is a focused catalog view + creation surface.
+ * Built on the Enterprise Page Framework list template: `useListLayout`
+ * (filter state + URL sync + pagination + resolved content state) +
+ * `BaseListLayout` (header / filters / state region) + `BaseTable`.
  */
-const canCreate = computed(() => isAllowed(['equipment:create']))
-const canUpdate = computed(() => isAllowed(['equipment:update']))
+const canCreate = computed(() => isAllowed(['calibration_equipment:create']))
+const canUpdate = computed(() => isAllowed(['calibration_equipment:update']))
+const canDelete = computed(() => isAllowed(['calibration_equipment:delete']))
+const toast = useToast()
+const router = useRouter()
+const { confirm } = useConfirm()
 
 const showCreateDialog = ref(false)
 
-const search = ref('')
-const statusFilter = ref('IN_SERVICE') // default to in-service so retired equipment doesn't drown the list
-const categoryFilter = ref('all')
+// Multi-select dimensions (Linear-style filter menu) — arrays of ids. Default
+// to in-service so retired equipment doesn't drown the list.
+const list = useListLayout({
+  filters: { search: '', status: ['IN_SERVICE'], category: [] },
+  total: () => equipment.value.length,
+  empty: () => equipment.value.length === 0,
+  syncUrl: true,
+})
 
 const equipment = useLiveQueryWithDeps(
-  [() => search.value, () => statusFilter.value, () => categoryFilter.value],
-  async (db, [q, status, category]) => {
+  [
+    () => list.filters.value.search,
+    () => list.filters.value.status,
+    () => list.filters.value.category,
+  ],
+  async (db, [q, statuses, categories]) => {
     let rows = await db.Equipment.where().exec()
-    if (status !== 'all') rows = rows.filter((e) => e.statusId === status)
-    if (category !== 'all') rows = rows.filter((e) => e.category === category)
+    if (statuses?.length) rows = rows.filter((e) => statuses.includes(e.statusId))
+    if (categories?.length) rows = rows.filter((e) => categories.includes(e.category))
     if (q) {
       const needle = q.toLowerCase()
       rows = rows.filter(
@@ -44,11 +60,51 @@ const equipment = useLiveQueryWithDeps(
     }
     return rows.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   },
-  { initial: [] },
+
+  { models: ['Equipment'], initial: [] },
 )
 
-const sites = useLiveQuery((db) => db.Site.where().exec(), { initial: [] })
+// Option sources for the advanced filter's entity-column dropdowns.
+const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 const siteById = computed(() => new Map(sites.value.map((s) => [s.id, s])))
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    category: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'INSTRUMENT', label: 'Instrument' },
+        { value: 'MACHINE', label: 'Machine' },
+        { value: 'VEHICLE', label: 'Vehicle' },
+        { value: 'SENSOR', label: 'Sensor' },
+        { value: 'OTHER', label: 'Other' },
+      ],
+    },
+    site: { filterType: 'select', filterOptions: selectOpts(sites.value) },
+    status: {
+      filterType: 'select',
+      filterOptions: [
+        { value: 'IN_SERVICE', label: 'In service' },
+        { value: 'OUT_OF_SERVICE', label: 'Out of service' },
+        { value: 'RETIRED', label: 'Retired' },
+      ],
+    },
+    nextCalibrationDue: { filterType: 'date' },
+    nextPmDue: { filterType: 'date' },
+  }
+  return [
+    { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+    { name: 'category', label: 'Category', field: (r) => categoryLabel(r.category), align: 'left', sortable: true },
+    { name: 'site', label: 'Site', field: (r) => siteById.value.get(r.siteId)?.name ?? '—', align: 'left', sortable: true },
+    { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true },
+    { name: 'nextCalibrationDue', label: 'Next calibration', field: 'nextCalibrationDue', align: 'left', sortable: true },
+    { name: 'nextPmDue', label: 'Next PM', field: 'nextPmDue', align: 'left', sortable: true },
+    { name: 'actions', label: '', align: 'right' },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
 
 function fmtDate(d) {
   if (!d) return null
@@ -69,6 +125,12 @@ function overdue(d) {
   if (!d) return false
   const ms = d.toMillis ? d.toMillis() : new Date(d).getTime()
   return ms < DateTime.now().toMillis()
+}
+
+function dueClass(d) {
+  if (overdue(d)) return 'tw:text-red-700 tw:font-medium'
+  if (dueSoon(d)) return 'tw:text-amber-700'
+  return 'tw:text-secondary'
 }
 
 function categoryLabel(c) {
@@ -101,6 +163,7 @@ const showEditDialog = ref(false)
 const editingEquipment = ref(null)
 
 function openEdit(row) {
+  if (!canUpdate.value) return
   editingEquipment.value = row
   showEditDialog.value = true
 }
@@ -109,179 +172,230 @@ function onUpdated() {
   // to do here beyond closing the dialog (which the dialog handles).
   editingEquipment.value = null
 }
+
+// ─── Delete ───────────────────────────────────────────────────────
+// Equipment is paranoid, so delete() soft-deletes (sets deletedAt) and the
+// live query drops it automatically. row is the live model instance from the
+// query, so it carries .delete().
+async function onDelete(row) {
+  const ok = await confirm({
+    title: 'Delete Equipment',
+    message: `Are you sure you want to delete '${row.name}' (${row.code})? This cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await row.delete()
+    toast.success('Equipment deleted')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to delete equipment')
+  }
+}
+
+// ─── Record calibration (quick action) ────────────────────────────
+// Stamps the calibration and rolls next_calibration_due forward by the
+// instrument's interval (server-side).
+//
+// This USED to be a bare `post(.../record-calibration, {})` with an empty body,
+// fired straight off the row. It is not a one-click action any more: the call
+// clears the QC capture gate — inspectionResultService.js refuses a measurement
+// taken with a lapsed instrument — so it re-opens an instrument for production
+// use, and the server now demands a Part-11 signature plus certificate and
+// vendor evidence for it (migrations 20260911110000 / 20260911120000). The
+// quick action opens the dialog that collects them.
+const calibrationSubject = ref(null)
+const showRecordCalibration = ref(false)
+function openRecordCalibration(e) {
+  calibrationSubject.value = e
+  showRecordCalibration.value = true
+}
+
+// PM twin of the calibration quick action.
+const recordingPmId = ref(null)
+async function recordPm(e) {
+  if (recordingPmId.value) return
+  recordingPmId.value = e.id
+  try {
+    // Action RPC — the synced row refreshes via the sync socket.
+    await post(`/v1/services/equipment/${e.id}/record-pm`, {})
+    toast.success(`Preventive maintenance recorded for ${e.name}`)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to record maintenance')
+  } finally {
+    recordingPmId.value = null
+  }
+}
+
+// Create-log-book-from-equipment: the edit dialog hands up a preset (nested
+// dialogs avoided); we host CreateLogBookDialog here and jump to the new
+// book's schema builder on success.
+const logBookPreset = ref(null)
+const showCreateLogBook = ref(false)
+function onCreateLogBook(preset) {
+  showEditDialog.value = false
+  logBookPreset.value = preset
+  showCreateLogBook.value = true
+}
+function onLogBookCreated(logBook) {
+  if (logBook?.id) {
+    router.push({
+      path: getCompanyPath(`/inspections-logs/log-books/${logBook.id}`),
+      query: { tab: 'schema' },
+    })
+  }
+}
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTool class="tw:text-primary" :size="22" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Equipment</h2>
-      </div>
-    </SafeTeleport>
+  <BaseListLayout
+    title="Equipment"
+    :icon="IconTool"
+    subtitle="Instruments, machines, and other equipment tracked by the QMS. Log books reference equipment for calibration, preventive maintenance, and equipment-specific routines."
+    :state="list.state.value"
+    :emptyIcon="IconTool"
+    :emptyTitle="list.hasActiveFilters.value ? 'No equipment matches your filters' : 'No equipment yet'"
+  >
+    <template #title>
+      <span class="tw:inline-flex tw:items-center tw:gap-1.5">
+        Equipment
+        <HelpButton slug="KB/operations/equipment" :size="16" />
+      </span>
+    </template>
 
-    <SafeTeleport to="#main-header-actions">
+    <template #actions>
       <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
         <IconPlus :size="16" />
         New Equipment
       </BaseButton>
-    </SafeTeleport>
+    </template>
 
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Equipment</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Instruments, machines, and other equipment tracked by the QMS. Log books reference
-        equipment for calibration, preventive maintenance, and equipment-specific routines.
-      </div>
-    </div>
+    <template #filters>
+      <EquipmentFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
-    <!-- Filters -->
-    <div class="tw:flex tw:items-center tw:gap-3 tw:flex-wrap">
-      <div class="tw:relative tw:flex-1 tw:max-w-md">
-        <IconSearch
-          :size="16"
-          class="tw:absolute tw:left-2.5 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-        />
-        <BaseTextInput
-          v-model="search"
-          placeholder="Search by name, code, or serial…"
-          class="tw:pl-8"
-        />
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Status</span>
-        <select
-          v-model="statusFilter"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
-        >
-          <option value="all">All</option>
-          <option value="IN_SERVICE">In service</option>
-          <option value="OUT_OF_SERVICE">Out of service</option>
-          <option value="RETIRED">Retired</option>
-        </select>
-      </div>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <span class="tw:text-xs tw:text-secondary">Category</span>
-        <select
-          v-model="categoryFilter"
-          class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
-        >
-          <option value="all">All</option>
-          <option value="INSTRUMENT">Instrument</option>
-          <option value="MACHINE">Machine</option>
-          <option value="VEHICLE">Vehicle</option>
-          <option value="SENSOR">Sensor</option>
-          <option value="OTHER">Other</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Empty -->
-    <div
-      v-if="equipment.length === 0"
-      class="tw:flex tw:flex-col tw:items-center tw:gap-3 tw:py-12 tw:text-secondary"
-    >
-      <IconTool :size="40" class="tw:opacity-60" />
-      <div class="tw:text-sm">
-        {{
-          search || statusFilter !== 'all' || categoryFilter !== 'all'
-            ? 'No equipment matches your filters.'
-            : 'No equipment yet.'
-        }}
-      </div>
-      <BaseButton v-if="canCreate" variant="primary" @click="showCreateDialog = true">
+    <template #empty-action>
+      <BaseButton v-if="canCreate && !list.hasActiveFilters.value" variant="primary" @click="showCreateDialog = true">
         <IconPlus :size="16" />
         Add the first one
       </BaseButton>
-    </div>
+    </template>
 
-    <!-- Table -->
-    <div
-      v-else
-      class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden"
+    <DataTable
+      v-model:pagination="list.tablePagination.value"
+      v-model:sort="list.sort.value"
+      :rows="equipment"
+      :columns="columns"
+      rowKey="id"
+      :mobileCards="false"
+      filterable
+      exportManager
+      exportFilename="equipment.csv"
+      @rowClick="openEdit"
     >
-      <table class="tw:w-full tw:text-sm">
-        <thead class="tw:bg-main">
-          <tr class="tw:text-left">
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Name</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Category</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Site</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Status</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Next calibration</th>
-            <th class="tw:px-3 tw:py-2 tw:font-semibold tw:text-secondary">Next PM</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="e in equipment"
-            :key="e.id"
-            class="tw:border-t tw:border-divider tw:hover:bg-main-hover"
-            :class="canUpdate ? 'tw:cursor-pointer' : ''"
-            @click="canUpdate && openEdit(e)"
-          >
-            <td class="tw:px-3 tw:py-2">
-              <div class="tw:font-medium tw:text-on-main">{{ e.name }}</div>
-              <div class="tw:text-xs tw:text-secondary tw:font-mono">
-                {{ e.code }}
-                <span v-if="e.serialNumber">· {{ e.serialNumber }}</span>
-              </div>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">{{ categoryLabel(e.category) }}</td>
-            <td class="tw:px-3 tw:py-2 tw:text-on-main">
-              {{ siteById.get(e.siteId)?.name ?? '—' }}
-            </td>
-            <td class="tw:px-3 tw:py-2">
-              <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
-                :class="statusBadgeClass(e.statusId)"
-              >
-                {{ e.statusId?.replace(/_/g, ' ') }}
-              </span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs">
-              <span
-                v-if="e.nextCalibrationDue"
-                :class="overdue(e.nextCalibrationDue)
-                  ? 'tw:text-red-700 tw:font-medium'
-                  : dueSoon(e.nextCalibrationDue)
-                    ? 'tw:text-amber-700'
-                    : 'tw:text-secondary'"
-                class="tw:inline-flex tw:items-center tw:gap-1"
-              >
-                <IconAlertCircle v-if="overdue(e.nextCalibrationDue)" :size="12" />
-                <IconCalendar v-else :size="12" />
-                {{ fmtDate(e.nextCalibrationDue) }}
-              </span>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-            <td class="tw:px-3 tw:py-2 tw:text-xs">
-              <span
-                v-if="e.nextPmDue"
-                :class="overdue(e.nextPmDue)
-                  ? 'tw:text-red-700 tw:font-medium'
-                  : dueSoon(e.nextPmDue)
-                    ? 'tw:text-amber-700'
-                    : 'tw:text-secondary'"
-                class="tw:inline-flex tw:items-center tw:gap-1"
-              >
-                <IconAlertCircle v-if="overdue(e.nextPmDue)" :size="12" />
-                <IconCalendar v-else :size="12" />
-                {{ fmtDate(e.nextPmDue) }}
-              </span>
-              <span v-else class="tw:text-secondary">—</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <template #body-cell-name="{ row }">
+        <div class="tw:font-medium tw:text-on-main">{{ row.name }}</div>
+        <div class="tw:text-xs tw:text-secondary">
+          {{ row.code }}
+          <span v-if="row.serialNumber">· {{ row.serialNumber }}</span>
+        </div>
+      </template>
 
-    <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
-    <!-- Same component, edit mode. The dialog seeds its draft from
-         the `equipment` prop when set. -->
-    <CreateEquipmentDialog
-      v-model="showEditDialog"
-      :equipment="editingEquipment"
-      @updated="onUpdated"
-    />
-  </div>
+      <template #body-cell-status="{ row }">
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:rounded tw:px-2 tw:py-0.5"
+          :class="statusBadgeClass(row.statusId)"
+        >
+          {{ row.statusId?.replace(/_/g, ' ') }}
+        </span>
+      </template>
+
+      <template #body-cell-nextCalibrationDue="{ row }">
+        <span
+          v-if="row.nextCalibrationDue"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs"
+          :class="dueClass(row.nextCalibrationDue)"
+        >
+          <IconAlertCircle v-if="overdue(row.nextCalibrationDue)" :size="12" />
+          <IconCalendar v-else :size="12" />
+          {{ fmtDate(row.nextCalibrationDue) }}
+        </span>
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-nextPmDue="{ row }">
+        <span
+          v-if="row.nextPmDue"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs"
+          :class="dueClass(row.nextPmDue)"
+        >
+          <IconAlertCircle v-if="overdue(row.nextPmDue)" :size="12" />
+          <IconCalendar v-else :size="12" />
+          {{ fmtDate(row.nextPmDue) }}
+        </span>
+        <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <div class="tw:flex tw:items-center tw:justify-end tw:gap-3">
+          <button
+            v-if="canUpdate && row.requiresCalibration"
+            type="button"
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
+            title="Record an e-signed calibration and roll the next-due date forward"
+            @click.stop="openRecordCalibration(row)"
+          >
+            <IconCalendarCheck :size="14" />
+            Record calibration
+          </button>
+          <button
+            v-if="canUpdate && row.requiresPm"
+            type="button"
+            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:disabled:opacity-50"
+            :disabled="recordingPmId === row.id"
+            title="Mark maintained today and roll the next-PM date forward"
+            @click.stop="recordPm(row)"
+          >
+            <IconTool :size="14" />
+            {{ recordingPmId === row.id ? 'Recording…' : 'Record PM' }}
+          </button>
+          <button
+            v-if="canDelete"
+            type="button"
+            class="tw:inline-flex tw:items-center tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            title="Delete equipment"
+            aria-label="Delete equipment"
+            @click.stop="onDelete(row)"
+          >
+            <IconTrash :size="16" />
+          </button>
+        </div>
+      </template>
+    </DataTable>
+
+  </BaseListLayout>
+
+  <!-- Outside BaseListLayout so they stay mounted in the empty state (else you
+       can't create the first equipment). -->
+  <CreateEquipmentDialog v-model="showCreateDialog" @created="onCreated" />
+  <!-- Same component, edit mode. The dialog seeds its draft from
+       the `equipment` prop when set. -->
+  <CreateEquipmentDialog
+    v-model="showEditDialog"
+    :equipment="editingEquipment"
+    @updated="onUpdated"
+    @createLogBook="onCreateLogBook"
+  />
+  <CreateLogBookDialog
+    v-model="showCreateLogBook"
+    :preset="logBookPreset"
+    @created="onLogBookCreated"
+  />
+  <!-- The e-signed calibration completion. Outside BaseListLayout for the same
+       reason as the dialogs above — it must stay mounted in every list state. -->
+  <RecordCalibrationDialog
+    v-model="showRecordCalibration"
+    :equipment="calibrationSubject"
+    @recorded="calibrationSubject = null"
+  />
 </template>

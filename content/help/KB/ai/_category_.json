@@ -1,0 +1,9 @@
+{
+  "label": "AI Assistant",
+  "position": 9,
+  "link": {
+    "type": "generated-index",
+    "title": "AI Assistant",
+    "description": "Drafting, summaries, quizzes, the Ask AI chat, similar-record detection, and the access and usage controls behind them."
+  }
+}

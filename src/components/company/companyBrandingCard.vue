@@ -89,12 +89,16 @@ function handleDarkDelete() {
     v-if="company"
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="Branding"
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Branding</h2>
-      <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
-    </div>
+      <template #actions>
+        <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
+      </template>
+    </BaseSectionHeader>
 
     <div class="tw:p-6">
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-8">
@@ -113,7 +117,7 @@ function handleDarkDelete() {
               />
               <template v-else>
                 <IconSun :size="48" class="tw:text-secondary tw:opacity-50" />
-                <span class="ds-label-sm tw:text-center tw:px-2"> No icon uploaded </span>
+                <BaseText variant="caption" class="tw:text-center tw:px-2">No icon uploaded</BaseText>
               </template>
             </div>
 
@@ -146,7 +150,7 @@ function handleDarkDelete() {
           <div class="tw:flex tw:flex-col tw:gap-4">
             <div
               class="tw:size-32 tw:rounded-xl tw:border-2 tw:border-dashed tw:border-divider tw:flex tw:flex-col tw:items-center tw:justify-center tw:gap-2 tw:text-secondary"
-              :class="company.companyDarkIconUrl ? 'tw:bg-main-hover' : 'tw:bg-[#101822]'"
+              :class="company.companyDarkIconUrl ? 'tw:bg-main-hover' : 'tw:bg-code'"
             >
               <img
                 v-if="company.companyDarkIconUrl"
@@ -156,9 +160,7 @@ function handleDarkDelete() {
               />
               <template v-else>
                 <IconMoon :size="48" class="tw:text-gray-400" />
-                <span class="ds-label-sm tw:text-center tw:px-2 tw:text-gray-400">
-                  No icon uploaded
-                </span>
+                <BaseText variant="caption" class="tw:text-center tw:px-2">No icon uploaded</BaseText>
               </template>
             </div>
 

@@ -12,7 +12,8 @@ const type = useLiveQueryWithDeps(
     if (!productTypeId) return null
     return db.ProductType.findByPk(productTypeId)
   },
-  { initial: null },
+
+  { models: ['ProductType'], initial: null },
 )
 </script>
 

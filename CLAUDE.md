@@ -2,6 +2,41 @@
 
 > Frontend-specific rules. For monorepo architecture (api/worker/sync services, the logical-replication → IndexedDB pipeline, backend conventions), see the root [`../../CLAUDE.md`](../../CLAUDE.md). Don't duplicate cross-service context here.
 
+## Quick reference — building a new feature (READ FIRST)
+
+**Reuse before building. Never start from scratch — nearly every piece already exists.** Follow this order; each row links to the full pattern below.
+
+1. **Data.** Model lives in `models/` (decorator-based `@ClientModel`/`@Property`). Read via `useLiveQuery` / `useLiveQueryWithDeps`, write via `useLiveMutation`. **Never** `get`/`post` from `@/api` for entity CRUD (action RPCs only — see rule #4). → [SyncEngine API](#syncengine-api-reference)
+2. **Show an entity** (badge, chip, select). Use the **badge triad** `XBadge → XBadgeById → XSelectMenu` — check `src/components/badges/` and `src/components/menus/` first. **Never** `BaseSelect` directly for an entity. → [badge triad](#component-pattern-badge-triad-xbadge--xbadgebyid--xselectmenu)
+3. **UI primitive.** Reuse a `Base*` from `resource/js/shared/components/` before writing markup. **No Quasar `Q*` / `W*`.** → table below.
+4. **Page shell.** Root = `<BasePage>` + `PageHeader` + `BaseFilterBar` + `PageSection`. Record detail page = `BaseDetailLayout` + `defineDetailConfig`. → [Page layout](#page-layout) · [Detail pages](#detail-pages)
+5. **Editing a record.** Inline edit + auto-save (deep watcher + `useDebounceFn`), no separate edit dialog. → [inline edit](#component-pattern-inline-edit--auto-save)
+6. **Always:** `function foo(){}` (not arrow) · `defineModel` for v-model · Tailwind `tw:` prefix · no `<form>` · icons from `@tabler/icons-vue` (explicit import) · dates via `dt.formatDate()`.
+
+**"I need to…" → use this (don't rebuild):**
+
+| Need                        | Use                                                              |
+| --------------------------- | --------------------------------------------------------------- |
+| Read one/many records       | `useLiveQueryWithDeps([() => id], (db,[id]) => db.Model…)`       |
+| Read a server-computed aggregate (analytics) | `useServerQuery` / `useGraphQLQuery` — the ONE SyncEngine exception, see rule #4 |
+| Create / update / delete    | `useLiveMutation` (create) · `instance.save()` · `.delete()`    |
+| A new model                 | decorator class in `models/` (`@ClientModel`, `@Property`)      |
+| Show entity as badge/select | `XBadge` / `XBadgeById` / `XSelectMenu` in `src/components/`     |
+| Text field / textarea       | `BaseTextInput` / `BaseTextarea`                                 |
+| Dropdown (non-entity)       | `BaseSelect` / `BaseInlineSelect`                                |
+| Table / list                | `DataTable` (`resource/js/shared/components/dataTable/`)         |
+| Dialog / drawer / tooltip   | `BaseDialog` / `BaseDrawer` / `BaseTooltip`                      |
+| Button, chip, spinner       | `BaseButton` / `BaseChip` / `BaseSpinner`                        |
+| Page skeleton               | `BasePage` + `PageHeader` + `PageSection` + `ContentGrid`        |
+| Filter/search toolbar       | `BaseFilterBar` · tabs → `BaseTabs`                              |
+| Record detail page          | `BaseDetailLayout` + `defineDetailConfig` + `DetailRail`         |
+| An icon                     | `import { IconX } from '@tabler/icons-vue'`                      |
+| Tooltip / help text         | Add copy to `resource/js/shared/data/tooltips.js`, then `<BaseLabel dataKey="your.key">` for form fields · `<BaseRailCard :titleHelp="…">` for section headers |
+
+Before adding anything new, `ls resource/js/shared/components/` (primitives) and `src/components/<feature>/` (feature components) — the thing you're about to build is probably already there.
+
+**Tooltips / help text.** Author reusable copy once in the central registry `resource/js/shared/data/tooltips.js` (`{ key, label?, tooltip? }`, dot-namespaced keys), then reference it — `<BaseLabel dataKey="document.collaboration">` for form-field help, or `<BaseRailCard :titleHelp="…">` for a section-header purpose tooltip (resolve via `useTooltipData().getFromTooltipData(key, 'tooltip')`). Both render the standard `IconHelpCircle` + `BaseTooltip`. An explicit `help="…"` on `BaseLabel` overrides the registry.
+
 ## Rules
 
 Non-negotiable in new and touched code. Migration sections below show what to replace and how.
@@ -10,16 +45,22 @@ Non-negotiable in new and touched code. Migration sections below show what to re
 2. **Icons are NOT auto-imported.** Always use `@tabler/icons-vue` and import explicitly: `import { IconTrash } from '@tabler/icons-vue'`. Never `@heroicons/vue`, `@material-design-icons`, or any other icon library.
 3. **No Quasar in new code.** Don't use `Q*` components or their `W*` wrappers (`WBtn`, `WInput`, etc.). Replace existing usage when you touch a file. See [Migration: Quasar → Tailwind](#migration-quasar--tailwind). Entity-lookup `W*` components (the ones that wrap an entity select) are still allowed until explicitly migrated.
 4. **No axios composables for entity CRUD. No provide/inject for data.** Don't import `get`/`post`/`put`/`del` from `@/api` to read or mutate a SyncEngine-modeled record — use `useLiveQuery` + `useLiveMutation` instead. Don't write `provideX()` / `useX()` data-fetching composables. Don't pass full objects as props — components receive an `id` and query/mutate via the syncEngine. **Exception — action RPCs.** Verb-shaped endpoints that aren't entity CRUD (e.g. `POST /v1/services/.../launch`, `POST /v1/services/.../cancel`, `POST /v1/services/.../verify`, secret-return endpoints like `POST /v1/services/ai/pats`) may use `post`/`put`/`del` from `@/api` directly. The test: _is the server response a synced model record, or just an action outcome?_ If the latter, action-RPC is correct. Tag the import with `// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.` See [Migration: axios → syncEngine](#migration-axios--provideinject--syncengine).
+   **Exception — analytics reads (the only non-SyncEngine read path).** Metric values, series, breakdowns and the metric catalog are **server-computed aggregates, not records**. They go straight to GraphQL through `useServerQuery` / `useServerQueryWithDeps` / `useGraphQLQuery` (`src/composables/useServerQuery.js`, which reuses the same `graphqlRequest` client the syncEngine uses) and are **never written to IndexedDB**. Three reasons, all load-bearing:
+   1. **There is no record to cache.** They are `SETOF` results of Postgres functions over a rollup — no primary key, no sync event, nothing for `syncBus` to invalidate.
+   2. **They are scope-dependent.** The server applies the caller's _effective access scope_ while computing, so the same metric key legitimately returns a **different number for a different viewer**. IndexedDB is per-company, not per-user, so a cached aggregate would cross a scope boundary on a shared device.
+   3. **Freshness is part of the contract.** Every tile renders `computedAt` + tier; a silently stale IDB copy would contradict the timestamp printed next to it.
+   Anything that genuinely _is_ a record — saved dashboards, report definitions, alerts — stays on the SyncEngine like everything else. Don't widen this exception: if you're tempted, the test is "does this have a primary key the sync service can broadcast?"
 5. **`function` keyword.** Define functions with `function foo() {}`, not `const foo = () => {}`.
 6. **`defineModel` for v-model.** Don't use the computed-getter/setter pattern.
 7. **Tailwind has a `tw:` prefix.** Always: `tw:flex tw:gap-4 tw:rounded-lg`.
-8. **No `<form>` elements.** Use `<div>` wrappers with click/change handlers.
+8. **No `<form>` elements.** Use `<div>` wrappers with click/change handlers. **But a clickable element must be keyboard-operable** — never `<div class="tw:cursor-pointer" @click>` (not focusable, ignores Enter/Space, no role; fails WCAG 2.1.1/4.1.2). For a clickable row/card/cell use `BaseClickableRow` (renders a `RouterLink` via its `to` prop for nav, or a focusable `role="button"` that fires `click` on Enter/Space); always give it an `aria-label`. Nested actions inside it must `@click.stop`. For a single inline action, use a real `<button>`.
 9. **PascalCase component usage** in templates, never kebab-case.
 10. **Dates are luxon `DateTime`.** The axios response transformer already converts backend dates to `DateTime` instances. Format with the project-wide `dt.formatDate()` — never `.toFormat()`, `.toISO()`, or any ad-hoc formatting in components.
 11. **Soft deletes are automatic.** Never manually filter `!record.deletedAt` — the syncEngine excludes soft-deleted records from queries by default. Use `{ force: true }` only when you explicitly need them (e.g. computing the next version number).
 12. **`useLiveMutation` for creates** — don't call `db.Model.create()` + `save()` directly inside a component method.
-13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseTable`, `BaseSelectMenu`, etc. live in `resource/js/shared/components/`. Reuse before building.
+13. **Use `Base*` first.** `BaseTextInput`, `BaseTextarea`, `BaseColorPicker`, `BaseDialog`, `BaseSelect`, `BaseClickableRow`, etc. live in `resource/js/shared/components/`. Reuse before building. **For tables use `DataTable`** (`resource/js/shared/components/dataTable/`) — the old `BaseTable` has been removed; all lists are on `DataTable`.
 14. **Reuse before adding** — especially badges and select menus, which follow the [triad pattern](#component-pattern-badge-triad-xbadge--xbadgebyid--xselectmenu).
+15. **Every page root is `<BasePage>`.** Never set page-level padding, max-width, or section gap by hand (no `tw:p-5`, no ad-hoc `tw:max-w-*`, no `tw:gap-3` at the page root). `BasePage` owns width/padding/rhythm. See [Page layout](#page-layout).
 
 ### Feature component naming
 
@@ -46,16 +87,59 @@ const props = defineProps({
 
 ---
 
+## Page layout
+
+Every authenticated app page's root is `<BasePage>` — the single owner of content width, horizontal padding, and vertical rhythm. Pages never hand-pick `tw:p-5`, `tw:max-w-*`, or section `tw:gap-*`. Full design: [`docs/superpowers/specs/2026-06-17-page-layout-system-design.md`](docs/superpowers/specs/2026-06-17-page-layout-system-design.md).
+
+```vue
+<BasePage width="standard" :fullHeight="false">
+  <PageHeader :icon="IconUsers" title="Users"><template #actions>…</template></PageHeader>
+  <BaseFilterBar v-model:search="filters.search">…</BaseFilterBar>
+  <PageSection title="Members" :icon="IconUsers">…</PageSection>
+  <ContentGrid min="18rem">…stat cards…</ContentGrid>
+</BasePage>
+```
+
+- **`width`**: `narrow` (detail/forms, 48rem) · `standard` (default, lists, 80rem) · `wide` (dashboards/wide tables, 96rem) · `full` (escape hatch).
+- **`fullHeight`**: only when the page owns an internal scroll region (sticky table headers, kanban). Mark the scrolling child `tw:flex-1 tw:min-h-0 tw:overflow-auto`. Otherwise the shell scrolls.
+- **`density`**: `comfortable` (default, `gap-6`) · `compact` (`gap-4`).
+- **Reuse, don't rebuild:** toolbar → `BaseFilterBar`; tabs → `BaseTabs`; titled groups → `PageSection`; card grids → `ContentGrid`. There is no `PageToolbar`/`PageTabs` — those are `BaseFilterBar`/`BaseTabs`.
+- **No page-level horizontal scroll** — only bounded table wrappers (`tw:overflow-x-auto`) scroll.
+- **The page title lives in the top bar.** `PageHeader` teleports the icon+title to the bar's left and `#actions` to its right (search sits centered between). Don't hand-roll an in-body `tw:text-3xl` title block, and don't `SafeTeleport to="#main-header-title"`/`#main-header-actions` directly — use `PageHeader`.
+- **One width, no inner box.** Don't wrap page content in a bespoke `tw:max-w-* tw:mx-auto` box or add page-level padding inside `BasePage` — content fills `BasePage`'s width and shares one gutter. (Card/dialog padding is fine.)
+- **Enforced by `npm run lint:layout`** (runs as part of `npm run lint`) — flags bespoke `max-w` content boxes, direct header teleports, and `PageHeader` without `BasePage`. Genuine exceptions (full-canvas editors, public pages) live in the allowlist in `scripts/check-page-layout.mjs`.
+- **List/index pages use whole-page scroll** (no `fullHeight`) — `DataTable`'s sticky header keeps columns visible. Reserve `fullHeight` for detail/create pages that already have an internal scroll region (sticky toolbar/footer + a `tw:flex-1 tw:min-h-0 tw:overflow-auto` body).
+- **Full-canvas editors/designers are exempt** (e.g. `WorkflowEditor`, `FormAssignmentEditor`, the form builder) — a surface that fills the viewport with its own panes/scroll is not a content page; keep its `tw:flex tw:flex-col tw:h-full tw:overflow-hidden` root, don't wrap it in `BasePage`. Public/auth pages are also out of scope.
+
+---
+
+## Detail pages
+
+Every record detail page uses `BaseDetailLayout` (not `BaseDetailPage`, which is deprecated). Declare the page with `defineDetailConfig({...})` (header, banners, sections, tabs, railCards, variant) + slot overrides (`#section-{id}`, `#tab-{value}`, `#rail`, `#ai-summary`/`#ai-panel`/`#version-summary` seams). Rail is `DetailRail` + `BaseRailCard` (not `BaseOverviewPanel`). Full design: `docs/superpowers/specs/2026-06-22-detail-template-core-config-design.md`.
+
+**Interaction rules — pick the surface by intent:**
+- Full-page nav → a different record, or a panel-mode tab (heavy dataset) in the same record.
+- Drawer (slide-over) → peek a related record without leaving context; a focused sub-task.
+- Dialog → a blocking must-resolve decision (confirm destructive, e-signature).
+- Popover → lightweight info / small picker anchored to a control.
+- Context menu → per-row/per-item secondary actions.
+- Inline edit → editing a field of the current record (autosave is the default edit model).
+- Expandable section / rail card → optional detail.
+- Right rail → glanceable, persistent, ranked metadata + relationships. Never the full edit form, never large datasets.
+- Bottom sheet → the mobile substitute for rail and peek.
+
+---
+
 ## Component pattern: badge triad (XBadge → XBadgeById → XSelectMenu)
 
-Every entity that appears as a badge or in a select menu follows this triad. **Never use `BaseSelectMenu` directly for an entity** — always wrap it.
+Every entity that appears as a badge or in a select menu follows this triad. **Never use `BaseSelect` directly for an entity** — always wrap it.
 
 ### Roles
 
 ```
 XBadge       — receives a full object; styling only (SCHEME_MAP: id → class)
 XBadgeById   — receives an id; resolves to an object (IDB or static map); renders <XBadge>
-XSelectMenu  — uses BaseSelectMenu + XBadgeById in the button slot
+XSelectMenu  — uses BaseSelect + XBadgeById in the #selected slot
 ```
 
 Invariants:
@@ -107,42 +191,40 @@ const site = useLiveQueryWithDeps([() => props.siteId], async (db, [siteId]) => 
 defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
+  nullLabel: { type: String, default: '— Select site —' },
 })
 const modelValue = defineModel({ type: [String, Array, null], default: null })
-const sites = useLiveQuery(async (db) => db.Site.where().exec(), { initial: [] })
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+const sites = useLiveQuery((db) => db.Site.where().exec(), { models: ['Site'], initial: [] })
 </script>
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="sites" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <SiteBadgeById
-              v-for="siteId in getArray()"
-              :key="siteId"
-              :siteId="siteId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(siteId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Sites</span>
-        </template>
-        <template v-else>
-          <SiteBadgeById
-            v-if="modelValue"
-            :siteId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Site</span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="sites"
+    optionLabel="name"
+    optionValue="id"
+    :nullLabel="nullLabel"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+  >
+    <!-- Consumer may fully replace the trigger (e.g. a compact "+ Add" button). -->
+    <template v-if="$slots.button" #trigger="scope">
+      <slot name="button" v-bind="scope" />
     </template>
-  </BaseSelectMenu>
+
+    <!-- `options` is the array of selected entries; renders for single + multiple. -->
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <SiteBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :siteId="o.value"
+          :clearable="!required || options.length > 1"
+          @clear="() => remove(o)"
+        />
+      </div>
+    </template>
+  </BaseSelect>
 </template>
 ```
 
@@ -191,7 +273,7 @@ const status = computed(
 </template>
 ```
 
-`UserStatusBadge` is identical in shape to `TaskInstanceStatusBadge` (object prop, `SCHEME_MAP`). `UserStatusSelectMenu` is identical in shape to `SiteSelectMenu` but feeds `BaseSelectMenu` a static `items` array of the `STATUS_MAP` values.
+`UserStatusBadge` is identical in shape to `TaskInstanceStatusBadge` (object prop, `SCHEME_MAP`). `UserStatusSelectMenu` is identical in shape to `SiteSelectMenu` but feeds `BaseSelect` a static `options` array of the `STATUS_MAP` values.
 
 ### File locations
 
@@ -204,7 +286,7 @@ const status = computed(
 - [ ] SyncEngine model exists? Create `XBadgeById` with `useLiveQueryWithDeps` → `findByPk`.
 - [ ] No model (enum)? Create `XBadgeById` with a static `STATUS_MAP`.
 - [ ] Need a select menu? Create `XSelectMenu` using the matching pattern.
-- [ ] Don't use `BaseSelectMenu` directly. Don't render an entity inline with `useLiveQuery` + display logic when an `XBadgeById` exists.
+- [ ] Don't use `BaseSelect` directly. Don't render an entity inline with `useLiveQuery` + display logic when an `XBadgeById` exists.
 
 ---
 
@@ -319,10 +401,10 @@ The project is actively migrating off Quasar. Replace on touch.
 | -------------------------------- | -------------------------------------------------------------------- |
 | `QBtn` / `WBtn`                  | `<button>` + Tailwind, or `BaseButton`                               |
 | `QInput` / `WInput`              | `BaseTextInput` (or `<input>` + Tailwind)                            |
-| `QSelect` / `WSelect`            | `BaseSelectMenu` — or an `XSelectMenu` if one exists for that entity |
+| `QSelect` / `WSelect`            | `BaseSelect` / `BaseInlineSelect`, or `XSelectMenu` for that entity  |
 | `QDialog`                        | `BaseDialog`                                                         |
 | `QCard`                          | `<div>` + Tailwind, or `BaseCard`                                    |
-| `QTable`                         | `BaseTable`                                                          |
+| `QTable`                         | `DataTable` (`shared/components/dataTable/`)                         |
 | `QForm`                          | `<div>` with handlers — never `<form>`                               |
 | `QBadge`                         | `<span>` + Tailwind, or the entity's `XBadge`/`XBadgeById`           |
 | `QChip`                          | `BaseChip`                                                           |
@@ -524,6 +606,7 @@ import { ClientModel, BaseModel, Property, Computed } from '@syncEngine/index.js
 })
 class DocumentVersion extends BaseModel {
   static paranoid = true // soft-delete via deletedAt; or 'fieldName' for custom
+  static hiddenFromLists = null // boolean field whose truthy rows `where()` skips
 
   @Property({ type: String, required: true }) id = null
   @Property({ type: String }) documentId = null
@@ -565,9 +648,16 @@ await db.DocumentVersion.where().exec()
 // First only
 await db.DocumentVersion.where('documentId', id).orderBy('createdAt', 'desc').first()
 
-// Include soft-deleted (bypass paranoid)
+// Include soft-deleted (bypass paranoid) + rows hidden from lists
 await db.DocumentVersion.where('documentId', id, { force: true }).exec()
 await db.Document.findByPk(id, { force: true })
+
+// `hiddenFromLists` — rows excluded from where() but reachable by id.
+// User declares it for `isServiceAccount`, so no caller filters machine
+// identities by hand. The asymmetry is deliberate: a service account must
+// stay out of pickers, yet still resolve as the actor on an audit-log line.
+await db.User.where().exec() // people only
+await db.User.findByPk(serviceAccountId) // still returns it
 
 // findByPk — null if soft-deleted
 await db.Document.findByPk(id)

@@ -1,5 +1,5 @@
 <script setup>
-import { IconSearch, IconHome, IconGripVertical } from '@tabler/icons-vue'
+import { IconSearch, IconHome, IconGripVertical, IconInfoCircle } from '@tabler/icons-vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
 import { FIELD_TYPES, CATEGORY_LABELS } from '@/constants/formBuilderConfig'
 import { getCompanyPath } from '@/utils/routeHelpers'
@@ -83,6 +83,12 @@ watch(
         ghostClass: 'sortable-ghost',
         chosenClass: 'sortable-chosen',
         dragClass: 'sortable-drag',
+        // Pointer-based drag (not native HTML5 DnD). Cards on the canvas now
+        // embed real inputs/contenteditable (the live component preview), which
+        // hijack native drag — forceFallback sidesteps that. Must match across
+        // every sortable in the shared 'form-fields' group.
+        forceFallback: true,
+        fallbackOnBody: true,
         onStart() {
           emit('dragStart')
         },
@@ -125,16 +131,17 @@ function onFieldClick(fieldType) {
     <div class="tw:flex-1 tw:overflow-y-auto tw:px-3 tw:py-4 tw:flex tw:flex-col tw:gap-4">
       <template v-for="(categoryFields, category) in filteredFieldsByCategory" :key="category">
         <div class="tw:flex tw:flex-col tw:gap-3">
-          <div class="ds-label-sm tw:text-secondary">
+          <BaseText as="div" variant="overline">
             {{ CATEGORY_LABELS[category] }}
-          </div>
+          </BaseText>
 
           <div :ref="(el) => setCategoryRef(category, el)" class="tw:flex tw:flex-col tw:gap-2">
-            <div
+            <BaseClickableRow
               v-for="(fieldMeta, fieldType) in categoryFields"
               :key="fieldType"
               :data-field-type="fieldType"
               class="tw:bg-main tw:border drag-handle tw:border-divider tw:p-1 tw:rounded-xl tw:flex tw:items-center tw:gap-2 tw:cursor-grab tw:active:cursor-grabbing tw:hover:border-primary tw:hover:bg-main-selected tw:transition-all"
+              :aria-label="`Add ${fieldMeta.label} field`"
               @click="onFieldClick(fieldType)"
             >
               <div
@@ -145,8 +152,16 @@ function onFieldClick(fieldType) {
               <div class="tw:flex-1 tw:text-sm tw:font-medium tw:text-on-sidebar">
                 {{ fieldMeta.label }}
               </div>
+              <span v-if="fieldMeta.description" class="tw:shrink-0" @click.stop @mousedown.stop>
+                <BaseTooltip :content="fieldMeta.description" placement="left">
+                  <IconInfoCircle
+                    :size="16"
+                    class="tw:text-secondary/60 tw:hover:text-primary tw:cursor-help"
+                  />
+                </BaseTooltip>
+              </span>
               <IconGripVertical :size="18" class="tw:text-divider" />
-            </div>
+            </BaseClickableRow>
           </div>
         </div>
       </template>

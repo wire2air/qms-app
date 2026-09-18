@@ -10,12 +10,16 @@ import {
   IconDeviceFloppy,
   IconX,
   IconCopy,
+  IconSparkles,
 } from '@tabler/icons-vue'
 import { useFormBuilder } from '@/composables/useFormBuilder'
+import { canUseAi } from '@/utils/currentSession'
 import FormFieldPalette from './FormFieldPalette.vue'
 import FormCanvas from './FormCanvas.vue'
 import FormFieldConfig from './FormFieldConfig.vue'
+import FormAiChatPanel from '@/components/ai/FormAiChatPanel.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
+import { otherReportingKeys, reportingKeyError } from '@/utils/reportingKey'
 
 const props = defineProps({
   title: {
@@ -25,6 +29,34 @@ const props = defineProps({
   initialSchema: {
     type: Array,
     default: () => [],
+  },
+  // Custom Fields module only: surfaces an optional free-text "Section"
+  // placement input in the field editor (stored on field.section). Off by
+  // default so the forms / workflow / complaint builders are unaffected.
+  showSectionPlacement: {
+    type: Boolean,
+    default: false,
+  },
+  // Module templates only: surface the per-field Scoring sub-panel in the field
+  // editor (stored on field.scoring). Off by default so plain forms / log books
+  // / workflow-step builders are unaffected.
+  showScoring: {
+    type: Boolean,
+    default: false,
+  },
+  // Surface the per-field "Report on this field" sub-panel (stored on
+  // field.reporting), which projects the answer into analytics under a stable
+  // reporting key. Off by default so existing builders are unaffected.
+  showReporting: {
+    type: Boolean,
+    default: false,
+  },
+  // Opens the AI assistant docked and ready on mount, for hosts whose entry
+  // point IS "build this with AI" (the Form Blocks AI builder). The toggle
+  // still works normally afterwards — this only picks the starting state.
+  startWithAi: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -39,29 +71,51 @@ const {
   isDragging,
   addField,
   removeField,
+  hoistChildren,
   moveField,
   selectField,
   clearSelection,
   duplicateField,
+  changeFieldKind,
   undo,
   redo,
   canUndo,
   canRedo,
   exportSchema,
   clearSchema,
+  applyAiSchema,
 } = useFormBuilder(props.initialSchema)
 
-const leftDrawerOpen = ref(false)
+// Field palette open by default — it's the primary tool for building a form,
+// so the designer should land with it visible (toggle still collapses it).
+const leftDrawerOpen = ref(true)
 const rightDrawerOpen = ref(false)
 const showPreview = ref(false)
 const showJsonDialog = ref(false)
-const showClearDialog = ref(false)
+const { confirm } = useConfirm()
 const previewData = ref({})
 
 const jsonContent = computed({
   get: () => JSON.stringify(schema.value, null, 2),
   set: () => {},
 })
+
+
+// Sibling lookup fields (name/label/entity), flattened across containers —
+// the candidates a cascading lookup can filter by (ConfigLookup).
+function collectLookupFields(fields, out = []) {
+  for (const f of fields || []) {
+    if (f?.type === 'lookup' && f.name && f.lookupEntity && f.lookupEntity !== 'optionSet') {
+      out.push({ name: f.name, label: f.label, lookupEntity: f.lookupEntity })
+    }
+    if (Array.isArray(f?.fields)) collectLookupFields(f.fields, out)
+    if (Array.isArray(f?.children)) collectLookupFields(f.children, out)
+  }
+  return out
+}
+const siblingLookups = computed(() =>
+  collectLookupFields(schema.value?.fields || schema.value || []),
+)
 
 // Watch schema changes and emit
 watch(
@@ -112,7 +166,15 @@ function onSave() {
   }
 }
 
-function validateSchema(fields) {
+// Reporting keys in use by every field EXCEPT the one currently being edited, so
+// the field editor can refuse a clash as it is typed. Two fields sharing a key
+// collide in analytics_field_values and one silently overwrites the other.
+const takenReportingKeys = computed(() => otherReportingKeys(schema.value, selectedField.value))
+
+// `seenReportingKeys` is threaded through the recursion rather than created per
+// call: a reporting key must be unique across the WHOLE template, and two fields
+// in different sections colliding is the likeliest way to hit it.
+function validateSchema(fields, seenReportingKeys = new Set()) {
   for (const field of fields) {
     // Check if field has a name
     if (!field.name || field.name.trim() === '') {
@@ -120,6 +182,27 @@ function validateSchema(fields) {
         caption: 'All fields must have a unique name',
       })
       return false
+    }
+
+    // A field marked reportable MUST carry a real reporting key. The backend
+    // refuses the save outright (schemas/formTemplates.js) — this exists so the
+    // author is told before the round trip, and told why.
+    //
+    // The key cannot default to the field's own name: names are minted from a
+    // counter (`input_1`, `number_3`) and the counter reuses a name as soon as
+    // the field holding it is deleted. A metric pointing at a reused name keeps
+    // drawing a healthy line over a different field's answers, with no error
+    // anywhere. Hence a separate, human-authored key — and hence NOT a rename of
+    // the field, since answers are stored under the field name and renaming it
+    // would orphan every answer already collected.
+    if (field.reporting?.enabled) {
+      const key = String(field.reporting.key || '').trim()
+      const err = reportingKeyError(key, field.type, [...seenReportingKeys])
+      if (err) {
+        toast.error(`Reporting key for "${field.label || field.name}"`, { caption: err })
+        return false
+      }
+      seenReportingKeys.add(key)
     }
 
     // Check Options (Select, Radio, OptionGroup)
@@ -173,12 +256,12 @@ function validateSchema(fields) {
 
     // Check children recursively
     if (field.children && field.children.length > 0) {
-      if (!validateSchema(field.children)) return false
+      if (!validateSchema(field.children, seenReportingKeys)) return false
     }
 
     // Check template (repeater) recursively
     if (field.template && field.template.length > 0) {
-      if (!validateSchema(field.template)) return false
+      if (!validateSchema(field.template, seenReportingKeys)) return false
     }
   }
   return true
@@ -197,20 +280,52 @@ function onPreviewSubmit(data) {
   console.info('Form preview payload:', data)
 }
 
-function confirmClear() {
-  if (schema.value?.length > 0) {
-    showClearDialog.value = true
-  }
-}
-
-function doClear() {
-  clearSchema()
-  showClearDialog.value = false
+async function confirmClear() {
+  if (!(schema.value?.length > 0)) return
+  const ok = await confirm({
+    title: 'Clear Form?',
+    message:
+      'Are you sure you want to clear all fields? This action will remove all current content and cannot be undone.',
+    okLabel: 'Delete All',
+    danger: true,
+  })
+  if (ok) clearSchema()
 }
 
 function copyJson() {
   navigator.clipboard.writeText(jsonContent.value)
   toast.success('JSON copied to clipboard')
+}
+
+// ── AI form assistant (chat docked beside the canvas) ────────────────────────
+const showAiChat = ref(props.startWithAi && canUseAi.value)
+async function handleAiApply(result) {
+  const count = Array.isArray(result?.fields) ? result.fields.length : 0
+  if (!count) return false
+  const hadFields = schema.value?.length > 0
+  // Snapshot the current schema so an EDIT preserves untouched (and heavy) fields
+  // by name; a fresh generate simply finds no name matches.
+  const preserveFrom = hadFields ? JSON.parse(JSON.stringify(schema.value)) : null
+  // Applying rewrites the schema — confirm when there's existing work.
+  if (hadFields) {
+    const ok = await confirm({
+      title: 'Apply AI changes?',
+      message: `This rewrites the form to the ${count} proposed field${
+        count === 1 ? '' : 's'
+      }. Fields kept by the AI are preserved; the rest are replaced. You can undo this.`,
+      okLabel: 'Apply',
+      danger: true,
+    })
+    if (!ok) return false
+  }
+  applyAiSchema(result, { preserveFrom })
+  toast.success(`Applied ${count} field${count === 1 ? '' : 's'}`)
+  return true
+}
+
+async function handleAiChatApply({ proposal, onApplied }) {
+  const applied = await handleAiApply(proposal)
+  if (applied) onApplied?.()
 }
 </script>
 
@@ -235,7 +350,7 @@ function copyJson() {
     <div class="tw:flex tw:flex-1 tw:flex-col tw:overflow-hidden">
       <!-- Header -->
       <header
-        class="tw:sticky tw:top-0 tw:z-20 tw:px-4 tw:py-2 tw:bg-sidebar tw:border-b tw:border-divider"
+        class="tw:sticky tw:top-0 tw:z-dropdown tw:px-4 tw:py-2 tw:bg-sidebar tw:border-b tw:border-divider"
       >
         <div class="tw:flex tw:items-center tw:justify-between">
           <div class="tw:flex tw:items-center tw:gap-3">
@@ -319,6 +434,15 @@ function copyJson() {
 
             <div class="tw:w-px tw:h-6 tw:bg-divider tw:mx-2" />
 
+            <BaseButton
+              v-if="canUseAi"
+              :variant="showAiChat ? 'primary' : 'outline'"
+              @click="showAiChat = !showAiChat"
+            >
+              <IconSparkles :size="18" />
+              AI Assistant
+            </BaseButton>
+
             <BaseButton variant="primary" @click="onSave">
               <IconDeviceFloppy :size="18" />
               Save
@@ -341,7 +465,10 @@ function copyJson() {
                 :isDragging="isDragging"
                 @addField="addField"
                 @selectField="handleSelectField"
+                @configureField="handleSelectField"
+                @changeFieldKind="changeFieldKind"
                 @removeField="removeField"
+                @hoistChildren="hoistChildren"
                 @duplicateField="duplicateField"
                 @moveField="moveField"
               />
@@ -396,10 +523,34 @@ function copyJson() {
               </button>
             </div>
             <div class="tw:flex tw:flex-col tw:grow tw:overflow-y-auto">
-              <FormFieldConfig v-model:field="selectedField" :path="selectedFieldPath" />
+              <FormFieldConfig
+                v-model:field="selectedField"
+                :path="selectedFieldPath"
+                :showSectionPlacement="showSectionPlacement"
+                :showScoring="showScoring"
+                :siblingLookups="siblingLookups"
+                :showReporting="showReporting"
+                :takenKeys="takenReportingKeys"
+              />
             </div>
           </aside>
         </Transition>
+
+        <!-- AI form assistant (owns all AI wiring; we only react to @apply).
+             NO slide-right Transition here: on a child COMPONENT the enter
+             classes (width: 0 !important) can stick and freeze the panel at
+             sliver width — reproduced headlessly. Plain v-if is reliable.
+             Stays mounted while closed (`open` class-swap, not v-if/v-show —
+             the root's tw:flex! would beat v-show's inline display) so
+             accidentally closing the panel keeps the live conversation. -->
+        <FormAiChatPanel
+          v-if="canUseAi"
+          :open="showAiChat"
+          :currentSchema="schema"
+          :builderTitle="title"
+          @apply="handleAiChatApply"
+          @close="showAiChat = false"
+        />
       </div>
     </div>
 
@@ -413,7 +564,7 @@ function copyJson() {
             <div
               class="tw:flex tw:items-center tw:justify-between tw:px-4 tw:py-2 tw:bg-divider/20 tw:border-b tw:border-divider"
             >
-              <div class="ds-label-sm tw:text-secondary">Schema Output</div>
+              <BaseText as="div" variant="overline">Schema Output</BaseText>
               <button
                 class="tw:flex tw:items-center tw:gap-1 tw:px-3 tw:py-1.5 tw:text-primary tw:rounded-lg tw:hover:bg-primary/10 tw:transition-colors tw:text-sm tw:font-medium"
                 @click="copyJson"
@@ -423,7 +574,7 @@ function copyJson() {
               </button>
             </div>
             <pre
-              class="tw:flex-1 tw:p-4 tw:overflow-auto tw:font-mono tw:text-sm tw:leading-relaxed tw:text-on-main"
+              class="tw:flex-1 tw:p-4 tw:overflow-auto tw:text-sm tw:leading-relaxed tw:text-on-main"
             ><code>{{ jsonContent }}</code></pre>
           </div>
         </div>
@@ -431,14 +582,6 @@ function copyJson() {
     </BaseDialog>
 
     <!-- Clear Confirmation Dialog -->
-    <ConfirmDialog
-      v-model="showClearDialog"
-      title="Clear Form?"
-      message="Are you sure you want to clear all fields? This action will remove all current content and cannot be undone."
-      confirmLabel="Delete All"
-      variant="danger"
-      @confirm="doClear"
-    />
   </div>
 </template>
 

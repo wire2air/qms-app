@@ -91,19 +91,23 @@ export function useChatStream({ threadId: initialThreadId = null } = {}) {
   }, { immediate: true })
 
   // ─── Send ───────────────────────────────────────────────────────────────
-  async function send(message, { context } = {}) {
+  async function send(message, { context, attachments } = {}) {
     if (isStreaming.value) return
     if (!message?.trim()) return
     isStreaming.value = true
     error.value = null
     lastUsage.value = null
+    const threadIdAtStart = threadId.value
 
-    // Optimistic user item
+    const sentAttachments = Array.isArray(attachments) && attachments.length ? attachments : null
+
+    // Optimistic user item (names only — the bubble renders chips)
     const next = items.value.slice()
     next.push({
       kind: 'user',
       id: `tmp_${Date.now()}`,
       text: message,
+      attachments: sentAttachments ? sentAttachments.map((a) => ({ name: a.name })) : null,
       createdAt: new Date(),
     })
     items.value = next
@@ -117,7 +121,14 @@ export function useChatStream({ threadId: initialThreadId = null } = {}) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         credentials: 'include',
-        body: JSON.stringify({ threadId: threadId.value, message, context }),
+        body: JSON.stringify({
+          threadId: threadId.value,
+          message,
+          context,
+          attachments: sentAttachments
+            ? sentAttachments.map((a) => ({ name: a.name, text: a.text }))
+            : undefined,
+        }),
         signal: abortController.signal,
       })
       if (!res.ok) {
@@ -153,6 +164,12 @@ export function useChatStream({ threadId: initialThreadId = null } = {}) {
         error.value = { code: 'SEND_FAILED', message: e.message ?? 'Send failed.' }
       }
     } finally {
+      // A failed FIRST send (abort or server error) rolls the new thread back
+      // server-side — drop the provisional id so the next send creates a
+      // fresh thread instead of posting to a rolled-back one forever. Reset
+      // BEFORE isStreaming flips so the threadId watcher (which skips loads
+      // while streaming) doesn't wipe the visible conversation.
+      if (!threadIdAtStart && threadId.value && error.value) threadId.value = null
       isStreaming.value = false
       abortController = null
     }
@@ -317,10 +334,27 @@ function parseSseBlock(block) {
 }
 
 function mapHistoryRows(rows) {
+  // Tool args live in the assistant rows' raw tool_use blocks (toolCalls) —
+  // index them so tool cards replay with their args (the proposal card
+  // renders the proposed fields from args).
+  const argsByToolUseId = new Map()
+  for (const row of rows) {
+    if (row.role !== 'assistant' || !Array.isArray(row.toolCalls)) continue
+    for (const block of row.toolCalls) {
+      if (block?.type === 'tool_use' && block.id) argsByToolUseId.set(block.id, block.input ?? null)
+    }
+  }
+
   const out = []
   for (const row of rows) {
     if (row.role === 'user') {
-      out.push({ kind: 'user', id: row.id, text: row.content ?? '', createdAt: row.createdAt })
+      out.push({
+        kind: 'user',
+        id: row.id,
+        text: row.content ?? '',
+        attachments: Array.isArray(row.attachments) && row.attachments.length ? row.attachments : null,
+        createdAt: row.createdAt,
+      })
     } else if (row.role === 'assistant') {
       // Only emit a bubble when the assistant row had actual text. Pure tool-
       // use rows (no text) are represented by the tool cards that follow.
@@ -339,7 +373,7 @@ function mapHistoryRows(rows) {
         id: `tool_${row.toolUseId ?? row.id}`,
         toolName: row.toolName,
         toolUseId: row.toolUseId,
-        args: null, // we don't store args on tool rows; they're in the preceding assistant.toolCalls
+        args: argsByToolUseId.get(row.toolUseId) ?? null,
         result: row.toolResult,
         isError: !!row.isError,
         status: 'done',

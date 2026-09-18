@@ -1,0 +1,156 @@
+<script setup>
+/**
+ * Line clearance / sanitation checklist for a PRODUCTION LOT (batch) of an
+ * in-process inspection — used to (re-)clear the active lot. Renders the
+ * company's configured Line Clearance form (FormTemplate internalName
+ * 'QC_LINE_CLEARANCE') via DynamicForm, then QA records a release decision:
+ * Release (pass) or Hold (fail). A passed clearance unlocks collection.
+ */
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { IconCircleCheck, IconCircleX, IconDeviceFloppy } from '@tabler/icons-vue'
+import { unansweredClearanceRows, noRowsMissingComment } from '@/utils/lineClearance.js'
+
+const props = defineProps({
+  lotId: { type: String, required: true },
+  batchId: { type: String, default: null },
+  // The active production lot (for prefill + label).
+  batch: { type: Object, default: null },
+})
+const emit = defineEmits(['done'])
+const show = defineModel({ type: Boolean, default: false })
+const toast = useToast()
+const saving = ref(null) // 'PASSED' | 'FAILED' while submitting
+
+const template = useLiveQuery(
+  async (db) => (await db.FormTemplate.where().exec()).find((t) => t.internalName === 'QC_LINE_CLEARANCE') ?? null,
+  { models: ['FormTemplate'], initial: undefined },
+)
+// The batch's OWN snapshot (stamped at batch creation) is authoritative — a
+// used block is a copy, never a live reference, so edits to the Line
+// Clearance block don't change a batch already in use. The live template is
+// only the fallback for legacy batches created before creation-time
+// snapshots (the backend stamps those on first save/decision).
+const schema = computed(() => {
+  const snap = props.batch?.lineClearanceSchema
+  if (Array.isArray(snap) && snap.length) return snap
+  return template.value?.schema ?? []
+})
+const hasSchema = computed(() => schema.value.length > 0)
+const formRef = ref(null)
+
+const payload = ref({})
+watch(show, (open) => {
+  if (!open) return
+  payload.value = props.batch?.lineClearancePayload ? JSON.parse(JSON.stringify(props.batch.lineClearancePayload)) : {}
+})
+
+const lotLabel = computed(() => props.batch?.lotNumber || 'this lot')
+
+async function submit(decision) {
+  if (saving.value || !props.batchId) return
+  if (decision === 'PASSED') {
+    if (formRef.value) await formRef.value.validate()
+    const missing = unansweredClearanceRows(schema.value, payload.value)
+    if (missing.length) {
+      toast.error(`Answer all clearance items before releasing the line (${missing.length} remaining).`)
+      return
+    }
+  }
+  // A "No" always needs its documented reason — on Release AND Hold.
+  const noComments = noRowsMissingComment(schema.value, payload.value)
+  if (noComments.length) {
+    toast.error(`Add a comment for each item answered "No" (${noComments.length} missing).`)
+    return
+  }
+  saving.value = decision
+  try {
+    await post(`/v1/services/qcInspection/lots/${props.lotId}/batches/${props.batchId}/line-clearance`, {
+      payload: payload.value,
+      decision,
+    })
+    toast.success(decision === 'PASSED' ? 'Line released — clearance passed' : 'Line held — clearance failed')
+    show.value = false
+    emit('done', decision)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to record line clearance')
+  } finally {
+    saving.value = null
+  }
+}
+
+// Save progress without a decision — the inspector can come back later; the
+// dialog prefills from the batch's saved answers on reopen.
+async function saveForLater() {
+  if (saving.value || !props.batchId) return
+  saving.value = 'SAVE'
+  try {
+    await post(
+      `/v1/services/qcInspection/lots/${props.lotId}/batches/${props.batchId}/line-clearance/save`,
+      { payload: payload.value },
+    )
+    toast.success('Progress saved — finish the clearance anytime')
+    show.value = false
+  } catch (err) {
+    toast.error(err?.message || 'Failed to save progress')
+  } finally {
+    saving.value = null
+  }
+}
+</script>
+
+<template>
+  <BaseDialog v-model="show" :title="`Line clearance — Lot ${lotLabel}`" maxWidth="3xl">
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <p class="tw:text-sm tw:text-secondary">
+        Verify the line is clean, cleared of the previous run, and set up for this lot. You can't
+        collect samples against it until the line is released.
+      </p>
+
+      <div
+        v-if="template === undefined && !hasSchema"
+        class="tw:text-sm tw:text-secondary"
+      >
+        Loading checklist…
+      </div>
+      <div
+        v-else-if="!hasSchema"
+        class="tw:rounded-lg tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-4 tw:py-3 tw:text-sm tw:text-amber-900"
+      >
+        No line clearance checklist is configured. Set one up under
+        <strong>QC Inspection → Line Clearance</strong>.
+      </div>
+
+      <DynamicForm v-else ref="formRef" v-model="payload" :fields="schema" />
+    </div>
+
+    <template #footer>
+      <div class="tw:flex tw:items-center tw:justify-end tw:gap-2 tw:px-5 tw:py-3">
+        <BaseButton variant="ghost" @click="show = false">Cancel</BaseButton>
+        <BaseButton
+          variant="outline"
+          :loading="saving === 'SAVE'"
+          :disabled="!hasSchema || !batchId || !!saving"
+          @click="saveForLater"
+        >
+          <IconDeviceFloppy :size="16" /> Save for later
+        </BaseButton>
+        <BaseButton
+          variant="danger"
+          :loading="saving === 'FAILED'"
+          :disabled="!hasSchema || !batchId || !!saving"
+          @click="submit('FAILED')"
+        >
+          <IconCircleX :size="16" /> Hold (fail)
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="saving === 'PASSED'"
+          :disabled="!hasSchema || !batchId || !!saving"
+          @click="submit('PASSED')"
+        >
+          <IconCircleCheck :size="16" /> Release (pass)
+        </BaseButton>
+      </div>
+    </template>
+  </BaseDialog>
+</template>

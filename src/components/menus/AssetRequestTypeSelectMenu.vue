@@ -16,41 +16,32 @@ const modelValue = defineModel({
 })
 
 const types = useLiveQuery((db) => db.AssetRequestType.where().orderBy('displayOrder').exec(), {
+  models: ['AssetRequestType'],
   initial: [],
 })
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="types" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <AssetRequestTypeBadgeById
-              v-for="typeId in getArray()"
-              :key="typeId"
-              :typeId="typeId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(typeId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Type</span>
-        </template>
-        <template v-else>
-          <AssetRequestTypeBadgeById
-            v-if="modelValue"
-            :typeId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">Select Type</span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="types"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All types —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <AssetRequestTypeBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :typeId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

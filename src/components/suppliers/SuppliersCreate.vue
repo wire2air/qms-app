@@ -18,6 +18,11 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 const router = useRouter()
 const toast = useToast()
 
+// Mirrors the suppliers.code column (varchar(10)) and the backend's
+// checkcode guard. Enforced on the input AND in validate(), because maxlength
+// alone doesn't cover a programmatically-set value (the name-blur autofill).
+const CODE_MAX_LENGTH = 10
+
 const saving = ref(false)
 const isChecking = ref(false)
 const isAvailable = ref(null)
@@ -93,7 +98,11 @@ const checkAvailabilityDebounced = useDebounceFn(async (code) => {
       isNameCheck: false,
     })
     isAvailable.value = data?.message === 'available'
-    if (!isAvailable.value) codeError.value = 'Code already in use'
+    if (!isAvailable.value) {
+      // 'invalid' carries a reason (too short, too long, illegal characters) —
+      // show it rather than mislabelling every rejection as a collision.
+      codeError.value = data?.reason || 'Code already in use'
+    }
   } catch {
     isAvailable.value = null
   } finally {
@@ -224,13 +233,19 @@ function validate() {
   if (!form.value.code.trim()) {
     codeError.value = 'Required'
     valid = false
+  } else if (form.value.code.trim().length > CODE_MAX_LENGTH) {
+    codeError.value = `Cannot be longer than ${CODE_MAX_LENGTH} characters`
+    valid = false
   }
   if (!form.value.category) {
     categoryError.value = 'Required'
     valid = false
   }
+  // Don't clobber a more specific code error (required / too long) that the
+  // checks above already set — those explain WHY the availability check never
+  // came back clean.
   if (isAvailable.value !== true && form.value.code.trim()) {
-    codeError.value = 'Check availability first'
+    if (!codeError.value) codeError.value = 'Check availability first'
     valid = false
   }
   if (!hasPrimaryContact.value) {
@@ -254,7 +269,7 @@ async function saveSupplier() {
 
     const contacts = form.value.contacts.filter((c) => c.email?.trim() || c.phoneNumber?.trim())
 
-    await createSupplier({
+    const created = await createSupplier({
       name: form.value.name.trim(),
       code: form.value.code.trim(),
       category: form.value.category,
@@ -269,6 +284,15 @@ async function saveSupplier() {
       certificateAssets,
       licenseAssets,
     })
+
+    // useLiveMutation swallows failures (it shows its own error toast) and
+    // returns undefined — so DON'T claim success or navigate away unless the
+    // supplier actually came back. Previously this always showed "created" and
+    // routed away even when the create errored, hiding the real failure.
+    if (!created) {
+      generalError.value = 'Failed to create supplier. Please try again.'
+      return
+    }
 
     toast.notify({ type: 'positive', message: 'Supplier created successfully' })
     router.push(getCompanyPath('/suppliers'))
@@ -285,35 +309,27 @@ function goBack() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconTruck class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-          New Supplier Onboarding
-        </h2>
-      </div>
-    </SafeTeleport>
+  <BasePage width="standard" fullHeight>
+    <PageHeader
+      :icon="IconTruck"
+      title="New Supplier Onboarding"
+      subtitle="Complete the profile below to initiate the technical qualification and quality assurance audit for new supply partners."
+    />
 
     <!-- Scrollable content -->
-    <div class="tw:flex-1 tw:overflow-y-auto tw:pb-24">
-      <div class="tw:max-w-5xl tw:mx-auto tw:px-6 tw:py-8">
+    <div class="tw:flex-1 tw:min-h-0 tw:overflow-y-auto tw:pb-24">
+      <div class="tw:py-8">
         <!-- Breadcrumbs -->
         <div class="tw:mb-4 tw:flex tw:items-center tw:text-sm tw:text-secondary tw:gap-1">
-          <span class="tw:cursor-pointer tw:hover:underline" @click="goBack">Suppliers</span>
+          <BaseClickableRow
+            tag="span"
+            class="tw:hover:underline"
+            aria-label="Back to Suppliers"
+            @click="goBack"
+            >Suppliers</BaseClickableRow
+          >
           <IconChevronRight :size="14" />
           <span class="tw:text-on-sidebar tw:font-medium">Onboarding</span>
-        </div>
-
-        <!-- Page Header -->
-        <div class="tw:mb-8">
-          <h1 class="tw:text-3xl tw:font-black tw:text-on-sidebar tw:tracking-tight">
-            New Supplier Onboarding
-          </h1>
-          <p class="tw:text-secondary tw:mt-2 tw:max-w-2xl">
-            Complete the profile below to initiate the technical qualification and quality assurance
-            audit for new supply partners.
-          </p>
         </div>
 
         <!-- General error -->
@@ -334,47 +350,49 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconInfoCircle :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Basic Information</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Basic Information</h2>
               </div>
               <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-                    Supplier Name <span class="tw:text-bad">*</span>
-                  </label>
+                <BaseField v-slot="{ id: fieldId }" label="Supplier Name" required>
                   <BaseTextInput
+                    :id="fieldId"
                     v-model="form.name"
                     placeholder="e.g. Global Logistics Corp"
                     @blur="onNameBlur"
                   />
                   <p v-if="nameError" class="tw:text-xs tw:text-bad tw:mt-1">{{ nameError }}</p>
-                </div>
+                </BaseField>
 
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-                    Supplier Code <span class="tw:text-bad">*</span>
-                  </label>
+                <BaseField v-slot="{ id: fieldId }" label="Supplier Code" required>
                   <div class="tw:relative">
-                    <BaseTextInput v-model="form.code" placeholder="e.g. SUP-2024-001" />
-                    <div
+                    <!-- maxlength matches suppliers.code — varchar(10). Without it
+                         the form accepted a longer code, the availability check
+                         reported it free, and the INSERT failed with an opaque
+                         masked GraphQL error ("Something went wrong"). -->
+                    <BaseTextInput
+                      :id="fieldId"
+                      v-model="form.code"
+                      :maxlength="CODE_MAX_LENGTH"
+                      placeholder="e.g. SUP-001"
+                    />
+                    <BaseSpinner
                       v-if="isChecking"
-                      class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2 tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-primary tw:border-t-transparent"
+                      size="sm"
+                      class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2"
                     />
                   </div>
                   <p v-if="codeError" class="tw:text-xs tw:text-bad tw:mt-1">{{ codeError }}</p>
                   <p v-else-if="isAvailable === true" class="tw:text-xs tw:text-green-600 tw:mt-1">
                     Code available
                   </p>
-                </div>
+                </BaseField>
 
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">
-                    Category <span class="tw:text-bad">*</span>
-                  </label>
+                <BaseField label="Category" required>
                   <SupplierCategorySelectMenu v-model="form.category" :required="true" />
                   <p v-if="categoryError" class="tw:text-xs tw:text-bad tw:mt-1">
                     {{ categoryError }}
                   </p>
-                </div>
+                </BaseField>
               </div>
             </div>
 
@@ -384,15 +402,11 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconMail :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Contact Details</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Contact Details</h2>
               </div>
               <div class="tw:p-6 tw:flex tw:flex-col tw:gap-4">
                 <div v-if="form.contacts.length > 0" class="tw:space-y-3">
-                  <div
-                    class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary tw:tracking-wide"
-                  >
-                    Contacts
-                  </div>
+                  <BaseText variant="overline">Contacts</BaseText>
                   <div
                     v-for="(contact, index) in form.contacts"
                     :key="index"
@@ -433,32 +447,27 @@ function goBack() {
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
             >
               <IconMapPin :size="20" class="tw:text-primary" />
-              <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Registered Address</h2>
+              <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Registered Address</h2>
             </div>
             <div class="tw:p-6 tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-4">
-              <div class="tw:md:col-span-2">
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Street Address</label>
-                <BaseTextInput v-model="form.streetAddress" placeholder="123 Industrial Parkway" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">City</label>
-                <BaseTextInput v-model="form.city" placeholder="New York" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">State/Province</label>
-                <BaseTextInput v-model="form.stateProvince" placeholder="NY" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Zip/Postal Code</label>
-                <BaseTextInput v-model="form.zipPostalCode" placeholder="10001" />
-              </div>
-              <div>
-                <label class="tw:block tw:text-sm tw:font-medium tw:mb-1">Country</label>
-                <select v-model="form.country" class="tw:w-full">
+              <BaseField v-slot="{ id: fieldId }" label="Street Address" class="tw:md:col-span-2">
+                <BaseTextInput :id="fieldId" v-model="form.streetAddress" placeholder="123 Industrial Parkway" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="City">
+                <BaseTextInput :id="fieldId" v-model="form.city" placeholder="New York" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="State/Province">
+                <BaseTextInput :id="fieldId" v-model="form.stateProvince" placeholder="NY" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="Zip/Postal Code">
+                <BaseTextInput :id="fieldId" v-model="form.zipPostalCode" placeholder="10001" />
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="Country">
+                <select :id="fieldId" v-model="form.country" class="tw:w-full">
                   <option :value="null">-- Select country --</option>
                   <option v-for="opt in countryOptions" :key="opt" :value="opt">{{ opt }}</option>
                 </select>
-              </div>
+              </BaseField>
             </div>
           </div>
 
@@ -468,7 +477,7 @@ function goBack() {
               class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
             >
               <IconMapPin :size="20" class="tw:text-primary" />
-              <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Site Assignment</h2>
+              <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Site Assignment</h2>
             </div>
             <div class="tw:p-6">
               <SiteSelectMenu v-model="form.siteIds" :multiple="true" />
@@ -483,14 +492,10 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconShieldCheck :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Risk Assessment</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Risk Assessment</h2>
               </div>
               <div class="tw:p-6">
-                <div
-                  class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary tw:tracking-wide tw:mb-3"
-                >
-                  Self-Declared Risk Level
-                </div>
+                <BaseText variant="overline" class="tw:block tw:mb-3">Self-Declared Risk Level</BaseText>
                 <SupplierRiskLevelSelectMenu v-model="form.riskLevel" />
               </div>
             </div>
@@ -503,12 +508,11 @@ function goBack() {
                 class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:gap-2"
               >
                 <IconFileCheck :size="20" class="tw:text-primary" />
-                <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Compliance Documents</h2>
+                <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar">Compliance Documents</h2>
               </div>
               <div class="tw:p-6 tw:space-y-6">
                 <!-- Certificates -->
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-2">Certificates</label>
+                <BaseField label="Certificates">
                   <div v-if="certificateFiles.length" class="tw:mb-2 tw:space-y-1">
                     <div
                       v-for="(file, i) in certificateFiles"
@@ -534,11 +538,10 @@ function goBack() {
                       @change="onCertificateChange"
                     />
                   </label>
-                </div>
+                </BaseField>
 
                 <!-- Licenses -->
-                <div>
-                  <label class="tw:block tw:text-sm tw:font-medium tw:mb-2">Licenses</label>
+                <BaseField label="Licenses">
                   <div v-if="licenseFiles.length" class="tw:mb-2 tw:space-y-1">
                     <div
                       v-for="(file, i) in licenseFiles"
@@ -564,7 +567,7 @@ function goBack() {
                       @change="onLicenseChange"
                     />
                   </label>
-                </div>
+                </BaseField>
               </div>
             </div>
           </div>
@@ -574,9 +577,9 @@ function goBack() {
 
     <!-- Sticky Footer Action Bar -->
     <div
-      class="tw:sticky tw:bottom-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-50"
+      class="tw:sticky tw:bottom-0 tw:w-full tw:bg-main/80 tw:backdrop-blur-md tw:border-t tw:border-divider tw:px-6 tw:py-4 tw:z-modal"
     >
-      <div class="tw:max-w-5xl tw:mx-auto tw:flex tw:items-center tw:justify-between">
+      <div class="tw:flex tw:items-center tw:justify-between">
         <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary">
           <span class="tw:w-2 tw:h-2 tw:rounded-full tw:bg-warning tw:animate-pulse" />
           Unsaved changes
@@ -584,14 +587,11 @@ function goBack() {
         <div class="tw:flex tw:items-center tw:gap-4">
           <BaseButton variant="secondary" :disabled="saving" @click="goBack"> Cancel </BaseButton>
           <BaseButton :disabled="saving" @click="saveSupplier">
-            <div
-              v-if="saving"
-              class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-            />
+            <BaseSpinner v-if="saving" size="sm" color="white" />
             <span>{{ saving ? 'Saving...' : 'Submit for Onboarding' }}</span>
           </BaseButton>
         </div>
       </div>
     </div>
-  </div>
+  </BasePage>
 </template>

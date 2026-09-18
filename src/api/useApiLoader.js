@@ -8,10 +8,10 @@
  *   const { isLoading, isAnyLoading } = useApiLoader()
  *
  *   // Check if 'fetchUsers' loader is active
- *   <QSpinner v-if="isLoading('fetchUsers')" />
+ *   <BaseSpinner v-if="isLoading('fetchUsers')" size="sm" />
  *
- *   // Global loading bar
- *   <QLinearProgress v-if="isAnyLoading" indeterminate />
+ *   // Global loading indicator
+ *   <BaseSpinner v-if="isAnyLoading" />
  */
 
 import { ref, onUnmounted } from 'vue'

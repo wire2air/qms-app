@@ -47,7 +47,7 @@ const groupedToasts = computed(() => {
       :key="position"
       tag="div"
       :class="[
-        'tw:fixed tw:z-100 tw:flex tw:gap-2 tw:pointer-events-none tw:w-full tw:max-w-full',
+        'tw:fixed tw:z-toast tw:flex tw:gap-2 tw:pointer-events-none tw:w-full tw:max-w-full',
         positionClasses[position],
       ]"
       enterActiveClass="tw:transition-all tw:duration-300 tw:ease-out"

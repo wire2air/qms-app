@@ -4,10 +4,14 @@ const props = defineProps({
   showDot: { type: Boolean, default: true },
 })
 
-const status = useLiveQueryWithDeps([() => props.statusId], async (db, [statusId]) => {
-  if (!statusId) return null
-  return db.FormStatus.findByPk(statusId)
-})
+const status = useLiveQueryWithDeps(
+  [() => props.statusId],
+  async (db, [statusId]) => {
+    if (!statusId) return null
+    return db.FormStatus.findByPk(statusId)
+  },
+  { models: ['FormStatus'] },
+)
 </script>
 
 <template>

@@ -4,24 +4,68 @@ import { isAllowed } from '@/utils/currentSession.js'
 
 const showCreateDialog = ref(false)
 
-const canCreateUser = computed(() => isAllowed(['users:create']))
+const canCreateUser = computed(() => isAllowed(['user_management:create']))
 
-// Filters
-const filters = ref({ search: '', userStatusId: null, roleId: null })
+// Filters + resolved content state (URL-synced). Declared before the live query
+// because `total`/`empty`/`loading` are lazy getters that read `users`.
+const list = useListLayout({
+  filters: { search: '', userStatusId: null, roleId: null },
+  total: () => users.value?.length ?? 0,
+  loading: () => users.value === undefined,
+  empty: () => users.value?.length === 0,
+  syncUrl: true,
+})
+
+// Quick-filter status pills (single-select; null = "All").
+//
+// `INVITED` is NOT a user status — `user_statuses` holds ACTIVE and INACTIVE and
+// nothing has ever written a third value (the column is now FK-constrained to
+// those two). This pill used to pass 'INVITED' straight through as a
+// userStatusId and could therefore never match a row.
+//
+// The state it was reaching for is real, it is just spelled differently:
+// invited-but-not-yet-accepted is INACTIVE with inviteSent = true. So the pill
+// stays and is resolved below as a pseudo-status, and "Inactive" now means
+// deliberately disabled rather than "disabled OR never onboarded", which is the
+// distinction an administrator actually wants on this screen.
+const PENDING_INVITE = 'PENDING_INVITE'
+const STATUS_PILLS = [
+  { value: null, label: 'All' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: PENDING_INVITE, label: 'Invited' },
+  { value: 'INACTIVE', label: 'Inactive' },
+]
 
 // Live query for users — applies search, status, and role filters
 const users = useLiveQueryWithDeps(
-  [() => filters.value.search, () => filters.value.userStatusId, () => filters.value.roleId],
+  [
+    () => list.filters.value.search,
+    () => list.filters.value.userStatusId,
+    () => list.filters.value.roleId,
+  ],
+
   async (db, [search, userStatusId, roleId]) => {
     let results = await db.User.where().exec()
     // Settings → Users is the internal-user admin page. Supplier users
     // are managed from the Suppliers → Users tab (a different entity
     // surface) so they shouldn't appear here.
     results = results.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
-    if (userStatusId) results = results.filter((u) => u.userStatusId === userStatusId)
+    if (userStatusId === PENDING_INVITE) {
+      // Invited and not yet accepted. Acceptance is what flips the row to
+      // ACTIVE, so "not ACTIVE + we sent them a link" is exactly the set.
+      results = results.filter((u) => u.userStatusId !== 'ACTIVE' && u.inviteSent)
+    } else if (userStatusId === 'INACTIVE') {
+      // Disabled, as distinct from never-onboarded — the pending invites above
+      // are also INACTIVE and are listed under their own pill.
+      results = results.filter((u) => u.userStatusId === 'INACTIVE' && !u.inviteSent)
+    } else if (userStatusId) {
+      results = results.filter((u) => u.userStatusId === userStatusId)
+    }
     if (roleId) {
       const assignments = await db.RoleOnUser.where().exec()
-      const idsForRole = new Set(assignments.filter((a) => a.roleId === roleId).map((a) => a.userId))
+      const idsForRole = new Set(
+        assignments.filter((a) => a.roleId === roleId).map((a) => a.userId),
+      )
       results = results.filter((u) => idsForRole.has(u.id))
     }
     if (search) {
@@ -33,41 +77,43 @@ const users = useLiveQueryWithDeps(
           u.email?.toLowerCase().includes(q),
       )
     }
-    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+    return results.sort(
+      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
+    )
   },
+  { models: ['User', 'RoleOnUser'] },
 )
-
-const loading = computed(() => users.value === undefined)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:overflow-hidden tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconUsers class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Users</h2>
-      </div>
-    </SafeTeleport>
+  <BaseListLayout
+    helpSlug="KB/administration/users"
+    title="Users"
+    :icon="IconUsers"
+    subtitle="Manage your organization's users."
+    :state="list.state.value"
+    :emptyIcon="IconUsers"
+    :emptyTitle="list.hasActiveFilters.value ? 'No users match your filters' : 'No users found'"
+  >
+    <template #actions>
+      <BaseButton v-if="canCreateUser" @click="showCreateDialog = true">Create User</BaseButton>
+    </template>
 
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateUser" @click="showCreateDialog = true"> Create User </BaseButton>
-    </SafeTeleport>
+    <template #filters>
+      <UsersFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
-    <div class="">
-      <div class="tw:flex tw:flex-col tw:gap-3">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Users</div>
-          <div class="tw:text-sm tw:text-secondary">Manage your organization's users.</div>
-        </div>
+    <template #quick-filters>
+      <BaseQuickFilterPills
+        v-model="list.filters.value.userStatusId"
+        ariaLabel="User status quick filters"
+        :pills="STATUS_PILLS"
+      />
+    </template>
 
-        <UsersFilterToolbar v-model:filters="filters" />
-      </div>
-    </div>
+    <UsersTable :rows="users || []" :loading="users === undefined" />
+  </BaseListLayout>
 
-    <div class="tw:flex tw:flex-col tw:flex-1 tw:gap-5 tw:overflow-auto">
-      <UsersList :users="users || []" :loading="loading" />
-    </div>
-
-    <UsersCreateUserDialog v-model="showCreateDialog" />
-  </div>
+  <!-- Outside BaseListLayout so it stays mounted in the empty state. -->
+  <UsersCreateUserDialog v-model="showCreateDialog" />
 </template>

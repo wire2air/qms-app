@@ -1,8 +1,15 @@
 <script setup>
 import { IconPlus } from '@tabler/icons-vue'
+import { IndexedDB, syncBus } from '@syncEngine/index'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
+  // Restrict to items supplied by this supplier (Item↔Supplier M2M);
+  // null = no filter.
+  supplierId: {
+    type: String,
+    default: null,
+  },
   required: {
     type: Boolean,
     default: false,
@@ -15,6 +22,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  nullLabel: {
+    type: String,
+    default: '— All items —',
+  },
 })
 
 const modelValue = defineModel({
@@ -22,7 +33,45 @@ const modelValue = defineModel({
   default: null,
 })
 
-const products = useLiveQuery(async (db) => db.Product.where().exec(), { initial: [] })
+// ProductOption projection (view `product_options`) — id / sku / name only, so
+// the picker resolves for users without products:read. Item CREATION below
+// still goes through Product and still requires products:create.
+const products = useLiveQueryWithDeps(
+  [() => props.supplierId],
+  async (db, [supplierId]) => {
+    const rows = await db.ProductOption.where().exec()
+    if (!supplierId) return rows
+    const links = await db.ProductSupplier.where('supplierId', supplierId).exec()
+    const allowed = new Set(links.map((l) => l.productId))
+    return rows.filter((p) => allowed.has(p.id))
+  },
+  { models: ['ProductOption', 'ProductSupplier'], initial: [] },
+)
+
+// Ids currently selected — kept visible in the list even if inactive, so the
+// dropdown doesn't drop an existing selection (BaseSelect clears a value
+// that's not among its items).
+const selectedIds = computed(() =>
+  Array.isArray(modelValue.value)
+    ? modelValue.value
+    : modelValue.value
+      ? [modelValue.value]
+      : [],
+)
+
+// QMS users key off the SKU#, so the dropdown lists (and searches) each item
+// as "SKU - Item name". The selected chip renders via ProductBadge(ById) which
+// already leads with the SKU. id stays the product id. Only ACTIVE items are
+// offered (plus any already-selected one), so retired/discontinued products
+// aren't pickable for new work.
+const productItems = computed(() =>
+  products.value
+    .filter((p) => p.statusId === 'ACTIVE' || selectedIds.value.includes(p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.sku ? `${p.sku} - ${p.name}` : p.name,
+    })),
+)
 
 const canCreateProduct = computed(() => props.allowCreate && isAllowed(['products:create']))
 
@@ -34,8 +83,40 @@ function openCreateDialog(closePopover) {
   showCreateDialog.value = true
 }
 
-function onProductCreated(newProduct) {
+async function onProductCreated(newProduct) {
   if (!newProduct?.id) return
+
+  // The dialog wrote a Product; this menu reads ProductOption — a VIEW, and
+  // the sync push only maps the `products` table back to the Product model,
+  // so the new row reaches this list only on the next full reload. Until
+  // then the selection points at an id the options don't carry and the
+  // control renders blank — "the item list emptied out".
+  //
+  // A server refetch is not available for views (PostGraphile generates no
+  // singular accessor without a primary key), so the option row is built
+  // from the Product just created — the projection is a strict subset of
+  // its fields — and written the same way the socket subscriber would.
+  // Best-effort, and PLAIN values only: `newProduct` is a reactive model
+  // instance, and neither a Vue proxy nor a Luxon DateTime survives the
+  // structured clone IndexedDB does — a naive put throws DataCloneError and
+  // would take the selection assignment below down with it.
+  try {
+    const iso = (v) => (v?.toISO ? v.toISO() : (v ?? new Date().toISOString()))
+    await IndexedDB.put('productOptions', {
+      id: newProduct.id,
+      companyId: newProduct.companyId,
+      name: newProduct.name,
+      sku: newProduct.sku ?? '',
+      statusId: newProduct.statusId ?? 'ACTIVE',
+      createdAt: iso(newProduct.createdAt),
+      updatedAt: iso(newProduct.updatedAt),
+    })
+    syncBus.emit({ modelName: 'ProductOption', modelId: newProduct.id, action: 'update', type: 'sync' })
+  } catch (err) {
+    // The option list refreshes on the next reload either way; the selection
+    // below must not depend on this succeeding.
+    console.warn(`productOptions upsert after create failed: ${err?.message}`)
+  }
 
   if (props.multiple) {
     const arr = Array.isArray(modelValue.value) ? modelValue.value : []
@@ -49,52 +130,35 @@ function onProductCreated(newProduct) {
   nextTick(() => createIconRef.value?.focus?.())
 }
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
 </script>
 
 <template>
   <div class="tw:flex tw:items-center tw:gap-2">
     <div class="tw:flex-1 tw:min-w-0">
-      <BaseSelectMenu
+      <BaseSelect
         v-model="modelValue"
-        :items="products"
+        :options="productItems"
+        optionLabel="name"
+        optionValue="id"
         :required="required"
         :multiple="multiple"
+        :clearable="!required"
+        :nullLabel="nullLabel"
       >
-        <template #button="scope">
-          <slot name="button" v-bind="scope">
-            <!-- MULTIPLE MODE -->
-            <template v-if="multiple">
-              <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-                <ProductBadgeById
-                  v-for="id in getArray()"
-                  :key="id"
-                  :productId="id"
-                  :clearable="!required || getArray().length > 1"
-                  @clear="() => scope.clear(id)"
-                />
-              </div>
-              <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Items
-              </BaseBadge>
-            </template>
+        <template v-if="$slots.button" #trigger="scope">
+          <slot name="button" v-bind="scope" />
+        </template>
 
-            <!-- SINGLE MODE -->
-            <template v-else>
-              <ProductBadgeById
-                v-if="modelValue"
-                :productId="modelValue"
-                :clearable="!required"
-                selectable
-                @clear="() => scope.clear(modelValue)"
-              />
-              <BaseBadge v-else class="tw:text-sm tw:font-medium tw:text-placeholder" selectable>
-                Select Item
-              </BaseBadge>
-            </template>
-          </slot>
+        <template #selected="{ options, remove }">
+          <div class="tw:flex tw:flex-wrap tw:gap-1">
+            <ProductBadgeById
+              v-for="o in options"
+              :key="o.value"
+              :productId="o.value"
+              :clearable="multiple && (!required || options.length > 1)"
+              @clear="() => remove(o)"
+            />
+          </div>
         </template>
 
         <template v-if="canCreateProduct" #footer="{ close }">
@@ -107,7 +171,7 @@ function getArray() {
             Add New Item
           </button>
         </template>
-      </BaseSelectMenu>
+      </BaseSelect>
     </div>
 
     <ProductsCreateUpdateDialog

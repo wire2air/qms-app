@@ -1,5 +1,12 @@
 <script setup>
-import { IconDotsVertical, IconEye, IconArchive, IconArchiveOff } from '@tabler/icons-vue'
+import {
+  IconDotsVertical,
+  IconEye,
+  IconArchive,
+  IconFileText,
+  IconBuilding,
+  IconCircleDot,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
@@ -11,15 +18,38 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Copy for the in-card empty state (the page's filters produced no rows).
+  // The table stays mounted when empty so the quick views remain reachable.
+  emptyLabel: {
+    type: String,
+    default: null,
+  },
 })
 
 const emit = defineEmits(['view'])
 
+// Quick views (rendered in the table toolbar's #tabs slot). A document's real
+// state is its VERSIONS' state, so these read "has an effective version" /
+// "latest version is mid-approval" rather than the document row's own statusId
+// — see applyActiveFilter in DocumentsHome. 'All' leads because a controlled-
+// document register is normally read whole.
+const activeFilter = defineModel('activeFilter', { type: String, default: 'all' })
+// Query-level filters (applied upstream in DocumentsHome, before the rows reach
+// this table) — the cascading menu lives in the toolbar's #toolbar-filters slot,
+// beside DataTable's own column-filter trigger.
+const filters = defineModel('filters', { type: Object, default: () => ({}) })
+const filterPills = [
+  { value: 'all', label: 'All' },
+  { value: 'effective', label: 'Effective' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'mine', label: 'Mine' },
+  { value: 'archived', label: 'Archived' },
+]
+
 const toast = useToast()
 
-const canArchive = computed(() => isAllowed(['documents:delete']))
-
-const confirmArchive = ref({ open: false, doc: null })
+const canArchive = computed(() => isAllowed(['document_control:delete']))
 
 // current EFFECTIVE version for each document
 const currentVersionMapById = useLiveQueryWithDeps(
@@ -35,7 +65,8 @@ const currentVersionMapById = useLiveQueryWithDeps(
     for (const v of versions) map[v.documentId] = v
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
 const latestVersionMapById = useLiveQueryWithDeps(
@@ -54,74 +85,244 @@ const latestVersionMapById = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['DocumentVersion'], initial: {} },
 )
 
-const columns = computed(() => [
-  { name: 'docNumber', label: 'DOC #', field: 'docNumber', align: 'left', sortable: true },
-  { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
-  { name: 'department', label: 'DEPARTMENT', field: 'departmentId', align: 'left', sortable: true },
-  {
-    name: 'current',
-    label: 'CURRENT',
-    field: (row) => currentVersionMapById.value[row.id],
-    align: 'left',
-    sortable: false,
-  },
-  {
-    name: 'latest',
-    label: 'LATEST',
-    field: (row) => latestVersionMapById.value[row.id],
-    align: 'left',
-    sortable: false,
-  },
-  {
-    name: 'effectiveDate',
-    label: 'EFFECTIVE DATE',
-    field: (row) => latestVersionMapById.value[row.id]?.effectiveDate,
-    align: 'left',
-    sortable: false,
-  },
-  { name: 'owner', label: 'OWNER', field: 'owner', align: 'left', sortable: true },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right' },
-])
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+const departments = useLiveQuery((db) => db.Department.where().exec(), {
+  models: ['Department'],
+  initial: [],
 })
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+const documentTypes = useLiveQuery((db) => db.DocumentType.where().orderBy('displayOrder').exec(), {
+  models: ['DocumentType'],
+  initial: [],
+})
+const versionStatuses = useLiveQuery(
+  (db) => db.DocumentVersionStatus.where().orderBy('displayOrder').exec(),
+  { models: ['DocumentVersionStatus'], initial: [] },
+)
+
+// The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
+// every non-empty value in the object it's given, so handing it the whole filter
+// bag made it report the quick view (`activeFilter: 'all'`) as an active filter.
+const MENU_GROUPS = ['documentTypeId', 'departmentId', 'statusId']
+const menuFilters = computed(() =>
+  Object.fromEntries(MENU_GROUPS.map((k) => [k, filters.value?.[k] ?? []])),
+)
+function onMenuFilters(next) {
+  filters.value = { ...filters.value, ...next }
+}
+
+// Descriptor tree for the cascading filter menu.
+const filterItems = computed(() => [
+  {
+    id: 'documentTypeId',
+    label: 'Type',
+    icon: IconFileText,
+    group: 'documentTypeId',
+    searchable: true,
+    options: documentTypes.value.map((t) => ({ value: t.id, label: t.name })),
+  },
+  {
+    id: 'departmentId',
+    label: 'Department',
+    icon: IconBuilding,
+    group: 'departmentId',
+    searchable: true,
+    options: departments.value.map((d) => ({ value: d.id, label: d.name })),
+  },
+  {
+    id: 'statusId',
+    label: 'Status',
+    icon: IconCircleDot,
+    group: 'statusId',
+    options: versionStatuses.value.map((s) => ({ value: s.id, label: s.name })),
+  },
+])
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+function userLabel(u) {
+  return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+}
+function userOpts(list) {
+  return list.map((u) => ({ value: u.id, label: userLabel(u) }))
+}
+// DC-L-03: id-column search must match the *name* the user sees, not the raw
+// UUID/field value. These maps back the department/owner `searchValue` accessors.
+const deptNameById = computed(() =>
+  Object.fromEntries(departments.value.map((d) => [d.id, d.name])),
+)
+const userNameById = computed(() =>
+  Object.fromEntries(users.value.map((u) => [u.id, userLabel(u)])),
+)
+
+const columns = computed(() => {
+  const filterCfg = {
+    department: { filterType: 'select', filterOptions: selectOpts(departments.value) },
+    owner: { filterType: 'select', filterOptions: userOpts(users.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    {
+      name: 'docNumber',
+      label: 'DOC #',
+      field: 'docNumber',
+      align: 'left',
+      sortable: true,
+      hideable: false,
+    },
+    { name: 'title', label: 'TITLE', field: 'title', align: 'left', sortable: true },
+    {
+      name: 'department',
+      label: 'DEPARTMENT',
+      field: 'departmentId',
+      align: 'left',
+      sortable: true,
+      // DC-L-03: search matches the department name, not the departmentId UUID.
+      searchValue: (row) => deptNameById.value[row.departmentId] ?? '',
+    },
+    {
+      name: 'current',
+      label: 'CURRENT',
+      field: (row) => currentVersionMapById.value[row.id],
+      align: 'left',
+      sortable: false,
+      // DC-L-03: a version object is not meaningfully free-text searchable
+      // (status is covered by the Status filter) — keep it out of "Search in".
+      searchable: false,
+    },
+    {
+      name: 'latest',
+      label: 'LATEST',
+      field: (row) => latestVersionMapById.value[row.id],
+      align: 'left',
+      sortable: false,
+      searchable: false,
+    },
+    {
+      name: 'effectiveDate',
+      label: 'EFFECTIVE DATE',
+      field: (row) => latestVersionMapById.value[row.id]?.effectiveDate,
+      align: 'left',
+      sortable: false,
+    },
+    {
+      name: 'owner',
+      label: 'OWNER',
+      // DC-L-03: the row's owner is `userId` (there is no `owner` field) — the
+      // wrong field silently broke both Owner search and the Owner filter.
+      field: 'userId',
+      align: 'left',
+      sortable: true,
+      searchValue: (row) => userNameById.value[row.userId] ?? '',
+    },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    {
+      name: 'actions',
+      label: 'ACTIONS',
+      field: 'actions',
+      align: 'right',
+      hideable: false,
+      searchable: false,
+    },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function getVersionLabel(version) {
   if (!version) return '-'
   return version.versionLabel || `${version.versionMajor}.${version.versionMinor}`
 }
 
+// Explicit export field list for the export manager. DataTable's fallback
+// export (deriving fields from `columns`) would JSON-stringify the CURRENT/
+// LATEST version objects, export the raw department/owner UUIDs, and leak the
+// ACTIONS column (its `name` is 'actions', not the magic '__actions' the
+// fallback filters out) — so hand it fully-resolved fields instead.
+const exportColumns = computed(() => [
+  { key: 'docNumber', label: 'DOC #', value: (row) => row.docNumber ?? '' },
+  { key: 'title', label: 'TITLE', value: (row) => row.title ?? '' },
+  {
+    key: 'department',
+    label: 'DEPARTMENT',
+    value: (row) => deptNameById.value[row.departmentId] ?? '',
+  },
+  {
+    key: 'current',
+    label: 'CURRENT',
+    value: (row) => getVersionLabel(currentVersionMapById.value[row.id]),
+  },
+  {
+    key: 'latest',
+    label: 'LATEST',
+    value: (row) => getVersionLabel(latestVersionMapById.value[row.id]),
+  },
+  {
+    key: 'effectiveDate',
+    label: 'EFFECTIVE DATE',
+    value: (row) => latestVersionMapById.value[row.id]?.effectiveDate?.formatDate?.('date') ?? '',
+  },
+  { key: 'owner', label: 'OWNER', value: (row) => userNameById.value[row.userId] ?? '' },
+  { key: 'createdAt', label: 'CREATED', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
+// Archiving a controlled document is a regulated event (H7) — route the
+// list-view Archive through the SAME obsoletion dialog the detail page uses, so
+// a reason is captured + audited (soft-delete stamping obsoletedAt/By/reason),
+// instead of a bare, reason-less, reversible status flip. List-view unarchive is
+// removed with this — obsoletion is a deliberate, audited retirement.
+const obsoletionTarget = ref(null)
+const showObsoletionDialog = ref(false)
+
 function onArchiveDocument(row) {
-  confirmArchive.value = { open: true, doc: row }
+  obsoletionTarget.value = row
+  showObsoletionDialog.value = true
 }
 
-async function confirmArchiveDocument() {
-  const row = confirmArchive.value.doc
-  if (!row) return
-  row.statusId = 'ARCHIVED'
-  await row.save()
+function onObsoleted() {
+  // The dialog performs the mutation + soft-delete; the list refreshes itself
+  // via syncBus. Acknowledge and clear the target.
   toast.success('Document archived successfully')
-  confirmArchive.value = { open: false, doc: null }
-}
-
-async function onUnarchiveDocument(row) {
-  row.statusId = 'ACTIVE'
-  await row.save()
-  toast.success('Document unarchived successfully')
+  obsoletionTarget.value = null
 }
 </script>
 
 <template>
-  <BaseTable v-model:pagination="pagination" :rows="rows" :columns="columns" :loading="loading">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    :loading="loading"
+    :noDataLabel="emptyLabel"
+    :mobileCards="false"
+    searchable
+    exportManager
+    :exportColumns="exportColumns"
+    exportFilename="documents.csv"
+    persistKey="documents"
+  >
+    <!-- Query-level filter menu -->
+    <template #toolbar-filters>
+      <BaseFilterMenu
+        :modelValue="menuFilters"
+        :items="filterItems"
+        iconOnly
+        @update:modelValue="onMenuFilters"
+      />
+    </template>
+
+    <!-- Quick views -->
+    <template #tabs>
+      <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
+    </template>
+
     <!-- Doc Number Column -->
     <template #body-cell-docNumber="{ row }">
       <BaseBadge>{{ row.docNumber }}</BaseBadge>
@@ -130,12 +331,13 @@ async function onUnarchiveDocument(row) {
     <!-- Title Column -->
     <template #body-cell-title="{ row }">
       <div class="tw:flex tw:items-center tw:gap-2">
-        <div
-          class="tw:font-bold tw:text-on-main tw:cursor-pointer tw:hover:text-primary"
+        <BaseClickableRow
+          class="tw:font-bold tw:text-on-main tw:hover:text-primary"
+          :aria-label="`View ${row.title}`"
           @click="emit('view', row)"
         >
           {{ row.title }}
-        </div>
+        </BaseClickableRow>
         <span
           v-if="row.statusId === 'ARCHIVED'"
           class="tw:inline-flex tw:items-center tw:rounded tw:bg-amber-100 tw:px-1.5 tw:py-0.5 tw:text-xs tw:font-medium tw:text-amber-700 tw:ring-1 tw:ring-inset tw:ring-amber-600/20"
@@ -213,27 +415,18 @@ async function onUnarchiveDocument(row) {
                 <IconArchive :size="16" />
                 Archive
               </button>
-              <button
-                v-if="canArchive && row.statusId === 'ARCHIVED'"
-                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-on-sidebar tw:hover:bg-sidebar-hover tw:transition-colors"
-                @click="(onUnarchiveDocument(row), close())"
-              >
-                <IconArchiveOff :size="16" class="tw:text-primary" />
-                Unarchive
-              </button>
             </div>
           </template>
         </BasePopover>
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 
-  <!-- Confirm Archive Dialog -->
-  <ConfirmDialog
-    v-model="confirmArchive.open"
-    title="Confirm Archive"
-    :message="`Are you sure you want to archive &quot;${confirmArchive.doc?.title}&quot; (${confirmArchive.doc?.docNumber})? This action will change the document status to Archived.`"
-    okLabel="Archive"
-    @ok="confirmArchiveDocument"
+  <DocumentObsoletionDialog
+    v-model="showObsoletionDialog"
+    :document="obsoletionTarget"
+    :documentTitle="obsoletionTarget?.title"
+    :documentNumber="obsoletionTarget?.docNumber"
+    @archived="onObsoleted"
   />
 </template>

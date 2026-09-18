@@ -30,10 +30,12 @@ const props = defineProps({
 const emit = defineEmits(['reassign'])
 
 const toast = useToast()
-const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
-const instanceStep = useLiveQueryWithDeps([() => props.instanceStepId], async (db, [id]) =>
-  id ? db.WorkflowInstanceStep.findByPk(id) : null,
+const instanceStep = useLiveQueryWithDeps(
+  [() => props.instanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const assignments = useLiveQueryWithDeps(
@@ -42,7 +44,8 @@ const assignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.UserOnWorkflowInstanceStep.where('workflowInstanceStepId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 const activeAssigneeId = computed(() => {
   const active = assignments.value.find(
@@ -54,6 +57,7 @@ const activeAssigneeId = computed(() => {
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED']
 const currentUserTask = useLiveQueryWithDeps(
   [() => props.instanceStepId, () => currentUserId.value],
+
   async (db, [stepInstanceId, userId]) => {
     if (!stepInstanceId || !userId) return null
     const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
@@ -61,11 +65,10 @@ const currentUserTask = useLiveQueryWithDeps(
       stepInstanceId,
     ]).exec()
     return (
-      tasks.find(
-        (t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId),
-      ) || null
+      tasks.find((t) => t.assignedTo === userId && ACTIONABLE_STATUSES.includes(t.statusId)) || null
     )
   },
+  { models: ['TaskInstance'] },
 )
 const isAssignee = computed(() => !!currentUserTask.value)
 
@@ -224,10 +227,7 @@ function getStatusLabel(statusId) {
         >
           <IconArrowBackUp :size="14" class="tw:text-amber-600" />
         </div>
-        <div
-          v-else
-          class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white"
-        />
+        <div v-else class="tw:size-6 tw:rounded-full tw:border-2 tw:border-gray-300 tw:bg-white" />
       </div>
 
       <button
@@ -240,7 +240,7 @@ function getStatusLabel(statusId) {
         <span class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
           {{ displayNumber }}. {{ instanceStep.name || 'Sub-task' }}
         </span>
-        <BaseBadge class="tw:text-[10px]" :class="getStepStatusClass(instanceStep.statusId)">
+        <BaseBadge class="tw:text-micro" :class="getStepStatusClass(instanceStep.statusId)">
           {{ getStatusLabel(instanceStep.statusId) }}
         </BaseBadge>
       </button>
@@ -296,11 +296,9 @@ function getStatusLabel(statusId) {
       v-if="expanded && instanceStep.description"
       class="tw:px-4 tw:pb-4 tw:pt-3 tw:border-t tw:border-divider"
     >
-      <div
-        class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-1 tw:uppercase tw:tracking-wider"
-      >
+      <BaseText variant="overline" weight="medium" class="tw:block tw:mb-1">
         Instructions
-      </div>
+      </BaseText>
       <div
         class="tw:text-sm tw:text-on-main tw:leading-relaxed"
         v-html="instanceStep.description"
@@ -312,15 +310,21 @@ function getStatusLabel(statusId) {
         Confirm completion of <strong>{{ instanceStep.name }}</strong
         >.
       </p>
-      <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-1">
-        Comment (optional)
-      </label>
-      <BaseTextarea v-model="completeComment" :rows="3" placeholder="What you did…" />
+      <BaseField v-slot="{ id: fieldId }" label="Comment" optional>
+        <BaseTextarea
+          :id="fieldId"
+          v-model="completeComment"
+          :rows="3"
+          placeholder="What you did…"
+        />
+      </BaseField>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" :loading="completing" @click="handleCompleteSubmit">
-          {{ requireEsignature ? 'Sign & Complete' : 'Mark Complete' }}
-        </BaseButton>
+        <BaseDialogFooter
+          :submitLabel="requireEsignature ? 'Sign & Complete' : 'Mark Complete'"
+          :loading="completing"
+          @cancel="close"
+          @submit="handleCompleteSubmit"
+        />
       </template>
     </BaseDialog>
 
@@ -328,15 +332,19 @@ function getStatusLabel(statusId) {
 
     <BaseDialog v-model="showCancelDialog" title="Cancel Sub-task" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Cancel this sub-task? Any open assignment is closed; the parent
-        stage's completion check will treat it as done.
+        Cancel this sub-task? Any open assignment is closed; the parent stage's completion check
+        will treat it as done.
       </p>
       <BaseTextarea v-model="cancelReason" :rows="3" placeholder="Reason (optional)" />
       <template #footer="{ close }">
-        <BaseButton variant="secondary" :disabled="cancelling" @click="close">Back</BaseButton>
-        <BaseButton variant="danger" :loading="cancelling" @click="handleCancelStep">
-          Cancel Sub-task
-        </BaseButton>
+        <BaseDialogFooter
+          cancelLabel="Back"
+          submitLabel="Cancel Sub-task"
+          submitVariant="danger"
+          :loading="cancelling"
+          @cancel="close"
+          @submit="handleCancelStep"
+        />
       </template>
     </BaseDialog>
   </div>

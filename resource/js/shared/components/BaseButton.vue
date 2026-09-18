@@ -119,7 +119,7 @@ const widthClass = computed(() => {
 const fontClass = computed(() => {
   switch (props.size) {
     case 'xs':
-      return 'tw:text-[10px]'
+      return 'tw:text-micro'
     case 'sm':
       return 'tw:text-xs'
     case 'lg':
@@ -161,7 +161,7 @@ const classes = computed(() => {
 
   if (props.iconOnly) {
     const textSizeClass =
-      props.size === 'xs' ? 'tw:text-[10px]' : props.size === 'sm' ? 'tw:text-xs' : 'tw:text-xl'
+      props.size === 'xs' ? 'tw:text-micro' : props.size === 'sm' ? 'tw:text-xs' : 'tw:text-xl'
     cls.push(`tw:!rounded-lg ${widthClass.value} ${heightClass.value} ${textSizeClass}`)
   }
 
@@ -191,6 +191,19 @@ const computedDisabled = computed(() => {
 })
 
 const buttonRef = ref()
+
+// a11y: an icon-only button has no text, so it needs an accessible name.
+// Warn in dev if neither aria-label nor title is supplied.
+if (import.meta.env.DEV) {
+  onMounted(() => {
+    if (props.iconOnly && !attr['aria-label'] && !attr['title']) {
+      console.warn(
+        '[BaseButton] iconOnly button is missing an accessible name — add aria-label or title.',
+        buttonRef.value,
+      )
+    }
+  })
+}
 
 defineExpose({
   buttonRef,

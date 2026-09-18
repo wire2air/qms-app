@@ -11,7 +11,8 @@ const toast = useToast()
 const documentLinks = useLiveQueryWithDeps(
   [() => props.trainingId],
   async (db, [trainingId]) => db.TrainingDocumentLink.where('trainingId', trainingId).exec(),
-  { initial: [] },
+
+  { models: ['TrainingDocumentLink'], initial: [] },
 )
 
 const selectedDocumentId = ref(null)

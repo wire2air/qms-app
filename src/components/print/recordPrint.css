@@ -1,0 +1,209 @@
+/*
+ * Shared print stylesheet for record modules (CAPA, Nonconformance, Quality
+ * Event). One vocabulary so the three printouts are visibly the same document
+ * family — an auditor reading a CAPA and the NC it came from should not have to
+ * re-learn the layout.
+ *
+ * Extracted from CapaPrint.vue on 2026-08-18, when NC and QE print were added;
+ * the `qp-` prefix replaced `capa-print-` because the sheet is no longer
+ * CAPA's. Global on purpose (not scoped): print modules render inside
+ * PrintLayout's slots.
+ *
+ * `--print-accent` is set per company by PrintLayout from the branding
+ * settings; keep using it for headings rather than hardcoding a colour.
+ */
+
+.qp-num {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: 0.5px;
+}
+.qp-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 4px 0 14px;
+  line-height: 1.25;
+  color: var(--print-accent, #111827);
+}
+.qp-meta {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.qp-meta th {
+  text-align: left;
+  background: #f9fafb;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  font-weight: 600;
+  width: 16%;
+}
+.qp-meta td {
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  width: 34%;
+}
+.qp-workflow {
+  font-size: 11px;
+  color: #4b5563;
+  margin-top: 10px;
+}
+
+.qp-body {
+  font-size: 11px;
+}
+.qp-section {
+  margin: 18px 0;
+  break-inside: avoid-page;
+}
+.qp-section > h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+  color: var(--print-accent, #111827);
+}
+.qp-paragraph {
+  line-height: 1.5;
+}
+.qp-note {
+  color: #6b7280;
+  font-size: 10px;
+}
+
+.qp-step {
+  margin: 10px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  break-inside: avoid-page;
+}
+.qp-step-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.qp-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-weight: 700;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.qp-step-title {
+  font-weight: 700;
+  font-size: 12px;
+}
+.qp-step-detail {
+  color: #4b5563;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.qp-step-instructions {
+  margin: 8px 0 4px 32px;
+  font-size: 10.5px;
+  color: #374151;
+  line-height: 1.5;
+}
+.qp-step-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  color: #6b7280;
+  margin-right: 4px;
+}
+
+.qp-record {
+  margin: 8px 0 4px 32px;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border-left: 2px solid #d1d5db;
+  font-size: 10px;
+  break-inside: avoid-page;
+}
+.qp-record-head {
+  color: #4b5563;
+  margin-bottom: 4px;
+}
+.qp-payload {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+.qp-payload th {
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 4px 6px;
+  font-weight: 600;
+  width: 30%;
+}
+.qp-payload td {
+  border: 1px solid #e5e7eb;
+  padding: 4px 6px;
+}
+
+.qp-children {
+  margin: 10px 0 0 32px;
+  padding-top: 6px;
+  border-top: 1px dashed #e5e7eb;
+}
+.qp-children-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+.qp-child {
+  margin: 4px 0 6px;
+  padding-left: 8px;
+  border-left: 2px solid #e5e7eb;
+}
+.qp-child-head {
+  font-size: 10.5px;
+}
+
+.qp-effectiveness {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+.qp-effectiveness th,
+.qp-effectiveness td {
+  border: 1px solid #e5e7eb;
+  padding: 5px 8px;
+  text-align: left;
+}
+.qp-effectiveness th {
+  background: #f9fafb;
+  font-weight: 600;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #6b7280;
+}
+
+/* ── Register (list) printouts ─────────────────────────────────────────────
+ * RecordListPrint renders many rows rather than one record, so its table needs
+ * tighter type and a title column that can actually breathe.
+ */
+.qp-col-wide {
+  min-width: 22ch;
+}
+.qp-empty-row {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 14px 8px;
+}

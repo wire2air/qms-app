@@ -1,4 +1,5 @@
 <script setup>
+import { Portal } from '@headlessui/vue'
 import { IconArrowLeft, IconX, IconSearch, IconFileText, IconChevronRight } from '@tabler/icons-vue'
 import FormBuilder from '@/components/form-builder/FormBuilder.vue'
 
@@ -6,6 +7,12 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   initialSchema: { type: Array, default: () => [] },
   startAtSelect: { type: Boolean, default: false },
+  // Title shown inside the FormBuilder canvas — the panel is generic
+  // (workflow steps + complaint forms both embed schemas through it).
+  builderTitle: { type: String, default: 'Step Form Schema' },
+  // Dock the AI assistant open on arrival — for hosts that launch the panel
+  // from an explicit "build with AI" action rather than a plain edit.
+  startWithAi: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'save'])
@@ -30,9 +37,19 @@ watch(
 // Template picker
 const templateSearch = ref('')
 
-const templates = useLiveQuery(async (db) => db.FormTemplate.where('statusId', 'ACTIVE').exec(), {
-  initial: [],
-})
+// Only FORM BLOCKS (reusable fragments) — an embedded step form copies from
+// blocks, not from standalone form templates.
+const templates = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where('statusId', 'ACTIVE').exec()).filter(
+      // Exclude LOG_FORM blocks — those are exclusive to log books.
+      (t) => t.kind === 'BLOCK' && (t.blockCategory ?? 'GENERAL') !== 'LOG_FORM',
+    ),
+  {
+    models: ['FormTemplate'],
+    initial: [],
+  },
+)
 
 const filteredTemplates = computed(() => {
   if (!templateSearch.value) return templates.value
@@ -43,7 +60,11 @@ const filteredTemplates = computed(() => {
 })
 
 function selectTemplate(template) {
-  buildSchema.value = Array.isArray(template.schema) ? [...template.schema] : []
+  // True snapshot: deep-clone so builder edits can never mutate the pooled
+  // IDB block instance's field objects (a shallow [...schema] shares them).
+  buildSchema.value = Array.isArray(template.schema)
+    ? JSON.parse(JSON.stringify(template.schema))
+    : []
   currentStep.value = 'build'
 }
 
@@ -70,6 +91,22 @@ const headerTitle = computed(() => {
   return 'Form Builder'
 })
 
+// Recreate the Portal on every OPEN so its node is (re)appended as the LAST
+// child of the portal root at that moment. Stacking among equal z-modal
+// layers is DOM order, and the portal node is otherwise created when this
+// COMPONENT mounts — fine when the panel lives inside the launching dialog
+// (workflow step config), wrong when it lives at page level (Form Blocks /
+// Log Forms design dialog, bug 2026-08-14): the page-mount node predates the
+// dialog's, so the builder opened BEHIND it. Key only bumps on open — close
+// keeps the same instance so the leave transition still plays.
+const portalSession = ref(0)
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) portalSession.value++
+  },
+)
+
 const showBackButton = computed(() => {
   // Back from build → select only when we started from template flow
   if (currentStep.value === 'build' && props.startAtSelect) return true
@@ -80,8 +117,20 @@ const showBackButton = computed(() => {
 </script>
 
 <template>
-  <Teleport to="body">
+  <!-- HeadlessUI Portal (not a bare Teleport): the panel is opened from
+       inside BaseDialogs (step configuration, CAPA/CR add-child-step), and a
+       plain body teleport lands OUTSIDE the dialog's portal tree — HeadlessUI
+       marks it inert and its z-overlay painted below the dialog's z-modal, so
+       the builder was unreachable behind the dialog (bug 2026-08-14). Inside
+       the HUI portal stack it participates in dialog stacking: appended after
+       the launching dialog (above it at equal z-modal), and the FormBuilder's
+       own dialogs (Generate with AI, JSON, Clear, Preview) open later still,
+       so they stack above this panel. -->
+  <Portal :key="portalSession">
+    <!-- `appear`: after a key-bump the subtree mounts with modelValue already
+         true, so the enter animation must run on initial render. -->
     <Transition
+      appear
       enterActiveClass="tw:transition-transform tw:duration-300 tw:ease-out"
       enterFromClass="tw:translate-y-full"
       enterToClass="tw:translate-y-0"
@@ -89,7 +138,7 @@ const showBackButton = computed(() => {
       leaveFromClass="tw:translate-y-0"
       leaveToClass="tw:translate-y-full"
     >
-      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-9999">
+      <div v-if="modelValue" class="tw:fixed tw:inset-0 tw:flex tw:flex-col tw:bg-main tw:z-modal">
         <div class="tw:flex tw:flex-col tw:h-full tw:flex-nowrap">
           <!-- Header -->
           <div
@@ -140,23 +189,24 @@ const showBackButton = computed(() => {
 
               <!-- Template List -->
               <div v-else class="tw:flex tw:flex-col tw:gap-2">
-                <div
+                <BaseClickableRow
                   v-for="template in filteredTemplates"
                   :key="template.id"
-                  class="tw:cursor-pointer tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+                  :aria-label="`Select template ${template.title}`"
+                  class="tw:bg-main tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
                   @click="selectTemplate(template)"
                 >
                   <div class="tw:flex tw:items-center tw:gap-3">
                     <div class="tw:flex tw:flex-col tw:gap-0.5">
                       <div class="tw:font-bold tw:text-on-main">{{ template.title }}</div>
-                      <div class="tw:text-xs tw:text-secondary tw:font-mono tw:uppercase">
+                      <div class="tw:text-caption tw:text-secondary tw:uppercase tw:tracking-wider">
                         {{ template.code }}
                       </div>
                     </div>
                     <div class="tw:flex-1" />
                     <IconChevronRight :size="20" class="tw:text-secondary" />
                   </div>
-                </div>
+                </BaseClickableRow>
               </div>
             </div>
           </div>
@@ -165,12 +215,13 @@ const showBackButton = computed(() => {
           <div v-else class="tw:flex-1 tw:min-h-0 tw:overflow-hidden">
             <FormBuilder
               :initialSchema="buildSchema"
-              title="Step Form Schema"
+              :title="builderTitle"
+              :startWithAi="startWithAi"
               @save="handleBuilderSave"
             />
           </div>
         </div>
       </div>
     </Transition>
-  </Teleport>
+  </Portal>
 </template>

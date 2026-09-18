@@ -1,7 +1,6 @@
 <script setup>
 import { IconLink, IconLetterT, IconLinkOff, IconCheck } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   modelValue: {
@@ -21,18 +20,10 @@ const show = computed({
   set: (value) => emit('update:modelValue', value),
 })
 
+const formRef = ref(null)
+
 const linkUrl = ref('')
 const linkText = ref('')
-
-const linkForm = reactive({ url: linkUrl })
-const linkRules = computed(() => ({
-  url: {
-    required: helpers.withMessage('URL is required', required),
-    validUrl: helpers.withMessage('Please enter a valid URL', (val) => !val || val.includes('.')),
-  },
-}))
-
-const linkValidator = useValidator(linkRules, linkForm, { $stopPropagation: true })
 
 watch(
   () => props.modelValue,
@@ -44,10 +35,7 @@ watch(
   },
 )
 
-async function handleSubmit() {
-  const valid = await linkValidator.value.$validate()
-  if (!valid) return
-
+function handleSubmit() {
   // Basic URL validation and formatting
   let url = linkUrl.value.trim()
   if (url && !url.match(/^https?:\/\//)) {
@@ -62,13 +50,6 @@ function handleRemove() {
   emit('remove')
   show.value = false
 }
-
-function handleKeydown(event) {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault()
-    handleSubmit()
-  }
-}
 </script>
 
 <template>
@@ -77,37 +58,49 @@ function handleKeydown(event) {
     :title="initialUrl ? 'Edit Link' : 'Insert Link'"
     @close="show = false"
   >
-    <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4">
-      <div class="tw:relative">
-        <IconLink
-          :size="18"
-          class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-        />
-        <BaseTextInput
-          v-model="linkUrl"
-          name="url"
+    <BaseForm ref="formRef" hideFooter @submit="handleSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:p-4">
+        <BaseField
           label="URL"
-          placeholder="https://example.com"
-          autofocus
-          class="tw:pl-9"
-          @keydown="handleKeydown"
-        />
-      </div>
+          required
+          :value="linkUrl"
+          :rules="[required(), (v) => !v || v.includes('.') || 'Please enter a valid URL']"
+        >
+          <template #default="field">
+            <div class="tw:relative">
+              <IconLink
+                :size="18"
+                class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
+              />
+              <BaseTextInput
+                v-bind="field"
+                v-model="linkUrl"
+                placeholder="https://example.com"
+                autofocus
+                class="tw:pl-9"
+              />
+            </div>
+          </template>
+        </BaseField>
 
-      <div class="tw:relative">
-        <IconLetterT
-          :size="18"
-          class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-        />
-        <BaseTextInput
-          v-model="linkText"
-          label="Link Text (optional)"
-          placeholder="Leave empty to use selection"
-          class="tw:pl-9"
-          @keydown="handleKeydown"
-        />
+        <BaseField label="Link Text (optional)" :value="linkText">
+          <template #default="field">
+            <div class="tw:relative">
+              <IconLetterT
+                :size="18"
+                class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
+              />
+              <BaseTextInput
+                v-bind="field"
+                v-model="linkText"
+                placeholder="Leave empty to use selection"
+                class="tw:pl-9"
+              />
+            </div>
+          </template>
+        </BaseField>
       </div>
-    </div>
+    </BaseForm>
 
     <template #actions>
       <div class="tw:flex tw:w-full tw:items-center tw:justify-between">
@@ -129,7 +122,7 @@ function handleKeydown(event) {
           </button>
           <button
             class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0"
-            @click="handleSubmit"
+            @click="formRef?.submit()"
           >
             <IconCheck :size="16" />
             Apply

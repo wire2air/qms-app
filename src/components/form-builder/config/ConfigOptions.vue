@@ -54,7 +54,13 @@ function removeOption(index) {
   <div>
     <div v-if="field.type === 'optionGroup'" class="tw:mb-4">
       <div class="tw:flex tw:flex-col tw:gap-3">
-        <BaseSelectMenu v-model="field.groupType" :items="groupTypeItems" :required="true" />
+        <BaseSelect
+          v-model="field.groupType"
+          :options="groupTypeItems"
+          optionLabel="name"
+          optionValue="id"
+          :required="true"
+        />
         <BaseCheckbox v-model="field.inline" label="Horizontal Alignment" />
       </div>
     </div>

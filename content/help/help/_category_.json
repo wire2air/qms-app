@@ -1,0 +1,9 @@
+{
+  "label": "Help & Troubleshooting",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "title": "Help & Troubleshooting",
+    "description": "Answers to common questions and fixes for common problems."
+  }
+}

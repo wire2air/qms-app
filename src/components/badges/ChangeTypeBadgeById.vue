@@ -3,10 +3,14 @@ const props = defineProps({
   changeTypeId: { type: String, default: null },
 })
 
-const changeType = useLiveQueryWithDeps([() => props.changeTypeId], async (db, [id]) => {
-  if (!id) return null
-  return db.ChangeType.findByPk(id)
-})
+const changeType = useLiveQueryWithDeps(
+  [() => props.changeTypeId],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.ChangeType.findByPk(id)
+  },
+  { models: ['ChangeType'] },
+)
 </script>
 
 <template>

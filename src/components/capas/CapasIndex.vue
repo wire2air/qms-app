@@ -10,5 +10,5 @@ defineProps({
 <template>
   <CapasCreate v-if="id === 'create'" />
   <CapasPageId v-else-if="id" :id="id" :key="id" />
-  <CapasHome v-else />
+  <CapasHomeTabs v-else />
 </template>

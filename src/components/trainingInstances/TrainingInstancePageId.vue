@@ -1,28 +1,54 @@
 <script setup>
-import { IconChevronRight, IconBan, IconUserMinus, IconListSearch } from '@tabler/icons-vue'
+import { IconBan, IconUserMinus, IconListSearch } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { post } from '@/api'
+import { get, post } from '@/api'
 import { DateTime } from 'luxon'
+import {
+  buildTrainingInstanceBanners,
+  buildTrainingInstanceSections,
+  buildTrainingInstanceActions,
+} from './trainingInstanceDetailConfig.js'
 
 const props = defineProps({
   id: { type: String, required: true },
 })
 
+// Reviewer-only answer key — see TrainingAssessmentView. Not in the snapshot,
+// because the snapshot is readable by the person being assessed.
+const answerKey = ref(null)
+watch(
+  () => props.id,
+  async (id) => {
+    answerKey.value = null
+    if (!id) return
+    try {
+      const data = await get(`/v1/services/trainingInstances/${id}/answer-key`)
+      answerKey.value = data?.answerKey ?? null
+    } catch (err) {
+      console.error('[training] could not load the assessment answer key', err)
+    }
+  },
+  { immediate: true },
+)
+
 const router = useRouter()
 const toast = useToast()
-const canManage = computed(() => isAllowed(['trainingInstances:manage']))
+const canManage = computed(() => isAllowed(['training_instances:manage']))
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const instance = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.TrainingInstance.findByPk(id),
+const instance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.TrainingInstance.findByPk(id),
+  { models: ['TrainingInstance'] },
 )
 
 const allAssignees = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [instanceId]) => db.TrainingAssignee.where('trainingInstanceId', instanceId).exec(),
-  { initial: [] },
+
+  { models: ['TrainingAssignee'], initial: [] },
 )
 
 const loading = computed(() => instance.value === undefined)
@@ -155,326 +181,332 @@ function openAssessmentReview(assignee) {
 function closeAssessmentReview() {
   reviewAssignee.value = null
 }
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const breadcrumbs = computed(() => [
+  { label: 'Training Instances', to: getCompanyPath('/training-instances') },
+  {
+    label: instance.value?.snapshot?.title || (instance.value === null ? 'Not found' : 'Loading…'),
+  },
+])
+const trainingInstanceBanners = computed(() => buildTrainingInstanceBanners(instance.value))
+const trainingInstanceActions = computed(() =>
+  buildTrainingInstanceActions(
+    {
+      canManage: canManage.value,
+      status: instance.value?.status,
+      needsVerification: needsVerification.value,
+      cancelling: cancelling.value,
+    },
+    {
+      verify: () => router.push(getCompanyPath(`/training-verifications/${props.id}`)),
+      openCancel: openCancelDialog,
+    },
+  ),
+)
+const trainingInstanceDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => trainingInstanceBanners.value,
+    actions: trainingInstanceActions.value,
+    sections: buildTrainingInstanceSections(instance.value),
+  }),
+)
 </script>
 
 <template>
-  <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-64">
-    <BaseSpinner />
-  </div>
-  <div
-    v-else-if="!instance"
-    class="tw:flex tw:items-center tw:justify-center tw:h-64 tw:text-secondary"
+  <BaseDetailLayout
+    :config="trainingInstanceDetailConfig"
+    :record="instance"
+    :loading="loading"
+    :notFound="!loading && !instance"
+    notFoundTitle="Training instance not found"
+    notFoundDescription="This training instance could not be found."
   >
-    Training instance not found.
-  </div>
-  <div v-else class="tw:flex tw:flex-col tw:gap-4 tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary">
-        <RouterLink :to="getCompanyPath('/training-instances')" class="tw:hover:text-primary"
-          >Training Instances</RouterLink
-        >
-        <IconChevronRight :size="14" />
-        <span class="tw:text-on-sidebar tw:font-medium">{{ instance.snapshot?.title }}</span>
-      </div>
-    </SafeTeleport>
+    <template #title>
+      <span class="tw:text-base tw:font-semibold tw:text-on-main">{{
+        instance?.snapshot?.title
+      }}</span>
+    </template>
 
-    <SafeTeleport
-      v-if="canManage && ['ACTIVE', 'PENDING_VERIFICATION'].includes(instance.status)"
-      to="#main-header-actions"
-    >
-      <BaseButton variant="secondary" @click="openCancelDialog">
-        <IconBan :size="16" class="tw:mr-1" /> Cancel Instance
-      </BaseButton>
-    </SafeTeleport>
+    <template #status>
+      <TrainingInstanceStatusBadgeById v-if="instance" :statusId="instance.status" />
+    </template>
 
-    <SafeTeleport v-if="canManage && needsVerification" to="#main-header-actions">
-      <BaseButton
-        variant="primary"
-        @click="router.push(getCompanyPath(`/training-verifications/${id}`))"
+    <template v-if="instance" #meta>
+      <span
+        v-if="instance.dueDate"
+        :class="
+          instanceOverdue && instance.status !== 'COMPLETED' ? 'tw:text-red-600 tw:font-medium' : ''
+        "
       >
-        Verify Training
-      </BaseButton>
-    </SafeTeleport>
+        Due {{ instance.dueDate.formatDate('date') }}
+        <span v-if="instanceOverdue && instance.status !== 'COMPLETED'">· overdue</span>
+      </span>
+      <span v-if="instanceCompletedAt" class="tw:text-green-600 tw:font-medium">
+        · Completed {{ instanceCompletedAt.formatDate('datetime') }}
+      </span>
+      <span v-if="instance.cancelledAt" class="tw:text-red-600 tw:font-medium">
+        · Cancelled {{ instance.cancelledAt.formatDate('date') }}
+      </span>
+    </template>
 
-    <!-- Header -->
-    <div class="tw:flex tw:items-start tw:justify-between">
-      <div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ instance.snapshot?.title }}</h1>
-        <div class="tw:flex tw:items-center tw:gap-2 tw:mt-1">
-          <TrainingInstanceStatusBadgeById :statusId="instance.status" />
-          <span
-            v-if="instance.dueDate"
-            class="tw:text-xs"
+    <template #actions>
+      <DetailActionBar :actions="trainingInstanceActions" />
+    </template>
+
+    <template v-if="instance" #section-details>
+      <!-- Summary stats -->
+      <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-4 tw:gap-3">
+        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Assigned</p>
+          <p class="tw:text-2xl tw:font-bold tw:text-on-sidebar tw:mt-1">{{ stats.total }}</p>
+        </div>
+        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Verified</p>
+          <p class="tw:text-2xl tw:font-bold tw:text-green-600 tw:mt-1">{{ stats.verified }}</p>
+          <p v-if="stats.completed" class="tw:text-xs tw:text-amber-700 tw:mt-0.5">
+            +{{ stats.completed }} pending
+          </p>
+        </div>
+        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Retraining</p>
+          <p
+            class="tw:text-2xl tw:font-bold tw:mt-1"
+            :class="stats.retrainRequired > 0 ? 'tw:text-orange-600' : 'tw:text-on-sidebar'"
+          >
+            {{ stats.retrainRequired }}
+          </p>
+          <p v-if="stats.failed" class="tw:text-xs tw:text-red-600 tw:mt-0.5">
+            {{ stats.failed }} failed
+          </p>
+        </div>
+        <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
+          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">Pass rate</p>
+          <p
+            class="tw:text-2xl tw:font-bold tw:mt-1"
             :class="
-              instanceOverdue && instance.status !== 'COMPLETED'
-                ? 'tw:text-red-600 tw:font-medium'
-                : 'tw:text-secondary'
+              stats.passRate >= 70
+                ? 'tw:text-green-600'
+                : stats.submitted === 0
+                  ? 'tw:text-on-sidebar'
+                  : 'tw:text-amber-600'
             "
           >
-            Due {{ instance.dueDate.formatDate('date') }}
-            <span v-if="instanceOverdue && instance.status !== 'COMPLETED'">· overdue</span>
-          </span>
-          <span v-if="instanceCompletedAt" class="tw:text-xs tw:text-green-600 tw:font-medium">
-            · Completed {{ instanceCompletedAt.formatDate('datetime') }}
-          </span>
-          <span v-if="instance.cancelledAt" class="tw:text-xs tw:text-red-600 tw:font-medium">
-            · Cancelled {{ instance.cancelledAt.formatDate('date') }}
-          </span>
-        </div>
-        <p
-          v-if="instance.status === 'CANCELLED' && instance.cancelReason"
-          class="tw:text-xs tw:text-secondary tw:italic tw:mt-1"
-        >
-          Reason: {{ instance.cancelReason }}
-        </p>
-      </div>
-    </div>
-
-    <!-- Summary stats -->
-    <div class="tw:grid tw:grid-cols-4 tw:gap-3">
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Assigned</p>
-        <p class="tw:text-2xl tw:font-black tw:text-on-sidebar tw:mt-1">{{ stats.total }}</p>
-      </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Verified</p>
-        <p class="tw:text-2xl tw:font-black tw:text-green-600 tw:mt-1">{{ stats.verified }}</p>
-        <p v-if="stats.completed" class="tw:text-xs tw:text-amber-700 tw:mt-0.5">
-          +{{ stats.completed }} pending
-        </p>
-      </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Retraining</p>
-        <p
-          class="tw:text-2xl tw:font-black tw:mt-1"
-          :class="stats.retrainRequired > 0 ? 'tw:text-orange-600' : 'tw:text-on-sidebar'"
-        >
-          {{ stats.retrainRequired }}
-        </p>
-        <p v-if="stats.failed" class="tw:text-xs tw:text-red-600 tw:mt-0.5">
-          {{ stats.failed }} failed
-        </p>
-      </div>
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">Pass rate</p>
-        <p
-          class="tw:text-2xl tw:font-black tw:mt-1"
-          :class="
-            stats.passRate >= 70
-              ? 'tw:text-green-600'
-              : stats.submitted === 0
-                ? 'tw:text-on-sidebar'
-                : 'tw:text-amber-600'
-          "
-        >
-          {{ stats.passRate }}%
-        </p>
-      </div>
-    </div>
-
-    <!-- Assignee Progress -->
-    <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5">
-      <h2 class="tw:text-lg tw:font-semibold tw:text-on-sidebar tw:mb-4">Assignee Progress</h2>
-      <p v-if="!allAssignees.length" class="tw:text-sm tw:text-secondary tw:italic">
-        No assignees.
-      </p>
-
-      <div v-else class="tw:flex tw:flex-col tw:gap-2">
-        <div
-          v-for="assignee in allAssignees"
-          :key="assignee.id"
-          class="tw:grid tw:grid-cols-[1fr_auto_auto_auto_auto_auto_auto] tw:items-center tw:gap-4 tw:px-3 tw:py-2.5 tw:rounded-lg tw:border tw:border-divider tw:bg-white"
-          :class="[
-            isAssigneeOverdue(assignee) ? 'tw:border-red-200 tw:bg-red-50/30' : '',
-            assignee.status === 'REMOVED' ? 'tw:opacity-60' : '',
-          ]"
-        >
-          <div class="tw:flex tw:flex-col">
-            <UserBadgeById :userId="assignee.userId" />
-            <span
-              v-if="assignee.status === 'REMOVED' && assignee.removalReason"
-              class="tw:text-xs tw:text-secondary tw:italic tw:mt-1"
-            >
-              Removed: {{ assignee.removalReason }}
-            </span>
-          </div>
-
-          <span
-            class="tw:text-xs"
-            :class="
-              isAssigneeOverdue(assignee) ? 'tw:text-red-600 tw:font-medium' : 'tw:text-secondary'
-            "
-          >
-            <template v-if="assignee.status === 'REMOVED' && assignee.removedAt">
-              Removed {{ assignee.removedAt.formatDate('date') }}
-            </template>
-            <template v-else-if="assignee.completedAt">
-              Completed {{ assignee.completedAt.formatDate('date') }}
-            </template>
-            <template v-else-if="instance.dueDate">
-              Due {{ instance.dueDate.formatDate('date') }}
-              <span v-if="isAssigneeOverdue(assignee)">· overdue</span>
-            </template>
-            <template v-else>No deadline</template>
-          </span>
-
-          <span class="tw:text-xs tw:text-secondary">
-            Attempts: {{ assignee.attemptCount ?? 0 }}/{{ instance.snapshot?.maxAttempts ?? 1 }}
-          </span>
-
-          <span
-            v-if="assignee.score !== null"
-            class="tw:text-sm tw:font-semibold tw:w-12 tw:text-right"
-            :class="assignee.status === 'COMPLETED' ? 'tw:text-green-600' : 'tw:text-red-600'"
-          >
-            {{ assignee.score }}%
-          </span>
-          <span v-else class="tw:text-sm tw:text-secondary tw:w-12 tw:text-right">—</span>
-
-          <TrainingAssigneeStatusBadgeById :statusId="assignee.status" />
-
-          <button
-            v-if="canManage && hasAssessment && (assignee.attemptCount ?? 0) > 0"
-            class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
-            title="Review trainee's assessment answers"
-            @click="openAssessmentReview(assignee)"
-          >
-            <IconListSearch :size="14" />
-            View answers
-          </button>
-          <span v-else class="tw:w-[88px]" />
-
-          <button
-            v-if="canManage && ['ASSIGNED', 'IN_PROGRESS', 'FAILED'].includes(assignee.status)"
-            class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600 tw:transition-colors"
-            title="Remove assignee"
-            @click="openRemoveDialog(assignee)"
-          >
-            <IconUserMinus :size="16" />
-          </button>
-          <span v-else class="tw:w-6" />
+            {{ stats.passRate }}%
+          </p>
         </div>
       </div>
-    </div>
 
-    <!-- Remove assignee dialog -->
-    <BaseDialog
-      :modelValue="!!removeTarget"
-      :title="'Remove Assignee'"
-      maxWidth="md"
-      @update:modelValue="(v) => !v && closeRemoveDialog()"
-    >
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div
-          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
-        >
-          <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⚠</div>
-          <div class="tw:text-sm tw:text-amber-800">
-            This assignee will be marked as <strong>Removed</strong> and their training task will be
-            cancelled. The reason below is recorded in the audit log.
-          </div>
-        </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
-          <BaseTextarea
-            v-model="removeReason"
-            :rows="3"
-            placeholder="Why is this assignee being removed?"
-          />
-        </div>
-      </div>
-      <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="danger"
-          :loading="removing"
-          :disabled="!removeReason.trim()"
-          @click="handleRemoveAssignee"
-        >
-          Remove Assignee
-        </BaseButton>
-      </template>
-    </BaseDialog>
+      <!-- Assignee Progress -->
+      <FormSection title="Assignee Progress">
+        <p v-if="!allAssignees.length" class="tw:text-sm tw:text-secondary tw:italic">
+          No assignees.
+        </p>
 
-    <!-- Assessment review dialog (manager only) -->
-    <BaseDialog
-      :modelValue="!!reviewAssignee"
-      title="Assessment Answers"
-      maxWidth="3xl"
-      @update:modelValue="(v) => !v && closeAssessmentReview()"
-    >
-      <div v-if="reviewAssignee" class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
-          <div class="tw:flex tw:items-center tw:gap-3">
-            <UserBadgeById :userId="reviewAssignee.userId" />
-            <TrainingAssigneeStatusBadgeById :statusId="reviewAssignee.status" />
-          </div>
-          <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
-            <span>
-              Score:
+        <div v-else class="tw:flex tw:flex-col tw:gap-2">
+          <div
+            v-for="assignee in allAssignees"
+            :key="assignee.id"
+            class="tw:grid tw:grid-cols-[1fr_auto_auto_auto_auto_auto_auto] tw:items-center tw:gap-4 tw:px-3 tw:py-2.5 tw:rounded-lg tw:border tw:border-divider tw:bg-white"
+            :class="[
+              isAssigneeOverdue(assignee) ? 'tw:border-red-200 tw:bg-red-50/30' : '',
+              assignee.status === 'REMOVED' ? 'tw:opacity-60' : '',
+            ]"
+          >
+            <div class="tw:flex tw:flex-col">
+              <UserBadgeById :userId="assignee.userId" />
               <span
-                class="tw:font-semibold"
-                :class="
-                  reviewAssignee.status === 'COMPLETED' || reviewAssignee.status === 'VERIFIED'
-                    ? 'tw:text-green-600'
-                    : 'tw:text-red-600'
-                "
+                v-if="assignee.status === 'REMOVED' && assignee.removalReason"
+                class="tw:text-xs tw:text-secondary tw:italic tw:mt-1"
               >
-                {{ reviewAssignee.score ?? '—' }}%
+                Removed: {{ assignee.removalReason }}
               </span>
+            </div>
+
+            <span
+              class="tw:text-xs"
+              :class="
+                isAssigneeOverdue(assignee) ? 'tw:text-red-600 tw:font-medium' : 'tw:text-secondary'
+              "
+            >
+              <template v-if="assignee.status === 'REMOVED' && assignee.removedAt">
+                Removed {{ assignee.removedAt.formatDate('date') }}
+              </template>
+              <template v-else-if="assignee.completedAt">
+                Completed {{ assignee.completedAt.formatDate('date') }}
+              </template>
+              <template v-else-if="instance.dueDate">
+                Due {{ instance.dueDate.formatDate('date') }}
+                <span v-if="isAssigneeOverdue(assignee)">· overdue</span>
+              </template>
+              <template v-else>No deadline</template>
             </span>
-            <span>
-              Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{ instance.snapshot?.maxAttempts ?? 1 }}
+
+            <span class="tw:text-xs tw:text-secondary">
+              Attempts: {{ assignee.attemptCount ?? 0 }}/{{ instance.snapshot?.maxAttempts ?? 1 }}
             </span>
+
+            <span
+              v-if="assignee.score !== null"
+              class="tw:text-sm tw:font-semibold tw:w-12 tw:text-right"
+              :class="assignee.status === 'COMPLETED' ? 'tw:text-green-600' : 'tw:text-red-600'"
+            >
+              {{ assignee.score }}%
+            </span>
+            <span v-else class="tw:text-sm tw:text-secondary tw:w-12 tw:text-right">—</span>
+
+            <TrainingAssigneeStatusBadgeById :statusId="assignee.status" />
+
+            <button
+              v-if="canManage && hasAssessment && (assignee.attemptCount ?? 0) > 0"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
+              title="Review trainee's assessment answers"
+              @click="openAssessmentReview(assignee)"
+            >
+              <IconListSearch :size="14" />
+              View answers
+            </button>
+            <span v-else class="tw:w-[88px]" />
+
+            <button
+              v-if="canManage && ['ASSIGNED', 'IN_PROGRESS', 'FAILED'].includes(assignee.status)"
+              class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-red-50 tw:hover:text-red-600 tw:transition-colors"
+              title="Remove assignee"
+              @click="openRemoveDialog(assignee)"
+            >
+              <IconUserMinus :size="16" />
+            </button>
+            <span v-else class="tw:w-6" />
           </div>
         </div>
-        <TrainingAssessmentView
-          :answers="reviewAssignee.assessmentAnswers ?? {}"
-          :questions="assessmentQuestions"
-          :passingScore="instance.snapshot?.passingScore ?? 70"
-          :attemptCount="reviewAssignee.attemptCount ?? 0"
-          :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
-          :readonly="true"
-          :showCorrect="true"
+      </FormSection>
+    </template>
+  </BaseDetailLayout>
+
+  <!-- Remove assignee dialog -->
+  <BaseDialog
+    :modelValue="!!removeTarget"
+    :title="'Remove Assignee'"
+    maxWidth="md"
+    @update:modelValue="(v) => !v && closeRemoveDialog()"
+  >
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+      >
+        <div class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5">⚠</div>
+        <div class="tw:text-sm tw:text-amber-800">
+          This assignee will be marked as <strong>Removed</strong> and their training task will be
+          cancelled. The reason below is recorded in the audit log.
+        </div>
+      </div>
+      <div>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Reason</p>
+        <BaseTextarea
+          v-model="removeReason"
+          :rows="3"
+          placeholder="Why is this assignee being removed?"
         />
       </div>
-      <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Close</BaseButton>
-      </template>
-    </BaseDialog>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Remove Assignee"
+        submitVariant="danger"
+        :loading="removing"
+        :disabled="!removeReason.trim()"
+        @cancel="close"
+        @submit="handleRemoveAssignee"
+      />
+    </template>
+  </BaseDialog>
 
-    <!-- Cancel instance dialog -->
-    <BaseDialog v-model="showCancelDialog" title="Cancel Training Instance" maxWidth="md">
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <div
-          class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
-        >
-          <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⚠</div>
-          <div class="tw:text-sm tw:text-red-800">
-            All active training tasks for assigned employees will be cancelled. The reason below is
-            recorded on the instance and in the audit log.
-          </div>
+  <!-- Assessment review dialog (manager only) -->
+  <BaseDialog
+    :modelValue="!!reviewAssignee"
+    title="Assessment Answers"
+    maxWidth="3xl"
+    @update:modelValue="(v) => !v && closeAssessmentReview()"
+  >
+    <div v-if="reviewAssignee" class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
+        <div class="tw:flex tw:items-center tw:gap-3">
+          <UserBadgeById :userId="reviewAssignee.userId" />
+          <TrainingAssigneeStatusBadgeById :statusId="reviewAssignee.status" />
         </div>
-        <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">Reason</p>
-          <BaseTextarea
-            v-model="cancelReason"
-            :rows="3"
-            placeholder="Why is this training instance being cancelled?"
-          />
+        <div class="tw:flex tw:items-center tw:gap-3 tw:text-xs tw:text-secondary">
+          <span>
+            Score:
+            <span
+              class="tw:font-semibold"
+              :class="
+                reviewAssignee.status === 'COMPLETED' || reviewAssignee.status === 'VERIFIED'
+                  ? 'tw:text-green-600'
+                  : 'tw:text-red-600'
+              "
+            >
+              {{ reviewAssignee.score ?? '—' }}%
+            </span>
+          </span>
+          <span>
+            Attempts: {{ reviewAssignee.attemptCount ?? 0 }}/{{
+              instance.snapshot?.maxAttempts ?? 1
+            }}
+          </span>
         </div>
       </div>
-      <template #footer="{ close }">
-        <BaseButton variant="secondary" @click="close">Keep Active</BaseButton>
-        <BaseButton
-          variant="danger"
-          :loading="cancelling"
-          :disabled="!cancelReason.trim()"
-          @click="handleCancel"
-        >
-          <IconBan :size="16" class="tw:mr-1" /> Cancel Instance
-        </BaseButton>
-      </template>
-    </BaseDialog>
-  </div>
+      <TrainingAssessmentView
+        :answers="reviewAssignee.assessmentAnswers ?? {}"
+        :questions="assessmentQuestions"
+        :passingScore="instance.snapshot?.passingScore ?? 70"
+        :attemptCount="reviewAssignee.attemptCount ?? 0"
+        :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
+        :readonly="true"
+        :showCorrect="true"
+        :answerKey="answerKey"
+      />
+    </div>
+    <template #footer="{ close }">
+      <BaseButton variant="secondary" @click="close">Close</BaseButton>
+    </template>
+  </BaseDialog>
+
+  <!-- Cancel instance dialog -->
+  <BaseDialog v-model="showCancelDialog" title="Cancel Training Instance" maxWidth="md">
+    <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-red-50 tw:border tw:border-red-200"
+      >
+        <div class="tw:text-red-600 tw:shrink-0 tw:mt-0.5">⚠</div>
+        <div class="tw:text-sm tw:text-red-800">
+          All active training tasks for assigned employees will be cancelled. The reason below is
+          recorded on the instance and in the audit log.
+        </div>
+      </div>
+      <div>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Reason</p>
+        <BaseTextarea
+          v-model="cancelReason"
+          :rows="3"
+          placeholder="Why is this training instance being cancelled?"
+        />
+      </div>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        cancelLabel="Keep Active"
+        submitLabel="Cancel Instance"
+        submitVariant="danger"
+        :loading="cancelling"
+        :disabled="!cancelReason.trim()"
+        @cancel="close"
+        @submit="handleCancel"
+      >
+        <template #submitIcon><IconBan :size="16" /></template>
+      </BaseDialogFooter>
+    </template>
+  </BaseDialog>
 </template>

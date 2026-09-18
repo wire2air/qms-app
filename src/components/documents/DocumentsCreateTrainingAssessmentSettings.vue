@@ -39,25 +39,29 @@ const retryLimitOptions = [
         <div class="tw:flex tw:items-center tw:justify-between">
           <div>
             <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Required Completion</label>
-            <p class="tw:text-[11px] tw:text-secondary">Must pass before signing</p>
+            <p class="tw:text-caption tw:text-secondary">Must pass before signing</p>
           </div>
           <BaseSwitch v-model="form.requiredCompletion" />
         </div>
-        <div class="tw:space-y-2">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Assessment Due Date</label>
-          <BaseDatePicker v-model="form.assessmentDueDate" />
-        </div>
-        <div class="tw:space-y-2">
-          <label class="tw:text-sm tw:font-medium tw:text-secondary">Retry limit</label>
-          <BaseSelectMenu v-model="form.retryLimit" :items="retryLimitOptions" :required="true" />
-        </div>
+        <BaseField label="Assessment Due Date">
+          <BaseDateField v-model="form.assessmentDueDate" mode="date" />
+        </BaseField>
+        <BaseField label="Retry limit">
+          <BaseSelect
+            v-model="form.retryLimit"
+            :options="retryLimitOptions"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
+        </BaseField>
       </div>
       <div class="tw:mt-8 tw:pt-6 tw:border-t tw:border-divider">
         <div
           class="tw:flex tw:items-center tw:gap-2 tw:text-primary tw:bg-primary/20 tw:p-3 tw:rounded-lg"
         >
           <IconInfoCircle class="tw:size-5 tw:shrink-0" />
-          <p class="tw:text-[12px] tw:leading-tight tw:font-medium">
+          <p class="tw:text-label tw:leading-tight tw:font-medium">
             Changes here will apply to all current trainees of this version.
           </p>
         </div>

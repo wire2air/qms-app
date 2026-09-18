@@ -10,10 +10,12 @@ const props = defineProps({
 // task_instance_id so we can find it directly.
 const check = useLiveQueryWithDeps(
   [() => props.taskInstance.id],
+
   async (db, [taskInstanceId]) => {
     if (!taskInstanceId) return null
     return db.CapaEffectivenessCheck.where('taskInstanceId', taskInstanceId).first()
   },
+  { models: ['CapaEffectivenessCheck'] },
 )
 
 // Single "Verify Effectiveness" entrypoint — the consolidated dialog

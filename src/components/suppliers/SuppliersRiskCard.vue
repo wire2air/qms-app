@@ -26,23 +26,22 @@ defineProps({
         >
           <IconShieldCheck :size="20" class="tw:text-sky-600" />
         </div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Risk Profile</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Risk Profile</h3>
       </div>
       <div class="tw:p-6 tw:space-y-6">
         <div>
-          <label class="ds-label-sm tw:text-secondary tw:block tw:mb-2">Current Risk Level</label>
+          <BaseLabel color="secondary" class="tw:mb-2">Current Risk Level</BaseLabel>
           <SupplierRiskLevelSelectMenu v-if="canUpdate" v-model="supplier.riskLevel" />
           <template v-else>
             <SupplierRiskLevelBadge v-if="supplier.riskLevel" :riskLevelId="supplier.riskLevel" />
             <p v-else class="tw:text-sm tw:text-secondary">Not assessed</p>
           </template>
         </div>
-        <div>
-          <label class="ds-label-sm tw:text-secondary tw:block tw:mb-1">Last Assessment</label>
-          <p class="tw:text-sm tw:font-medium tw:text-on-main">
-            {{ supplier.lastEvaluationDate?.formatDate('date') || 'Not evaluated' }}
-          </p>
-        </div>
+        <BaseDetailField
+          label="Last Assessment"
+          :value="supplier.lastEvaluationDate?.formatDate('date')"
+          empty="Not evaluated"
+        />
       </div>
     </div>
   </div>

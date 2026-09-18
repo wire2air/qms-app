@@ -8,18 +8,30 @@ const props = defineProps({
   maxAttempts: { type: Number, default: 1 },
   readonly: { type: Boolean, default: false },
   showCorrect: { type: Boolean, default: false },
+  // { [questionId]: [correctOptionId, ...] } — fetched from the reviewer-only
+  // /answer-key endpoint. The key no longer travels inside the instance
+  // snapshot, because that snapshot syncs into the learner's own browser.
+  // Null for legacy instances, where `option.isCorrect` is still present.
+  answerKey: { type: Object, default: null },
 })
 
 const answers = defineModel('answers', { type: Object, default: () => ({}) })
 
 const attemptsLeft = computed(() => Math.max(0, props.maxAttempts - props.attemptCount))
 
+function isCorrectOption(question, opt) {
+  const key = props.answerKey?.[question.id]
+  // Prefer the fetched key; fall back to the inline flag for legacy instances.
+  return key ? key.includes(opt.id) : !!opt.isCorrect
+}
+
 function optionState(question, opt) {
   const selected = isSelected(question.id, opt.id)
   if (!props.showCorrect) return selected ? 'selected' : 'idle'
-  if (selected && opt.isCorrect) return 'correctSelected'
-  if (selected && !opt.isCorrect) return 'wrongSelected'
-  if (!selected && opt.isCorrect) return 'correctMissed'
+  const correct = isCorrectOption(question, opt)
+  if (selected && correct) return 'correctSelected'
+  if (selected && !correct) return 'wrongSelected'
+  if (!selected && correct) return 'correctMissed'
   return 'idle'
 }
 

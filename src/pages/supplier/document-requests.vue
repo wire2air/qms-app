@@ -18,7 +18,6 @@ import {
   IconCircleDot,
 } from '@tabler/icons-vue'
 import { upload } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { currentSession } from '@/utils/currentSession.js'
 
 defineOptions({ name: 'SupplierDocumentRequestsPage' })
 const pageInfo = usePageInfo()
@@ -28,15 +27,18 @@ const toast = useToast()
 
 const requests = useLiveQuery(
   async (db) => db.AssetRequest.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequest'], initial: [] },
 )
 const items = useLiveQuery(
   async (db) => db.AssetRequestItem.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestItem'], initial: [] },
 )
 const types = useLiveQuery(
   async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestType'], initial: [] },
 )
 
 const requestById = computed(() => {
@@ -114,20 +116,19 @@ async function pickAndUpload(item) {
     <div class="tw:flex tw:items-center tw:gap-3">
       <IconClipboardList :size="28" class="tw:text-primary tw:shrink-0" />
       <div class="tw:flex-1">
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main">Document Requests</h1>
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main">Document Requests</h1>
         <p class="tw:text-sm tw:text-secondary">
           Every document the client has asked you for. Upload each one — you can replace an
           already-sent file at any time until the request is closed.
         </p>
       </div>
-      <!-- Diagnostic counters — handy until the sync pipeline is stable.
-           Strip these once we're confident new requests reliably surface. -->
-      <div class="tw:text-right tw:text-xs tw:text-secondary tw:font-mono">
-        <div>{{ requests.length }} request{{ requests.length === 1 ? '' : 's' }}</div>
-        <div>{{ items.length }} item{{ items.length === 1 ? '' : 's' }} in IDB</div>
-        <div v-if="currentSession?.supplierId" class="tw:text-[10px]">
-          supplier: {{ currentSession.supplierId.slice(0, 8) }}…
-        </div>
+      <!-- F-14 — this was a developer diagnostic ("N items in IDB", the first
+           eight characters of the supplier's UUID) shipped to the page a THIRD
+           PARTY logs into. It leaked client-side storage internals and an
+           internal identifier to someone outside the company. What a supplier
+           actually wants here is how much is still owed. -->
+      <div v-if="pendingItems.length" class="tw:text-right tw:text-xs tw:text-secondary">
+        {{ pendingItems.length }} document{{ pendingItems.length === 1 ? '' : 's' }} outstanding
       </div>
     </div>
 
@@ -157,7 +158,7 @@ async function pickAndUpload(item) {
             <div v-if="itemSubtitle(item)" class="tw:text-xs tw:text-secondary">
               {{ itemSubtitle(item) }}
             </div>
-            <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+            <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
               From request: <span class="tw:font-medium">{{ parentTitle(item) }}</span>
               <span v-if="parentDueDate(item)"> · due {{ parentDueDate(item) }}</span>
             </div>
@@ -201,7 +202,7 @@ async function pickAndUpload(item) {
           <IconCircleCheck :size="16" class="tw:text-green-600 tw:shrink-0 tw:mt-0.5" />
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:font-medium tw:text-on-main">{{ itemLabel(item) }}</div>
-            <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+            <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
               From request: <span class="tw:font-medium">{{ parentTitle(item) }}</span>
               <span v-if="item.uploadedAt"> · uploaded {{ item.uploadedAt.toRelative?.() }}</span>
             </div>
@@ -242,7 +243,7 @@ async function pickAndUpload(item) {
           <IconCircleMinus :size="16" class="tw:text-secondary tw:shrink-0 tw:mt-0.5" />
           <div class="tw:flex-1 tw:min-w-0">
             <div class="tw:font-medium tw:text-on-main">{{ itemLabel(item) }}</div>
-            <div class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+            <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
               The client marked this one as not applicable.
             </div>
           </div>

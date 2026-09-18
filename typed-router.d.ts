@@ -51,6 +51,13 @@ declare module 'vue-router/auto-routes' {
       { companyId?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/admin-security': RouteRecordInfo<
+      '/admin-security',
+      '/admin-security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/ai-usage': RouteRecordInfo<
       '/ai-usage',
       '/ai-usage',
@@ -58,11 +65,67 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/api-keys': RouteRecordInfo<
-      '/api-keys',
-      '/api-keys',
+    '/analytics/': RouteRecordInfo<
+      '/analytics/',
+      '/analytics',
       Record<never, never>,
       Record<never, never>,
+      | never
+    >,
+    '/analytics/alerts/': RouteRecordInfo<
+      '/analytics/alerts/',
+      '/analytics/alerts',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/alerts/[id]': RouteRecordInfo<
+      '/analytics/alerts/[id]',
+      '/analytics/alerts/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/analytics/dashboards/': RouteRecordInfo<
+      '/analytics/dashboards/',
+      '/analytics/dashboards',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/dashboards/[id]': RouteRecordInfo<
+      '/analytics/dashboards/[id]',
+      '/analytics/dashboards/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/analytics/explore': RouteRecordInfo<
+      '/analytics/explore',
+      '/analytics/explore',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/metrics/': RouteRecordInfo<
+      '/analytics/metrics/',
+      '/analytics/metrics',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/reports/': RouteRecordInfo<
+      '/analytics/reports/',
+      '/analytics/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/analytics/reports/[id]': RouteRecordInfo<
+      '/analytics/reports/[id]',
+      '/analytics/reports/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/api-tokens': RouteRecordInfo<
@@ -72,16 +135,65 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/asset-request/[token]': RouteRecordInfo<
-      '/asset-request/[token]',
-      '/asset-request/:token',
-      { token: ParamValue<true> },
-      { token: ParamValue<false> },
+    '/approval-flows/[[id]]': RouteRecordInfo<
+      '/approval-flows/[[id]]',
+      '/approval-flows/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
       | never
     >,
     '/audit-logs': RouteRecordInfo<
       '/audit-logs',
       '/audit-logs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/auditee/': RouteRecordInfo<
+      '/auditee/',
+      '/auditee',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/auditee/[id]': RouteRecordInfo<
+      '/auditee/[id]',
+      '/auditee/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/audits/': RouteRecordInfo<
+      '/audits/',
+      '/audits',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/audits/instances/[id]': RouteRecordInfo<
+      '/audits/instances/[id]',
+      '/audits/instances/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/audits/programs/[id]': RouteRecordInfo<
+      '/audits/programs/[id]',
+      '/audits/programs/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/audits/standards/[id]': RouteRecordInfo<
+      '/audits/standards/[id]',
+      '/audits/standards/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/automation-rules': RouteRecordInfo<
+      '/automation-rules',
+      '/automation-rules',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -100,6 +212,48 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/complaint-settings': RouteRecordInfo<
+      '/complaint-settings',
+      '/complaint-settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/complaints/[[id]]': RouteRecordInfo<
+      '/complaints/[[id]]',
+      '/complaints/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/complaints/reports': RouteRecordInfo<
+      '/complaints/reports',
+      '/complaints/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/custom-fields': RouteRecordInfo<
+      '/custom-fields',
+      '/custom-fields',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/customer-complaints/[[id]]': RouteRecordInfo<
+      '/customer-complaints/[[id]]',
+      '/customer-complaints/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/customer-complaints/reports': RouteRecordInfo<
+      '/customer-complaints/reports',
+      '/customer-complaints/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/dashboard': RouteRecordInfo<
       '/dashboard',
       '/dashboard',
@@ -110,6 +264,27 @@ declare module 'vue-router/auto-routes' {
     '/departments': RouteRecordInfo<
       '/departments',
       '/departments',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/docs/': RouteRecordInfo<
+      '/docs/',
+      '/docs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/docs/[...slug]': RouteRecordInfo<
+      '/docs/[...slug]',
+      '/docs/:slug(.*)',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
+    '/document-imports': RouteRecordInfo<
+      '/document-imports',
+      '/document-imports',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -149,11 +324,18 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/form/[templateId]': RouteRecordInfo<
-      '/form/[templateId]',
-      '/form/:templateId',
-      { templateId: ParamValue<true> },
-      { templateId: ParamValue<false> },
+    '/form/[shareToken]': RouteRecordInfo<
+      '/form/[shareToken]',
+      '/form/:shareToken',
+      { shareToken: ParamValue<true> },
+      { shareToken: ParamValue<false> },
+      | never
+    >,
+    '/form-blocks': RouteRecordInfo<
+      '/form-blocks',
+      '/form-blocks',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/form-templates': RouteRecordInfo<
@@ -168,6 +350,20 @@ declare module 'vue-router/auto-routes' {
       '/groups/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/help/': RouteRecordInfo<
+      '/help/',
+      '/help',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/help/[...slug]': RouteRecordInfo<
+      '/help/[...slug]',
+      '/help/:slug(.*)',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
       | never
     >,
     '/inspections-logs/': RouteRecordInfo<
@@ -212,6 +408,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/inspections-logs/log-forms': RouteRecordInfo<
+      '/inspections-logs/log-forms',
+      '/inspections-logs/log-forms',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/inspections-logs/queue': RouteRecordInfo<
       '/inspections-logs/queue',
       '/inspections-logs/queue',
@@ -247,6 +450,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/lookups': RouteRecordInfo<
+      '/lookups',
+      '/lookups',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/m/[moduleKey]/[[id]]': RouteRecordInfo<
+      '/m/[moduleKey]/[[id]]',
+      '/m/:moduleKey/:id?',
+      { moduleKey: ParamValue<true>, id?: ParamValueZeroOrOne<true> },
+      { moduleKey: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
     '/my-training/[id]': RouteRecordInfo<
       '/my-training/[id]',
       '/my-training/:id',
@@ -254,11 +471,25 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/no-access': RouteRecordInfo<
+      '/no-access',
+      '/no-access',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/nonconformances/[[id]]': RouteRecordInfo<
       '/nonconformances/[[id]]',
       '/nonconformances/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/notification-rules': RouteRecordInfo<
+      '/notification-rules',
+      '/notification-rules',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/notifications': RouteRecordInfo<
@@ -275,6 +506,69 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/organization-security': RouteRecordInfo<
+      '/organization-security',
+      '/organization-security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/': RouteRecordInfo<
+      '/platform/',
+      '/platform',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/admins': RouteRecordInfo<
+      '/platform/admins',
+      '/platform/admins',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/approvals': RouteRecordInfo<
+      '/platform/approvals',
+      '/platform/approvals',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/audit': RouteRecordInfo<
+      '/platform/audit',
+      '/platform/audit',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/companies/': RouteRecordInfo<
+      '/platform/companies/',
+      '/platform/companies',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/companies/[id]': RouteRecordInfo<
+      '/platform/companies/[id]',
+      '/platform/companies/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/platform/plans': RouteRecordInfo<
+      '/platform/plans',
+      '/platform/plans',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/seed': RouteRecordInfo<
+      '/platform/seed',
+      '/platform/seed',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/print': RouteRecordInfo<
       '/print',
       '/print',
@@ -282,9 +576,58 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/products': RouteRecordInfo<
-      '/products',
-      '/products',
+    '/products/[[id]]': RouteRecordInfo<
+      '/products/[[id]]',
+      '/products/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/profile': RouteRecordInfo<
+      '/profile',
+      '/profile',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/qc-inspection/': RouteRecordInfo<
+      '/qc-inspection/',
+      '/qc-inspection',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/qc-inspection/lots/[id]': RouteRecordInfo<
+      '/qc-inspection/lots/[id]',
+      '/qc-inspection/lots/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/qc-inspection/retain-samples/[id]': RouteRecordInfo<
+      '/qc-inspection/retain-samples/[id]',
+      '/qc-inspection/retain-samples/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/qc-inspection/specifications/[id]': RouteRecordInfo<
+      '/qc-inspection/specifications/[id]',
+      '/qc-inspection/specifications/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/qualityEvents/[[id]]': RouteRecordInfo<
+      '/qualityEvents/[[id]]',
+      '/qualityEvents/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/qualityEvents/dashboard': RouteRecordInfo<
+      '/qualityEvents/dashboard',
+      '/qualityEvents/dashboard',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -299,6 +642,13 @@ declare module 'vue-router/auto-routes' {
     '/records': RouteRecordInfo<
       '/records',
       '/records',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/reset-esign-pin': RouteRecordInfo<
+      '/reset-esign-pin',
+      '/reset-esign-pin',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -324,9 +674,37 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/security': RouteRecordInfo<
+      '/security',
+      '/security',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/service-accounts': RouteRecordInfo<
+      '/service-accounts',
+      '/service-accounts',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/share/[token]': RouteRecordInfo<
+      '/share/[token]',
+      '/share/:token',
+      { token: ParamValue<true> },
+      { token: ParamValue<false> },
+      | never
+    >,
+    '/shared-records': RouteRecordInfo<
+      '/shared-records',
+      '/shared-records',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -366,18 +744,25 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/supplier-document/[token]': RouteRecordInfo<
-      '/supplier-document/[token]',
-      '/supplier-document/:token',
-      { token: ParamValue<true> },
-      { token: ParamValue<false> },
-      | never
-    >,
     '/suppliers/[[id]]': RouteRecordInfo<
       '/suppliers/[[id]]',
       '/suppliers/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/support/[slug]': RouteRecordInfo<
+      '/support/[slug]',
+      '/support/:slug',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
+    '/support/ticket/[id]': RouteRecordInfo<
+      '/support/ticket/[id]',
+      '/support/ticket/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/task-instances': RouteRecordInfo<
@@ -394,6 +779,13 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/training-curriculum': RouteRecordInfo<
+      '/training-curriculum',
+      '/training-curriculum',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/training-instances/[[id]]': RouteRecordInfo<
       '/training-instances/[[id]]',
       '/training-instances/:id?',
@@ -401,9 +793,9 @@ declare module 'vue-router/auto-routes' {
       { id?: ParamValueZeroOrOne<false> },
       | never
     >,
-    '/training-matrix': RouteRecordInfo<
-      '/training-matrix',
-      '/training-matrix',
+    '/training-reports': RouteRecordInfo<
+      '/training-reports',
+      '/training-reports',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -427,6 +819,27 @@ declare module 'vue-router/auto-routes' {
       '/users/:id?',
       { id?: ParamValueZeroOrOne<true> },
       { id?: ParamValueZeroOrOne<false> },
+      | never
+    >,
+    '/validation/': RouteRecordInfo<
+      '/validation/',
+      '/validation',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/validation/[...slug]': RouteRecordInfo<
+      '/validation/[...slug]',
+      '/validation/:slug(.*)',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
+    '/vendor-access-log': RouteRecordInfo<
+      '/vendor-access-log',
+      '/vendor-access-log',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/workflow-instances/[[id]]': RouteRecordInfo<
@@ -480,15 +893,69 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/admin-security.vue': {
+      routes:
+        | '/admin-security'
+      views:
+        | never
+    }
     'src/pages/ai-usage.vue': {
       routes:
         | '/ai-usage'
       views:
         | never
     }
-    'src/pages/api-keys.vue': {
+    'src/pages/analytics/index.vue': {
       routes:
-        | '/api-keys'
+        | '/analytics/'
+      views:
+        | never
+    }
+    'src/pages/analytics/alerts/index.vue': {
+      routes:
+        | '/analytics/alerts/'
+      views:
+        | never
+    }
+    'src/pages/analytics/alerts/[id].vue': {
+      routes:
+        | '/analytics/alerts/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/dashboards/index.vue': {
+      routes:
+        | '/analytics/dashboards/'
+      views:
+        | never
+    }
+    'src/pages/analytics/dashboards/[id].vue': {
+      routes:
+        | '/analytics/dashboards/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/explore.vue': {
+      routes:
+        | '/analytics/explore'
+      views:
+        | never
+    }
+    'src/pages/analytics/metrics/index.vue': {
+      routes:
+        | '/analytics/metrics/'
+      views:
+        | never
+    }
+    'src/pages/analytics/reports/index.vue': {
+      routes:
+        | '/analytics/reports/'
+      views:
+        | never
+    }
+    'src/pages/analytics/reports/[id].vue': {
+      routes:
+        | '/analytics/reports/[id]'
       views:
         | never
     }
@@ -498,15 +965,57 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/asset-request/[token].vue': {
+    'src/pages/approval-flows/[[id]].vue': {
       routes:
-        | '/asset-request/[token]'
+        | '/approval-flows/[[id]]'
       views:
         | never
     }
     'src/pages/audit-logs.vue': {
       routes:
         | '/audit-logs'
+      views:
+        | never
+    }
+    'src/pages/auditee/index.vue': {
+      routes:
+        | '/auditee/'
+      views:
+        | never
+    }
+    'src/pages/auditee/[id].vue': {
+      routes:
+        | '/auditee/[id]'
+      views:
+        | never
+    }
+    'src/pages/audits/index.vue': {
+      routes:
+        | '/audits/'
+      views:
+        | never
+    }
+    'src/pages/audits/instances/[id].vue': {
+      routes:
+        | '/audits/instances/[id]'
+      views:
+        | never
+    }
+    'src/pages/audits/programs/[id].vue': {
+      routes:
+        | '/audits/programs/[id]'
+      views:
+        | never
+    }
+    'src/pages/audits/standards/[id].vue': {
+      routes:
+        | '/audits/standards/[id]'
+      views:
+        | never
+    }
+    'src/pages/automation-rules.vue': {
+      routes:
+        | '/automation-rules'
       views:
         | never
     }
@@ -522,6 +1031,42 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/complaint-settings.vue': {
+      routes:
+        | '/complaint-settings'
+      views:
+        | never
+    }
+    'src/pages/complaints/[[id]].vue': {
+      routes:
+        | '/complaints/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/complaints/reports.vue': {
+      routes:
+        | '/complaints/reports'
+      views:
+        | never
+    }
+    'src/pages/custom-fields.vue': {
+      routes:
+        | '/custom-fields'
+      views:
+        | never
+    }
+    'src/pages/customer-complaints/[[id]].vue': {
+      routes:
+        | '/customer-complaints/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/customer-complaints/reports.vue': {
+      routes:
+        | '/customer-complaints/reports'
+      views:
+        | never
+    }
     'src/pages/dashboard.vue': {
       routes:
         | '/dashboard'
@@ -531,6 +1076,24 @@ declare module 'vue-router/auto-routes' {
     'src/pages/departments.vue': {
       routes:
         | '/departments'
+      views:
+        | never
+    }
+    'src/pages/docs/index.vue': {
+      routes:
+        | '/docs/'
+      views:
+        | never
+    }
+    'src/pages/docs/[...slug].vue': {
+      routes:
+        | '/docs/[...slug]'
+      views:
+        | never
+    }
+    'src/pages/document-imports.vue': {
+      routes:
+        | '/document-imports'
       views:
         | never
     }
@@ -564,9 +1127,15 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/form/[templateId].vue': {
+    'src/pages/form/[shareToken].vue': {
       routes:
-        | '/form/[templateId]'
+        | '/form/[shareToken]'
+      views:
+        | never
+    }
+    'src/pages/form-blocks.vue': {
+      routes:
+        | '/form-blocks'
       views:
         | never
     }
@@ -579,6 +1148,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/groups/[[id]].vue': {
       routes:
         | '/groups/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/help/index.vue': {
+      routes:
+        | '/help/'
+      views:
+        | never
+    }
+    'src/pages/help/[...slug].vue': {
+      routes:
+        | '/help/[...slug]'
       views:
         | never
     }
@@ -618,6 +1199,12 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/inspections-logs/log-forms.vue': {
+      routes:
+        | '/inspections-logs/log-forms'
+      views:
+        | never
+    }
     'src/pages/inspections-logs/queue.vue': {
       routes:
         | '/inspections-logs/queue'
@@ -648,15 +1235,39 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/lookups.vue': {
+      routes:
+        | '/lookups'
+      views:
+        | never
+    }
+    'src/pages/m/[moduleKey]/[[id]].vue': {
+      routes:
+        | '/m/[moduleKey]/[[id]]'
+      views:
+        | never
+    }
     'src/pages/my-training/[id].vue': {
       routes:
         | '/my-training/[id]'
       views:
         | never
     }
+    'src/pages/no-access.vue': {
+      routes:
+        | '/no-access'
+      views:
+        | never
+    }
     'src/pages/nonconformances/[[id]].vue': {
       routes:
         | '/nonconformances/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/notification-rules.vue': {
+      routes:
+        | '/notification-rules'
       views:
         | never
     }
@@ -672,15 +1283,111 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/organization-security.vue': {
+      routes:
+        | '/organization-security'
+      views:
+        | never
+    }
+    'src/pages/platform/index.vue': {
+      routes:
+        | '/platform/'
+      views:
+        | never
+    }
+    'src/pages/platform/admins.vue': {
+      routes:
+        | '/platform/admins'
+      views:
+        | never
+    }
+    'src/pages/platform/approvals.vue': {
+      routes:
+        | '/platform/approvals'
+      views:
+        | never
+    }
+    'src/pages/platform/audit.vue': {
+      routes:
+        | '/platform/audit'
+      views:
+        | never
+    }
+    'src/pages/platform/companies/index.vue': {
+      routes:
+        | '/platform/companies/'
+      views:
+        | never
+    }
+    'src/pages/platform/companies/[id].vue': {
+      routes:
+        | '/platform/companies/[id]'
+      views:
+        | never
+    }
+    'src/pages/platform/plans.vue': {
+      routes:
+        | '/platform/plans'
+      views:
+        | never
+    }
+    'src/pages/platform/seed.vue': {
+      routes:
+        | '/platform/seed'
+      views:
+        | never
+    }
     'src/pages/print.vue': {
       routes:
         | '/print'
       views:
         | never
     }
-    'src/pages/products.vue': {
+    'src/pages/products/[[id]].vue': {
       routes:
-        | '/products'
+        | '/products/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/profile.vue': {
+      routes:
+        | '/profile'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/index.vue': {
+      routes:
+        | '/qc-inspection/'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/lots/[id].vue': {
+      routes:
+        | '/qc-inspection/lots/[id]'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/retain-samples/[id].vue': {
+      routes:
+        | '/qc-inspection/retain-samples/[id]'
+      views:
+        | never
+    }
+    'src/pages/qc-inspection/specifications/[id].vue': {
+      routes:
+        | '/qc-inspection/specifications/[id]'
+      views:
+        | never
+    }
+    'src/pages/qualityEvents/[[id]].vue': {
+      routes:
+        | '/qualityEvents/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/qualityEvents/dashboard.vue': {
+      routes:
+        | '/qualityEvents/dashboard'
       views:
         | never
     }
@@ -693,6 +1400,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/records.vue': {
       routes:
         | '/records'
+      views:
+        | never
+    }
+    'src/pages/reset-esign-pin.vue': {
+      routes:
+        | '/reset-esign-pin'
       views:
         | never
     }
@@ -714,9 +1427,33 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/security.vue': {
+      routes:
+        | '/security'
+      views:
+        | never
+    }
+    'src/pages/service-accounts.vue': {
+      routes:
+        | '/service-accounts'
+      views:
+        | never
+    }
     'src/pages/settings.vue': {
       routes:
         | '/settings'
+      views:
+        | never
+    }
+    'src/pages/share/[token].vue': {
+      routes:
+        | '/share/[token]'
+      views:
+        | never
+    }
+    'src/pages/shared-records.vue': {
+      routes:
+        | '/shared-records'
       views:
         | never
     }
@@ -750,15 +1487,21 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/supplier-document/[token].vue': {
-      routes:
-        | '/supplier-document/[token]'
-      views:
-        | never
-    }
     'src/pages/suppliers/[[id]].vue': {
       routes:
         | '/suppliers/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/support/[slug].vue': {
+      routes:
+        | '/support/[slug]'
+      views:
+        | never
+    }
+    'src/pages/support/ticket/[id].vue': {
+      routes:
+        | '/support/ticket/[id]'
       views:
         | never
     }
@@ -774,15 +1517,21 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/training-curriculum.vue': {
+      routes:
+        | '/training-curriculum'
+      views:
+        | never
+    }
     'src/pages/training-instances/[[id]].vue': {
       routes:
         | '/training-instances/[[id]]'
       views:
         | never
     }
-    'src/pages/training-matrix.vue': {
+    'src/pages/training-reports.vue': {
       routes:
-        | '/training-matrix'
+        | '/training-reports'
       views:
         | never
     }
@@ -801,6 +1550,24 @@ declare module 'vue-router/auto-routes' {
     'src/pages/users/[[id]].vue': {
       routes:
         | '/users/[[id]]'
+      views:
+        | never
+    }
+    'src/pages/validation/index.vue': {
+      routes:
+        | '/validation/'
+      views:
+        | never
+    }
+    'src/pages/validation/[...slug].vue': {
+      routes:
+        | '/validation/[...slug]'
+      views:
+        | never
+    }
+    'src/pages/vendor-access-log.vue': {
+      routes:
+        | '/vendor-access-log'
       views:
         | never
     }

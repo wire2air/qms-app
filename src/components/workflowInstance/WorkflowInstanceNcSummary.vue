@@ -17,12 +17,14 @@ defineEmits(['viewNc'])
     <div class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-start tw:justify-between tw:gap-4">
       <div class="tw:space-y-2">
         <div class="tw:flex tw:items-center tw:gap-2">
-          <span class="ds-label-sm tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded">
+          <span
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded"
+          >
             Nonconformance
           </span>
           <span v-if="nc?.ncNumber" class="tw:text-secondary tw:text-sm">#{{ nc.ncNumber }}</span>
         </div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main tw:leading-tight">
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main tw:leading-tight">
           {{ nc?.title || '—' }}
         </h1>
         <div
@@ -70,36 +72,27 @@ defineEmits(['viewNc'])
 
       <!-- Metadata grid -->
       <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-3 tw:gap-4">
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Severity</span>
+        <BaseDetailField label="Severity">
           <NcSeverityBadgeById v-if="nc?.severityId" :severityId="nc.severityId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Type</span>
+        <BaseDetailField label="Type">
           <NcTypeBadgeById v-if="nc?.typeId" :typeId="nc.typeId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Source</span>
+        <BaseDetailField label="Source">
           <NcSourceBadgeById v-if="nc?.sourceId" :sourceId="nc.sourceId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Owner</span>
+        <BaseDetailField label="Owner">
           <UserBadgeById v-if="nc?.ownerId" :userId="nc.ownerId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </div>
+        </BaseDetailField>
 
-        <div class="tw:flex tw:flex-col tw:gap-1">
-          <span class="tw:text-xs tw:text-secondary">Detected</span>
-          <span class="tw:text-sm tw:font-medium tw:text-on-main">
-            {{ nc?.detectedAt?.formatDate('date') || '—' }}
-          </span>
-        </div>
+        <BaseDetailField label="Detected" :value="nc?.detectedAt?.formatDate('date')" />
       </div>
     </div>
   </div>

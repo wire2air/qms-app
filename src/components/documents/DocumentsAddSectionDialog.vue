@@ -1,7 +1,6 @@
 <script setup>
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
-import { IconHeading, IconNotes, IconPaperclip } from '@tabler/icons-vue'
+import { required } from '@shared/components/form/validators.js'
+import { IconHeading, IconNotes, IconPaperclip, IconFileText } from '@tabler/icons-vue'
 
 const props = defineProps({
   documentVersionId: {
@@ -27,70 +26,79 @@ const open = defineModel({
 
 const toast = useToast()
 
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
+
 // Form state
 const newSection = ref({ title: '', sectionType: 'text' })
-
-const sectionRules = computed(() => ({
-  title: { required: helpers.withMessage('Title is required', required) },
-}))
-
-const sectionValidator = useValidator(sectionRules, newSection)
 
 // Reset form when dialog closes
 watch(open, (val) => {
   if (!val) {
     newSection.value = { title: '', sectionType: 'text' }
+    saveError.value = ''
   }
 })
 
-async function handleAddSection() {
-  const valid = await sectionValidator.value.$validate()
-  if (!valid) return
-
-  const create = useLiveMutation(async (db) => {
-    const section = db.DocumentSection.create({
-      documentVersionId: props.documentVersionId,
-      documentId: props.documentId,
-      title: newSection.value.title,
-      sectionType: newSection.value.sectionType,
-      content: newSection.value.sectionType === 'text' ? '' : null,
-      attachments: newSection.value.sectionType === 'attachment' ? [] : null,
-      order: props.currentSectionCount,
-      isAddOn: true,
-    })
-    await section.save()
-    return section
+const createSection = useLiveMutation(async (db) => {
+  const section = db.DocumentSection.create({
+    documentVersionId: props.documentVersionId,
+    documentId: props.documentId,
+    title: newSection.value.title,
+    sectionType: newSection.value.sectionType,
+    // 'textAttachment' needs BOTH initialised — a null half renders as an
+    // empty branch the author can't fill.
+    content: newSection.value.sectionType === 'attachment' ? null : '',
+    attachments: newSection.value.sectionType === 'text' ? null : [],
+    order: props.currentSectionCount,
+    isAddOn: true,
   })
+  await section.save()
+  return section
+})
 
-  const section = await create()
-
-  toast.success('Section added successfully')
-  emit('sectionAdded', section)
-  open.value = false
+async function onSubmit() {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  saveError.value = ''
+  try {
+    const section = await createSection()
+    // useLiveMutation surfaces its own error toast and returns undefined on
+    // failure — don't claim success (or close the dialog) unless it was created.
+    if (!section) return
+    toast.success('Section added successfully')
+    emit('sectionAdded', section)
+    open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to add section'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
 <template>
   <BaseDialog v-model="open" title="Add New Section" maxWidth="sm" persistent>
-    <div class="tw:space-y-4">
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
       <!-- Section Title -->
-      <BaseTextInput
-        v-model="newSection.title"
-        name="title"
+      <BaseField
         label="Section Title"
-        :errorMsg="
-          sectionValidator.title?.$error ? sectionValidator.title.$errors[0]?.$message : ''
-        "
-        autofocus
+        required
+        :value="newSection.title"
+        :rules="[required('Title is required')]"
       >
-        <template #icon>
-          <IconHeading class="tw:text-secondary" :size="16" />
+        <template #default="field">
+          <BaseTextInput v-bind="field" v-model="newSection.title" autofocus>
+            <template #icon>
+              <IconHeading class="tw:text-secondary" :size="16" />
+            </template>
+          </BaseTextInput>
         </template>
-      </BaseTextInput>
+      </BaseField>
 
       <!-- Section Type -->
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <label class="tw:text-sm tw:font-medium tw:text-secondary">Section Type</label>
+      <BaseField label="Section Type">
         <div class="tw:flex tw:gap-3">
           <button
             type="button"
@@ -118,15 +126,32 @@ async function handleAddSection() {
             <IconPaperclip :size="16" />
             Attachments
           </button>
+          <button
+            type="button"
+            class="tw:flex tw:items-center tw:gap-2 tw:flex-1 tw:rounded-lg tw:border tw:px-4 tw:py-3 tw:text-sm tw:font-medium tw:transition-colors"
+            :class="
+              newSection.sectionType === 'textAttachment'
+                ? 'tw:border-primary tw:bg-primary/10 tw:text-primary'
+                : 'tw:border-divider tw:text-secondary tw:hover:border-primary/50'
+            "
+            @click="newSection.sectionType = 'textAttachment'"
+          >
+            <IconFileText :size="16" />
+            Text + Attachment
+          </button>
         </div>
-      </div>
-    </div>
+      </BaseField>
+    </BaseForm>
 
-    <template #footer="{ close }">
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="text" @click="close">Cancel</BaseButton>
-        <BaseButton variant="primary" @click="handleAddSection">Add Section</BaseButton>
-      </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Add Section"
+        cancelVariant="text"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="open = false"
+        @submit="formRef?.submit()"
+      />
     </template>
   </BaseDialog>
 </template>

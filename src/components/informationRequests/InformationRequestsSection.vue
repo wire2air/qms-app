@@ -35,7 +35,8 @@ const requests = useLiveQueryWithDeps(
     // Newest first.
     return rows.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
   },
-  { initial: [] },
+
+  { models: ['InformationRequest'], initial: [] },
 )
 
 const userIds = computed(() => {
@@ -55,7 +56,8 @@ const usersMap = useLiveQueryWithDeps(
     const users = await Promise.all(ids.map((id) => db.User.findByPk(id)))
     return Object.fromEntries(users.filter(Boolean).map((u) => [u.id, u]))
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 
 function userLabel(id) {
@@ -147,22 +149,20 @@ function truncate(text, n = 80) {
 </script>
 
 <template>
-  <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
+  <BaseCard>
     <div
       class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
     >
-      <div
-        class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-      >
+      <BaseText variant="overline" class="tw:flex tw:items-center tw:gap-2">
         <IconMessageCircle :size="14" />
         Information Requests
         <span
           v-if="requests.length"
-          class="tw:text-[10px] tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded"
+          class="tw:text-micro tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded"
         >
           {{ requests.length }}
         </span>
-      </div>
+      </BaseText>
       <BaseButton v-if="canAsk" variant="outline" size="sm" @click="openAskDialog">
         <template #icon><IconQuestionMark :size="14" /></template>
         Ask
@@ -170,16 +170,17 @@ function truncate(text, n = 80) {
     </div>
 
     <div v-if="requests.length" class="tw:flex tw:flex-col tw:gap-2">
-      <div
+      <BaseClickableRow
         v-for="rfi in requests"
         :key="rfi.id"
-        class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover tw:cursor-pointer"
+        class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+        :aria-label="`Open information request: ${truncate(rfi.question)}`"
         @click="openRfi(rfi)"
       >
         <div class="tw:flex tw:flex-col tw:gap-1 tw:min-w-0">
           <div class="tw:flex tw:items-center tw:gap-2">
             <span
-              class="tw:text-[10px] tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
+              class="tw:text-micro tw:font-medium tw:rounded tw:px-1.5 tw:py-0.5"
               :class="statusClass(rfi.statusId)"
             >
               {{ statusLabel(rfi.statusId) }}
@@ -195,11 +196,9 @@ function truncate(text, n = 80) {
         <BaseButton :variant="actionFor(rfi).variant" size="sm" @click.stop="openRfi(rfi)">
           {{ actionFor(rfi).label }}
         </BaseButton>
-      </div>
+      </BaseClickableRow>
     </div>
-    <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-      No information requests yet.
-    </div>
+    <div v-else class="tw:text-sm tw:text-secondary tw:italic">No information requests yet.</div>
 
     <InformationRequestDialog
       v-model="showDialog"
@@ -208,5 +207,5 @@ function truncate(text, n = 80) {
       :entityId="entityId"
       :rfiId="activeRfiId"
     />
-  </div>
+  </BaseCard>
 </template>

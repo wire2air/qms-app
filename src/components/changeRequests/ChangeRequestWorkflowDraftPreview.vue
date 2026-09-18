@@ -13,8 +13,10 @@ const props = defineProps({
 
 const toast = useToast()
 
-const cr = useLiveQueryWithDeps([() => props.crId], async (db, [id]) =>
-  id ? db.ChangeRequest.findByPk(id) : null,
+const cr = useLiveQueryWithDeps(
+  [() => props.crId],
+  async (db, [id]) => (id ? db.ChangeRequest.findByPk(id) : null),
+  { models: ['ChangeRequest'] },
 )
 
 const templateSteps = useLiveQueryWithDeps(
@@ -26,7 +28,8 @@ const templateSteps = useLiveQueryWithDeps(
       .exec()
     return all.filter((s) => !s.parentStepId)
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 const stepRoles = useLiveQueryWithDeps(
@@ -34,16 +37,15 @@ const stepRoles = useLiveQueryWithDeps(
   async (db, [idsStr]) => {
     const ids = idsStr ? idsStr.split(',') : []
     if (!ids.length) return {}
-    const rows = await Promise.all(
-      ids.map((id) => db.WorkflowStepRole.where('stepId', id).exec()),
-    )
+    const rows = await Promise.all(ids.map((id) => db.WorkflowStepRole.where('stepId', id).exec()))
     const map = {}
     ids.forEach((id, i) => {
       map[id] = rows[i].map((r) => r.roleId)
     })
     return map
   },
-  { initial: {} },
+
+  { models: ['WorkflowStepRole'], initial: {} },
 )
 
 function rolesForStep(stepId) {
@@ -77,18 +79,13 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
 </script>
 
 <template>
-  <div
-    v-if="cr && hasWorkflow"
-    class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:flex tw:flex-col tw:gap-4"
-  >
-    <div
-      class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider"
-    >
+  <BaseCard v-if="cr && hasWorkflow" class="tw:flex tw:flex-col tw:gap-4">
+    <div class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider">
       <div>
-        <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Approval Workflow Plan</h3>
+        <BaseText as="h3" weight="bold">Approval Workflow Plan</BaseText>
         <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-          Assign a reviewer to each approval step. The workflow launches
-          with these assignments when you click <strong>Submit for Approval</strong>.
+          Assign a reviewer to each approval step. The workflow launches with these assignments when
+          you click <strong>Submit for Approval</strong>.
         </p>
       </div>
       <span v-if="saving" class="tw:text-xs tw:text-secondary">Saving…</span>
@@ -98,29 +95,31 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
       The selected workflow has no steps configured.
     </div>
 
-    <div v-else class="tw:flex tw:flex-col tw:gap-3">
+    <div v-else class="tw:@container tw:flex tw:flex-col tw:gap-3">
       <div
         v-for="(step, idx) in templateSteps"
         :key="step.id"
-        class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30"
+        class="tw:flex tw:flex-col tw:gap-3 tw:px-4 tw:py-3 tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/30 tw:@2xl:flex-row tw:@2xl:items-center"
       >
-        <span
-          class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
-        >
-          {{ idx + 1 }}
-        </span>
-        <div class="tw:flex-1 tw:min-w-0">
-          <div class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
-            {{ step.name }}
-          </div>
-          <div
-            v-if="step.description"
-            class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:line-clamp-2"
+        <div class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-3">
+          <span
+            class="tw:flex tw:items-center tw:justify-center tw:w-7 tw:h-7 tw:rounded-full tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:shrink-0"
           >
-            {{ step.description }}
+            {{ idx + 1 }}
+          </span>
+          <div class="tw:flex-1 tw:min-w-0">
+            <div class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ step.name }}
+            </div>
+            <div
+              v-if="step.description"
+              class="tw:text-xs tw:text-secondary tw:mt-0.5 tw:line-clamp-2"
+            >
+              {{ step.description }}
+            </div>
           </div>
         </div>
-        <div class="tw:w-72 tw:shrink-0">
+        <div class="tw:w-full tw:shrink-0 tw:@2xl:w-72">
           <UserSelectMenu
             v-if="isOwner"
             :modelValue="currentAssignee(step.id)"
@@ -129,14 +128,11 @@ const hasWorkflow = computed(() => !!cr.value?.workflowVersionId)
             @update:modelValue="(uid) => handleAssigneeChange(step.id, uid)"
           />
           <div v-else class="tw:flex tw:items-center tw:gap-2">
-            <UserBadgeById
-              v-if="currentAssignee(step.id)"
-              :userId="currentAssignee(step.id)"
-            />
+            <UserBadgeById v-if="currentAssignee(step.id)" :userId="currentAssignee(step.id)" />
             <span v-else class="tw:text-xs tw:text-secondary tw:italic">Unassigned</span>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </BaseCard>
 </template>

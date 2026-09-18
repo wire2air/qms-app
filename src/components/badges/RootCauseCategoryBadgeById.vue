@@ -9,7 +9,8 @@ const category = useLiveQueryWithDeps(
     if (!id) return null
     return db.RootCauseCategory.findByPk(id)
   },
-  { initial: null },
+
+  { models: ['RootCauseCategory'], initial: null },
 )
 </script>
 

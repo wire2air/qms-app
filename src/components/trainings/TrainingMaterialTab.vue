@@ -14,9 +14,12 @@ const externalLinks = useLiveQueryWithDeps(
   [() => props.training.id],
   async (db, [trainingId]) => {
     if (!trainingId) return []
-    return db.TrainingExternalLink.where('trainingId', trainingId).orderBy('displayOrder', 'asc').exec()
+    return db.TrainingExternalLink.where('trainingId', trainingId)
+      .orderBy('displayOrder', 'asc')
+      .exec()
   },
-  { initial: [] },
+
+  { models: ['TrainingExternalLink'], initial: [] },
 )
 
 const createLink = useLiveMutation(async (db, trainingId) => {
@@ -58,30 +61,37 @@ const LINK_TYPES = [
   { id: 'web', name: 'Web' },
   { id: 'youtube', name: 'YouTube' },
 ]
+
+// In-app Help Center links (e.g. the seeded "How to use Qability" course links)
+// open in the contextual HelpButton dialog instead of a new browser tab.
+function isHelpLink(url) {
+  return typeof url === 'string' && url.startsWith('/help/')
+}
+function helpSlug(url) {
+  return url.replace(/^\/help\//, '')
+}
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-6">
     <!-- Instructions -->
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Instructions</p>
+    <BaseField label="Instructions">
       <BaseRichTextEditor
         v-model="props.training.instructions"
         :editable="editable"
         placeholder="Describe what the trainee needs to read or do..."
       />
-    </div>
+    </BaseField>
 
     <!-- Document Links -->
-    <div>
-      <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-2">Linked Documents</p>
+    <BaseField label="Linked Documents">
       <TrainingDocumentSelector :trainingId="training.id" :editable="editable" />
-    </div>
+    </BaseField>
 
     <!-- External Links -->
     <div>
       <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
-        <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary">External Links</p>
+        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">External Links</p>
         <button
           v-if="editable"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
@@ -119,6 +129,13 @@ const LINK_TYPES = [
               <option v-for="t in LINK_TYPES" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
           </div>
+          <!-- In-app help article → contextual dialog; otherwise a normal link. -->
+          <HelpButton
+            v-else-if="isHelpLink(link.url)"
+            :slug="helpSlug(link.url)"
+            :label="link.title || 'Help article'"
+            class="tw:flex-1 tw:justify-start tw:text-primary"
+          />
           <a
             v-else
             :href="link.url"

@@ -1,21 +1,46 @@
 <script setup>
-import { required, email, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required, email } from '@shared/components/form/validators.js'
 // Action RPC (not entity CRUD — POST /v1/services/users/:id/invite) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const open = defineModel({
   type: Boolean,
   default: false,
 })
 
+// Creating the person and granting them authority are two acts with two bars.
+// This dialog does both: the User row needs `user_management:create`, and each
+// roles_on_users row needs `role_permission_management:update`.
+//
+// The Roles field was unconditionally `required`, so a holder of
+// `user_management:create` alone — an onboarder, exactly the persona the field
+// was for — could not complete the form at all. Worse, the failure came late:
+// `createUser` saves the User first and then loops the role rows, so the write
+// that was refused left a real user behind and threw. Onboarding half-worked
+// and reported an error.
+//
+// Hidden rather than disabled: a create-only holder onboards the person, and
+// someone with permission-management authority grants the roles afterwards.
+// A user with no roles holds no permissions, which is a safe resting state and
+// the same one an invitation sits in before it is accepted. See F-18 in
+// docs/modules/roles.
+const canAssignRoles = computed(() => isAllowed(['role_permission_management:update']))
+
 const toast = useToast()
+
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
 
 // Create user mutation
 const createUser = useLiveMutation(async (db, data) => {
   const { roleIds, inviteSent, ...userData } = data
-  // userStatusId is finalised below — start as INACTIVE; the invite endpoint flips
-  // it to INVITED on the backend when we trigger the email.
+  // The user stays INACTIVE until they accept. The invite endpoint sends the
+  // email and sets inviteSent; it is ACCEPTANCE that flips the row to ACTIVE
+  // (backend/api/controllers/auth/invitation.js). There is no INVITED status —
+  // `user_statuses` holds ACTIVE and INACTIVE and the column is FK-constrained
+  // to them; "invited, not yet accepted" is INACTIVE + inviteSent.
   const u = db.User.create({ ...userData, userStatusId: 'INACTIVE', inviteSent: false })
   await u.save()
   for (const roleId of roleIds) {
@@ -38,18 +63,27 @@ const form = ref({
   languageId: 'en-US',
 })
 
-const rules = computed(() => ({
-  firstName: { required: helpers.withMessage('Required', required) },
-  lastName: { required: helpers.withMessage('Required', required) },
-  email: {
-    required: helpers.withMessage('Required', required),
-    email: helpers.withMessage('Invalid email format', email),
+// Email uniqueness check (per-company — the IDB is company-scoped). Mirrors the
+// site/department code check so duplicates are blocked before hitting the server
+// instead of silently creating a second user with the same email.
+const emailAvailable = useLiveQueryWithDeps(
+  [() => form.value.email],
+  async (db, [emailValue]) => {
+    const e = (emailValue || '').trim().toLowerCase()
+    if (!e) return true
+    const all = await db.User.where().exec()
+    return !all.some((u) => (u.email || '').trim().toLowerCase() === e)
   },
-}))
+  { models: ['User'], initial: true },
+)
 
-const validator = useValidator(rules, form)
+const emailInUseError = computed(() =>
+  form.value.email && !emailAvailable.value ? 'A user with this email already exists' : '',
+)
 
-const isSubmitting = ref(false)
+function emailUnique() {
+  return emailAvailable.value || 'A user with this email already exists'
+}
 
 // Reset form when closed
 watch(open, (val) => {
@@ -63,15 +97,17 @@ watch(open, (val) => {
       inviteSent: false,
       siteId: null,
       departmentId: null,
+      timezone: 'UTC',
+      languageId: 'en-US',
     }
+    saveError.value = ''
   }
 })
 
 async function onSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid) return
-
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     const { user, inviteSent } = await createUser(form.value)
     if (inviteSent && user?.id) {
@@ -85,6 +121,8 @@ async function onSubmit() {
       }
     }
     open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to create user'
   } finally {
     isSubmitting.value = false
   }
@@ -93,83 +131,101 @@ async function onSubmit() {
 
 <template>
   <BaseDialog v-model="open" title="Create New User" maxWidth="lg">
-    <div class="tw:grid tw:grid-cols-12 tw:gap-0">
-      <!-- Main Content -->
-      <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <BaseTextInput
-              v-model="form.firstName"
-              name="firstName"
-              label="First Name"
-              placeholder="e.g. John"
-              :required="true"
-            />
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:grid tw:grid-cols-12 tw:gap-0">
+        <!-- Main Content -->
+        <div class="tw:col-span-12 tw:sm:col-span-8 tw:p-4">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+              <BaseField label="First Name" required :value="form.firstName" :rules="[required()]">
+                <template #default="field">
+                  <BaseTextInput v-bind="field" v-model="form.firstName" placeholder="e.g. John" />
+                </template>
+              </BaseField>
 
-            <BaseTextInput
-              v-model="form.lastName"
-              name="lastName"
-              label="Last Name"
-              placeholder="e.g. Doe"
-              :required="true"
-            />
+              <BaseField label="Last Name" required :value="form.lastName" :rules="[required()]">
+                <template #default="field">
+                  <BaseTextInput v-bind="field" v-model="form.lastName" placeholder="e.g. Doe" />
+                </template>
+              </BaseField>
+            </div>
+
+            <BaseField
+              label="Email"
+              required
+              :value="form.email"
+              :rules="[required(), email(), emailUnique]"
+              :error="emailInUseError"
+            >
+              <template #default="field">
+                <BaseTextInput
+                  v-bind="field"
+                  v-model="form.email"
+                  placeholder="e.g. john.doe@example.com"
+                  type="email"
+                />
+              </template>
+            </BaseField>
+
+            <BaseField
+              v-if="canAssignRoles"
+              label="Roles"
+              required
+              :value="form.roleIds"
+              :rules="[required()]"
+            >
+              <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
+            </BaseField>
+
+            <!-- `users.site_id` is the PRIMARY site since multi-site
+                 assignment landed; the extra sites live in `user_sites` and are
+                 added from the user's detail page. Labelling this plain "Site"
+                 read as "the one site this person has", which is no longer
+                 true. `forAssignment` applies the is_active gate — the same
+                 gate the detail page's two site controls use — so a site being
+                 wound down isn't offered to a brand-new user. -->
+            <BaseField label="Primary Site" required :value="form.siteId" :rules="[required()]">
+              <SiteSelectMenu v-model="form.siteId" :required="true" forAssignment />
+              <p class="tw:text-xs tw:text-secondary tw:mt-1">
+                Additional sites can be assigned from the user's profile after they are created.
+              </p>
+            </BaseField>
+
+            <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">
+              <DepartmentSelectMenu
+                v-model="form.departmentId"
+                :siteId="form.siteId"
+                :required="true"
+              />
+            </BaseField>
           </div>
+        </div>
 
-          <BaseTextInput
-            v-model="form.email"
-            name="email"
-            label="Email"
-            placeholder="e.g. john.doe@example.com"
-            type="email"
-            :required="true"
-          />
+        <!-- Mini Sidebar -->
+        <div class="tw:col-span-12 tw:sm:col-span-4 tw:bg-main-hover tw:p-4 tw:rounded-r-lg">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <div>
+              <div class="tw:text-xs tw:text-secondary tw:mb-2 tw:font-medium">User Color</div>
+              <BaseColorPicker v-model="form.color" />
+            </div>
 
-          <div>
-            <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-              Roles <span class="tw:text-red">*</span>
-            </label>
-            <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
-          </div>
-
-          <div>
-            <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-              Site <span class="tw:text-red">*</span>
-            </label>
-            <SiteSelectMenu v-model="form.siteId" :required="true" />
-          </div>
-
-          <div>
-            <label class="tw:inline-block tw:mb-1 tw:text-sm tw:font-medium">
-              Department <span class="tw:text-red">*</span>
-            </label>
-            <DepartmentSelectMenu
-              v-model="form.departmentId"
-              :siteId="form.siteId"
-              :required="true"
-            />
+            <div class="tw:flex tw:gap-1">
+              <BaseCheckbox v-model="form.inviteSent" label="Send Invite" />
+              <div class="tw:text-micro tw:text-secondary tw:ml-2">Send an email invitation.</div>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- Mini Sidebar -->
-      <div class="tw:col-span-12 tw:sm:col-span-4 tw:bg-main-hover tw:p-4 tw:rounded-r-lg">
-        <div class="tw:flex tw:flex-col tw:gap-4">
-          <div>
-            <div class="tw:text-xs tw:text-secondary tw:mb-2 tw:font-medium">User Color</div>
-            <BaseColorPicker v-model="form.color" />
-          </div>
-
-          <div class="tw:flex tw:gap-1">
-            <BaseCheckbox v-model="form.inviteSent" label="Send Invite" />
-            <div class="tw:text-[10px] tw:text-secondary tw:ml-2">Send an email invitation.</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </BaseForm>
 
     <template #footer>
-      <BaseButton variant="outline" @click="open = false"> Cancel </BaseButton>
-      <BaseButton :disabled="isSubmitting" @click="onSubmit"> Create User </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Create User"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="open = false"
+        @submit="formRef?.submit()"
+      />
     </template>
   </BaseDialog>
 </template>

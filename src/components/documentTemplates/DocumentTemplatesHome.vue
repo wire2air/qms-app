@@ -5,10 +5,22 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const router = useRouter()
 
-const documentTemplates = useLiveQuery(async (db) => db.DocumentTemplate.where().exec())
+// Headless list-page core. This page has no toolbar/filters of its own — it
+// just drives the shell's resolved content state (loading / empty / ready)
+// off the live query below.
+const list = useListLayout({
+  filters: {},
+  total: () => documentTemplates.value?.length ?? 0,
+  loading: () => documentTemplates.value === undefined,
+  empty: () => documentTemplates.value?.length === 0,
+})
+
+const documentTemplates = useLiveQuery(async (db) => db.DocumentTemplate.where().exec(), {
+  models: ['DocumentTemplate'],
+})
 const loading = computed(() => documentTemplates.value === undefined)
 
-const canCreate = computed(() => isAllowed(['document-templates:create']))
+const canCreate = computed(() => isAllowed(['document_templates:create']))
 
 const totalTemplates = computed(() => (documentTemplates.value || []).length)
 const activeTemplates = computed(
@@ -24,37 +36,34 @@ function navigateToCreate() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconFileDescription class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Document Templates</h2>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
+  <BaseListLayout
+    helpSlug="KB/documents/document-templates"
+    title="Document Templates"
+    :icon="IconFileDescription"
+    subtitle="Define document lifecycles, metadata, and structural components."
+    :state="list.state.value"
+    :emptyIcon="IconFileDescription"
+    emptyTitle="No document templates yet"
+  >
+    <template #actions>
       <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
-    </SafeTeleport>
+    </template>
 
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Document Templates</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Define document lifecycles, metadata, and structural components.
-        </div>
-      </div>
-    </div>
+    <template #stats>
+      <!-- Stats Cards -->
+      <DocumentTemplatesStatsCards
+        :total="totalTemplates"
+        :active="activeTemplates"
+        :withTraining="withTraining"
+        :loading="loading"
+      />
+    </template>
 
-    <!-- Stats Cards -->
-    <DocumentTemplatesStatsCards
-      :total="totalTemplates"
-      :active="activeTemplates"
-      :withTraining="withTraining"
-      :loading="loading"
-    />
+    <template #empty-action>
+      <BaseButton v-if="canCreate" @click="navigateToCreate">Create Template</BaseButton>
+    </template>
 
     <!-- Templates Table -->
     <DocumentTemplatesTable :rows="documentTemplates || []" :loading="loading" />
-  </div>
+  </BaseListLayout>
 </template>

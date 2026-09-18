@@ -8,6 +8,12 @@ import { DateTime } from 'luxon'
   customIndex: '[workflowVersionId+statusId], workflowVersionId, [resourceType+resourceId]',
 })
 export class WorkflowInstance extends BaseModel {
+  // F-24 — `deletedAt` is declared below and `workflow_instances.deleted_at`
+  // exists, but without this flag `BaseModel.paranoid` stays false: `.delete()`
+  // would emit a hard DELETE mutation instead of stamping `deletedAt`, and
+  // queries would keep returning soft-deleted rows.
+  static paranoid = true
+
   constructor(...args) {
     super(...args)
     // Auto-assign companyId from current session on creation
@@ -27,6 +33,10 @@ export class WorkflowInstance extends BaseModel {
   @Property({ type: Number, required: true }) currentStep = 1
   @Property({ type: DateTime }) startedAt = null
   @Property({ type: DateTime }) completedAt = null
+  // Effectiveness rollup — trigger-maintained server-side (2026-08-28); lists
+  // and reports read these instead of digging workflow_instance_steps.
+  @Property({ type: String }) effectivenessState = 'NONE'
+  @Property({ type: DateTime }) effectivenessDueAt = null
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) submittedBy = ''
   @Property({ type: String }) comment = ''

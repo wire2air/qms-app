@@ -1,33 +1,34 @@
 <script setup>
 import { IconMapPin } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { buildDeleteSiteMessage, countSiteDependencies } from '@/utils/siteDependencies.js'
 
 const showDialog = ref(false)
 const selectedSiteId = ref(null)
 
-const confirmDelete = ref({ open: false, site: null })
+const { confirm } = useConfirm()
 
 const canCreateSite = computed(() => isAllowed(['sites:create']))
 const canUpdateSite = computed(() => isAllowed(['sites:update']))
 const canDeleteSite = computed(() => isAllowed(['sites:delete']))
 
-// Filters
-const filters = ref({ search: '' })
+// Filter state + URL sync + resolved content state (Enterprise Page Framework list template).
+const list = useListLayout({
+  filters: {},
+  total: () => sites.value.length,
+  empty: () => sites.value.length === 0,
+  syncUrl: true,
+})
 
 // Live query for sites
-const sites = useLiveQueryWithDeps(
-  [() => filters.value.search],
-  async (db, [search]) => {
-    let results = await db.Site.where().exec()
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter((s) => s.name.toLowerCase().includes(q))
-    }
+const sites = useLiveQuery(
+  async (db) => {
+    const results = await db.Site.where().exec()
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+  { models: ['Site'], initial: [] },
 )
 
 function openDialog(id = null) {
@@ -39,42 +40,59 @@ function onEditSite(row) {
   openDialog(row.id)
 }
 
-function onDeleteSite(row) {
-  confirmDelete.value = { open: true, site: row }
-}
+// The delete confirm used to claim "This cannot be undone" about a SOFT delete
+// and query nothing first, so a site backing hundreds of records went on one
+// click — and every one of those records then rendered a blank site field.
+// Count the dependants and say what actually happens.
+//
+// useLiveMutation for a READ on purpose: this is an imperative one-shot at
+// click time, not a live query, and it is the composable that hands a component
+// `db` outside a live query — with the added benefit that a catastrophic
+// failure surfaces as a toast rather than a silent undefined.
+const countDependencies = useLiveMutation((db, siteId) => countSiteDependencies(db, siteId))
 
-async function confirmDeleteSite() {
-  await confirmDelete.value.site.delete()
-  confirmDelete.value = { open: false, site: null }
+const isDeleting = ref(false)
+
+async function onDeleteSite(row) {
+  if (isDeleting.value) return
+  isDeleting.value = true
+  try {
+    // A failed count must not block the delete — buildDeleteSiteMessage says
+    // "we could not check" instead of asserting the site is unused.
+    const dependencies = (await countDependencies(row.id)) ?? {
+      items: [],
+      total: 0,
+      failed: ['*'],
+    }
+
+    const ok = await confirm({
+      title: 'Delete Site',
+      message: buildDeleteSiteMessage(row, dependencies),
+      okLabel: 'Delete',
+      danger: true,
+    })
+    if (ok) await row.delete()
+  } finally {
+    isDeleting.value = false
+  }
 }
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconMapPin class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Sites</h2>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
+  <BaseListLayout
+    helpSlug="KB/administration/sites-and-departments"
+    title="Sites"
+    :icon="IconMapPin"
+    subtitle="Manage your organization's physical locations and sites."
+    :state="list.state.value"
+    :emptyIcon="IconMapPin"
+    :emptyTitle="list.hasActiveFilters.value ? 'No sites match your filters' : 'No sites yet'"
+  >
+    <template #actions>
       <BaseButton v-if="canCreateSite" @click="openDialog()">
         <span>Create New Site</span>
       </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Sites</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage your organization's physical locations and sites.
-        </div>
-      </div>
-    </div>
-
-    <SitesFilterToolbar v-model:filters="filters" />
+    </template>
 
     <SitesTable
       :rows="sites"
@@ -83,17 +101,9 @@ async function confirmDeleteSite() {
       @delete="onDeleteSite"
       @edit="onEditSite"
     />
-  </div>
+  </BaseListLayout>
 
-  <!-- Create/Edit Site Dialog -->
+  <!-- Create/Edit Site Dialog — outside BaseListLayout so it stays mounted in
+       the empty state (else you can't create the first site). -->
   <SitesCreateUpdateDialog v-if="showDialog" :id="selectedSiteId" v-model="showDialog" />
-
-  <!-- Delete Confirm Dialog -->
-  <ConfirmDialog
-    v-model="confirmDelete.open"
-    title="Delete Site"
-    :message="`Are you sure you want to delete '${confirmDelete.site?.name}' (${confirmDelete.site?.code})? This cannot be undone.`"
-    okLabel="Delete"
-    @ok="confirmDeleteSite"
-  />
 </template>

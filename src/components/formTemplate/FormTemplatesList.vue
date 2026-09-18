@@ -4,13 +4,17 @@ defineProps({
     type: Array,
     default: () => [],
   },
-  canDelete: {
+  canUpdate: {
+    type: Boolean,
+    default: false,
+  },
+  canClone: {
     type: Boolean,
     default: false,
   },
 })
 
-const emit = defineEmits(['delete'])
+const emit = defineEmits(['archive', 'clone', 'share'])
 
 const showPreviewDialog = ref(false)
 const previewTemplate = ref(null)
@@ -41,9 +45,12 @@ const previewTitle = computed(() => {
       v-for="template in templates"
       :key="template.id"
       :template="template"
-      :canDelete="canDelete"
+      :canUpdate="canUpdate"
+      :canClone="canClone"
       @preview="handlePreview"
-      @delete="(t) => emit('delete', t)"
+      @archive="(t) => emit('archive', t)"
+      @clone="(t) => emit('clone', t)"
+      @share="(t) => emit('share', t)"
     />
   </div>
 

@@ -16,33 +16,94 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Which detail tab is active. The rail is now persistent across all tabs
+  // (Properties/Collaborators/Workflow are document-level), but the Table of
+  // Contents is content-specific and only renders on the Content tab.
+  activeTab: {
+    type: String,
+    default: 'content',
+  },
 })
 
-const document = useLiveQueryWithDeps([() => props.documentId], async (db, [id]) => {
-  return db.Document.findByPk(id)
-})
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => {
+    return db.Document.findByPk(id)
+  },
+  { models: ['Document'] },
+)
 
-const currentVersion = useLiveQueryWithDeps([() => props.versionId], async (db, [id]) => {
-  return id ? db.DocumentVersion.findByPk(id) : null
-})
+const currentVersion = useLiveQueryWithDeps(
+  [() => props.versionId],
+  async (db, [id]) => {
+    return id ? db.DocumentVersion.findByPk(id) : null
+  },
+  { models: ['DocumentVersion'] },
+)
 
+// Editable only while the SELECTED version is a working draft. Once it's
+// submitted (IN_REVIEW), approved, effective, or superseded, the document and
+// all its metadata are locked — you must create a new draft version to change
+// anything. `document.statusId` is only the ACTIVE/ARCHIVED lifecycle flag, so
+// it can't gate this on its own; the version status is what matters.
 const canEdit = computed(
   () =>
-    isAllowed(['documents:update']) && document.value?.statusId !== 'ARCHIVED' && !props.reviewMode,
+    isAllowed(['document_control:update']) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    !props.reviewMode &&
+    ['DRAFT', 'REJECTED'].includes(currentVersion.value?.statusId),
 )
+
+/**
+ * Effective date visibility, matching documentEffectiveDate.js.
+ *
+ * The date is only the AUTHOR'S to set on the manual release path. With
+ * Auto-Effective on, the system stamps it when the final approval lands, so an
+ * editable picker there collects a value it will overwrite — which is exactly
+ * what the rail was doing.
+ *
+ * It stays VISIBLE read-only once a date exists, because a document that is
+ * already effective has a real date worth seeing. It disappears only in the
+ * case where there is genuinely nothing to show or set: auto-release on, not
+ * yet effective.
+ */
+const effectiveDateEditable = computed(
+  () => canEdit.value && !document.value?.autoEffectiveOnApproval,
+)
+const showEffectiveDate = computed(
+  () => effectiveDateEditable.value || !!currentVersion.value?.effectiveDate,
+)
+
+// documents.periodicReviewMonths is a GraphQL Int. This field autosaves
+// straight off the live record with no submit button in the way, so a
+// fractional value typed here isn't just a validation message away from
+// blocking Create — it silently fails debounceSaveDocument's save() and gets
+// swallowed by its catch (console.error only), leaving the change looking
+// applied while nothing persisted. Round on every keystroke instead.
+const reviewMonthsModel = computed({
+  get: () => document.value?.periodicReviewMonths,
+  set: (v) => {
+    if (!document.value) return
+    const n = Math.round(Number(v))
+    document.value.periodicReviewMonths = Number.isFinite(n) ? Math.max(1, n) : 1
+  },
+})
 
 // State
 const activeSection = ref(null)
-const showWorkflowDialog = ref(false)
 
 const selectedWorkflowVersion = useLiveQueryWithDeps(
   [() => document.value?.workflowVersionId],
+
   async (db, [versionId]) => (versionId ? db.WorkflowVersion.findByPk(versionId) : null),
+  { models: ['WorkflowVersion'] },
 )
 
 const selectedWorkflow = useLiveQueryWithDeps(
   [() => selectedWorkflowVersion.value?.workflowId],
+
   async (db, [workflowId]) => (workflowId ? db.Workflow.findByPk(workflowId) : null),
+  { models: ['Workflow'] },
 )
 
 // Computed properties
@@ -61,6 +122,36 @@ function scrollToSection(sectionId) {
   if (element) {
     element.scrollIntoView({ behavior: 'smooth' })
     activeSection.value = sectionId
+  }
+}
+
+// Applicability — where the document APPLIES (visibility). document.siteId is
+// the OWNING site and always applies; appliesAllSites bypasses per-site rows.
+const documentSites = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => db.DocumentSite.where('documentId', id).exec(),
+  { models: ['DocumentSite'], initial: [] },
+)
+const applicabilitySiteIds = computed(() => documentSites.value.map((ds) => ds.siteId))
+
+const addDocumentSite = useLiveMutation(async (db, { documentId, siteId }) => {
+  const link = db.DocumentSite.create({ documentId, siteId })
+  await link.save()
+  return link
+})
+
+async function handleApplicabilityChange(newSiteIds) {
+  const next = newSiteIds || []
+  // A document must apply SOMEWHERE — refuse to drop the last site unless
+  // company-wide is on.
+  if (!next.length && !document.value?.appliesAllSites) return
+  const current = applicabilitySiteIds.value
+  const toAdd = next.filter((id) => !current.includes(id))
+  const toRemove = current.filter((id) => !next.includes(id))
+  for (const siteId of toAdd) await addDocumentSite({ documentId: props.documentId, siteId })
+  for (const siteId of toRemove) {
+    const match = documentSites.value.find((ds) => ds.siteId === siteId)
+    if (match) await match.delete()
   }
 }
 
@@ -100,149 +191,183 @@ watch(
 </script>
 
 <template>
-  <div v-if="document && currentVersion" class="tw:lg:col-span-1 tw:space-y-6 tw:print:hidden">
-    <div class="tw:sticky tw:top-24 tw:space-y-6">
-      <!-- Properties Card -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
-        <h4 class="ds-label tw:text-secondary tw:mb-4 tw:flex tw:items-center tw:justify-between">
-          Properties
-          <IconSettings class="tw:size-4" />
-        </h4>
-        <div class="tw:space-y-3">
-          <!-- ID + Owner -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="ds-label">Document ID</label>
-              <p class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mt-1">
-                {{ document.docNumber }}
-              </p>
-            </div>
-            <div>
-              <label class="ds-label">Owner</label>
-              <div class="tw:mt-1"><UserBadgeById :userId="document.userId" /></div>
-            </div>
-          </div>
-
-          <!-- Type + Status -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="ds-label">Type</label>
-              <div class="tw:mt-1">
-                <DocumentTypeSelectMenu v-if="canEdit" v-model="document.documentTypeId" required />
-                <DocumentTypeBadgeById v-else :documentTypeId="document.documentTypeId" :iconOnly="false" />
-              </div>
-            </div>
-            <div>
-              <label class="ds-label">Status</label>
-              <div class="tw:mt-1">
-                <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Department + Related Standard -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="ds-label">Department</label>
-              <div class="tw:mt-1">
-                <DepartmentSelectMenu v-if="canEdit" v-model="document.departmentId" required />
-                <DepartmentBadgeById v-else-if="document.departmentId" :departmentId="document.departmentId" />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </div>
-            </div>
-            <div>
-              <label class="ds-label">Related Standard</label>
-              <div class="tw:mt-1">
-                <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
-                <RelatedStandardBadgeById v-else-if="document.relatedStandardId" :relatedStandardId="document.relatedStandardId" />
-                <span v-else class="tw:text-sm tw:text-secondary">—</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Periodic Review + Auto-Effective -->
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="ds-label">Periodic Review</label>
-              <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-1.5 tw:mt-1">
-                <input
-                  v-model.number="document.periodicReviewMonths"
-                  type="number"
-                  min="1"
-                  class="tw:w-16 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-sm tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
-                />
-                <span class="tw:text-xs tw:text-secondary">months</span>
-              </div>
-              <p v-else class="tw:text-sm tw:font-medium tw:mt-1">{{ document.periodicReviewMonths }} months</p>
-            </div>
-            <div>
-              <label class="ds-label">Auto-Effective</label>
-              <div class="tw:mt-1">
-                <BaseSwitch v-model="document.autoEffectiveOnApproval" :disabled="!canEdit" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Effective Date (own row — date picker needs width) -->
-          <div>
-            <label class="ds-label">Effective Date</label>
-            <div class="tw:mt-1">
-              <BaseDatePicker v-if="canEdit" v-model="currentVersion.effectiveDate" :required="false" />
-              <p v-else class="tw:text-sm tw:font-medium">
-                {{ currentVersion.effectiveDate ? currentVersion.effectiveDate.formatDate('date') : '—' }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Immutable audit-PDF snapshot, generated by the worker on
-               EFFECTIVE transition (see backend/worker/tasks/
-               generate_document_snapshot.js). The hash is the
-               tamper-evidence anchor so an auditor can verify the
-               downloaded PDF against the stored sha256. -->
-          <div v-if="currentVersion.snapshotStoragePath">
-            <label class="ds-label">Audit Snapshot</label>
-            <div class="tw:mt-1 tw:flex tw:flex-col tw:gap-1">
-              <a
-                :href="`/api/v1/files/${currentVersion.snapshotStoragePath}`"
-                target="_blank"
-                rel="noopener"
-                class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
-              >
-                Download audit PDF
-              </a>
-              <p
-                v-if="currentVersion.snapshotGeneratedAt"
-                class="tw:text-xs tw:text-secondary"
-              >
-                Generated {{ currentVersion.snapshotGeneratedAt.formatDate('datetime') }}
-              </p>
-              <p
-                v-if="currentVersion.snapshotSha256"
-                class="tw:text-[10px] tw:font-mono tw:text-secondary tw:break-all"
-                :title="currentVersion.snapshotSha256"
-              >
-                sha256: {{ currentVersion.snapshotSha256.slice(0, 16) }}…
-              </p>
-            </div>
-          </div>
-
-          <!-- Collaborators Section -->
-          <DocumentsCollaborators :documentId="document.id" :canEdit="canEdit" />
-        </div>
-      </div>
-
-      <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-          <h4 class="ds-label tw:text-secondary">Workflow</h4>
-          <button
-            v-if="canEdit"
-            class="tw:text-xs tw:font-medium tw:text-primary tw:hover:text-primary/80 tw:transition-colors"
-            @click="showWorkflowDialog = true"
+  <template v-if="document && currentVersion">
+    <!-- Properties -->
+    <BaseRailCard title="Properties" :icon="IconSettings">
+      <!-- One field per row: the rail is narrow and two columns crammed the
+           controls (wrapping labels, squeezed selects). -->
+      <div class="tw:flex tw:flex-col tw:gap-3.5">
+        <BaseDetailField label="Document ID">
+          <BaseText
+            v-if="document.docNumber"
+            variant="body"
+            weight="medium"
+            class="tw:text-on-main"
           >
-            {{ document.workflowVersionId ? 'Change' : 'Select' }}
-          </button>
-        </div>
+            {{ document.docNumber }}
+          </BaseText>
+          <BaseText v-else variant="body" class="tw:text-secondary tw:italic">
+            Assigned on submit
+          </BaseText>
+        </BaseDetailField>
 
+        <!-- Co-author model: Owner is accountable for the lifecycle (periodic
+             review, effectiveness, default step assignee); Author is the
+             originator. Both reassignable inline when editable. -->
+        <BaseDetailField label="Owner">
+          <UserSelectMenu v-if="canEdit" v-model="document.userId" :required="true" />
+          <UserBadgeById v-else :userId="document.userId" />
+        </BaseDetailField>
+
+        <BaseDetailField label="Author">
+          <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
+          <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Status">
+          <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
+        </BaseDetailField>
+
+        <BaseDetailField label="Department">
+          <DepartmentSelectMenu
+            v-if="canEdit"
+            v-model="document.departmentId"
+            :siteIds="document.appliesAllSites ? null : applicabilitySiteIds"
+            required
+          />
+          <DepartmentBadgeById
+            v-else-if="document.departmentId"
+            :departmentId="document.departmentId"
+          />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Sites">
+          <div v-if="canEdit" class="tw:flex tw:flex-col tw:gap-1.5">
+            <BaseCheckbox v-model="document.appliesAllSites" label="All sites (company-wide)" />
+            <SiteSelectMenu
+              v-if="!document.appliesAllSites"
+              :modelValue="applicabilitySiteIds"
+              :multiple="true"
+              nullLabel="Select sites…"
+              @update:modelValue="handleApplicabilityChange"
+            />
+          </div>
+          <template v-else>
+            <span v-if="document.appliesAllSites" class="tw:text-sm tw:text-on-main">
+              All sites (company-wide)
+            </span>
+            <div v-else-if="applicabilitySiteIds.length" class="tw:flex tw:flex-wrap tw:gap-1">
+              <SiteBadgeById v-for="sid in applicabilitySiteIds" :key="sid" :siteId="sid" />
+            </div>
+            <span v-else class="tw:text-sm tw:text-secondary">—</span>
+          </template>
+        </BaseDetailField>
+
+        <BaseDetailField label="Related Standard">
+          <RelatedStandardSelectMenu v-if="canEdit" v-model="document.relatedStandardId" />
+          <RelatedStandardBadgeById
+            v-else-if="document.relatedStandardId"
+            :relatedStandardId="document.relatedStandardId"
+          />
+          <span v-else class="tw:text-sm tw:text-secondary">—</span>
+        </BaseDetailField>
+
+        <BaseDetailField label="Periodic Review">
+          <div v-if="canEdit" class="tw:flex tw:items-center tw:gap-1.5">
+            <input
+              v-model.number="reviewMonthsModel"
+              type="number"
+              min="1"
+              step="1"
+              class="tw:w-16 tw:rounded-md tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-sm tw:text-on-sidebar tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
+            />
+            <span class="tw:text-xs tw:text-secondary">months</span>
+          </div>
+          <BaseText v-else variant="body" weight="medium">
+            {{ document.periodicReviewMonths }} months
+          </BaseText>
+        </BaseDetailField>
+
+        <BaseDetailField label="Auto-Effective">
+          <BaseSwitch v-model="document.autoEffectiveOnApproval" :disabled="!canEdit" />
+        </BaseDetailField>
+
+        <!-- The date belongs to the MANUAL release path only. With
+             Auto-Effective on it is whenever the final approval lands, so an
+             editable field here invites a value the system ignores — the same
+             rule the create form follows (documentEffectiveDate.js), which the
+             rail was not honouring.
+
+             Once a document IS effective the date is real and worth showing,
+             so it stays visible read-only rather than disappearing. -->
+        <BaseDetailField
+          v-if="showEffectiveDate"
+          :label="effectiveDateEditable ? 'Effective Date' : 'Effective'"
+        >
+          <BaseDateField
+            v-if="effectiveDateEditable"
+            v-model="currentVersion.effectiveDate"
+            mode="date"
+            :required="false"
+          />
+          <BaseText v-else variant="body" weight="medium">
+            {{
+              currentVersion.effectiveDate ? currentVersion.effectiveDate.formatDate('date') : '—'
+            }}
+          </BaseText>
+        </BaseDetailField>
+
+        <!-- Tags. Import writes the source system's own identifier and an
+             `import` marker here, and until now the rail never showed them —
+             the one place someone looks to confirm a migrated document kept
+             its old number. -->
+        <BaseDetailField v-if="canEdit || document.tags?.length" label="Tags">
+          <BaseTagsInput v-if="canEdit" v-model="document.tags" placeholder="Add a tag…" />
+          <div v-else class="tw:flex tw:flex-wrap tw:gap-1">
+            <BaseChip v-for="tag in document.tags" :key="tag" size="sm">{{ tag }}</BaseChip>
+          </div>
+        </BaseDetailField>
+
+        <!-- Immutable audit-PDF snapshot, generated by the worker on EFFECTIVE
+             transition. The sha256 is the tamper-evidence anchor. -->
+        <BaseDetailField v-if="currentVersion.snapshotStoragePath" label="Audit Snapshot">
+          <div class="tw:flex tw:flex-col tw:gap-1">
+            <a
+              :href="`/api/v1/files/${currentVersion.snapshotStoragePath}`"
+              target="_blank"
+              rel="noopener"
+              class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
+            >
+              Download audit PDF
+            </a>
+            <p v-if="currentVersion.snapshotGeneratedAt" class="tw:text-xs tw:text-secondary">
+              Generated {{ currentVersion.snapshotGeneratedAt.formatDate('datetime') }}
+            </p>
+            <p
+              v-if="currentVersion.snapshotSha256"
+              class="tw:text-micro tw:text-secondary tw:break-all"
+              :title="currentVersion.snapshotSha256"
+            >
+              sha256: {{ currentVersion.snapshotSha256.slice(0, 16) }}…
+            </p>
+          </div>
+        </BaseDetailField>
+      </div>
+    </BaseRailCard>
+
+    <!-- Collaborators + Chat — one section right below Properties. The chat only
+         appears once collaborators exist. -->
+    <DocumentsCollaborationCard :documentId="document.id" :canEdit="canEdit" />
+
+    <!-- Admin-defined custom fields, right after Properties. Self-hides when
+         none configured. -->
+    <CustomFieldsCard entityType="Document" :entityId="document.id" :editable="canEdit" />
+
+    <!-- Workflow -->
+    <BaseRailCard title="Workflow" :icon="IconHierarchy">
+      <div class="tw:flex tw:flex-col tw:gap-2">
         <!-- Selected workflow display -->
         <RouterLink
           v-if="selectedWorkflow && selectedWorkflowVersion"
@@ -267,73 +392,64 @@ watch(
           </div>
         </RouterLink>
 
-        <!-- Empty state -->
-        <button
+        <!-- Empty state. Not actionable: the flow is inherited from the
+             document's template (2026-08-15), so the fix is on the template,
+             not here. -->
+        <div
           v-else
-          class="tw:w-full tw:py-3 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:flex tw:items-center tw:justify-center tw:gap-2 tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all tw:text-sm"
-          :disabled="!canEdit"
-          @click="showWorkflowDialog = true"
+          class="tw:w-full tw:py-3 tw:px-3 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:flex tw:items-center tw:justify-center tw:gap-2 tw:text-secondary tw:text-sm"
         >
           <IconHierarchy :size="16" />
-          <span>Select a workflow</span>
-        </button>
-
-        <!-- Workflow Selection Dialog -->
-        <BaseDialog v-model="showWorkflowDialog" title="Select Workflow" maxWidth="lg">
-          <WorkflowVersionSelect
-            v-model="document.workflowVersionId"
-            moduleId="APPROVAL"
-            @update:modelValue="showWorkflowDialog = false"
-          />
-        </BaseDialog>
-      </div>
-
-      <!-- Approval Workflow Timeline (live) -->
-      <div v-if="currentVersion.workflowInstanceId" class="tw:space-y-4">
-        <h4 class="ds-label tw:text-secondary tw:px-1">Workflow Timeline</h4>
-        <WorkflowInstanceTimeline :workflowInstanceId="currentVersion.workflowInstanceId" />
-      </div>
-
-      <!-- Table of Contents Card -->
-      <div class="tw:bg-sidebar tw:rounded-xl tw:shadow-sm tw:border tw:border-divider tw:p-5">
-        <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
-          <h4 class="ds-label tw:text-secondary">Table of Contents</h4>
+          <span>No approval flow on this document's template</span>
         </div>
-        <nav class="tw:space-y-1">
-          <a
-            v-for="(section, index) in documentSections"
-            :key="section.id"
-            :href="`#${section.id}`"
-            class="tw:group tw:flex tw:items-center tw:gap-3 tw:px-3 tw:py-2 tw:rounded-lg tw:text-sm tw:font-medium tw:transition-colors"
+
+        <p class="tw:self-start tw:text-xs tw:text-secondary">
+          Inherited from the document template.
+        </p>
+      </div>
+    </BaseRailCard>
+
+    <!-- Approval Workflow Timeline (live) -->
+    <BaseRailCard v-if="currentVersion.workflowInstanceId" title="Workflow Timeline">
+      <WorkflowInstanceTimeline :workflowInstanceId="currentVersion.workflowInstanceId" />
+    </BaseRailCard>
+
+    <!-- Table of Contents — content-specific, hidden on other tabs -->
+    <BaseRailCard v-if="activeTab === 'content'" title="Table of Contents">
+      <nav class="tw:space-y-1">
+        <a
+          v-for="(section, index) in documentSections"
+          :key="section.id"
+          :href="`#${section.id}`"
+          class="tw:group tw:flex tw:items-center tw:gap-3 tw:px-3 tw:py-2 tw:rounded-lg tw:text-sm tw:font-medium tw:transition-colors"
+          :class="
+            activeSection === section.id
+              ? 'tw:text-primary tw:bg-primary/5'
+              : 'tw:text-secondary tw:hover:bg-sidebar-hover'
+          "
+          @click.prevent="scrollToSection(section.id)"
+        >
+          <span
+            class="tw:text-xs tw:font-bold"
             :class="
               activeSection === section.id
-                ? 'tw:text-primary tw:bg-primary/5'
-                : 'tw:text-secondary tw:hover:bg-sidebar-hover'
+                ? 'tw:text-primary/50'
+                : 'tw:text-secondary tw:group-hover:text-primary/50'
             "
-            @click.prevent="scrollToSection(section.id)"
           >
-            <span
-              class="tw:text-xs tw:font-bold"
-              :class="
-                activeSection === section.id
-                  ? 'tw:text-primary/50'
-                  : 'tw:text-secondary tw:group-hover:text-primary/50'
-              "
-            >
-              {{ index + 1 }}.
-            </span>
-            {{ section.title }}
-          </a>
+            {{ index + 1 }}.
+          </span>
+          {{ section.title }}
+        </a>
 
-          <!-- Empty state -->
-          <div
-            v-if="documentSections.length === 0"
-            class="tw:text-center tw:py-4 tw:text-secondary tw:text-xs"
-          >
-            No sections available
-          </div>
-        </nav>
-      </div>
-    </div>
-  </div>
+        <!-- Empty state -->
+        <div
+          v-if="documentSections.length === 0"
+          class="tw:text-center tw:py-4 tw:text-secondary tw:text-xs"
+        >
+          No sections available
+        </div>
+      </nav>
+    </BaseRailCard>
+  </template>
 </template>

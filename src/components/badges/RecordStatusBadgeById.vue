@@ -12,7 +12,8 @@ const status = useLiveQueryWithDeps(
     if (!statusId) return null
     return db.RecordStatus.findByPk(statusId)
   },
-  { initial: () => (props.statusId ? { id: props.statusId } : null) },
+
+  { models: ['RecordStatus'], initial: () => (props.statusId ? { id: props.statusId } : null) },
 )
 </script>
 

@@ -8,7 +8,10 @@ const props = defineProps({
 
 const search = ref('')
 
-const roles = useLiveQuery((db) => db.Role.where('statusId', 'ACTIVE').exec(), { initial: [] })
+const roles = useLiveQuery((db) => db.Role.where('statusId', 'ACTIVE').exec(), {
+  models: ['Role'],
+  initial: [],
+})
 
 const stepRoles = useLiveQueryWithDeps(
   [() => props.stepId],
@@ -16,7 +19,8 @@ const stepRoles = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.WorkflowStepRole.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 
 const roleIds = computed(() => stepRoles.value.map((sr) => sr.roleId))
@@ -60,41 +64,46 @@ async function removeRole(roleId) {
 <template>
   <div class="tw:space-y-4">
     <!-- Search -->
-    <div>
-      <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-        Select Roles
-      </label>
-      <BaseTextInput v-model="search" placeholder="Search roles (e.g. Quality Manager...)">
+    <BaseField v-slot="{ id: fieldId }" label="Select Roles">
+      <BaseTextInput
+        :id="fieldId"
+        v-model="search"
+        placeholder="Search roles (e.g. Quality Manager...)"
+      >
         <template #icon>
           <IconSearch :size="18" class="tw:text-secondary" />
         </template>
       </BaseTextInput>
-    </div>
+    </BaseField>
 
     <!-- Selected Chips -->
     <div v-if="selectedRoles.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
-      <BaseChip
+      <BaseBadge
         v-for="role in selectedRoles"
         :key="role.id"
-        :label="role.name"
-        :removable="canUpdate"
-        @remove="removeRole(role.id)"
-      />
+        class="tw:bg-main-hover tw:border-divider tw:text-on-main"
+        :clearable="canUpdate"
+        :clearLabel="`Remove ${role.name}`"
+        @clear="removeRole(role.id)"
+      >
+        {{ role.name }}
+      </BaseBadge>
     </div>
 
     <!-- Role List -->
     <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
-      <div
+      <BaseClickableRow
         v-for="role in filteredRoles"
         :key="role.id"
+        :disabled="!canUpdate"
+        :aria-label="`Toggle role ${role.name}`"
         class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:rounded-lg tw:transition-colors"
         :class="[
           roleIds.includes(role.id)
             ? 'tw:bg-primary/10 tw:border tw:border-primary/20'
             : 'tw:hover:bg-main-hover',
-          canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default',
         ]"
-        @click="canUpdate && toggleRole(role.id)"
+        @click="toggleRole(role.id)"
       >
         <BaseCheckbox
           :modelValue="roleIds.includes(role.id)"
@@ -108,7 +117,7 @@ async function removeRole(roleId) {
             {{ role.description }}
           </div>
         </div>
-      </div>
+      </BaseClickableRow>
 
       <BaseEmptyState v-if="filteredRoles.length === 0" dense title="No roles found" />
     </div>

@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: {
     type: Boolean,
     default: false,
@@ -8,6 +8,13 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  // Optional predicate to narrow the offered modules — e.g. the workflow
+  // create wizard shows only the modules whose workflows belong on the list
+  // you launched it from. Receives the Module record, returns a boolean.
+  filter: {
+    type: Function,
+    default: null,
+  },
 })
 
 const modelValue = defineModel({
@@ -15,49 +22,37 @@ const modelValue = defineModel({
   default: null,
 })
 
-const modules = useLiveQuery((db) => db.Module.where().orderBy('displayOrder').exec(), {
+const allModules = useLiveQuery((db) => db.Module.where().orderBy('displayOrder').exec(), {
+  models: ['Module'],
   initial: [],
 })
 
-/**
- * Normalize model for easier handling
- */
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+const modules = computed(() =>
+  props.filter ? allModules.value.filter((m) => props.filter(m)) : allModules.value,
+)
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="modules" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <ModuleBadgeById
-              v-for="id in getArray()"
-              :key="id"
-              :moduleId="id"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(id)"
-            />
-          </div>
-
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Modules </span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <ModuleBadgeById
-            v-if="modelValue"
-            :moduleId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Module </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="modules"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All modules —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <ModuleBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :moduleId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

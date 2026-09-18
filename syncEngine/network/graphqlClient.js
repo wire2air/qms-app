@@ -51,9 +51,25 @@ export async function graphqlRequest(query, variables, { signal } = {}) {
         window.dispatchEvent(new CustomEvent('qms:auth-unauthorized'))
       }
     }
-    throw new GraphQLError(`Request failed with status ${res.status}`, {
+    // Read the body before giving up. A 4xx from PostGraphile still carries a
+    // GraphQL `errors` array naming the exact offending field — e.g. variable
+    // coercion failures ("Invalid UUID") list every bad input path. Throwing on
+    // the bare status discarded the only diagnostic there was, leaving both the
+    // user and the console with "Request failed with status 400".
+    let body = null
+    try {
+      body = await res.json()
+    } catch {
+      // Non-JSON error page (proxy/gateway) — the status is all we have.
+    }
+    const errors = body?.errors ?? []
+    const detail = errors
+      .map((e) => e?.message)
+      .filter(Boolean)
+      .join('; ')
+    throw new GraphQLError(detail || `Request failed with status ${res.status}`, {
       status: res.status,
-      errors: [],
+      errors,
     })
   }
 

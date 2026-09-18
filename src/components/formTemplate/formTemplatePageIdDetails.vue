@@ -1,8 +1,16 @@
 <script setup>
-import { IconTrash, IconEdit, IconCode } from '@tabler/icons-vue'
+import {
+  IconArchive,
+  IconEdit,
+  IconCode,
+  IconRocket,
+  IconBolt,
+  IconChartBar,
+  IconLayoutColumns,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useDebounceFn } from '@vueuse/core'
+import { eligibleListFields } from '@/utils/moduleListColumns.js'
 
 const props = defineProps({
   id: {
@@ -12,12 +20,15 @@ const props = defineProps({
 })
 
 const toast = useToast()
-const router = useRouter()
 
-const template = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormTemplate.findByPk(id)
-})
+const template = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormTemplate.findByPk(id)
+  },
+  { models: ['FormTemplate'] },
+)
 
 const siteAssignments = useLiveQueryWithDeps(
   [() => props.id],
@@ -25,7 +36,8 @@ const siteAssignments = useLiveQueryWithDeps(
     if (!id) return []
     return db.SiteOnTemplate.where('templateId', id).exec()
   },
-  { initial: [] },
+
+  { models: ['SiteOnTemplate'], initial: [] },
 )
 
 const assignedSiteIds = computed(() => siteAssignments.value.map((s) => s.siteId))
@@ -34,37 +46,28 @@ const formData = ref({})
 
 const formattedCreatedAt = computed(() => template.value?.createdAt?.formatDate('date'))
 const relativeUpdatedAt = computed(() => template.value?.updatedAt?.formatDate('date'))
-const canUpdate = computed(() => isAllowed(['formTemplates:update']))
-const canDelete = computed(() => isAllowed(['formTemplates:delete']))
+const canUpdate = computed(() => isAllowed(['forms_templates:update']))
 const loading = computed(() => template.value === undefined)
+const showPromote = ref(false)
 
 // Auto-save for template fields
-const isSaving = ref(false)
-const isFirstLoad = ref(true)
+useAutoSave(template, { onError: (err) => toast.error(err.message || 'Failed to save') })
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!template.value) return
-  isSaving.value = true
-  try {
-    await template.value.save()
-  } catch (err) {
-    toast.error(err.message || 'Failed to save')
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  template,
-  (t) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
+// ─── Record-list columns (modules) ──────────────────────────────────────────
+// Which form fields the module's record list shows as table columns. Only
+// short-value field types qualify (see eligibleListFields); the picks live on
+// moduleConfig.listColumns in selection order and each renders filterable.
+const showConfigureView = ref(false)
+const listFieldOptions = computed(() => eligibleListFields(template.value?.schema || []))
+const listColumns = computed({
+  get: () => template.value?.moduleConfig?.listColumns ?? [],
+  set: (v) => {
+    template.value.moduleConfig = {
+      ...(template.value.moduleConfig || {}),
+      listColumns: v ?? [],
     }
-    if (t) debouncedSave()
   },
-  { deep: true },
-)
+})
 
 // Site assignments (junction table — separate handler)
 const addSiteOnTemplate = useLiveMutation(async (db, { templateId, siteId }) => {
@@ -78,26 +81,47 @@ async function handleSitesChange(newSiteIds) {
   const toAdd = newSiteIds.filter((id) => !currentIds.includes(id))
   const toRemove = currentIds.filter((id) => !newSiteIds.includes(id))
 
-  for (const siteId of toAdd) {
-    await addSiteOnTemplate({ templateId: props.id, siteId })
-  }
-  for (const siteId of toRemove) {
-    const match = siteAssignments.value.find((sa) => sa.siteId === siteId)
-    if (match) await match.delete()
+  // Surface the failure instead of leaving an unhandled rejection in the
+  // console. The save can be rejected server-side (e.g. RLS on
+  // sites_on_templates) — pessimistic saves mean a throw == nothing changed.
+  try {
+    for (const siteId of toAdd) {
+      await addSiteOnTemplate({ templateId: props.id, siteId })
+    }
+    for (const siteId of toRemove) {
+      const match = siteAssignments.value.find((sa) => sa.siteId === siteId)
+      if (match) await match.delete()
+    }
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update assigned sites')
   }
 }
 
-// Delete
-const showDeleteConfirm = ref(false)
+// Archive-only lifecycle: templates are never deleted — archived rows are the
+// version history, and existing records/workflows keep referencing them by id.
+// A DB trigger enforces the same rule server-side.
+const { confirm } = useConfirm()
 
-async function handleDelete() {
+async function handleArchiveToggle() {
   if (!template.value) return
   try {
-    await template.value.delete()
-    toast.success('Form template deleted successfully')
-    router.push(getCompanyPath('/templates'))
-  } catch {
-    toast.error('Failed to delete form template')
+    if (template.value.statusId === 'ARCHIVED') {
+      template.value.statusId = 'ACTIVE'
+      await template.value.save()
+      toast.success('Template restored')
+      return
+    }
+    const ok = await confirm({
+      title: 'Archive Template',
+      message: `Archive "${template.value.title}" (${template.value.code})? It disappears from pickers and new usage, but existing records built from it keep working. You can restore it anytime.`,
+      okLabel: 'Archive',
+    })
+    if (!ok) return
+    template.value.statusId = 'ARCHIVED'
+    await template.value.save()
+    toast.success('Template archived')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update template status')
   }
 }
 </script>
@@ -108,13 +132,12 @@ async function handleDelete() {
     <SafeTeleport to="#main-header-actions">
       <div v-if="template" class="tw:flex tw:items-center tw:gap-3">
         <BaseButton
-          v-if="canDelete"
+          v-if="canUpdate"
           variant="outline"
-          class="tw:text-bad!"
-          @click="showDeleteConfirm = true"
+          @click="handleArchiveToggle"
         >
-          <IconTrash :size="16" class="tw:mr-1" />
-          Delete
+          <IconArchive :size="16" class="tw:mr-1" />
+          {{ template.statusId === 'ARCHIVED' ? 'Restore' : 'Archive' }}
         </BaseButton>
         <BaseButton
           v-if="canUpdate"
@@ -124,22 +147,95 @@ async function handleDelete() {
           <IconEdit :size="16" class="tw:mr-1" />
           Edit Template
         </BaseButton>
+        <!-- A promoted module's records live in ITS register (/m/<key>) with
+             the configured columns — the raw records mode is for plain forms. -->
         <BaseButton
+          v-if="!template.isModule"
           variant="outline"
           :to="getCompanyPath(`/templates/${template.id}?mode=records`)"
         >
           View records
         </BaseButton>
+        <BaseButton v-if="template.isModule && canUpdate" variant="outline" @click="showConfigureView = true">
+          <IconLayoutColumns :size="16" class="tw:mr-1" />
+          Configure View
+        </BaseButton>
+        <BaseButton
+          v-if="template.isModule"
+          variant="outline"
+          :to="getCompanyPath(`/templates/${template.id}?mode=automation`)"
+        >
+          <IconBolt :size="16" class="tw:mr-1" />
+          Automation
+        </BaseButton>
+        <BaseButton
+          v-if="template.isModule"
+          variant="outline"
+          :to="getCompanyPath(`/templates/${template.id}?mode=scoring`)"
+        >
+          <IconChartBar :size="16" class="tw:mr-1" />
+          Scoring
+        </BaseButton>
+        <BaseButton
+          v-if="canUpdate && !template.isModule"
+          variant="primary"
+          @click="showPromote = true"
+        >
+          <IconRocket :size="16" class="tw:mr-1" />
+          Promote to Module
+        </BaseButton>
+        <BaseButton
+          v-else-if="template.isModule"
+          variant="outline"
+          :to="getCompanyPath(`/m/${template.internalName}`)"
+        >
+          Open Module
+        </BaseButton>
       </div>
     </SafeTeleport>
+
+    <PromoteToModuleDialog
+      v-if="template"
+      v-model="showPromote"
+      :templateId="template.id"
+      :suggestedName="template.title"
+    />
+
+    <!-- Configure View — which form fields the module's record list shows as
+         table columns (moduleConfig.listColumns, autosaved). -->
+    <BaseDialog v-model="showConfigureView" title="Configure View" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-secondary">
+          Choose the form fields the record list shows as columns, between Status and Created.
+          Fields with a bounded value set (choices, yes/no, lookups, dates) also become filter
+          dimensions; free text is covered by search.
+        </p>
+        <BaseField label="Table columns">
+          <BaseSelect
+            v-model="listColumns"
+            :options="listFieldOptions"
+            optionLabel="label"
+            optionValue="name"
+            multiple
+            clearable
+            placeholder="Number, Status and Created only"
+          />
+        </BaseField>
+        <p class="tw:text-caption tw:text-secondary">
+          Only short-value fields qualify — text, number, date, choices, yes/no and lookups.
+          Long text, tables, files and layout elements can't render in a cell.
+        </p>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="primary" @click="close">Done</BaseButton>
+      </template>
+    </BaseDialog>
 
     <!-- Main Content Area (Fields Preview) -->
     <div class="tw:grow tw:flex tw:flex-col tw:min-w-0 tw:overflow-hidden">
       <!-- Loading State -->
       <div v-if="loading" class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:h-full">
-        <div
-          class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
         <div class="tw:text-sm tw:text-on-main tw:mt-4">Loading template...</div>
       </div>
 
@@ -151,7 +247,7 @@ async function handleDelete() {
             class="tw:mb-8 tw:flex tw:items-center tw:justify-between tw:border-b tw:border-divider tw:pb-4 tw:shrink-0"
           >
             <div>
-              <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Fields Preview</h3>
+              <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Fields Preview</h3>
               <p class="tw:text-sm tw:text-secondary">
                 Live representation of the form generated from metadata.
               </p>
@@ -179,6 +275,13 @@ async function handleDelete() {
           </div>
         </div>
       </div>
+
+      <BaseStatusState
+        v-else
+        variant="notfound"
+        title="Template not found"
+        description="This form template doesn't exist or you don't have access to it."
+      />
     </div>
 
     <!-- Right Sidebar (Metadata) -->
@@ -189,34 +292,31 @@ async function handleDelete() {
       <div class="tw:p-6">
         <div class="tw:flex tw:items-center tw:gap-2 tw:mb-6 tw:text-on-sidebar">
           <IconCode :size="20" class="tw:text-primary" />
-          <h3 class="tw:text-base tw:font-bold">Metadata Properties</h3>
+          <BaseText as="h3" variant="subheading" weight="bold">Metadata Properties</BaseText>
         </div>
         <div class="tw:space-y-6">
           <!-- Template Identity -->
           <div class="tw:space-y-4">
-            <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-              Template Identity
-            </h4>
+            <BaseText as="h4" variant="overline" class="tw:block">Template Identity</BaseText>
             <div class="tw:grid tw:gap-4">
               <div class="tw:space-y-1">
                 <label class="tw:text-xs tw:font-medium tw:text-secondary">ID</label>
                 <div
-                  class="tw:text-sm tw:font-mono tw:bg-main tw:p-2 tw:rounded tw:text-on-main tw:break-all"
+                  class="tw:text-sm tw:bg-main tw:p-2 tw:rounded tw:text-on-main tw:break-all"
                 >
                   {{ template.id }}
                 </div>
               </div>
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Internal Title</label>
-                <BaseTextInput v-if="canUpdate" v-model="template.title" size="sm" />
+              <BaseField v-slot="{ id: fieldId }" label="Internal Title">
+                <BaseTextInput v-if="canUpdate" :id="fieldId" v-model="template.title" size="sm" />
                 <div v-else class="tw:text-sm tw:font-medium tw:text-on-main">
                   {{ template.title }}
                 </div>
-              </div>
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Description</label>
+              </BaseField>
+              <BaseField v-slot="{ id: fieldId }" label="Description">
                 <BaseTextarea
                   v-if="canUpdate"
+                  :id="fieldId"
                   v-model="template.description"
                   placeholder="Click to add description..."
                   size="sm"
@@ -224,36 +324,32 @@ async function handleDelete() {
                 <div v-else class="tw:text-sm tw:text-on-main tw:min-h-5">
                   {{ template.description || '—' }}
                 </div>
-              </div>
+              </BaseField>
             </div>
           </div>
 
           <!-- Classification -->
           <div class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider">
-            <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-              Classification
-            </h4>
+            <BaseText as="h4" variant="overline" class="tw:block">Classification</BaseText>
             <div class="tw:grid tw:gap-4">
               <div class="tw:space-y-1 tw:flex tw:flex-col">
                 <label class="tw:text-xs tw:font-medium tw:text-secondary">Template Code</label>
                 <div
-                  class="tw:text-xs tw:font-mono tw:bg-main-hover tw:px-2 tw:py-1 tw:rounded tw:text-on-main tw:inline-flex tw:w-fit"
+                  class="tw:text-xs tw:bg-main-hover tw:px-2 tw:py-1 tw:rounded tw:text-on-main tw:inline-flex tw:w-fit"
                 >
                   {{ template.code }}
                 </div>
               </div>
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Status</label>
+              <BaseField label="Status">
                 <FormTemplateStatusSelectMenu
                   v-if="canUpdate"
                   v-model="template.statusId"
                   required
                 />
                 <FormTemplateStatusBadgeById v-else :statusId="template.statusId" showDot />
-              </div>
+              </BaseField>
               <!-- Assigned Sites -->
-              <div class="tw:space-y-1">
-                <label class="tw:text-xs tw:font-medium tw:text-secondary">Assigned Sites</label>
+              <BaseField label="Assigned Sites">
                 <SiteSelectMenu
                   v-if="canUpdate"
                   multiple
@@ -270,13 +366,8 @@ async function handleDelete() {
                     No sites assigned
                   </span>
                 </div>
-              </div>
+              </BaseField>
             </div>
-          </div>
-
-          <!-- Inspections & Logs classification editor -->
-          <div class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider">
-            <FormTemplateClassificationEditor :template="template" />
           </div>
 
           <!-- JSON Configuration -->
@@ -284,12 +375,10 @@ async function handleDelete() {
             v-if="template.config && Object.keys(template.config).length"
             class="tw:space-y-4 tw:pt-4 tw:border-t tw:border-divider"
           >
-            <h4 class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary">
-              JSON Configuration
-            </h4>
-            <div class="tw:rounded-lg tw:bg-[#111827] tw:p-3 tw:overflow-hidden">
+            <BaseText as="h4" variant="overline" class="tw:block">JSON Configuration</BaseText>
+            <div class="tw:rounded-lg tw:bg-code tw:p-3 tw:overflow-hidden">
               <pre
-                class="tw:text-[10px] tw:text-good tw:font-mono tw:leading-relaxed tw:whitespace-pre-wrap"
+                class="tw:text-micro tw:text-good tw:leading-relaxed tw:whitespace-pre-wrap"
               ><code>{{ JSON.stringify(template.config, null, 2) }}</code></pre>
             </div>
           </div>
@@ -297,17 +386,17 @@ async function handleDelete() {
           <!-- System Info -->
           <div class="tw:p-4 tw:bg-main tw:rounded-lg">
             <div class="tw:flex tw:flex-col tw:gap-2">
-              <div class="tw:flex tw:justify-between tw:text-[11px]">
+              <div class="tw:flex tw:justify-between tw:text-caption">
                 <span class="tw:text-secondary">Last Modified</span>
                 <span class="tw:font-bold tw:text-on-main">{{ relativeUpdatedAt }}</span>
               </div>
 
-              <div class="tw:flex tw:justify-between tw:text-[11px]">
+              <div class="tw:flex tw:justify-between tw:text-caption">
                 <span class="tw:text-secondary">Created Date</span>
                 <span class="tw:font-bold tw:text-on-main">{{ formattedCreatedAt }}</span>
               </div>
 
-              <div class="tw:flex tw:justify-between tw:text-[11px]">
+              <div class="tw:flex tw:justify-between tw:text-caption">
                 <span class="tw:text-secondary">Version</span>
                 <span class="tw:font-bold tw:text-on-main">{{ template.version }}</span>
               </div>
@@ -317,14 +406,5 @@ async function handleDelete() {
       </div>
     </aside>
 
-    <!-- Delete Confirmation -->
-    <ConfirmDialog
-      v-model="showDeleteConfirm"
-      title="Delete Template"
-      :message="`Are you sure you want to delete form template &quot;${template?.title}&quot; (${template?.code})? This action cannot be undone.`"
-      confirmLabel="Delete"
-      variant="danger"
-      @confirm="handleDelete"
-    />
   </div>
 </template>

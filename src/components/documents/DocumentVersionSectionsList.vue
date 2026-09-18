@@ -29,7 +29,8 @@ const sections = useLiveQueryWithDeps(
   async (db, [versionId]) => {
     return db.DocumentSection.where('documentVersionId', versionId).orderBy('order', 'asc').exec()
   },
-  { initial: [] },
+
+  { models: ['DocumentSection'], initial: [] },
 )
 
 const showAddSectionDialog = ref(false)

@@ -1,4 +1,5 @@
 <script setup>
+import { submitReadiness } from './workflowSubmitReadiness.js'
 import { IconPlus } from '@tabler/icons-vue'
 import { useDocuments } from '@/composables/useDocuments.js'
 
@@ -15,8 +16,10 @@ const { submitForReview } = useDocuments()
 const submitting = ref(false)
 
 // ── Local data from IDB ───────────────────────────────────────────────────
-const document = useLiveQueryWithDeps([() => props.documentId], async (db, [documentId]) =>
-  db.Document.findByPk(documentId),
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [documentId]) => db.Document.findByPk(documentId),
+  { models: ['Document'] },
 )
 
 const allWorkflowSteps = useLiveQueryWithDeps(
@@ -25,7 +28,8 @@ const allWorkflowSteps = useLiveQueryWithDeps(
     workflowVersionId
       ? db.WorkflowStep.where('workflowVersionId', workflowVersionId).orderBy('stepOrder').exec()
       : [],
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 const stepIds = computed(() => allWorkflowSteps.value.map((s) => s.id))
@@ -33,7 +37,8 @@ const stepIds = computed(() => allWorkflowSteps.value.map((s) => s.id))
 const allStepRoles = useLiveQueryWithDeps(
   [stepIds],
   async (db, [stepIds]) => db.WorkflowStepRole.where('stepId', stepIds).exec(),
-  { initial: [] },
+
+  { models: ['WorkflowStepRole'], initial: [] },
 )
 
 // Role membership for any role that appears on any step. We feed this
@@ -47,7 +52,8 @@ const rolesOnUsers = useLiveQueryWithDeps(
     if (roleIds.length === 0) return []
     return await db.RoleOnUser.where('roleId', roleIds).exec()
   },
-  { initial: [] },
+
+  { models: ['RoleOnUser'], initial: [] },
 )
 
 // Role records for display (name on the role chip below the picker).
@@ -59,12 +65,14 @@ const stepRoleRecords = useLiveQueryWithDeps(
     const roles = await Promise.all(roleIds.map((id) => db.Role.findByPk(id)))
     return Object.fromEntries(roles.filter(Boolean).map((r) => [r.id, r]))
   },
-  { initial: {} },
+
+  { models: ['Role'], initial: {} },
 )
 
 const allUsers = useLiveQuery(
   async (db) => (await db.User.where().exec()).filter((u) => u.userStatusId === 'ACTIVE'),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const usersById = computed(() => Object.fromEntries(allUsers.value.map((u) => [u.id, u])))
@@ -108,9 +116,7 @@ const steps = computed(() => {
       }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
-    const roleNames = stepRoleIds
-      .map((id) => stepRoleRecords.value[id]?.name)
-      .filter(Boolean)
+    const roleNames = stepRoleIds.map((id) => stepRoleRecords.value[id]?.name).filter(Boolean)
 
     return {
       ...step,
@@ -124,21 +130,25 @@ const steps = computed(() => {
 // Reset every time the dialog opens so a previous cancelled draft
 // doesn't pre-fill the next attempt.
 const selections = reactive({})
+// Per-step ALL/ANY override. Seeded lazily from the step's own rule by
+// ruleFor(), so an untouched step submits nothing and keeps the template's.
+const approvalRules = reactive({})
 watch(show, (isOpen) => {
   if (isOpen) {
     Object.keys(selections).forEach((key) => delete selections[key])
+    Object.keys(approvalRules).forEach((key) => delete approvalRules[key])
   }
 })
 
-// Every step that has at least one candidate must have at least one
-// pick. Steps with no candidates (e.g. unrole'd system steps) don't
-// need a pick — the backend's fallback handles them.
-const allStepsPicked = computed(() => {
-  return steps.value.every((s) => {
-    if (s.candidates.length === 0) return true
-    return Array.isArray(selections[s.id]) && selections[s.id].length > 0
-  })
-})
+function ruleFor(step) {
+  return approvalRules[step.id] ?? step.approvalRule ?? 'ALL'
+}
+
+// A step with no candidates is NOT satisfied — see workflowSubmitReadiness.
+// There is no backend fallback for it; activateInstanceStep throws, and it
+// throws when the PREVIOUS step is approved, not now.
+const readiness = computed(() => submitReadiness(steps.value, selections))
+const allStepsPicked = computed(() => readiness.value.ok)
 
 const loading = computed(() => document.value === undefined)
 
@@ -153,7 +163,10 @@ async function confirm() {
   }
   submitting.value = true
   try {
-    await submitForReview(props.documentId, props.versionId, reviewers)
+    // Only steps the submitter actually touched — an untouched step keeps the
+    // template's rule rather than us echoing it back as an "override".
+    const rules = Object.keys(approvalRules).length ? { ...approvalRules } : null
+    await submitForReview(props.documentId, props.versionId, reviewers, rules)
     toast.success('Document submitted for review')
     emit('confirm')
     show.value = false
@@ -169,16 +182,14 @@ async function confirm() {
   <BaseDialog v-model="show" title="Submit for Review" maxWidth="lg" persistent>
     <div class="tw:max-h-[60vh] tw:overflow-auto">
       <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-12">
-        <div
-          class="tw:animate-spin tw:rounded-full tw:size-10 tw:border-4 tw:border-primary tw:border-t-transparent"
-        />
+        <BaseSpinner size="lg" />
       </div>
 
       <div v-else class="tw:space-y-4">
         <p class="tw:text-sm tw:text-secondary tw:px-1">
-          Pick the reviewer(s) for each step. The role on the step defines who's
-          eligible; <strong>ALL</strong> / <strong>ANY</strong> decides at
-          runtime whether every picked reviewer must approve or just the first.
+          Pick the reviewer(s) for each step. The role on the step defines who's eligible;
+          <strong>ALL</strong> / <strong>ANY</strong> decides at runtime whether every picked
+          reviewer must approve or just the first.
         </p>
 
         <div v-for="(step, idx) in steps" :key="step.id" class="tw:relative tw:pl-8 tw:group">
@@ -190,7 +201,7 @@ async function confirm() {
 
           <!-- Step circle indicator -->
           <div
-            class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-main tw:border-2 tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-secondary tw:z-10 tw:text-xs tw:font-bold"
+            class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-main tw:border-2 tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-secondary tw:z-raised tw:text-xs tw:font-bold"
           >
             {{ step.stepOrder }}
           </div>
@@ -202,27 +213,50 @@ async function confirm() {
             <!-- Step header — name + ALL/ANY runtime policy + role chip(s) -->
             <div class="tw:mb-3 tw:flex tw:items-start tw:justify-between tw:gap-3">
               <div>
-                <h3 class="tw:font-bold tw:text-on-main">
+                <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">
                   Step {{ step.stepOrder }}: {{ step.name }}
                 </h3>
                 <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
                   {{
-                    step.approvalRule === 'ANY'
+                    ruleFor(step) === 'ANY'
                       ? 'ANY — first approval advances the step'
                       : 'ALL — every picked reviewer must approve to advance'
                   }}
                 </p>
               </div>
-              <span
-                class="tw:shrink-0 tw:px-2 tw:py-0.5 tw:rounded-full tw:text-xs tw:font-bold tw:bg-primary/10 tw:text-primary"
-              >
-                {{ step.approvalRule }}
-              </span>
+              <!-- ALL/ANY is chosen HERE, not only on the template (user
+                   request 2026-08-16). The rule only means something once you
+                   know who was picked — with a single reviewer the two are
+                   identical — so the person choosing the people chooses this
+                   too. It lands on the instance step; the template keeps its
+                   own default for every future record. -->
+              <div class="tw:shrink-0 tw:flex tw:rounded-full tw:bg-main-hover tw:p-0.5">
+                <button
+                  v-for="rule in ['ALL', 'ANY']"
+                  :key="rule"
+                  type="button"
+                  :aria-pressed="ruleFor(step) === rule"
+                  :title="
+                    rule === 'ALL'
+                      ? 'Every picked reviewer must approve'
+                      : 'The first approval advances the step'
+                  "
+                  class="tw:px-2 tw:py-0.5 tw:rounded-full tw:text-xs tw:font-bold tw:transition-colors tw:cursor-pointer"
+                  :class="
+                    ruleFor(step) === rule
+                      ? 'tw:bg-primary tw:text-white'
+                      : 'tw:text-secondary tw:hover:text-primary'
+                  "
+                  @click="approvalRules[step.id] = rule"
+                >
+                  {{ rule }}
+                </button>
+              </div>
             </div>
 
             <div
               v-if="step.roleNames.length"
-              class="tw:text-[11px] tw:text-secondary tw:mb-2 tw:flex tw:flex-wrap tw:gap-1"
+              class="tw:text-caption tw:text-secondary tw:mb-2 tw:flex tw:flex-wrap tw:gap-1"
             >
               <span>Eligible roles:</span>
               <span
@@ -241,59 +275,67 @@ async function confirm() {
                  unlike "×"). When nothing's picked yet the whole button
                  area shows the placeholder text — clicking anywhere
                  opens the dropdown, no "+" needed. -->
-            <BaseSelectMenu
+            <BaseSelect
               v-if="step.candidates.length"
               v-model="selections[step.id]"
-              :items="step.candidates"
+              :options="step.candidates"
+              optionLabel="name"
+              optionValue="id"
               :multiple="true"
-              :required="true"
+              placeholder="Select reviewer(s)…"
             >
-              <template #button="scope">
-                <div
-                  v-if="Array.isArray(selections[step.id]) && selections[step.id].length"
-                  class="tw:flex tw:flex-wrap tw:items-center tw:gap-1"
-                >
+              <!-- NOT `:required` — BaseSelect refuses to remove the last
+                   value when it is set, so the chip's "×" silently did
+                   nothing and the only way to change a single reviewer was
+                   the dropdown (reported 2026-08-16). "At least one per step"
+                   is already enforced where it belongs: submitReadiness gates
+                   the Submit button and names the step that is missing one.
+                   `canRemove` still guards the affordance in case that
+                   changes. -->
+              <template #selected="{ options, remove, canRemove }">
+                <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
                   <span
-                    v-for="uid in selections[step.id]"
-                    :key="uid"
+                    v-for="opt in options"
+                    :key="opt.value"
                     class="tw:text-xs tw:font-medium tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded-full tw:flex tw:items-center tw:gap-1"
                   >
-                    {{ step.candidates.find((c) => c.id === uid)?.name || uid }}
+                    {{ opt.label }}
                     <button
+                      v-if="canRemove(opt)"
+                      type="button"
+                      :aria-label="`Remove ${opt.label}`"
                       class="tw:text-primary/70 tw:hover:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0 tw:text-xs tw:leading-none"
-                      @click.stop="scope.clear(uid)"
+                      @click.stop="remove(opt)"
                     >
                       &times;
                     </button>
                   </span>
                   <span
-                    v-if="selections[step.id].length < step.candidates.length"
+                    v-if="options.length < step.candidates.length"
                     class="tw:text-xs tw:font-medium tw:bg-transparent tw:text-primary tw:border tw:border-dashed tw:border-primary/40 tw:hover:border-primary tw:hover:bg-primary/5 tw:px-2 tw:py-0.5 tw:rounded-full tw:flex tw:items-center tw:gap-1 tw:cursor-pointer tw:transition-colors"
                   >
                     <IconPlus :size="12" />
                     Add reviewer
                   </span>
                 </div>
-                <span v-else class="tw:text-sm tw:text-placeholder">
-                  Select reviewer(s)…
-                </span>
               </template>
-            </BaseSelectMenu>
+            </BaseSelect>
 
+            <!-- Blocking, not advisory: this step cannot be started at all,
+                 and the error would otherwise surface when the step before it
+                 is approved. -->
             <p
               v-else-if="step.roleNames.length"
-              class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
+              class="tw:text-xs tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded tw:p-2"
             >
-              No active users hold the role(s) configured for this step.
-              Assign someone to the role before submitting, or pick a
-              different workflow.
+              No active users hold the role(s) configured for this step, so it can't be started.
+              Assign someone to the role before submitting, or pick a different workflow.
             </p>
             <p
               v-else
-              class="tw:text-xs tw:text-amber-700 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:p-2"
+              class="tw:text-xs tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded tw:p-2"
             >
-              No active internal users in your company yet — invite someone
-              before submitting.
+              No active internal users in your company yet — invite someone before submitting.
             </p>
           </div>
         </div>
@@ -301,19 +343,14 @@ async function confirm() {
     </div>
 
     <template #footer>
-      <BaseButton variant="outline" :disabled="submitting" @click="show = false">Cancel</BaseButton>
-      <BaseButton
-        variant="primary"
-        :disabled="submitting || !allStepsPicked"
-        :title="
-          !allStepsPicked
-            ? 'Pick at least one reviewer for each step before submitting.'
-            : undefined
-        "
-        @click="confirm"
-      >
-        {{ submitting ? 'Submitting…' : 'Submit for Review' }}
-      </BaseButton>
+      <BaseDialogFooter
+        submitLabel="Submit for Review"
+        :loading="submitting"
+        :disabled="!allStepsPicked"
+        :submitTitle="readiness.reason ?? undefined"
+        @cancel="show = false"
+        @submit="confirm"
+      />
     </template>
   </BaseDialog>
 </template>

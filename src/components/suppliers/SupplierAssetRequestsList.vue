@@ -27,21 +27,22 @@ const toast = useToast()
 const myRequests = useLiveQuery(
   async (db) => {
     const rows = await db.AssetRequest.where().exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['AssetRequest'], initial: [] },
 )
 
 const allItems = useLiveQuery(
   async (db) => db.AssetRequestItem.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestItem'], initial: [] },
 )
 
 const allTypes = useLiveQuery(
   async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestType'], initial: [] },
 )
 
 const typeById = computed(() => {
@@ -57,7 +58,8 @@ function itemsFor(requestId) {
 }
 
 function itemLabel(item) {
-  if (item.assetRequestTypeId) return typeById.value.get(item.assetRequestTypeId)?.name || item.assetRequestTypeId
+  if (item.assetRequestTypeId)
+    return typeById.value.get(item.assetRequestTypeId)?.name || item.assetRequestTypeId
   return item.customTitle || 'Untitled request'
 }
 
@@ -114,12 +116,12 @@ function progressForRequest(req) {
   <section class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3">
     <div class="tw:flex tw:items-center tw:gap-2">
       <IconUpload :size="18" class="tw:text-primary" />
-      <h2 class="tw:text-base tw:font-semibold tw:text-on-main">
+      <BaseText as="h2" weight="semibold">
         Asset Requests
         <span v-if="myRequests.length" class="tw:text-secondary tw:font-normal tw:text-sm">
           ({{ myRequests.length }})
         </span>
-      </h2>
+      </BaseText>
     </div>
 
     <p v-if="myRequests.length === 0" class="tw:text-xs tw:text-secondary tw:italic tw:py-2">
@@ -150,7 +152,7 @@ function progressForRequest(req) {
             </div>
           </div>
           <span
-            class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5"
+            class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
             :class="
               req.statusId === 'RECEIVED'
                 ? 'tw:bg-green-100 tw:text-green-700'
@@ -165,7 +167,9 @@ function progressForRequest(req) {
           <p v-if="req.description" class="tw:text-xs tw:text-secondary tw:italic">
             {{ req.description }}
           </p>
-          <ul class="tw:flex tw:flex-col tw:divide-y tw:divide-divider tw:rounded tw:border tw:border-divider">
+          <ul
+            class="tw:flex tw:flex-col tw:divide-y tw:divide-divider tw:rounded tw:border tw:border-divider"
+          >
             <li
               v-for="item in itemsFor(req.id)"
               :key="item.id"
@@ -206,7 +210,7 @@ function progressForRequest(req) {
               </BaseButton>
               <span
                 v-else-if="item.statusId === 'RECEIVED'"
-                class="tw:text-[10px] tw:bg-green-100 tw:text-green-700 tw:rounded tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:bg-green-100 tw:text-green-700 tw:rounded tw:px-1.5 tw:py-0.5"
               >
                 Received
               </span>

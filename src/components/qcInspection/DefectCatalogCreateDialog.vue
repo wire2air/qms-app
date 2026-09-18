@@ -1,0 +1,219 @@
+<script setup>
+/**
+ * Create / edit a Test Library entry (the per-tenant master list of inspection
+ * tests). Synced model — creates via useLiveMutation, edits by mutating the live
+ * record and saving (CLAUDE.md rule #4). Picking one in the spec builder
+ * pre-fills a characteristic with these defaults.
+ *
+ * The library defines WHAT to test (name, type, method, severity, gauge). The
+ * ACCEPTANCE criteria (target / LSL / USL / UOM) live on the specification
+ * characteristic, because they vary per item / spec — not here. The library
+ * scopes by Item Group (product family), since QC automation ties to Item Group.
+ */
+import { required } from '@shared/components/form/validators.js'
+
+const props = defineProps({
+  editDefect: { type: Object, default: null },
+})
+const open = defineModel({ type: Boolean, default: false })
+const toast = useToast()
+const saving = ref(false)
+const saveError = ref('')
+const formRef = ref(null)
+
+const TEST_TYPES = [
+  { id: 'NUMERIC', name: 'Numeric (measured)' },
+  { id: 'PASS_FAIL', name: 'Pass / Fail' },
+  { id: 'TEXT', name: 'Text / observation' },
+]
+
+function blank() {
+  return {
+    code: '',
+    name: '',
+    description: '',
+    defaultSeverity: 'MAJOR',
+    testType: 'PASS_FAIL',
+    testMethod: '',
+    requiresInstrument: false,
+    preferredEquipmentId: null,
+    applicableProductFamilyIds: [],
+    active: true,
+  }
+}
+const form = ref(blank())
+
+watch(open, (isOpen) => {
+  if (!isOpen) return
+  const d = props.editDefect
+  form.value = d
+    ? {
+        code: d.code ?? '',
+        name: d.name ?? '',
+        description: d.description ?? '',
+        defaultSeverity: d.defaultSeverity ?? 'MAJOR',
+        testType: d.testType ?? 'PASS_FAIL',
+        testMethod: d.testMethod ?? '',
+        requiresInstrument: d.requiresInstrument ?? false,
+        preferredEquipmentId: d.preferredEquipmentId ?? null,
+        applicableProductFamilyIds: Array.isArray(d.applicableProductFamilyIds)
+          ? [...d.applicableProductFamilyIds]
+          : [],
+        active: d.active ?? true,
+      }
+    : blank()
+  saveError.value = ''
+})
+
+// Auto-suggest a SCREAMING_SNAKE code from the name on new entries.
+watch(
+  () => form.value.name,
+  (name) => {
+    if (props.editDefect || !name) return
+    form.value.code = name
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+  },
+)
+
+const createTest = useLiveMutation(async (db, payload) => {
+  const d = db.DefectCatalog.create(payload)
+  await d.save()
+  return d
+})
+
+async function onValidSubmit() {
+  if (saving.value) return
+  saving.value = true
+  saveError.value = ''
+  try {
+    const numeric = form.value.testType === 'NUMERIC'
+    const payload = {
+      code: form.value.code.trim(),
+      name: form.value.name.trim(),
+      description: form.value.description.trim() || null,
+      defaultSeverity: form.value.defaultSeverity,
+      testType: form.value.testType,
+      testMethod: form.value.testMethod.trim() || null,
+      requiresInstrument: numeric ? form.value.requiresInstrument : false,
+      preferredEquipmentId:
+        numeric && form.value.requiresInstrument ? form.value.preferredEquipmentId || null : null,
+      applicableProductFamilyIds: form.value.applicableProductFamilyIds.length
+        ? form.value.applicableProductFamilyIds
+        : null,
+      active: form.value.active,
+    }
+    if (props.editDefect) {
+      Object.assign(props.editDefect, payload)
+      await props.editDefect.save()
+    } else {
+      await createTest(payload)
+    }
+    toast.success(props.editDefect ? 'Test updated' : 'Test added')
+    open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to save test'
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <BaseDialog v-model="open" :title="editDefect ? 'Edit test' : 'Add test'" maxWidth="md">
+    <BaseForm ref="formRef" hideFooter @submit="onValidSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:py-1">
+        <BaseField label="Name" required :value="form.name" :rules="[required()]">
+          <template #default="field">
+            <BaseTextInput v-bind="field" v-model="form.name" placeholder="e.g. pH, Appearance" />
+          </template>
+        </BaseField>
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-3">
+          <BaseField label="Code" required :value="form.code" :rules="[required()]">
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="form.code"
+                placeholder="PH"
+                :disabled="!!editDefect"
+              />
+            </template>
+          </BaseField>
+          <BaseField label="Type" required>
+            <BaseInlineSelect v-model="form.testType" :items="TEST_TYPES" :required="true" />
+          </BaseField>
+          <BaseField label="Severity" required>
+            <DefectSeveritySelectMenu v-model="form.defaultSeverity" :required="true" />
+          </BaseField>
+        </div>
+
+        <p
+          v-if="form.testType === 'NUMERIC'"
+          class="tw:text-xs tw:text-secondary tw:bg-main-hover tw:rounded-lg tw:px-3 tw:py-2"
+        >
+          Target, limits (LSL/USL) and UOM are set per specification — each item / item group has its
+          own acceptance range — so they aren't captured here.
+        </p>
+
+        <!-- Instrument is a test-level default (a pH test needs a pH meter). -->
+        <label
+          v-if="form.testType === 'NUMERIC'"
+          class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-secondary tw:whitespace-nowrap"
+        >
+          <BaseCheckbox v-model="form.requiresInstrument" /> Requires an instrument
+        </label>
+
+        <!-- Preferred instrument — the default gauge for this measured test -->
+        <BaseField
+          v-if="form.testType === 'NUMERIC' && form.requiresInstrument"
+          label="Preferred instrument"
+        >
+          <template #label>
+            Preferred instrument
+            <span class="tw:font-normal tw:text-secondary"
+              >(suggested gauge; drives the calibration check)</span
+            >
+          </template>
+          <EquipmentSelectMenu
+            v-model="form.preferredEquipmentId"
+            nullLabel="— None (pick at capture) —"
+          />
+        </BaseField>
+
+        <BaseField label="Method / instructions">
+          <template #default="field">
+            <BaseTextarea
+              v-bind="field"
+              v-model="form.testMethod"
+              :rows="2"
+              placeholder="How is this test performed?"
+            />
+          </template>
+        </BaseField>
+        <BaseField label="Applies to item groups">
+          <template #label>
+            Applies to item groups
+            <span class="tw:font-normal tw:text-secondary">(optional — blank = all groups)</span>
+          </template>
+          <ProductFamilySelectMenu v-model="form.applicableProductFamilyIds" :multiple="true" nullLabel="— All groups —" />
+        </BaseField>
+        <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
+          <BaseCheckbox v-model="form.active" />
+          <span class="tw:text-sm tw:text-on-main">Active</span>
+        </label>
+      </div>
+    </BaseForm>
+
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        :submitLabel="editDefect ? 'Save' : 'Add test'"
+        :loading="saving"
+        :error="saveError"
+        @cancel="close"
+        @submit="formRef.submit()"
+      />
+    </template>
+  </BaseDialog>
+</template>

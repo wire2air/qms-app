@@ -1,59 +1,94 @@
 <script setup>
-import { IconAlertTriangle, IconPrinter, IconClipboardList } from '@tabler/icons-vue'
-import { currentSession, isAllowed } from '@/utils/currentSession.js'
+import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
-import { DateTime } from 'luxon'
+import { buildNcBanners, buildNcActions, buildNcSections } from './ncDetailConfig.js'
+import { countStepsBlockingClose } from '@/components/workflow/delayStepClose.js'
+import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 const props = defineProps({
   id: { type: String, required: true },
 })
 
 const router = useRouter()
+const route = useRoute()
+const { visit: visitTrail } = useRecordTrail()
 
-const nc = useLiveQueryWithDeps([() => props.id], async (db, [id]) =>
-  db.Nonconformance.findByPk(id),
+const nc = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => db.Nonconformance.findByPk(id),
+  { models: ['Nonconformance'] },
+)
+watch(
+  nc,
+  (n) => {
+    if (n?.id) visitTrail({ type: 'NC', id: n.id, label: n.ncNumber, path: route.path })
+  },
+  { immediate: true },
 )
 
 const loading = computed(() => nc.value === undefined)
 
 const breadcrumbs = computed(() => [
   { label: 'Nonconformances', to: getCompanyPath('/nonconformances') },
-  { label: nc.value?.ncNumber || nc.value?.title || 'Loading…' },
+  { label: nc.value?.ncNumber || nc.value?.title || (nc.value === null ? 'Not found' : 'Loading…') },
 ])
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
-const isFirstLoad = ref(true)
-const canUpdate = computed(() => isAllowed(['nonconformances:update']))
-// Page-level fields (title, description, disposition, containment, etc.)
-// are owner-controlled. Anyone else with NC module access can READ the
-// record (default module behavior) but must not edit it — workflow-step
-// forms have their own editability gate inside WorkflowStepForm.
+const canUpdate = computed(() => isAllowed(['ncr:update']))
+// Page-level fields (title, description, disposition, containment, etc.) are
+// custodian-controlled OR open to whatever the permission matrix grants at this
+// record's scope — see authz.scope_allowed and the note in CapasPageId. Anyone
+// else with NC module access can READ the record (default module behavior) but
+// must not edit it; workflow-step forms keep their own editability gate inside
+// WorkflowStepForm.
 const isEditable = computed(
   () =>
     nc.value &&
     nc.value.statusId !== 'CLOSED' &&
-    nc.value.statusId !== 'VOID' &&
+    nc.value.statusId !== 'CANCELLED' &&
     canUpdate.value &&
-    isOwner.value,
+    (isOwner.value || isAllowedOnRecord('ncr:update', nc.value)),
 )
 
-const debouncedSave = useDebounceFn(async () => {
-  if (!nc.value) return
-  await nc.value.save()
-}, 500)
+const toast = useToast()
 
-watch(
-  nc,
-  () => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (nc.value) debouncedSave()
+// NCR-H3/H4/M3: pessimistic saves mean a failed autosave persisted nothing —
+// surface it as a toast instead of swallowing saveError, and only save when the
+// record is actually editable (owner + not closed).
+useAutoSave(nc, {
+  enabled: isEditable,
+  onError: (e) => toast.error(e?.message || 'Failed to save nonconformance changes'),
+})
+
+// qtyAffected is DECIMAL on the backend → PostGraphile serializes it as a
+// BigFloat *string*. Bind it as a string (not v-model.number, which would set a
+// JS number and make the GraphQL mutation throw, blocking autosave for the
+// whole record). Empty → null so clearing the field doesn't send an invalid "".
+const qtyAffectedModel = computed({
+  get: () => nc.value?.qtyAffected ?? '',
+  set: (v) => {
+    if (!nc.value) return
+    nc.value.qtyAffected = v === '' || v === null || v === undefined ? null : String(v)
   },
-  { deep: true },
-)
+})
+
+/**
+ * Attachments on the initial investigation.
+ *
+ * A proxy rather than a raw v-model on the field: the column is nullable, and
+ * RichTextAttachments expects an array — binding null straight through makes
+ * the control render nothing and then overwrite it. Writing back through
+ * `nc.value` keeps the change inside useAutoSave's deep watch, so files save
+ * the same way every other field on this page does.
+ */
+const initialInvestigationAttachments = computed({
+  get: () => nc.value?.initialInvestigationAttachments ?? [],
+  set: (next) => {
+    if (!nc.value) return
+    nc.value.initialInvestigationAttachments = next ?? []
+  },
+})
 
 const saving = ref(false)
 const saveError = ref(null)
@@ -72,7 +107,8 @@ const showMarkCompleteEsign = ref(false)
 const completing = ref(false)
 const completeComments = ref('')
 
-// Count workflow steps still open (NOT in APPROVED/SKIPPED/CANCELLED).
+// Count workflow steps still open. Deferred delay steps (effectiveness checks
+// that fire after close) don't block — see stepBlocksClose.
 const incompleteStepCount = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [ncId]) => {
@@ -85,12 +121,10 @@ const incompleteStepCount = useLiveQueryWithDeps(
     const stepLists = await Promise.all(
       instances.map((i) => db.WorkflowInstanceStep.where('workflowInstanceId', i.id).exec()),
     )
-    const allSteps = stepLists.flat()
-    return allSteps.filter(
-      (s) => !['APPROVED', 'SKIPPED', 'CANCELLED'].includes(s.statusId),
-    ).length
+    return countStepsBlockingClose(stepLists.flat())
   },
-  { initial: 0 },
+
+  { models: ['WorkflowInstance', 'WorkflowInstanceStep'], initial: 0 },
 )
 
 const linkedCapaCount = useLiveQueryWithDeps(
@@ -100,12 +134,15 @@ const linkedCapaCount = useLiveQueryWithDeps(
     const rows = await db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
     return rows.length
   },
-  { initial: 0 },
+
+  { models: ['Capa'], initial: 0 },
 )
 
 const ncDispositionType = useLiveQueryWithDeps(
   [() => nc.value?.dispositionTypeId],
+
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
 )
 
 const markCompleteBlockedReason = computed(() => {
@@ -114,7 +151,7 @@ const markCompleteBlockedReason = computed(() => {
   if (incompleteStepCount.value > 0) {
     return `${incompleteStepCount.value} workflow step${
       incompleteStepCount.value === 1 ? '' : 's'
-    } still open. Complete or skip them first.`
+    } still open. Complete, skip, or schedule them first.`
   }
   if (!nc.value.dispositionTypeId) return 'Pick a Disposition before marking complete.'
   if (!nc.value.dispositionNotes?.trim()) {
@@ -138,9 +175,13 @@ function openMarkCompleteDialog() {
   showMarkCompleteDialog.value = true
 }
 
-// Two-step click: dialog confirms reason+comments, then esign auth.
+// Two-step click: dialog confirms reason+comments, then esign auth. Close the
+// confirm dialog first — leaving both open stacks two BaseDialogs with
+// competing focus traps, which silently swallows keyboard input into the PIN
+// field (verified in a real browser, not a test-only artifact).
 function handleMarkCompleteClick() {
   if (!canMarkComplete.value) return
+  showMarkCompleteDialog.value = false
   showMarkCompleteEsign.value = true
 }
 
@@ -169,11 +210,15 @@ async function onMarkCompleteEsignVerified({ method, provider, token }) {
   }
 }
 
-const isOwner = computed(
-  () => nc.value?.ownerId && nc.value.ownerId === currentSession.value?.userId,
-)
+// Co-author model: the Responsible Party (ownerId) OR the Initiator (createdBy)
+// may drive owner-level actions on the NC. The backend mirrors this via the
+// NC_MODULE_CONFIG authorField ('createdBy').
+const isOwner = computed(() => {
+  const uid = currentSession.value?.userId
+  return !!uid && (nc.value?.ownerId === uid || nc.value?.createdBy === uid)
+})
 
-// ─── Open NC (DRAFT → UNDER_REVIEW, kicks off workflow) ──────────────────────
+// ─── Open NC (DRAFT → OPEN, kicks off workflow) ──────────────────────
 // "Open" matches the industry term (Greenlight Guru / ISO 13485 §10.2).
 // Confirmation dialog sets expectations: once opened, the NC becomes a
 // permanent audit record — most fields stay editable but it can't be
@@ -221,28 +266,16 @@ async function handleDeleteDraft() {
   }
 }
 
-const isOverdue = computed(() => {
-  if (!nc.value?.dueDate) return false
-  if (nc.value.statusId === 'CLOSED' || nc.value.statusId === 'VOID') return false
-  return nc.value.dueDate < DateTime.now()
-})
-
-const workflowInstance = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
-    'Nonconformance',
-    id,
-  ]).exec()
-  return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
-})
-
-// Resolve the underlying Workflow id from the version so we can link to the
-// template (workflow-templates route is keyed by workflow id, not version id).
-const workflowVersion = useLiveQueryWithDeps(
-  [() => workflowInstance.value?.workflowVersionId ?? nc.value?.workflowVersionId],
-  async (db, [versionId]) => {
-    if (!versionId) return null
-    return db.WorkflowVersion.findByPk(versionId)
+const workflowInstance = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    const results = await db.WorkflowInstance.where('[resourceType+resourceId]', [
+      'Nonconformance',
+      id,
+    ]).exec()
+    return results.find((i) => i.statusId === 'IN_PROGRESS') || results[0] || null
   },
+  { models: ['WorkflowInstance'] },
 )
 
 // ─── Inline-edit for cost fields ──────────────────────────────────────────────
@@ -256,18 +289,72 @@ const editingCredit = ref(false)
 // modern QMS products.
 const selectedDispositionType = useLiveQueryWithDeps(
   [() => nc.value?.dispositionTypeId],
+
   async (db, [id]) => (id ? db.NcDispositionType.findByPk(id) : null),
+  { models: ['NcDispositionType'] },
 )
-const dispositionTracksCost = computed(
-  () => !!selectedDispositionType.value?.tracksCost,
+const dispositionTracksCost = computed(() => !!selectedDispositionType.value?.tracksCost)
+
+// ─── Supplier-facing toggle (DRAFT only) ─────────────────────────────────────
+// The flag decides which user pool non-approval workflow steps draw from,
+// so it's only changeable while DRAFT (no workflow instance exists yet —
+// controllers reject changes after that). Flipping it resets the draft
+// step-assignee plan (pendingReviewers): those picks came from the other
+// pool. The NC row update lands in the audit log via the audit trigger.
+const audienceModel = computed({
+  get: () => (nc.value?.isSupplierFacing ? 'SUPPLIER' : 'INTERNAL'),
+  set: (v) => {
+    if (!nc.value) return
+    const wantSupplier = v === 'SUPPLIER'
+    if (wantSupplier === !!nc.value.isSupplierFacing) return
+    if (wantSupplier && !nc.value.supplierId) {
+      toast.error('Select a supplier first — a supplier-facing NC needs one.')
+      return
+    }
+    nc.value.isSupplierFacing = wantSupplier
+    nc.value.pendingReviewers = {}
+  },
+})
+
+// ─── Convert OPEN NC → supplier-facing ───────────────────────────────────────
+// Investigation on an internal NC concluded it's the supplier's problem.
+// Everything entered is retained; the backend re-points every unfinished
+// non-approval workflow step at the supplier's default user (old
+// assignments parked as REASSIGNED — step history keeps who held them).
+const showConvertDialog = ref(false)
+const convertSupplierId = ref(null)
+const converting = ref(false)
+const canConvertToSupplier = computed(
+  () => nc.value && !nc.value.isSupplierFacing && nc.value.statusId === 'OPEN' && isOwner.value,
 )
+function openConvertDialog() {
+  convertSupplierId.value = nc.value?.supplierId ?? null
+  showConvertDialog.value = true
+}
+async function confirmConvert() {
+  if (converting.value) return
+  if (!convertSupplierId.value) {
+    toast.error('Select the supplier this NC belongs to.')
+    return
+  }
+  converting.value = true
+  try {
+    await post(`/v1/services/nonconformances/${props.id}/convertSupplierFacing`, {
+      supplierId: convertSupplierId.value,
+    })
+    toast.success('NC converted to supplier-facing — open steps reassigned to the supplier')
+    showConvertDialog.value = false
+  } catch (err) {
+    toast.error(err?.message || 'Conversion failed')
+  } finally {
+    converting.value = false
+  }
+}
 
 // ─── Inline-edit for overview fields ──────────────────────────────────────────
 const editingTitle = ref(false)
-const editingDescription = ref(false)
 const editingSeverity = ref(false)
 const editingDetected = ref(false)
-const editingDueDate = ref(false)
 
 // ─── Print + Audit Log (parity with CAPA page) ───────────────────────────────
 const showAuditLog = ref(false)
@@ -291,7 +378,8 @@ const allNcWorkflowInstanceIds = useLiveQueryWithDeps(
     ]).exec()
     return rows.map((r) => r.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstance'], initial: [] },
 )
 
 const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
@@ -304,7 +392,8 @@ const allNcWorkflowInstanceStepIds = useLiveQueryWithDeps(
     )
     return lists.flat().map((s) => s.id)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 const auditIncludeEntities = computed(() => [
@@ -313,9 +402,12 @@ const auditIncludeEntities = computed(() => [
   { entityType: 'WorkflowInstanceSteps', entityIds: allNcWorkflowInstanceStepIds.value },
 ])
 
+// (QC origin banner removed — an NC spawned from an adverse lot carries the
+// full inspection-report PDF as a description attachment instead.)
+
 // ─── Linked CAPAs ─────────────────────────────────────────────────────────────
-const canCreateCapa = computed(() => isAllowed(['capas:create']))
-const canCreateChangeRequest = computed(() => isAllowed(['changeRequests:create']))
+const canCreateCapa = computed(() => isAllowed(['capa:create']))
+const canCreateChangeRequest = computed(() => isAllowed(['change_control:create']))
 
 const linkedCapas = useLiveQueryWithDeps(
   [() => props.id],
@@ -323,7 +415,8 @@ const linkedCapas = useLiveQueryWithDeps(
     if (!ncId) return []
     return db.Capa.where('[sourceType+sourceId]', ['NC', ncId]).exec()
   },
-  { initial: [] },
+
+  { models: ['Capa'], initial: [] },
 )
 
 function onCreateLinkedCapa() {
@@ -338,682 +431,698 @@ function onCreateLinkedChangeRequest() {
 }
 
 // ─── Workflow steps are handled by NcWorkflowDetail component ────────────────
+
+// ─── BaseDetailLayout config (SP-6 Task 2) ───────────────────────────────────
+const ncBanners = computed(() => buildNcBanners(nc.value, { isEditable: isEditable.value }))
+const ncActions = computed(() =>
+  buildNcActions(
+    {
+      // Verb-scoped, matching what each controller enforces. Custodianship is
+      // not a bypass any more — it makes the `own` scope tier match — so an
+      // owner still needs ncr:close to see Approve & Close, and a non-owner who
+      // holds it in scope now does. See recordScope.js.
+      canOpen: isAllowedOnRecord('ncr:update', nc.value),
+      canClose: isAllowedOnRecord('ncr:close', nc.value),
+      canDelete: isAllowedOnRecord('ncr:delete', nc.value),
+      statusId: nc.value?.statusId,
+      canMarkComplete: canMarkComplete.value,
+      markCompleteBlockedReason: markCompleteBlockedReason.value,
+      canConvert: canConvertToSupplier.value,
+      saving: saving.value,
+      completing: completing.value,
+      canViewAuditTrail: isAllowed(['audit_trail:read']),
+    },
+    {
+      openOpen: openOpenDialog,
+      openMarkComplete: openMarkCompleteDialog,
+      openDelete() {
+        showDeleteDialog.value = true
+      },
+      print: openPrintView,
+      openAudit() {
+        showAuditLog.value = true
+      },
+      openConvert: openConvertDialog,
+    },
+  ),
+)
+const ncDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbs.value,
+    banners: () => ncBanners.value,
+    actions: ncActions.value,
+    sections: buildNcSections(nc.value),
+  }),
+)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs :items="breadcrumbs" />
-    </SafeTeleport>
+  <BaseDetailLayout
+    :config="ncDetailConfig"
+    :record="nc"
+    :loading="loading"
+    :notFound="!loading && !nc"
+    notFoundTitle="NC not found"
+    notFoundDescription="This nonconformance could not be found."
+  >
+    <template #title>
+      <!-- Matches the rendered title's width and weight — see CapasPageId for
+           the why (a default-size input was far narrower than the text it
+           replaced). Enter commits, Escape reverts. -->
+      <BaseTextInput
+        v-if="editingTitle && isEditable"
+        v-model="nc.title"
+        placeholder="NC title"
+        autofocus
+        class="tw:mb-2 tw:w-full"
+        inputClass="tw:text-base tw:font-semibold"
+        @keyup.enter="editingTitle = false"
+        @keyup.escape="editingTitle = false"
+        @blur="editingTitle = false"
+      />
+      <BaseClickableRow
+        v-else
+        class="tw:text-base tw:font-semibold tw:text-on-main"
+        :class="isEditable ? 'tw:hover:text-primary' : ''"
+        :disabled="!isEditable"
+        aria-label="Edit NC title"
+        @click="editingTitle = true"
+      >
+        {{ nc?.title }}
+      </BaseClickableRow>
+    </template>
 
-    <SafeTeleport to="#main-header-actions">
+    <template #status>
+      <NcStatusBadgeById v-if="nc" :statusId="nc.statusId" />
+      <NcSeverityBadgeById v-if="nc?.severityId" :severityId="nc.severityId" />
+    </template>
+
+    <template v-if="nc" #meta>
+      <span class="">{{ nc.ncNumber }}</span>
+      <template v-if="nc.typeId"> · <NcTypeBadgeById :typeId="nc.typeId" /></template>
+      <template v-if="nc.detectedAt"> · Detected {{ nc.detectedAt.formatDate('date') }}</template>
+    </template>
+
+    <template #actions>
       <div class="tw:flex tw:items-center tw:gap-2">
-        <!-- Action buttons (left): lifecycle transitions for the NC. -->
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="primary"
-          :disabled="saving"
-          @click="openOpenDialog"
-          >Open NC</BaseButton
-        >
-        <BaseButton
-          v-if="isOwner && nc && !['DRAFT', 'CLOSED', 'VOID'].includes(nc.statusId)"
-          variant="primary"
-          :disabled="!canMarkComplete || completing"
-          :title="markCompleteBlockedReason || undefined"
-          @click="openMarkCompleteDialog"
-        >
-          {{ completing ? 'Closing…' : 'Approve and Close' }}
-        </BaseButton>
-        <BaseButton
-          v-if="isOwner && nc?.statusId === 'DRAFT'"
-          variant="outline"
-          :disabled="deleting"
-          @click="showDeleteDialog = true"
-          >Delete</BaseButton
-        >
-
-        <!-- Utility buttons (right): always rightmost, parity with CAPA. -->
-        <BaseButton v-if="nc?.id" variant="secondary" @click="openPrintView">
-          <IconPrinter :size="20" class="tw:mr-1" />
-          Print
-        </BaseButton>
-        <BaseButton v-if="nc?.id" variant="secondary" @click="showAuditLog = true">
-          <IconClipboardList :size="20" class="tw:mr-1" />
-          Audit Log
-        </BaseButton>
+        <DetailActionBar :actions="ncActions" />
         <AskAiButton
-          v-if="nc?.id"
+          v-if="canUseAi && nc?.id"
           entityType="Nonconformance"
           :entityId="nc.id"
           :entityTitle="nc.title"
           :entityNumber="nc.ncNumber"
         />
       </div>
-    </SafeTeleport>
+    </template>
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:w-8 tw:h-8 tw:border-2 tw:border-primary tw:border-t-transparent"
+    <template v-if="nc" #section-details>
+      <RecordTrailBreadcrumb />
+
+      <!-- Related records lineage (QC lot / complaint / finding → this NC
+           → CAPA / CR). Self-hides when there are no links. -->
+      <RecordLineagePanel
+        :id="id"
+        type="Nonconformance"
+        :canEdit="!!nc && isAllowedOnRecord('ncr:update', nc)"
       />
-    </div>
 
-    <div v-else-if="nc" class="tw:overflow-y-auto tw:flex-1">
-      <div class="tw:p-5 tw:flex tw:flex-col tw:gap-4">
-        <!-- 2-column layout -->
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-[1fr_280px] tw:gap-4 tw:items-start">
-          <!-- Left column -->
-          <div class="tw:flex tw:flex-col tw:gap-4">
-            <!-- NC Details card -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:flex tw:items-center tw:gap-2 tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                <div
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
+      <!-- Raised-from-Audit context (scoped) — self-hides when this NC
+           wasn't spawned from an audit finding. -->
+      <AuditOriginPanel entityType="Nonconformance" :entityId="id" />
+
+      <!-- NC Details card -->
+      <FormSection title="NC Details">
+        <template #actions>
+          <!-- At-a-glance indicator of which assignee pool the
+               workflow draws from. Always visible (not just on
+               the DRAFT preview), so you can spot a mislabeled
+               supplier-facing NC at any lifecycle stage. -->
+          <span
+            v-if="nc.isSupplierFacing"
+            class="tw:text-micro tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+            title="Supplier-facing: non-approval workflow steps draw from this NC's supplier users. Approval steps stay internal."
+          >
+            Supplier-facing
+          </span>
+          <span
+            v-else
+            class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
+          >
+            Internal
+          </span>
+        </template>
+        <!-- Rich text + attachments (e.g. the inspection-report PDF attached
+             when the NC was spawned from an adverse QC lot). -->
+        <RichTextAttachments
+          v-model="nc.description"
+          :readonly="!isEditable"
+          placeholder="Add a description…"
+        />
+
+        <!-- Immediate containment action -->
+        <div class="tw:flex tw:flex-col tw:gap-1 tw:mt-4">
+          <BaseText variant="overline" class="tw:block"> Immediate containment action </BaseText>
+          <BaseRichTextField
+            v-model="nc.immediateContainmentAction"
+            :editable="isEditable"
+            placeholder="Describe the immediate action taken to contain this nonconformance…"
+            textClass="tw:text-sm tw:text-on-main tw:leading-relaxed"
+          />
+        </div>
+
+        <!-- Initial investigation. A first-class NC field rather than a
+             workflow step form: the first look at an NC happens whether or not
+             the template has an investigation step, and as a column it is
+             searchable and survives a template change.
+
+             separateAttachments mode — body and evidence go to their own
+             columns (initial_investigation TEXT, _attachments JSONB), the same
+             shape document sections use. -->
+        <div class="tw:flex tw:flex-col tw:gap-1 tw:mt-4">
+          <BaseText variant="overline" class="tw:block"> Initial investigation </BaseText>
+          <RichTextAttachments
+            v-model="nc.initialInvestigation"
+            v-model:attachments="initialInvestigationAttachments"
+            :separateAttachments="true"
+            :readonly="!isEditable"
+            placeholder="What was checked, what was found, and the evidence…"
+          />
+        </div>
+      </FormSection>
+    </template>
+
+    <template v-if="nc" #section-workflow>
+      <!-- Workflow steps. In DRAFT (no instance yet) we render the
+           template-step preview so the owner can plan assignments;
+           picks are saved to nc.pendingReviewers and consumed by
+           submitNcForReview when the owner clicks Open NC. -->
+      <NcWorkflowDraftPreview
+        v-if="!workflowInstance && nc?.statusId === 'DRAFT'"
+        :ncId="id"
+        :isOwner="isOwner"
+      />
+      <NcWorkflowDetail
+        v-else
+        :ncId="id"
+        :workflowInstanceId="workflowInstance?.id"
+        :isOwner="isOwner"
+      />
+    </template>
+
+    <template v-if="nc" #section-disposition>
+      <!-- Disposition card -->
+      <FormSection title="Disposition">
+        <template v-if="isEditable">
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+            <BaseField label="Disposition" required>
+              <NcDispositionTypeSelectMenu v-model="nc.dispositionTypeId" :required="false" />
+            </BaseField>
+            <BaseField label="CAPA required?">
+              <div class="tw:flex tw:gap-2">
+                <BaseButton
+                  class="tw:flex-1 tw:justify-center"
+                  :variant="nc.capaRequired === true ? 'primary' : 'outline'"
+                  @click="nc.capaRequired = true"
+                  >Yes</BaseButton
                 >
-                  NC Details
-                </div>
-                <!-- At-a-glance indicator of which assignee pool the
-                     workflow draws from. Always visible (not just on
-                     the DRAFT preview), so you can spot a mislabeled
-                     supplier-facing NC at any lifecycle stage. -->
-                <span
-                  v-if="nc.isSupplierFacing"
-                  class="tw:text-[10px] tw:rounded tw:bg-violet-100 tw:text-violet-700 tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
-                  title="Supplier-facing: non-approval workflow steps draw from this NC's supplier users. Approval steps stay internal."
+                <BaseButton
+                  class="tw:flex-1 tw:justify-center"
+                  :variant="nc.capaRequired === false ? 'primary' : 'outline'"
+                  @click="nc.capaRequired = false"
+                  >No</BaseButton
                 >
-                  Supplier-facing
-                </span>
-                <span
-                  v-else
-                  class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5 tw:font-normal tw:normal-case"
-                >
-                  Internal
-                </span>
+              </div>
+            </BaseField>
+            <!-- Cost of NC — disposition-driven. Shows + becomes
+                 required only when the picked disposition has
+                 tracks_cost=true (Scrap / Rework / RTS / Regrade). -->
+            <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">
+                Cost of NC <span class="tw:text-red-500">*</span>
               </div>
               <BaseTextInput
-                v-if="editingTitle && isEditable"
-                v-model="nc.title"
-                placeholder="NC title"
+                v-if="editingCost"
+                v-model="nc.costOfNc"
+                type="number"
+                placeholder="0.00"
                 autofocus
-                class="tw:mb-2"
-                @blur="editingTitle = false"
+                @blur="editingCost = false"
               />
-              <div
+              <BaseClickableRow
                 v-else
-                class="tw:text-base tw:font-semibold tw:text-on-main tw:mb-2"
-                :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                @click="isEditable && (editingTitle = true)"
+                tag="span"
+                class="tw:text-sm tw:font-medium tw:hover:text-primary"
+                aria-label="Edit cost of NC"
+                @click="editingCost = true"
               >
-                {{ nc.title }}
-              </div>
-              <div v-if="editingDescription && isEditable" class="nc-detail-editor tw:mb-4">
-                <BaseRichTextEditor
-                  v-model="nc.description"
-                  placeholder="Add a description…"
-                  @blur="editingDescription = false"
-                />
-              </div>
-              <div v-else class="tw:mb-4" @click="isEditable && (editingDescription = true)">
-                <div
-                  v-if="nc.description"
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed tw:prose tw:max-w-none"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                  v-html="nc.description"
-                />
-                <p
-                  v-else
-                  class="tw:text-sm tw:text-secondary tw:leading-relaxed"
-                  :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                >
-                  {{ isEditable ? 'Add a description…' : '—' }}
-                </p>
-              </div>
-
-              <!-- Required-at-create fields stay in the main view:
-                   Severity, Type, Source, Detected. Optional metadata
-                   (Priority, Issue type, Due, Product, Qty, PO #, Order #,
-                   Lot #) all moved to the right-side Overview panel to
-                   match the "required → main / optional → right" rule. -->
-              <div class="tw:grid tw:grid-cols-4 tw:gap-3">
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Severity</div>
-                  <NcSeveritySelectMenu
-                    v-if="editingSeverity && isEditable"
-                    v-model="nc.severityId"
-                    :required="true"
-                    @blur="editingSeverity = false"
-                  />
-                  <span
-                    v-else
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:opacity-70' : ''"
-                    @click="isEditable && (editingSeverity = true)"
-                  >
-                    <NcSeverityBadgeById :severityId="nc.severityId" />
-                  </span>
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Type</div>
-                  <NcTypeBadgeById :typeId="nc.typeId" />
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Source</div>
-                  <NcSourceBadgeById :sourceId="nc.sourceId" />
-                </div>
-                <div class="tw:flex tw:flex-col tw:gap-1">
-                  <div class="tw:text-xs tw:text-secondary">Detected</div>
-                  <BaseDatePicker
-                    v-if="editingDetected && isEditable"
-                    v-model="nc.detectedAt"
-                    @blur="editingDetected = false"
-                  />
-                  <span
-                    v-else
-                    class="tw:text-sm tw:font-medium"
-                    :class="isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : ''"
-                    @click="isEditable && (editingDetected = true)"
-                  >
-                    {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Immediate containment action -->
-              <div class="tw:flex tw:flex-col tw:gap-1 tw:mt-4">
-                <label
-                  class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider"
-                >
-                  Immediate containment action
-                </label>
-                <div v-if="isEditable" class="nc-detail-editor">
-                  <BaseRichTextEditor
-                    v-model="nc.immediateContainmentAction"
-                    placeholder="Describe the immediate action taken to contain this nonconformance…"
-                  />
-                </div>
-                <div
-                  v-else-if="nc.immediateContainmentAction"
-                  class="tw:text-sm tw:text-on-main tw:leading-relaxed tw:prose tw:max-w-none"
-                  v-html="nc.immediateContainmentAction"
-                />
-                <p v-else class="tw:text-sm tw:text-on-main tw:leading-relaxed">—</p>
-              </div>
+                {{
+                  nc.costOfNc != null
+                    ? nc.costOfNc.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      })
+                    : '—'
+                }}
+              </BaseClickableRow>
             </div>
-
-            <!-- Workflow steps. In DRAFT (no instance yet) we render the
-                 template-step preview so the owner can plan assignments;
-                 picks are saved to nc.pendingReviewers and consumed by
-                 submitNcForReview when the owner clicks Open NC. -->
-            <NcWorkflowDraftPreview
-              v-if="!workflowInstance && nc?.statusId === 'DRAFT'"
-              :ncId="id"
-              :isOwner="isOwner"
-            />
-            <NcWorkflowDetail
-              v-else
-              :ncId="id"
-              :workflowInstanceId="workflowInstance?.id"
-              :isOwner="isOwner"
-            />
-
-            <!-- Disposition card -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
+            <!-- Credit from Supplier — offsetting recovery when the
+                 supplier reimburses the NC cost. Shown alongside
+                 Cost of NC so reporting can compute net COPQ
+                 (cost − credit). Optional. -->
+            <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
+              <BaseTextInput
+                v-if="editingCredit"
+                v-model="nc.creditFromSupplier"
+                type="number"
+                placeholder="0.00"
+                autofocus
+                @blur="editingCredit = false"
+              />
+              <BaseClickableRow
+                v-else
+                tag="span"
+                class="tw:text-sm tw:font-medium tw:hover:text-primary"
+                aria-label="Edit credit from supplier"
+                @click="editingCredit = true"
               >
-                Disposition
-              </div>
-
-              <template v-if="isEditable">
-                <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <label class="tw:text-sm tw:font-medium tw:text-secondary"> Disposition </label>
-                    <NcDispositionTypeSelectMenu v-model="nc.dispositionTypeId" :required="false" />
-                  </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                      CAPA required?
-                    </label>
-                    <div class="tw:flex tw:gap-2">
-                      <BaseButton
-                        class="tw:flex-1 tw:justify-center"
-                        :variant="nc.capaRequired === true ? 'primary' : 'outline'"
-                        @click="nc.capaRequired = true"
-                        >Yes</BaseButton
-                      >
-                      <BaseButton
-                        class="tw:flex-1 tw:justify-center"
-                        :variant="nc.capaRequired === false ? 'primary' : 'outline'"
-                        @click="nc.capaRequired = false"
-                        >No</BaseButton
-                      >
-                    </div>
-                  </div>
-                  <!-- Cost of NC — disposition-driven. Shows + becomes
-                       required only when the picked disposition has
-                       tracks_cost=true (Scrap / Rework / RTS / Regrade). -->
-                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">
-                      Cost of NC <span class="tw:text-red-500">*</span>
-                    </div>
-                    <BaseTextInput
-                      v-if="editingCost"
-                      v-model="nc.costOfNc"
-                      type="number"
-                      placeholder="0.00"
-                      autofocus
-                      @blur="editingCost = false"
-                    />
-                    <span
-                      v-else
-                      class="tw:text-sm tw:font-medium tw:cursor-pointer tw:hover:text-primary"
-                      @click="editingCost = true"
-                    >
-                      {{
-                        nc.costOfNc != null
-                          ? nc.costOfNc.toLocaleString('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                            })
-                          : '—'
-                      }}
-                    </span>
-                  </div>
-                  <!-- Credit from Supplier — offsetting recovery when the
-                       supplier reimburses the NC cost. Shown alongside
-                       Cost of NC so reporting can compute net COPQ
-                       (cost − credit). Optional. -->
-                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
-                    <BaseTextInput
-                      v-if="editingCredit"
-                      v-model="nc.creditFromSupplier"
-                      type="number"
-                      placeholder="0.00"
-                      autofocus
-                      @blur="editingCredit = false"
-                    />
-                    <span
-                      v-else
-                      class="tw:text-sm tw:font-medium tw:cursor-pointer tw:hover:text-primary"
-                      @click="editingCredit = true"
-                    >
-                      {{
-                        nc.creditFromSupplier != null
-                          ? nc.creditFromSupplier.toLocaleString('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                            })
-                          : '—'
-                      }}
-                    </span>
-                  </div>
-                </div>
-
-                <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-                  <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                    Disposition notes
-                  </label>
-                  <BaseTextarea
-                    v-model="nc.dispositionNotes"
-                    placeholder="Justify your disposition decision and CAPA choice…"
-                    :rows="3"
-                  />
-                </div>
-              </template>
-
-              <template v-else>
-                <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">Disposition</div>
-                    <NcDispositionTypeBadgeById
-                      v-if="nc.dispositionTypeId"
-                      :dispositionTypeId="nc.dispositionTypeId"
-                    />
-                    <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                  </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">CAPA required?</div>
-                    <span class="tw:text-sm tw:font-medium">
-                      {{
-                        nc.capaRequired === true ? 'Yes' : nc.capaRequired === false ? 'No' : '—'
-                      }}
-                    </span>
-                  </div>
-                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">Cost of NC</div>
-                    <span class="tw:text-sm tw:font-medium">
-                      {{
-                        nc.costOfNc != null
-                          ? nc.costOfNc.toLocaleString('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                            })
-                          : '—'
-                      }}
-                    </span>
-                  </div>
-                  <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
-                    <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
-                    <span class="tw:text-sm tw:font-medium">
-                      {{
-                        nc.creditFromSupplier != null
-                          ? nc.creditFromSupplier.toLocaleString('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                            })
-                          : '—'
-                      }}
-                    </span>
-                  </div>
-                  <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-                    <div class="tw:text-xs tw:text-secondary">Disposition notes</div>
-                    <p class="tw:text-sm tw:text-on-main tw:leading-relaxed">
-                      {{ nc.dispositionNotes || '—' }}
-                    </p>
-                  </div>
-                </div>
-              </template>
-            </div>
-
-            <!-- Linked CAPAs -->
-            <div
-              v-if="nc.capaRequired === true"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5"
-            >
-              <div
-                class="tw:flex tw:items-center tw:justify-between tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-              >
-                <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
-                  Linked CAPAs
-                </div>
-                <div class="tw:flex tw:gap-2">
-                  <BaseButton
-                    v-if="canCreateChangeRequest"
-                    variant="outline"
-                    size="sm"
-                    @click="onCreateLinkedChangeRequest"
-                  >
-                    Create Change Request
-                  </BaseButton>
-                  <BaseButton
-                    v-if="canCreateCapa"
-                    variant="outline"
-                    size="sm"
-                    @click="onCreateLinkedCapa"
-                  >
-                    Create CAPA
-                  </BaseButton>
-                </div>
-              </div>
-              <div v-if="linkedCapas.length" class="tw:flex tw:flex-col tw:gap-2">
-                <RouterLink
-                  v-for="linked in linkedCapas"
-                  :key="linked.id"
-                  :to="getCompanyPath(`/capas/${linked.id}`)"
-                  class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
-                >
-                  <div class="tw:flex tw:items-center tw:gap-3 tw:min-w-0">
-                    <span class="tw:text-xs tw:font-mono tw:text-secondary">
-                      {{ linked.capaNumber }}
-                    </span>
-                    <span class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
-                      {{ linked.title }}
-                    </span>
-                  </div>
-                  <CapaStatusBadgeById :statusId="linked.statusId" />
-                </RouterLink>
-              </div>
-              <div v-else class="tw:text-sm tw:text-secondary tw:italic">
-                No CAPAs linked yet.
-              </div>
+                {{
+                  nc.creditFromSupplier != null
+                    ? nc.creditFromSupplier.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      })
+                    : '—'
+                }}
+              </BaseClickableRow>
             </div>
           </div>
 
-          <!-- Right column -->
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <!-- External access — read-only panel populated by workflow-
-                 step assignment (autoShareSupplierUsers). Product decision
-                 (2026-05-29): supplier visibility on NCs is workflow-
-                 driven, not manual. See SharedWithPanel.vue. -->
-            <SharedWithPanel entityType="Nonconformance" :entityId="id" />
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Disposition notes"
+            required
+            class="tw:col-span-2"
+          >
+            <BaseTextarea
+              :id="fieldId"
+              v-model="nc.dispositionNotes"
+              placeholder="Justify your disposition decision and CAPA choice…"
+              :rows="3"
+            />
+          </BaseField>
+        </template>
 
-            <!-- Overview side card. Grouped into subsections with quiet
-                 dividers so the right rail stays scannable as it grows:
-                   Identification → People → Classification → Schedule
-                   → Source / Commerce → Related
-                 Severity / Detected are NOT duplicated here — they live
-                 in the main grid alongside Type + Source. -->
-            <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-              >
-                Overview
-              </div>
-
-              <!-- Identification -->
-              <div class="tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">NC number</span>
-                  <span class="tw:text-xs tw:font-mono tw:font-medium">
-                    {{ nc.ncNumber || '—' }}
-                  </span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Status</span>
-                  <div class="tw:flex tw:items-center tw:gap-1.5">
-                    <NcStatusBadgeById :statusId="nc.statusId" />
-                    <BaseBadge
-                      v-if="nc.markedCompleteAt"
-                      class="tw:text-[10px] tw:bg-emerald-100 tw:text-emerald-700"
-                      title="Marked complete by owner — pending final close"
-                    >
-                      Completed
-                    </BaseBadge>
-                  </div>
-                </div>
-              </div>
-
-              <!-- People & Location -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Owner</span>
-                  <UserBadgeById v-if="nc.ownerId" :userId="nc.ownerId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Site</span>
-                  <SiteBadgeById v-if="nc.siteId" :siteId="nc.siteId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Department</span>
-                  <DepartmentBadgeById v-if="nc.departmentId" :departmentId="nc.departmentId" />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-              </div>
-
-              <!-- Classification -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Priority</span>
-                  <span
-                    v-if="nc.priorityId"
-                    class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
-                    :class="{
-                      'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
-                      'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
-                      'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
-                      'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
-                    }"
-                  >
-                    {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
-                  </span>
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Issue type</span>
-                  <NcIssueTypeBadgeById
-                    v-if="nc.ncIssueTypeId"
-                    :issueTypeId="nc.ncIssueTypeId"
-                  />
-                  <span v-else class="tw:text-sm tw:text-secondary">—</span>
-                </div>
-              </div>
-
-              <!-- Schedule -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">Due date</span>
-                  <BaseDatePicker
-                    v-if="editingDueDate && isEditable"
-                    v-model="nc.dueDate"
-                    class="tw:w-36"
-                    @blur="editingDueDate = false"
-                  />
-                  <span
-                    v-else
-                    class="tw:text-sm tw:font-medium tw:flex tw:items-center tw:gap-1 tw:flex-nowrap"
-                    :class="[
-                      isOverdue ? 'tw:text-red-600' : '',
-                      isEditable ? 'tw:cursor-pointer tw:hover:text-primary' : '',
-                    ]"
-                    @click="isEditable && (editingDueDate = true)"
-                  >
-                    <span>{{ nc.dueDate ? nc.dueDate.formatDate('date') : '—' }}</span>
-                    <IconAlertTriangle v-if="isOverdue" :size="16" class="tw:text-red-600" />
-                  </span>
-                </div>
-              </div>
-
-              <!-- Source / Commerce -->
-              <div
-                v-if="
-                  nc.supplierId || nc.productId || nc.qtyAffected ||
-                  nc.poNumber || nc.orderNumber || nc.lotNumber
-                "
-                class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col"
-              >
-                <div
-                  v-if="nc.supplierId"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Supplier</span>
-                  <SupplierBadgeById :supplierId="nc.supplierId" />
-                </div>
-                <div
-                  v-if="nc.productId"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Product</span>
-                  <ProductBadgeById :productId="nc.productId" />
-                </div>
-                <div
-                  v-if="nc.qtyAffected"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Qty affected</span>
-                  <span class="tw:text-sm tw:font-medium">
-                    {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
-                  </span>
-                </div>
-                <div
-                  v-if="nc.poNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">PO #</span>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.poNumber }}</span>
-                </div>
-                <div
-                  v-if="nc.orderNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Order #</span>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.orderNumber }}</span>
-                </div>
-                <div
-                  v-if="nc.lotNumber"
-                  class="tw:flex tw:justify-between tw:items-center tw:py-2"
-                >
-                  <span class="tw:text-xs tw:text-secondary">Lot #</span>
-                  <span class="tw:text-sm tw:font-medium tw:font-mono">{{ nc.lotNumber }}</span>
-                </div>
-              </div>
-
-              <!-- Related -->
-              <div class="tw:border-t tw:border-divider tw:mt-2 tw:pt-1 tw:flex tw:flex-col">
-                <div class="tw:flex tw:justify-between tw:items-center tw:py-2">
-                  <span class="tw:text-xs tw:text-secondary">CAPA</span>
-                  <span
-                    class="tw:text-sm tw:font-medium"
-                    :class="nc.capaRequired === null ? 'tw:text-secondary tw:italic' : ''"
-                  >
-                    {{
-                      nc.capaRequired === true
-                        ? 'Required'
-                        : nc.capaRequired === false
-                          ? 'Not required'
-                          : 'Not yet decided'
-                    }}
-                  </span>
-                </div>
-              </div>
+        <template v-else>
+          <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Disposition</div>
+              <NcDispositionTypeBadgeById
+                v-if="nc.dispositionTypeId"
+                :dispositionTypeId="nc.dispositionTypeId"
+              />
+              <span v-else class="tw:text-sm tw:text-secondary">—</span>
             </div>
-
-            <!-- Workflow panel -->
-            <div
-              v-if="nc.workflowVersionId || workflowInstance"
-              class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4"
-            >
-              <div
-                class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-2 tw:border-b tw:border-divider tw:mb-3"
-              >
-                NC workflow
-              </div>
-
-              <!-- Active workflow instance -->
-              <div v-if="workflowInstance">
-                <WorkflowInstanceStatusBadgeById :statusId="workflowInstance.statusId" showDot />
-                <RouterLink
-                  class="tw:mt-3 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-                  :to="getCompanyPath(`/workflow-instances/${workflowInstance.id}`)"
-                >
-                  View workflow details →
-                </RouterLink>
-                <RouterLink
-                  v-if="workflowVersion?.workflowId"
-                  class="tw:mt-1 tw:flex tw:items-center tw:text-sm tw:text-primary tw:font-medium tw:hover:underline"
-                  :to="
-                    getCompanyPath(
-                      `/workflow-templates/${workflowVersion.workflowId}?version=${encodeURIComponent(
-                        workflowVersion.versionLabel ||
-                          `${workflowVersion.versionMajor ?? 1}.${workflowVersion.versionMinor ?? 0}`,
-                      )}`,
-                    )
-                  "
-                >
-                  View workflow template →
-                </RouterLink>
-              </div>
-
-              <!-- Not yet submitted -->
-              <div v-else-if="nc.workflowVersionId" class="tw:text-sm tw:text-secondary">
-                workflow assigned but not yet submitted.
-              </div>
+            <div class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">CAPA required?</div>
+              <span class="tw:text-sm tw:font-medium">
+                {{ nc.capaRequired === true ? 'Yes' : nc.capaRequired === false ? 'No' : '—' }}
+              </span>
             </div>
-
-            <!-- Workflow detail component (steps, reassign, send-back, record viewer) -->
+            <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Cost of NC</div>
+              <span class="tw:text-sm tw:font-medium">
+                {{
+                  nc.costOfNc != null
+                    ? nc.costOfNc.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      })
+                    : '—'
+                }}
+              </span>
+            </div>
+            <div v-if="dispositionTracksCost" class="tw:flex tw:flex-col tw:gap-1">
+              <div class="tw:text-xs tw:text-secondary">Credit from Supplier</div>
+              <span class="tw:text-sm tw:font-medium">
+                {{
+                  nc.creditFromSupplier != null
+                    ? nc.creditFromSupplier.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      })
+                    : '—'
+                }}
+              </span>
+            </div>
+            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
+              <div class="tw:text-xs tw:text-secondary">Disposition notes</div>
+              <p class="tw:text-sm tw:text-on-main tw:leading-relaxed">
+                {{ nc.dispositionNotes || '—' }}
+              </p>
+            </div>
           </div>
+        </template>
+      </FormSection>
+    </template>
+
+    <template v-if="nc" #section-capas>
+      <!-- Linked CAPAs -->
+      <FormSection v-if="nc.capaRequired === true" title="Linked CAPAs">
+        <template #actions>
+          <div class="tw:flex tw:gap-2">
+            <BaseButton
+              v-if="canCreateChangeRequest"
+              variant="outline"
+              size="sm"
+              @click="onCreateLinkedChangeRequest"
+            >
+              Create Change Request
+            </BaseButton>
+            <BaseButton
+              v-if="canCreateCapa"
+              variant="outline"
+              size="sm"
+              @click="onCreateLinkedCapa"
+            >
+              Create CAPA
+            </BaseButton>
+          </div>
+        </template>
+        <div v-if="linkedCapas.length" class="tw:flex tw:flex-col tw:gap-2">
+          <RouterLink
+            v-for="linked in linkedCapas"
+            :key="linked.id"
+            :to="getCompanyPath(`/capas/${linked.id}`)"
+            class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+          >
+            <div class="tw:flex tw:items-center tw:gap-3 tw:min-w-0">
+              <span class="tw:text-xs tw:text-secondary">
+                {{ linked.capaNumber }}
+              </span>
+              <span class="tw:text-sm tw:font-medium tw:text-on-main tw:truncate">
+                {{ linked.title }}
+              </span>
+            </div>
+            <CapaStatusBadgeById :statusId="linked.statusId" />
+          </RouterLink>
         </div>
-      </div>
-    </div>
+        <div v-else class="tw:text-sm tw:text-secondary tw:italic">No CAPAs linked yet.</div>
+      </FormSection>
+    </template>
 
-    <BaseEmptyState
-      v-else
-      title="NC not found"
-      description="This nonconformance could not be found."
-    />
+    <!-- Right column — stays here until Task 4 moves it into the BaseDetailLayout rail -->
+    <template v-if="nc" #rail>
+      <!-- 1. General — NC number, status, severity, type, source, priority, issue type, detected.
+           Responsive grid: pairs up two-per-row when the rail is wide enough,
+           collapses to one-per-row when narrow. -->
+      <BaseRailCard title="General">
+        <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
+          <BaseDetailField label="NC number">
+            <BaseText variant="body" weight="medium" class="tw:break-words">
+              {{ nc.ncNumber || '—' }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Status">
+            <div class="tw:flex tw:items-center tw:gap-1.5 tw:flex-wrap">
+              <NcStatusBadgeById :statusId="nc.statusId" />
+              <BaseBadge
+                v-if="nc.markedCompleteAt"
+                class="tw:text-micro tw:bg-emerald-100 tw:text-emerald-700"
+                title="Marked complete by owner — pending final close"
+              >
+                Completed
+              </BaseBadge>
+            </div>
+          </BaseDetailField>
+          <BaseDetailField label="Severity" required>
+            <NcSeveritySelectMenu
+              v-if="editingSeverity && isEditable"
+              v-model="nc.severityId"
+              :required="true"
+              @blur="editingSeverity = false"
+            />
+            <BaseClickableRow
+              v-else
+              tag="span"
+              :class="isEditable ? 'tw:hover:opacity-70' : ''"
+              :disabled="!isEditable"
+              aria-label="Edit severity"
+              @click="editingSeverity = true"
+            >
+              <NcSeverityBadgeById :severityId="nc.severityId" />
+            </BaseClickableRow>
+          </BaseDetailField>
+          <BaseDetailField label="Type">
+            <NcTypeBadgeById v-if="nc.typeId" :typeId="nc.typeId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Source">
+            <NcSourceBadgeById v-if="nc.sourceId" :sourceId="nc.sourceId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Priority">
+            <BaseInlineSelect
+              v-if="isEditable"
+              v-model="nc.priorityId"
+              :items="[
+                { id: 'LOW', name: 'Low' },
+                { id: 'MEDIUM', name: 'Medium' },
+                { id: 'HIGH', name: 'High' },
+                { id: 'CRITICAL', name: 'Critical' },
+              ]"
+            />
+            <span
+              v-else-if="nc.priorityId"
+              class="tw:inline-flex tw:items-center tw:text-xs tw:font-semibold tw:rounded tw:px-2 tw:py-0.5"
+              :class="{
+                'tw:bg-emerald-100 tw:text-emerald-700': nc.priorityId === 'LOW',
+                'tw:bg-amber-100 tw:text-amber-700': nc.priorityId === 'MEDIUM',
+                'tw:bg-orange-100 tw:text-orange-700': nc.priorityId === 'HIGH',
+                'tw:bg-rose-100 tw:text-rose-700': nc.priorityId === 'CRITICAL',
+              }"
+            >
+              {{ nc.priorityId.charAt(0) + nc.priorityId.slice(1).toLowerCase() }}
+            </span>
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <!-- Shared quality classification — same taxonomy as Quality Events
+               and CAPAs, inherited on escalation and carried on to any CAPA
+               raised from this NC. -->
+          <BaseDetailField label="Category">
+            <EventCategorySelectMenu v-if="isEditable" v-model="nc.categoryId" />
+            <EventCategoryBadgeById v-else-if="nc.categoryId" :categoryId="nc.categoryId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <BaseDetailField label="Detected">
+            <BaseDateField
+              v-if="editingDetected && isEditable"
+              v-model="nc.detectedAt"
+              mode="date"
+              class="tw:w-full"
+              @blur="editingDetected = false"
+            />
+            <BaseClickableRow
+              v-else
+              tag="span"
+              class="tw:text-sm tw:font-medium"
+              :class="isEditable ? 'tw:hover:text-primary' : ''"
+              :disabled="!isEditable"
+              aria-label="Edit detected date"
+              @click="editingDetected = true"
+            >
+              {{ nc.detectedAt ? nc.detectedAt.formatDate('date') : '—' }}
+            </BaseClickableRow>
+          </BaseDetailField>
+        </div>
+      </BaseRailCard>
+
+      <!-- Admin-defined custom fields (Settings → Custom Fields), right after
+           General. Self-hides when none configured. -->
+      <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
+
+      <!-- 2. Product impact — supplier, supplier-facing + Convert path, product, qty+UOM, PO/Order/Lot.
+               Collapsed by default; editable rows always render so a missing value can be ADDED;
+               read-only mode keeps hiding empties. -->
+      <BaseRailCard
+        v-if="
+          isEditable ||
+          nc.supplierId ||
+          nc.productId ||
+          nc.qtyAffected ||
+          nc.poNumber ||
+          nc.orderNumber ||
+          nc.lotNumber
+        "
+        title="Product impact"
+        :defaultOpen="false"
+      >
+        <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
+          <SupplierSelectMenu
+            v-if="isEditable && nc.statusId === 'DRAFT'"
+            v-model="nc.supplierId"
+          />
+          <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Supplier facing — free toggle while DRAFT; once OPEN the
+             owner can still CONVERT internal → supplier-facing. -->
+        <BaseDetailField label="Supplier facing">
+          <BaseInlineSelect
+            v-if="isEditable && nc.statusId === 'DRAFT'"
+            v-model="audienceModel"
+            :items="[
+              { id: 'INTERNAL', name: 'No — internal' },
+              { id: 'SUPPLIER', name: 'Yes — supplier facing' },
+            ]"
+            :required="true"
+          />
+          <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <span
+              class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
+              :class="
+                nc.isSupplierFacing
+                  ? 'tw:bg-violet-100 tw:text-violet-700'
+                  : 'tw:bg-gray-100 tw:text-secondary'
+              "
+            >
+              {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
+            </span>
+            <button
+              v-if="canConvertToSupplier"
+              class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+              @click="openConvertDialog"
+            >
+              Convert…
+            </button>
+          </div>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.productId" label="Product">
+          <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
+          <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
+          <div v-if="isEditable" class="tw:flex tw:gap-1">
+            <BaseTextInput v-model="qtyAffectedModel" type="number" size="sm" class="tw:flex-1" />
+            <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
+          </div>
+          <BaseText v-else variant="body" weight="medium">
+            {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
+          <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+            {{ nc.poNumber }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
+          <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+            {{ nc.orderNumber }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
+          <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+            {{ nc.lotNumber }}
+          </BaseText>
+        </BaseDetailField>
+      </BaseRailCard>
+
+      <!-- 3. People — initiator, responsible party, site, department -->
+      <BaseRailCard title="People" grid>
+        <!-- Initiator = who raised the NC (createdBy, immutable). -->
+        <BaseDetailField label="Initiator">
+          <UserBadgeById v-if="nc.createdBy" :userId="nc.createdBy" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Responsible party = drives the NC to closure; effectiveness
+             checks + default workflow assignment route here. -->
+        <BaseDetailField label="Responsible party">
+          <UserSelectMenu v-if="isEditable" v-model="nc.ownerId" :required="true" />
+          <UserBadgeById v-else-if="nc.ownerId" :userId="nc.ownerId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Site">
+          <SiteSelectMenu v-if="isEditable" v-model="nc.siteId" :required="true" />
+          <SiteBadgeById v-else-if="nc.siteId" :siteId="nc.siteId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField label="Department">
+          <DepartmentSelectMenu v-if="isEditable" v-model="nc.departmentId" :required="true" />
+          <DepartmentBadgeById v-else-if="nc.departmentId" :departmentId="nc.departmentId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+      </BaseRailCard>
+
+      <!-- External sharing — who outside the company can read this. -->
+      <RecordShareCard entityType="Nonconformance" :entityId="nc.id" module="ncr" :record="nc" />
+
+      <!-- 4. Workflow — below People (user decision 2026-08-12).
+           While DRAFT the owner picks / switches the workflow here (the old
+           in-body selection card is gone); once opened it shows the running
+           instance's status + links. -->
+      <!-- Shared with CAPA / Change Control / Complaint (2026-08-17). -->
+      <WorkflowRailCard
+        :record="nc"
+        moduleId="NON_CONFORMANCE"
+        resourceType="Nonconformance"
+        :canChange="nc.statusId === 'DRAFT' && isOwner"
+        changeHint="You can switch workflows while in draft — step assignments reset on change."
+      />
+
+      <!-- 5. Related — CAPA state, linked complaints, workflow info card, shared-with panel -->
+      <BaseRailCard title="Related">
+        <BaseDetailField label="CAPA">
+          <BaseText
+            variant="body"
+            weight="medium"
+            :class="nc.capaRequired === null ? 'tw:text-secondary tw:italic' : ''"
+          >
+            {{
+              nc.capaRequired === true
+                ? 'Required'
+                : nc.capaRequired === false
+                  ? 'Not required'
+                  : 'Not yet decided'
+            }}
+          </BaseText>
+        </BaseDetailField>
+
+        <!-- Customer complaints this NC was converted from — resolves
+             via record_links, self-hides when there are none. -->
+        <NcLinkedComplaintsPanel :ncId="id" />
+
+        <!-- (NC workflow panel moved to the dedicated Workflow rail card
+             below People — 2026-08-10.) -->
+
+        <!-- External access — read-only panel populated by workflow-
+             step assignment (autoShareSupplierUsers). Product decision
+             (2026-05-29): supplier visibility on NCs is workflow-
+             driven, not manual. Only meaningful on supplier-facing
+             NCs — internal NCs never share externally. -->
+        <SharedWithPanel v-if="nc.isSupplierFacing" entityType="Nonconformance" :entityId="id" />
+      </BaseRailCard>
+
+      <!-- 6. Notifications — cc list, the rules that also apply, and when anything last went out -->
+      <RecordNotificationsCard
+        v-model:groupIds="nc.notifyGroupIds"
+        v-model:userIds="nc.notifyUserIds"
+        v-model:emails="nc.notifyEmails"
+        entityType="Nonconformance"
+        :entityId="nc.id"
+        :siteId="nc.siteId"
+        :departmentId="nc.departmentId"
+        :editable="isEditable"
+      />
+
+      <!-- Workflow detail component (steps, reassign, send-back, record viewer) -->
+    </template>
 
     <!-- ─── NC-level Approve and Close dialog ──────────────────────────── -->
     <!-- Shows all closure invariants visually; the button at the page
@@ -1026,17 +1135,19 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5 tw:text-green-600 tw:font-bold">✓</div>
           <div class="tw:text-sm tw:text-green-800">
-            All gates are satisfied — every workflow step is complete, the
-            disposition is recorded with notes
+            All gates are satisfied — every workflow step is complete, the disposition is recorded
+            with notes
             <template v-if="nc?.capaRequired === true">, a CAPA is linked</template>
             <template v-if="ncDispositionType?.tracksCost">, and Cost of NC is entered</template>.
-            Approving signs the closure and transitions the NC to
-            <strong>Closed</strong> — this is the final action.
+            Approving signs the closure and transitions the NC to <strong>Closed</strong> — this is
+            the final action.
           </div>
         </div>
 
         <div>
-          <p class="tw:text-xs tw:uppercase tw:font-bold tw:text-secondary tw:mb-1">
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
             Completion Notes (optional)
           </p>
           <BaseTextarea
@@ -1051,24 +1162,20 @@ function onCreateLinkedChangeRequest() {
         >
           <div class="tw:shrink-0 tw:mt-0.5">🔒</div>
           <div>
-            CFR 21 Part 11 — Approving and closing this NC is an attested
-            regulated action and requires an e-signature. You'll confirm
-            your identity on the next step.
+            CFR 21 Part 11 — Approving and closing this NC is an attested regulated action and
+            requires an e-signature. You'll confirm your identity on the next step.
           </div>
         </div>
 
         <p v-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</p>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="completing" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Sign & Close"
           :loading="completing"
-          :disabled="completing"
-          @click="handleMarkCompleteClick"
-        >
-          Sign &amp; Close
-        </BaseButton>
+          @cancel="close"
+          @submit="handleMarkCompleteClick"
+        />
       </template>
     </BaseDialog>
 
@@ -1100,15 +1207,12 @@ function onCreateLinkedChangeRequest() {
         </div>
       </div>
       <template #footer="{ close }">
-        <BaseButton variant="outline" :disabled="saving" @click="close">Cancel</BaseButton>
-        <BaseButton
-          variant="primary"
+        <BaseDialogFooter
+          submitLabel="Open NC"
           :loading="saving"
-          :disabled="saving"
-          @click="handleSubmitForReview"
-        >
-          Open NC
-        </BaseButton>
+          @cancel="close"
+          @submit="handleSubmitForReview"
+        />
       </template>
     </BaseDialog>
 
@@ -1122,8 +1226,8 @@ function onCreateLinkedChangeRequest() {
     <!-- Delete draft NC -->
     <BaseDialog v-model="showDeleteDialog" title="Delete Draft NC" maxWidth="md">
       <p class="tw:text-sm tw:text-on-main tw:mb-3">
-        Delete this draft nonconformance? This permanently removes the
-        record. Drafts have no audit history yet, so this is safe.
+        Delete this draft nonconformance? This permanently removes the record. Drafts have no audit
+        history yet, so this is safe.
       </p>
       <div
         v-if="saveError"
@@ -1140,12 +1244,40 @@ function onCreateLinkedChangeRequest() {
         </BaseButton>
       </div>
     </BaseDialog>
-  </div>
-</template>
 
-<style scoped>
-.nc-detail-editor :deep(.rich-text-editor-content) {
-  max-height: 12rem;
-  overflow-y: auto;
-}
-</style>
+    <!-- Convert OPEN internal NC → supplier-facing -->
+    <BaseDialog v-model="showConvertDialog" title="Convert to Supplier-Facing NC" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3">
+        <p class="tw:text-sm tw:text-on-main">
+          Investigation points at a supplier? Converting keeps everything already entered on this NC
+          and re-routes the remaining workflow to the supplier:
+        </p>
+        <ul class="tw:text-xs tw:text-secondary tw:list-disc tw:pl-5 tw:space-y-1">
+          <li>Completed steps and their history are untouched.</li>
+          <li>
+            Open and upcoming non-approval steps are reassigned to the supplier's portal user —
+            previous assignees stay visible in step history as
+            <span class="tw:font-semibold">Reassigned</span>.
+          </li>
+          <li>Final approval steps remain internal.</li>
+          <li>The NC stays open; nothing restarts.</li>
+        </ul>
+        <BaseField
+          label="Supplier"
+          required
+          hint="The supplier needs at least one active portal user."
+        >
+          <SupplierSelectMenu v-model="convertSupplierId" class="tw:w-full" />
+        </BaseField>
+      </div>
+      <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-4 tw:mt-2 tw:border-t tw:border-divider">
+        <BaseButton variant="outline" :disabled="converting" @click="showConvertDialog = false">
+          Cancel
+        </BaseButton>
+        <BaseButton :loading="converting" :disabled="!convertSupplierId" @click="confirmConvert">
+          Convert &amp; reassign
+        </BaseButton>
+      </div>
+    </BaseDialog>
+  </BaseDetailLayout>
+</template>

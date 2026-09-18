@@ -42,10 +42,6 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  show: {
-    type: [Boolean, undefined],
-    default: undefined,
-  },
   showContent: {
     type: Boolean,
     default: true,
@@ -211,7 +207,7 @@ const arrowOrientation = computed(() => {
           tabindex="-1"
           :style="floatingStyles"
           :class="[
-            'tw:flex tw:min-h-8 tw:min-w-31 tw:items-center tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:text-sm tw:text-on-sidebar tw:shadow-xl tw:ring-1 tw:ring-black/5 tw:focus:outline-none tw:backdrop-blur-sm',
+            'tw:flex tw:min-h-8 tw:min-w-31 tw:items-center tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:text-sm tw:text-on-sidebar tw:shadow-floating tw:ring-1 tw:ring-black/5 tw:focus:outline-none tw:backdrop-blur-sm',
             props.menuItemsClasses,
           ]"
         >
@@ -246,7 +242,7 @@ const arrowOrientation = computed(() => {
         tabindex="-1"
         :style="floatingStyles"
         :class="[
-          'tw:flex tw:min-h-8 tw:min-w-31 tw:items-center tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:text-sm tw:text-on-sidebar tw:shadow-xl tw:ring-1 tw:ring-black/5 tw:focus:outline-none tw:backdrop-blur-sm',
+          'tw:flex tw:min-h-8 tw:min-w-31 tw:items-center tw:rounded-xl tw:border tw:border-divider tw:bg-sidebar tw:text-sm tw:text-on-sidebar tw:shadow-floating tw:ring-1 tw:ring-black/5 tw:focus:outline-none tw:backdrop-blur-sm',
           props.menuItemsClasses,
         ]"
       >

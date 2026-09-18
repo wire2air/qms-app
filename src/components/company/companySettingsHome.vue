@@ -4,9 +4,11 @@ import {
   IconAdjustments,
   IconPrinter,
   IconInfoCircle,
-  IconList,
+  IconSparkles,
+  IconPlug,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const company = useLiveQueryWithDeps(
   [() => currentCompany.value?.id],
@@ -50,97 +52,101 @@ function mirrorToCurrentCompany(c) {
   currentCompany.value.settings = c.settings
 }
 
-const tabs = [
-  { id: 'general', label: 'General', icon: IconInfoCircle },
-  { id: 'defaults', label: 'Defaults', icon: IconAdjustments },
-  { id: 'print', label: 'Print', icon: IconPrinter },
-  { id: 'lookups', label: 'Lookups', icon: IconList },
-]
-// Honor ?tab=<id> so deep-links from the sidebar (e.g. NC Dispositions
-// going to /settings?tab=lookups) land directly on the right pane.
+// AI tab visible to anyone with ai:manage (owners auto-pass). Tenants
+// where the operator hasn't enabled AI yet still need this tab so an
+// admin can turn it on; gating on the canUseAi session flag would hide
+// the very switch you need to flip.
+const canManageAi = computed(() => isAllowed(['ai:manage']))
+const canManageCompany = computed(() => isAllowed(['company_settings:manage']))
+
+
+const tabs = computed(() => {
+  const base = [
+    { value: 'general', label: 'General', icon: IconInfoCircle },
+    { value: 'defaults', label: 'Defaults', icon: IconAdjustments },
+    { value: 'print', label: 'Print', icon: IconPrinter },
+  ]
+  if (canManageCompany.value)
+    base.push({ value: 'integrations', label: 'Integrations', icon: IconPlug })
+  if (canManageAi.value) base.push({ value: 'ai', label: 'AI', icon: IconSparkles })
+  return base
+})
+// Honor ?tab=<id> deep-links. Lookups moved to the standalone /lookups page
+// (2026-06-12) — redirect old ?tab=lookups bookmarks there.
 const route = useRoute()
-const validTabIds = new Set(tabs.map((t) => t.id))
-const initialTab = validTabIds.has(route.query.tab) ? route.query.tab : 'general'
+const router = useRouter()
+const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
+const initialTab = validTabIds.value.has(route.query.tab) ? route.query.tab : 'general'
 const activeTab = ref(initialTab)
 watch(
   () => route.query.tab,
   (v) => {
-    if (v && validTabIds.has(v)) activeTab.value = v
+    if (v === 'lookups') {
+      router.replace('/lookups')
+      return
+    }
+    if (v && validTabIds.value.has(v)) activeTab.value = v
   },
+  { immediate: true },
 )
 </script>
 
 <template>
-  <div class="tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconSettings class="tw:text-primary tw:size-6" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Company Settings</h2>
-      </div>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <PageHeader
+      :icon="IconSettings"
+      title="Company Settings"
+      subtitle="Manage organization profile, branding, regional preferences, defaults, and print customization."
+    />
 
-    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:animate-spin tw:rounded-full tw:size-12 tw:border-4 tw:border-primary tw:border-t-transparent"
-      />
+    <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-20">
+      <BaseSpinner size="lg" />
     </div>
 
-    <div v-else-if="!company" class="tw:p-8 tw:text-center tw:text-secondary">
+    <div v-else-if="!company" class="tw:py-8 tw:text-center tw:text-secondary">
       Company not found.
     </div>
 
-    <div v-else class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Company Settings</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage organization profile, branding, regional preferences, defaults, and print
-          customization.
-        </div>
-      </div>
+    <template v-else>
+      <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Company settings">
+        <!-- Tab: General -->
+        <BaseTabPanel value="general">
+          <div class="tw:flex tw:flex-col tw:gap-8">
+            <CompanyInfoCard />
 
-      <!-- Tabs -->
-      <div class="tw:flex tw:border-b tw:border-divider">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="tw:px-5 tw:py-2.5 tw:border-b-2 tw:font-semibold tw:text-sm tw:flex tw:items-center tw:gap-2 tw:transition-colors"
-          :class="activeTab === tab.id
-            ? 'tw:border-primary tw:text-primary'
-            : 'tw:border-transparent tw:text-secondary tw:hover:text-on-sidebar'"
-          @click="activeTab = tab.id"
-        >
-          <component :is="tab.icon" :size="16" /> {{ tab.label }}
-        </button>
-      </div>
-
-      <!-- Tab: General -->
-      <div v-if="activeTab === 'general'" class="tw:flex tw:flex-col tw:gap-8">
-        <CompanyInfoCard />
-
-        <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
-          <div class="tw:lg:col-span-2 tw:flex tw:flex-col tw:gap-8">
-            <CompanyBrandingCard />
-            <CompanyRegionalCard />
+            <div class="tw:grid tw:grid-cols-1 tw:lg:grid-cols-3 tw:gap-8">
+              <div class="tw:lg:col-span-2 tw:flex tw:flex-col tw:gap-8">
+                <CompanyBrandingCard />
+                <CompanyRegionalCard />
+              </div>
+              <CompanyMetadataCard />
+            </div>
           </div>
-          <CompanyMetadataCard />
-        </div>
-      </div>
+        </BaseTabPanel>
 
-      <!-- Tab: Defaults -->
-      <div v-else-if="activeTab === 'defaults'">
-        <CompanyDefaultsCard />
-      </div>
+        <!-- Tab: Defaults -->
+        <BaseTabPanel value="defaults">
+          <div class="tw:flex tw:flex-col tw:gap-4">
+            <CompanyDefaultsCard />
+            <ComplaintSettingsCard />
+          </div>
+        </BaseTabPanel>
 
-      <!-- Tab: Print -->
-      <div v-else-if="activeTab === 'print'">
-        <CompanyPrintCard />
-      </div>
+        <!-- Tab: Print -->
+        <BaseTabPanel value="print">
+          <CompanyPrintCard />
+        </BaseTabPanel>
 
-      <!-- Tab: Lookups — shared master data (NC dispositions, etc.) -->
-      <div v-else-if="activeTab === 'lookups'" class="tw:flex tw:flex-col tw:gap-8">
-        <NcDispositionTypesCard />
-        <NcIssueTypesCard />
-      </div>
-    </div>
-  </div>
+        <!-- Tab: Integrations — connected third-party accounts (Adobe Sign). -->
+        <BaseTabPanel value="integrations">
+          <CompanyIntegrationsCard />
+        </BaseTabPanel>
+
+        <!-- Tab: AI — only present when the user has ai:manage. -->
+        <BaseTabPanel value="ai">
+          <CompanyAiProfileCard />
+        </BaseTabPanel>
+      </BaseTabs>
+    </template>
+  </BasePage>
 </template>

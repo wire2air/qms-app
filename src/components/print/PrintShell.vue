@@ -51,7 +51,7 @@ onUnmounted(() => {
   <component :is="ModuleComponent" v-if="ModuleComponent" v-bind="moduleProps" />
   <div
     v-else
-    class="tw:fixed tw:inset-0 tw:z-50 tw:bg-main tw:flex tw:items-center tw:justify-center tw:p-8"
+    class="tw:fixed tw:inset-0 tw:z-modal tw:bg-main tw:flex tw:items-center tw:justify-center tw:p-8"
   >
     <div class="tw:max-w-lg tw:rounded-lg tw:border tw:border-divider tw:p-6 tw:bg-sidebar">
       <div class="tw:flex tw:items-start tw:gap-3">
@@ -60,9 +60,9 @@ onUnmounted(() => {
           <div class="tw:text-base tw:font-semibold tw:text-on-main">Unknown print module</div>
           <div class="tw:text-sm tw:text-secondary tw:mt-1">
             URL must include
-            <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">?module=…</code>
+            <code class="tw:bg-main-hover tw:px-1 tw:rounded">?module=…</code>
             with one of:
-            <code class="tw:font-mono tw:bg-main-hover tw:px-1 tw:rounded">
+            <code class="tw:bg-main-hover tw:px-1 tw:rounded">
               {{ listModules().join(', ') }}
             </code>
           </div>

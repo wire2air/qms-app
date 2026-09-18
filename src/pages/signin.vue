@@ -2,7 +2,8 @@
 import LoginForm from '@/components/auth/LoginForm.vue'
 import WorkspacePicker from '@/components/auth/WorkspacePicker.vue'
 import { currentSubdomain } from '@/utils/tenant'
-import { IconShieldCheck, IconFileText, IconClipboardCheck, IconChartDots } from '@tabler/icons-vue'
+import { SIGNOUT_REASON_KEY } from '@/utils/currentSession.js'
+import { IconFileText, IconClipboardCheck, IconChartDots } from '@tabler/icons-vue'
 
 defineOptions({
   name: 'LoginPage',
@@ -14,6 +15,27 @@ defineOptions({
 //  • apex / reserved host (no tenant) → a workspace picker that routes the user
 //    to their tenant's own /signin.
 const onTenant = computed(() => currentSubdomain() !== null)
+
+// An automatic sign-out has to say so. Landing on a login screen with no
+// explanation reads as the app having crashed, not as the company's idle
+// timeout doing its job (2026-08-30).
+const route = useRoute()
+const REASONS = { inactivity: 'You were signed out because of inactivity.' }
+
+// The query param is the happy path; the stashed copy covers the case where a
+// racing 401 redirect replaced the URL with a bare /signin. Read once and
+// clear, so a later manual visit to /signin is not still explaining itself.
+const stashedReason = (() => {
+  try {
+    const v = sessionStorage.getItem(SIGNOUT_REASON_KEY)
+    if (v) sessionStorage.removeItem(SIGNOUT_REASON_KEY)
+    return v
+  } catch {
+    return null
+  }
+})()
+
+const signedOutReason = computed(() => REASONS[route.query.reason] ?? REASONS[stashedReason] ?? null)
 
 const features = [
   { icon: IconFileText, title: 'Document Control', desc: 'Versioned, audited, always current' },
@@ -33,11 +55,8 @@ const features = [
         <div class="brand-orb brand-orb--two" aria-hidden="true"></div>
 
         <div class="branding-content">
-          <div class="brand-logo">
-            <IconShieldCheck :size="30" class="tw:text-white" :stroke="2" />
-          </div>
-
-          <h1 class="branding-title">QMS</h1>
+          <!-- tone="light": this panel is dark in BOTH themes. -->
+          <BrandLogo tone="mono" class="branding-logo" />
           <p class="branding-subtitle">Quality Management System</p>
 
           <div class="branding-features">
@@ -53,9 +72,7 @@ const features = [
           </div>
 
           <div class="brand-footer">
-            <div class="brand-dots" aria-hidden="true">
-              <span></span><span></span><span></span>
-            </div>
+            <div class="brand-dots" aria-hidden="true"><span></span><span></span><span></span></div>
             Trusted by quality teams to stay audit-ready, every day.
           </div>
         </div>
@@ -65,14 +82,20 @@ const features = [
       <div class="login-form-section">
         <!-- compact brand mark for mobile, where the left panel is hidden -->
         <div class="mobile-brand">
-          <div class="mobile-brand-logo">
-            <IconShieldCheck :size="22" class="tw:text-white" :stroke="2" />
-          </div>
-          <span class="mobile-brand-name">QMS</span>
+          <!-- The form side is light in light mode, so tone follows the theme
+               here — unlike the always-dark branding panel opposite. -->
+          <BrandLogo class="mobile-brand-logo" />
         </div>
 
         <div class="form-wrap">
           <div class="form-card">
+            <div
+              v-if="signedOutReason"
+              class="tw:mb-4 tw:rounded-lg tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-3 tw:py-2 tw:text-sm tw:text-amber-800"
+              role="status"
+            >
+              {{ signedOutReason }}
+            </div>
             <LoginForm v-if="onTenant" mode="signin" />
             <WorkspacePicker v-else />
           </div>
@@ -157,27 +180,10 @@ const features = [
   max-width: 420px;
 }
 
-.brand-logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow:
-    0 10px 30px rgba(8, 30, 80, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(8px);
-}
-
-.branding-title {
-  font-size: 3.25rem;
-  font-weight: 800;
-  line-height: 1;
-  margin: 26px 0 10px;
-  letter-spacing: -1.5px;
+.branding-logo {
+  height: 52px;
+  width: auto;
+  margin-bottom: 8px;
 }
 
 .branding-subtitle {
@@ -284,19 +290,8 @@ const features = [
   }
 }
 .mobile-brand-logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  background: linear-gradient(160deg, var(--primary), #0a306f);
-}
-.mobile-brand-name {
-  font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  color: var(--on-main);
+  height: 34px;
+  width: auto;
 }
 
 .form-wrap {

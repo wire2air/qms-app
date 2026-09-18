@@ -4,10 +4,14 @@ const props = defineProps({
   showDot: { type: Boolean, default: false },
 })
 
-const status = useLiveQueryWithDeps([() => props.statusId], async (db, [statusId]) => {
-  if (!statusId) return null
-  return db.WorkflowInstanceStatus.findByPk(statusId)
-})
+const status = useLiveQueryWithDeps(
+  [() => props.statusId],
+  async (db, [statusId]) => {
+    if (!statusId) return null
+    return db.WorkflowInstanceStatus.findByPk(statusId)
+  },
+  { models: ['WorkflowInstanceStatus'] },
+)
 </script>
 
 <template>

@@ -1,33 +1,30 @@
 <script setup>
-import { IconChecklist } from '@tabler/icons-vue'
+import { IconChecklist, IconPlus } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const showCreateDialog = ref(false)
 const selectedOptionSetId = ref(null)
 
-const canCreateOptionSet = computed(() => isAllowed(['optionSets:create']))
-const canDeleteOptionSet = computed(() => isAllowed(['optionSets:delete']))
+const canCreateOptionSet = computed(() => isAllowed(['option_sets:create']))
+const canDeleteOptionSet = computed(() => isAllowed(['option_sets:delete']))
 
-// Filters — drives live query re-run
-const filters = ref({ search: '' })
+// List layout — resolved content state + URL sync.
+const list = useListLayout({
+  filters: {},
+  total: () => optionSets.value.length,
+  empty: () => optionSets.value.length === 0,
+  syncUrl: true,
+})
 
 // Live query for option sets
-const optionSets = useLiveQueryWithDeps(
-  [() => filters.value.search],
-  async (db, [search]) => {
-    let results = await db.OptionSet.where().exec()
-    if (search) {
-      const q = search.toLowerCase()
-      results = results.filter(
-        (os) =>
-          os.name.toLowerCase().includes(q) || (os.description || '').toLowerCase().includes(q),
-      )
-    }
+const optionSets = useLiveQuery(
+  async (db) => {
+    const results = await db.OptionSet.where().exec()
     return results.sort(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+  { models: ['OptionSet'], initial: [] },
 )
 
 function openDialog(id = null) {
@@ -37,37 +34,38 @@ function openDialog(id = null) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconChecklist class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Option Sets</h2>
-      </div>
-    </SafeTeleport>
+  <BaseListLayout
+    title="Option Sets"
+    :icon="IconChecklist"
+    subtitle="Manage reusable sets of options for dropdowns, radios, and checklists."
+    :state="list.state.value"
+    :emptyIcon="IconChecklist"
+    :emptyTitle="
+      list.hasActiveFilters.value ? 'No option sets match your filters' : 'No option sets yet'
+    "
+  >
+    <template #actions>
+      <BaseButton v-if="canCreateOptionSet" @click="openDialog()">
+        <IconPlus :size="16" />
+        Create Option Set
+      </BaseButton>
+    </template>
 
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton v-if="canCreateOptionSet" @click="openDialog()"> Create Option Set </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Option Sets</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage reusable sets of options for dropdowns, radios, and checklists.
-        </div>
-      </div>
-    </div>
-
-    <OptionSetsFilterToolbar v-model:filters="filters" />
+    <template #empty-action>
+      <BaseButton
+        v-if="canCreateOptionSet && !list.hasActiveFilters.value"
+        @click="openDialog()"
+      >
+        <IconPlus :size="16" />
+        Create Option Set
+      </BaseButton>
+    </template>
 
     <OptionSetsTable :rows="optionSets" :canDelete="canDeleteOptionSet" />
-  </div>
 
-  <!-- Create/Edit Option Set Dialog -->
-  <OptionSetCreateDialog
-    v-if="showCreateDialog"
-    :id="selectedOptionSetId"
-    v-model="showCreateDialog"
-  />
+  </BaseListLayout>
+
+  <!-- Create/Edit Option Set Dialog — outside BaseListLayout so it stays mounted
+       in the empty state (else you can't create the first option set). -->
+  <OptionSetCreateDialog v-if="showCreateDialog" :id="selectedOptionSetId" v-model="showCreateDialog" />
 </template>

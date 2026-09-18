@@ -20,6 +20,7 @@ export class Workflow extends BaseModel {
   @Property({ type: String, required: true }) name = ''
   @Property({ type: String }) description = ''
   @Property({ type: String, required: true }) moduleId = ''
+  @Property({ type: Boolean }) isDefault = false
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String }) statusId = 'ACTIVE'
   @Property({ type: DateTime }) deletedAt = null

@@ -38,7 +38,7 @@ const expiresLabel = computed(() => {
   return props.token.expiresAt ? props.token.expiresAt.formatDate() : 'Never'
 })
 
-const confirmDialog = ref(null)
+const { confirm } = useConfirm()
 
 const menuItems = computed(() => {
   if (isRevoked.value) return []
@@ -46,19 +46,19 @@ const menuItems = computed(() => {
     {
       name: 'Revoke',
       icon: IconBan,
-      click: () => {
-        confirmDialog.value = {
+      click: async () => {
+        const ok = await confirm({
           title: 'Revoke API Token',
           message: `Revoke "${props.token.name}"? Any client using it will immediately stop working.`,
           okLabel: 'Revoke',
-          onOk: async () => {
-            try {
-              await del(`/v1/services/ai/pats/${props.token.id}`)
-              toast.notify({ type: 'positive', message: 'Token revoked' })
-            } catch (err) {
-              toast.notify({ type: 'negative', message: err?.message || 'Failed to revoke token' })
-            }
-          },
+          danger: true,
+        })
+        if (!ok) return
+        try {
+          await del(`/v1/services/ai/pats/${props.token.id}`)
+          toast.notify({ type: 'positive', message: 'Token revoked' })
+        } catch (err) {
+          toast.notify({ type: 'negative', message: err?.message || 'Failed to revoke token' })
         }
       },
     },
@@ -87,7 +87,7 @@ const menuItems = computed(() => {
             {{ token.name }}
           </div>
           <code
-            class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary tw:font-mono"
+            class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main-hover tw:text-secondary"
           >
             {{ token.prefix }}…
           </code>
@@ -114,12 +114,4 @@ const menuItems = computed(() => {
       </div>
     </div>
   </div>
-
-  <ConfirmDialog
-    v-if="confirmDialog"
-    :modelValue="true"
-    v-bind="confirmDialog"
-    @update:modelValue="confirmDialog = null"
-    @ok="confirmDialog?.onOk"
-  />
 </template>

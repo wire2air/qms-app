@@ -1,15 +1,12 @@
 <script setup>
-import { provideRoles } from '@/composables/useRoles.js'
-
+// Roles are syncEngine-backed (C3) — no shared axios state to provide; each
+// child reads/writes db.Role directly.
 const props = defineProps({
   id: {
     type: String,
     default: null,
   },
 })
-
-// Provide shared roles state for all child components
-provideRoles()
 </script>
 
 <template>

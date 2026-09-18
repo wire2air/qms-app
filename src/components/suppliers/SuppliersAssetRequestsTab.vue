@@ -17,6 +17,7 @@ import {
   IconFileText,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { useToast } from '@shared/composables/useToast.js'
 
 const props = defineProps({
   supplierId: {
@@ -25,7 +26,9 @@ const props = defineProps({
   },
 })
 
-const canUpdate = computed(() => isAllowed(['suppliers:update']))
+const canUpdate = computed(() => isAllowed(['supplier_management:update']))
+const { confirm } = useConfirm()
+const toast = useToast()
 
 // ─── Live queries ─────────────────────────────────────────────────────────────
 
@@ -33,22 +36,23 @@ const assetRequests = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) => {
     const rows = await db.AssetRequest.where('supplierId', supplierId).exec()
-    return rows.sort(
-      (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-    )
+    return rows.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['AssetRequest'], initial: [] },
 )
 
 const allItems = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db) => db.AssetRequestItem.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestItem'], initial: [] },
 )
 
 const allTypes = useLiveQuery(
   async (db) => db.AssetRequestType.where().exec(),
-  { initial: [] },
+
+  { models: ['AssetRequestType'], initial: [] },
 )
 
 const typeById = computed(() => {
@@ -111,18 +115,31 @@ function toggleExpand(id) {
 }
 
 async function removeItem(item) {
-  if (!confirm(`Remove "${itemLabel(item)}" from this request?`)) return
+  if (
+    !(await confirm({
+      title: 'Remove item',
+      message: `Remove "${itemLabel(item)}" from this request?`,
+      okLabel: 'Remove',
+      danger: true,
+    }))
+  ) {
+    return
+  }
   try {
     await item.delete()
   } catch (err) {
-    alert(err?.message || 'Failed to remove item')
+    // F-14 — a raw browser alert() was the only failure feedback in this
+    // component, in a module where every sibling dialog already uses the app
+    // toast. It also blocks the tab until dismissed.
+    toast.error(err?.message || 'Failed to remove item')
   }
 }
 
 const contacts = useLiveQueryWithDeps(
   [() => props.supplierId],
   async (db, [supplierId]) => db.SupplierContact.where('supplierId', supplierId).exec(),
-  { initial: [] },
+
+  { models: ['SupplierContact'], initial: [] },
 )
 
 // ─── Dialogs ──────────────────────────────────────────────────────────────────
@@ -158,18 +175,14 @@ function openReviewDialog(request) {
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-const confirmDialog = ref(null)
-
-function onDeleteRequest(request) {
-  confirmDialog.value = {
+async function onDeleteRequest(request) {
+  const ok = await confirm({
     title: 'Delete Asset Request',
     message: `Are you sure you want to delete "${request.title}"?`,
     okLabel: 'Delete',
-    onOk: async () => {
-      await request.delete()
-      confirmDialog.value = null
-    },
-  }
+    danger: true,
+  })
+  if (ok) await request.delete()
 }
 
 function formatDate(value) {
@@ -192,23 +205,23 @@ function formatDate(value) {
         >
           <IconClipboardList :size="20" class="tw:text-secondary" />
         </div>
-        <h3 class="tw:text-lg tw:font-bold tw:text-on-main">Asset Requests</h3>
+        <h3 class="tw:text-lg tw:font-semibold tw:text-on-main">Asset Requests</h3>
         <span
           v-if="summary.total"
-          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-full tw:bg-gray-200 tw:text-gray-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
         >
           {{ summary.total }}
         </span>
         <span
           v-if="summary.pending"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
         >
           <IconCircleDot :size="10" />
           {{ summary.pending }} pending
         </span>
         <span
           v-if="summary.overdue"
-          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-2 tw:py-0.5 tw:text-[10px] tw:font-bold"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-2 tw:py-0.5 tw:text-micro tw:font-bold"
         >
           <IconAlertTriangle :size="10" />
           {{ summary.overdue }} overdue
@@ -224,8 +237,9 @@ function formatDate(value) {
     <div v-if="assetRequests.length" class="tw:divide-y tw:divide-divider">
       <div v-for="request in assetRequests" :key="request.id">
         <!-- Row header -->
-        <div
-          class="tw:p-4 tw:flex tw:items-start tw:gap-3 tw:hover:bg-main-hover tw:transition-colors tw:cursor-pointer"
+        <BaseClickableRow
+          class="tw:p-4 tw:flex tw:items-start tw:gap-3 tw:hover:bg-main-hover tw:transition-colors"
+          :aria-label="`Toggle details for asset request ${request.title}`"
           @click="toggleExpand(request.id)"
         >
           <component
@@ -245,14 +259,14 @@ function formatDate(value) {
               <AssetRequestStatusBadgeById v-if="request.statusId" :statusId="request.statusId" />
               <span
                 v-if="isOverdue(request)"
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-1.5 tw:py-0.5"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:rounded tw:bg-red-100 tw:text-red-700 tw:px-1.5 tw:py-0.5"
               >
                 <IconAlertTriangle :size="10" />
                 Overdue
               </span>
               <span
                 v-if="progressFor(request).total"
-                class="tw:text-[10px] tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
+                class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-gray-100 tw:text-secondary"
               >
                 {{ progressFor(request).received }} / {{ progressFor(request).total }} received
               </span>
@@ -311,7 +325,7 @@ function formatDate(value) {
               <IconTrash :size="16" />
             </button>
           </div>
-        </div>
+        </BaseClickableRow>
 
         <!-- Items detail -->
         <div
@@ -349,25 +363,25 @@ function formatDate(value) {
                 <div v-if="item.customDescription" class="tw:text-xs tw:text-secondary">
                   {{ item.customDescription }}
                 </div>
-                <div v-if="item.uploadedAt" class="tw:text-[11px] tw:text-secondary tw:mt-0.5">
+                <div v-if="item.uploadedAt" class="tw:text-caption tw:text-secondary tw:mt-0.5">
                   Uploaded {{ item.uploadedAt.toRelative?.() }}
                 </div>
               </div>
               <span
                 v-if="item.statusId === 'RECEIVED'"
-                class="tw:text-[10px] tw:rounded tw:bg-green-100 tw:text-green-700 tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-green-100 tw:text-green-700 tw:px-1.5 tw:py-0.5"
               >
                 Received
               </span>
               <span
                 v-else-if="item.statusId === 'SKIPPED'"
-                class="tw:text-[10px] tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-gray-100 tw:text-secondary tw:px-1.5 tw:py-0.5"
               >
                 Skipped
               </span>
               <span
                 v-else
-                class="tw:text-[10px] tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
+                class="tw:text-micro tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1.5 tw:py-0.5"
               >
                 Pending
               </span>
@@ -407,12 +421,4 @@ function formatDate(value) {
       :assetRequestId="reviewingRequestId"
     />
   </div>
-
-  <ConfirmDialog
-    v-if="confirmDialog"
-    :modelValue="true"
-    v-bind="confirmDialog"
-    @update:modelValue="confirmDialog = null"
-    @ok="confirmDialog?.onOk"
-  />
 </template>

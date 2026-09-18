@@ -6,16 +6,22 @@ const props = defineProps({
 
 const instanceStep = useLiveQueryWithDeps(
   [() => props.instanceStepId],
+
   async (db, [instanceStepId]) => {
     if (!instanceStepId) return null
     return db.WorkflowInstanceStep.findByPk(instanceStepId)
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
-const step = useLiveQueryWithDeps([() => instanceStep.value?.stepId], async (db, [stepId]) => {
-  if (!stepId) return null
-  return db.WorkflowStep.findByPk(stepId)
-})
+const step = useLiveQueryWithDeps(
+  [() => instanceStep.value?.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return null
+    return db.WorkflowStep.findByPk(stepId)
+  },
+  { models: ['WorkflowStep'] },
+)
 
 const tasks = useLiveQueryWithDeps(
   [() => props.instanceStepId],
@@ -26,7 +32,8 @@ const tasks = useLiveQueryWithDeps(
       instanceStepId,
     ]).exec()
   },
-  { initial: [] },
+
+  { models: ['TaskInstance'], initial: [] },
 )
 
 const usersMap = useLiveQueryWithDeps(
@@ -37,7 +44,8 @@ const usersMap = useLiveQueryWithDeps(
     const users = await Promise.all(ids.map((id) => db.User.findByPk(id)))
     return Object.fromEntries(users.filter(Boolean).map((u) => [u.id, u]))
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 </script>
 
@@ -48,7 +56,7 @@ const usersMap = useLiveQueryWithDeps(
   >
     <div class="tw:flex tw:flex-wrap tw:items-start tw:justify-between tw:gap-2">
       <div class="tw:min-w-0 tw:flex-1">
-        <h3 class="tw:font-bold tw:text-secondary tw:wrap-break-word">
+        <h3 class="tw:text-sm tw:font-semibold tw:text-secondary tw:wrap-break-word">
           Step {{ displayNumber ?? instanceStep?.stepNumber }}: {{ instanceStep?.name }}
         </h3>
         <p class="tw:text-xs tw:text-secondary tw:italic">
@@ -92,9 +100,9 @@ const usersMap = useLiveQueryWithDeps(
             <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
               {{ usersMap[task.assignedTo]?.firstName }} {{ usersMap[task.assignedTo]?.lastName }}
             </p>
-            <p class="ds-label-sm tw:text-secondary tw:truncate">
+            <BaseText as="p" variant="caption" class="tw:truncate">
               {{ usersMap[task.assignedTo]?.email }}
-            </p>
+            </BaseText>
           </div>
         </div>
       </div>

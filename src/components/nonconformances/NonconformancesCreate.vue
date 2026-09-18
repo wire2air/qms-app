@@ -1,15 +1,133 @@
 <script setup>
 import { DateTime } from 'luxon'
+import {
+  IconInfoCircle,
+  IconCategory,
+  IconPackage,
+  IconBell,
+  IconSitemap,
+  IconShieldCheck,
+} from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { currentSession } from '@/utils/currentSession.js'
 import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
-import { NC_MODULE } from '@/components/workflow/workflowModule.js'
+import WorkflowVersionSelect from '@/components/documents/WorkflowVersionSelect.vue'
+import { NC_MODULE, CAPA_MODULE } from '@/components/workflow/workflowModule.js'
+import { useActiveWorkflowEntries } from '@/composables/useActiveWorkflowEntries.js'
+import { linkSpawnedToFinding } from '@/utils/auditFindingLink.js'
+import { required, requiredWhen } from '@shared/components/form/validators.js'
+import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const workflowPickerRef = ref(null)
+// The person raising the NC. Fed to the reviewer picker as the smart
+// default: any step whose candidate pool includes the initiator is
+// pre-assigned to them (user rule 2026-08-10) — changeable per step.
+const initiatorId = computed(() => currentSession.value?.userId ?? null)
+
+// Two-screen wizard (user decision 2026-08-10): screen 1 is ONLY the
+// workflow choice — clicking a card (or Continue on the pre-selected
+// default) advances to screen 2, the NC details form. A "Change" button
+// on the details screen returns to screen 1 with everything preserved.
+const screen = ref('workflow')
+
+function goToDetails() {
+  if (!form.value.workflowVersionId) return
+  screen.value = 'details'
+}
+
+// Single-workflow fast path (user request 2026-08-14): with exactly one
+// active workflow there is nothing to choose — select it and land straight
+// on the details screen. One-shot so it can't fight the user; the Change
+// button is hidden in that case anyway (nothing to change to). NOTE: sits
+// below `form` — the watcher writes into it (declared further down; watch
+// runs post-setup so there's no TDZ, unlike eager dep getters).
+const { entries: activeWorkflowEntries } = useActiveWorkflowEntries(
+  NC_MODULE.workflowVersionModuleId,
+)
+const singleWorkflow = computed(() => activeWorkflowEntries.value.length === 1)
+const workflowAutoSkipped = ref(false)
+watch(
+  activeWorkflowEntries,
+  (entries) => {
+    if (workflowAutoSkipped.value || screen.value !== 'workflow') return
+    if (entries.length !== 1) return
+    workflowAutoSkipped.value = true
+    form.value.workflowVersionId = entries[0].version.id
+    screen.value = 'details'
+  },
+  { immediate: true },
+)
 const saving = ref(false)
+// Server-side save failure — surfaced persistently in the form footer.
+const submitError = ref('')
+const savingDraft = ref(false)
+
+const SEVERITY_OPTIONS = [
+  { label: 'Minor', value: 'MINOR' },
+  { label: 'Major', value: 'MAJOR' },
+  { label: 'Critical', value: 'CRITICAL' },
+]
+const PRIORITY_OPTIONS = [
+  { label: 'Low', value: 'LOW' },
+  { label: 'Medium', value: 'MEDIUM' },
+  { label: 'High', value: 'HIGH' },
+  { label: 'Critical', value: 'CRITICAL' },
+]
+
+// Admin-defined custom fields (Settings → Custom Fields). The NC doesn't exist
+// yet, so answers live here and are persisted after creation via cfRef.persist.
+const customFieldsData = ref({})
+const customFieldsRef = ref(null)
+
+// ── Supplier shortcut: raise NC + linked 8D CAPA in one go ────────────
+// For supplier-facing NCs the Submit button opens a small dialog asking
+// "Create a linked CAPA?" + a CAPA workflow (defaulted to the SCAR 8D).
+// The backend creates + auto-assigns + opens both records.
+const showCapaShortcut = ref(false)
+const createCapa = ref(true)
+const capaWorkflowVersionId = ref(null)
+
+const capaWorkflows = useLiveQuery(
+  async (db) => db.Workflow.where('moduleId', CAPA_MODULE.workflowVersionModuleId).exec(),
+  { initial: [] },
+)
+const capaVersions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), { initial: [] })
+
+// Resolve the seeded "SCAR (Supplier 8D Response)" published version to default the picker.
+const scar8dVersionId = computed(() => {
+  const scar = capaWorkflows.value.find(
+    (w) => w.statusId === 'ACTIVE' && /scar|8d/i.test(w.name || ''),
+  )
+  if (!scar) return null
+  return (
+    capaVersions.value.find((v) => v.workflowId === scar.id && v.statusId === 'PUBLISHED')?.id ??
+    null
+  )
+})
+
+// ── Audit-finding spawn deep link ─────────────────────────────────
+// When the user clicks 'Spawn → New NC' on an audit finding, this
+// page opens with ?findingId=<id>. We pre-fill common fields from
+// the finding (title, description, source=AUDIT, type=AUDIT_FINDING,
+// department, supplier) and link the resulting NC back to the
+// finding on save.
+const presetFindingId = computed(() => {
+  const q = route.query?.findingId
+  return typeof q === 'string' ? q : null
+})
+const sourceFinding = useLiveQueryWithDeps(
+  [() => presetFindingId.value],
+
+  async (db, [id]) => {
+    if (!id) return null
+    return db.AuditFinding.findByPk(id)
+  },
+  { models: ['AuditFinding'] },
+)
 
 const form = ref({
   title: '',
@@ -32,73 +150,318 @@ const form = ref({
   isSupplierFacing: false,
   // Top-section classification / commercial-reference fields (added
   // 2026-05-29). All optional — intake may not know any of these yet.
-  ncIssueTypeId: null,
+  categoryId: null,
   priorityId: null,
-  dueDate: null,
   poNumber: '',
   orderNumber: '',
   lotNumber: '',
   qtyAffected: null,
   unitOfMeasure: '',
   workflowVersionId: null,
+  immediateContainmentAction: '',
+  initialInvestigation: '',
+  initialInvestigationAttachments: [],
+  // Groups emailed when the NC is raised and when it closes. Email-only —
+  // no tasks, no access granted (unlike workflow step assignment).
+  notifyGroupIds: [],
+  notifyUserIds: [],
+  notifyEmails: [],
 })
 
-function handleSubmit() {
+// Resolve the chosen workflow's name + version for the details screen's
+// context strip (versions don't carry the name — the parent Workflow does).
+// NOTE: must sit BELOW the `form` declaration — useLiveQueryWithDeps
+// evaluates dep getters eagerly at setup (same TDZ crash class as the
+// FieldRecordsList incident).
+const selectedWorkflowVersion = useLiveQueryWithDeps(
+  [() => form.value.workflowVersionId],
+  async (db, [id]) => (id ? db.WorkflowVersion.findByPk(id) : null),
+  { models: ['WorkflowVersion'] },
+)
+const selectedWorkflow = useLiveQueryWithDeps(
+  [() => selectedWorkflowVersion.value?.workflowId],
+  async (db, [id]) => (id ? db.Workflow.findByPk(id) : null),
+  { models: ['Workflow'] },
+)
+const selectedWorkflowLabel = computed(() => {
+  const v = selectedWorkflowVersion.value
+  if (!v) return ''
+  const name = selectedWorkflow.value?.name || 'Workflow'
+  return `${name} · v${v.versionLabel || `${v.versionMajor ?? 1}.${v.versionMinor ?? 0}`}`
+})
+
+// Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
+const isDirty = ref(false)
+watch(form, () => (isDirty.value = true), { deep: true })
+
+// Confirm before abandoning a half-filled NC via in-app navigation (Cancel,
+// back, sidebar). allowLeave() is called before the post-save redirect so a
+// successful raise doesn't prompt. BaseForm covers the browser-level exit.
+const { allowLeave } = useUnsavedChangesGuard(isDirty)
+
+// When the source finding loads, seed the title / description /
+// source / type / department / supplier so the user doesn't have
+// to retype the context. nc_sources 'AUDIT' + nc_types
+// 'AUDIT_FINDING' are global seeds (see database.sql).
+watch(sourceFinding, (f) => {
+  if (!f) return
   if (!form.value.title) {
-    toast.notify({ type: 'negative', message: 'Title is required' })
-    return
+    form.value.title = `Audit Finding ${f.findingNumber || ''}`.trim()
   }
-  if (!form.value.severityId) {
-    toast.notify({ type: 'negative', message: 'Severity is required' })
-    return
+  if (!form.value.description) form.value.description = f.description ?? ''
+  if (!form.value.sourceId) form.value.sourceId = 'AUDIT'
+  if (!form.value.typeId) form.value.typeId = 'AUDIT_FINDING'
+  if (!form.value.departmentId && f.departmentId) {
+    form.value.departmentId = f.departmentId
   }
-  if (!form.value.typeId) {
-    toast.notify({ type: 'negative', message: 'NC Type is required' })
-    return
+  if (!form.value.supplierId && f.supplierId) {
+    form.value.supplierId = f.supplierId
   }
-  if (!form.value.sourceId) {
-    toast.notify({ type: 'negative', message: 'Detection source is required' })
-    return
-  }
-  if (!form.value.siteId) {
-    toast.notify({ type: 'negative', message: 'Site is required' })
-    return
-  }
-  if (!form.value.departmentId) {
-    toast.notify({ type: 'negative', message: 'Department is required' })
-    return
-  }
-  if (!form.value.ownerId) {
-    toast.notify({ type: 'negative', message: 'Owner is required' })
-    return
-  }
-  if (form.value.isSupplierFacing && !form.value.supplierId) {
-    toast.notify({
-      type: 'negative',
-      message: 'Pick a supplier before marking this NC as supplier-facing.',
-    })
-    return
-  }
-  if (!form.value.detectedAt) {
-    toast.notify({ type: 'negative', message: 'Detected date is required' })
-    return
-  }
+})
+
+// Rich-text "has content": an empty editor still emits markup ('<p></p>'),
+// so required checks must strip tags before testing.
+function richTextFilled(v) {
+  return (
+    !!v &&
+    v
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .trim().length > 0
+  )
+}
+
+// Sticky section nav (FormProgressNav). Section ids mirror the FormSection ids
+// below; status shows a check once a section's required fields are satisfied.
+const classificationComplete = computed(
+  () =>
+    !!form.value.siteId &&
+    !!form.value.departmentId &&
+    !!form.value.typeId &&
+    !!form.value.sourceId &&
+    !!form.value.severityId &&
+    !!form.value.detectedAt &&
+    !!form.value.ownerId,
+)
+// (No Workflow entry — the workflow is chosen on its own screen before
+// this form is reachable; the context strip above the form shows it.)
+// Mirrors the FORM's order. A nav that lists sections in a different order
+// than the page scrolls in is worse than no nav — it is a map of somewhere
+// else.
+const navSections = computed(() => [
+  {
+    id: 'nc-basic',
+    label: 'Basic',
+    icon: IconInfoCircle,
+    // Containment moved out of this section (2026-08-23), so it no longer
+    // gates the tick here.
+    status: form.value.title && richTextFilled(form.value.description) ? 'complete' : null,
+  },
+  {
+    id: 'nc-classification',
+    label: 'Classification',
+    icon: IconCategory,
+    status: classificationComplete.value ? 'complete' : null,
+  },
+  {
+    id: 'nc-product',
+    label: 'Product',
+    icon: IconPackage,
+    // No tick: every field in this section is optional (an NC about a
+    // procedure names no item), so "complete" would mean nothing — and a
+    // section that can never go green reads as unfinished forever.
+    status: null,
+  },
+  {
+    id: 'nc-response',
+    label: 'Response',
+    icon: IconShieldCheck,
+    // Containment is the required half; the initial investigation is optional
+    // at intake, so it does not hold the tick back.
+    status: richTextFilled(form.value.immediateContainmentAction) ? 'complete' : null,
+  },
+  { id: 'nc-notify', label: 'Notify', icon: IconBell, status: null },
+])
+
+// Per-field rules live on each <BaseField :rules> (see validators.js). The
+// workflow is picked on its own screen before this form is reachable, so this
+// check is a safety net only (e.g. the selection was somehow cleared) — it
+// bounces the user back to the workflow screen.
+function validate() {
   if (!form.value.workflowVersionId) {
-    toast.notify({ type: 'negative', message: 'Workflow version is required' })
+    screen.value = 'workflow'
+    return [{ id: 'nc-workflow', label: 'Workflow', message: 'Pick a workflow before submitting.' }]
+  }
+  return []
+}
+
+// Fires only after `validate()` passes. Runs the async custom-fields check
+// (which surfaces its own inline errors), then branches: supplier-facing →
+// the CAPA shortcut dialog; internal → the per-step reviewer picker.
+async function onSubmit() {
+  if ((await customFieldsRef.value?.validate()) === false) return
+
+  if (form.value.isSupplierFacing) {
+    createCapa.value = true
+    capaWorkflowVersionId.value = scar8dVersionId.value
+    showCapaShortcut.value = true
     return
   }
 
-  // Open reviewer dialog (fire-and-forget, actual NC creation happens on confirm)
   workflowPickerRef.value.submit()
+}
+
+/**
+ * Save without starting the workflow.
+ *
+ * Create-and-open (2026-08-10) folded "open" into "create", which left no way
+ * to write an NC down and finish it later — the case this restores. The record
+ * is created exactly as before; the difference is that submitForReview is NOT
+ * called, so the NC sits in DRAFT and the owner can keep editing it on the
+ * detail page and open it when it is ready.
+ *
+ * The form still validates. A draft is a real NC — it has a number, it is
+ * visible, and it is auditable — so it is held to the same shape as one that
+ * opens immediately. A genuinely partial save (missing site, owner, workflow)
+ * would be a different feature and a different endpoint.
+ *
+ * Reviewers are not collected: nobody is being asked to review anything yet.
+ */
+async function saveAsDraft() {
+  // A draft is a NOTE, not a submission: no client validation beyond a title
+  // (2026-08-24, deliberately loosened from full-form validation). Required
+  // custom fields are enforced at OPEN, like everything else — a partial save
+  // must never be blocked by the fields it exists to defer.
+  savingDraft.value = true
+  submitError.value = ''
+  try {
+    const response = await post('/v1/services/nonconformances/draft', { ...form.value })
+    // Best-effort, like the other create paths: the NC exists, and losing the
+    // draft over a custom-field write would be the worse outcome.
+    try {
+      await customFieldsRef.value?.persist(response.nonconformance.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message: `Draft saved, but additional information did not: ${cfErr?.message || 'unknown error'}`,
+      })
+    }
+    toast.notify({ type: 'positive', message: 'Saved as draft — open it when you are ready' })
+    allowLeave()
+    router.push(getCompanyPath(`/nonconformances/${response.nonconformance.id}`))
+  } catch (e) {
+    submitError.value = e.message || 'Failed to save draft'
+    toast.notify({ type: 'negative', message: submitError.value })
+  } finally {
+    savingDraft.value = false
+  }
+}
+
+function goBack() {
+  router.push(getCompanyPath('/nonconformances'))
+}
+
+// Supplier shortcut confirm — POST the combined raise endpoint.
+async function confirmSupplierRaise() {
+  if (createCapa.value && !capaWorkflowVersionId.value) {
+    toast.notify({ type: 'negative', message: 'Pick a CAPA workflow' })
+    return
+  }
+  saving.value = true
+  try {
+    const { nonconformance, capa, opened } = await post('/v1/services/nonconformances/raise', {
+      ...form.value,
+      createCapa: createCapa.value,
+      capaWorkflowVersionId: createCapa.value ? capaWorkflowVersionId.value : null,
+    })
+    if (!opened) {
+      toast.notify({
+        type: 'warning',
+        message:
+          'Created as Draft — invite a supplier portal user for this supplier, then Open the NC/CAPA to start the workflow.',
+      })
+    } else {
+      toast.notify({
+        type: 'positive',
+        message: capa ? `NC raised + ${capa.capaNumber} opened` : 'NC raised',
+      })
+    }
+    // Persist custom fields against the new NC (best-effort — a values save
+    // failure must not lose the NC; the user can fill them on the detail page).
+    try {
+      await customFieldsRef.value?.persist(nonconformance.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message:
+          cfErr?.message ||
+          'NC raised, but custom fields could not be saved — add them on the NC page',
+      })
+    }
+    showCapaShortcut.value = false
+    allowLeave() // saved — don't prompt on the redirect
+    router.push(getCompanyPath(`/nonconformances/${nonconformance.id}`))
+  } catch (e) {
+    toast.notify({ type: 'negative', message: e.message || 'Failed to raise NC' })
+  } finally {
+    saving.value = false
+  }
 }
 
 async function handleReviewersConfirmed(reviewers) {
   saving.value = true
+  submitError.value = ''
   try {
     const response = await post('/v1/services/nonconformances', { ...form.value, reviewers })
+    // Create-and-open (client decision 2026-08-10): Create NC also starts the
+    // workflow — no separate Open NC step. Best-effort: an open failure (e.g.
+    // a step lost its assignee) leaves a recoverable DRAFT and the detail
+    // page's Open NC button still exists for it.
+    try {
+      await post(`/v1/services/nonconformances/${response.nonconformance.id}/submitForReview`, {})
+      toast.notify({ type: 'positive', message: 'NC created and opened — workflow started' })
+    } catch (openErr) {
+      toast.notify({
+        type: 'warning',
+        message: openErr?.message
+          ? `NC created as draft — could not open: ${openErr.message}`
+          : 'NC created as draft — open it from the NC page',
+      })
+    }
+    // If this NC was spawned from an audit finding, link the new
+    // NC back so the finding's chip lights up. Best-effort —
+    // a link failure shouldn't drop the NC we just created.
+    if (presetFindingId.value && response.nonconformance?.id) {
+      try {
+        await linkSpawnedToFinding({
+          findingId: presetFindingId.value,
+          kind: 'NC',
+          targetId: response.nonconformance.id,
+        })
+      } catch (linkErr) {
+        toast.notify({
+          type: 'warning',
+          message:
+            linkErr?.message ||
+            "NC created, but couldn't link it to the finding — attach manually from the audit page",
+        })
+      }
+    }
+    // Persist custom fields against the new NC (best-effort).
+    try {
+      await customFieldsRef.value?.persist(response.nonconformance.id)
+    } catch (cfErr) {
+      toast.notify({
+        type: 'warning',
+        message:
+          cfErr?.message ||
+          'NC created, but custom fields could not be saved — add them on the NC page',
+      })
+    }
+    allowLeave() // saved — don't prompt on the redirect
     router.push(getCompanyPath(`/nonconformances/${response.nonconformance.id}`))
   } catch (e) {
-    toast.notify({ type: 'negative', message: e.message || 'Failed to create NC' })
+    submitError.value = e.message || 'Failed to create NC'
   } finally {
     saving.value = false
   }
@@ -106,234 +469,475 @@ async function handleReviewersConfirmed(reviewers) {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <SafeTeleport to="#main-header-title">
-      <BaseBreadcrumbs
-        :items="[
-          { label: 'Nonconformances', to: getCompanyPath('/nonconformances') },
-          { label: 'Raise NC' },
-        ]"
-      />
-    </SafeTeleport>
+  <BasePage :width="screen === 'workflow' ? 'narrow' : 'standard'" fullHeight>
+    <PageHeader>
+      <template #title>
+        <BaseBreadcrumbs
+          :items="[
+            { label: 'Nonconformances', to: getCompanyPath('/nonconformances') },
+            { label: 'Raise NC' },
+          ]"
+        />
+      </template>
+    </PageHeader>
 
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton variant="primary" :disabled="saving" @click="handleSubmit">Submit</BaseButton>
-    </SafeTeleport>
+    <div class="tw:overflow-y-auto tw:flex-1 tw:min-h-0">
+      <!-- Screen 1 — workflow choice only (user decision 2026-08-10).
+           Clicking a card advances; Continue covers the pre-selected
+           default-workflow case. -->
+      <div v-if="screen === 'workflow'" class="tw:py-6 tw:flex tw:flex-col tw:gap-5">
+        <div>
+          <BaseText as="h2" weight="bold" class="tw:text-lg">Select a workflow</BaseText>
+          <p class="tw:text-sm tw:text-secondary tw:mt-1">
+            Every nonconformance follows an approval workflow. Pick the process this NC will follow
+            — you'll describe the event on the next screen.
+          </p>
+        </div>
+        <WorkflowVersionSelect
+          v-model="form.workflowVersionId"
+          :moduleId="NC_MODULE.workflowVersionModuleId"
+          @pick="goToDetails"
+        />
+        <div class="tw:flex tw:justify-end tw:gap-2 tw:pt-4 tw:border-t tw:border-divider">
+          <BaseButton variant="outline" @click="goBack">Cancel</BaseButton>
+          <BaseButton variant="primary" :disabled="!form.workflowVersionId" @click="goToDetails">
+            Continue
+          </BaseButton>
+        </div>
+      </div>
 
-    <div class="tw:overflow-y-auto tw:flex-1">
-      <div class="tw:max-w-3xl tw:mx-auto tw:p-6 tw:flex tw:flex-col tw:gap-4">
-        <!-- Basic information -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Basic information
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Title <span class="tw:text-red-500">*</span>
-              </label>
-              <BaseTextInput v-model="form.title" placeholder="Describe the nonconformance…" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Description</label>
-              <div class="create-nc-editor">
-                <BaseRichTextEditor
-                  v-model="form.description"
-                  placeholder="Provide details about the nonconformance…"
-                />
-              </div>
-            </div>
-            <SimilarRecordsPanel
-              entityType="Nonconformance"
-              :searchInTypes="['Nonconformance']"
-              :getText="() => `${form.title} ${form.description || ''}`"
-            />
-          </div>
+      <!-- Screen 2 — the NC details form, with a context strip recalling
+           the chosen workflow (Change returns to screen 1, data intact). -->
+      <template v-else>
+        <div class="tw:sticky tw:top-0 tw:z-10 tw:bg-main">
+          <FormProgressNav :sections="navSections" />
         </div>
 
-        <!-- Classification -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Classification
+        <div
+          class="tw:mt-4 tw:flex tw:items-center tw:gap-3 tw:rounded-lg tw:border tw:border-divider tw:bg-sidebar tw:px-4 tw:py-3"
+        >
+          <IconSitemap :size="18" class="tw:text-primary tw:shrink-0" />
+          <div class="tw:min-w-0 tw:flex-1">
+            <p class="tw:text-sm tw:font-semibold tw:text-on-main tw:truncate">
+              {{ selectedWorkflowLabel || 'Workflow selected' }}
+            </p>
+            <p v-if="form.isSupplierFacing" class="tw:text-xs tw:text-secondary">
+              Supplier-facing NCs are auto-assigned to the supplier's first portal user and opened
+              on Submit — you can reassign any step afterwards.
+            </p>
           </div>
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Site <span class="tw:text-red-500">*</span>
-              </label>
-              <SiteSelectMenu v-model="form.siteId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Department <span class="tw:text-red-500">*</span>
-              </label>
-              <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                NC Type <span class="tw:text-red-500">*</span>
-              </label>
-              <NcTypeSelectMenu v-model="form.typeId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Detection source <span class="tw:text-red-500">*</span>
-              </label>
-              <NcSourceSelectMenu v-model="form.sourceId" required />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Issue type</label>
-              <NcIssueTypeSelectMenu v-model="form.ncIssueTypeId" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Severity <span class="tw:text-red-500">*</span>
-              </label>
-              <div class="tw:flex tw:gap-2">
-                <BaseButton
-                  v-for="sev in ['MINOR', 'MAJOR', 'CRITICAL']"
-                  :key="sev"
-                  class="tw:flex-1 tw:justify-center"
-                  :variant="form.severityId === sev ? 'primary' : 'outline'"
-                  @click="form.severityId = sev"
-                >
-                  {{ sev.charAt(0) + sev.slice(1).toLowerCase() }}
-                </BaseButton>
-              </div>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Priority</label>
-              <div class="tw:flex tw:gap-2">
-                <BaseButton
-                  v-for="p in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']"
-                  :key="p"
-                  class="tw:flex-1 tw:justify-center"
-                  :variant="form.priorityId === p ? 'primary' : 'outline'"
-                  @click="form.priorityId = form.priorityId === p ? null : p"
-                >
-                  {{ p.charAt(0) + p.slice(1).toLowerCase() }}
-                </BaseButton>
-              </div>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Detected date <span class="tw:text-red-500">*</span>
-              </label>
-              <BaseDatePicker v-model="form.detectedAt" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Due date
-                <span class="tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-              </label>
-              <BaseDatePicker v-model="form.dueDate" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2 tw:md:col-span-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Owner <span class="tw:text-red-500">*</span>
-              </label>
-              <UserSelectMenu v-model="form.ownerId" required />
-            </div>
-          </div>
-        </div>
-
-        <!-- Product & material -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Product & material
-            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
-          <div class="tw:grid tw:grid-cols-2 tw:gap-3">
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Product</label>
-              <ProductSelectMenu v-model="form.productId" :required="false" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">
-                Supplier
-                <span v-if="form.isSupplierFacing" class="tw:text-bad">*</span>
-              </label>
-              <SupplierSelectMenu v-model="form.supplierId" :required="form.isSupplierFacing" />
-              <label
-                class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
-              >
-                <BaseCheckbox v-model="form.isSupplierFacing" />
-                <div>
-                  <div class="tw:text-sm tw:text-on-main">Supplier-facing NC</div>
-                  <div class="tw:text-[11px] tw:text-secondary">
-                    Workflow steps will be reviewed by users from the selected supplier (you'll
-                    pick the specific reviewer per step when you open the NC). Lockable once
-                    opened.
-                  </div>
-                </div>
-              </label>
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Qty affected</label>
-              <BaseTextInput v-model="form.qtyAffected" type="number" placeholder="0" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Unit of measure</label>
-              <BaseTextInput v-model="form.unitOfMeasure" placeholder="e.g. sheets, units…" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">PO #</label>
-              <BaseTextInput v-model="form.poNumber" placeholder="Purchase order number" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Order #</label>
-              <BaseTextInput v-model="form.orderNumber" placeholder="Customer / sales order" />
-            </div>
-            <div class="tw:flex tw:flex-col tw:gap-1 tw:col-span-2">
-              <label class="tw:text-sm tw:font-medium tw:text-secondary">Lot #</label>
-              <BaseTextInput v-model="form.lotNumber" placeholder="Material / production lot" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Immediate containment action -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Immediate containment action
-            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
-          <div class="create-nc-editor">
-            <BaseRichTextEditor
-              v-model="form.immediateContainmentAction"
-              placeholder="Describe actions taken at the time of detection…"
-            />
-          </div>
-        </div>
-
-        <!-- Workflow -->
-        <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5">
-          <div
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:pb-3 tw:border-b tw:border-divider tw:mb-4"
-          >
-            Workflow
-            <span class="tw:normal-case tw:font-normal tw:text-secondary tw:ml-1">(optional)</span>
-          </div>
+          <!-- Always offered (user request 2026-08-15). It used to hide when the
+             company had exactly one active workflow, which also hid WHICH
+             workflow was about to run and left no way back once the wizard
+             auto-skipped that screen. -->
+          <BaseButton variant="outline" size="sm" @click="screen = 'workflow'">
+            {{ singleWorkflow ? 'View workflow' : 'Change' }}
+          </BaseButton>
+          <!-- Submit-time per-step reviewer dialog — select suppressed, the
+             workflow was chosen on screen 1. -->
           <WorkflowReviewerPickerDialog
             ref="workflowPickerRef"
             v-model="form.workflowVersionId"
+            hideSelect
             :module="NC_MODULE"
             :isSupplierFacing="form.isSupplierFacing"
             :supplierId="form.supplierId"
             :ownerId="form.ownerId"
+            :preferUserId="initiatorId"
             @submit="handleReviewersConfirmed"
           />
         </div>
-      </div>
+
+        <BaseForm
+          class="tw:py-6"
+          :validate="validate"
+          :dirty="isDirty"
+          :loading="saving"
+          :submitError="submitError"
+          submitLabel="Create NC"
+          @submit="onSubmit"
+          @cancel="goBack"
+        >
+          <!-- Create NC also OPENS it (2026-08-10). This is the way to write
+               one down and come back to it. -->
+          <template #actions-extra>
+            <BaseButton
+              variant="outline"
+              size="md"
+              :isLoading="savingDraft"
+              :disabled="saving || savingDraft || !form.title?.trim()"
+              :title="form.title?.trim() ? '' : 'Give it a title first — everything else can wait'"
+              @click="saveAsDraft"
+            >
+              Save as Draft
+            </BaseButton>
+          </template>
+          <!-- Basic information -->
+          <FormSection id="nc-basic" title="Basic information" :icon="IconInfoCircle">
+            <div class="tw:flex tw:flex-col tw:gap-3">
+              <BaseField
+                id="nc-title"
+                label="Title"
+                required
+                :value="form.title"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.title"
+                    placeholder="Describe the nonconformance…"
+                  />
+                </template>
+              </BaseField>
+              <!-- Description — REQUIRED (user decision 2026-08-14). Rich text:
+                 the rule strips markup, an empty editor still emits '<p></p>'. -->
+              <BaseField
+                id="nc-description"
+                label="Description"
+                required
+                :value="form.description"
+                :rules="[(v) => richTextFilled(v) || 'Description is required.']"
+              >
+                <div class="create-nc-editor">
+                  <BaseRichTextEditor
+                    v-model="form.description"
+                    placeholder="Provide details about the nonconformance…"
+                  />
+                </div>
+              </BaseField>
+              <SimilarRecordsPanel
+                entityType="Nonconformance"
+                :searchInTypes="['Nonconformance']"
+                :getText="() => `${form.title} ${form.description || ''}`"
+              />
+            </div>
+          </FormSection>
+
+          <FormSection id="nc-classification" title="Classification" :icon="IconCategory">
+            <BaseFieldRow :columns="2">
+              <BaseField
+                id="nc-site"
+                label="Site"
+                required
+                :value="form.siteId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <SiteSelectMenu v-bind="field" v-model="form.siteId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-department"
+                label="Department"
+                required
+                :value="form.departmentId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <DepartmentSelectMenu
+                    v-bind="field"
+                    v-model="form.departmentId"
+                    :siteId="form.siteId"
+                    required
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-type"
+                label="NC Type"
+                required
+                :value="form.typeId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <NcTypeSelectMenu v-bind="field" v-model="form.typeId" required />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-source"
+                label="Detection source"
+                required
+                :value="form.sourceId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <NcSourceSelectMenu v-bind="field" v-model="form.sourceId" required />
+                </template>
+              </BaseField>
+              <!-- Shared quality classification (Quality Event / NC / CAPA).
+                 Pre-filled when this NC was escalated from an event, and
+                 carried on to any CAPA raised from it. -->
+              <BaseField label="Category" optional>
+                <EventCategorySelectMenu v-model="form.categoryId" />
+              </BaseField>
+              <BaseField
+                id="nc-severity"
+                label="Severity"
+                required
+                :value="form.severityId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <SegmentedControl
+                    v-bind="field"
+                    v-model="form.severityId"
+                    :options="SEVERITY_OPTIONS"
+                  />
+                </template>
+              </BaseField>
+              <BaseField id="nc-priority" label="Priority" optional>
+                <template #default="field">
+                  <SegmentedControl
+                    v-bind="field"
+                    v-model="form.priorityId"
+                    :options="PRIORITY_OPTIONS"
+                    nullable
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-detected"
+                label="Detected date"
+                required
+                :value="form.detectedAt"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <BaseDateField v-bind="field" v-model="form.detectedAt" mode="date" />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-owner"
+                label="Responsible party"
+                required
+                hint="Drives the NC to closure. You remain the initiator."
+                :value="form.ownerId"
+                :rules="[required()]"
+              >
+                <template #default="field">
+                  <UserSelectMenu v-bind="field" v-model="form.ownerId" required />
+                </template>
+              </BaseField>
+            </BaseFieldRow>
+          </FormSection>
+
+          <!-- Notify (cc) — engine fans out in-app + email on create / status change -->
+          <FormSection id="nc-product" title="Product & material" :icon="IconPackage" collapsible>
+            <BaseFieldRow :columns="2">
+              <!-- Labeled "Item" per the Item-Master UI convention (DB stays
+                 products) — also keeps the label distinct from the progress
+                 nav's "Product" chip. -->
+              <BaseField id="nc-product-item" label="Item" optional>
+                <template #default="field">
+                  <ProductSelectMenu
+                    v-bind="field"
+                    v-model="form.productId"
+                    :required="false"
+                    nullLabel="— Select item —"
+                  />
+                </template>
+              </BaseField>
+              <BaseField
+                id="nc-supplier"
+                label="Supplier"
+                :required="form.isSupplierFacing"
+                :value="form.supplierId"
+                :rules="[
+                  requiredWhen(
+                    () => form.isSupplierFacing,
+                    'Pick a supplier before marking this NC as supplier-facing.',
+                  ),
+                ]"
+              >
+                <template #default="field">
+                  <SupplierSelectMenu
+                    v-bind="field"
+                    v-model="form.supplierId"
+                    :required="form.isSupplierFacing"
+                  />
+                  <label
+                    class="tw:flex tw:items-start tw:gap-2 tw:mt-2 tw:cursor-pointer tw:select-none"
+                  >
+                    <BaseCheckbox v-model="form.isSupplierFacing" />
+                    <div>
+                      <BaseText>Supplier-facing NC</BaseText>
+                      <BaseCaption class="tw:block">
+                        Workflow steps will be reviewed by users from the selected supplier (you'll
+                        pick the specific reviewer per step when you open the NC). Lockable once
+                        opened.
+                      </BaseCaption>
+                    </div>
+                  </label>
+                </template>
+              </BaseField>
+              <BaseField label="Qty affected">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.qtyAffected"
+                    type="number"
+                    placeholder="0"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Unit of measure">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.unitOfMeasure"
+                    placeholder="e.g. sheets, units…"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="PO #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.poNumber"
+                    placeholder="Purchase order number"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Order #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.orderNumber"
+                    placeholder="Customer / sales order"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Lot #">
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="form.lotNumber"
+                    placeholder="Material / production lot"
+                  />
+                </template>
+              </BaseField>
+            </BaseFieldRow>
+          </FormSection>
+
+          <!-- Product & material — default EXPANDED with a required Item
+             (client decision 2026-08-10). The menu itself stays
+             required=false: the required convention would auto-fill the
+             FIRST item, and a silently-wrong item is worse than an empty
+             field — the BaseField rule enforces the pick instead. -->
+
+          <!-- What was DONE about it, after what it IS (title/description) and
+             how it is classified. Requested order 2026-08-23: identity →
+             classification → product → response. -->
+          <FormSection id="nc-response" title="Containment & investigation" :icon="IconShieldCheck">
+            <div class="tw:flex tw:flex-col tw:gap-4">
+              <!-- REQUIRED since 2026-08-10. The rule strips markup: an empty
+                 editor still emits '<p></p>'. -->
+              <BaseField
+                id="nc-containment"
+                label="Immediate containment action"
+                required
+                :value="form.immediateContainmentAction"
+                :rules="[(v) => richTextFilled(v) || 'Immediate containment action is required.']"
+              >
+                <div class="create-nc-editor">
+                  <BaseRichTextEditor
+                    v-model="form.immediateContainmentAction"
+                    placeholder="Describe actions taken at the time of detection…"
+                  />
+                </div>
+              </BaseField>
+
+              <!-- Optional at intake: the first look often happens later, and
+                 requiring it here would push people to type a placeholder. Body
+                 and evidence bind to their own keys (separateAttachments). -->
+              <BaseField id="nc-initial-investigation" label="Initial investigation" optional>
+                <RichTextAttachments
+                  v-model="form.initialInvestigation"
+                  v-model:attachments="form.initialInvestigationAttachments"
+                  :separateAttachments="true"
+                  placeholder="What was checked, what was found, and the evidence…"
+                />
+              </BaseField>
+            </div>
+          </FormSection>
+
+          <!-- Admin-defined custom fields (Additional information). Right after the
+             basic card; self-hides when none are configured for Nonconformance. -->
+          <CustomFieldsCreateSection
+            ref="customFieldsRef"
+            v-model="customFieldsData"
+            entityType="Nonconformance"
+          />
+
+          <FormSection
+            id="nc-notify"
+            title="Notify (cc)"
+            :icon="IconBell"
+            optional
+            collapsible
+            :defaultOpen="false"
+          >
+            <NotificationCcField
+              v-model:groupIds="form.notifyGroupIds"
+              v-model:userIds="form.notifyUserIds"
+              v-model:emails="form.notifyEmails"
+            />
+          </FormSection>
+        </BaseForm>
+      </template>
     </div>
-  </div>
+
+    <!-- Supplier shortcut: Create linked 8D CAPA? -->
+    <BaseDialog v-model="showCapaShortcut" title="Raise supplier NC" maxWidth="md" persistent>
+      <div class="tw:flex tw:flex-col tw:gap-4 tw:py-1">
+        <div class="tw:flex tw:flex-col tw:gap-1.5">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Also create a linked CAPA?</span>
+          <div class="tw:flex tw:gap-2">
+            <BaseButton
+              class="tw:flex-1 tw:justify-center"
+              :variant="createCapa ? 'primary' : 'outline'"
+              @click="createCapa = true"
+              >Yes</BaseButton
+            >
+            <BaseButton
+              class="tw:flex-1 tw:justify-center"
+              :variant="!createCapa ? 'primary' : 'outline'"
+              @click="createCapa = false"
+              >No</BaseButton
+            >
+          </div>
+        </div>
+
+        <div v-if="createCapa" class="tw:flex tw:flex-col tw:gap-1.5">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">CAPA workflow</span>
+          <!-- compact: a dropdown, not the card panels — this dialog is a
+               quick confirm, and the SCAR 8D default is already preselected. -->
+          <WorkflowVersionSelect
+            v-model="capaWorkflowVersionId"
+            :moduleId="CAPA_MODULE.workflowVersionModuleId"
+            compact
+          />
+        </div>
+
+        <p class="tw:text-xs tw:text-secondary">
+          The NC{{ createCapa ? ' and the linked CAPA are' : ' is' }} created, assigned to the
+          supplier's first portal user (and your internal default approver), and opened
+          automatically. You can reassign or change anything afterwards.
+        </p>
+      </div>
+
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          :submitLabel="`Raise NC${createCapa ? ' + CAPA' : ''}`"
+          :loading="saving"
+          :disabled="createCapa && !capaWorkflowVersionId"
+          @cancel="close"
+          @submit="confirmSupplierRaise"
+        />
+      </template>
+    </BaseDialog>
+  </BasePage>
 </template>
 
 <style scoped>

@@ -1,5 +1,6 @@
 <script setup>
 import { IconCircleCheck, IconArrowBack } from '@tabler/icons-vue'
+import { isAllowed } from '@/utils/currentSession'
 
 defineProps({
   rows: {
@@ -25,6 +26,42 @@ function closePreview() {
   selectedRecordId.value = null
 }
 
+// Records F-13. The Approve / Unapprove menu below is the ONLY affordance in
+// the product that writes records.status_id, and it was offered to every user
+// who could see the table. `records:update` is the permission the write itself
+// needs — the SyncEngine mutation goes out over GraphQL as app_user, where
+// record_update_rls requires exactly that — so a user without it was shown a
+// menu item whose only possible outcome was a failed save. Same computed the
+// sibling submissions view already uses (formTemplateRecords.vue:350).
+const canUpdate = computed(() => isAllowed(['records:update']))
+
+// Menu items, built as a function rather than inline in the template so the
+// permission check reads once and the empty case is expressible: with no items
+// the menu is not rendered at all, which is the house pattern
+// (NonconformancesTable.vue rowMenuItems, CapasTable.vue rowMenuItems).
+function rowMenuItems(row) {
+  if (!canUpdate.value) return []
+  if (row.statusId === 'DRAFT') {
+    return [
+      {
+        name: 'Approve',
+        icon: IconCircleCheck,
+        click: () => updateRecord({ id: row.id, updates: { statusId: 'APPROVED' } }),
+      },
+    ]
+  }
+  if (row.statusId === 'APPROVED') {
+    return [
+      {
+        name: 'Unapprove',
+        icon: IconArrowBack,
+        click: () => updateRecord({ id: row.id, updates: { statusId: 'DRAFT' } }),
+      },
+    ]
+  }
+  return []
+}
+
 const updateRecord = useLiveMutation(async (db, { id, updates }) => {
   const record = await db.Record.findByPk(id)
   if (!record) throw new Error('Record not found')
@@ -33,37 +70,94 @@ const updateRecord = useLiveMutation(async (db, { id, updates }) => {
   return record
 })
 
-const columns = [
-  { name: 'recordNumber', label: 'RECORD #', field: 'recordNumber', align: 'left', sortable: true },
-  {
-    name: 'documentTypeId',
-    label: 'DOCUMENT TYPE',
-    field: 'documentTypeId',
-    align: 'left',
-    sortable: true,
-  },
-  { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
-  { name: 'createdBy', label: 'CREATED BY', field: 'userId', align: 'left', sortable: false },
-  { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
-  { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', sortable: false },
-]
-
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
+// Option sources for the advanced filter's entity-column dropdowns.
+const documentTypes = useLiveQuery((db) => db.DocumentType.where().exec(), {
+  models: ['DocumentType'],
+  initial: [],
 })
+const recordStatuses = useLiveQuery((db) => db.RecordStatus.where().exec(), {
+  models: ['RecordStatus'],
+  initial: [],
+})
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function selectOpts(list) {
+  return list.map((x) => ({ value: x.id, label: x.name }))
+}
+function userOpts(list) {
+  return list.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}`.trim() || u.email }))
+}
+
+const columns = computed(() => {
+  const filterCfg = {
+    documentTypeId: { filterType: 'select', filterOptions: selectOpts(documentTypes.value) },
+    statusId: { filterType: 'select', filterOptions: selectOpts(recordStatuses.value) },
+    createdBy: { filterType: 'select', filterOptions: userOpts(users.value) },
+    createdAt: { filterType: 'date' },
+  }
+  return [
+    {
+      name: 'recordNumber',
+      label: 'RECORD #',
+      field: 'recordNumber',
+      align: 'left',
+      sortable: true,
+    },
+    {
+      name: 'documentTypeId',
+      label: 'DOCUMENT TYPE',
+      field: 'documentTypeId',
+      align: 'left',
+      sortable: true,
+    },
+    { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
+    { name: 'createdBy', label: 'CREATED BY', field: 'userId', align: 'left', sortable: false },
+    { name: 'createdAt', label: 'CREATED', field: 'createdAt', align: 'left', sortable: true },
+    { name: 'actions', label: 'ACTIONS', field: 'actions', align: 'right', sortable: false },
+  ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
+})
+
+// DOCUMENT TYPE and CREATED BY only ever display via DocumentTypeBadgeById /
+// UserBadgeById — DataTable's fallback export reads the raw `documentTypeId`/
+// `userId` UUIDs, so hand it an explicit exportColumns list instead.
+function documentTypeLabel(id) {
+  return documentTypes.value.find((t) => t.id === id)?.name ?? ''
+}
+function userNameById(id) {
+  const user = users.value.find((u) => u.id === id)
+  if (!user) return ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+function statusLabel(id) {
+  return recordStatuses.value.find((s) => s.id === id)?.name ?? id ?? ''
+}
+
+const exportColumns = computed(() => [
+  { key: 'recordNumber', label: 'RECORD #', value: (row) => row.recordNumber ?? '' },
+  { key: 'documentTypeId', label: 'DOCUMENT TYPE', value: (row) => documentTypeLabel(row.documentTypeId) },
+  { key: 'statusId', label: 'STATUS', value: (row) => statusLabel(row.statusId) },
+  { key: 'createdBy', label: 'CREATED BY', value: (row) => userNameById(row.userId) },
+  { key: 'createdAt', label: 'CREATED', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 </script>
 
 <template>
-  <BaseTable
+  <DataTable
     v-model:pagination="pagination"
+    v-model:sort="sort"
     :rows="rows"
     :columns="columns"
     :loading="loading"
     hidePagination
+    :mobileCards="false"
+    searchable
+    filterable
+    exportManager
+    :exportColumns="exportColumns"
+    exportFilename="records.csv"
     @rowClick="openPreview"
   >
     <!-- Record Number Column -->
@@ -93,32 +187,11 @@ const pagination = ref({
 
     <!-- Actions Column -->
     <template #body-cell-actions="{ row }">
-      <div class="tw:flex tw:justify-end" @click.prevent.stop>
-        <BaseMenu
-          :items="[
-            ...(row.statusId === 'DRAFT'
-              ? [
-                  {
-                    name: 'Approve',
-                    icon: IconCircleCheck,
-                    click: () => updateRecord({ id: row.id, updates: { statusId: 'APPROVED' } }),
-                  },
-                ]
-              : []),
-            ...(row.statusId === 'APPROVED'
-              ? [
-                  {
-                    name: 'Unapprove',
-                    icon: IconArrowBack,
-                    click: () => updateRecord({ id: row.id, updates: { statusId: 'DRAFT' } }),
-                  },
-                ]
-              : []),
-          ]"
-        />
+      <div v-if="rowMenuItems(row).length" class="tw:flex tw:justify-end" @click.prevent.stop>
+        <BaseMenu :items="rowMenuItems(row)" />
       </div>
     </template>
-  </BaseTable>
+  </DataTable>
 
   <!-- Preview Panel -->
   <Teleport to="body">
@@ -130,7 +203,7 @@ const pagination = ref({
       leaveFromClass="tw:translate-x-0"
       leaveToClass="tw:translate-x-full"
     >
-      <div v-if="previewDialog" class="tw:fixed tw:inset-0 tw:z-50 tw:bg-sidebar">
+      <div v-if="previewDialog" class="tw:fixed tw:inset-0 tw:z-modal tw:bg-sidebar">
         <RecordPreview :recordId="selectedRecordId" @close="closePreview" />
       </div>
     </Transition>

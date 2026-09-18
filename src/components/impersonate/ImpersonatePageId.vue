@@ -35,20 +35,18 @@ function loadMore() {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-4 tw:p-6 tw:max-w-4xl tw:mx-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <RouterLink
-          :to="getCompanyPath('/admin/impersonate')"
-          class="tw:text-secondary tw:hover:text-primary"
-        >
-          <IconArrowLeft :size="24" />
-        </RouterLink>
-        <div class="tw:text-lg tw:font-bold tw:text-on-main">
-          {{ companyDetail?.name || 'Company' }}
-        </div>
-      </div>
-    </SafeTeleport>
+  <BasePage width="standard">
+    <RouterLink
+      :to="getCompanyPath('/admin/impersonate')"
+      class="tw:inline-flex tw:items-center tw:gap-1 tw:text-sm tw:text-secondary tw:hover:text-primary"
+    >
+      <IconArrowLeft :size="16" />
+      Back
+    </RouterLink>
+
+    <PageHeader>
+      <template #title>{{ companyDetail?.name || 'Company' }}</template>
+    </PageHeader>
 
     <SafeTeleport to="#main-header-search">
       <div class="tw:relative tw:w-full">
@@ -101,9 +99,7 @@ function loadMore() {
       v-if="companyUsersLoading && companyUsers.length === 0"
       class="tw:flex tw:justify-center tw:p-8"
     >
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <BaseEmptyState
@@ -122,13 +118,10 @@ function loadMore() {
           :disabled="companyUsersLoading"
           @click="loadMore"
         >
-          <span
-            v-if="companyUsersLoading"
-            class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent tw:mr-2"
-          ></span>
+          <BaseSpinner v-if="companyUsersLoading" size="sm" class="tw:mr-2" />
           Load More
         </button>
       </div>
     </template>
-  </div>
+  </BasePage>
 </template>

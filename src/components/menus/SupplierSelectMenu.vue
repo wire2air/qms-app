@@ -1,10 +1,25 @@
 <script setup>
-defineProps({
+const props = defineProps({
   required: {
     type: Boolean,
     default: false,
   },
   multiple: {
+    type: Boolean,
+    default: false,
+  },
+  isFilter: {
+    type: Boolean,
+    default: false,
+  },
+  nullLabel: {
+    type: String,
+    default: null,
+  },
+  // By default only APPROVED suppliers are selectable. Set true to include every
+  // supplier (e.g. linking suppliers to an Item, where a link can predate
+  // approval and must not be silently dropped).
+  allStatuses: {
     type: Boolean,
     default: false,
   },
@@ -15,47 +30,46 @@ const modelValue = defineModel({
   default: null,
 })
 
-const suppliers = useLiveQuery((db) => db.Supplier.where().exec(), { initial: [] })
+// Reads the SupplierOption projection (view `supplier_options`), not Supplier:
+// a picker only needs id + name, and every user in the tenant can resolve that
+// without holding supplier_management:read. The full record stays gated.
+const suppliers = useLiveQuery(
+  (db) =>
+    props.allStatuses
+      ? db.SupplierOption.where().exec()
+      : db.SupplierOption.where('statusId', 'APPROVED').exec(),
+  {
+    models: ['SupplierOption'],
+    initial: [],
+  },
+)
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+const resolvedNullLabel = computed(
+  () => props.nullLabel ?? (props.isFilter ? '— All suppliers —' : '— Select supplier —'),
+)
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="suppliers" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <SupplierBadgeById
-              v-for="supplierId in getArray()"
-              :key="supplierId"
-              :supplierId="supplierId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(supplierId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Suppliers
-          </span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <SupplierBadgeById
-            v-if="modelValue"
-            :supplierId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Supplier
-          </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="suppliers"
+    optionLabel="name"
+    optionValue="id"
+    :required="props.required"
+    :multiple="props.multiple"
+    :clearable="!props.required && !props.multiple"
+    :nullLabel="resolvedNullLabel"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <SupplierBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :supplierId="o.value"
+          :clearable="props.multiple && (!props.required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

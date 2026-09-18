@@ -1,15 +1,12 @@
 <script setup>
 import {
-  IconClipboardList,
   IconListCheck,
   IconChecklist,
   IconAlertCircle,
   IconHistory,
-  IconStack2,
-  IconPlus,
+  IconDeviceMobile,
 } from '@tabler/icons-vue'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
-import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { isAllowed, currentSession, isModuleEntitled } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 
 /**
@@ -23,23 +20,74 @@ import { DateTime } from 'luxon'
  * SyncEngine — the stats are live queries.
  */
 const router = useRouter()
+const route = useRoute()
 
-const canAssign = computed(() => isAllowed(['inspections:assign']))
-const canReview = computed(() => isAllowed(['fieldRecords:review']))
-const canCreateTemplate = computed(() => isAllowed(['formTemplates:create']))
+// Tabs, permission-gated like the left nav / QC Inspection (a tab is a
+// module's management surface — docs/backend/permissions-model.md). Each maps
+// to its matrix module: Log Books → log_books, Assignments → Log Book
+// Assignments (`inspections`), Logs → field_records. Any grant implies :read.
+const ALL_TABS = [
+  { value: 'logs', label: 'Logs', permission: 'field_records:read' },
+  { value: 'log-books', label: 'Log Books', permission: 'log_books:read' },
+  { value: 'assignments', label: 'Assignments', permission: 'inspections:read' },
+]
+const tabs = computed(() => ALL_TABS.filter((t) => isAllowed([t.permission])))
+const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
+const firstTab = computed(() => tabs.value[0]?.value ?? 'logs')
+const activeTab = ref(
+  ALL_TABS.some((t) => t.value === route.query.tab) ? route.query.tab : 'logs',
+)
+watch(
+  () => route.query.tab,
+  (v) => {
+    if (v && validTabIds.value.has(v)) activeTab.value = v
+  },
+)
+// Immediate: the URL always carries ?tab= so the sidebar submenu highlights
+// the active section (QC Inspection pattern — the tab strip moved to the nav).
+watch(
+  activeTab,
+  (id) => {
+    if (route.query.tab !== id) router.replace({ query: { ...route.query, tab: id } })
+  },
+  { immediate: true },
+)
+const activeLabel = computed(() => ALL_TABS.find((t) => t.value === activeTab.value)?.label ?? '')
+
+// The Logs tab is a wide, many-columned records table (a log book can add a
+// column per captured field). Give it the full content width so more columns
+// fit before the table's own horizontal scroll kicks in; the other tabs are
+// ordinary lists that read better at the standard width.
+const pageWidth = computed(() => (activeTab.value === 'logs' ? 'full' : 'standard'))
+watch(
+  validTabIds,
+  (ids) => {
+    if (!ids.has(activeTab.value)) activeTab.value = firstTab.value
+  },
+  { immediate: true },
+)
 
 // Round 1: scope the "Awaiting review" stat tile to the user's
 // supervised log books (the digest queue in #2 reads the same shape).
-const allLogBooks = useLiveQuery((db) => db.LogBook.where().exec(), { initial: [] })
+const allLogBooks = useLiveQuery((db) => db.LogBook.where().exec(), {
+  models: ['LogBook'],
+  initial: [],
+})
 
-const allInstances = useLiveQuery((db) => db.AssignmentInstance.where().exec(), { initial: [] })
-const allRecords = useLiveQuery((db) => db.FieldRecord.where().exec(), { initial: [] })
+const allInstances = useLiveQuery((db) => db.AssignmentInstance.where().exec(), {
+  models: ['AssignmentInstance'],
+  initial: [],
+})
+const allRecords = useLiveQuery((db) => db.FieldRecord.where().exec(), {
+  models: ['FieldRecord'],
+  initial: [],
+})
 
 const stats = computed(() => {
   const now = DateTime.now()
   // currentSession exposes the user id as `.id` (preferred) with
   // `.userId` as a legacy fallback — match the rest of the app.
-  const userId = currentSession.value?.id ?? currentSession.value?.userId
+  const userId = currentSession.value?.userId ?? currentSession.value?.id
   const startOfWeek = now.startOf('week')
 
   const myDue = allInstances.value.filter(
@@ -50,9 +98,7 @@ const stats = computed(() => {
   // Admins with fieldRecords:read_all see the global count via the
   // Pending Review page's "view all" toggle.
   const mySupervisedIds = new Set(
-    allLogBooks.value
-      .filter((lb) => lb.supervisorUserId === userId)
-      .map((lb) => lb.id),
+    allLogBooks.value.filter((lb) => lb.supervisorUserId === userId).map((lb) => lb.id),
   )
   const underReview = allRecords.value.filter(
     (r) => r.statusId === 'UNDER_REVIEW' && mySupervisedIds.has(r.logBookId),
@@ -71,40 +117,38 @@ const stats = computed(() => {
   }
 })
 
-function go(path) {
-  router.push(getCompanyPath(path))
-}
+const showMobilePortal = ref(false)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-5 tw:h-full tw:p-5 tw:overflow-y-auto">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
+  <BasePage :width="pageWidth">
+    <PageHeader
+      subtitle="Field records for routine inspections, environmental logs, gemba rounds and shift handovers. Records are immutable after the edit window closes."
+    >
+      <template #title>
+        <span class="tw:inline-flex tw:items-center tw:gap-1.5">
           Inspections &amp; Logs
-        </h2>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
-      <BaseButton
-        v-if="canCreateTemplate"
-        variant="primary"
-        @click="go('/inspections-logs/templates')"
-      >
-        <IconPlus :size="16" />
-        New Inspection Form
-      </BaseButton>
-    </SafeTeleport>
-
-    <!-- Page Header -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Inspections &amp; Logs</div>
-      <div class="tw:text-sm tw:text-secondary">
-        Field records for routine inspections, environmental logs, gemba rounds and shift handovers.
-        Records are immutable after the edit window closes.
-      </div>
-    </div>
+          <span v-if="activeLabel" class="tw:text-secondary tw:font-normal">
+            · {{ activeLabel }}
+          </span>
+          <HelpButton slug="KB/operations/inspections-and-logs" :size="16" />
+        </span>
+      </template>
+      <template #actions>
+        <!-- Phone-first floor portal — share via QR/link (replaced the old
+             "Logging" nav entry; a native app wraps the route later).
+             Hidden when the platform admin switched the Portal Access
+             module off for this tenant (entitlement plane). -->
+        <BaseButton
+          v-if="isModuleEntitled('portal')"
+          variant="outline"
+          @click="showMobilePortal = true"
+        >
+          <IconDeviceMobile :size="16" />
+          Mobile Portal
+        </BaseButton>
+      </template>
+    </PageHeader>
 
     <!-- Stat tiles -->
     <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
@@ -117,16 +161,16 @@ function go(path) {
           <IconChecklist :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             My queue
           </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.myDue }}</div>
+          <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.myDue }}</div>
         </div>
       </div>
       <button
         type="button"
         class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4 tw:cursor-pointer tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-        @click="go('/inspections-logs/records?scope=needs_review')"
+        @click="router.replace({ query: { ...route.query, tab: 'logs', scope: 'needs_review' } })"
       >
         <div
           class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center tw:shrink-0"
@@ -134,10 +178,10 @@ function go(path) {
           <IconAlertCircle :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Awaiting your review
           </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">{{ stats.underReview }}</div>
+          <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.underReview }}</div>
         </div>
       </button>
       <div
@@ -149,11 +193,11 @@ function go(path) {
           <IconHistory :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Missed this week
           </div>
           <div
-            class="tw:text-2xl tw:font-black"
+            class="tw:text-2xl tw:font-bold"
             :class="stats.missedThisWeek > 0 ? 'tw:text-red-600' : 'tw:text-on-sidebar'"
           >
             {{ stats.missedThisWeek }}
@@ -169,103 +213,25 @@ function go(path) {
           <IconListCheck :size="20" />
         </div>
         <div>
-          <div class="tw:text-xs tw:uppercase tw:tracking-tight tw:font-bold tw:text-secondary">
+          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
             Submitted this week
           </div>
-          <div class="tw:text-2xl tw:font-black tw:text-on-sidebar">
+          <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
             {{ stats.submittedThisWeek }}
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Navigation cards -->
-    <div>
-      <div class="tw:text-xs tw:font-bold tw:uppercase tw:text-secondary tw:mb-2">
-        Module sections
-      </div>
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:lg:grid-cols-4 tw:gap-3">
-        <button
-          v-if="canCreateTemplate"
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/inspections-logs/templates')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-amber-50 tw:text-amber-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconStack2 :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">Log Books</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Build and manage your log book templates. Operational logs auto-lock after a short
-            edit window; controlled records require e-signature and reviewer approval.
-          </div>
-        </button>
-
-        <button
-          v-if="canAssign"
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/inspections-logs/form-assignments')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-blue-50 tw:text-blue-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconClipboardList :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">Log Book Assignments</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Plan who fills which log book, when (cron + timezone), and where (site). The
-            scheduler materialises assignment instances in a 24-hour look-ahead.
-          </div>
-        </button>
-
-        <button
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/task-instances')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-emerald-50 tw:text-emerald-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconChecklist :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">My Tasks</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Scheduled inspections &amp; log collections due to you appear in your unified task inbox
-            alongside approvals and reviews. Click one to fill the form.
-          </div>
-        </button>
-
-        <button
-          type="button"
-          class="tw:text-left tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:hover:border-primary tw:hover:bg-main-hover tw:transition"
-          @click="go('/inspections-logs/records')"
-        >
-          <div class="tw:flex tw:items-center tw:gap-3 tw:mb-3">
-            <div
-              class="tw:w-10 tw:h-10 tw:rounded-lg tw:bg-purple-50 tw:text-purple-600 tw:flex tw:items-center tw:justify-center"
-            >
-              <IconListCheck :size="22" />
-            </div>
-            <div class="tw:font-semibold tw:text-on-main">Logs</div>
-          </div>
-          <div class="tw:text-sm tw:text-secondary">
-            Every log entry submitted across your log books. Filter by form to scope into a
-            specific log book.
-            <span v-if="canReview" class="tw:text-xs tw:text-secondary tw:italic tw:block tw:mt-1">
-              Filter by status to find entries awaiting review.
-            </span>
-          </div>
-        </button>
-      </div>
+    <!-- Sections routed by the sidebar submenu (?tab= links — QC Inspection
+         pattern, user request 2026-08-05). The in-page tab strip is gone; the
+         v-if chain renders the active, permission-gated section. -->
+    <div class="tw:mt-2">
+      <InspectionsLogsTemplatesHome v-if="activeTab === 'log-books'" embedded />
+      <FormAssignmentsHome v-else-if="activeTab === 'assignments'" embedded />
+      <FieldRecordsHome v-else-if="activeTab === 'logs'" embedded />
     </div>
-  </div>
+  </BasePage>
+
+  <MobileLoggingPortalDialog v-model="showMobilePortal" />
 </template>

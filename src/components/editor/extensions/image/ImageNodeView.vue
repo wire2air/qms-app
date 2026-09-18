@@ -292,7 +292,7 @@ function onCaptionPaste(event) {
     content: '';
     position: absolute;
     inset: -3px;
-    border: 2px solid var(--q-primary, #1976d2);
+    border: 2px solid var(--primary);
     border-radius: 8px;
     pointer-events: none;
     z-index: 1;
@@ -346,7 +346,7 @@ function onCaptionPaste(event) {
     width: 28px;
     height: 28px;
     border: 3px solid rgba(0, 0, 0, 0.1);
-    border-top-color: var(--q-primary, #1976d2);
+    border-top-color: var(--primary);
     border-radius: 50%;
     animation: tiptap-image-spin 0.7s linear infinite;
   }
@@ -355,7 +355,7 @@ function onCaptionPaste(event) {
     position: absolute;
     width: 12px;
     height: 12px;
-    background: var(--q-primary, #1976d2);
+    background: var(--primary);
     border: 2px solid #fff;
     border-radius: 50%;
     padding: 0;

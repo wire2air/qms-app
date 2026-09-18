@@ -11,7 +11,6 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const nodes = computed(() => props.modelValue.nodes ?? [])
-const problemText = computed(() => props.problem || props.modelValue?.problem || '')
 
 // Track the most recently added node to auto-focus its input
 const newNodeId = ref(null)
@@ -78,26 +77,10 @@ function toggleRootCause(nodeId) {
   )
   emit('update:modelValue', { ...props.modelValue, nodes: updated })
 }
-
 </script>
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
-    <!-- Problem statement -->
-    <div class="tw:flex tw:flex-col tw:gap-1">
-      <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
-        {{ config.problemPrompt || 'Problem Statement' }}
-      </label>
-      <BaseTextarea
-        :modelValue="problemText"
-        placeholder="Describe what happened..."
-        :rows="2"
-        :readonly="readonly || !!problem"
-        @update:modelValue="(v) => !problem && emit('update:modelValue', { ...modelValue, problem: v })"
-      />
-      <div v-if="problem" class="tw:text-xs tw:text-secondary tw:italic">Linked from form</div>
-    </div>
-
     <!-- Instructions -->
     <p class="tw:text-xs tw:text-secondary tw:-mt-2">
       Add a "why" for the problem, then keep drilling down. Mark each terminal cause as
@@ -114,7 +97,7 @@ function toggleRootCause(nodeId) {
       >
         <!-- Depth indicator -->
         <div
-          class="tw:shrink-0 tw:w-5 tw:h-5 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-[10px] tw:font-bold tw:border"
+          class="tw:shrink-0 tw:w-5 tw:h-5 tw:rounded-full tw:flex tw:items-center tw:justify-center tw:text-micro tw:font-bold tw:border"
           :class="
             item.isRootCause
               ? 'tw:bg-amber-100 tw:text-amber-700 tw:border-amber-300'

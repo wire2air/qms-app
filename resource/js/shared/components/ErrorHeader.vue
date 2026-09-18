@@ -14,7 +14,7 @@ const props = defineProps({
 <template>
   <div class="text-center">
     <!-- 👉 Title and subtitle -->
-    <h4 class="text-h4 font-weight-medium mb-3">
+    <h4 class="tw:text-2xl tw:font-semibold tw:mb-3">
       {{ props.errorTitle }}
     </h4>
     <p>{{ props.errorDescription }}</p>

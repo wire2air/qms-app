@@ -26,16 +26,25 @@ export class TrainingAssignee extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) trainingInstanceId = ''
   @Property({ type: String, required: true }) userId = ''
-  @Property({ type: String }) status = 'ASSIGNED'
+  // The regulated completion record. These fields are the proof of WHO completed
+  // WHAT, WHEN, with what score and under whose e-signature, so none of them may
+  // ride the generic updateTrainingAssignee mutation — a learner holds an RLS
+  // self-predicate (user_id = current_user) on this row and could otherwise
+  // forge a VERIFIED, perfect-scored, signed record without sitting the
+  // assessment (verified against app-db; see migration 20260728120000). They are
+  // written only by the training endpoints (start / submit / verify), which run
+  // as trusted server code. The DB trigger is the real backstop; this is the
+  // client half, matching changeRequest.js statusId / capa.js / nonconformance.js.
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) status = 'ASSIGNED'
   @Property({ type: Object }) assessmentAnswers = {}
-  @Property({ type: Number }) score = null
-  @Property({ type: DateTime }) startedAt = null
-  @Property({ type: DateTime }) completedAt = null
+  @Property({ type: Number, excludeFromGraphQL: ['update'] }) score = null
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) startedAt = null
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) completedAt = null
   @Property({ type: DateTime }) removedAt = null
   @Property({ type: String }) removalReason = null
-  @Property({ type: DateTime }) signedAt = null
-  @Property({ type: String }) signatureMethod = null
-  @Property({ type: Number }) attemptCount = 0
+  @Property({ type: DateTime, excludeFromGraphQL: ['update'] }) signedAt = null
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) signatureMethod = null
+  @Property({ type: Number, excludeFromGraphQL: ['update'] }) attemptCount = 0
   @Property({ type: Number }) reminderCount = 0
   @Property({ type: DateTime }) lastReminderAt = null
   @Property({ type: DateTime, required: true, timestamp: true })

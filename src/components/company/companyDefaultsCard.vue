@@ -39,6 +39,54 @@ watch(
   { deep: true },
 )
 
+// ── Overdue reminders ───────────────────────────────────────────────────────
+// UI over settings.overdueReminders, which the nightly ladder
+// (send_task_overdue_notification) reads fresh on every run — a change here
+// takes effect the next night with nothing to reschedule. Defaults mirror the
+// worker's resolveOverdueConfig exactly, so what an admin sees when the key
+// has never been written is what actually happens.
+const overdue = computed(() => company.value?.settings?.overdueReminders ?? {})
+
+function patchOverdue(patch) {
+  if (!company.value?.settings) return
+  company.value.settings.overdueReminders = { ...overdue.value, ...patch }
+}
+
+const overdueEnabled = computed({
+  get: () => overdue.value.enabled !== false,
+  set: (v) => patchOverdue({ enabled: v }),
+})
+
+const escalationDay = computed({
+  get: () => overdue.value.escalationDay ?? 12,
+  set: (v) => patchOverdue({ escalationDay: Number.isInteger(v) && v > 0 ? v : 12 }),
+})
+
+// Drafted while typing, committed on blur: parsing per keystroke would sort
+// and de-duplicate the list under the admin's cursor ("3, 1" reordering to
+// "1, 3" mid-type). The commit applies the same normalisation the worker does,
+// so the field always redisplays what will actually fire.
+//
+// `Number`, not `parseInt`: the worker drops a non-integer rung
+// (resolveOverdueConfig: [0,-1,2.5,'x',4] → [4]), and parseInt would instead
+// have turned "2.5" into 2 and "3x" into 3 — rungs the admin never typed.
+const reminderDaysDraft = ref(null)
+const reminderDaysDisplay = computed(
+  () => reminderDaysDraft.value ?? (overdue.value.reminderDays ?? [3, 6, 9]).join(', '),
+)
+function commitReminderDays() {
+  const parsed = [
+    ...new Set(
+      String(reminderDaysDraft.value ?? reminderDaysDisplay.value)
+        .split(/[\s,;]+/)
+        .map((n) => Number(n))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  ].sort((a, b) => a - b)
+  patchOverdue({ reminderDays: parsed.length ? parsed : [3, 6, 9] })
+  reminderDaysDraft.value = null
+}
+
 const approvalRuleOptions = [
   { label: 'ALL — every approver must approve', value: 'ALL' },
   { label: 'ANY — one approver is sufficient', value: 'ANY' },
@@ -50,19 +98,21 @@ const approvalRuleOptions = [
     v-if="company && company.settings"
     class="tw:rounded-xl tw:border tw:border-divider tw:shadow-sm tw:overflow-hidden tw:bg-sidebar"
   >
-    <div
-      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover tw:flex tw:items-center tw:justify-between"
+    <BaseSectionHeader
+      title="Default Settings"
+      :level="2"
+      size="section-title"
+      class="tw:px-6 tw:py-4 tw:border-b tw:border-divider tw:bg-main-hover"
     >
-      <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Default Settings</h2>
-      <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
-    </div>
+      <template #actions>
+        <CompanyCardSaveStatus :saving="isSaving" :error="saveError" />
+      </template>
+    </BaseSectionHeader>
 
     <div class="tw:p-6 tw:flex tw:flex-col tw:gap-8">
       <!-- Approval Workflow Defaults -->
       <div class="tw:flex tw:flex-col tw:gap-5">
-        <h3 class="tw:text-xs tw:font-bold tw:uppercase tw:tracking-widest tw:text-secondary">
-          Approval Workflow Defaults
-        </h3>
+        <BaseText variant="overline">Approval Workflow Defaults</BaseText>
 
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
           <BaseTextInput
@@ -71,9 +121,13 @@ const approvalRuleOptions = [
             type="number"
             hint="Applied to new workflow steps"
           />
-          <div class="tw:flex tw:flex-col tw:gap-1">
-            <label class="tw:text-sm tw:font-medium tw:text-secondary">Default Approval Rule</label>
+          <BaseField
+            v-slot="{ id: fieldId }"
+            label="Default Approval Rule"
+            hint="ALL or ANY tasks required"
+          >
             <select
+              :id="fieldId"
               v-model="company.settings.defaultWorkflowApprovalRule"
               class="tw:w-full tw:px-3 tw:py-2 tw:text-sm tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary"
             >
@@ -81,10 +135,13 @@ const approvalRuleOptions = [
                 {{ opt.label }}
               </option>
             </select>
-            <p class="tw:text-xs tw:text-secondary">ALL or ANY tasks required</p>
-          </div>
+          </BaseField>
         </div>
 
+        <!-- Every BaseSwitch carries `label`: it renders as the switch's sr-only
+             accessible name. Without it each toggle announced as an unnamed
+             "switch" (WCAG 4.1.2), the visible text beside it being a sibling,
+             not a label. -->
         <div class="tw:flex tw:flex-col tw:gap-4">
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -93,7 +150,10 @@ const approvalRuleOptions = [
               </div>
               <div class="tw:text-xs tw:text-secondary">Workflow steps require an e-signature</div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultWorkflowRequireSignature" />
+            <BaseSwitch
+              v-model="company.settings.defaultWorkflowRequireSignature"
+              label="Require Signature by Default"
+            />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -102,7 +162,10 @@ const approvalRuleOptions = [
               </div>
               <div class="tw:text-xs tw:text-secondary">Workflow steps require a comment</div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultWorkflowRequireComment" />
+            <BaseSwitch
+              v-model="company.settings.defaultWorkflowRequireComment"
+              label="Require Comment by Default"
+            />
           </div>
         </div>
       </div>
@@ -111,9 +174,7 @@ const approvalRuleOptions = [
 
       <!-- Document Template Defaults -->
       <div class="tw:flex tw:flex-col tw:gap-5">
-        <h3 class="tw:text-xs tw:font-bold tw:uppercase tw:tracking-widest tw:text-secondary">
-          Document Template Defaults
-        </h3>
+        <BaseText variant="overline">Document Template Defaults</BaseText>
 
         <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-6">
           <BaseTextInput
@@ -140,13 +201,16 @@ const approvalRuleOptions = [
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
               <div class="tw:text-sm tw:font-medium tw:text-on-sidebar">
-                Training Available by Default
+                Training Required by Default
               </div>
               <div class="tw:text-xs tw:text-secondary">
                 New document templates include training
               </div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultDocumentTemplateTrainingAvailable" />
+            <BaseSwitch
+              v-model="company.settings.defaultDocumentTemplateTrainingAvailable"
+              label="Training Required by Default"
+            />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -157,7 +221,10 @@ const approvalRuleOptions = [
                 Users must complete training after version updates
               </div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultDocumentTemplateRetrainingOnVersion" />
+            <BaseSwitch
+              v-model="company.settings.defaultDocumentTemplateRetrainingOnVersion"
+              label="Retrain on New Version by Default"
+            />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -168,7 +235,10 @@ const approvalRuleOptions = [
                 Documents become effective immediately upon approval
               </div>
             </div>
-            <BaseSwitch v-model="company.settings.defaultDocumentTemplateAutoEffectiveOnApproval" />
+            <BaseSwitch
+              v-model="company.settings.defaultDocumentTemplateAutoEffectiveOnApproval"
+              label="Auto Effective on Approval by Default"
+            />
           </div>
         </div>
       </div>
@@ -177,9 +247,7 @@ const approvalRuleOptions = [
 
       <!-- Asset Request Defaults -->
       <div class="tw:flex tw:flex-col tw:gap-5">
-        <h3 class="tw:text-xs tw:font-bold tw:uppercase tw:tracking-widest tw:text-secondary">
-          Asset Request Defaults
-        </h3>
+        <BaseText variant="overline">Asset Request Defaults</BaseText>
         <BaseTextInput
           v-model.number="company.settings.defaultAssetRequestDueDays"
           label="Default Due In (days)"
@@ -187,6 +255,56 @@ const approvalRuleOptions = [
           hint="Days from today set as due date on new asset requests"
           class="tw:max-w-xs"
         />
+      </div>
+
+      <hr class="tw:border-divider" />
+
+      <!-- Quality Event Defaults -->
+      <div class="tw:flex tw:flex-col tw:gap-5">
+        <BaseText variant="overline">Quality Event Defaults</BaseText>
+        <BaseTextInput
+          v-model.number="company.settings.defaultQualityEventReviewSlaDays"
+          label="Review Due SLA (days)"
+          type="number"
+          hint="Default review due date = event created date + this many days"
+          class="tw:max-w-xs"
+        />
+      </div>
+
+      <hr class="tw:border-divider" />
+
+      <!-- Overdue Reminders — the nightly task ladder. Read fresh each run,
+           so changes take effect the next night with nothing to reschedule. -->
+      <div class="tw:flex tw:flex-col tw:gap-5">
+        <BaseText variant="overline">Overdue Task Reminders</BaseText>
+
+        <div class="tw:flex tw:items-center tw:justify-between">
+          <div>
+            <div class="tw:text-sm tw:font-medium tw:text-on-sidebar">Chase overdue tasks</div>
+            <div class="tw:text-xs tw:text-secondary">
+              Reminders to the assignee on the days below, then ONE escalation to their
+              department supervisor, then silence — the escalation stays the last word.
+            </div>
+          </div>
+          <BaseSwitch v-model="overdueEnabled" label="Chase overdue tasks" />
+        </div>
+
+        <div v-if="overdueEnabled" class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6">
+          <BaseTextInput
+            :modelValue="reminderDaysDisplay"
+            label="Reminder days past due"
+            hint="Comma-separated, e.g. 3, 6, 9 — each sends one reminder to the assignee"
+            @update:modelValue="(v) => (reminderDaysDraft = v)"
+            @blur="commitReminderDays"
+            @keyup.enter="commitReminderDays"
+          />
+          <BaseTextInput
+            v-model.number="escalationDay"
+            label="Escalation day"
+            type="number"
+            hint="Days past due when the supervisor is told — once, and nothing after"
+          />
+        </div>
       </div>
     </div>
   </div>

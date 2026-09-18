@@ -1,6 +1,9 @@
 <script setup>
+import { getCompanyPath } from '@/utils/routeHelpers'
 import { IconX, IconCheck, IconCircleX } from '@tabler/icons-vue'
-import { post, patch } from '@/api'
+import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+import { DateTime } from 'luxon'
+import { required, minValue } from '@shared/components/form/validators.js'
 
 /**
  * Equipment create/edit dialog. POSTs to /v1/services/equipment on
@@ -20,9 +23,14 @@ const props = defineProps({
   equipment: { type: Object, default: null },
 })
 
-const emit = defineEmits(['created', 'updated'])
+const emit = defineEmits(['created', 'updated', 'createLogBook'])
 const open = defineModel({ type: Boolean, default: false })
 const toast = useToast()
+
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const originalOwnerUserId = ref(null)
+const saveError = ref('')
 
 const isEditing = computed(() => Boolean(props.equipment?.id))
 
@@ -36,7 +44,62 @@ const category = ref(null)
 const siteId = ref(null)
 const departmentId = ref(null)
 const supplierId = ref(null)
+const ownerUserId = ref(null)
 const statusId = ref('IN_SERVICE')
+const requiresCalibration = ref(false)
+const calibrationInterval = ref(null)
+const calibrationIntervalUnit = ref('MONTH')
+const requiresPm = ref(false)
+const pmInterval = ref(null)
+const pmIntervalUnit = ref('MONTH')
+const CALIBRATION_UNITS = [
+  { label: 'Days', value: 'DAY' },
+  { label: 'Weeks', value: 'WEEK' },
+  { label: 'Months', value: 'MONTH' },
+  { label: 'Years', value: 'YEAR' },
+]
+
+// Linked log books (edit mode) — the equipment↔log-book bridge. Creating one
+// from here hands a preset up to the host page (nested dialogs are avoided);
+// the preset pre-links the equipment and arms the matching trigger schedule.
+const linkedLogBooks = useLiveQueryWithDeps(
+  [() => props.equipment?.id],
+  async (db, [id]) => (id ? db.LogBook.where('equipmentId', id).exec() : []),
+  { models: ['LogBook'], initial: [] },
+)
+// OBSOLETE / INACTIVE books shouldn't satisfy the "has a book" check — a
+// retired calibration log means the equipment needs a new one.
+const LIVE_BOOK_STATUSES = ['DRAFT', 'UNDER_REVIEW', 'REJECTED', 'ACTIVE']
+const hasCalibrationBook = computed(() =>
+  linkedLogBooks.value.some(
+    (lb) =>
+      LIVE_BOOK_STATUSES.includes(lb.statusId) &&
+      (lb.triggerSource === 'CALIBRATION' || lb.syncsEquipmentCalibration),
+  ),
+)
+const hasPmBook = computed(() =>
+  linkedLogBooks.value.some(
+    (lb) =>
+      LIVE_BOOK_STATUSES.includes(lb.statusId) && (lb.triggerSource === 'PM' || lb.syncsEquipmentPm),
+  ),
+)
+
+function requestLogBook(triggerSource) {
+  emit('createLogBook', {
+    equipmentId: props.equipment.id,
+    siteId: props.equipment.siteId ?? null,
+    // The custodian supervises the book by default (user decision 2026-08-06);
+    // changing the custodian later re-syncs books still pointing at the old one.
+    supervisorUserId: props.equipment.ownerUserId ?? null,
+    triggerSource,
+    title:
+      triggerSource === 'PM'
+        ? `${props.equipment.name} Preventive Maintenance Log`
+        : triggerSource === 'CALIBRATION'
+          ? `${props.equipment.name} Calibration Log`
+          : `${props.equipment.name} Log`,
+  })
+}
 const locationText = ref('')
 const notes = ref('')
 // Date fields — bound to <input type="date"> which speaks
@@ -57,7 +120,6 @@ function toDateInput(dt) {
 // we query the SyncEngine for an exact-code match. Server-side INSERT
 // still validates (race-safe) and returns a clean error if a row
 // slips through.
-const isSubmitting = ref(false)
 const codeMatches = useLiveQueryWithDeps(
   [() => code.value.trim(), () => props.equipment?.id ?? null],
   async (db, [c, selfId]) => {
@@ -66,7 +128,8 @@ const codeMatches = useLiveQueryWithDeps(
     // In edit mode the row's own code matches itself — exclude it.
     return selfId ? rows.filter((r) => r.id !== selfId) : rows
   },
-  { initial: [] },
+
+  { models: ['Equipment'], initial: [] },
 )
 const isCodeAvailable = computed(() => {
   const c = code.value.trim()
@@ -75,10 +138,18 @@ const isCodeAvailable = computed(() => {
   return codeMatches.value.length === 0
 })
 
+// Submit-time rule: taken code blocks submit.
+function codeUnique() {
+  return isCodeAvailable.value !== false || 'Code already in use'
+}
+
 // Reset / seed state every time the dialog opens. In edit mode we
 // pull from props.equipment; in create mode we clear to defaults.
 watch(open, (isOpen) => {
-  if (!isOpen) return
+  if (!isOpen) {
+    saveError.value = ''
+    return
+  }
   const e = props.equipment
   code.value = e?.code ?? ''
   name.value = e?.name ?? ''
@@ -90,7 +161,15 @@ watch(open, (isOpen) => {
   siteId.value = e?.siteId ?? null
   departmentId.value = e?.departmentId ?? null
   supplierId.value = e?.supplierId ?? null
+  ownerUserId.value = e?.ownerUserId ?? null
   statusId.value = e?.statusId ?? 'IN_SERVICE'
+  requiresCalibration.value = e?.requiresCalibration ?? false
+  calibrationInterval.value = e?.calibrationInterval ?? null
+  calibrationIntervalUnit.value = e?.calibrationIntervalUnit ?? 'MONTH'
+  originalOwnerUserId.value = e?.ownerUserId ?? null
+  requiresPm.value = e?.requiresPm ?? false
+  pmInterval.value = e?.pmInterval ?? null
+  pmIntervalUnit.value = e?.pmIntervalUnit ?? 'MONTH'
   locationText.value = e?.locationText ?? ''
   notes.value = e?.notes ?? ''
   installedAt.value = toDateInput(e?.installedAt)
@@ -100,22 +179,62 @@ watch(open, (isOpen) => {
   isSubmitting.value = false
 })
 
-const isCodeFormatValid = computed(() => /^[a-z0-9-_]+$/i.test(code.value.trim()))
-const isFormValid = computed(
-  () =>
-    name.value.trim().length > 0 &&
-    code.value.trim().length >= 2 &&
-    isCodeFormatValid.value &&
-    isCodeAvailable.value !== false &&
-    // Site is required — every piece of equipment lives somewhere
-    // operationally. (Visibility security via user↔site is a
-    // separate concern; see architecture_security_tiers memory.)
-    !!siteId.value,
-)
+// Edit mode persists via the SyncEngine (rule #4: Equipment is a synced model,
+// so a PATCH RPC was wrong — it updated the server but never wrote IDB, so the
+// live-query list kept showing stale data and the edit "didn't apply").
+const updateEquipment = useLiveMutation(async (db, { id, fields }) => {
+  const eq = await db.Equipment.findByPk(id)
+  if (!eq) throw new Error('Equipment not found')
+  Object.assign(eq, fields)
+  await eq.save()
+  return eq
+})
 
-// Common payload for both POST and PATCH. `code` is omitted on
-// PATCH below — the backend updatable list also excludes it, but
-// being explicit here makes the intent obvious.
+// The date inputs speak yyyy-MM-dd strings; the model's date Properties are
+// DateTime-typed, so convert back on the way into a SyncEngine save.
+function toDateTime(s) {
+  return s ? DateTime.fromISO(s) : null
+}
+
+// Field set for an Equipment model save (edit mode). Mirrors buildPayload() but
+// with DateTime-typed dates, and replicates the REST service's RETIRED →
+// retiredAt auto-stamp (the GraphQL update bypasses that service).
+function buildModelFields() {
+  const fields = {
+    name: name.value.trim(),
+    description: description.value?.trim() || null,
+    manufacturer: manufacturer.value?.trim() || null,
+    model: model.value?.trim() || null,
+    serialNumber: serialNumber.value?.trim() || null,
+    category: category.value || null,
+    siteId: siteId.value || null,
+    departmentId: departmentId.value || null,
+    supplierId: supplierId.value || null,
+    ownerUserId: ownerUserId.value || null,
+    statusId: statusId.value,
+    requiresCalibration: requiresCalibration.value,
+    calibrationInterval: requiresCalibration.value
+      ? Number(calibrationInterval.value) || null
+      : null,
+    calibrationIntervalUnit: calibrationIntervalUnit.value,
+    requiresPm: requiresPm.value,
+    pmInterval: requiresPm.value ? Number(pmInterval.value) || null : null,
+    pmIntervalUnit: pmIntervalUnit.value,
+    locationText: locationText.value?.trim() || null,
+    notes: notes.value?.trim() || null,
+    installedAt: toDateTime(installedAt.value),
+    retiredAt: toDateTime(retiredAt.value),
+    nextCalibrationDue: toDateTime(nextCalibrationDue.value),
+    nextPmDue: toDateTime(nextPmDue.value),
+  }
+  if (fields.statusId === 'RETIRED' && !fields.retiredAt) {
+    fields.retiredAt = DateTime.now()
+  }
+  return fields
+}
+
+// Common payload for create (POST). `code` is sent only on create — the
+// backend updatable list excludes it and edit mode locks the field.
 function buildPayload() {
   return {
     name: name.value.trim(),
@@ -127,7 +246,16 @@ function buildPayload() {
     siteId: siteId.value || null,
     departmentId: departmentId.value || null,
     supplierId: supplierId.value || null,
+    ownerUserId: ownerUserId.value || null,
     statusId: statusId.value,
+    requiresCalibration: requiresCalibration.value,
+    calibrationInterval: requiresCalibration.value
+      ? Number(calibrationInterval.value) || null
+      : null,
+    calibrationIntervalUnit: calibrationIntervalUnit.value,
+    requiresPm: requiresPm.value,
+    pmInterval: requiresPm.value ? Number(pmInterval.value) || null : null,
+    pmIntervalUnit: pmIntervalUnit.value,
     locationText: locationText.value?.trim() || null,
     notes: notes.value?.trim() || null,
     // Dates: empty string from the date input → null; otherwise send
@@ -139,16 +267,34 @@ function buildPayload() {
   }
 }
 
-async function save() {
-  if (!isFormValid.value) return
+async function onSubmit() {
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     if (isEditing.value) {
-      const res = await patch(
-        `/v1/services/equipment/${props.equipment.id}`,
-        buildPayload(),
-      )
-      emit('updated', res?.equipment ?? res)
+      const updated = await updateEquipment({
+        id: props.equipment.id,
+        fields: buildModelFields(),
+      })
+      // Equipment is the SOURCE OF TRUTH for linked log book supervisors
+      // (user decision 2026-08-06): a custodian change mirrors to every
+      // linked book automatically — surfaced, not silent.
+      const newOwner = ownerUserId.value || null
+      const oldOwner = originalOwnerUserId.value || null
+      if (newOwner && newOwner !== oldOwner && linkedLogBooks.value.length) {
+        try {
+          await post(`/v1/services/equipment/${props.equipment.id}/sync-logbook-supervisors`, {
+            toUserId: newOwner,
+          })
+          toast.info(
+            `Supervisor updated on ${linkedLogBooks.value.length} linked log book(s) — it follows the custodian.`,
+          )
+        } catch (err2) {
+          toast.error(err2?.message || 'Failed to update log book supervisors')
+        }
+      }
+      emit('updated', updated)
       open.value = false
       toast.success('Equipment updated')
       return
@@ -161,9 +307,8 @@ async function save() {
     open.value = false
     toast.success('Equipment added')
   } catch (err) {
-    toast.error(
-      err?.message || (isEditing.value ? 'Failed to update equipment' : 'Failed to add equipment'),
-    )
+    saveError.value =
+      err?.message || (isEditing.value ? 'Failed to update equipment' : 'Failed to add equipment')
   } finally {
     isSubmitting.value = false
   }
@@ -189,192 +334,392 @@ function close() {
           }}
         </div>
       </div>
-      <button
-        class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover"
-        @click="close"
-      >
+      <button class="tw:p-1 tw:rounded tw:text-secondary tw:hover:bg-main-hover" @click="close">
         <IconX :size="20" />
       </button>
     </div>
 
-    <div class="tw:flex tw:flex-col tw:gap-4">
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Name <span class="tw:text-bad">*</span>
-        </label>
-        <BaseTextInput v-model="name" placeholder="e.g. Freezer #3, Calibration probe T-001" />
-      </div>
-
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">
-          Code <span class="tw:text-bad">*</span>
-        </label>
-        <div class="tw:relative">
-          <BaseTextInput
-            v-model="code"
-            placeholder="e.g. EQ-001"
-            :disabled="isEditing"
-          />
-          <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
-            <IconCheck v-if="isCodeAvailable === true" :size="16" class="tw:text-green-600" />
-            <IconCircleX
-              v-else-if="isCodeAvailable === false"
-              :size="16"
-              class="tw:text-bad"
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:flex tw:flex-col tw:gap-4">
+        <BaseField label="Name" required :value="name" :rules="[required()]">
+          <template #default="field">
+            <BaseTextInput
+              v-bind="field"
+              v-model="name"
+              placeholder="e.g. Freezer #3, Calibration probe T-001"
             />
+          </template>
+        </BaseField>
+
+        <BaseField
+          label="Code"
+          required
+          :value="code"
+          :rules="[
+            required(),
+            (v) => /^[a-z0-9-_]+$/i.test((v || '').trim()) || 'Use letters, numbers, - and _ only.',
+            (v) => (v || '').trim().length >= 2 || 'Code must be at least 2 characters.',
+            codeUnique,
+          ]"
+        >
+          <template #default="field">
+            <div class="tw:relative">
+              <BaseTextInput
+                v-bind="field"
+                v-model="code"
+                placeholder="e.g. EQ-001"
+                :disabled="isEditing"
+              />
+              <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
+                <IconCheck v-if="isCodeAvailable === true" :size="16" class="tw:text-green-600" />
+                <IconCircleX v-else-if="isCodeAvailable === false" :size="16" class="tw:text-bad" />
+              </div>
+            </div>
+            <div class="tw:text-xs tw:text-secondary tw:mt-1">
+              Unique identifier (e.g. asset tag). Used in audit reports and log book references.
+              <span v-if="isEditing"> Locked after creation to keep audit references stable.</span>
+            </div>
+          </template>
+        </BaseField>
+
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField v-slot="{ id: fieldId }" label="Category">
+            <select
+              :id="fieldId"
+              v-model="category"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            >
+              <option :value="null">— Uncategorised —</option>
+              <option value="INSTRUMENT">Instrument</option>
+              <option value="MACHINE">Machine</option>
+              <option value="VEHICLE">Vehicle</option>
+              <option value="SENSOR">Sensor</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Status">
+            <select
+              :id="fieldId"
+              v-model="statusId"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            >
+              <option value="IN_SERVICE">In service</option>
+              <option value="OUT_OF_SERVICE">Out of service</option>
+              <option value="RETIRED">Retired</option>
+            </select>
+          </BaseField>
+        </div>
+
+        <BaseField v-slot="{ id: fieldId }" label="Description">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="description"
+            :rows="2"
+            placeholder="Optional context"
+          />
+        </BaseField>
+
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-3">
+          <BaseField v-slot="{ id: fieldId }" label="Manufacturer">
+            <BaseTextInput :id="fieldId" v-model="manufacturer" />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Model">
+            <BaseTextInput :id="fieldId" v-model="model" />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Serial number">
+            <BaseTextInput :id="fieldId" v-model="serialNumber" />
+          </BaseField>
+        </div>
+
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField label="Site" required :value="siteId" :rules="[required()]">
+            <template #default="field">
+              <SiteSelectMenu v-bind="field" v-model="siteId" :required="true" />
+            </template>
+          </BaseField>
+          <BaseField label="Department" optional>
+            <DepartmentSelectMenu v-model="departmentId" />
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Calibration reminders escalate to the department's supervisor.
+            </div>
+          </BaseField>
+        </div>
+
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField label="Owner / custodian" optional>
+            <UserSelectMenu v-model="ownerUserId" />
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              The responsible person — notified first about calibration. Falls back to the
+              department supervisor.
+            </div>
+          </BaseField>
+          <!-- `supplier_id` has been a column, a model Property and an
+               UPDATABLE_FIELDS entry since the module shipped, and both write
+               paths have always sent it — but nothing rendered a control, so
+               the payload carried a field no user could set and every equipment
+               row's supplier was NULL by construction. This is that control.
+               The list is APPROVED-only (SupplierSelectMenu's default): the
+               calibration vendor on a GxP instrument is an approved-supplier
+               question, and a badge resolves an existing id through
+               SupplierOption regardless of status, so an out-of-list value
+               still renders rather than silently disappearing. -->
+          <BaseField label="Supplier / calibration vendor" optional>
+            <SupplierSelectMenu v-model="supplierId" />
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Who supplies or calibrates this equipment. Approved suppliers only.
+            </div>
+          </BaseField>
+        </div>
+
+        <BaseField v-slot="{ id: fieldId }" label="Location (free text)">
+          <BaseTextInput
+            :id="fieldId"
+            v-model="locationText"
+            placeholder="e.g. Rack 3, Bay B; Lab 2; East wall freezer"
+          />
+        </BaseField>
+
+        <!-- Calibration program. requiresCalibration flags the instrument as
+             calibration-tracked (drives the daily due reminder); the interval
+             auto-computes the next due each time a calibration is recorded. -->
+        <div
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-3"
+        >
+          <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
+            <BaseCheckbox v-model="requiresCalibration" />
+            <span class="tw:text-sm tw:font-medium tw:text-on-main">Requires calibration</span>
+          </label>
+          <div v-if="requiresCalibration">
+            <div class="tw:flex tw:items-end tw:gap-3">
+              <BaseField
+                label="Calibration interval"
+                required
+                :value="calibrationInterval"
+                :rules="[required(), minValue(1)]"
+                class="tw:w-28"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model.number="calibrationInterval"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 1"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Unit" class="tw:flex-1 tw:min-w-56">
+                <SegmentedControl v-model="calibrationIntervalUnit" :options="CALIBRATION_UNITS" />
+              </BaseField>
+            </div>
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Used to roll the next-due date forward when a calibration is recorded — e.g.
+              <strong>1 Day</strong> for a pH meter, or <strong>12 Months</strong> for a balance.
+            </div>
           </div>
         </div>
-        <div class="tw:text-xs tw:text-secondary tw:mt-1">
-          Unique identifier (e.g. asset tag). Used in audit reports and log book references.
-          <span v-if="isEditing"> Locked after creation to keep audit references stable.</span>
-        </div>
-      </div>
 
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Category</label>
-          <select
-            v-model="category"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+        <!-- Last calibration evidence — READ ONLY, and the only place it is
+             visible anywhere in the product. `record-calibration` requires a
+             certificate number and a vendor (migration 20260911120000), and a DB
+             trigger refuses any change to these four columns on the connection
+             this dialog saves over — so they are shown, never edited. Without
+             this block the module would demand evidence its own UI could not
+             display: there is no detail page and no print module. -->
+        <div
+          v-if="props.equipment?.id && props.equipment?.lastCalibrationCertificateNumber"
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-1"
+        >
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Last calibration evidence</span>
+          <div class="tw:text-sm tw:text-secondary">
+            Certificate
+            <a
+              v-if="props.equipment.lastCalibrationCertificateUrl"
+              :href="props.equipment.lastCalibrationCertificateUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="tw:text-primary tw:hover:underline"
+            >
+              {{ props.equipment.lastCalibrationCertificateNumber }}
+            </a>
+            <span v-else class="tw:text-on-main">
+              {{ props.equipment.lastCalibrationCertificateNumber }}
+            </span>
+          </div>
+          <div class="tw:text-sm tw:text-secondary tw:flex tw:items-center tw:gap-1">
+            Performed by
+            <SupplierBadgeById
+              v-if="props.equipment.lastCalibrationVendorId"
+              :supplierId="props.equipment.lastCalibrationVendorId"
+            />
+            <span v-else class="tw:text-on-main">
+              {{ props.equipment.lastCalibrationVendorName || '—' }}
+            </span>
+          </div>
+          <div class="tw:text-caption tw:text-secondary">
+            Recorded with an e-signature. Set only by recording a calibration.
+          </div>
+        </div>
+
+        <!-- Preventive-maintenance program — calibration's twin. -->
+        <div
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-3"
+        >
+          <label class="tw:flex tw:items-center tw:gap-2 tw:cursor-pointer tw:select-none">
+            <BaseCheckbox v-model="requiresPm" />
+            <span class="tw:text-sm tw:font-medium tw:text-on-main"
+              >Requires preventive maintenance</span
+            >
+          </label>
+          <div v-if="requiresPm">
+            <div class="tw:flex tw:items-end tw:gap-3">
+              <BaseField
+                label="PM interval"
+                required
+                :value="pmInterval"
+                :rules="[required(), minValue(1)]"
+                class="tw:w-28"
+              >
+                <template #default="field">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model.number="pmInterval"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 6"
+                  />
+                </template>
+              </BaseField>
+              <BaseField label="Unit" class="tw:flex-1 tw:min-w-56">
+                <SegmentedControl v-model="pmIntervalUnit" :options="CALIBRATION_UNITS" />
+              </BaseField>
+            </div>
+            <div class="tw:text-caption tw:text-secondary tw:mt-1">
+              Rolls the next-PM date forward when maintenance is recorded — from the quick action
+              or a PM log book entry.
+            </div>
+          </div>
+        </div>
+
+        <!-- Linked log books — visible in edit mode. No book yet → offer to
+             create one pre-linked with the matching trigger schedule. -->
+        <div
+          v-if="props.equipment?.id"
+          class="tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover/40 tw:p-3 tw:flex tw:flex-col tw:gap-2"
+        >
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">Log books</span>
+          <RouterLink
+            v-for="lb in linkedLogBooks"
+            :key="lb.id"
+            :to="getCompanyPath(`/inspections-logs/log-books/${lb.id}`)"
+            class="tw:text-sm tw:text-primary tw:hover:underline"
           >
-            <option :value="null">— Uncategorised —</option>
-            <option value="INSTRUMENT">Instrument</option>
-            <option value="MACHINE">Machine</option>
-            <option value="VEHICLE">Vehicle</option>
-            <option value="SENSOR">Sensor</option>
-            <option value="OTHER">Other</option>
-          </select>
-        </div>
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Status</label>
-          <select
-            v-model="statusId"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            {{ lb.title }}
+            <LogBookStatusBadge :statusId="lb.statusId" class="tw:ml-1 tw:align-middle" />
+            <span v-if="lb.scheduleMode === 'TRIGGER'" class="tw:text-caption tw:text-secondary">
+              — triggered by {{ lb.triggerSource === 'PM' ? 'PM' : 'calibration' }} due
+            </span>
+          </RouterLink>
+          <span v-if="!linkedLogBooks.length" class="tw:text-caption tw:text-secondary">
+            No log book linked to this equipment yet.
+          </span>
+          <!-- Per-TYPE creation (user decision 2026-08-06: calibration and PM
+               each get their own book — different forms, different due dates). -->
+          <div
+            v-if="
+              (requiresCalibration && !hasCalibrationBook) ||
+              (requiresPm && !hasPmBook) ||
+              !linkedLogBooks.length
+            "
+            class="tw:flex tw:flex-wrap tw:gap-2"
           >
-            <option value="IN_SERVICE">In service</option>
-            <option value="OUT_OF_SERVICE">Out of service</option>
-            <option value="RETIRED">Retired</option>
-          </select>
+            <BaseButton
+              v-if="requiresCalibration && !hasCalibrationBook"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook('CALIBRATION')"
+            >
+              + Calibration log
+            </BaseButton>
+            <BaseButton
+              v-if="requiresPm && !hasPmBook"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook('PM')"
+            >
+              + PM log
+            </BaseButton>
+            <BaseButton
+              v-if="!linkedLogBooks.length"
+              size="sm"
+              variant="outline"
+              @click="requestLogBook(null)"
+            >
+              + Log book
+            </BaseButton>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <label class="tw:text-sm tw:font-medium tw:text-on-main">Description</label>
-        <BaseTextarea v-model="description" :rows="2" placeholder="Optional context" />
-      </div>
+        <!-- Lifecycle + maintenance dates. All optional. The list page
+             uses next_calibration_due / next_pm_due to flag overdue +
+             due-soon equipment, so populating them is what makes the
+             catalog actually useful. retiredAt is auto-stamped server-
+             side when statusId flips to RETIRED, but you can also set
+             it manually for accurate historical dates. -->
+        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
+          <BaseField v-slot="{ id: fieldId }" label="Installed">
+            <input
+              :id="fieldId"
+              v-model="installedAt"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Retired">
+            <input
+              :id="fieldId"
+              v-model="retiredAt"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Next calibration due">
+            <input
+              :id="fieldId"
+              v-model="nextCalibrationDue"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Next PM due">
+            <input
+              :id="fieldId"
+              v-model="nextPmDue"
+              type="date"
+              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+            />
+          </BaseField>
+        </div>
 
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-3">
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Manufacturer
-          </label>
-          <BaseTextInput v-model="manufacturer" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Model
-          </label>
-          <BaseTextInput v-model="model" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Serial number
-          </label>
-          <BaseTextInput v-model="serialNumber" />
-        </div>
-      </div>
-
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Site <span class="tw:text-bad">*</span>
-          </label>
-          <SiteSelectMenu v-model="siteId" :required="true" />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Department (optional)
-          </label>
-          <DepartmentSelectMenu v-model="departmentId" />
-        </div>
-      </div>
-
-      <div>
-        <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-          Location (free text)
-        </label>
-        <BaseTextInput
-          v-model="locationText"
-          placeholder="e.g. Rack 3, Bay B; Lab 2; East wall freezer"
-        />
-      </div>
-
-      <!-- Lifecycle + maintenance dates. All optional. The list page
-           uses next_calibration_due / next_pm_due to flag overdue +
-           due-soon equipment, so populating them is what makes the
-           catalog actually useful. retiredAt is auto-stamped server-
-           side when statusId flips to RETIRED, but you can also set
-           it manually for accurate historical dates. -->
-      <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Installed
-          </label>
-          <input
-            v-model="installedAt"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
+        <BaseField v-slot="{ id: fieldId }" label="Notes">
+          <BaseTextarea
+            :id="fieldId"
+            v-model="notes"
+            :rows="2"
+            placeholder="Internal notes about this equipment"
           />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Retired
-          </label>
-          <input
-            v-model="retiredAt"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Next calibration due
-          </label>
-          <input
-            v-model="nextCalibrationDue"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          />
-        </div>
-        <div>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Next PM due
-          </label>
-          <input
-            v-model="nextPmDue"
-            type="date"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          />
-        </div>
+        </BaseField>
       </div>
+    </BaseForm>
 
-      <div>
-        <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-          Notes
-        </label>
-        <BaseTextarea v-model="notes" :rows="2" placeholder="Internal notes about this equipment" />
-      </div>
-    </div>
-
-    <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-6">
-      <BaseButton variant="outline" :disabled="isSubmitting" @click="close">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="!isFormValid || isSubmitting" @click="save">
-        {{
-          isSubmitting
-            ? isEditing ? 'Saving…' : 'Creating…'
-            : isEditing ? 'Save changes' : 'Add equipment'
-        }}
-      </BaseButton>
-    </div>
+    <template #footer>
+      <BaseDialogFooter
+        :submitLabel="isEditing ? 'Save changes' : 'Add equipment'"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="close"
+        @submit="formRef?.submit()"
+      />
+    </template>
   </BaseDialog>
 </template>

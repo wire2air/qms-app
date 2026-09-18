@@ -8,6 +8,13 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Optional BaseField validation passthrough. Default-empty, so every existing
+  // mount is unchanged; the Sites dialog uses it to assert the value is a real
+  // IANA zone (the column had no validation at any layer).
+  rules: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const model = defineModel({ type: String, default: 'UTC' })
@@ -33,16 +40,14 @@ const timezoneItems = computed(() => {
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-1">
-    <label v-if="props.label" class="tw:text-sm tw:font-medium">{{ props.label }}</label>
-    <BaseSelectMenu v-model="model" :items="timezoneItems" :required="true">
-      <template #button>
-        <BaseBadge v-if="model" class="tw:text-sm tw:text-on-sidebar tw:font-medium">
-          {{ timezoneItems.find((item) => item.id === model)?.name || model }}
-        </BaseBadge>
-        <span v-else class="tw:text-sm tw:text-placeholder tw:font-medium"> Select Timezone </span>
-      </template>
-    </BaseSelectMenu>
-    <span v-if="props.hint" class="tw:text-xs tw:text-secondary">{{ props.hint }}</span>
-  </div>
+  <BaseField :label="props.label" :hint="props.hint" :rules="props.rules" :value="model">
+    <BaseSelect
+      v-model="model"
+      :options="timezoneItems"
+      optionLabel="name"
+      optionValue="id"
+      :required="true"
+      placeholder="Select Timezone"
+    />
+  </BaseField>
 </template>

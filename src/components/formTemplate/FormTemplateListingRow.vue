@@ -1,5 +1,14 @@
 <script setup>
-import { IconHistory, IconClock, IconEdit, IconBrush, IconEye, IconTrash } from '@tabler/icons-vue'
+import {
+  IconHistory,
+  IconClock,
+  IconEdit,
+  IconBrush,
+  IconEye,
+  IconArchive,
+  IconCopy,
+  IconShare,
+} from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 
 const props = defineProps({
@@ -7,13 +16,17 @@ const props = defineProps({
     type: Object,
     required: true,
   },
-  canDelete: {
+  canUpdate: {
+    type: Boolean,
+    default: false,
+  },
+  canClone: {
     type: Boolean,
     default: false,
   },
 })
 
-const emit = defineEmits(['navigate', 'preview', 'delete'])
+const emit = defineEmits(['navigate', 'preview', 'archive', 'clone', 'share'])
 
 const router = useRouter()
 
@@ -25,21 +38,47 @@ function navigateToTemplate(mode) {
 }
 
 function menuItems() {
-  const items = [
-    { name: 'Edit', icon: IconEdit, click: () => navigateToTemplate() },
-    { name: 'Design', icon: IconBrush, click: () => navigateToTemplate('schema') },
-    { name: 'Preview', icon: IconEye, click: () => emit('preview', props.template) },
-  ]
-  if (props.canDelete) {
-    items.push({ name: 'Delete', icon: IconTrash, click: () => emit('delete', props.template) })
+  // Edit and Design both mutate the template, so they require the Update
+  // capability — a role with only read/write scope but no `forms_templates:update`
+  // must not see them (the detail page itself is already read-only for them).
+  const items = []
+  if (props.canUpdate) {
+    items.push(
+      { name: 'Edit', icon: IconEdit, click: () => navigateToTemplate() },
+      { name: 'Design', icon: IconBrush, click: () => navigateToTemplate('schema') },
+    )
+  } else {
+    items.push({ name: 'View', icon: IconEye, click: () => navigateToTemplate() })
+  }
+  items.push({ name: 'Preview', icon: IconEye, click: () => emit('preview', props.template) })
+  // Share link — the ONLY route to Publish/Revoke for a public form, and until
+  // now it existed only on the table view. `templates-view-mode` defaults to
+  // 'list', so on a fresh profile the control governing public exposure sat
+  // behind an unlabelled view switcher. Publishing is an `update` on the row, so
+  // it is gated the same way Edit/Design/Archive are.
+  if (props.canUpdate) {
+    items.push({ name: 'Share link', icon: IconShare, click: () => emit('share', props.template) })
+  }
+  if (props.canClone) {
+    items.push({ name: 'Clone', icon: IconCopy, click: () => emit('clone', props.template) })
+  }
+  // Archive-only lifecycle: templates are never deleted (archived rows are the
+  // version history; existing records keep referencing them by id).
+  if (props.canUpdate) {
+    items.push({
+      name: props.template.statusId === 'ARCHIVED' ? 'Restore' : 'Archive',
+      icon: IconArchive,
+      click: () => emit('archive', props.template),
+    })
   }
   return items
 }
 </script>
 
 <template>
-  <div
-    class="tw:group tw:cursor-pointer tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+  <BaseClickableRow
+    class="tw:group tw:bg-sidebar tw:border tw:border-divider tw:rounded-lg tw:p-3 tw:transition-all tw:hover:shadow-md tw:hover:border-primary/30"
+    :aria-label="`Open template ${template.title}`"
     @click="navigateToTemplate()"
   >
     <div class="tw:flex tw:items-center tw:justify-between">
@@ -51,9 +90,7 @@ function menuItems() {
             <h4 class="tw:text-lg tw:font-bold tw:text-on-sidebar">
               {{ template.title }}
             </h4>
-            <span
-              class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary tw:font-mono"
-            >
+            <span class="tw:text-xs tw:px-2 tw:py-0.5 tw:rounded tw:bg-main tw:text-secondary">
               Code: {{ template.code }}
             </span>
           </div>
@@ -78,5 +115,5 @@ function menuItems() {
         <BaseMenu :items="menuItems()" @click.stop />
       </div>
     </div>
-  </div>
+  </BaseClickableRow>
 </template>

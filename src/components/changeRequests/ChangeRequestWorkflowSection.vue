@@ -10,7 +10,7 @@
  * Reassign is owned by the shared WorkflowReassignDialog — this section
  * just forwards the instance-step id to it via the ref.
  */
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { CR_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -42,7 +42,8 @@ const steps = useLiveQueryWithDeps(
       .filter((s) => !s.parentInstanceStepId)
       .sort((a, b) => a.stepNumber - b.stepNumber)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 // ─── Reassign dialog (owner) ─────────────────────────────────────────────────
@@ -56,18 +57,19 @@ function openReassignDialog(instanceStepId) {
 <template>
   <div class="tw:contents">
     <template v-if="steps.length">
-      <WorkflowStep
-        v-for="(step, idx) in steps"
-        :key="step.id"
+      <WorkflowStepRun
+        :steps="steps"
         :module="CR_MODULE"
-        :instanceStepId="step.id"
         :resourceId="crId"
         :isOwner="isOwner"
-        :displayNumber="String(idx + 1)"
         @reassign="openReassignDialog"
       >
         <template
-          #childSteps="{ instanceStep: parentStep, stepDefinition: parentDef, displayNumber: parentNum }"
+          #childSteps="{
+            instanceStep: parentStep,
+            stepDefinition: parentDef,
+            displayNumber: parentNum,
+          }"
         >
           <ChangeRequestWorkflowChildSteps
             v-if="parentStep && parentDef?.allowChildSteps && parentStep.workflowInstanceId"
@@ -81,14 +83,11 @@ function openReassignDialog(instanceStepId) {
             @reassign="(childId) => openReassignDialog(childId)"
           />
         </template>
-      </WorkflowStep>
+      </WorkflowStepRun>
     </template>
-    <div
-      v-else-if="workflowInstanceId"
-      class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-5 tw:text-sm tw:text-secondary tw:italic"
-    >
+    <BaseCard v-else-if="workflowInstanceId" class="tw:text-sm tw:text-secondary tw:italic">
       No workflow steps to show yet.
-    </div>
+    </BaseCard>
 
     <!-- Reassign dialog — shared with CAPA + NC -->
     <WorkflowReassignDialog ref="reassignDialogRef" :module="CR_MODULE" :resourceId="crId" />

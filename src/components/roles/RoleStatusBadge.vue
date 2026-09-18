@@ -29,7 +29,10 @@ function getBadgeLabel(status) {
 </script>
 
 <template>
-  <span :class="getBadgeClass(status)" class="ds-label-sm tw:px-2 tw:py-0.5 tw:rounded">
+  <span
+    :class="getBadgeClass(status)"
+    class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:px-2 tw:py-0.5 tw:rounded"
+  >
     {{ getBadgeLabel(status) }}
   </span>
 </template>

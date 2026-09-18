@@ -1,7 +1,6 @@
 <script setup>
 import { IconCheck, IconX as IconXCross, IconBuilding } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
   id: {
@@ -17,18 +16,29 @@ const open = defineModel({
   default: false,
 })
 
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref('')
+
 const form = ref({
   name: '',
   code: '',
   siteId: null,
   description: '',
+  supervisorUserId: null,
 })
 
+const isEdit = computed(() => !!props.id)
+
 // Load existing department if editing
-const department = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.Department.findByPk(id)
-})
+const department = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.Department.findByPk(id)
+  },
+  { models: ['Department'] },
+)
 
 // Code availability check using live query
 const codeAvailable = useLiveQueryWithDeps(
@@ -38,19 +48,38 @@ const codeAvailable = useLiveQueryWithDeps(
     const all = await db.Department.where().exec()
     return !all.some((d) => d.code === code && d.id !== id)
   },
-  { initial: true },
+
+  { models: ['Department'], initial: true },
 )
 
-const rules = computed(() => ({
-  name: { required: helpers.withMessage('Required', required) },
-  code: { required: helpers.withMessage('Required', required) },
-  siteId: { required: helpers.withMessage('Required', required) },
-}))
+// Live "in use" message for the Code field (create mode); enforced on submit
+// via codeUnique.
+const codeInUseError = computed(() =>
+  !isEdit.value && form.value.code && !codeAvailable.value ? 'Code already in use' : '',
+)
 
-const validator = useValidator(rules, form)
+function codeUnique() {
+  return codeAvailable.value || 'Code already in use'
+}
 
-const isSubmitting = ref(false)
-const isEdit = computed(() => !!props.id)
+// Name uniqueness (case-insensitive, per company) — backed by the DB
+// departments_company_name_unique partial index. Excludes the current row in edit mode.
+const nameAvailable = useLiveQueryWithDeps(
+  [() => props.id, () => form.value.name],
+  async (db, [id, name]) => {
+    const n = (name || '').trim().toLowerCase()
+    if (!n) return true
+    const all = await db.Department.where().exec()
+    return !all.some((d) => (d.name || '').trim().toLowerCase() === n && d.id !== id)
+  },
+  { models: ['Department'], initial: true },
+)
+const nameInUseError = computed(() =>
+  form.value.name && !nameAvailable.value ? 'A department with this name already exists' : '',
+)
+function nameUnique() {
+  return nameAvailable.value || 'A department with this name already exists'
+}
 
 // Populate form when department loads in edit mode
 watch(
@@ -62,6 +91,7 @@ watch(
         code: d.code,
         siteId: d.siteId,
         description: d.description || '',
+        supervisorUserId: d.supervisorUserId || null,
       }
     }
   },
@@ -71,7 +101,8 @@ watch(
 // Reset form when dialog closes
 watch(open, (val) => {
   if (!val) {
-    form.value = { name: '', code: '', siteId: null, description: '' }
+    form.value = { name: '', code: '', siteId: null, description: '', supervisorUserId: null }
+    saveError.value = ''
   }
 })
 
@@ -106,16 +137,10 @@ const createDepartment = useLiveMutation(async (db, data) => {
   return d
 })
 
-const getDisplayOrder = useLiveMutation(async (db) => {
-  const lastItem = await db.Department.where().orderBy('displayOrder', 'desc').first()
-  return (lastItem?.displayOrder || 0) + 1000
-})
-
 async function onSubmit() {
-  const valid = await validator.value.$validate()
-  if (!valid || !codeAvailable.value) return
-
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = ''
   try {
     if (!isEdit.value) {
       const newDept = await createDepartment({
@@ -123,17 +148,23 @@ async function onSubmit() {
         code: form.value.code,
         siteId: form.value.siteId,
         description: form.value.description,
-        displayOrder: await getDisplayOrder(),
+        supervisorUserId: form.value.supervisorUserId || null,
       })
+      // Undefined means the save failed (useLiveMutation already toasted the
+      // error). Keep the dialog open so the user can correct and retry.
+      if (!newDept) return
       emit('created', newDept)
     } else {
       department.value.name = form.value.name
       department.value.siteId = form.value.siteId
       department.value.description = form.value.description
+      department.value.supervisorUserId = form.value.supervisorUserId || null
       await department.value.save()
       emit('updated', department.value)
     }
     open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to save department'
   } finally {
     isSubmitting.value = false
   }
@@ -152,36 +183,74 @@ async function onSubmit() {
         <span>{{ isEdit ? 'Edit Department' : 'Create New Department' }}</span>
       </div>
     </template>
-    <div class="tw:flex tw:flex-col tw:gap-4">
-      <BaseTextInput
-        v-model="form.name"
-        name="name"
+
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <BaseField
         label="Department Name"
-        placeholder="e.g. Quality Assurance"
-        :required="true"
-        @blur="onNameBlur"
-      />
-
-      <div class="tw:relative">
-        <BaseTextInput
-          v-model="form.code"
-          name="code"
-          label="Code"
-          placeholder="e.g. QA"
-          :required="true"
-          :disabled="isEdit"
-          :errorMsg="!codeAvailable ? 'Code already in use' : ''"
-        />
-        <template v-if="!isEdit && form.code">
-          <IconCheck
-            v-if="codeAvailable"
-            class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-green"
+        required
+        :value="form.name"
+        :rules="[required(), nameUnique]"
+        :error="nameInUseError"
+      >
+        <template #default="field">
+          <BaseTextInput
+            v-bind="field"
+            v-model="form.name"
+            placeholder="e.g. Quality Assurance"
+            @blur="onNameBlur"
           />
-          <IconXCross v-else class="tw:absolute tw:right-3 tw:top-9 tw:size-4 tw:text-red" />
         </template>
-      </div>
+      </BaseField>
 
-      <SiteSelectMenu v-model="form.siteId" :required="true" />
+      <BaseField
+        label="Code"
+        required
+        :value="form.code"
+        :rules="[required(), codeUnique]"
+        :error="codeInUseError"
+      >
+        <template #default="field">
+          <div class="tw:relative">
+            <!-- maxlength matches departments.code — varchar(10). Same gap that
+                 let a too-long supplier code through to an opaque INSERT
+                 failure. -->
+            <BaseTextInput
+              v-bind="field"
+              v-model="form.code"
+              :maxlength="10"
+              placeholder="e.g. QA"
+              :disabled="isEdit"
+            />
+            <template v-if="!isEdit && form.code">
+              <IconCheck
+                v-if="codeAvailable"
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-green"
+              />
+              <IconXCross
+                v-else
+                class="tw:absolute tw:right-3 tw:top-1/2 tw:-translate-y-1/2 tw:size-4 tw:text-red"
+              />
+            </template>
+          </div>
+        </template>
+      </BaseField>
+
+      <BaseField label="Site" size="sm" :value="form.siteId">
+        <SiteSelectMenu v-model="form.siteId" nullLabel="Company-wide (all sites)" />
+        <div class="tw:text-caption tw:text-secondary tw:mt-1">
+          Leave as company-wide for functional departments (Quality, Regulatory, …) that belong to
+          every site; pick a site only for site-local units.
+        </div>
+      </BaseField>
+
+      <div>
+        <label class="tw:text-sm tw:font-medium tw:text-on-main tw:block tw:mb-1">Supervisor</label>
+        <UserSelectMenu v-model="form.supervisorUserId" />
+        <div class="tw:text-caption tw:text-secondary tw:mt-1">
+          Accountable for this department — receives calibration / maintenance escalations for its
+          equipment.
+        </div>
+      </div>
 
       <BaseTextarea
         v-model="form.description"
@@ -189,13 +258,16 @@ async function onSubmit() {
         placeholder="e.g. Quality assurance and testing department"
         :rows="2"
       />
-    </div>
+    </BaseForm>
 
     <template #footer>
-      <BaseButton variant="outline" @click="open = false"> Cancel </BaseButton>
-      <BaseButton :disabled="isSubmitting" @click="onSubmit">
-        {{ isEdit ? 'Update Department' : 'Create Department' }}
-      </BaseButton>
+      <BaseDialogFooter
+        :submitLabel="isEdit ? 'Update Department' : 'Create Department'"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="open = false"
+        @submit="formRef?.submit()"
+      />
     </template>
   </BaseDialog>
 </template>

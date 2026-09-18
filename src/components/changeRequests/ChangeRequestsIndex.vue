@@ -7,5 +7,5 @@ defineProps({
 <template>
   <ChangeRequestsCreate v-if="id === 'create'" />
   <ChangeRequestsPageId v-else-if="id" :id="id" :key="id" />
-  <ChangeRequestsHome v-else />
+  <ChangeRequestsHomeTabs v-else />
 </template>

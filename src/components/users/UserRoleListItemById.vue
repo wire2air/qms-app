@@ -14,8 +14,10 @@ const props = defineProps({
 
 const emit = defineEmits(['clear'])
 
-const role = useLiveQueryWithDeps([() => props.roleId], async (db, [roleId]) =>
-  db.Role.findByPk(roleId),
+const role = useLiveQueryWithDeps(
+  [() => props.roleId],
+  async (db, [roleId]) => db.Role.findByPk(roleId),
+  { models: ['Role'] },
 )
 </script>
 

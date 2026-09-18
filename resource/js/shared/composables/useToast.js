@@ -6,8 +6,10 @@
  *
  * @example
  *   const toast = useToast()
- *   toast.notify({ type: 'positive', message: 'Saved!' })
- *   toast.notify({ type: 'negative', message: 'Failed', timeout: 5000 })
+ *   toast.success('Saved!')
+ *   toast.error('Failed', { timeout: 5000 })
+ *   toast.notify({ type: 'success', message: 'Saved!' }) // success|error|warning|info
+ *   // Legacy positive/negative are still accepted and normalized to success/error.
  */
 
 import { ValidationError } from '@syncEngine/index'
@@ -21,7 +23,7 @@ const timers = new Map()
 
 /**
  * @typedef {Object} ToastOptions
- * @property {'positive'|'negative'|'warning'|'info'} type
+ * @property {'success'|'error'|'warning'|'info'|'positive'|'negative'} type  positive/negative are legacy aliases
  * @property {string} message
  * @property {string} [caption]
  * @property {'top'|'top-right'|'top-left'|'bottom'|'bottom-right'|'bottom-left'|'center'} [position='top']
@@ -36,16 +38,47 @@ const timers = new Map()
 
 /**
  * Add a toast to the queue.
+ *
+ * Deduped: an identical toast (same type + message + caption) already on
+ * screen means the same event was reported through two paths — typically
+ * the API layer's global error handler AND a component's catch block both
+ * toasting one failed request. Refresh the existing toast's timer instead
+ * of stacking a visual duplicate.
+ *
  * @param {ToastOptions} options
  * @returns {number} toast id (for programmatic dismiss)
  */
+// Legacy Quasar-shape aliases → canonical semantic types.
+const TYPE_ALIAS = { positive: 'success', negative: 'error' }
+
 function notify(options) {
+  const rawType = options.type || 'info'
+  const type = TYPE_ALIAS[rawType] || rawType
+  const message = options.message || ''
+  const caption = options.caption || ''
+
+  const existing = toasts.value.find(
+    (t) => t.type === type && t.message === message && t.caption === caption,
+  )
+  if (existing) {
+    const timer = timers.get(existing.id)
+    if (timer) clearTimeout(timer)
+    const timeout = options.timeout ?? 3000
+    if (timeout > 0) {
+      timers.set(
+        existing.id,
+        setTimeout(() => dismiss(existing.id), timeout),
+      )
+    }
+    return existing.id
+  }
+
   const id = nextId++
   const toast = {
     id,
-    type: options.type || 'info',
-    message: options.message || '',
-    caption: options.caption || '',
+    type,
+    message,
+    caption,
     position: options.position || 'top',
     timeout: options.timeout ?? 3000,
     html: options.html || false,
@@ -78,7 +111,7 @@ function dismiss(id) {
 }
 
 function success(message, options = {}) {
-  return notify({ ...options, type: 'positive', message })
+  return notify({ ...options, type: 'success', message })
 }
 
 function error(message, options = {}) {
@@ -88,7 +121,7 @@ function error(message, options = {}) {
     message = message.message
   }
 
-  return notify({ ...options, type: 'negative', message })
+  return notify({ ...options, type: 'error', message })
 }
 
 function warning(message, options = {}) {

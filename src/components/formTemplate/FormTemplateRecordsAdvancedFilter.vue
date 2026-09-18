@@ -56,7 +56,7 @@ function resetFilters() {
 
 <template>
   <div class="tw:p-4 tw:min-w-160">
-    <div class="tw:text-base tw:font-semibold tw:mb-4">Advanced Filters</div>
+    <BaseText as="h3" variant="subheading" class="tw:block tw:mb-4">Advanced Filters</BaseText>
 
     <div class="tw:flex tw:flex-col tw:gap-3 tw:mb-4">
       <div
@@ -64,19 +64,28 @@ function resetFilters() {
         :key="section.id"
         class="tw:flex tw:items-start tw:gap-2"
       >
-        <div class="tw:grid tw:grid-cols-3 tw:gap-2 tw:flex-1">
-          <div>
-            <label class="tw:text-xs tw:font-medium tw:text-secondary">Column</label>
-            <BaseSelectMenu v-model="section.column" :items="columnOptions" required />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-medium tw:text-secondary">Operator</label>
-            <BaseSelectMenu v-model="section.operator" :items="operatorOptions" required />
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-medium tw:text-secondary">Value</label>
-            <BaseTextInput v-model="section.value" size="sm" />
-          </div>
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-2 tw:flex-1">
+          <BaseField label="Column">
+            <BaseSelect
+              v-model="section.column"
+              :options="columnOptions"
+              optionLabel="name"
+              optionValue="id"
+              required
+            />
+          </BaseField>
+          <BaseField label="Operator">
+            <BaseSelect
+              v-model="section.operator"
+              :options="operatorOptions"
+              optionLabel="name"
+              optionValue="id"
+              required
+            />
+          </BaseField>
+          <BaseField v-slot="{ id: fieldId }" label="Value">
+            <BaseTextInput :id="fieldId" v-model="section.value" size="sm" />
+          </BaseField>
         </div>
         <button
           v-if="filterSections.length > 1"

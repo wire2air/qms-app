@@ -60,6 +60,28 @@ export class BaseModel {
   static paranoid = false
 
   /**
+   * Name of a boolean property whose truthy rows are excluded from LIST
+   * queries (`where()`) but stay fully reachable by primary key
+   * (`findByPk()`). Null disables the behaviour.
+   *
+   *     static hiddenFromLists = 'isServiceAccount'
+   *
+   * The asymmetry is the whole point, and it is why this cannot be done in
+   * RLS: to the database a roster listing and an attribution lookup are the
+   * same SELECT. Hiding a row outright would blank the actor on audit-log
+   * lines and printed records that resolve a user by id — a false record in
+   * a system sold on ISO 13485 / 21 CFR Part 11 audit trails. Hiding it only
+   * from lists keeps it out of pickers and rosters while every historical
+   * reference still renders.
+   *
+   * Opt out per query with `where(field, value, { force: true })`, which
+   * lifts the paranoid filter too.
+   *
+   * @type {string|null}
+   */
+  static hiddenFromLists = null
+
+  /**
    * Returns a "now" value appropriate for the given type constructor.
    * @param {Function} type — Number, String, Date, or DateTime
    * @returns {*}
@@ -167,7 +189,20 @@ export class BaseModel {
       if (schema && schema.loadStrategy !== LOAD_STRATEGY.LOCAL) {
         const meta = MetaCache.get(this.name)
         if (meta) {
-          const record = await MutationRunner.fetchOne(meta, id)
+          // A GraphQL fetch-by-id failure (malformed UUID in the URL, a
+          // deleted/never-existed id the resolver 400s on, an expired
+          // session, ...) must resolve findByPk to "not found", not throw.
+          // useLiveQuery's refresh() only ever sets `data.value` on success
+          // — an uncaught rejection here left the live query stuck at its
+          // `initial` value (usually `undefined`) forever, which every
+          // detail page reads as "still loading". The page then never
+          // reaches its not-found state; it spins indefinitely instead.
+          // The underlying error is still visible via useLiveQuery's
+          // `console.error(err)` for real debugging.
+          const record = await MutationRunner.fetchOne(meta, id).catch((err) => {
+            console.error(`findByPk(${this.name}, ${id}) fetch failed — treating as not found:`, err)
+            return null
+          })
           if (record) {
             const tableName = ModelRegistry.getTableName(this.name)
             await IndexedDB.put(tableName, record)
@@ -206,11 +241,18 @@ export class BaseModel {
    * @param {string} [indexField] — indexed field name (or compound bracket syntax)
    * @param {unknown} [indexValue] — value to look up via the index
    * @param {Object} [options] — additional options
-   * @param {boolean} [options.force=false] — force query even if paranoid mode is enabled
+   * @param {boolean} [options.force=false] — return everything: soft-deleted
+   *   rows (paranoid) and rows hidden from lists (hiddenFromLists) included
    * @returns {QueryBuilder}
    */
   static where(indexField, indexValue, { force = false } = {}) {
-    return new QueryBuilder(this.name, indexField, indexValue, force ? false : this.paranoid)
+    return new QueryBuilder(
+      this.name,
+      indexField,
+      indexValue,
+      force ? false : this.paranoid,
+      force ? null : this.hiddenFromLists,
+    )
   }
 
   /**

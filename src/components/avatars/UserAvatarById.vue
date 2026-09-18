@@ -16,7 +16,8 @@ const user = useLiveQueryWithDeps(
     if (!userId) return null
     return db.User.findByPk(userId)
   },
-  { initial: null },
+
+  { models: ['User'], initial: null },
 )
 </script>
 

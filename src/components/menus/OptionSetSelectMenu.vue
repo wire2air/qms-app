@@ -11,24 +11,32 @@ const modelValue = defineModel({
   default: null,
 })
 
-const optionSets = useLiveQuery(async (db) => db.OptionSet.where().exec(), { initial: [] })
+const optionSets = useLiveQuery(async (db) => db.OptionSet.where().exec(), {
+  models: ['OptionSet'],
+  initial: [],
+})
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="optionSets" :required="required">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
+  <BaseSelect
+    v-model="modelValue"
+    :options="optionSets"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :clearable="!required"
+    nullLabel="— All option sets —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
         <OptionSetBadgeById
-          v-if="modelValue"
-          :optionSetId="modelValue"
-          :clearable="!required"
-          selectable
-          @clear="() => scope.clear(modelValue)"
+          v-for="o in options"
+          :key="o.value"
+          :optionSetId="o.value"
+          :clearable="false"
+          @clear="() => remove(o)"
         />
-        <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-          Select Option Set
-        </span>
-      </slot>
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

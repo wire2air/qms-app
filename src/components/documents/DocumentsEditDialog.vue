@@ -1,5 +1,7 @@
 <script setup>
 import { IconMinus, IconPlus, IconX } from '@tabler/icons-vue'
+import { required } from '@shared/components/form/validators.js'
+
 const props = defineProps({
   document: {
     type: Object,
@@ -20,12 +22,15 @@ const open = defineModel({
 
 const toast = useToast()
 
+const formRef = ref(null)
+const isSubmitting = ref(false)
+const saveError = ref(null)
+
 // Form state
 const editForm = ref({
   departmentId: null,
   statusId: null,
   effectiveDate: null,
-  workflowVersionId: null,
   tags: [],
   relatedStandardId: null,
   periodicReviewMonths: 12,
@@ -33,7 +38,18 @@ const editForm = ref({
 })
 
 const newTag = ref('')
-const isSubmitting = ref(false)
+
+// documents.periodicReviewMonths is a GraphQL Int — see the identical
+// comment in DocumentsCreateProperties.vue. `v-model.number` alone lets a
+// fractional value ("1.5") through to the mutation, which the server then
+// rejects with a raw GraphQL type error instead of a form validation message.
+const reviewMonthsModel = computed({
+  get: () => editForm.value.periodicReviewMonths,
+  set: (v) => {
+    const n = Math.round(Number(v))
+    editForm.value.periodicReviewMonths = Number.isFinite(n) ? Math.max(1, n) : 1
+  },
+})
 
 // Load document data when dialog opens
 watch(
@@ -44,14 +60,15 @@ watch(
         departmentId: props.document.departmentId,
         statusId: props.document.statusId,
         effectiveDate: props.currentVersion?.effectiveDate || null,
-        workflowVersionId: props.document.workflowVersionId || null,
         tags: props.document.tags || [],
         relatedStandardId: props.document.relatedStandardId || null,
         periodicReviewMonths: props.document.periodicReviewMonths ?? 12,
         autoEffectiveOnApproval: props.document.autoEffectiveOnApproval ?? true,
       }
+      saveError.value = null
     } else {
       newTag.value = ''
+      saveError.value = null
     }
   },
   { immediate: true },
@@ -72,11 +89,12 @@ function removeTag(index) {
 
 // Submit handler
 async function onSubmit() {
+  if (isSubmitting.value) return
   isSubmitting.value = true
+  saveError.value = null
   try {
     props.document.departmentId = editForm.value.departmentId
     props.document.statusId = editForm.value.statusId
-    props.document.workflowVersionId = editForm.value.workflowVersionId
     props.document.relatedStandardId = editForm.value.relatedStandardId
     props.document.periodicReviewMonths = editForm.value.periodicReviewMonths
     props.document.autoEffectiveOnApproval = editForm.value.autoEffectiveOnApproval
@@ -88,6 +106,8 @@ async function onSubmit() {
     toast.success('Document updated successfully')
     emit('updated')
     open.value = false
+  } catch (err) {
+    saveError.value = err?.message || 'Failed to save document'
   } finally {
     isSubmitting.value = false
   }
@@ -96,118 +116,123 @@ async function onSubmit() {
 
 <template>
   <BaseDialog v-model="open" title="Edit Document Properties">
-    <div class="tw:space-y-6">
-      <!-- Document Details -->
-      <section class="tw:space-y-4">
-        <h3 class="ds-label tw:text-secondary">Document Details</h3>
-        <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
-          <!-- Department -->
-          <div>
-            <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-              >Department</label
+    <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+      <div class="tw:space-y-6">
+        <!-- Document Details -->
+        <section class="tw:space-y-4">
+          <BaseText variant="overline">Document Details</BaseText>
+          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-4">
+            <!-- Department -->
+            <BaseField
+              label="Department"
+              required
+              :value="editForm.departmentId"
+              :rules="[required()]"
             >
-            <DepartmentSelectMenu v-model="editForm.departmentId" :required="true" />
-          </div>
-
-          <!-- Effective Date -->
-          <div>
-            <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-              >Effective Date</label
-            >
-            <BaseDatePicker v-model="editForm.effectiveDate" :required="false" />
-          </div>
-
-          <!-- Related Standard -->
-          <div>
-            <label class="tw:block tw:mb-1 tw:text-sm tw:font-medium tw:text-on-main"
-              >Related Standard</label
-            >
-            <RelatedStandardSelectMenu v-model="editForm.relatedStandardId" />
-          </div>
-        </div>
-
-        <!-- Review Settings -->
-        <div class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:gap-6 tw:mt-4">
-          <div class="tw:space-y-2">
-            <label class="tw:text-sm tw:font-semibold tw:text-on-sidebar">Periodic Review</label>
-            <div class="tw:flex tw:items-center tw:gap-3">
-              <div
-                class="tw:flex tw:items-center tw:border tw:border-divider tw:rounded-xl tw:overflow-hidden tw:bg-sidebar-hover"
-              >
-                <button
-                  class="tw:px-3 tw:py-2 tw:hover:bg-sidebar tw:text-secondary"
-                  @click="
-                    editForm.periodicReviewMonths = Math.max(1, editForm.periodicReviewMonths - 1)
-                  "
-                >
-                  <IconMinus :size="18" />
-                </button>
-                <input
-                  v-model.number="editForm.periodicReviewMonths"
-                  class="tw:w-16 tw:text-center tw:bg-transparent tw:border-none tw:focus:ring-0 tw:text-sm tw:font-bold tw:outline-none"
-                  type="number"
-                  min="1"
+              <template #default="field">
+                <DepartmentSelectMenu
+                  v-bind="field"
+                  v-model="editForm.departmentId"
+                  :required="true"
                 />
-                <button
-                  class="tw:px-3 tw:py-2 tw:hover:bg-sidebar tw:text-secondary"
-                  @click="editForm.periodicReviewMonths++"
+              </template>
+            </BaseField>
+
+            <!-- Effective Date -->
+            <BaseField label="Effective Date">
+              <BaseDateField v-model="editForm.effectiveDate" mode="date" :required="false" />
+            </BaseField>
+
+            <!-- Related Standard -->
+            <BaseField label="Related Standard">
+              <RelatedStandardSelectMenu v-model="editForm.relatedStandardId" />
+            </BaseField>
+          </div>
+
+          <!-- Review Settings -->
+          <div class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:gap-6 tw:mt-4">
+            <BaseField label="Periodic Review">
+              <div class="tw:flex tw:items-center tw:gap-3">
+                <div
+                  class="tw:flex tw:items-center tw:border tw:border-divider tw:rounded-xl tw:overflow-hidden tw:bg-sidebar-hover"
                 >
-                  <IconPlus :size="18" />
-                </button>
+                  <button
+                    class="tw:px-3 tw:py-2 tw:hover:bg-sidebar tw:text-secondary"
+                    @click="
+                      editForm.periodicReviewMonths = Math.max(1, editForm.periodicReviewMonths - 1)
+                    "
+                  >
+                    <IconMinus :size="18" />
+                  </button>
+                  <input
+                    v-model.number="reviewMonthsModel"
+                    class="tw:w-16 tw:text-center tw:bg-transparent tw:border-none tw:focus:ring-0 tw:text-sm tw:font-bold tw:outline-none"
+                    type="number"
+                    min="1"
+                    step="1"
+                  />
+                  <button
+                    class="tw:px-3 tw:py-2 tw:hover:bg-sidebar tw:text-secondary"
+                    @click="editForm.periodicReviewMonths++"
+                  >
+                    <IconPlus :size="18" />
+                  </button>
+                </div>
+                <span class="tw:text-sm tw:font-medium tw:text-secondary">months</span>
               </div>
-              <span class="tw:text-sm tw:font-medium tw:text-secondary">months</span>
+            </BaseField>
+            <div
+              class="tw:flex tw:items-center tw:gap-4 tw:py-3 tw:px-5 tw:bg-sidebar-hover tw:rounded-2xl tw:border tw:border-divider/50"
+            >
+              <div class="tw:space-y-0.5">
+                <p class="tw:text-sm tw:font-bold tw:text-on-sidebar">Auto-effective on approval</p>
+                <p class="tw:text-xs tw:text-secondary">Skip manual release after final approval</p>
+              </div>
+              <BaseSwitch v-model="editForm.autoEffectiveOnApproval" />
             </div>
           </div>
+        </section>
+
+        <!-- Metadata Tags -->
+        <section class="tw:space-y-4">
+          <BaseText variant="overline">Metadata Tags</BaseText>
           <div
-            class="tw:flex tw:items-center tw:gap-4 tw:py-3 tw:px-5 tw:bg-sidebar-hover tw:rounded-2xl tw:border tw:border-divider/50"
+            class="tw:flex tw:flex-wrap tw:gap-2 tw:p-3 tw:bg-sidebar-hover tw:border tw:border-divider tw:rounded-xl"
           >
-            <div class="tw:space-y-0.5">
-              <p class="tw:text-sm tw:font-bold tw:text-on-sidebar">Auto-effective on approval</p>
-              <p class="tw:text-xs tw:text-secondary">Skip manual release after final approval</p>
-            </div>
-            <BaseSwitch v-model="editForm.autoEffectiveOnApproval" />
+            <span
+              v-for="(tag, index) in editForm.tags"
+              :key="index"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:px-3 tw:py-1.5 tw:rounded-full tw:border tw:border-primary/20"
+            >
+              {{ tag }}
+              <button class="tw:hover:text-primary-dark" @click="removeTag(index)">
+                <IconX :size="14" />
+              </button>
+            </span>
+            <input
+              v-model="newTag"
+              class="tw:bg-transparent tw:border-none tw:focus:ring-0 tw:text-sm tw:py-0 tw:h-auto tw:w-32 tw:placeholder:text-secondary tw:outline-none"
+              placeholder="Add tag..."
+              type="text"
+              @keyup.enter="addTag"
+            />
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Metadata Tags -->
-      <section class="tw:space-y-4">
-        <h3 class="ds-label tw:text-secondary">Metadata Tags</h3>
-        <div
-          class="tw:flex tw:flex-wrap tw:gap-2 tw:p-3 tw:bg-sidebar-hover tw:border tw:border-divider tw:rounded-xl"
-        >
-          <span
-            v-for="(tag, index) in editForm.tags"
-            :key="index"
-            class="tw:inline-flex tw:items-center tw:gap-1 tw:bg-primary/10 tw:text-primary tw:text-xs tw:font-bold tw:px-3 tw:py-1.5 tw:rounded-full tw:border tw:border-primary/20"
-          >
-            {{ tag }}
-            <button class="tw:hover:text-primary-dark" @click="removeTag(index)">
-              <IconX :size="14" />
-            </button>
-          </span>
-          <input
-            v-model="newTag"
-            class="tw:bg-transparent tw:border-none tw:focus:ring-0 tw:text-sm tw:py-0 tw:h-auto tw:w-32 tw:placeholder:text-secondary tw:outline-none"
-            placeholder="Add tag..."
-            type="text"
-            @keyup.enter="addTag"
-          />
-        </div>
-      </section>
-
-      <!-- Approval Workflow -->
-      <section class="tw:space-y-4">
-        <h3 class="ds-label tw:text-secondary">Approval Workflow</h3>
-        <WorkflowVersionSelect v-model="editForm.workflowVersionId" />
-      </section>
-    </div>
+        <!-- Approval workflow is inherited from the document's template
+             (2026-08-15) and is not editable per-document — change the
+             reviewer/approver roles on the template instead. -->
+      </div>
+    </BaseForm>
 
     <template #footer>
-      <div class="tw:flex tw:justify-end tw:gap-2">
-        <BaseButton variant="outline" @click="open = false">Cancel</BaseButton>
-        <BaseButton :isLoading="isSubmitting" @click="onSubmit">Save Changes</BaseButton>
-      </div>
+      <BaseDialogFooter
+        submitLabel="Save Changes"
+        :loading="isSubmitting"
+        :error="saveError"
+        @cancel="open = false"
+        @submit="formRef?.submit()"
+      />
     </template>
   </BaseDialog>
 </template>

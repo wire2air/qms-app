@@ -26,7 +26,11 @@ export class Nonconformance extends BaseModel {
   @Property({ type: String }) ncNumber = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String }) statusId = 'DRAFT'
+  // NCR-C1 (client half): status is server-enforced by the
+  // enforce_nc_status_transition trigger; block the generated
+  // updateNonconformance mutation from ever carrying statusId so an inline
+  // .save() can't attempt a lifecycle change (which the DB would reject anyway).
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) severityId = ''
   @Property({ type: String, required: true }) typeId = ''
   @Property({ type: String, required: true }) sourceId = ''
@@ -44,11 +48,14 @@ export class Nonconformance extends BaseModel {
   // supplierId) instead of the internal role pool. Immutable once
   // submitted; backend enforces.
   @Property({ type: Boolean }) isSupplierFacing = false
+  @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   // Top-section classification (added 2026-05-29). Independent of the
   // existing typeId — issue-type captures the discovery dimension
   // (out-of-spec / receiving / missing standard), typeId stays the
   // nature of the NC. priorityId mirrors CAPA's enum.
-  @Property({ type: String }) ncIssueTypeId = null
+  @Property({ type: String }) categoryId = null
   @Property({ type: String }) priorityId = null
   @Property({ type: String }) poNumber = ''
   @Property({ type: String }) orderNumber = ''
@@ -63,6 +70,15 @@ export class Nonconformance extends BaseModel {
   @Property({ type: Boolean }) capaRequired = null
   @Property({ type: String }) dispositionNotes = ''
   @Property({ type: String }) immediateContainmentAction = ''
+  /**
+   * The first look at the NC. Body and evidence are SEPARATE columns, not one
+   * encoded string: the text is searchable as a plain column and the files are
+   * queryable as an array. `RichTextAttachments` binds both directly in its
+   * separateAttachments mode — the same shape document sections use.
+   */
+  @Property({ type: String }) initialInvestigation = ''
+  /** [{ assetId, name, mimeType } | { documentId, name }] */
+  @Property({ type: Array }) initialInvestigationAttachments = []
   @Property({ type: DateTime }) closedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) markedCompleteAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) markedCompleteBy = null

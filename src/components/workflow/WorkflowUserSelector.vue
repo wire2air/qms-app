@@ -17,7 +17,8 @@ const users = useLiveQuery(
     (await db.User.where().exec()).filter(
       (u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER',
     ),
-  { initial: [] },
+
+  { models: ['User'], initial: [] },
 )
 
 const stepUsers = useLiveQueryWithDeps(
@@ -26,7 +27,8 @@ const stepUsers = useLiveQueryWithDeps(
     if (!stepId) return []
     return await db.WorkflowStepUser.where('stepId', stepId).exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStepUser'], initial: [] },
 )
 
 const reviewerIds = computed(() => stepUsers.value.map((su) => su.userId))
@@ -82,41 +84,42 @@ async function removeUser(userId) {
 <template>
   <div class="tw:space-y-4">
     <!-- Search -->
-    <div>
-      <label class="tw:block tw:text-xs tw:font-bold tw:text-secondary tw:uppercase tw:mb-2">
-        Select Users
-      </label>
-      <BaseTextInput v-model="search" placeholder="Search users by name or email...">
+    <BaseField v-slot="{ id: fieldId }" label="Select Users">
+      <BaseTextInput :id="fieldId" v-model="search" placeholder="Search users by name or email...">
         <template #icon>
           <IconSearch :size="18" class="tw:text-secondary" />
         </template>
       </BaseTextInput>
-    </div>
+    </BaseField>
 
     <!-- Selected Chips -->
     <div v-if="selectedUsers.length > 0" class="tw:flex tw:flex-wrap tw:gap-2">
-      <BaseChip
+      <BaseBadge
         v-for="user in selectedUsers"
         :key="user.id"
-        :label="getUserDisplayName(user)"
-        :removable="canUpdate"
-        @remove="removeUser(user.id)"
-      />
+        class="tw:bg-main-hover tw:border-divider tw:text-on-main"
+        :clearable="canUpdate"
+        :clearLabel="`Remove ${getUserDisplayName(user)}`"
+        @clear="removeUser(user.id)"
+      >
+        {{ getUserDisplayName(user) }}
+      </BaseBadge>
     </div>
 
     <!-- User List -->
     <div class="tw:max-h-48 tw:overflow-y-auto tw:space-y-1">
-      <div
+      <BaseClickableRow
         v-for="user in filteredUsers"
         :key="user.id"
+        :disabled="!canUpdate"
+        :aria-label="`Toggle user ${getUserDisplayName(user)}`"
         class="tw:flex tw:items-center tw:gap-3 tw:p-2 tw:rounded-lg tw:transition-colors"
         :class="[
           reviewerIds.includes(user.id)
             ? 'tw:bg-primary/10 tw:border tw:border-primary/20'
             : 'tw:hover:bg-main-hover',
-          canUpdate ? 'tw:cursor-pointer' : 'tw:cursor-default',
         ]"
-        @click="canUpdate && toggleUser(user.id)"
+        @click="toggleUser(user.id)"
       >
         <BaseCheckbox
           :modelValue="reviewerIds.includes(user.id)"
@@ -130,7 +133,7 @@ async function removeUser(userId) {
           </div>
           <div class="tw:text-xs tw:text-secondary tw:truncate">{{ user.email }}</div>
         </div>
-      </div>
+      </BaseClickableRow>
 
       <BaseEmptyState v-if="filteredUsers.length === 0" dense title="No users found" />
     </div>

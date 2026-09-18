@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite'
-import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import { fileURLToPath } from 'url'
 import vue from '@vitejs/plugin-vue'
 import babel from 'vite-plugin-babel'
@@ -28,7 +27,11 @@ export default defineConfig(({ mode }) => {
 
   // Proxy configuration for API calls
   const proxy = {
-    '/api': {
+    // Match the `/api/` path SEGMENT, not the bare `/api` string. Frontend
+    // routes that merely start with "api" (e.g. /api-keys, /api-tokens) must
+    // NOT be proxied to the backend on a hard reload — they're SPA routes.
+    // Real API calls are always `/api/v1/...`, so the trailing slash is safe.
+    '/api/': {
       target: env.VITE_PROXY_API_TARGET,
       changeOrigin: true,
       rewrite: (path) => path.replace(/^\/api/, ''),
@@ -43,6 +46,22 @@ export default defineConfig(({ mode }) => {
       target: env.VITE_PROXY_SYNC_TARGET,
       changeOrigin: true,
       ws: true,
+      configure: forwardTenantHost,
+    },
+    // Swagger UI + its spec (`/swagger`, `/swagger/spec.json`). No rewrite —
+    // the api serves these paths as-is, which is the same reason the deployed
+    // `swagger-dev` Traefik router carries no strip middleware.
+    //
+    // Worth proxying rather than telling people to open :4000 directly: the
+    // session cookie is scoped to the tenant host (`acme.localhost`), so it is
+    // NOT sent to `localhost:4000`, and "Try it out" there runs unauthenticated.
+    // On this origin it runs as whoever is logged into the tab.
+    //
+    // Note the spec is NOT at `/docs` — that path is the SPA's Internal Docs
+    // Center route, and proxying it would take the docs centre away.
+    '/swagger': {
+      target: env.VITE_PROXY_API_TARGET,
+      changeOrigin: true,
       configure: forwardTenantHost,
     },
   }
@@ -62,11 +81,38 @@ export default defineConfig(({ mode }) => {
     // Build target configuration
     build: {
       target: ['es2022', 'firefox115', 'chrome115', 'safari16'],
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return
+            // The rich-text editor (tiptap/prosemirror) is the heaviest vendor
+            // and only used on editor pages — isolate it into one shared,
+            // clearly-named chunk loaded on demand instead of being named after
+            // a random consumer.
+            if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-editor'
+          },
+        },
+      },
     },
 
-    // Dev server configuration
+    // Dev server configuration. VITE_DEV_PORT (e.g. in gitignored .env.local)
+    // moves the dev server off 5173 when another app holds it; strictPort so a
+    // clash fails fast instead of silently drifting to a port the backend's
+    // APP_URL (login handoff, deep links) doesn't point at.
     server: {
       open: true, // opens browser window automatically
+      proxy,
+      ...(env.VITE_DEV_PORT ? { port: Number(env.VITE_DEV_PORT), strictPort: true } : {}),
+    },
+
+    // Preview server (`pnpm preview`) — serves the built/minified bundle. Vite's
+    // preview server does NOT inherit `server.proxy`, so we reuse the same proxy
+    // and pin the port to 5173 so tenant subdomains (acme.localhost:5173) resolve
+    // and /api + /socket.io reach the local backend exactly as they do in dev.
+    // `strictPort` fails fast if 5173 is taken (e.g. the dev server is running).
+    preview: {
+      port: 5173,
+      strictPort: true,
       proxy,
     },
 
@@ -89,22 +135,14 @@ export default defineConfig(({ mode }) => {
 
       // Vue Router with file-based routing
       VueRouter({
-        importMode: 'sync',
+        // 'async' → each page compiles to its own lazy chunk loaded on
+        // navigation, instead of being eagerly bundled into the main chunk.
+        importMode: 'async',
         dts: './typed-router.d.ts',
       }),
 
       // Vue plugin
-      vue({
-        template: {
-          transformAssetUrls,
-        },
-      }),
-
-      // Quasar plugin
-      quasar({
-        autoImportComponentCase: 'pascal',
-        sassVariables: fileURLToPath(new URL('./src/css/quasar.variables.scss', import.meta.url)),
-      }),
+      vue(),
 
       // Vue I18n
       VueI18nPlugin({

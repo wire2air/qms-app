@@ -1,0 +1,284 @@
+/**
+ * Route-level permission guard.
+ *
+ * The SPA previously enforced permissions ONLY cosmetically — the sidebar hid
+ * links and pages hid action buttons — but nothing stopped a user from typing a
+ * module URL (or using the ⌘K palette / a shared deep link) to load a page they
+ * have no permission for. This guard closes that gap: it maps each protected
+ * route to the permission the sidebar already requires for its nav entry, and
+ * redirects unauthorized users to `/no-access`.
+ *
+ * Design rules (mirrors MainSidebar.vue + backend RLS intent):
+ *  - Owners bypass every check (handled inside `isAllowed`).
+ *  - ADMIN modules (users, roles, settings, …) are guarded for the whole
+ *    subtree — list AND detail — because there is no row-level RLS exception:
+ *    if you can't read the module, you can't see any of its records.
+ *  - RECORD modules (documents, capas, audits, …) guard ONLY the list route.
+ *    Their detail routes are left to backend RLS, which grants row-level access
+ *    to assignees / collaborators / shared users who legitimately lack the
+ *    module-wide `:read` permission (e.g. an auditor assigned to one audit).
+ *  - EXTERNAL_SUPPLIER users get their own allow-list: the record modules RLS
+ *    shares with them stay open, every admin module is blocked.
+ *  - Routes with no entry here are open (dashboard, equipment, task
+ *    instances, …) — same as the sidebar showing them with no permission gate.
+ */
+import { isAllowed, currentSession, isSupplier, isPlatformAdmin } from '@/utils/currentSession'
+
+// Admin / configuration modules — guarded across the whole subtree (list + detail).
+// key = first path segment, value = required permission.
+const ADMIN_PERMISSIONS = {
+  users: 'user_management:read',
+  roles: 'role_permission_management:read',
+  groups: 'teams:read',
+  sites: 'sites:read',
+  departments: 'departments:read',
+  suppliers: 'supplier_management:read',
+  products: 'products:read',
+  // Template/reference routes deliberately carry NO guard: their reads are
+  // tenant-public (migration 20260804150000 — reference data every picker
+  // depends on) and their nav entries are write-gated instead. In-page
+  // authoring actions gate on the module's write verbs. Guarding on
+  // '<module>:read' would bounce no-grant users off pages RLS happily serves
+  // — the read strings no longer exist as grantable actions.
+  'automation-rules': 'automation_rules:manage',
+  'custom-fields': 'custom_fields:manage',
+  'complaint-settings': 'complaint_management:update',
+  'notification-rules': 'company_settings:manage',
+  lookups: 'company_settings:manage',
+  settings: 'company_settings:manage',
+  'organization-security': 'security:manage',
+  'admin-security': 'security:manage',
+  'vendor-access-log': 'security:manage',
+  // Analytics (the seeded `reports_dashboards` module — read / export / manage).
+  // Guarded across the WHOLE subtree, not list-only: unlike a record module
+  // there is no row-level RLS exception that legitimately shows one aggregate to
+  // someone without the module read. Suppliers are blocked by the ADMIN branch
+  // below.
+  //
+  // ⚠ THIS COMMENT USED TO CLAIM the metric functions "return nothing without
+  // it". They returned 6. That was F-11: until the migration of 2026-08-19 the
+  // metric layer gated on tenant entitlement plus the MEASURED module's read and
+  // never on the analytics grant, so this guard was the only thing enforcing it
+  // and a non-browser client bypassed it entirely. The claim was written from
+  // reasoning rather than measurement, and because it read as a finding nobody
+  // re-checked it.
+  //
+  // It is true NOW — `authz.has_permission('reports_dashboards','read')` is in
+  // the analytics_metrics and analytics_rollup SELECT policies in
+  // database/rls.sql — and it stays true because a test says so, not because
+  // this comment does: backend/api/tests/integration/analytics/moduleGrant.test.js.
+  // If you are about to widen this guard, read that file first.
+  // NB there is no `create` action on this module, so if a future authoring
+  // route lands at /analytics/create, map it explicitly rather than letting
+  // createPermissionFrom() derive a `reports_dashboards:create` nobody holds.
+  analytics: 'reports_dashboards:read',
+  'service-accounts': 'api_integrations:read',
+  // NOTE (RA-1, 2026-09-07): `read` is no longer implied by any other grant on
+  // a module — authz.effective_permission_strings stopped synthesising it. So
+  // this is now a real `ai:read` requirement, and a role holding only `ai:run`
+  // no longer reaches this route. The comment that used to sit here said the
+  // opposite and had gone stale.
+  'api-tokens': 'ai:read',
+  'ai-usage': 'ai:read',
+  'audit-logs': 'audit_trail:read',
+}
+
+// Record modules — guard the LIST route only; detail routes defer to RLS so
+// assignees / shared users keep their row-level access.
+const RECORD_LIST_PERMISSIONS = {
+  documents: 'document_control:read',
+  nonconformances: 'ncr:read',
+  qualityEvents: 'quality_events:read',
+  // Bulk import creates documents, so it is gated on create — a reader
+  // reaching the URL directly would only be able to watch it fail.
+  'document-imports': 'document_control:create',
+  'customer-complaints': 'complaint_management:read',
+  // Standalone QMS quality complaints (the `complaints` table) — a separate
+  // module from Customer Complaints above; mirrors the sidebar's `complaints:read`
+  // gate so direct-URL access to /complaints is blocked without the permission.
+  complaints: 'complaints:read',
+  capas: 'capa:read',
+  'change-requests': 'change_control:read',
+  audits: 'audit_management:read',
+  records: 'records:read',
+  trainings: 'training:read',
+  'training-instances': 'training_instances:read',
+  'training-verifications': 'training_verifications:read',
+  'training-curriculum': 'training:read',
+  'training-reports': 'training_instances:read',
+  // Multi-module workspace — any of its tabs' modules admits (array = any-of).
+  'inspections-logs': ['log_books:read', 'inspections:read', 'field_records:read'],
+  'qc-inspection': 'inspection_qc:read',
+  logging: 'field_records:create',
+}
+
+// Record modules an EXTERNAL_SUPPLIER may reach even without the module `:read`
+// permission (RLS scopes the rows shared with them). Everything guarded that is
+// NOT in this set is blocked for suppliers.
+const SUPPLIER_EXEMPT_SEGMENTS = new Set([
+  'documents',
+  'nonconformances',
+  'capas',
+  'qualityEvents',
+  'audits',
+  'm', // admin-defined modules (form-template driven) shared with the supplier
+])
+
+// F-15 — segments an EXTERNAL_SUPPLIER must never reach, but which carry NO
+// permission requirement for internal users.
+//
+// `/workflow-instances` and `/workflow-instances/:id` had no guard of any kind:
+// no router entry, no sidebar link, and zero `isAllowed()` calls across all 22
+// components that render them. Because `requiredPermissionFor` returns null for
+// an unmapped segment, both the supplier branch above and the permission check
+// below fell through to `return true`, so any authenticated user — supplier
+// accounts included — could open the tenant's approval topology by typing the URL.
+//
+// This is NOT fixed by adding the segment to ADMIN_PERMISSIONS, which is what the
+// pack's PW-J14 originally specified. `/workflow-instances/:id` is legitimately
+// deep-linked from the Nonconformance detail page (NonconformancesPageId.vue),
+// the Document detail page (DocumentsPageId.vue) and every `WorkflowInstance`
+// notification (NotificationsItem.vue). Requiring `workflows_templates:read`
+// would break all three for ordinary reviewers, who hold no template permission
+// by design — a worse outcome than the finding.
+//
+// So the segment stays open to authenticated internal users, whose visibility is
+// scoped by RLS (and, since the F-04 fix, by the OWNING module's read permission
+// per resource type), and is closed to suppliers outright.
+//
+// `/auditee` (2026-09-08) is the same shape and is here for the same reason.
+// It is in NEITHER map, so `requiredPermissionFor` returns null and both the
+// supplier branch above and the permission check below fell through to
+// `return true` — an EXTERNAL_SUPPLIER could open the company's own
+// certification-audit surface by typing the URL.
+//
+// It is deliberately NOT added to RECORD_LIST_PERMISSIONS, which is what the
+// auditee pack's finding #2 proposed. `audit_instances_sel` admits a row on
+// permission OR audit-team membership OR a shared_with_user grant, so gating
+// `/auditee` on `audit_management:read` would bounce exactly the population
+// the surface exists for — the auditee POC and the invited participants, none
+// of whom need an audit permission to be ON an audit. routeMeta.js's own F-18
+// note (2026-09-07) reached this conclusion independently and named /auditee
+// as one of the routes that must not be gated that way. So: open to
+// authenticated internal users, bounded by RLS, closed to suppliers outright —
+// the /workflow-instances resolution, applied to the same problem.
+const SUPPLIER_BLOCKED_SEGMENTS = new Set(['workflow-instances', 'auditee'])
+
+const NO_ACCESS_PATH = '/no-access'
+
+function firstSegment(path) {
+  return path.split('/').filter(Boolean)[0] || ''
+}
+
+// Path segments that mean "the create/new form" (e.g. /documents/create).
+// Record ids are UUIDs, so these never collide with a real detail route.
+const CREATE_SEGMENTS = new Set(['create', 'new'])
+
+// Derive the create permission from a module's base (list) permission:
+// `documents:read` → `documents:create`; a `:manage`/`:create`/`:update` gate
+// (settings, automation-rules, inspections-logs…) already covers creation, so
+// use it as-is.
+function createPermissionFrom(basePerm) {
+  // Array (any-of workspace gate): bump each member — holding create on ANY
+  // of the workspace's modules admits its create pages.
+  if (Array.isArray(basePerm)) return basePerm.map((p) => createPermissionFrom(p))
+  return basePerm.endsWith(':read') ? basePerm.replace(/:read$/, ':create') : basePerm
+}
+
+/**
+ * Resolve the permission required to view `to`, or null if the route is open.
+ * @param {import('vue-router').RouteLocationNormalized} to
+ * @returns {string|null}
+ */
+export function requiredPermissionFor(to) {
+  const segs = to.path.split('/').filter(Boolean)
+  const seg = segs[0]
+  if (!seg) return null
+
+  // Admin-defined modules: /m/:internalName (…/create → `${internalName}:create`).
+  if (seg === 'm') {
+    const internalName = segs[1]
+    if (!internalName) return null
+    return CREATE_SEGMENTS.has(segs[2]) ? `${internalName}:create` : `${internalName}:read`
+  }
+
+  const basePerm = ADMIN_PERMISSIONS[seg] || RECORD_LIST_PERMISSIONS[seg]
+  if (!basePerm) return null
+
+  // Create/new page: require the module's create permission, so a user without
+  // it can't reach the form even by direct URL (segs like /documents/create).
+  if (CREATE_SEGMENTS.has(segs[1])) return createPermissionFrom(basePerm)
+
+  // Admin subtree — list and detail both gated on the base permission.
+  if (ADMIN_PERMISSIONS[seg]) return basePerm
+
+  // Record modules — only the bare list route is gated; detail defers to RLS.
+  const normalized = to.path.replace(/\/+$/, '')
+  return normalized === `/${seg}` ? basePerm : null
+}
+
+/**
+ * Decide whether navigation to `to` is permitted for the current session.
+ * Returns `true` to allow, or a redirect location to block.
+ */
+export function evaluateRoute(to) {
+  // Never guard the no-access page itself (avoid redirect loops).
+  if (to.path === NO_ACCESS_PATH) return true
+
+  // Session not yet resolved (undefined) or logged out (null): let App.vue's
+  // boot flow handle auth/tenant redirects. We only gate authenticated users.
+  if (!currentSession.value) return true
+
+  const seg = firstSegment(to.path)
+
+  // Platform-admin control plane — the /platform console AND impersonation
+  // (/admin/impersonate) are cross-tenant capabilities gated on platform-admin
+  // standing, not company permissions. Blocked for everyone else, including
+  // suppliers. The backend re-checks every call regardless (requirePlatformAdmin).
+  if (seg === 'platform' || to.path.startsWith('/admin/impersonate')) {
+    if (isPlatformAdmin.value) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
+
+  // Internal Docs Center (/docs) — the engineering documentation corpus
+  // (security reviews, readiness verdicts). Platform operators only, same
+  // standing as /platform; the backend re-checks every fetch
+  // (requirePlatformAdmin('readonly')). Never a tenant-facing surface.
+  if (seg === 'docs') {
+    if (isPlatformAdmin.value) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
+
+  // EXTERNAL_SUPPLIER: allow their RLS-shared record modules, block admin routes.
+  if (isSupplier.value) {
+    if (SUPPLIER_EXEMPT_SEGMENTS.has(seg)) return true
+    // F-15 — checked BEFORE the map lookup: these segments carry no permission
+    // entry, so the map test below would let a supplier straight through.
+    if (SUPPLIER_BLOCKED_SEGMENTS.has(seg)) {
+      return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+    }
+    if (ADMIN_PERMISSIONS[seg] || RECORD_LIST_PERMISSIONS[seg]) {
+      return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+    }
+    return true
+  }
+
+  const permission = requiredPermissionFor(to)
+  if (!permission) return true
+  // Array = any-of (multi-module workspaces like /inspections-logs).
+  if (Array.isArray(permission)) {
+    if (permission.some((p) => isAllowed([p]))) return true
+    return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+  }
+  if (isAllowed([permission])) return true
+
+  return { path: NO_ACCESS_PATH, query: { from: to.fullPath } }
+}
+
+/**
+ * Register the permission guard on the router instance.
+ * @param {import('vue-router').Router} router
+ */
+export function installPermissionGuard(router) {
+  router.beforeEach((to) => evaluateRoute(to))
+}

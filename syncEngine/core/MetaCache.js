@@ -5,6 +5,7 @@
  * Built once at syncEngine.install() after all @ClientModel classes are imported.
  */
 
+import pluralize from 'pluralize-esm'
 import ModelRegistry from './ModelRegistry.js'
 import { GraphQLSchemaGenerator } from '../network/GraphQLSchemaGenerator.js'
 import { LOAD_STRATEGY } from '../shared/constants.js'
@@ -48,6 +49,19 @@ export const MetaCache = {
 
       cache.set(modelName, meta)
       cacheByTable.set(schema.tableName, meta)
+
+      // Postgres uses the singular form for uncountable-noun tables (e.g. the
+      // real table is `equipment`), while the model/GraphQL layer uses the
+      // forced plural (`equipments`, needed so PostGraphile's `equipments`
+      // collection resolves). The socket 'sync' event carries the RAW postgres
+      // table name, so socketSubscriber.getByTable('equipment') would miss the
+      // 'equipments'-keyed entry and silently drop every equipment update.
+      // Also index by the singular so those events resolve. Guard so a model
+      // whose real table IS the singular still wins the primary key.
+      const singularTable = pluralize.singular(schema.tableName)
+      if (singularTable !== schema.tableName && !cacheByTable.has(singularTable)) {
+        cacheByTable.set(singularTable, meta)
+      }
     }
   },
 

@@ -1,0 +1,363 @@
+<script setup>
+/**
+ * Builder card for an Input Table (a repeater rendered as "Product N" rows).
+ *
+ * Unlike a raw repeater — which the builder edits via nested drop zones — an
+ * Input Table is edited by its COLUMNS: each column is a field, and respondents
+ * add ROWS at fill time (so there's no "Add row" here). The card:
+ *   - renders the field exactly like the live form / Preview panel (DynamicForm,
+ *     non-interactive) so the designer matches the preview, and
+ *   - shows a compact column manager: add a column via a dialog (title +
+ *     component, the same shape as the checklist Add-column dialog) and remove
+ *     columns inline.
+ *
+ * Data model: columns live on the single row wrapper at `field.template[0]`
+ * (template[0].children). Each column is an ordinary field object with
+ * `class: 'tw:grow'` so the row lays them out evenly, exactly as the seeded
+ * Product Name / Product Category columns do.
+ */
+import { IconPlus, IconX, IconTrash } from '@tabler/icons-vue'
+import {
+  FIELD_TYPES_CONFIG,
+  INPUT_TABLE_COLUMN_TYPES,
+  fieldTypeLabel,
+  LOOKUP_ENTITIES,
+  LOOKUP_CASCADES,
+  GROUP_TYPE_OPTIONS,
+} from '@/constants/formBuilderConfig'
+import DynamicForm from '@/components/form/DynamicForm.js'
+import { useListReorder } from '@/composables/useListReorder.js'
+
+const props = defineProps({
+  field: { type: Object, required: true },
+})
+
+// The component types a column can be. Mirrors the checklist Add-column dialog
+// (title + component) but the values are real form field types.
+// Names come from the shared map so a type is called the same thing here, in
+// the field-type dropdown and in the checklist column picker (user request
+// 2026-08-16 — this list had been renamed everywhere except here). The SET
+// stays specific to input tables: its columns are real form fields, unlike a
+// checklist's cells.
+const columnTypeItems = INPUT_TABLE_COLUMN_TYPES.map((o) => ({ id: o.type, name: o.label }))
+const typeLabel = (t) => fieldTypeLabel(t)
+
+const previewData = ref({})
+const previewFields = computed(() => [{ ...props.field, width: 'full', hidden: false }])
+
+// The row wrapper that holds the columns. Created on demand so a hand-built
+// template (or one an edit left empty) still works.
+function columnsHost() {
+  if (!Array.isArray(props.field.template)) props.field.template = []
+  let row = props.field.template[0]
+  if (!row || row.type !== 'row') {
+    row = { type: 'row', name: 'row_1', colClass: 'tw:flex-1', children: [] }
+    props.field.template.unshift(row)
+  }
+  if (!Array.isArray(row.children)) row.children = []
+  return row
+}
+const columns = computed(() => props.field.template?.[0]?.children || [])
+
+function toCamelCase(str) {
+  return String(str || '')
+    .replace(/(?:^\w|[A-Z]|\b\w)/g, (w, i) => (i === 0 ? w.toLowerCase() : w.toUpperCase()))
+    .replace(/\s+/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+}
+function uniqueColumnName(title, type) {
+  const base = toCamelCase(title) || type
+  const existing = columns.value.map((c) => c.name)
+  let name = base
+  let n = 1
+  while (existing.includes(name)) name = `${base}_${n++}`
+  return name
+}
+function buildColumn(title, type) {
+  const cfg = { type, ...FIELD_TYPES_CONFIG.base, ...(FIELD_TYPES_CONFIG[type] || {}) }
+  cfg.label = title
+  cfg.name = uniqueColumnName(title, type)
+  cfg.class = 'tw:grow'
+  // Deep clone so array/object defaults (e.g. select options) aren't shared.
+  return JSON.parse(JSON.stringify(cfg))
+}
+
+// ── Add / remove columns ────────────────────────────────────────────────────
+const showColDialog = ref(false)
+const colDraft = ref({ label: '', type: 'input', options: [] })
+function openColDialog() {
+  colDraft.value = {
+    label: '',
+    type: 'input',
+    options: [],
+    // Dropdown / Multiple Choice: custom options OR a tenant Option Set —
+    // form-level parity (user request 2026-08-27).
+    useCustomOptions: true,
+    optionSetId: null,
+    // Multiple Choice flavor: one answer (radio) or several (checkboxes).
+    groupType: GROUP_TYPE_OPTIONS[0]?.value ?? 'radio',
+    // Lookup columns: which company table, and (optionally) which SIBLING
+    // lookup column narrows it per row — the form-level cascade, row-scoped.
+    lookupEntity: 'product',
+    parentColumn: null,
+  }
+  showColDialog.value = true
+}
+// Option-bearing column types get their options right in this dialog — an
+// Option Group is meaningless without them (user feedback 2026-07-27).
+const draftIsOptionType = computed(() => ['optionGroup', 'select'].includes(colDraft.value.type))
+const draftNeedsOptions = computed(() => draftIsOptionType.value && colDraft.value.useCustomOptions)
+const draftIsLookup = computed(() => colDraft.value.type === 'lookup')
+
+const lookupEntityItems = LOOKUP_ENTITIES.map((e) => ({ id: e.value, name: e.label }))
+const groupTypeItems = GROUP_TYPE_OPTIONS.map((o) => ({ id: o.value, name: o.label }))
+
+// Sibling lookup columns that can NARROW the draft column, per the same
+// registry the form level uses: only pairs LOOKUP_CASCADES knows (Department
+// by Site, User by Site/Department, Equipment by Site/Department, Product by
+// Supplier) are offered.
+const draftParentOptions = computed(() => {
+  if (!draftIsLookup.value) return []
+  const parents = LOOKUP_CASCADES[colDraft.value.lookupEntity] || {}
+  return columns.value
+    .filter((c) => c.type === 'lookup' && c.name && parents[c.lookupEntity])
+    .map((c) => ({ id: c.name, name: c.label || c.name }))
+})
+watch(
+  () => colDraft.value.lookupEntity,
+  () => {
+    // A parent picked for the previous entity may not be legal for the new one.
+    if (!draftParentOptions.value.some((o) => o.id === colDraft.value.parentColumn)) {
+      colDraft.value.parentColumn = null
+    }
+  },
+)
+const draftCleanOptions = computed(() =>
+  (colDraft.value.options || []).map((o) => String(o).trim()).filter(Boolean),
+)
+const canSaveColumn = computed(() => {
+  if (!colDraft.value.label.trim()) return false
+  // Option-set-sourced columns need the set picked; custom Multiple Choice
+  // needs at least two choices.
+  if (draftIsOptionType.value && !colDraft.value.useCustomOptions) {
+    return !!colDraft.value.optionSetId
+  }
+  if (colDraft.value.type === 'optionGroup') return draftCleanOptions.value.length >= 2
+  return true
+})
+function addDraftOption() {
+  colDraft.value.options.push('')
+}
+function removeDraftOption(i) {
+  colDraft.value.options.splice(i, 1)
+}
+function saveColumn() {
+  if (!canSaveColumn.value) return
+  const label = colDraft.value.label.trim()
+  const col = buildColumn(label, colDraft.value.type)
+  if (draftIsOptionType.value) {
+    if (colDraft.value.useCustomOptions) {
+      col.options = draftCleanOptions.value
+    } else {
+      // FK-only, exactly like form-level fields: the Option Set stays tenant
+      // config and resolves at render time.
+      col.optionSetId = colDraft.value.optionSetId
+      col.options = []
+    }
+  }
+  // Table cells want the horizontal layout by default (the field default is
+  // vertical, which fits standalone forms but not a row).
+  if (colDraft.value.type === 'optionGroup') {
+    col.inline = true
+    col.groupType = colDraft.value.groupType
+  }
+  if (draftIsLookup.value) {
+    col.lookupEntity = colDraft.value.lookupEntity
+    if (colDraft.value.parentColumn) col.parentField = colDraft.value.parentColumn
+  }
+  columnsHost().children.push(col)
+  showColDialog.value = false
+}
+// Drag-to-reorder columns (user request 2026-08-16). Rows aren't reorderable
+// here because respondents add them at fill time — the builder only defines
+// the columns.
+const columnsRef = ref(null)
+// The live array is template[0].children — NOT field.columns, which is the
+// CHECKLIST's shape this line was copied from. With the wrong getter the chip
+// visually moved and the schema never changed (user report 2026-08-27).
+useListReorder(columnsRef, () => props.field?.template?.[0]?.children, { filter: 'button' })
+
+function removeColumn(i) {
+  columnsHost().children.splice(i, 1)
+}
+
+const addRowLabel = computed(() => props.field.addLabel || 'Add row')
+</script>
+
+<template>
+  <!-- Clicks BUBBLE to the canvas card so clicking the table selects it and
+       opens the Field Settings panel (user report 2026-08-27: it never
+       opened). The column-manager buttons stop their own clicks. -->
+  <div class="tw:mt-2">
+    <!-- WYSIWYG preview — identical to the live form / Preview panel. -->
+    <div class="tw:pointer-events-none">
+      <DynamicForm v-model="previewData" :fields="previewFields" />
+    </div>
+
+    <!-- Column manager -->
+    <div class="tw:mt-3 tw:border-t tw:border-divider tw:pt-2">
+      <div class="tw:flex tw:items-center tw:justify-between tw:mb-1.5">
+        <span class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide">
+          Columns
+        </span>
+        <button
+          type="button"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-primary tw:hover:bg-primary/10 tw:rounded tw:px-2 tw:py-1 tw:text-xs tw:font-medium tw:bg-transparent tw:border tw:border-primary/30 tw:cursor-pointer"
+          @click.stop="openColDialog"
+        >
+          <IconPlus :size="14" /> Add column
+        </button>
+      </div>
+      <div ref="columnsRef" class="tw:flex tw:flex-wrap tw:gap-1.5">
+        <span
+          v-for="(col, i) in columns"
+          :key="col.name || i"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:border tw:border-divider tw:bg-sidebar tw:px-2 tw:py-1 tw:text-xs tw:text-on-main tw:cursor-grab tw:active:cursor-grabbing"
+          title="Drag to reorder"
+        >
+          {{ col.label || 'Column' }}
+          <span class="tw:text-micro tw:text-secondary">({{ typeLabel(col.type) }})</span>
+          <button
+            type="button"
+            class="tw:text-secondary tw:hover:text-bad tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            title="Remove column"
+            @click.stop="removeColumn(i)"
+          >
+            <IconX :size="13" />
+          </button>
+        </span>
+        <span v-if="!columns.length" class="tw:text-xs tw:text-secondary tw:italic">
+          No columns yet — add one to build the table.
+        </span>
+      </div>
+      <p class="tw:text-micro tw:text-secondary tw:mt-1.5">
+        Respondents add rows with the “{{ addRowLabel }}” button when filling the form.
+      </p>
+    </div>
+
+    <!-- Add Column dialog (title + component — same shape as the checklist one). -->
+    <BaseDialog v-model="showColDialog" title="Add column" size="sm">
+      <div class="tw:flex tw:flex-col tw:gap-4">
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Column title</BaseText>
+          <BaseTextInput
+            v-model="colDraft.label"
+            placeholder="e.g. Quantity"
+            @keyup.enter="saveColumn"
+          />
+        </div>
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Component</BaseText>
+          <BaseSelect
+            v-model="colDraft.type"
+            :options="columnTypeItems"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
+        </div>
+        <!-- Lookup columns: entity + optional per-row cascade -->
+        <div v-if="draftIsLookup" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Company list</BaseText>
+          <BaseSelect
+            v-model="colDraft.lookupEntity"
+            :options="lookupEntityItems"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
+          <template v-if="draftParentOptions.length">
+            <BaseText as="div" variant="overline">Filter by column</BaseText>
+            <BaseSelect
+              v-model="colDraft.parentColumn"
+              :options="draftParentOptions"
+              optionLabel="name"
+              optionValue="id"
+              nullLabel="— No filter —"
+              :clearable="true"
+            />
+            <p class="tw:text-xs tw:text-secondary">
+              Options narrow by the chosen column's value in the same row — e.g. Department
+              filtered by that row's Site.
+            </p>
+          </template>
+        </div>
+
+        <!-- Multiple Choice flavor: one answer (radio) or several (checkboxes) -->
+        <div v-if="colDraft.type === 'optionGroup'" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Answers</BaseText>
+          <BaseSelect
+            v-model="colDraft.groupType"
+            :options="groupTypeItems"
+            optionLabel="name"
+            optionValue="id"
+            :required="true"
+          />
+        </div>
+
+        <!-- Dropdown / Multiple Choice: custom options OR a tenant Option Set -->
+        <div v-if="draftIsOptionType" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseCheckbox v-model="colDraft.useCustomOptions" label="Use Custom Options" />
+          <template v-if="!colDraft.useCustomOptions">
+            <OptionSetSelectMenu v-model="colDraft.optionSetId" :required="false" />
+          </template>
+        </div>
+
+        <!-- Options editor for Dropdown / Option Group columns -->
+        <div v-if="draftNeedsOptions" class="tw:flex tw:flex-col tw:gap-2">
+          <BaseText as="div" variant="overline">Options</BaseText>
+          <div
+            v-for="(opt, oi) in colDraft.options"
+            :key="'draft-opt-' + oi"
+            class="tw:flex tw:items-center tw:gap-2"
+          >
+            <div class="tw:flex-1">
+              <BaseTextInput
+                v-model="colDraft.options[oi]"
+                :placeholder="`Option ${oi + 1} — e.g. ${['Yes', 'No', 'N/A'][oi] || 'Choice'}`"
+                size="sm"
+                @keyup.enter="addDraftOption"
+              />
+            </div>
+            <button
+              type="button"
+              class="tw:p-1.5 tw:rounded tw:text-red-500 tw:hover:bg-red-50 tw:transition-colors tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              @click="removeDraftOption(oi)"
+            >
+              <IconTrash :size="15" />
+            </button>
+          </div>
+          <button
+            type="button"
+            class="tw:self-start tw:flex tw:items-center tw:gap-1 tw:px-2 tw:py-1 tw:text-primary tw:rounded tw:hover:bg-primary/10 tw:transition-colors tw:text-xs tw:font-medium tw:bg-transparent tw:border-0 tw:cursor-pointer"
+            @click="addDraftOption"
+          >
+            <IconPlus :size="13" /> Add option
+          </button>
+          <p v-if="colDraft.type === 'optionGroup'" class="tw:text-xs tw:text-secondary">
+            An Option Group needs at least two choices (mutually-exclusive radio buttons, horizontal
+            in the table). Flavor/orientation can be changed later in the column's field settings.
+          </p>
+        </div>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          submitLabel="Add column"
+          :disabled="!canSaveColumn"
+          @cancel="close"
+          @submit="saveColumn"
+        />
+      </template>
+    </BaseDialog>
+  </div>
+</template>

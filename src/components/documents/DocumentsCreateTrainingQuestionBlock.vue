@@ -43,7 +43,9 @@ function removeAnswer(index) {
           :size="16"
           class="tw:text-secondary tw:cursor-grab tw:active:cursor-grabbing tw:hover:text-on-sidebar tw:transition-colors drag-handle"
         />
-        <span class="ds-label tw:text-on-sidebar"> Question 1 </span>
+        <BaseText variant="overline" color="inherit" class="tw:text-on-sidebar"
+          >Question 1</BaseText
+        >
       </div>
 
       <BaseButton variant="danger" iconOnly size="xs">
@@ -51,18 +53,14 @@ function removeAnswer(index) {
       </BaseButton>
     </div>
     <div class="tw:p-6 tw:space-y-6">
-      <div class="tw:space-y-2 tw:text-start">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">Question Text</label>
+      <BaseField v-slot="{ id: fieldId }" label="Question Text" class="tw:text-start">
         <BaseTextInput
+          :id="fieldId"
           v-model="form.questionText"
           placeholder="eg. What is the correct procedure for reporting a minor deviation?"
         />
-      </div>
-      <div class="tw:text-start tw:space-y-2">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
-          Answers (Select the correct one)
-        </label>
-
+      </BaseField>
+      <BaseField label="Answers (Select the correct one)" class="tw:text-start">
         <div class="tw:flex tw:flex-col tw:gap-3 tw:mt-1">
           <!-- Answer Option 1 -->
           <div
@@ -93,7 +91,7 @@ function removeAnswer(index) {
           <IconPlus :size="16" />
           Add Answer
         </BaseButton>
-      </div>
+      </BaseField>
     </div>
   </div>
 </template>

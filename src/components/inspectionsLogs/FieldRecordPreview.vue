@@ -3,6 +3,7 @@ import {
   IconX,
   IconShieldCheck,
   IconLock,
+  IconUserShield,
   IconCircleCheck,
   IconCircleX,
   IconPencil,
@@ -16,12 +17,17 @@ import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue
 import DynamicForm from '@/components/form/DynamicForm.js'
 import { fieldRecordStatusLabel } from '@/utils/logBookSchemaUtils.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import {
+  useLogBookReviewAuth,
+  resolveAuthorizedReviewerUserIds,
+} from '@/composables/useLogBookReviewAuth.js'
 import { refetchSyncRecord } from '@/utils/syncEngineRefresh.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, patch } from '@/api'
 import { DateTime } from 'luxon'
 import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
 import { db } from '@models/index'
+import { required } from '@shared/components/form/validators.js'
 
 /**
  * Full-screen preview for a field record. Opens from the row click on
@@ -40,11 +46,28 @@ const props = defineProps({
 const emit = defineEmits(['close', 'changed'])
 const toast = useToast()
 
-const canReview = computed(() => isAllowed(['fieldRecords:review']))
-const canAmend = computed(() => isAllowed(['fieldRecords:amend']))
-const canVoid = computed(() => isAllowed(['fieldRecords:void']))
+// Log-entry review authorization (2026-08-09): per-book authorized-reviewer
+// set (owner OR supervisor OR additional reviewer, site-gated) — `template` is
+// the record's log book (loaded below).
+const { canReviewBook } = useLogBookReviewAuth()
+const canReview = computed(() => (template.value ? canReviewBook(template.value) : false))
+const canAmend = computed(() => isAllowed(['field_records:amend']))
+// Over-the-shoulder: the operator isn't a reviewer, but this entry's log book
+// allows OTS — an authorized reviewer can sign off here with their PIN.
+const otsAvailable = computed(
+  () =>
+    !canReview.value &&
+    record.value?.statusId === 'UNDER_REVIEW' &&
+    !!template.value?.overTheShoulderReview,
+)
+const showOtsDialog = ref(false)
+const otsReviewerUserIds = ref([])
+const canVoid = computed(() => isAllowed(['field_records:void']))
 
-const userId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+// `currentSession.id` is NOT reliably the user id — the session object spreads
+// `...activeCompany` over it, so it ends up as the membership/company id. The
+// canonical user id is `userId` (what 50+ other components read).
+const userId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 const isOwnRecord = computed(() => record.value?.submittedByUserId === userId.value)
 
 /**
@@ -80,18 +103,22 @@ const canVoidNow = computed(() => canVoid.value && record.value?.statusId !== 'V
 
 const record = useLiveQueryWithDeps(
   [() => props.recordId],
+
   async (db, [id]) => {
     if (!id) return null
     return db.FieldRecord.findByPk(id)
   },
+  { models: ['FieldRecord'] },
 )
 
 const currentRevision = useLiveQueryWithDeps(
   [() => record.value?.currentRevisionId],
+
   async (db, [rid]) => {
     if (!rid) return null
     return db.FieldRecordRevision.findByPk(rid)
   },
+  { models: ['FieldRecordRevision'] },
 )
 
 /**
@@ -108,7 +135,8 @@ const revisions = useLiveQueryWithDeps(
     const rows = await db.FieldRecordRevision.where('fieldRecordId', id).exec()
     return rows.sort((a, b) => (a.revisionNumber ?? 0) - (b.revisionNumber ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FieldRecordRevision'], initial: [] },
 )
 
 /**
@@ -170,18 +198,28 @@ const flagHistory = computed(() => {
 
 const template = useLiveQueryWithDeps(
   [() => record.value?.logBookId],
+
   async (db, [tid]) => {
     if (!tid) return null
     return db.LogBook.findByPk(tid)
   },
+  { models: ['LogBook'] },
 )
 
 // Prefer the schema snapshot stored on the record (frozen at submit
-// time); fall back to the live template schema for very old records
-// that pre-date the snapshot column.
+// time). Fall back to the live book schema in two cases:
+//   1. Record pre-dates the snapshot column (very old data).
+//   2. Snapshot is present but EMPTY — legacy data from before the
+//      supersede model, where a book could be approved with no fields
+//      and the schema added afterwards. Books are frozen once ACTIVE
+//      now, so new records can't hit this.
+//
+// Bare `Array.isArray(snap)` was wrong because `[]` is truthy as
+// "is an array" but useless as a schema — the fallback to the live
+// template never fired.
 const schemaFields = computed(() => {
   const snap = record.value?.logBookSchemaSnapshot
-  if (Array.isArray(snap)) return snap
+  if (Array.isArray(snap) && snap.length > 0) return snap
   if (Array.isArray(template.value?.schema)) return template.value.schema
   return []
 })
@@ -229,7 +267,8 @@ const flags = useLiveQueryWithDeps(
     const rows = await db.FieldRecordFlag.where('fieldRecordId', id).exec()
     return rows.sort((a, b) => (b.flaggedAt?.toMillis?.() ?? 0) - (a.flaggedAt?.toMillis?.() ?? 0))
   },
-  { initial: [] },
+
+  { models: ['FieldRecordFlag'], initial: [] },
 )
 const openFlags = computed(() => flags.value.filter((f) => !f.resolvedAt))
 
@@ -240,7 +279,13 @@ const openFlags = computed(() => flags.value.filter((f) => !f.resolvedAt))
  * lets one live query cover all the rows on screen.
  */
 const flagAttachmentsByFlag = useLiveQueryWithDeps(
-  [() => flags.value.map((f) => f.attachmentIds || []).flat().join(',')],
+  [
+    () =>
+      flags.value
+        .map((f) => f.attachmentIds || [])
+        .flat()
+        .join(','),
+  ],
   async (db) => {
     const allIds = [...new Set(flags.value.flatMap((f) => f.attachmentIds || []))]
     if (allIds.length === 0) return {}
@@ -252,7 +297,8 @@ const flagAttachmentsByFlag = useLiveQueryWithDeps(
     }
     return grouped
   },
-  { initial: {} },
+
+  { models: ['Asset'], initial: {} },
 )
 
 function attachmentsForFlag(flagId) {
@@ -260,6 +306,7 @@ function attachmentsForFlag(flagId) {
 }
 
 const showFlagDialog = ref(false)
+const flagFormRef = ref(null)
 const flagSeverity = ref('WARN')
 const flagNotes = ref('')
 const flagPhoto = ref(null)
@@ -275,10 +322,7 @@ function startFlag() {
 async function submitFlag() {
   if (!record.value?.id) return
   const notes = flagNotes.value?.trim()
-  if (!notes) {
-    toast.error('Notes are required when raising a flag')
-    return
-  }
+  if (!notes) return
   isRaisingFlag.value = true
   try {
     // BasePhoto stores the uploaded asset directly (id + url); the API
@@ -341,6 +385,7 @@ function flagSeverityClass(s) {
 function buildEsignFromVerified(v) {
   if (!v) return null
   if (v.method === 'PASSWORD') return { password: v.token }
+  if (v.method === 'PIN') return { strategy: 'pin', token: v.token }
   if (v.method === 'OAUTH' && v.provider === 'MICROSOFT') {
     return { strategy: 'microsoft', token: v.token }
   }
@@ -365,12 +410,30 @@ function startReview(outcome) {
   showCommentDialog.value = true
 }
 
-function confirmComment() {
+async function confirmComment() {
   if (!pendingOutcome.value) return
   showCommentDialog.value = false
   pendingReview.value = { outcome: pendingOutcome.value, comment: reviewComment.value || null }
+  // Over-the-shoulder: the operator (not a reviewer) collects an authorized
+  // reviewer's PIN; otherwise the session user signs with their own credential.
+  if (otsAvailable.value) {
+    otsReviewerUserIds.value = await resolveAuthorizedReviewerUserIds(template.value)
+    showOtsDialog.value = true
+    return
+  }
   pendingEsignAction.value = 'REVIEW'
   showEsignDialog.value = true
+}
+
+async function onOtsVerified({ reviewerUserId, token }) {
+  await submitReview({
+    comment: pendingReview.value?.comment ?? null,
+    esign: { strategy: 'pin', token },
+    overTheShoulder: true,
+    reviewerUserId,
+  })
+  pendingReview.value = null
+  showOtsDialog.value = false
 }
 
 async function onEsignVerified(verified) {
@@ -397,7 +460,7 @@ async function onEsignVerified(verified) {
   }
 }
 
-async function submitReview({ comment, esign }) {
+async function submitReview({ comment, esign, overTheShoulder = false, reviewerUserId = null }) {
   if (!record.value?.id || !pendingOutcome.value) return
   isSubmittingReview.value = true
   try {
@@ -405,6 +468,8 @@ async function submitReview({ comment, esign }) {
       outcome: pendingOutcome.value,
       comment,
       esign,
+      overTheShoulder,
+      reviewerUserId,
     })
     // REST endpoint doesn't go through SyncEngine, so the natural
     // socket.io push may not arrive before the user expects the UI to
@@ -471,6 +536,7 @@ async function saveEdit() {
 // Amend dialog state. Re-uses the form schema; collects comment +
 // captures e-sig before POSTing to /amend.
 const showAmendDialog = ref(false)
+const amendFormRef = ref(null)
 const amendDraft = ref({})
 const amendComment = ref('')
 const isSavingAmend = ref(false)
@@ -483,10 +549,7 @@ function startAmend() {
 }
 
 function confirmAmend() {
-  if (!amendComment.value.trim()) {
-    toast.error('Reason for change is required')
-    return
-  }
+  if (!amendComment.value.trim()) return
   pendingAmend.value = {
     payload: amendDraft.value,
     comment: amendComment.value.trim(),
@@ -523,6 +586,7 @@ async function submitAmend(esign) {
 
 // Void dialog state. Reason + esig.
 const showVoidDialog = ref(false)
+const voidFormRef = ref(null)
 const voidReason = ref('')
 const isSavingVoid = ref(false)
 const pendingVoid = ref(null) // { reason } waiting on esign
@@ -533,10 +597,7 @@ function startVoid() {
 }
 
 function confirmVoid() {
-  if (!voidReason.value.trim()) {
-    toast.error('Reason for voiding is required')
-    return
-  }
+  if (!voidReason.value.trim()) return
   pendingVoid.value = { reason: voidReason.value.trim() }
   showVoidDialog.value = false
   showEsignDialog.value = true
@@ -584,7 +645,7 @@ function close() {
 </script>
 
 <template>
-  <div class="tw:fixed tw:inset-0 tw:z-50 tw:flex tw:flex-col tw:bg-main">
+  <div class="tw:fixed tw:inset-0 tw:z-modal tw:flex tw:flex-col tw:bg-main">
     <!-- Header -->
     <div class="tw:flex tw:items-center tw:gap-3 tw:px-5 tw:py-3 tw:border-b tw:border-divider">
       <button
@@ -598,7 +659,9 @@ function close() {
         <div class="tw:text-base tw:font-bold tw:text-on-main tw:truncate">
           {{ template?.title ?? 'Field Record' }}
         </div>
-        <div class="tw:text-xs tw:text-secondary tw:truncate">{{ record?.id }}</div>
+        <div class="tw:text-xs tw:text-secondary tw:truncate">
+          {{ record?.recordNumber || record?.id }}
+        </div>
       </div>
       <button
         v-if="record"
@@ -611,17 +674,14 @@ function close() {
       </button>
       <span
         v-if="record?.recordClassification"
-        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
+        class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-1 tw:border"
         :class="
           record.recordClassification === 'CONTROLLED_RECORD'
             ? 'tw:bg-red-50 tw:text-red-700 tw:border-red-200'
             : 'tw:bg-amber-50 tw:text-amber-700 tw:border-amber-200'
         "
       >
-        <IconShieldCheck
-          v-if="record.recordClassification === 'CONTROLLED_RECORD'"
-          :size="12"
-        />
+        <IconShieldCheck v-if="record.recordClassification === 'CONTROLLED_RECORD'" :size="12" />
         {{ classificationLabel }}
       </span>
       <span
@@ -642,10 +702,7 @@ function close() {
         >
           <div>
             <div class="tw:font-bold tw:uppercase tw:text-secondary">Submitted by</div>
-            <UserBadgeById
-              v-if="record?.submittedByUserId"
-              :userId="record.submittedByUserId"
-            />
+            <UserBadgeById v-if="record?.submittedByUserId" :userId="record.submittedByUserId" />
             <span v-else class="tw:text-secondary">—</span>
           </div>
           <div>
@@ -688,9 +745,9 @@ function close() {
              discard cleanly. -->
         <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4">
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-            <h3 class="tw:text-sm tw:font-bold tw:text-on-main">
+            <BaseText as="h3" class="tw:text-sm tw:font-bold tw:text-on-main">
               {{ isEditing ? 'Edit entry' : 'Record content' }}
-            </h3>
+            </BaseText>
             <div v-if="isEditing" class="tw:flex tw:items-center tw:gap-2">
               <button
                 type="button"
@@ -708,6 +765,75 @@ function close() {
               >
                 {{ isSavingEdit ? 'Saving…' : 'Save changes' }}
               </button>
+            </div>
+            <!-- All record actions live on the card header so they sit
+                 together next to the content they act on. Edit = in-window
+                 (cheap, no esign); Amend = post-lock (esign + reason); Flag
+                 = any user; Void = permissioned; Reject/Approve = reviewer
+                 while UNDER_REVIEW. -->
+            <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:justify-end">
+              <button
+                v-if="record && record.statusId !== 'VOIDED'"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-amber-800 tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded tw:cursor-pointer tw:hover:bg-amber-100 tw:flex tw:items-center tw:gap-1.5"
+                @click="startFlag"
+              >
+                <IconFlag :size="14" />
+                Flag
+              </button>
+              <button
+                v-if="canEdit"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-primary tw:bg-primary/10 tw:border tw:border-primary/30 tw:rounded tw:cursor-pointer tw:hover:bg-primary/20 tw:flex tw:items-center tw:gap-1.5"
+                @click="startEdit"
+              >
+                <IconPencil :size="14" />
+                Edit
+              </button>
+              <button
+                v-if="canAmendNow"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-purple-800 tw:bg-purple-100 tw:border tw:border-purple-200 tw:rounded tw:cursor-pointer tw:hover:bg-purple-200 tw:flex tw:items-center tw:gap-1.5"
+                @click="startAmend"
+              >
+                <IconEdit :size="14" />
+                Amend
+              </button>
+              <button
+                v-if="canVoidNow"
+                type="button"
+                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-red-700 tw:bg-red-50 tw:border tw:border-red-200 tw:rounded tw:cursor-pointer tw:hover:bg-red-100 tw:flex tw:items-center tw:gap-1.5"
+                @click="startVoid"
+              >
+                <IconTrash :size="14" />
+                Void
+              </button>
+              <template v-if="record?.statusId === 'UNDER_REVIEW' && (canReview || otsAvailable)">
+                <span
+                  v-if="otsAvailable"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:font-medium"
+                >
+                  <IconUserShield :size="14" /> Supervisor sign-off
+                </span>
+                <button
+                  type="button"
+                  class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-white tw:bg-red-600 tw:border-0 tw:rounded tw:cursor-pointer tw:hover:bg-red-700 tw:flex tw:items-center tw:gap-1.5 tw:disabled:opacity-50"
+                  :disabled="isSubmittingReview"
+                  @click="startReview('REJECTED')"
+                >
+                  <IconCircleX :size="14" />
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-white tw:bg-green-600 tw:border-0 tw:rounded tw:cursor-pointer tw:hover:bg-green-700 tw:flex tw:items-center tw:gap-1.5 tw:disabled:opacity-50"
+                  :disabled="isSubmittingReview"
+                  @click="startReview('APPROVED')"
+                >
+                  <IconCircleCheck :size="14" />
+                  Approve
+                </button>
+              </template>
             </div>
           </div>
           <DynamicForm
@@ -736,7 +862,9 @@ function close() {
           class="tw:bg-white tw:rounded-lg tw:border tw:border-amber-200 tw:p-4"
         >
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-            <h3 class="tw:text-sm tw:font-bold tw:text-amber-900 tw:flex tw:items-center tw:gap-1.5">
+            <h3
+              class="tw:text-sm tw:font-bold tw:text-amber-900 tw:flex tw:items-center tw:gap-1.5"
+            >
               <IconAlertTriangle :size="16" />
               Open flags ({{ openFlags.length }})
             </h3>
@@ -748,19 +876,23 @@ function close() {
               class="tw:flex tw:items-start tw:gap-3 tw:pb-3 tw:border-b tw:border-divider tw:last:border-b-0 tw:last:pb-0"
             >
               <span
-                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border tw:shrink-0 tw:mt-0.5"
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border tw:shrink-0 tw:mt-0.5"
                 :class="flagSeverityClass(f.severity)"
               >
                 {{ f.severity }}
               </span>
               <div class="tw:flex-1 tw:min-w-0">
-                <div class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+                <div
+                  class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap"
+                >
                   <span>by</span>
                   <UserBadgeById :userId="f.flaggedByUserId" />
                   <span>·</span>
                   <span>{{ fmtDate(f.flaggedAt) }}</span>
                 </div>
-                <div class="tw:mt-1 tw:text-sm tw:text-on-main">{{ f.notes }}</div>
+                <div class="tw:mt-1 tw:text-sm tw:text-on-main">
+                  <RichTextAttachments :modelValue="f.notes" :readonly="true" />
+                </div>
                 <div
                   v-if="attachmentsForFlag(f.id).length > 0"
                   class="tw:mt-2 tw:flex tw:flex-wrap tw:gap-2"
@@ -806,7 +938,9 @@ function close() {
           class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4"
         >
           <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
-            <h3 class="tw:text-sm tw:font-bold tw:text-on-main">Revision history</h3>
+            <BaseText as="h3" class="tw:text-sm tw:font-bold tw:text-on-main"
+              >Revision history</BaseText
+            >
             <span class="tw:text-xs tw:text-secondary">
               {{ revisions.length }} {{ revisions.length === 1 ? 'entry' : 'entries' }}
             </span>
@@ -817,32 +951,34 @@ function close() {
               :key="rev.id"
               class="tw:flex tw:items-start tw:gap-3 tw:pb-3 tw:border-b tw:border-divider tw:last:border-b-0 tw:last:pb-0"
             >
-              <div class="tw:shrink-0 tw:text-xs tw:font-mono tw:text-secondary tw:mt-0.5">
+              <div class="tw:shrink-0 tw:text-xs tw:text-secondary tw:mt-0.5">
                 #{{ rev.revisionNumber }}
               </div>
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:mb-1">
                   <span
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
                     :class="revisionTypeMeta(rev.revisionType).class"
                   >
                     {{ revisionTypeMeta(rev.revisionType).label }}
                   </span>
                   <span
                     v-if="rev.signatureId"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-green-50 tw:text-green-700 tw:border tw:border-green-200"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:bg-green-50 tw:text-green-700 tw:border tw:border-green-200"
                   >
                     <IconShieldCheck :size="10" />
                     E-signed
                   </span>
                   <span
                     v-if="rev.reviewOutcome"
-                    class="tw:text-[10px] tw:font-mono tw:text-secondary"
+                    class="tw:text-micro tw:text-secondary"
                   >
                     {{ rev.reviewOutcome }}
                   </span>
                 </div>
-                <div class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+                <div
+                  class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap"
+                >
                   <span>by</span>
                   <UserBadgeById :userId="rev.authorUserId" />
                   <span>·</span>
@@ -886,22 +1022,26 @@ function close() {
               <div class="tw:flex-1 tw:min-w-0">
                 <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:mb-1">
                   <span
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
-                    :class="ev.kind === 'raised'
-                      ? 'tw:bg-orange-100 tw:text-orange-700'
-                      : 'tw:bg-teal-100 tw:text-teal-700'"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5"
+                    :class="
+                      ev.kind === 'raised'
+                        ? 'tw:bg-orange-100 tw:text-orange-700'
+                        : 'tw:bg-teal-100 tw:text-teal-700'
+                    "
                   >
                     {{ ev.kind === 'raised' ? 'Flag raised' : 'Flag resolved' }}
                   </span>
                   <span
                     v-if="ev.severity"
-                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-[10px] tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
+                    class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro tw:font-bold tw:uppercase tw:rounded tw:px-2 tw:py-0.5 tw:border"
                     :class="flagSeverityClass(ev.severity)"
                   >
                     {{ ev.severity }}
                   </span>
                 </div>
-                <div class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap">
+                <div
+                  class="tw:text-xs tw:text-secondary tw:flex tw:items-center tw:gap-1 tw:flex-wrap"
+                >
                   <span>by</span>
                   <UserBadgeById :userId="ev.actorUserId" />
                   <span>·</span>
@@ -911,7 +1051,7 @@ function close() {
                   v-if="ev.body"
                   class="tw:mt-1 tw:text-xs tw:text-on-main tw:bg-main tw:rounded tw:px-2 tw:py-1"
                 >
-                  {{ ev.body }}
+                  <RichTextAttachments :modelValue="ev.body" :readonly="true" />
                 </div>
                 <div
                   v-if="ev.kind === 'raised' && attachmentsForFlag(ev.flagId).length > 0"
@@ -955,93 +1095,35 @@ function close() {
       </div>
     </div>
 
-    <!-- Footer / actions -->
-    <div
-      v-if="!isEditing"
-      class="tw:flex tw:items-center tw:gap-2 tw:px-5 tw:py-3 tw:border-t tw:border-divider tw:bg-card"
-    >
-      <!-- Flag button — open to any in-tenant user. Disabled while
-           the record is VOIDED (nothing to flag on a voided entry). -->
-      <button
-        v-if="record && record.statusId !== 'VOIDED'"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-amber-50 tw:text-amber-800 tw:font-medium tw:hover:bg-amber-100 tw:transition tw:flex tw:items-center tw:gap-1.5 tw:border tw:border-amber-200"
-        @click="startFlag"
-      >
-        <IconFlag :size="16" />
-        Flag
-      </button>
-      <!-- Owner / admin actions (left side) -->
-      <button
-        v-if="canEdit"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-main tw:text-on-main tw:font-medium tw:hover:bg-main-hover tw:transition tw:flex tw:items-center tw:gap-1.5 tw:border tw:border-divider"
-        @click="startEdit"
-      >
-        <IconPencil :size="16" />
-        Edit
-      </button>
-      <button
-        v-if="canAmendNow"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-purple-100 tw:text-purple-800 tw:font-medium tw:hover:bg-purple-200 tw:transition tw:flex tw:items-center tw:gap-1.5"
-        @click="startAmend"
-      >
-        <IconEdit :size="16" />
-        Amend
-      </button>
-      <button
-        v-if="canVoidNow"
-        type="button"
-        class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-red-50 tw:text-red-700 tw:font-medium tw:hover:bg-red-100 tw:transition tw:flex tw:items-center tw:gap-1.5"
-        @click="startVoid"
-      >
-        <IconTrash :size="16" />
-        Void
-      </button>
-
-      <div class="tw:flex-1" />
-
-      <!-- Reviewer actions (right side) — same as before -->
-      <template v-if="record?.statusId === 'UNDER_REVIEW' && canReview">
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-red-600 tw:text-white tw:font-medium tw:hover:bg-red-700 tw:transition tw:flex tw:items-center tw:gap-1.5"
-          :disabled="isSubmittingReview"
-          @click="startReview('REJECTED')"
-        >
-          <IconCircleX :size="16" />
-          Reject
-        </button>
-        <button
-          type="button"
-          class="tw:px-3 tw:py-2 tw:text-sm tw:rounded tw:bg-green-600 tw:text-white tw:font-medium tw:hover:bg-green-700 tw:transition tw:flex tw:items-center tw:gap-1.5"
-          :disabled="isSubmittingReview"
-          @click="startReview('APPROVED')"
-        >
-          <IconCircleCheck :size="16" />
-          Approve
-        </button>
-      </template>
-    </div>
+    <!-- All record actions now live on the Record content card header
+         (see above) so they sit together in one prominent place. -->
     <!-- Soft hint when the record is UNDER_REVIEW and the user doesn't
          have the review permission. Sits below the action footer so
          it explains the absence of Approve / Reject without breaking
          the v-else chain. -->
     <div
-      v-if="!isEditing && record?.statusId === 'UNDER_REVIEW' && !canReview"
+      v-if="!isEditing && record?.statusId === 'UNDER_REVIEW' && !canReview && !otsAvailable"
       class="tw:flex tw:items-center tw:gap-2 tw:px-5 tw:py-2 tw:border-t tw:border-divider tw:bg-amber-50 tw:text-amber-900 tw:text-xs"
     >
       <IconShieldCheck :size="14" />
-      This record is awaiting review. You need the
-      <code>fieldRecords:review</code> permission to approve / reject.
+      This record is awaiting review. Only the log book's supervisor or an added
+      reviewer can approve or reject it.
     </div>
+
+    <!-- Over-the-shoulder sign-off (operator called a reviewer over). -->
+    <SupervisorSignoffDialog
+      v-model="showOtsDialog"
+      :reviewerUserIds="otsReviewerUserIds"
+      :action="pendingOutcome === 'REJECTED' ? 'Reject' : 'Approve'"
+      :loading="isSubmittingReview"
+      @verified="onOtsVerified"
+    />
 
     <!-- Comment dialog -->
     <Teleport to="body">
       <div
         v-if="showCommentDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-2">
@@ -1082,32 +1164,46 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showAmendDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
-        <div class="tw:bg-white tw:rounded-lg tw:max-w-2xl tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:flex tw:flex-col">
+        <div
+          class="tw:bg-white tw:rounded-lg tw:max-w-2xl tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:flex tw:flex-col"
+        >
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1">Amend entry</h3>
           <p class="tw:text-xs tw:text-secondary tw:mb-3">
-            The original revision stays in the history. A new ADMIN_AMENDMENT revision is
-            appended with your reason and e-signature.
+            The original revision stays in the history. A new ADMIN_AMENDMENT revision is appended
+            with your reason and e-signature.
           </p>
 
-          <div class="tw:flex-1 tw:overflow-y-auto tw:mb-3">
+          <BaseForm
+            ref="amendFormRef"
+            hideFooter
+            class="tw:flex-1 tw:overflow-y-auto tw:mb-3"
+            @submit="confirmAmend"
+          >
             <DynamicForm
               v-if="schemaFields.length > 0"
               v-model="amendDraft"
               :fields="schemaFields"
               :loading="isSavingAmend"
             />
-            <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mt-4 tw:mb-1">
-              Reason for change <span class="tw:text-bad">*</span>
-            </label>
-            <textarea
-              v-model="amendComment"
-              rows="3"
-              class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-              placeholder="Why is this entry being changed? (audit trail)"
-            ></textarea>
-          </div>
+            <BaseField
+              v-slot="{ id: reasonId }"
+              label="Reason for change"
+              required
+              :value="amendComment"
+              :rules="[required()]"
+              class="tw:mt-4"
+            >
+              <textarea
+                :id="reasonId"
+                v-model="amendComment"
+                rows="3"
+                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+                placeholder="Why is this entry being changed? (audit trail)"
+              ></textarea>
+            </BaseField>
+          </BaseForm>
 
           <div class="tw:flex tw:justify-end tw:gap-2">
             <button
@@ -1122,7 +1218,7 @@ function close() {
               type="button"
               class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-primary tw:text-white tw:font-medium tw:hover:bg-primary/90 tw:transition tw:border-0 tw:disabled:opacity-50"
               :disabled="isSavingAmend || !amendComment.trim()"
-              @click="confirmAmend"
+              @click="amendFormRef?.submit()"
             >
               Continue to sign
             </button>
@@ -1135,7 +1231,7 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showVoidDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1">Void entry</h3>
@@ -1143,15 +1239,23 @@ function close() {
             Voiding marks the entry as superseded but keeps it (and all revisions) in the audit
             trail. This action requires an e-signature.
           </p>
-          <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1">
-            Reason <span class="tw:text-bad">*</span>
-          </label>
-          <textarea
-            v-model="voidReason"
-            rows="3"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-            placeholder="Why is this entry being voided?"
-          ></textarea>
+          <BaseForm ref="voidFormRef" hideFooter @submit="confirmVoid">
+            <BaseField
+              v-slot="{ id: reasonId }"
+              label="Reason"
+              required
+              :value="voidReason"
+              :rules="[required()]"
+            >
+              <textarea
+                :id="reasonId"
+                v-model="voidReason"
+                rows="3"
+                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+                placeholder="Why is this entry being voided?"
+              ></textarea>
+            </BaseField>
+          </BaseForm>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
               type="button"
@@ -1165,7 +1269,7 @@ function close() {
               type="button"
               class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-red-600 tw:text-white tw:font-medium tw:hover:bg-red-700 tw:transition tw:border-0 tw:disabled:opacity-50"
               :disabled="isSavingVoid || !voidReason.trim()"
-              @click="confirmVoid"
+              @click="voidFormRef?.submit()"
             >
               Continue to sign
             </button>
@@ -1180,49 +1284,58 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showFlagDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
-        <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:overflow-y-auto">
-          <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1 tw:flex tw:items-center tw:gap-2">
+        <div
+          class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:overflow-y-auto"
+        >
+          <h3
+            class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1 tw:flex tw:items-center tw:gap-2"
+          >
             <IconFlag :size="18" class="tw:text-amber-600" />
             Flag this entry
           </h3>
           <p class="tw:text-xs tw:text-secondary tw:mb-3">
             Raise a flag to send an immediate alert to the log book supervisor.
           </p>
-          <div class="tw:flex tw:items-center tw:gap-2 tw:mb-3">
-            <span class="tw:text-xs tw:font-semibold tw:text-secondary">Severity</span>
-            <select
-              v-model="flagSeverity"
-              class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+          <BaseForm ref="flagFormRef" hideFooter @submit="submitFlag">
+            <div class="tw:flex tw:items-center tw:gap-2 tw:mb-3">
+              <span class="tw:text-xs tw:font-semibold tw:text-secondary">Severity</span>
+              <select
+                v-model="flagSeverity"
+                class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm"
+              >
+                <option value="INFO">Info — minor note</option>
+                <option value="WARN">Warn — needs attention</option>
+                <option value="CRITICAL">Critical — escalates now</option>
+              </select>
+            </div>
+            <BaseField
+              v-slot="{ id: notesId }"
+              label="Notes"
+              required
+              :value="flagNotes"
+              :rules="[required()]"
             >
-              <option value="INFO">Info — minor note</option>
-              <option value="WARN">Warn — needs attention</option>
-              <option value="CRITICAL">Critical — escalates now</option>
-            </select>
-          </div>
-          <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1">
-            Notes <span class="tw:text-bad">*</span>
-          </label>
-          <textarea
-            v-model="flagNotes"
-            rows="4"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-            placeholder="What's wrong with this entry? Detail helps your supervisor act faster."
-          ></textarea>
-          <div class="tw:mt-3">
-            <label class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:block tw:mb-1">
-              Photo evidence (optional)
-            </label>
-            <BasePhoto
-              v-model="flagPhoto"
-              mode="both"
-              fileType="ASSET"
-              accept="image/*"
-              placeholder="Add photo"
-              previewSize="120px"
-            />
-          </div>
+              <textarea
+                :id="notesId"
+                v-model="flagNotes"
+                rows="4"
+                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
+                placeholder="What's wrong with this entry? Detail helps your supervisor act faster."
+              ></textarea>
+            </BaseField>
+            <BaseField label="Photo evidence" optional class="tw:mt-3">
+              <BasePhoto
+                v-model="flagPhoto"
+                mode="both"
+                fileType="ASSET"
+                accept="image/*"
+                placeholder="Add photo"
+                previewSize="120px"
+              />
+            </BaseField>
+          </BaseForm>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
               type="button"
@@ -1236,7 +1349,7 @@ function close() {
               type="button"
               class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-amber-600 tw:text-white tw:font-medium tw:hover:bg-amber-700 tw:transition tw:border-0 tw:disabled:opacity-50"
               :disabled="isRaisingFlag || !flagNotes.trim()"
-              @click="submitFlag"
+              @click="flagFormRef?.submit()"
             >
               {{ isRaisingFlag ? 'Raising…' : 'Raise flag' }}
             </button>
@@ -1250,7 +1363,7 @@ function close() {
     <Teleport to="body">
       <div
         v-if="showResolveDialog"
-        class="tw:fixed tw:inset-0 tw:z-60 tw:flex tw:items-center tw:justify-center tw:bg-black/40"
+        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
       >
         <div class="tw:bg-white tw:rounded-lg tw:max-w-md tw:w-full tw:p-5 tw:m-3">
           <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1">Resolve flag</h3>
@@ -1288,9 +1401,6 @@ function close() {
     <!-- E-sig prompt — shared by Review, Amend, and Void. The
          pendingEsignAction ref tells onEsignVerified which submit path
          to call. -->
-    <WorkflowInstanceEsignAuthDialog
-      v-model="showEsignDialog"
-      @verified="onEsignVerified"
-    />
+    <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
   </div>
 </template>

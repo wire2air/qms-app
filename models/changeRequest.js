@@ -26,10 +26,20 @@ export class ChangeRequest extends BaseModel {
   @Property({ type: String }) crNumber = ''
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
-  @Property({ type: String }) statusId = 'DRAFT'
+  // CR-C1 (client half): status is server-enforced by the
+  // enforce_cr_status_transition trigger; block the generated updateChangeRequest
+  // mutation from ever carrying statusId so an inline .save() can't attempt a
+  // lifecycle change (which the DB would reject anyway).
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) priorityId = ''
   @Property({ type: String, required: true }) changeTypeId = ''
   @Property({ type: String }) classification = null
+  // Change-control intake attributes (detail right rail). Fixed enums:
+  // PLANNED|EMERGENCY, TEMPORARY|PERMANENT, and two YES|NO flags.
+  @Property({ type: String }) changeNature = null
+  @Property({ type: String }) changeDuration = null
+  @Property({ type: String }) regulatoryImpact = null
+  @Property({ type: String }) customerNotificationRequired = null
   @Property({ type: String, required: true }) siteId = ''
   @Property({ type: String, required: true }) departmentId = ''
   @Property({ type: String, required: true }) ownerId = ''
@@ -49,6 +59,9 @@ export class ChangeRequest extends BaseModel {
   @Property({ type: DateTime }) cancelledAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) cancelledBy = /** @type {String} */ (null)
   @Property({ type: String }) cancelReason = /** @type {String} */ (null)
+  @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
+  @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
   @Property({ type: String, required: true }) createdBy = ''
   @Property({ type: String, required: true }) updatedBy = ''
   @Property({ type: DateTime, required: true, timestamp: true })

@@ -111,6 +111,7 @@ function handleUploadError(err) {
 // pipeline so users can frame the image before it leaves the browser.
 const showCropDialog = ref(false)
 const cropFile = ref(null)
+const showCameraDialog = ref(false)
 // 'insert' = new image at insertPos; 'replace' = swap the currently selected
 // image's attrs.
 const cropMode = ref('insert')
@@ -203,6 +204,10 @@ const editor = useEditor({
   content: modelValue.value,
   editable: props.editable,
   editorProps: {
+    // Enable the browser's native spellchecker on the editable surface.
+    attributes: {
+      spellcheck: 'true',
+    },
     // Image paste/drop are handled inside AdvancedImage's own ProseMirror
     // plugin — we intentionally don't intercept clipboard images here so the
     // extension owns the full upload/placeholder pipeline.
@@ -370,7 +375,14 @@ function handleLinkKeydown(event) {
 // the cursor is inside a table — those have their own menus, and stacking
 // causes overlap. Default bubble-menu behavior shows for any non-empty
 // selection, including NodeSelection, which is why this filter is needed.
+//
+// The `isEditable` arm replaces what used to be `v-if="editable"` on the
+// component itself — see the BubbleMenu comment in the template for why these
+// menus must never be mounted/unmounted reactively. A custom shouldShow
+// REPLACES TipTap's default, and the default is the only thing that would
+// otherwise keep a read-only editor from popping a formatting toolbar.
 function textBubbleShouldShow({ editor, state }) {
+  if (!editor.isEditable) return false
   const { selection } = state
   if (selection.empty) return false
   if (selection.node) return false
@@ -408,14 +420,22 @@ function setContent(content) {
   // Loud: if this fires while the user is actively editing, it's the
   // round-trip-strips-content bug. The cooldown guard below should prevent
   // it, but we still want visibility if something gets through.
-  console.warn('[BaseRichTextEditor] setContent replacing doc', {
-    currentLength: currentContent.length,
-    newLength: newContent.length,
-    msSinceLocalEdit: Date.now() - lastLocalEditAt,
-  })
+  if (import.meta.env.DEV) {
+    console.warn('[BaseRichTextEditor] setContent replacing doc', {
+      currentLength: currentContent.length,
+      newLength: newContent.length,
+      msSinceLocalEdit: Date.now() - lastLocalEditAt,
+    })
+  }
 
   try {
-    editor.value.commands.setContent(content)
+    // emitUpdate: false — a programmatic replace must not fire onUpdate. The
+    // echo looked like a USER edit to any parent that distinguishes "the
+    // record changed" from "the analyst typed": RcaField stored the first
+    // echoed keystroke as a manual override and froze its problem statement
+    // at the literal text "U" (found live, 2026-08-24). Callers that need the
+    // model updated already have it — they are the ones who called this.
+    editor.value.commands.setContent(content, { emitUpdate: false })
   } catch (error) {
     console.error('Error setting editor content:', error)
   }
@@ -447,15 +467,27 @@ onMounted(() => {
   }
 })
 
-onBeforeUnmount(() => {
-  if (editor.value) {
-    editor.value.destroy()
-  }
-})
+// NOTE: no manual editor.destroy() here. `useEditor` registers its own
+// onBeforeUnmount that destroys the editor, and tiptap's destroy() carries no
+// already-destroyed guard (it emits 'destroy', unmounts the view and drops all
+// listeners unconditionally). Because useEditor's hook is registered first it
+// also runs first, so a second destroy here ran against an already-unmounted
+// view — another uncaught teardown error on every navigation away.
+
+/**
+ * Append plain text to the end of the document (new paragraph) — used by
+ * injected tools like voice-to-text. Never overwrites existing content.
+ */
+function appendText(text) {
+  const t = (text || '').trim()
+  if (!editor.value || !t) return
+  editor.value.chain().focus('end').insertContent(`<p>${t}</p>`).run()
+}
 
 defineExpose({
   editor,
   setContent,
+  appendText,
   getContent: () => (editor.value ? getContent(editor.value) : ''),
 })
 </script>
@@ -473,15 +505,19 @@ defineExpose({
       :imageUploading="imageUploading"
       @toggleLink="openLinkDialog"
       @uploadImage="handleToolbarImageUpload"
-    />
+      @takePhoto="showCameraDialog = true"
+    >
+      <!-- Browser-native voice-to-text — a free, no-AI mic built into every
+           editor. Skipped when a call site injects its own toolbar tools via
+           toolbar-extra (e.g. the AI Whisper mic) so we don't double up.
+           Renders nothing on browsers without SpeechRecognition. -->
+      <BaseVoiceButton v-if="editable && !$slots['toolbar-extra']" :append="appendText" />
 
-    <!-- Image bubble menu (appears when an image node is selected) -->
-    <ImageBubbleMenu
-      v-if="editor && editable"
-      :editor="editor"
-      @replace="handleReplaceImage"
-      @crop="handleCropImage"
-    />
+      <!-- AI-free extension point: sidecar tools (e.g. voice-to-text) inject
+           here. The base editor stays AI-agnostic; injected tools get the
+           editor + appendText to write into the document. -->
+      <slot v-if="editable" name="toolbar-extra" :editor="editor" :append="appendText" />
+    </EditorToolbar>
 
     <!-- Image Crop Dialog (opens before any image is uploaded) -->
     <ImageCropDialog
@@ -492,6 +528,9 @@ defineExpose({
       @save="handleCropSave"
     />
 
+    <!-- Camera capture (getUserMedia) — captured photo runs the image pipeline -->
+    <CameraCaptureDialog v-model="showCameraDialog" @captured="handleToolbarImageUpload" />
+
     <!-- Link Dialog -->
     <LinkDialog
       v-model="showLinkDialog"
@@ -500,16 +539,31 @@ defineExpose({
       @remove="handleLinkRemove"
     />
 
-    <!-- Bubble Menu (appears on text selection) -->
+    <!-- ⚠️ BubbleMenu must be gated on `editor` ONLY — never on `editable` or
+         any other value that flips during the editor's lifetime.
+         TipTap v3's BubbleMenu renders a plain <div> through Vue and then, in
+         its own onMounted, immediately calls `el.remove()` on it (see
+         @tiptap/vue-3/dist/menus/index.js) — it detaches Vue's node and
+         re-attaches it under the editor on show(), removes it again on hide().
+         Vue's vdom still records that node as a child of this wrapper, so the
+         real DOM and the vdom are permanently out of sync for these three
+         nodes. Unmounting them (a `v-if` flip) makes Vue patch the wrapper's
+         child list using a detached node as the insertion anchor, so it reads
+         a null container/parent and throws from inside its own patch:
+         "Cannot read properties of null (reading 'insertBefore' / 'parentNode'
+         / 'type' / 'emitsOptions')". Those land in a scheduler flush, which
+         leaves the queue corrupted — after that the router-view can no longer
+         re-render and the app is stuck on the current page.
+         Closing out an audit flipped `editable` false and did exactly this.
+         Visibility is TipTap's own job: gate it in shouldShow instead. -->
     <BubbleMenu
-      v-if="editor && editable"
+      v-if="editor"
       pluginKey="text-bubble-menu"
       :editor="editor"
       :shouldShow="textBubbleShouldShow"
-      :tippyOptions="{ duration: 100 }"
     >
       <div
-        class="tw:flex tw:items-center tw:gap-1 tw:p-1 tw:bg-white tw:rounded-lg tw:shadow-xl tw:border tw:border-divider"
+        class="tw:flex tw:flex-wrap tw:max-w-[90vw] tw:items-center tw:gap-1 tw:p-1 tw:bg-white tw:rounded-lg tw:shadow-xl tw:border tw:border-divider"
       >
         <!-- Link Input Mode -->
         <template v-if="showLinkInput">
@@ -580,16 +634,31 @@ defineExpose({
       </div>
     </BubbleMenu>
 
-    <!-- Table Toolbar (appears when cursor is in a table) -->
+    <!-- Table Toolbar (appears when cursor is in a table). `v-if="editor"`
+         only, and editability gated in shouldShow — see the text bubble
+         menu's comment above for why. -->
     <BubbleMenu
-      v-if="editor && editable"
+      v-if="editor"
       pluginKey="table-bubble-menu"
       :editor="editor"
-      :shouldShow="({ editor }) => editor.isActive('table')"
-      :tippyOptions="{ duration: 100, placement: 'top' }"
+      :shouldShow="({ editor }) => editor.isEditable && editor.isActive('table')"
+      :options="{ placement: 'top' }"
     >
       <TableToolbar :editor="editor" />
     </BubbleMenu>
+
+    <!-- Image bubble menu (appears when an image node is selected). Also a
+         BubbleMenu under the hood, so it lives here with the other two rather
+         than up beside the toolbar: keeping every TipTap-detached node in one
+         trailing group means no sibling that DOES toggle (EditorToolbar, the
+         dialogs) can ever end up resolving its insertion anchor through a node
+         that is no longer in the document. -->
+    <ImageBubbleMenu
+      v-if="editor"
+      :editor="editor"
+      @replace="handleReplaceImage"
+      @crop="handleCropImage"
+    />
 
     <!-- Editor Content -->
     <EditorContent :editor="editor" class="rich-text-editor-content" />
@@ -598,10 +667,11 @@ defineExpose({
 
 <style lang="scss" scoped>
 .tiptap-editor-wrapper {
-  border: 1px solid var(--q-divider, #e0e0e0);
+  border: 1px solid var(--divider);
   border-radius: 4px;
-  background: var(--q-background, #fff);
-  min-height: 200px;
+  background: var(--sidebar);
+  color: var(--on-main);
+  min-height: 100px;
   display: flex;
   flex-direction: column;
 }
@@ -615,7 +685,7 @@ defineExpose({
 
 /* Force active button styling */
 :deep(.q-btn.tw\:bg-primary\!) {
-  background-color: var(--q-primary) !important;
+  background-color: var(--primary) !important;
   color: white !important;
 }
 
@@ -666,21 +736,20 @@ defineExpose({
 
   blockquote {
     padding-left: 1rem;
-    border-left: 3px solid var(--q-divider, #e0e0e0);
+    border-left: 3px solid var(--divider);
     font-style: italic;
   }
 
   code {
-    background: var(--q-background-secondary, #f5f5f5);
+    background: var(--main-hover);
     padding: 0.125rem 0.25rem;
     border-radius: 3px;
-    font-family: 'Courier New', monospace;
     font-size: 0.9em;
   }
 
   pre {
-    background: var(--q-dark, #1d1d1d);
-    color: var(--q-light, #f5f5f5);
+    background: #1e293b;
+    color: #f1f5f9;
     padding: 0.75rem 1rem;
     border-radius: 4px;
     overflow-x: auto;
@@ -695,24 +764,25 @@ defineExpose({
 
   mark {
     background: #fef08a;
+    color: #1f2937;
     padding: 0.125rem 0;
     border-radius: 2px;
   }
 
   a {
-    color: var(--q-primary, #1976d2);
+    color: var(--primary);
     text-decoration: underline;
     cursor: pointer;
     transition: color 0.2s;
 
     &:hover {
-      color: var(--q-primary-dark, #1565c0);
+      color: var(--primary-hover);
     }
   }
 
   hr {
     border: none;
-    border-top: 2px solid var(--q-divider, #e0e0e0);
+    border-top: 2px solid var(--divider);
     margin: 2rem 0;
   }
 
@@ -727,7 +797,7 @@ defineExpose({
     td,
     th {
       min-width: 1em;
-      border: 1px solid var(--q-divider, #e0e0e0);
+      border: 1px solid var(--divider);
       padding: 0.5rem 0.75rem;
       vertical-align: top;
       box-sizing: border-box;
@@ -741,7 +811,7 @@ defineExpose({
     th {
       font-weight: bold;
       text-align: left;
-      background-color: var(--q-background-secondary, #f5f5f5);
+      background-color: var(--main-hover);
     }
 
     .selectedCell:after {
@@ -762,7 +832,7 @@ defineExpose({
       top: 0;
       bottom: -2px;
       width: 4px;
-      background-color: var(--q-primary, #1976d2);
+      background-color: var(--primary);
       pointer-events: none;
     }
   }
@@ -770,13 +840,13 @@ defineExpose({
   p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     float: left;
-    color: var(--q-secondary, #adb5bd);
+    color: var(--secondary);
     pointer-events: none;
     height: 0;
   }
 
   .mention-chip {
-    background: var(--q-main-hover, #f5f5f5);
+    background: var(--main-hover);
     padding: 0.125rem 0.5rem;
     border-radius: 9999px;
     font-size: 0.875rem;

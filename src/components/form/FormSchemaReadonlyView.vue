@@ -2,11 +2,45 @@
 import { IconStarFilled, IconStar } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getFormComponent } from './formComponentRegistry.js'
+import { LOOKUP_ENTITY_BY_VALUE } from '@/constants/formBuilderConfig'
+import { LOOKUP_BADGES, LOOKUP_ID_PROPS } from '@/components/menus/lookupMenus.js'
 
 const props = defineProps({
   fields: { type: Array, required: true },
   values: { type: Object, default: () => ({}) },
 })
+
+// Entity badges for readonly `lookup` fields (resolve the stored id live).
+// THE shared maps — see lookupMenus.js; the parity spec keeps them honest.
+function isLookupField(field) {
+  return field.type === 'lookup'
+}
+// Option-set-sourced lookup — renders resolved text, not an entity badge.
+function isOptionSetLookup(field) {
+  return field.type === 'lookup' && field.lookupEntity === 'optionSet' && field.optionSetId
+}
+function optionSetLookupText(field) {
+  const rawVal = getFieldValue(field)
+  if (rawVal == null || rawVal === '') return '—'
+  // Frozen labels (written at submit by freezeOptionLabels) win so sealed
+  // records don't shift if the option set is later edited.
+  const frozen = props.values?._optionLabels?.[field.name]
+  if (Array.isArray(rawVal)) {
+    if (Array.isArray(frozen) && frozen.length === rawVal.length) {
+      return frozen.map((v) => String(v)).join(', ') || '—'
+    }
+    return rawVal.map((v) => resolveOptionLabel(field, v)).join(', ') || '—'
+  }
+  if (frozen != null && !Array.isArray(frozen)) return String(frozen)
+  return resolveOptionLabel(field, rawVal)
+}
+function lookupBadge(field) {
+  return LOOKUP_BADGES[field.lookupEntity] || null
+}
+// The id prop the entity's BadgeById expects (e.g. ProductBadgeById → productId).
+function lookupIdProp(field) {
+  return LOOKUP_ENTITY_BY_VALUE[field.lookupEntity]?.idProp || 'id'
+}
 
 // ─── Option set resolution ────────────────────────────────────────────────────
 // Only fetch the FK for fields that DON'T already carry an embedded
@@ -17,7 +51,9 @@ const optionSetIds = computed(() => {
   function collect(fields) {
     for (const f of fields) {
       if (f.optionSetId && !f.optionSet) ids.add(f.optionSetId)
+      // Module templates nest under `fields`; documents/log books use `children`.
       if (f.children) collect(f.children)
+      else if (f.fields) collect(f.fields)
       if (f.template) collect(f.template)
     }
   }
@@ -37,7 +73,8 @@ const fkOptionSets = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['OptionSet'], initial: {} },
 )
 
 function getEffectiveOptionSet(field) {
@@ -49,6 +86,21 @@ function getEffectiveOptionSet(field) {
 function getFieldValue(field) {
   if (!field.name) return null
   return props.values?.[field.name] ?? null
+}
+
+/**
+ * The attachments for a richTextAttachment field.
+ *
+ * `<field>_attachments`, written by DynamicForm since 2026-08-19.
+ *
+ * The marker-format fallback that read the list out of the body string is
+ * gone: it existed only so records written before that date kept their
+ * attachments, and the database reset of 2026-08-23 removed the last of them.
+ */
+function attachmentsFor(field) {
+  if (!field.name) return []
+  const separate = props.values?.[`${field.name}_attachments`]
+  return Array.isArray(separate) ? separate : []
 }
 
 function resolveOptionLabel(field, val) {
@@ -84,6 +136,8 @@ function formatDisplayValue(field, rawVal) {
     case 'textarea':
     case 'number':
     case 'slider':
+    case 'email':
+    case 'phone':
       return String(rawVal)
 
     case 'textEditor':
@@ -168,8 +222,41 @@ function isColorPickerField(field) {
   return field.type === 'colorPicker'
 }
 
+function isSignatureField(field) {
+  return field.type === 'signature'
+}
+
+function isHeaderField(field) {
+  return field.type === 'header'
+}
+
+function headerSizeClass(field) {
+  return (
+    { default: 'tw:text-xl', large: 'tw:text-3xl', small: 'tw:text-base' }[field.size || 'large'] ||
+    'tw:text-3xl'
+  )
+}
+
+function headerAlignClass(field) {
+  return (
+    { left: 'tw:text-left', center: 'tw:text-center', right: 'tw:text-right' }[
+      field.align || 'center'
+    ] || 'tw:text-center'
+  )
+}
+
 function isSectionField(field) {
   return field.type === 'section'
+}
+
+// A container's children: `children` for document / log-book schemas,
+// `fields` for form-builder module templates. Same tree, two spellings —
+// without the alias a module template's sections silently render EMPTY
+// (caught by the module-record print, 2026-08-26).
+function childrenOf(field) {
+  if (Array.isArray(field.children) && field.children.length) return field.children
+  if (Array.isArray(field.fields)) return field.fields
+  return field.children || []
 }
 
 function isRepeaterField(field) {
@@ -204,21 +291,25 @@ function isRenderableField(field) {
     !isPhotoField(field) &&
     !isSeparatorField(field) &&
     !isInstructionsField(field) &&
-    !isColorPickerField(field)
+    !isColorPickerField(field) &&
+    !isSignatureField(field) &&
+    !isHeaderField(field) &&
+    !isLookupField(field)
   )
 }
 
 function getVisibleFields(fields) {
   const result = []
   for (const field of fields) {
+    if (field.hidden) continue // "Hide field" — omit from the readonly/submitted view
     if (isSectionField(field)) {
-      if (field.children?.length) {
+      if (childrenOf(field).length) {
         result.push(field)
       }
     } else if (isRepeaterField(field)) {
       result.push(field)
     } else if (isLayoutContainer(field)) {
-      if (field.children?.length) result.push(field)
+      if (childrenOf(field).length) result.push(field)
     } else if (isSeparatorField(field)) {
       result.push(field)
     } else if (isInstructionsField(field)) {
@@ -250,6 +341,26 @@ function getChecklistRowValue(field, rowIndex) {
   return Array.isArray(entry) ? entry : [entry]
 }
 
+// Display text for one checklist cell. Handles both storage shapes:
+//  - legacy flat rows (array of picked column values → ✓ under that column)
+//  - nested-object rows ({ colValue: cellValue }) used by optionGroup /
+//    select / text / number columns — shows the stored value (arrays joined,
+//    booleans as ✓).
+function checklistCellDisplay(field, rowIndex, col) {
+  const raw = getFieldValue(field)
+  const entry = Array.isArray(raw) ? raw[rowIndex] : null
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    const v = entry[col.value]
+    if (v == null || v === '') return null
+    if (v === true) return '✓'
+    if (v === false) return null
+    if (Array.isArray(v)) return v.length ? v.join(', ') : null
+    return String(v)
+  }
+  const picked = getChecklistRowValue(field, rowIndex) || []
+  return picked.includes(col.value) ? '✓' : null
+}
+
 function getChecklistRowLabel(row) {
   if (typeof row === 'string') return row
   return row?.label || row?.value || ''
@@ -260,22 +371,28 @@ function getChecklistColumnLabel(col) {
 }
 </script>
 
+<!--
+  Caption/value hierarchy (user request 2026-08-14): field captions are
+  `text-caption font-bold text-on-main` — bold and dark against the regular-
+  weight `text-sm` value beneath them, so a reader can see at a glance WHICH
+  fields a step captured. They were `font-medium text-secondary`, which sat at
+  the same visual weight as the values and made a filled form read as one
+  undifferentiated block. Group headings (Section / Repeater) stay uppercase +
+  tracked — one tier above a caption.
+-->
 <template>
-  <div class="tw:grid tw:grid-cols-3 tw:gap-3">
+  <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:lg:grid-cols-3 tw:gap-3">
     <template v-for="field in getVisibleFields(fields)" :key="field.name || field.label">
       <!-- Section with children (full-width) -->
       <template v-if="isSectionField(field)">
         <div class="tw:col-span-3">
           <div
             v-if="field.label"
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
+            class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
           >
             {{ field.label }}
           </div>
-          <FormSchemaReadonlyView
-            :fields="field.children"
-            :values="getContainerValues(field)"
-          />
+          <FormSchemaReadonlyView :fields="childrenOf(field)" :values="getContainerValues(field)" />
         </div>
       </template>
 
@@ -283,7 +400,7 @@ function getChecklistColumnLabel(col) {
       <template v-else-if="isLayoutContainer(field)">
         <div class="tw:col-span-3">
           <FormSchemaReadonlyView
-            :fields="field.children || []"
+            :fields="childrenOf(field)"
             :values="getContainerValues(field)"
           />
         </div>
@@ -294,7 +411,7 @@ function getChecklistColumnLabel(col) {
         <div class="tw:col-span-3">
           <div
             v-if="field.label"
-            class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
+            class="tw:text-caption tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider tw:mt-1 tw:mb-2"
           >
             {{ field.label }}
           </div>
@@ -304,7 +421,7 @@ function getChecklistColumnLabel(col) {
               :key="idx"
               class="tw:border tw:border-divider tw:rounded-md tw:p-3 tw:mb-2"
             >
-              <div class="tw:text-[11px] tw:text-secondary tw:font-medium tw:mb-2">
+              <div class="tw:text-caption tw:font-bold tw:text-on-main tw:mb-2">
                 #{{ idx + 1 }}
               </div>
               <FormSchemaReadonlyView :fields="field.template || []" :values="item || {}" />
@@ -316,7 +433,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Rating field (full-width) -->
       <div v-else-if="isRatingField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <div class="tw:flex tw:gap-0.5">
           <component
             :is="i <= (getFieldValue(field) || 0) ? IconStarFilled : IconStar"
@@ -328,9 +445,30 @@ function getChecklistColumnLabel(col) {
         </div>
       </div>
 
+      <!-- Rich text + attachments (full-width). Rendered through the component
+           so the body renders AND the attachment/document links show.
+
+           Two keys — `<field>` and `<field>_attachments`. Both are handed to
+           the component, which renders the body from the first and the links
+           from the second. -->
+      <div
+        v-else-if="field.type === 'richTextAttachment'"
+        class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5"
+      >
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
+        <RichTextAttachments
+          v-if="getFieldValue(field) || attachmentsFor(field).length"
+          :modelValue="getFieldValue(field) || ''"
+          :attachments="attachmentsFor(field)"
+          :separateAttachments="true"
+          :readonly="true"
+        />
+        <span v-else class="tw:text-xs tw:text-secondary tw:italic">Not provided</span>
+      </div>
+
       <!-- HTML / textEditor field (full-width) -->
       <div v-else-if="isHtmlField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <div
           v-if="getFieldValue(field)"
           class="tw:text-sm tw:text-on-main tw:leading-relaxed"
@@ -344,7 +482,7 @@ function getChecklistColumnLabel(col) {
         v-else-if="field.type === 'textarea'"
         class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5"
       >
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <p class="tw:text-sm tw:text-on-main tw:leading-relaxed">
           {{ getFieldValue(field) || '—' }}
         </p>
@@ -352,7 +490,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- File field (full-width) -->
       <div v-else-if="isFileField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <template v-if="Array.isArray(getFieldValue(field)) && getFieldValue(field).length">
           <a
             v-for="(file, fi) in getFieldValue(field)"
@@ -374,7 +512,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Photo field (full-width) -->
       <div v-else-if="isPhotoField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <img
           v-if="getPhotoUrl(field)"
           :src="getPhotoUrl(field)"
@@ -390,7 +528,7 @@ function getChecklistColumnLabel(col) {
 
       <!-- Checklist field (full-width) -->
       <div v-else-if="isChecklistField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <div class="tw:overflow-x-auto">
           <table class="tw:w-full tw:text-sm tw:border tw:border-divider tw:rounded">
             <thead class="tw:bg-main-hover">
@@ -419,8 +557,18 @@ function getChecklistColumnLabel(col) {
                   :key="col.value || col.label"
                   class="tw:px-3 tw:py-2 tw:text-on-main"
                 >
-                  <span v-if="(getChecklistRowValue(field, rowIndex) || []).includes(col.value)">
-                    ✓
+                  <!-- Lookup cells store an entity id — resolve it to a badge
+                       instead of printing the UUID (2026-08-27). -->
+                  <component
+                    :is="LOOKUP_BADGES[col.lookupEntity || 'product']"
+                    v-if="col.inputType === 'lookup' && checklistCellDisplay(field, rowIndex, col)"
+                    v-bind="{
+                      [LOOKUP_ID_PROPS[col.lookupEntity || 'product'] || 'productId']:
+                        checklistCellDisplay(field, rowIndex, col),
+                    }"
+                  />
+                  <span v-else-if="checklistCellDisplay(field, rowIndex, col) != null">
+                    {{ checklistCellDisplay(field, rowIndex, col) }}
                   </span>
                   <span v-else class="tw:text-secondary">—</span>
                 </td>
@@ -447,22 +595,45 @@ function getChecklistColumnLabel(col) {
 
       <!-- Color picker — swatch + hex value (grid cell) -->
       <div v-else-if="isColorPickerField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <div v-if="getFieldValue(field)" class="tw:flex tw:items-center tw:gap-2">
           <span
             class="tw:inline-block tw:size-4 tw:rounded tw:border tw:border-divider tw:shrink-0"
             :style="{ backgroundColor: getFieldValue(field) }"
           />
-          <span class="tw:text-sm tw:font-medium tw:font-mono tw:text-on-main">
+          <span class="tw:text-sm tw:font-medium tw:text-on-main">
             {{ getFieldValue(field) }}
           </span>
         </div>
         <span v-else class="tw:text-sm tw:text-secondary">—</span>
       </div>
 
+      <!-- Heading — display-only heading + optional subheading -->
+      <div v-else-if="isHeaderField(field)" class="tw:col-span-3" :class="headerAlignClass(field)">
+        <div class="tw:font-bold tw:text-on-main" :class="headerSizeClass(field)">
+          {{ field.text }}
+        </div>
+        <div v-if="field.subtext" class="tw:text-sm tw:text-secondary tw:mt-1">
+          {{ field.subtext }}
+        </div>
+      </div>
+
+      <!-- Signature — the saved PNG data-URL rendered as an image -->
+      <div v-else-if="isSignatureField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
+        <img
+          v-if="getFieldValue(field)"
+          :src="getFieldValue(field)"
+          :alt="field.label || 'Signature'"
+          class="tw:rounded tw:border tw:border-divider tw:bg-white tw:object-contain"
+          :style="{ maxWidth: '320px', maxHeight: '160px' }"
+        />
+        <span v-else class="tw:text-sm tw:text-secondary">—</span>
+      </div>
+
       <!-- Custom registered field (rca, riskAssessment, …) — full-width -->
       <div v-else-if="isCustomField(field)" class="tw:col-span-3 tw:flex tw:flex-col tw:gap-0.5">
-        <div v-if="field.label" class="tw:text-[11px] tw:text-secondary tw:font-medium">
+        <div v-if="field.label" class="tw:text-caption tw:font-bold tw:text-on-main">
           {{ field.label }}
         </div>
         <component
@@ -473,9 +644,28 @@ function getChecklistColumnLabel(col) {
         />
       </div>
 
+      <!-- Lookup — entity-backed resolves the stored id to a live badge;
+           option-set-backed renders text (frozen label wins, then the
+           fetched set, then the raw value — same rules as select fields). -->
+      <div v-else-if="isLookupField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
+        <span v-if="isOptionSetLookup(field)" class="tw:text-sm tw:text-on-main">
+          {{ optionSetLookupText(field) }}
+        </span>
+        <template v-else-if="getFieldValue(field) && lookupBadge(field)">
+          <component
+            :is="lookupBadge(field)"
+            v-for="v in Array.isArray(getFieldValue(field)) ? getFieldValue(field) : [getFieldValue(field)]"
+            :key="v"
+            v-bind="{ [lookupIdProp(field)]: v }"
+          />
+        </template>
+        <span v-else class="tw:text-sm tw:text-secondary">—</span>
+      </div>
+
       <!-- Standard field (grid cell) -->
       <div v-else-if="isRenderableField(field)" class="tw:flex tw:flex-col tw:gap-0.5">
-        <div class="tw:text-[11px] tw:text-secondary tw:font-medium">{{ field.label }}</div>
+        <div class="tw:text-caption tw:font-bold tw:text-on-main">{{ field.label }}</div>
         <span class="tw:text-sm tw:font-medium tw:text-on-main">
           {{ formatDisplayValue(field, getFieldValue(field)) }}
         </span>

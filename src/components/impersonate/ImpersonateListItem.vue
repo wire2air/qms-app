@@ -5,21 +5,24 @@ const props = defineProps({
     required: true,
   },
 })
+const emit = defineEmits(['select'])
 
 const userForAvatar = computed(() => ({
   ...props.user,
   fullName: `${props.user.firstName} ${props.user.lastName}`,
 }))
 
+// Impersonation now requires a reason + mode captured in a dialog before the
+// cross-subdomain handoff — the parent owns that dialog.
 function onClick() {
-  const returnUrl = window.location.pathname
-  window.location.href = `/api/v1/auth/impersonate?id=${props.user.id}&returnUrl=${encodeURIComponent(returnUrl)}`
+  emit('select', props.user)
 }
 </script>
 
 <template>
-  <div
-    class="tw:p-3 tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors tw:rounded-xl tw:border tw:border-divider"
+  <BaseClickableRow
+    class="tw:block tw:p-3 tw:hover:bg-main-hover tw:transition-colors tw:rounded-xl tw:border tw:border-divider"
+    :aria-label="`Impersonate ${user.firstName} ${user.lastName}`"
     @click="onClick"
   >
     <div class="tw:flex tw:items-center tw:gap-3">
@@ -41,5 +44,5 @@ function onClick() {
         </div>
       </div>
     </div>
-  </div>
+  </BaseClickableRow>
 </template>

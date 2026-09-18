@@ -252,14 +252,44 @@ export const AUDIT_FIELD_FORMATTERS = {
     reportedById: { label: 'Reported By', type: 'fk', refModel: 'User' },
   },
 
+  // ── Customer Complaints ──────────────────────────────────────────────────────
+  CustomerComplaint: {
+    subject: { label: 'Subject', type: 'text' },
+    complaintNumber: { label: 'Ticket Number', type: 'text' },
+    statusId: { label: 'Status', type: 'status', statusModel: 'CustomerComplaintStatus' },
+    priorityId: { label: 'Priority', type: 'text' },
+    sourceId: { label: 'Source', type: 'text' },
+    description: { label: 'Description', type: 'text' },
+    customerName: { label: 'Customer Name', type: 'text' },
+    customerEmail: { label: 'Customer Email', type: 'text' },
+    assignedTo: { label: 'Assigned To', type: 'fk', refModel: 'User' },
+  },
+
   // ── Users & Access ───────────────────────────────────────────────────────────
   User: {
     firstName: { label: 'First Name', type: 'text' },
     lastName: { label: 'Last Name', type: 'text' },
     email: { label: 'Email', type: 'text' },
     userStatusId: { label: 'Status', type: 'status', statusModel: 'UserStatus' },
-    jobTitle: { label: 'Job Title', type: 'text' },
+    jobTitle: { label: 'Employee Title', type: 'text' },
+    // FK mirrors jobTitle (which carries the readable name) — hide to avoid
+    // double-reporting the same title change.
+    employeeTitleId: { label: 'Employee Title', type: 'fk', refModel: 'EmployeeTitle', hidden: true },
     departmentId: { label: 'Department', type: 'fk', refModel: 'Department' },
+    siteId: { label: 'Primary Site', type: 'fk', refModel: 'Site' },
+    supervisorId: { label: 'Supervisor', type: 'fk', refModel: 'User' },
+    hireDate: { label: 'Hire Date', type: 'text' },
+  },
+
+  // Additional site assignments. Site placement is an AUTHORITY change — it
+  // widens what a `site`-scoped role reaches — so it belongs in the drawer next
+  // to role assignment, which is why the API also writes named
+  // SITE_ASSIGNED / SITE_REMOVED / PRIMARY_SITE_CHANGED events on the user.
+  // Keyed SINGULAR: the backend writes entityType 'UserSites' (PascalCase of the
+  // table), and both consumers look up `singular(entityType)` — so the key that
+  // actually matches is 'UserSite', exactly as RolesOnUser and UsersOnTeam are.
+  UserSite: {
+    userId: { label: 'User', type: 'fk', refModel: 'User', hidden: true },
     siteId: { label: 'Site', type: 'fk', refModel: 'Site' },
   },
 
@@ -404,6 +434,8 @@ export const DISPLAY_TYPE_LABELS = {
   SupplierAsset: 'Supplier Asset',
   AssetRequest: 'Asset Request',
   Nonconformance: 'Nonconformance',
+  CustomerComplaint: 'Customer Complaint',
+  CustomerComplaintMessage: 'Complaint Message',
   User: 'User',
   Role: 'Role',
   PermissionOnRole: 'Permission',
@@ -418,6 +450,7 @@ export const DISPLAY_TYPE_LABELS = {
   UsersOnApprovalWorkflowInstanceStep: 'Approver Assignment',
   UsersOnDocument: 'Document Access',
   RolesOnUser: 'Role Assignment',
+  UserSites: 'Site Assignment',
   UsersOnTeam: 'Team Member',
   Signature: 'Signature',
   OptionSet: 'Option Set',

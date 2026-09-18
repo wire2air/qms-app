@@ -17,53 +17,33 @@ const modelValue = defineModel({
 
 const statuses = useLiveQuery(
   (db) => db.DocumentVersionStatus.where().orderBy('displayOrder').exec(),
-  { initial: [] },
+
+  { models: ['DocumentVersionStatus'], initial: [] },
 )
-
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
-
-function getStatus(id) {
-  return statuses.value.find((s) => s.id === id) ?? null
-}
 </script>
 
 <template>
-  <BaseSelectMenu v-model="modelValue" :items="statuses" :required="required" :multiple="multiple">
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <!-- MULTIPLE MODE -->
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <BaseBadge
-              v-for="id in getArray()"
-              :key="id"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(id)"
-            >
-              {{ getStatus(id)?.name ?? id }}
-            </BaseBadge>
-          </div>
-
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select Statuses
-          </span>
-        </template>
-
-        <!-- SINGLE MODE -->
-        <template v-else>
-          <BaseBadge
-            v-if="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          >
-            {{ getStatus(modelValue)?.name ?? modelValue }}
-          </BaseBadge>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder"> Select Status </span>
-        </template>
-      </slot>
+  <BaseSelect
+    v-model="modelValue"
+    :options="statuses"
+    optionLabel="name"
+    optionValue="id"
+    :required="required"
+    :multiple="multiple"
+    :clearable="!required"
+    nullLabel="— All statuses —"
+  >
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <BaseBadge
+          v-for="o in options"
+          :key="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        >
+          {{ o.label }}
+        </BaseBadge>
+      </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

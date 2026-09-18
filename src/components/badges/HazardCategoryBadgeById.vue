@@ -9,7 +9,8 @@ const category = useLiveQueryWithDeps(
     if (!id) return null
     return db.HazardCategory.findByPk(id)
   },
-  { initial: null },
+
+  { models: ['HazardCategory'], initial: null },
 )
 </script>
 

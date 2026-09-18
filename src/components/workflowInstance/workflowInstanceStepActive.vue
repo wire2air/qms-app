@@ -11,24 +11,32 @@ const currentUserId = computed(() => currentSession.value?.id)
 
 const instanceStep = useLiveQueryWithDeps(
   [() => props.instanceStepId],
+
   async (db, [instanceStepId]) => {
     if (!instanceStepId) return null
     return db.WorkflowInstanceStep.findByPk(instanceStepId)
   },
+  { models: ['WorkflowInstanceStep'] },
 )
 
 const workflowInstance = useLiveQueryWithDeps(
   [() => instanceStep.value?.workflowInstanceId],
+
   async (db, [instanceId]) => {
     if (!instanceId) return null
     return db.WorkflowInstance.findByPk(instanceId)
   },
+  { models: ['WorkflowInstance'] },
 )
 
-const step = useLiveQueryWithDeps([() => instanceStep.value?.stepId], async (db, [stepId]) => {
-  if (!stepId) return null
-  return db.WorkflowStep.findByPk(stepId)
-})
+const step = useLiveQueryWithDeps(
+  [() => instanceStep.value?.stepId],
+  async (db, [stepId]) => {
+    if (!stepId) return null
+    return db.WorkflowStep.findByPk(stepId)
+  },
+  { models: ['WorkflowStep'] },
+)
 
 const tasks = useLiveQueryWithDeps(
   [() => props.instanceStepId],
@@ -39,7 +47,8 @@ const tasks = useLiveQueryWithDeps(
       instanceStepId,
     ]).exec()
   },
-  { initial: [] },
+
+  { models: ['TaskInstance'], initial: [] },
 )
 
 function isCurrentUser(task) {
@@ -60,7 +69,8 @@ const usersMap = useLiveQueryWithDeps(
     const users = await Promise.all(ids.map((id) => db.User.findByPk(id)))
     return Object.fromEntries(users.filter(Boolean).map((u) => [u.id, u]))
   },
-  { initial: {} },
+
+  { models: ['User'], initial: {} },
 )
 </script>
 
@@ -72,7 +82,7 @@ const usersMap = useLiveQueryWithDeps(
       class="tw:flex tw:flex-col tw:md:flex-row tw:md:items-center tw:justify-between tw:gap-3 tw:mb-4"
     >
       <div class="tw:min-w-0 tw:flex-1">
-        <h3 class="tw:font-bold tw:text-on-main tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main tw:flex tw:flex-wrap tw:items-center tw:gap-2">
           <span class="tw:min-w-0 tw:wrap-break-word">
             Step {{ displayNumber ?? instanceStep?.stepNumber }}: {{ instanceStep?.name }}
           </span>
@@ -135,12 +145,12 @@ const usersMap = useLiveQueryWithDeps(
               {{ usersMap[task.assignedTo]?.firstName }} {{ usersMap[task.assignedTo]?.lastName }}
               <span v-if="isCurrentUser(task)" class="tw:text-primary">(You)</span>
             </p>
-            <p class="ds-label-sm tw:text-secondary tw:truncate">
+            <BaseText as="p" variant="caption" class="tw:truncate">
               {{ usersMap[task.assignedTo]?.email }}
-            </p>
+            </BaseText>
           </div>
         </div>
-        <TaskInstanceStatusBadgeById class="tw:shrink-0" :statusId="task.statusId" />
+        <TaskInstanceStatusBadgeById class="tw:shrink-0" :statusId="task.statusId" :stepType="instanceStep?.stepType" />
       </div>
     </div>
 

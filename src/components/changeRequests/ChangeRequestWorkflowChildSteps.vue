@@ -28,7 +28,8 @@ const childSteps = useLiveQueryWithDeps(
     const rows = await db.WorkflowInstanceStep.where('parentInstanceStepId', parentId).exec()
     return rows.sort((a, b) => a.stepOrder - b.stepOrder)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 // Once the parent step is terminal (Mark Complete signed off,
@@ -37,7 +38,9 @@ const childSteps = useLiveQueryWithDeps(
 // Add Sub-task button on the parent still being active.
 const parentInstanceStep = useLiveQueryWithDeps(
   [() => props.parentInstanceStepId],
+
   async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'] },
 )
 const PARENT_TERMINAL_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'SKIPPED']
 const isParentTerminal = computed(() =>
@@ -56,29 +59,24 @@ function openAdd() {
 <template>
   <div class="tw:mt-4 tw:flex tw:flex-col tw:gap-2">
     <div class="tw:flex tw:items-center tw:justify-between tw:mb-1">
-      <div class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wider">
+      <BaseText variant="overline">
         Sub-tasks
         <span
           v-if="childSteps.length"
-          class="tw:text-[10px] tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:ml-1"
+          class="tw:text-micro tw:bg-gray-100 tw:text-gray-700 tw:px-1.5 tw:py-0.5 tw:rounded tw:ml-1"
         >
           {{ childSteps.length }}
         </span>
-      </div>
-      <BaseButton
-        v-if="canAddSubTask"
-        variant="outline"
-        size="sm"
-        @click="openAdd"
-      >
+      </BaseText>
+      <BaseButton v-if="canAddSubTask" variant="outline" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="14" /></template>
         Add Sub-task
       </BaseButton>
     </div>
 
     <div v-if="!childSteps.length" class="tw:text-xs tw:text-secondary tw:italic">
-      No sub-tasks yet. Click "Add Sub-task" to add one (document update,
-      training assignment, supplier notification, validation, etc.).
+      No sub-tasks yet. Click "Add Sub-task" to add one (document update, training assignment,
+      supplier notification, validation, etc.).
     </div>
 
     <ChangeRequestWorkflowChildStep

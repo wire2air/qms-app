@@ -18,13 +18,13 @@ defineEmits(['viewDocument'])
         <div class="tw:flex tw:items-center tw:gap-2">
           <span
             v-if="doc?.documentType"
-            class="ds-label-sm tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded"
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:bg-primary/10 tw:text-primary tw:px-2 tw:py-0.5 tw:rounded"
           >
             {{ doc.documentType.name }}
           </span>
           <span class="tw:text-secondary tw:text-sm">#{{ doc?.docNumber }}</span>
         </div>
-        <h1 class="tw:text-2xl tw:font-bold tw:text-on-main tw:leading-tight">
+        <h1 class="tw:text-2xl tw:font-semibold tw:tracking-tight tw:text-on-main tw:leading-tight">
           {{ doc?.title }}
         </h1>
         <div

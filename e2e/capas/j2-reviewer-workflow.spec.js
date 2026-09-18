@@ -1,0 +1,132 @@
+// PW-J2 · Reviewer completes the workflow (TC-06/07/08) — multi-role.
+//
+// Same shared workflow-step machinery as NCR (workflowStepActionsService.js,
+// WorkflowStepActionsMenu.vue) — see e2e/nonconformances/j2-reviewer-workflow.spec.js
+// for the underlying "reject" split: on the ACTION step (step 1, reviewer) it's
+// the lightweight Send-Back (does not terminate the workflow); the transition
+// that actually reverts OPEN -> DRAFT is /rejectStepTask on the APPROVAL
+// step (step 2, approver) — capaHandler.onRejection.
+import { test, expect } from '../../video/fixtures/videoTest.js'
+import { AUTH, USERS } from '../fixtures/cast.js'
+import { signWithPin } from '../fixtures/esign.js'
+import { createCapa, openCapa, completeReviewerStep, uniqueTitle } from '../fixtures/capas.js'
+import { clickWhenReady } from '../fixtures/documents.js'
+import { findCapaByTitle, sqlValue, waitForSqlValue } from '../fixtures/db.js'
+
+test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the APPROVAL step', () => {
+  test('reviewer Mark-Completes step 1 -> workflow advances, approver task created', async ({
+    browser,
+  }) => {
+    test.setTimeout(150_000)
+    const ownerCtx = await browser.newContext({ storageState: AUTH.author })
+    const ownerPage = await ownerCtx.newPage()
+    const title = uniqueTitle('J2-advance')
+    await createCapa(ownerPage, title)
+    const capa = findCapaByTitle(title)
+    await openCapa(ownerPage, capa.id)
+    await ownerCtx.close()
+
+    await completeReviewerStep(browser, capa.id)
+
+    await waitForSqlValue(
+      `SELECT count(*) FROM task_instances
+        WHERE entity_type = 'Capa' AND entity_id = '${capa.id}'
+          AND assigned_to = '${USERS.approver.id}' AND status_id = 'ASSIGNED'`,
+      { timeoutMs: 30_000, label: 'approver task created' },
+    )
+
+    const step1Status = sqlValue(`
+      SELECT wis.status_id FROM workflow_instance_steps wis
+      JOIN workflow_instances wi ON wi.id = wis.workflow_instance_id
+      WHERE wi.resource_type = 'Capa' AND wi.resource_id = '${capa.id}'
+        AND wis.step_id = 'e2ef2003-0000-4000-8000-000000000001'
+    `)
+    expect(step1Status).toBe('APPROVED')
+
+    const capaStatus = sqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}'`)
+    expect(capaStatus, 'CAPA stays OPEN mid-workflow').toBe('OPEN')
+  })
+
+  test('approver rejects step 2 (APPROVAL) -> CAPA reverts OPEN to DRAFT', async ({
+    browser,
+  }) => {
+    test.setTimeout(150_000)
+    const ownerCtx = await browser.newContext({ storageState: AUTH.author })
+    const ownerPage = await ownerCtx.newPage()
+    const title = uniqueTitle('J2-reject')
+    await createCapa(ownerPage, title)
+    const capa = findCapaByTitle(title)
+    await openCapa(ownerPage, capa.id)
+    await ownerCtx.close()
+
+    await completeReviewerStep(browser, capa.id)
+    await waitForSqlValue(
+      `SELECT count(*) FROM task_instances
+        WHERE entity_type = 'Capa' AND entity_id = '${capa.id}'
+          AND assigned_to = '${USERS.approver.id}' AND status_id = 'ASSIGNED'`,
+      { timeoutMs: 30_000, label: 'approver task created' },
+    )
+
+    const approverCtx = await browser.newContext({ storageState: AUTH.approver })
+    const approverPage = await approverCtx.newPage()
+    await approverPage.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
+    // TWO buttons on this page carry the accessible name "More actions":
+    // the record header's (Link Nonconformance / Audit Log) and the step
+    // card's (`WorkflowStepActionsMenu` — Approve/Reject/Reassign/Cancel).
+    // `BaseMenu` hard-codes `aria-label="More actions"` on every trigger, so
+    // role+name cannot tell them apart, and `clickWhenReady` takes `.first()`
+    // — the header. That opened a menu with no Reject in it and the click sat
+    // there for 25s. Whether .first() lands on the right one is pure DOM
+    // order, which is why this passed one run and failed the next.
+    //
+    // Anchor on the step's own Approve button and take the next More-actions
+    // trigger after it in document order — same idiom as comboboxAfterLabel in
+    // fixtures/documents.js.
+    const stepMenu = approverPage
+      .getByRole('button', { name: 'Approve', exact: true })
+      .first()
+      .locator('xpath=following::button[@aria-label="More actions"][1]')
+    // Centre it before opening: the approval step sits low in a 1280x720
+    // viewport and the menu opens DOWNWARD without flipping, so its items
+    // render below the fold and every click retries "outside of the viewport"
+    // until timeout. scrollIntoViewIfNeeded stops as soon as the TRIGGER is on
+    // screen, which is exactly where the menu has no room. (Same note as NC J2.)
+    await stepMenu.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await clickWhenReady(approverPage, stepMenu)
+    await approverPage.getByRole('menuitem', { name: 'Reject' }).click()
+    await expect(approverPage.getByPlaceholder('Why are you rejecting?')).toBeVisible({
+      timeout: 10_000,
+    })
+    await approverPage
+      .getByPlaceholder('Why are you rejecting?')
+      .fill('E2E reject — corrective action insufficient.')
+    await approverPage.getByRole('button', { name: 'Confirm' }).click()
+    // F-16 (2026-08-08): rejecting an e-sign-required APPROVAL step now captures a
+    // signature. Before this the DB held 588 signatures — 361 APPROVED and ZERO
+    // REJECTED — while 92 rejections had already happened on e-sign-required steps,
+    // because this path never signed while API-15's identical action did.
+    //
+    // The prompt is gated on the STEP TYPE, not the outcome id: SEND_BACK is
+    // "Reject" here and routes to rejectStepTask (signed), while the same outcome
+    // on a non-approval step routes to sendBackStepTask and stays deliberately
+    // unsigned. Without this the reject 400s with ESIGNATURE_REQUIRED.
+    await signWithPin(approverPage)
+    await approverCtx.close()
+
+    await waitForSqlValue(
+      `SELECT count(*) FROM capas WHERE id = '${capa.id}' AND status_id = 'DRAFT'`,
+      { timeoutMs: 30_000, label: 'CAPA reverted to DRAFT' },
+    )
+
+    const wfStatus = sqlValue(`
+      SELECT status_id FROM workflow_instances
+      WHERE resource_type = 'Capa' AND resource_id = '${capa.id}'
+    `)
+    expect(wfStatus, 'workflow instance terminated as REJECTED').toBe('REJECTED')
+
+    const rejectAuditRows = sqlValue(
+      `SELECT count(*) FROM audit_logs WHERE entity_type = 'Capa' AND entity_id = '${capa.id}' AND action = 'REJECT' AND performed_by IS NOT NULL`,
+    )
+    expect(Number(rejectAuditRows), 'attributed REJECT audit row exists').toBeGreaterThan(0)
+  })
+})

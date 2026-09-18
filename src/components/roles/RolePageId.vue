@@ -1,15 +1,8 @@
 <script setup>
-import {
-  IconHistory,
-  IconAlertCircle,
-  IconArrowLeft,
-  IconSearch,
-  IconSquareCheck,
-} from '@tabler/icons-vue'
+import { IconHistory, IconSearch, IconLock } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { useRolePermissions } from '@/composables/useRolePermissions.js'
-import { useRoles } from '@/composables/useRoles.js'
 import { isAllowed } from '@/utils/currentSession.js'
+import { buildRoleSections, buildRoleActions } from './roleDetailConfig.js'
 
 const props = defineProps({
   id: {
@@ -20,14 +13,60 @@ const props = defineProps({
 
 const toast = useToast()
 const router = useRouter()
+const { confirm } = useConfirm()
 const role = ref(null)
 const loading = ref(false)
-const error = ref(null)
 
-const canUpdateRole = computed(() => isAllowed(['roles:update']))
+// Snapshot of the last-saved name/description, to detect unsaved edits (M4).
+const savedMeta = ref({ name: '', description: '' })
+const metaDirty = computed(
+  () =>
+    !!role.value &&
+    (role.value.name !== savedMeta.value.name ||
+      (role.value.description ?? '') !== savedMeta.value.description),
+)
 
-// Get useRoles composable
-const { fetchRole, updateRole, deactivateRole, activateRole } = useRoles()
+const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
+// A locked role is protected — editing controls are disabled until it's unlocked.
+const isLocked = computed(() => !!role.value?.locked)
+const canEdit = computed(() => canUpdateRole.value && !isLocked.value)
+
+// Live source of truth (pooled db.Role instance) + a plain-object editable copy
+// (`role`). Inline edits mutate the copy only; Save applies it to the instance
+// and persists, so Cancel/discard never leaves a dirty pooled instance.
+const liveRole = useLiveQueryWithDeps([() => props.id], (db, [id]) =>
+  id ? db.Role.findByPk(id) : null,
+)
+const roleAssignments = useLiveQueryWithDeps(
+  [() => props.id],
+  (db, [id]) => (id ? db.RoleOnUser.where('roleId', id).exec() : []),
+  { initial: [] },
+)
+const initialLoading = computed(() => liveRole.value === undefined)
+const notFound = computed(() => liveRole.value === null)
+
+watch(
+  liveRole,
+  (r) => {
+    if (!r) return
+    // Seed/refresh the editable copy when switching roles or when there are no
+    // unsaved edits (don't clobber the user's in-progress changes on a sync push).
+    if (!role.value || role.value.id !== r.id || !metaDirty.value) {
+      role.value = {
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        statusId: r.statusId,
+        locked: r.locked,
+        companyId: r.companyId,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }
+      savedMeta.value = { name: r.name ?? '', description: r.description ?? '' }
+    }
+  },
+  { immediate: true },
+)
 
 // Inline editing state
 const isEditingName = ref(false)
@@ -39,31 +78,22 @@ const descriptionInputRef = ref(null)
 
 // User assignment dialog
 const showUsersDialog = ref(false)
+// Access-history drawer (M5)
+const showAudit = ref(false)
 
-// Use the permissions composable
-const {
-  searchTerm,
-  selectedPermissions,
-  permissionActions,
-  sectionedGroups,
-  fetchPermissions,
-  isSelected,
-  togglePermission,
-  getPermissionForAction,
-  selectAll,
-  setSelectedPermissions,
-} = useRolePermissions()
+// Permission matrix (self-contained; persisted via its exposed save()).
+const matrixRef = ref(null)
+const permSearch = ref('')
 
 const breadcrumbItems = computed(() => [
   { label: 'Roles', to: getCompanyPath('/roles') },
-  { label: role.value?.name || 'Role Details' },
+  { label: role.value?.name || (notFound.value ? 'Not found' : 'Role Details') },
 ])
 
-const usersCount = computed(() => role.value?.userAssignments?.length || 0)
+const usersCount = computed(() => roleAssignments.value.length)
 
-const assignedUsers = computed(() => {
-  return role.value?.userAssignments?.map((ua) => ua.user) || []
-})
+// The dialog seeds its selection + "currently assigned" badge from ids.
+const assignedUsers = computed(() => roleAssignments.value.map((ra) => ({ id: ra.userId })))
 
 // Open users dialog
 function openUsersDialog() {
@@ -72,7 +102,7 @@ function openUsersDialog() {
 
 // Inline editing functions
 async function startEditName() {
-  if (!canUpdateRole.value) return
+  if (!canEdit.value) return
   editedName.value = role.value.name
   isEditingName.value = true
   await nextTick()
@@ -87,7 +117,7 @@ function stopEditName() {
 }
 
 async function startEditDescription() {
-  if (!canUpdateRole.value) return
+  if (!canEdit.value) return
   editedDescription.value = role.value.description || ''
   isEditingDescription.value = true
   await nextTick()
@@ -101,92 +131,85 @@ function stopEditDescription() {
 
 const isInactive = computed(() => role.value?.statusId === 'INACTIVE')
 
+// Persist a single field on the live instance (status / lock). These are
+// standalone actions, independent of the name/description explicit-save flow.
+// The DB lock trigger rejects business edits on a locked role (surfaced as an
+// error toast); toggling `locked` itself is always allowed.
+async function persistField(patch, successMsg) {
+  const inst = liveRole.value
+  if (!inst) return
+  Object.assign(inst, patch)
+  try {
+    await inst.save()
+    role.value = { ...role.value, ...patch }
+    toast.success(successMsg)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update role')
+  }
+}
+
 async function handleDeactivate() {
   if (
-    !confirm(
-      `Are you sure you want to deactivate the role "${role.value.name}"?\n\nDeactivating a role will set its status to Inactive.`,
-    )
+    !(await confirm({
+      title: 'Deactivate role',
+      message: `Are you sure you want to deactivate the role "${role.value.name}"?\n\nDeactivating a role will set its status to Inactive.`,
+      okLabel: 'Deactivate',
+      danger: true,
+    }))
   )
     return
-  const success = await deactivateRole(props.id)
-  if (success) {
-    role.value = { ...role.value, statusId: 'INACTIVE' }
-    toast.success('Role deactivated successfully')
-  } else {
-    toast.error('Failed to deactivate role')
-  }
+  await persistField({ statusId: 'INACTIVE' }, 'Role deactivated successfully')
 }
 
 async function handleActivate() {
-  if (!confirm(`Are you sure you want to activate the role "${role.value.name}"?`)) return
-  const success = await activateRole(props.id)
-  if (success) {
-    role.value = { ...role.value, statusId: 'ACTIVE' }
-    toast.success('Role activated successfully')
-  } else {
-    toast.error('Failed to activate role')
-  }
-}
-
-// Fetch role details
-async function fetchRoleData() {
-  if (!props.id) {
+  if (
+    !(await confirm({
+      title: 'Activate role',
+      message: `Are you sure you want to activate the role "${role.value.name}"?`,
+      okLabel: 'Activate',
+    }))
+  )
     return
-  }
-
-  loading.value = true
-  error.value = null
-
-  try {
-    const fetchedRole = await fetchRole(props.id)
-
-    if (!fetchedRole) {
-      throw new Error('Role not found')
-    }
-
-    role.value = fetchedRole
-
-    // Extract and set selected permissions
-    const permissionIds = fetchedRole.permissionAssignments?.map((pa) => pa.permission.id) || []
-    setSelectedPermissions(permissionIds)
-  } finally {
-    loading.value = false
-  }
+  await persistField({ statusId: 'ACTIVE' }, 'Role activated successfully')
 }
 
-// Save changes
+async function handleLock() {
+  await persistField({ locked: true }, 'Role locked — it is now protected from edits')
+}
+
+async function handleUnlock() {
+  await persistField({ locked: false }, 'Role unlocked')
+}
+
+// Save changes — apply the editable copy's name/description to the live db.Role
+// instance and persist (syncEngine), then save the permission matrix via its own
+// audited endpoint. Only touches the instance here, so discard stays clean.
 async function saveChanges() {
-  if (!props.id) {
-    return
-  }
+  const inst = liveRole.value
+  if (!inst) return
 
   loading.value = true
-  error.value = null
-
   try {
-    const updateData = {
-      permissionIds: selectedPermissions.value,
-    }
+    // Validate the matrix FIRST — a blocked matrix must not half-save the
+    // name/description and then error.
+    matrixRef.value?.validate?.()
 
-    updateData.name = role.value.name
-    updateData.description = role.value.description ?? ''
+    inst.name = role.value.name
+    inst.description = role.value.description ?? ''
+    await inst.save()
 
-    const result = await updateRole(props.id, updateData)
+    // Permission matrix (authz plane — unchanged action-RPC).
+    await matrixRef.value?.save()
 
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to update role')
-    }
-
-    toast.success('Role updated successfully')
-
-    // Update local role with response
-    role.value = result.role
-
-    // Stop editing modes
+    savedMeta.value = { name: inst.name, description: inst.description ?? '' }
+    role.value = { ...role.value, name: inst.name, description: inst.description }
     isEditingName.value = false
     isEditingDescription.value = false
 
+    toast.success('Role updated successfully')
     goBack()
+  } catch (err) {
+    toast.error(err?.message || 'Failed to update role')
   } finally {
     loading.value = false
   }
@@ -197,230 +220,197 @@ function goBack() {
   router.back()
 }
 
-// Initialize
-onMounted(() => {
-  fetchRoleData()
-  fetchPermissions()
+// Warn before leaving with unsaved name/description or permission-matrix edits
+// (M4 — the two are persisted by separate calls, so losing either is easy).
+onBeforeRouteLeave(async () => {
+  const dirty = metaDirty.value || matrixRef.value?.hasUnsavedChanges?.()
+  if (!dirty) return true
+  return await confirm({
+    title: 'Discard unsaved changes?',
+    message: 'This role has unsaved changes. Leave without saving them?',
+    okLabel: 'Leave',
+    danger: true,
+  })
 })
 
-// Watch for id changes
-watch(
-  () => props.id,
-  () => {
-    if (props.id) {
-      fetchRoleData()
-    }
-  },
+// (Data loads reactively via the liveRole / roleAssignments live queries above.)
+
+// ─── BaseDetailLayout config ──────────────────────────────────────────────────
+const roleActions = computed(() =>
+  buildRoleActions(
+    {
+      canUpdate: canEdit.value,
+      canLock: canUpdateRole.value,
+      locked: isLocked.value,
+      hasRole: !!role.value,
+      isInactive: isInactive.value,
+      saving: loading.value,
+    },
+    {
+      save: saveChanges,
+      cancel: goBack,
+      activate: handleActivate,
+      deactivate: handleDeactivate,
+      lock: handleLock,
+      unlock: handleUnlock,
+    },
+  ),
+)
+const roleDetailConfig = computed(() =>
+  defineDetailConfig({
+    variant: 'standard',
+    width: 'standard',
+    breadcrumbs: breadcrumbItems.value,
+    actions: roleActions.value,
+    sections: buildRoleSections(role.value),
+  }),
 )
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:h-full">
-    <!-- Loading State -->
-    <div v-if="loading && !role" class="tw:flex tw:items-center tw:justify-center tw:h-full">
-      <div
-        class="tw:size-12 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-      ></div>
-    </div>
-
-    <!-- Error State -->
-    <div
-      v-else-if="error && !role"
-      class="tw:flex tw:items-center tw:justify-center tw:h-full tw:flex-col tw:gap-4"
-    >
-      <IconAlertCircle :size="48" class="tw:text-red-500" />
-      <div class="tw:text-lg tw:text-on-sidebar">{{ error }}</div>
-      <button
-        class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:border tw:border-primary tw:text-primary tw:rounded-lg tw:bg-transparent tw:cursor-pointer tw:hover:bg-primary/5 tw:transition-colors"
-        @click="goBack"
-      >
-        <IconArrowLeft :size="18" />
-        Go Back
-      </button>
-    </div>
-
-    <!-- Content -->
-    <div v-else-if="role" class="tw:flex tw:flex-col tw:h-full tw:overflow-hidden">
-      <!-- Header Actions -->
-      <SafeTeleport to="#main-header-title">
-        <nav class="tw:flex tw:items-center tw:gap-1 tw:text-sm">
-          <RouterLink :to="breadcrumbItems[0].to" class="tw:text-secondary tw:hover:text-on-main">{{
-            breadcrumbItems[0].label
-          }}</RouterLink>
-          <span class="tw:text-secondary tw:mx-1">/</span>
-          <span class="tw:text-on-main tw:font-medium">{{ breadcrumbItems[1].label }}</span>
-        </nav>
-      </SafeTeleport>
-
-      <SafeTeleport to="#main-header-actions">
-        <div class="tw:flex tw:items-center tw:gap-3">
-          <template v-if="canUpdateRole">
-            <button
-              class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-secondary tw:bg-transparent tw:border tw:border-divider tw:rounded-lg tw:cursor-pointer tw:hover:bg-main-hover tw:transition-colors"
-              @click="goBack"
-            >
-              Cancel
-            </button>
-            <button
-              class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50"
-              :disabled="loading"
-              @click="saveChanges"
-            >
-              <span
-                v-if="loading"
-                class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent"
-              ></span>
-              Save Changes
-            </button>
-          </template>
-          <button
-            v-if="role && canUpdateRole && isInactive"
-            class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-green-700 tw:bg-transparent tw:border tw:border-green-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-green-50 tw:transition-colors"
-            @click="handleActivate"
-          >
-            Activate
-          </button>
-          <button
-            v-else-if="role && canUpdateRole && !isInactive"
-            class="tw:flex tw:items-center tw:gap-2 tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-amber-700 tw:bg-transparent tw:border tw:border-amber-600 tw:rounded-lg tw:cursor-pointer tw:hover:bg-amber-50 tw:transition-colors"
-            @click="handleDeactivate"
-          >
-            Deactivate
-          </button>
-        </div>
-      </SafeTeleport>
-
-      <!-- Scrollable Content -->
-      <div class="tw:flex-1 tw:overflow-y-auto custom-scrollbar tw:px-8 tw:py-6 tw:space-y-6">
-        <!-- Role Info Card -->
-        <section class="tw:bg-layer tw:rounded-xl tw:border tw:border-sidebar tw:p-6 tw:shadow-sm">
-          <div class="tw:flex tw:flex-wrap tw:justify-between tw:items-start tw:gap-4">
-            <div class="tw:space-y-1 tw:flex-1">
-              <!-- Editable Name -->
-              <div v-if="isEditingName" class="tw:flex tw:items-center tw:gap-2">
-                <BaseTextInput
-                  ref="nameInputRef"
-                  v-model="editedName"
-                  class="tw:text-3xl"
-                  @blur="stopEditName"
-                  @keyup.enter="stopEditName"
-                  @keyup.escape="stopEditName"
-                />
-              </div>
-              <h2
-                v-else
-                class="tw:text-3xl tw:font-black tw:tracking-tight tw:text-on-sidebar"
-                :class="
-                  canUpdateRole
-                    ? 'tw:cursor-pointer tw:hover:text-primary tw:transition-colors'
-                    : ''
-                "
-                @click="canUpdateRole && startEditName()"
-              >
-                {{ role.name }}
-              </h2>
-
-              <!-- Editable Description -->
-              <div v-if="isEditingDescription" class="tw:flex tw:items-start tw:gap-2">
-                <BaseTextarea
-                  ref="descriptionInputRef"
-                  v-model="editedDescription"
-                  class="tw:flex-1"
-                  rows="2"
-                  @blur="stopEditDescription"
-                  @keyup.escape="stopEditDescription"
-                />
-              </div>
-              <p
-                v-else
-                class="tw:text-secondary tw:max-w-2xl tw:transition-colors"
-                :class="canUpdateRole ? 'tw:cursor-pointer tw:hover:text-on-sidebar' : ''"
-                @click="canUpdateRole && startEditDescription()"
-              >
-                {{
-                  role.description ||
-                  (canUpdateRole
-                    ? 'No description provided (click to edit)'
-                    : 'No description provided')
-                }}
-              </p>
-
-              <div class="tw:flex tw:items-center tw:gap-4 tw:pt-2">
-                <div class="tw:flex tw:items-center tw:gap-2">
-                  <IconHistory :size="16" class="tw:text-secondary" />
-                  <span class="tw:text-xs tw:text-secondary">
-                    Last Modified: {{ role.updatedAt.formatDate('date') }}
-                  </span>
-                </div>
-
-                <RoleStatusBadge :status="role.statusId" />
-              </div>
-            </div>
-            <div class="tw:flex tw:flex-col tw:items-end tw:gap-3">
-              <div class="ds-label tw:text-secondary">Assigned Users</div>
-              <div class="tw:flex tw:items-center tw:gap-2">
-                <div
-                  class="tw:w-10 tw:h-10 tw:rounded-full tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:text-sm tw:font-bold tw:text-primary"
-                >
-                  {{ usersCount }}
-                </div>
-              </div>
-              <button
-                class="tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
-                @click="openUsersDialog"
-              >
-                View All Users
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <!-- Permissions Section Header -->
-        <div class="tw:flex tw:items-center tw:justify-between tw:pt-4">
-          <h3 class="tw:text-xl tw:font-bold tw:text-on-sidebar">Permissions</h3>
-          <div class="tw:flex tw:items-center tw:gap-4">
-            <div class="tw:relative">
-              <IconSearch
-                :size="18"
-                class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
-              />
-              <BaseTextInput
-                v-model="searchTerm"
-                placeholder="Search permissions..."
-                class="tw:w-64 tw:pl-9"
-              />
-            </div>
-            <button
-              v-if="canUpdateRole"
-              class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
-              @click="selectAll"
-            >
-              <IconSquareCheck :size="18" />
-              Select All
-            </button>
-          </div>
-        </div>
-
-        <!-- Permission Groups -->
-        <RolePermissionsList
-          v-model="sectionedGroups"
-          :permissionActions="permissionActions"
-          :isSelected="isSelected"
-          :togglePermission="togglePermission"
-          :getPermissionForAction="getPermissionForAction"
-          :canUpdateRole="canUpdateRole"
-        />
+  <BaseDetailLayout
+    :config="roleDetailConfig"
+    :record="role"
+    :loading="initialLoading && !role"
+    :notFound="notFound && !role"
+    notFoundTitle="Role not found"
+    notFoundDescription="This role could not be found."
+  >
+    <template #title>
+      <BaseTextInput
+        v-if="isEditingName"
+        ref="nameInputRef"
+        v-model="editedName"
+        size="sm"
+        @blur="stopEditName"
+        @keyup.enter="stopEditName"
+        @keyup.escape="stopEditName"
+      />
+      <div v-else class="tw:flex tw:items-center tw:gap-2">
+        <BaseClickableRow
+          class="tw:text-base tw:font-semibold tw:text-on-main"
+          :class="canEdit ? 'tw:hover:text-primary' : ''"
+          :disabled="!canEdit"
+          aria-label="Edit role name"
+          @click="canEdit && startEditName()"
+        >
+          {{ role?.name }}
+        </BaseClickableRow>
+        <span
+          v-if="isLocked"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-amber-100 tw:px-2 tw:py-0.5 tw:text-xs tw:font-semibold tw:text-amber-700"
+          title="This role is locked — unlock it to make changes"
+        >
+          <IconLock :size="12" /> Locked
+        </span>
       </div>
-    </div>
+    </template>
 
-    <!-- Users Assignment Dialog -->
-    <RoleUsersDialog
-      v-if="showUsersDialog"
-      v-model="showUsersDialog"
-      :roleId="id"
-      :roleName="role?.name"
-      :assignedUsers="assignedUsers"
-      @saved="fetchRoleData"
-    />
-  </div>
+    <template #status>
+      <RoleStatusBadge v-if="role" :status="role.statusId" />
+    </template>
+
+    <template v-if="role" #meta>
+      <button
+        type="button"
+        class="tw:inline-flex tw:items-center tw:gap-1.5 tw:bg-transparent tw:border-0 tw:cursor-pointer tw:text-inherit tw:hover:text-primary"
+        title="View access history"
+        @click="showAudit = true"
+      >
+        <IconHistory :size="14" />
+        Last Modified {{ role.updatedAt.formatDate('date') }}
+      </button>
+    </template>
+
+    <template #actions>
+      <DetailActionBar :actions="roleActions" :maxVisible="4" />
+    </template>
+
+    <template v-if="role" #rail>
+      <!-- Description -->
+      <BaseRailCard title="Description">
+        <BaseTextarea
+          v-if="isEditingDescription"
+          ref="descriptionInputRef"
+          v-model="editedDescription"
+          rows="3"
+          @blur="stopEditDescription"
+          @keyup.escape="stopEditDescription"
+        />
+        <BaseClickableRow
+          v-else
+          class="tw:text-sm tw:text-secondary tw:leading-relaxed"
+          :class="canEdit ? 'tw:hover:text-on-sidebar' : ''"
+          :disabled="!canEdit"
+          aria-label="Edit role description"
+          @click="canEdit && startEditDescription()"
+        >
+          {{
+            role.description ||
+            (canEdit ? 'No description provided (click to edit)' : 'No description provided')
+          }}
+        </BaseClickableRow>
+      </BaseRailCard>
+
+      <!-- Assigned Users -->
+      <BaseRailCard title="Assigned Users">
+        <div class="tw:flex tw:items-center tw:gap-3">
+          <div
+            class="tw:w-10 tw:h-10 tw:rounded-full tw:bg-primary/10 tw:flex tw:items-center tw:justify-center tw:text-sm tw:font-bold tw:text-primary"
+          >
+            {{ usersCount }}
+          </div>
+          <button
+            class="tw:text-sm tw:font-semibold tw:text-primary tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
+            @click="openUsersDialog"
+          >
+            View All Users
+          </button>
+        </div>
+      </BaseRailCard>
+    </template>
+
+    <template v-if="role" #section-permissions>
+      <!-- Permissions Section Header -->
+      <div class="tw:flex tw:items-center tw:justify-between tw:mb-4">
+        <h3 class="tw:text-section-title tw:font-semibold tw:text-on-sidebar tw:inline-flex tw:items-center tw:gap-2">
+          Permissions
+          <HelpButton slug="KB/administration/roles-and-permissions" :size="16" />
+        </h3>
+        <div class="tw:flex tw:items-center tw:gap-4">
+          <div class="tw:relative">
+            <IconSearch
+              :size="18"
+              class="tw:absolute tw:left-3 tw:top-1/2 tw:-translate-y-1/2 tw:text-secondary tw:pointer-events-none"
+            />
+            <BaseTextInput
+              v-model="permSearch"
+              placeholder="Search modules..."
+              class="tw:w-full tw:pl-9"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Module × action × scope matrix -->
+      <RolePermissionMatrix
+        ref="matrixRef"
+        :roleId="id"
+        :canUpdate="canEdit"
+        :search="permSearch"
+      />
+    </template>
+  </BaseDetailLayout>
+
+  <!-- Users Assignment Dialog -->
+  <RoleUsersDialog
+    v-if="showUsersDialog"
+    v-model="showUsersDialog"
+    :roleId="id"
+    :roleName="role?.name"
+    :assignedUsers="assignedUsers"
+  />
+
+  <!-- Access history (permission + membership changes) -->
+  <RoleAuditDrawer v-model="showAudit" :roleId="id" />
 </template>

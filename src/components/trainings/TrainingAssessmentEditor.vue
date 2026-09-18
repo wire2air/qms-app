@@ -76,7 +76,7 @@ function toggleCorrect(question, option) {
             placeholder="Question text..."
             class="tw:font-medium"
           />
-          <p v-else class="tw:font-medium tw:text-on-sidebar">{{ q.text || '(empty question)' }}</p>
+          <p v-else class="tw:text-sm tw:font-medium tw:text-on-sidebar">{{ q.text || '(empty question)' }}</p>
 
           <div v-if="editable" class="tw:flex tw:gap-1">
             <button

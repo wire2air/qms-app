@@ -1,0 +1,73 @@
+import { currentSession } from '@/utils/currentSession'
+import { BaseModel, ClientModel, Property } from '@syncEngine/index'
+import { DateTime } from 'luxon'
+
+/**
+ * AuditInstance — the actual audit being performed. Rides the generic
+ * workflow engine for close-out (resourceType 'AuditInstance').
+ *
+ * requirementSchema is a frozen snapshot of the standard version's
+ * requirement list at instance creation — same drift-protection
+ * pattern as workflow_instance_steps.formSchema.
+ */
+@ClientModel('auditInstances', {
+  primaryKey: 'id',
+  syncField: 'updatedAt',
+  customIndex:
+    'companyId, auditProgramId, supplierId, statusId, leadAuditorUserId, scheduledDate',
+})
+export class AuditInstance extends BaseModel {
+  static paranoid = true
+
+  constructor(...args) {
+    super(...args)
+    if (!this.companyId) this.companyId = currentSession.value?.companyId || ''
+    if (!this.createdBy) this.createdBy = currentSession.value?.userId || ''
+    if (!this.id) this.id = crypto.randomUUID()
+  }
+
+  @Property({ type: String, uuid: true, required: true }) id = ''
+  @Property({ type: String, required: true }) companyId = ''
+  @Property({ type: String }) auditNumber = ''
+  @Property({ type: String }) auditProgramId = ''
+  @Property({ type: String }) auditStandardId = ''
+  @Property({ type: String }) auditStandardVersionId = ''
+  @Property({ type: Object }) requirementSchema = []
+  @Property({ type: Object }) agenda = null
+  @Property({ type: String, required: true }) programTypeId = ''
+  // AUDIT-C1 (client half): status is server-enforced by the
+  // enforce_audit_instance_status_transition trigger; block the generated update
+  // mutation from ever carrying statusId (the detail page already changes status
+  // only through the REST start/cancel/submit actions).
+  @Property({ type: String, required: true, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
+  // SCHEDULED | IN_PROGRESS | REVIEW | COMPLETE — execution detail while OPEN
+  @Property({ type: String }) executionPhase = 'SCHEDULED'
+  @Property({ type: DateTime }) scheduledDate = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) startedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) completedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) leadAuditorUserId = ''
+  @Property({ type: String }) auditeeUserId = ''
+  @Property({ type: String }) departmentId = ''
+  @Property({ type: String }) siteId = ''
+  @Property({ type: String }) supplierId = ''
+  // Snapshot of related display names (standard/lead/supplier/auditee) so
+  // shared supplier/auditee viewers see them without read access to those tables.
+  @Property({ type: Object }) displayMeta = null
+  // Supplier-audit release — gates the supplier's Req/Findings/OFI view.
+  @Property({ type: DateTime }) releasedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) releasedBy = ''
+  @Property({ type: String }) scope = ''
+  /** EXTERNAL audits: the auditing body's contact (firm + primary auditor). */
+  @Property({ type: String }) externalAuditFirm = /** @type {String} */ (null)
+  @Property({ type: String }) externalAuditorName = /** @type {String} */ (null)
+  @Property({ type: String }) externalAuditorEmail = /** @type {String} */ (null)
+  @Property({ type: String }) externalAuditorPhone = /** @type {String} */ (null)
+  @Property({ type: String }) objectives = ''
+  @Property({ type: String }) workflowInstanceId = ''
+  @Property({ type: String }) createdBy = ''
+  @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, required: true, timestamp: true })
+  createdAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime, required: true, timestamp: true, autoUpdate: true })
+  updatedAt = /** @type {DateTime} */ (null)
+}

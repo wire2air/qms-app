@@ -12,9 +12,12 @@
 const props = defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
-  nullLabel: { type: String, default: 'All' },
+  nullLabel: { type: String, default: '— All equipment —' },
   includeRetired: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  // Cascading filters (null = no filter).
+  siteId: { type: String, default: null },
+  departmentId: { type: String, default: null },
 })
 
 const modelValue = defineModel({
@@ -27,6 +30,8 @@ const equipment = useLiveQuery(
     const rows = await db.Equipment.where().exec()
     return rows
       .filter((e) => props.includeRetired || e.statusId !== 'RETIRED')
+      .filter((e) => (props.siteId ? e.siteId === props.siteId : true))
+      .filter((e) => (props.departmentId ? e.departmentId === props.departmentId : true))
       .map((e) => ({
         id: e.id,
         name: e.name,
@@ -35,69 +40,50 @@ const equipment = useLiveQuery(
       }))
       .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   },
-  { initial: [] },
-)
 
-function getArray() {
-  return Array.isArray(modelValue.value) ? modelValue.value : []
-}
+  { models: ['Equipment'], initial: [] },
+)
 </script>
 
 <template>
-  <BaseSelectMenu
+  <BaseSelect
     v-model="modelValue"
-    :items="equipment"
+    :options="equipment"
+    optionLabel="name"
+    optionValue="id"
     :required="required"
     :multiple="multiple"
+    :clearable="!required"
     :nullLabel="nullLabel"
     :disabled="disabled"
   >
-    <template #button="scope">
-      <slot name="button" v-bind="scope">
-        <template v-if="multiple">
-          <div v-if="getArray().length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <EquipmentBadgeById
-              v-for="equipmentId in getArray()"
-              :key="equipmentId"
-              :equipmentId="equipmentId"
-              :clearable="!required || getArray().length > 1"
-              @clear="() => scope.clear(equipmentId)"
-            />
-          </div>
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select equipment
-          </span>
-        </template>
-        <template v-else>
-          <EquipmentBadgeById
-            v-if="modelValue"
-            :equipmentId="modelValue"
-            :clearable="!required"
-            selectable
-            @clear="() => scope.clear(modelValue)"
-          />
-          <span v-else class="tw:text-sm tw:font-medium tw:text-placeholder">
-            Select equipment
-          </span>
-        </template>
-      </slot>
+    <template #selected="{ options, remove }">
+      <div class="tw:flex tw:flex-wrap tw:gap-1">
+        <EquipmentBadgeById
+          v-for="o in options"
+          :key="o.value"
+          :equipmentId="o.value"
+          :clearable="multiple && (!required || options.length > 1)"
+          @clear="() => remove(o)"
+        />
+      </div>
     </template>
 
-    <template #item="{ item }">
+    <template #option="{ opt }">
       <div class="tw:flex tw:flex-col">
         <span class="tw:flex tw:items-center tw:gap-1.5">
-          <span>{{ item.name }}</span>
+          <span>{{ opt.raw.name }}</span>
           <span
-            v-if="item.statusId === 'OUT_OF_SERVICE'"
-            class="tw:text-[10px] tw:font-bold tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1 tw:py-0.5"
+            v-if="opt.raw.statusId === 'OUT_OF_SERVICE'"
+            class="tw:text-micro tw:font-bold tw:rounded tw:bg-amber-100 tw:text-amber-700 tw:px-1 tw:py-0.5"
           >
             Out of service
           </span>
         </span>
-        <span v-if="item.code" class="tw:text-xs tw:text-placeholder tw:font-mono">
-          {{ item.code }}
+        <span v-if="opt.raw.code" class="tw:text-xs tw:text-placeholder">
+          {{ opt.raw.code }}
         </span>
       </div>
     </template>
-  </BaseSelectMenu>
+  </BaseSelect>
 </template>

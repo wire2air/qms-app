@@ -7,10 +7,27 @@ const showCreateDialog = ref(false)
 const canCreateGroup = computed(() => isAllowed(['teams:create']))
 const canDeleteGroup = computed(() => isAllowed(['teams:delete']))
 
-const filters = ref({ search: '' })
+const { confirm } = useConfirm()
+
+async function onDelete(group) {
+  const ok = await confirm({
+    title: 'Delete Group',
+    message: `Are you sure you want to delete '${group.name}'? This action cannot be undone.`,
+    okLabel: 'Delete',
+    danger: true,
+  })
+  if (ok) await group.delete()
+}
+
+const list = useListLayout({
+  filters: { search: '' },
+  total: () => groups.value.length,
+  empty: () => groups.value.length === 0,
+  syncUrl: true,
+})
 
 const groups = useLiveQueryWithDeps(
-  [() => filters.value.search],
+  [() => list.filters.value.search],
   async (db, [search]) => {
     let results = await db.Team.where().exec()
     if (search) {
@@ -21,39 +38,35 @@ const groups = useLiveQueryWithDeps(
       (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
     )
   },
-  { initial: [] },
+
+  { models: ['Team'], initial: [] },
 )
 
 const loading = computed(() => groups.value === undefined)
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-3 tw:h-full tw:p-5">
-    <SafeTeleport to="#main-header-title">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-        <IconUsersGroup class="tw:text-primary" :size="24" />
-        <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">Groups</h2>
-      </div>
-    </SafeTeleport>
-
-    <SafeTeleport to="#main-header-actions">
+  <BaseListLayout
+    helpSlug="KB/administration/groups"
+    title="Groups"
+    :icon="IconUsersGroup"
+    subtitle="Manage your organization's groups and team assignments."
+    :state="list.state.value"
+    :emptyIcon="IconUsersGroup"
+    :emptyTitle="list.hasActiveFilters.value ? 'No groups match your filters' : 'No groups yet'"
+  >
+    <template #actions>
       <BaseButton v-if="canCreateGroup" @click="showCreateDialog = true"> Create Group </BaseButton>
-    </SafeTeleport>
+    </template>
 
-    <!-- Page Header -->
-    <div class="tw:flex tw:items-center tw:justify-between">
-      <div class="tw:flex tw:flex-col tw:gap-1">
-        <div class="tw:text-3xl tw:font-bold tw:text-on-sidebar">Groups</div>
-        <div class="tw:text-sm tw:text-secondary">
-          Manage your organization's groups and team assignments.
-        </div>
-      </div>
-    </div>
+    <template #filters>
+      <GroupsFilterToolbar v-model:filters="list.filters.value" />
+    </template>
 
-    <GroupsFilterToolbar v-model:filters="filters" />
+    <GroupsTable :rows="groups" :loading="loading" :canDelete="canDeleteGroup" @delete="onDelete" />
+  </BaseListLayout>
 
-    <GroupsList :groups="groups" :loading="loading" :canDelete="canDeleteGroup" />
-
-    <GroupsCreateDialog v-model="showCreateDialog" />
-  </div>
+  <!-- Outside BaseListLayout so it stays mounted in the empty state (its
+       default slot only renders when 'ready') — else you can't create the first. -->
+  <GroupsCreateDialog v-model="showCreateDialog" />
 </template>

@@ -8,6 +8,10 @@ import { DateTime } from 'luxon'
   customIndex: '[workflowInstanceId+statusId], workflowInstanceId, parentInstanceStepId',
 })
 export class WorkflowInstanceStep extends BaseModel {
+  // F-24 — see WorkflowInstance. `deletedAt` without `paranoid` makes
+  // `.delete()` a hard delete and leaks soft-deleted steps into every query.
+  static paranoid = true
+
   constructor(...args) {
     super(...args)
     // Auto-assign companyId from current session on creation
@@ -28,9 +32,27 @@ export class WorkflowInstanceStep extends BaseModel {
   @Property({ type: String }) name = /** @type {string|null} */ (null)
   @Property({ type: String }) description = /** @type {string|null} */ (null)
   @Property({ type: Number }) slaDays = /** @type {number|null} */ (null)
+  // DELAY steps — snapshots from the template + runtime timer state.
+  @Property({ type: Number }) delayDays = /** @type {number|null} */ (null)
+  @Property({ type: DateTime }) delayUntilDate = /** @type {DateTime|null} */ (null)
+  @Property({ type: DateTime }) delayUntil = /** @type {DateTime|null} */ (null)
+  @Property({ type: Number }) delayExtensionCount = 0
+  @Property({ type: Number }) maxDelayExtensions = /** @type {number|null} */ (null)
+  // Fixed deadline — wins over slaDays at activation (resolveStepDueDate).
+  @Property({ type: DateTime }) dueDate = /** @type {DateTime} */ (null)
+  // F-05 snapshot of the template flag — see the Sequelize model for why.
+  @Property({ type: Boolean }) capturesEffectiveness = false
+  // The verdict: 'EFFECTIVE' | 'NOT_EFFECTIVE'. Named apart from the step's
+  // action `outcome` vocabulary on purpose.
+  @Property({ type: String }) effectivenessOutcome = /** @type {String} */ (null)
   @Property({ type: Array }) formSchema = /** @type {Array} */ ([])
-  // 'ACTION' (default) or 'APPROVAL'. Denormalized from the template
+  // 'ACTION' (default), 'APPROVAL', or 'DELAY'. Denormalized from the template
   // step at activation time so runtime renderers don't need to join.
+  // Snapshotted from the template step at submit, or overridden by the
+  // submitter's ALL/ANY choice in the reviewer dialog (2026-08-16). The engine
+  // prefers this over the template's so an in-flight approval keeps the rule
+  // it started under.
+  @Property({ type: String }) approvalRule = null
   @Property({ type: String, required: true }) stepType = 'ACTION'
   // Nullable per-instance overrides — populated for ad-hoc child steps
   // (no stepId). Reads should fall back to `step.requireComments` /

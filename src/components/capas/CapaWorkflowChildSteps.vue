@@ -25,9 +25,26 @@ const props = defineProps({
 const emit = defineEmits(['reassign'])
 
 const toast = useToast()
-const currentUserId = computed(() => currentSession.value?.id ?? currentSession.value?.userId)
+const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
 
-const canAddChild = computed(() => props.isOwner && props.allowChildSteps)
+// A finished parent takes no new work. Adding a task under a CANCELLED (or
+// approved / skipped / rejected) step let the owner queue work onto a stage
+// that will never run — reported 2026-08-18, where a cancelled implementation
+// step still offered the button.
+const PARENT_CLOSED_STATUSES = ['APPROVED', 'CANCELLED', 'SKIPPED', 'REJECTED']
+
+const parentStep = useLiveQueryWithDeps(
+  [() => props.parentInstanceStepId],
+  async (db, [id]) => (id ? db.WorkflowInstanceStep.findByPk(id) : null),
+  { models: ['WorkflowInstanceStep'], initial: null },
+)
+
+const canAddChild = computed(
+  () =>
+    props.isOwner &&
+    props.allowChildSteps &&
+    !PARENT_CLOSED_STATUSES.includes(parentStep.value?.statusId),
+)
 
 const selectedChildId = ref(null)
 const dialogOpen = ref(false)
@@ -56,7 +73,6 @@ function openAddDialog() {
   addDialogOpen.value = true
 }
 
-
 // All children (template-spawned or ad-hoc) carry parentInstanceStepId pointing
 // at this parent's instance row. One indexed lookup, no WorkflowStep fetch.
 const childInstanceSteps = useLiveQueryWithDeps(
@@ -69,7 +85,8 @@ const childInstanceSteps = useLiveQueryWithDeps(
     ).exec()
     return all.sort((a, b) => a.stepOrder - b.stepOrder)
   },
-  { initial: [] },
+
+  { models: ['WorkflowInstanceStep'], initial: [] },
 )
 
 // Template-spawned children store the policy flag on the WorkflowStep
@@ -78,14 +95,21 @@ const childInstanceSteps = useLiveQueryWithDeps(
 // WorkflowStepActionsMenu — without it, Mark Complete would skip the
 // e-sign gate. Mirrors the fallback in WorkflowStep.vue.
 const stepDefinitionsById = useLiveQueryWithDeps(
-  [() => childInstanceSteps.value.map((s) => s.stepId).filter(Boolean).join(',')],
+  [
+    () =>
+      childInstanceSteps.value
+        .map((s) => s.stepId)
+        .filter(Boolean)
+        .join(','),
+  ],
   async (db, [idsStr]) => {
     if (!idsStr) return {}
     const ids = [...new Set(idsStr.split(','))]
     const rows = await Promise.all(ids.map((id) => db.WorkflowStep.findByPk(id)))
     return Object.fromEntries(rows.filter(Boolean).map((r) => [r.id, r]))
   },
-  { initial: {} },
+
+  { models: ['WorkflowStep'], initial: {} },
 )
 
 function requireEsignatureFor(child) {
@@ -125,7 +149,8 @@ const tasksByChildStepId = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['TaskInstance'], initial: {} },
 )
 
 // Current user's submitted CapaRecord (if any) per child step. We use this
@@ -153,7 +178,8 @@ const submittedRecordsByChildStepId = useLiveQueryWithDeps(
     }
     return map
   },
-  { initial: {} },
+
+  { models: ['CapaRecord'], initial: {} },
 )
 
 function childHasForm(child) {
@@ -177,6 +203,52 @@ function canCompleteFor(child) {
 const showEsignDialog = ref(false)
 const pendingChildId = ref(null)
 const completing = ref(null) // childId currently being completed (drives per-row disabled state)
+
+// ─── Dialog one-shot completion (user report 2026-08-27) ─────────────────────
+// The dialog used to show the form's own Submit + Save draft, where Submit
+// only saved the record — completing still needed the row's separate
+// "Complete & Advance". One trip now: the dialog renders Save draft +
+// Mark Complete, and Mark Complete drives save + submit + complete through
+// the form's autoApprove path (e-sign-gated here, since the form's own
+// button can't prompt for credentials).
+const dialogFormRef = ref(null)
+const dialogSubmitting = ref(false)
+const showDialogEsign = ref(false)
+
+function onDialogCompleteClick() {
+  if (!selectedChild.value || dialogSubmitting.value) return
+  if (requireEsignatureFor(selectedChild.value)) {
+    showDialogEsign.value = true
+  } else {
+    submitDialogForm()
+  }
+}
+
+function onDialogEsignVerified({ method, provider, token }) {
+  showDialogEsign.value = false
+  submitDialogForm({ method, provider, token })
+}
+
+async function submitDialogForm(esign = null) {
+  if (dialogSubmitting.value) return
+  dialogSubmitting.value = true
+  try {
+    await dialogFormRef.value?.submit(esign)
+  } finally {
+    dialogSubmitting.value = false
+  }
+}
+
+const dialogSavingDraft = ref(false)
+async function onDialogSaveDraft() {
+  if (dialogSavingDraft.value) return
+  dialogSavingDraft.value = true
+  try {
+    await dialogFormRef.value?.saveDraft()
+  } finally {
+    dialogSavingDraft.value = false
+  }
+}
 
 function onCompleteClick(child) {
   if (completing.value) return
@@ -227,7 +299,8 @@ const childAssignments = useLiveQueryWithDeps(
     )
     return fetched.flat()
   },
-  { initial: [] },
+
+  { models: ['UserOnWorkflowInstanceStep'], initial: [] },
 )
 
 // Resolve the "currently assigned" user from UserOnWorkflowInstanceStep
@@ -301,17 +374,18 @@ function getRowClass(child) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-2">
     <div v-if="canAddChild" class="tw:flex tw:justify-end">
-      <BaseButton variant="outline" size="sm" @click="openAddDialog">
-        <template #icon><IconPlus :size="14" /></template>
-        Add child step
+      <BaseButton variant="outline" @click="openAddDialog">
+        <template #icon><IconPlus :size="16" /></template>
+        Add Tasks
       </BaseButton>
     </div>
 
-    <div
+    <BaseClickableRow
       v-for="child in childInstanceSteps"
       :key="child.id"
-      class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:border tw:rounded-lg tw:cursor-pointer tw:hover:shadow-sm tw:transition-shadow"
+      class="tw:flex tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:border tw:rounded-lg tw:hover:shadow-sm tw:transition-shadow"
       :class="getRowClass(child)"
+      :aria-label="`Open step ${childStepLabel(child)} ${childTitle(child)}`"
       @click="openChild(child)"
     >
       <!-- Status icon -->
@@ -397,7 +471,7 @@ function getRowClass(child) {
           <IconCheck :size="14" />
           {{ completing === child.id ? 'Completing…' : 'Complete & Advance' }}
         </button>
-        <BaseBadge class="tw:text-[10px]" :class="getBadgeClass(child)">
+        <BaseBadge class="tw:text-micro" :class="getBadgeClass(child)">
           {{ getStatusLabel(child) }}
         </BaseBadge>
         <WorkflowStepActionsMenu
@@ -410,15 +484,47 @@ function getRowClass(child) {
           @reassign="(id) => emit('reassign', id)"
         />
       </div>
-    </div>
+    </BaseClickableRow>
 
     <BaseDialog v-model="dialogOpen" :title="dialogTitle" maxWidth="2xl">
       <WorkflowStepForm
         v-if="selectedChildId"
+        ref="dialogFormRef"
         :module="CAPA_MODULE"
         :instanceStepId="selectedChildId"
         :resourceId="capaId"
+        :autoApprove="true"
+        :hideSubmit="true"
+        @done="dialogOpen = false"
       />
+      <!-- Save draft + Mark Complete on one row, the step-card pattern:
+           Mark Complete saves, submits AND completes the sub-task in one
+           trip (e-sign-gated when the step demands it). Only rendered while
+           the viewer holds the actionable task — the form itself renders
+           read-only otherwise and these buttons would be dead weight. -->
+      <div
+        v-if="selectedChildId && tasksByChildStepId[selectedChildId]"
+        class="tw:mt-4 tw:flex tw:justify-end tw:gap-2"
+      >
+        <BaseButton
+          variant="outline"
+          :disabled="dialogSavingDraft || dialogSubmitting"
+          :isLoading="dialogSavingDraft"
+          @click="onDialogSaveDraft"
+        >
+          Save draft
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :disabled="dialogSubmitting || dialogSavingDraft"
+          :isLoading="dialogSubmitting"
+          @click="onDialogCompleteClick"
+        >
+          <template #icon><IconCheck :size="16" /></template>
+          Mark Complete
+        </BaseButton>
+      </div>
+      <WorkflowInstanceEsignAuthDialog v-model="showDialogEsign" @verified="onDialogEsignVerified" />
     </BaseDialog>
 
     <CapaAddChildStepDialog

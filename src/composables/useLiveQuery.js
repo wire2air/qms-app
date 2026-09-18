@@ -6,6 +6,28 @@ import { ValidationError } from '@syncEngine/index'
 const DEFAULT_DEBOUNCE = 50
 
 /**
+ * Resolve a component-facing model name (e.g. 'Site') to the syncBus channel the
+ * engine actually emits on. The engine keys sync events by the model's RUNTIME
+ * class name — `instance.constructor.name` in directSaveStrategy and the
+ * equivalent `meta.modelName` in socketSubscriber (both provably the same string,
+ * since every save does `getSchema(instance.constructor.name)` and succeeds).
+ * A production build minifies class names (`class Site` → e.g. 'Xe'), but `db`
+ * is keyed by the un-minified property name, and `db[name]` is that same class,
+ * so `db[name].name` yields the exact runtime identifier the emit side uses —
+ * matching in dev (unminified) and prod (minified) alike.
+ *
+ * Without this, minified builds silently never re-run any live query: components
+ * subscribe to the literal 'Site' while every event fires under 'Xe'. That's why
+ * live updates work on the dev server but not on the deployed (minified) build.
+ *
+ * '*' (wildcard) and any unknown name pass through unchanged.
+ */
+function resolveSyncChannel(name) {
+  if (name === '*') return '*'
+  return db[name]?.name ?? name
+}
+
+/**
  * useLiveQuery — run an async query and re-execute on sync events.
  *
  * Returns a shallowRef so BaseModel instances are never wrapped in a Proxy
@@ -24,10 +46,20 @@ export function useLiveQuery(
   { models = '*', initial = undefined, debounce = DEFAULT_DEBOUNCE } = {},
 ) {
   const data = shallowRef(initial)
+  let requestId = 0
+  let disposed = false
 
   async function refresh() {
+    const myRequestId = ++requestId
     try {
-      data.value = await queryFn(db)
+      const result = await queryFn(db)
+      // Drop stale results — a later refresh may already have resolved
+      // (e.g. a burst of sync events) and we must not clobber it. Also drop
+      // anything resolving after the owning scope was disposed — a debounced
+      // syncBus callback scheduled just before unmount can still fire after
+      // (belt-and-braces alongside syncBus's own timer cancellation).
+      if (myRequestId !== requestId || disposed) return
+      data.value = result
     } catch (err) {
       console.error(err)
     }
@@ -37,10 +69,13 @@ export function useLiveQuery(
   refresh()
 
   // Subscribe to sync events (model-scoped, debounced)
-  const modelList = Array.isArray(models) ? models : [models]
+  const modelList = (Array.isArray(models) ? models : [models]).map(resolveSyncChannel)
   const unsubscribes = modelList.map((m) => syncBus.on(m, refresh, { debounce }))
 
-  onScopeDispose(() => unsubscribes.forEach((fn) => fn()))
+  onScopeDispose(() => {
+    disposed = true
+    unsubscribes.forEach((fn) => fn())
+  })
 
   return data
 }
@@ -64,10 +99,26 @@ export function useLiveQueryWithDeps(
 ) {
   const data = shallowRef(initial)
   let lastDepValues = []
+  let requestId = 0
+  let disposed = false
 
   async function refresh(depValues) {
+    const myRequestId = ++requestId
     try {
-      data.value = await queryFn(db, depValues)
+      const result = await queryFn(db, depValues)
+      // Drop stale results: a deps change and a sync event can both trigger
+      // a refresh for the same model concurrently (e.g. deleting the
+      // selected record — the parent reselects a new id while this query's
+      // own sync-triggered refresh is still resolving against the old,
+      // now-deleted id). Only the most recently *started* refresh may write.
+      // Also drop anything resolving after the owning scope was disposed — a
+      // debounced syncBus callback scheduled just before unmount (e.g. a
+      // route navigation right after a mutation) can still fire after
+      // (belt-and-braces alongside syncBus's own timer cancellation), and
+      // writing a fresh value here can newly mount a v-if'd subtree against
+      // a component tree vue-router has already torn down.
+      if (myRequestId !== requestId || disposed) return
+      data.value = result
     } catch (err) {
       console.error(err)
     }
@@ -84,12 +135,15 @@ export function useLiveQueryWithDeps(
   )
 
   // Re-run on sync events — reuse the last resolved dep values
-  const modelList = Array.isArray(models) ? models : [models]
+  const modelList = (Array.isArray(models) ? models : [models]).map(resolveSyncChannel)
   const unsubscribes = modelList.map((m) =>
     syncBus.on(m, () => refresh(lastDepValues), { debounce }),
   )
 
-  onScopeDispose(() => unsubscribes.forEach((fn) => fn()))
+  onScopeDispose(() => {
+    disposed = true
+    unsubscribes.forEach((fn) => fn())
+  })
 
   return data
 }
@@ -113,9 +167,31 @@ export function useLiveMutation(mutationFn) {
         })
         return
       }
+      // Every other failure (GraphQL/DB errors, unique-constraint violations,
+      // network) must reach the user — a pessimistic save that throws changed
+      // nothing, so silently console.error'ing it left the UI with no feedback
+      // at all (e.g. duplicate site/department create appeared to do nothing).
       console.error(err)
+      toast.notify({ message: friendlyMutationError(err), type: 'error' })
+      return
     }
   }
 
   return mutate
+}
+
+/**
+ * Turn a raw mutation error into a user-facing message. PostGraphile masks
+ * server-side errors in production to "An error occurred (logged with hash: …)";
+ * surface something human instead of that opaque string.
+ */
+function friendlyMutationError(err) {
+  const msg = err?.message || ''
+  if (!msg || /logged with hash/i.test(msg) || /^an error occurred/i.test(msg)) {
+    return 'Something went wrong. Please try again.'
+  }
+  if (/duplicate key|unique constraint|already exists/i.test(msg)) {
+    return 'That already exists. Please use a different value.'
+  }
+  return msg
 }

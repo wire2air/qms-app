@@ -178,6 +178,7 @@ apiClient.interceptors.response.use(
       message: errorBody.message || `Request failed (${status}).`,
       status,
       errors: errorBody.fields || errorBody.errors || {},
+      details: errorBody.details || null,
       code: errorBody.code || 'SERVER_ERROR',
       raw: error,
     })

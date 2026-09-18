@@ -3,6 +3,10 @@ import { IconArrowLeft, IconDeviceFloppy, IconTrash } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post, patch, del } from '@/api'
+import {
+  resolveLogBookTrainingGaps,
+  resolveAssignmentAudience,
+} from '@/composables/useLogBookTraining.js'
 
 /**
  * Create / edit a Log Book Assignment.
@@ -10,7 +14,7 @@ import { post, patch, del } from '@/api'
  * Uses the REST endpoints directly (POST/PATCH/DELETE
  * /v1/services/formAssignments) rather than SyncEngine save — the
  * controller validates the cron expression, the assignedUserIds /
- * assignedRoleId mutual exclusion, the schedule shape, etc. Going
+ * assignee union (roles + users), the schedule shape, etc. Going
  * through GraphQL would skip those checks.
  *
  * After a successful write, the SyncEngine eventually catches up via
@@ -34,27 +38,13 @@ const emit = defineEmits(['saved', 'cancel'])
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 // Lock the log book when we're scoped to one (embedded in its tab) — the
 // picker is hidden and the value can't be changed.
 const lockLogBook = computed(() => props.embedded || !!props.logBookId)
 
 const canAssign = computed(() => isAllowed(['inspections:assign']))
-
-const COMMON_TIMEZONES = [
-  'UTC',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-]
 
 // Default a new assignment to the admin's own timezone (most schedules
 // are set for "my" timezone). Ensure it's in the dropdown options.
@@ -65,9 +55,6 @@ const userTimezone = (() => {
     return 'UTC'
   }
 })()
-const timezoneOptions = computed(() =>
-  [...new Set([userTimezone, form.value.timezone, ...COMMON_TIMEZONES].filter(Boolean))],
-)
 
 const form = ref({
   logBookId: '',
@@ -78,9 +65,10 @@ const form = ref({
   startOffsetMinutes: 0,
   graceMinutes: 120, // 2h — matches the Daily default
   onWindowExpire: 'MISS', // MISS | KEEP_OPEN — what happens when the window+grace lapses unfilled
-  assigneeMode: 'USERS', // USERS | ROLE
+  // Users and roles are UNIONED (2026-08-15) — no mode toggle. "The QA team
+  // plus Priya" is an ordinary ask and the old either/or refused it.
   assignedUserIds: [],
-  assignedRoleId: '',
+  assignedRoleIds: [],
   active: true,
 })
 
@@ -123,40 +111,6 @@ const DEFAULTS_BY_FREQUENCY = {
   annual: { windowMinutes: 30 * 24 * 60, graceMinutes: 14 * 24 * 60 },
 }
 
-/**
- * Unit the window/grace inputs render in. Sub-day frequencies (Daily)
- * use hours; everything weekly+ uses days. Minutes are still possible
- * via the Advanced cron mode — we don't expose them here because every
- * real log-book schedule worth scheduling is at least daily-grain.
- */
-function unitForFrequency(freq) {
-  return freq === 'daily' ? 'hours' : 'days'
-}
-function unitMinutes(unit) {
-  return unit === 'days' ? 24 * 60 : unit === 'hours' ? 60 : 1
-}
-function fromMinutes(min, unit) {
-  if (!Number.isFinite(min)) return 0
-  return Math.round((min / unitMinutes(unit)) * 100) / 100
-}
-function toMinutes(val, unit) {
-  return Math.max(0, Math.round(Number(val) * unitMinutes(unit)))
-}
-
-const unit = computed(() => unitForFrequency(frequency.value))
-const windowDisplay = computed({
-  get: () => fromMinutes(form.value.windowMinutes, unit.value),
-  set: (v) => {
-    form.value.windowMinutes = toMinutes(v, unit.value)
-  },
-})
-const graceDisplay = computed({
-  get: () => fromMinutes(form.value.graceMinutes, unit.value),
-  set: (v) => {
-    form.value.graceMinutes = toMinutes(v, unit.value)
-  },
-})
-
 // When the user picks a different frequency, seed window + grace with
 // that frequency's industry-standard defaults. We only apply defaults
 // when the user hasn't manually edited away from the previous
@@ -169,8 +123,7 @@ watch(frequency, (next) => {
   // Apply unless the user has set non-default values matching a
   // different scheme — best-effort, not perfect.
   const prevDef = lastSuggestedFrequency && DEFAULTS_BY_FREQUENCY[lastSuggestedFrequency]
-  const windowWasDefault =
-    !prevDef || form.value.windowMinutes === prevDef.windowMinutes
+  const windowWasDefault = !prevDef || form.value.windowMinutes === prevDef.windowMinutes
   const graceWasDefault = !prevDef || form.value.graceMinutes === prevDef.graceMinutes
   if (windowWasDefault) form.value.windowMinutes = def.windowMinutes
   if (graceWasDefault) form.value.graceMinutes = def.graceMinutes
@@ -178,10 +131,14 @@ watch(frequency, (next) => {
 })
 
 const isEditing = computed(() => Boolean(props.id))
-const existing = useLiveQueryWithDeps([() => props.id], async (db, [id]) => {
-  if (!id) return null
-  return db.FormAssignment.findByPk(id)
-})
+const existing = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    if (!id) return null
+    return db.FormAssignment.findByPk(id)
+  },
+  { models: ['FormAssignment'] },
+)
 
 // Round 0 refactor: log books are a first-class entity. We query
 // db.LogBook directly — every row qualifies (OPERATIONAL_LOG or
@@ -192,7 +149,8 @@ const inspectionTemplates = useLiveQuery(
     const rows = await db.LogBook.where().exec()
     return rows.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
   },
-  { initial: [] },
+
+  { models: ['LogBook'], initial: [] },
 )
 
 // Seed the form from the stored plan ONCE per id. The live query
@@ -214,9 +172,8 @@ watch(
       startOffsetMinutes: plan.schedule?.startOffsetMinutes ?? 0,
       graceMinutes: plan.graceMinutes ?? 60,
       onWindowExpire: plan.schedule?.onWindowExpire ?? 'MISS',
-      assigneeMode: plan.assignedRoleId ? 'ROLE' : 'USERS',
       assignedUserIds: plan.assignedUserIds ?? [],
-      assignedRoleId: plan.assignedRoleId ?? '',
+      assignedRoleIds: plan.assignedRoleIds ?? [],
       active: plan.active ?? true,
     }
   },
@@ -230,35 +187,55 @@ function validate() {
   if (form.value.scheduleType === 'RECURRING' && !form.value.cron?.trim()) {
     return 'RECURRING schedule requires a cron expression'
   }
-  if (form.value.assigneeMode === 'USERS') {
-    if (!form.value.assignedUserIds || form.value.assignedUserIds.length === 0) {
-      return 'At least one assignee is required (or pick a role instead)'
-    }
-  } else {
-    if (!form.value.assignedRoleId) return 'Pick a role (or assign users instead)'
-  }
+  // Mirrors the DB CHECK: target somebody, either way, or both.
+  const hasUsers = (form.value.assignedUserIds?.length ?? 0) > 0
+  const hasRoles = (form.value.assignedRoleIds?.length ?? 0) > 0
+  if (!hasUsers && !hasRoles) return 'Assign at least one user or role'
   return null
 }
 
 function buildPayload() {
-  const schedule =
-    form.value.scheduleType === 'AD_HOC'
-      ? { type: 'AD_HOC' }
-      : {
-          type: 'RECURRING',
-          cron: form.value.cron,
-          timezone: form.value.timezone || 'UTC',
-          windowMinutes: Number(form.value.windowMinutes) || 120,
-          startOffsetMinutes: Number(form.value.startOffsetMinutes) || 0,
-          onWindowExpire: form.value.onWindowExpire === 'KEEP_OPEN' ? 'KEEP_OPEN' : 'MISS',
-        }
+  // Audience only — scheduling lives on the log book (2026-08-06).
   return {
     logBookId: form.value.logBookId,
-    assignedUserIds: form.value.assigneeMode === 'USERS' ? form.value.assignedUserIds : null,
-    assignedRoleId: form.value.assigneeMode === 'ROLE' ? form.value.assignedRoleId : null,
-    schedule,
-    graceMinutes: Number(form.value.graceMinutes) || 60,
+    assignedUserIds: form.value.assignedUserIds ?? [],
+    assignedRoleIds: form.value.assignedRoleIds ?? [],
     active: form.value.active,
+  }
+}
+
+/**
+ * Soft training gate (2026-08-08): if the book links controlling documents
+ * that the assignees aren't trained on, warn the manager — they may continue
+ * (the person will be blocked from actually logging until trained, and their
+ * task/notification will say so) or cancel. Best-effort: a check failure
+ * never blocks the save.
+ * @returns {Promise<boolean>} true = proceed, false = manager cancelled.
+ */
+async function confirmTrainingGaps() {
+  try {
+    const audience = await resolveAssignmentAudience({
+      assignedUserIds: form.value.assignedUserIds,
+      assignedRoleIds: form.value.assignedRoleIds,
+    })
+    if (!audience.length) return true
+    const { byUser } = await resolveLogBookTrainingGaps(form.value.logBookId, audience)
+    const untrainedCount = [...byUser.values()].filter((docs) => docs.length).length
+    if (!untrainedCount) return true
+
+    const docTitles = [...new Set([...byUser.values()].flat().map((d) => d.title))].join(', ')
+    const who = untrainedCount === 1 ? '1 assignee has not' : `${untrainedCount} assignees have not`
+    return await confirm({
+      title: 'Training not complete',
+      message:
+        `${who} completed the required training on the document(s) linked to this log book ` +
+        `(${docTitles}). They can be assigned, but won't be able to record entries until the ` +
+        `training is complete and verified. Assign anyway?`,
+      okLabel: 'Assign anyway',
+      cancelLabel: 'Cancel',
+    })
+  } catch {
+    return true // never block a save on a training-check failure
   }
 }
 
@@ -268,6 +245,7 @@ async function save() {
     toast.error(err)
     return
   }
+  if (!(await confirmTrainingGaps())) return
   isSaving.value = true
   try {
     const payload = buildPayload()
@@ -289,7 +267,14 @@ async function save() {
 
 async function archive() {
   if (!isEditing.value) return
-  if (!confirm('Archive this log book assignment? Existing instances stay; no new ones generate.')) {
+  if (
+    !(await confirm({
+      title: 'Archive Assignment',
+      message: 'Archive this log book assignment? Existing instances stay; no new ones generate.',
+      okLabel: 'Archive',
+      danger: true,
+    }))
+  ) {
     return
   }
   isSaving.value = true
@@ -325,13 +310,11 @@ function back() {
     <!-- Standalone-route chrome: title + actions teleported to the page
          header. Suppressed when embedded (the host tab owns the header). -->
     <template v-if="!embedded">
-      <SafeTeleport to="#main-header-title">
-        <div class="tw:flex tw:items-center tw:gap-2 tw:text-on-sidebar">
-          <h2 class="tw:text-lg tw:font-bold tw:tracking-tight tw:text-nowrap">
-            {{ isEditing ? 'Edit Log Book Assignment' : 'New Log Book Assignment' }}
-          </h2>
-        </div>
-      </SafeTeleport>
+      <PageHeader>
+        <template #title>
+          {{ isEditing ? 'Edit Log Book Assignment' : 'New Log Book Assignment' }}
+        </template>
+      </PageHeader>
 
       <SafeTeleport to="#main-header-actions">
         <BaseButton variant="ghost" @click="back">
@@ -357,9 +340,9 @@ function back() {
 
     <!-- Embedded chrome: an inline action bar at the top of the panel. -->
     <div v-else class="tw:flex tw:items-center tw:justify-between tw:gap-2">
-      <h3 class="tw:text-base tw:font-semibold tw:text-on-main">
+      <BaseText as="h3" variant="subheading">
         {{ isEditing ? 'Edit Assignment' : 'New Assignment' }}
-      </h3>
+      </BaseText>
       <div class="tw:flex tw:items-center tw:gap-2">
         <BaseButton variant="ghost" @click="back">Cancel</BaseButton>
         <BaseButton
@@ -383,11 +366,8 @@ function back() {
       <!-- Log book — standalone only. When embedded in a log book's
            Assignments tab the book is fixed (lockLogBook), so this whole
            section is hidden and the value is pre-filled from the prop. -->
-      <div
-        v-if="!lockLogBook"
-        class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3"
-      >
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Log book</h3>
+      <BaseCard v-if="!lockLogBook" class="tw:space-y-3">
+        <BaseText as="h3" weight="semibold">Log book</BaseText>
         <div>
           <select
             v-model="form.logBookId"
@@ -400,175 +380,44 @@ function back() {
           </select>
           <p
             v-if="inspectionTemplates.length === 0"
-            class="tw:text-[11px] tw:text-red-600 tw:italic tw:mt-1"
+            class="tw:text-caption tw:text-red-600 tw:italic tw:mt-1"
           >
             No log books yet. Create one from the Log Books page and then come back to assign it.
           </p>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- Assignees -->
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3">
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Assignees</h3>
-        <div class="tw:flex tw:items-center tw:gap-4">
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.assigneeMode" type="radio" value="USERS" name="assigneeMode" />
-            <span class="tw:text-on-main">Specific users</span>
-          </label>
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.assigneeMode" type="radio" value="ROLE" name="assigneeMode" />
-            <span class="tw:text-on-main">All users in a role</span>
-          </label>
-        </div>
-        <div v-if="form.assigneeMode === 'USERS'">
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Users
-          </label>
+      <BaseCard class="tw:space-y-3">
+        <BaseText as="h3" weight="semibold">Assignees</BaseText>
+        <p class="tw:text-sm tw:text-secondary">
+          Roles and users are combined — pick any mix. Everyone named here, plus every member of the
+          roles you pick, gets an instance per occurrence. Somebody who is both only gets one.
+        </p>
+        <BaseField
+          label="Roles"
+          hint="Members are resolved at instance generation time. Adding a user to the role tomorrow gives them tomorrow's occurrences, not today's."
+        >
+          <RoleSelectMenu v-model="form.assignedRoleIds" :multiple="true" />
+        </BaseField>
+        <BaseField
+          label="Users"
+          hint="Click each user you want to assign — the menu stays open so you can pick multiple (e.g. one per shift)."
+        >
           <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
-          <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Click each user you want to assign — the menu stays open so you can pick
-            multiple (e.g. one per shift). All selected users get an instance per
-            occurrence.
-          </p>
-        </div>
-        <div v-else>
-          <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-            Role
-          </label>
-          <RoleSelectMenu v-model="form.assignedRoleId" :required="true" />
-          <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-            Members are resolved at instance generation time. Adding a user to the role tomorrow
-            gives them tomorrow's occurrences, not today's.
-          </p>
-        </div>
-      </div>
+        </BaseField>
+      </BaseCard>
 
-      <!-- Schedule -->
-      <div class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-5 tw:space-y-3">
-        <h3 class="tw:text-sm tw:font-semibold tw:text-on-main">Schedule</h3>
-        <div class="tw:flex tw:items-center tw:gap-4">
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.scheduleType" type="radio" value="RECURRING" name="scheduleType" />
-            <span class="tw:text-on-main">Recurring (cron-driven)</span>
-          </label>
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <input v-model="form.scheduleType" type="radio" value="AD_HOC" name="scheduleType" />
-            <span class="tw:text-on-main">Ad-hoc (no schedule)</span>
-          </label>
-        </div>
-
-        <template v-if="form.scheduleType === 'RECURRING'">
-          <CronPicker
-            v-model="form.cron"
-            v-model:frequency="frequency"
-            :timezone="form.timezone"
-          />
-          <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Timezone (IANA)
-              </label>
-              <select
-                v-model="form.timezone"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              >
-                <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Window length ({{ unit }})
-              </label>
-              <input
-                v-model.number="windowDisplay"
-                type="number"
-                min="0"
-                step="0.5"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                How long the entry stays open after the scheduled time.
-              </p>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Start offset ({{ unit }})
-              </label>
-              <input
-                :value="fromMinutes(form.startOffsetMinutes, unit)"
-                type="number"
-                min="0"
-                step="0.5"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                @input="(e) => (form.startOffsetMinutes = toMinutes(e.target.value, unit))"
-              />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                Delay between dueAt and when the window opens. 0 = opens at dueAt.
-              </p>
-            </div>
-            <div>
-              <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-                Grace ({{ unit }}, before MISSED)
-              </label>
-              <input
-                v-model.number="graceDisplay"
-                type="number"
-                min="0"
-                step="0.5"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-              />
-              <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-                How long after the window closes before the instance flips to MISSED.
-              </p>
-            </div>
-          </div>
-          <div>
-            <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:block tw:mb-1">
-              When the window closes unfilled
-            </label>
-            <div class="tw:inline-flex tw:rounded-lg tw:border tw:border-divider tw:overflow-hidden">
-              <button
-                class="tw:px-3 tw:py-1.5 tw:text-sm tw:border-0 tw:cursor-pointer"
-                :class="
-                  form.onWindowExpire !== 'KEEP_OPEN'
-                    ? 'tw:bg-primary tw:text-white'
-                    : 'tw:bg-card tw:text-secondary'
-                "
-                @click="form.onWindowExpire = 'MISS'"
-              >
-                Mark as missed
-              </button>
-              <button
-                class="tw:px-3 tw:py-1.5 tw:text-sm tw:border-0 tw:border-l tw:border-divider tw:cursor-pointer"
-                :class="
-                  form.onWindowExpire === 'KEEP_OPEN'
-                    ? 'tw:bg-primary tw:text-white'
-                    : 'tw:bg-card tw:text-secondary'
-                "
-                @click="form.onWindowExpire = 'KEEP_OPEN'"
-              >
-                Keep open until done
-              </button>
-            </div>
-            <p class="tw:text-[11px] tw:text-secondary tw:italic tw:mt-1">
-              <template v-if="form.onWindowExpire === 'KEEP_OPEN'">
-                The task stays overdue in the assignee's inbox until completed — nothing
-                auto-misses. For work that must be done regardless of lateness.
-              </template>
-              <template v-else>
-                A missed occurrence is recorded as a gap, leaves the inbox, and notifies the
-                supervisor. For time-bound readings that can't be done late.
-              </template>
-            </p>
-          </div>
-        </template>
-        <template v-else>
-          <p class="tw:text-sm tw:text-secondary">
-            Ad-hoc plans don't generate instances. Assigned users see the form in their available
-            list and can submit it whenever needed.
-          </p>
-        </template>
-      </div>
+      <!-- Schedule moved to the LOG BOOK (Details → Schedule, 2026-08-06):
+           an assignment is pure AUDIENCE now — who logs, not when. -->
+      <BaseCard class="tw:space-y-2">
+        <BaseText as="h3" weight="semibold">Schedule</BaseText>
+        <p class="tw:text-sm tw:text-secondary">
+          When entries happen is configured on the log book itself (Details → Schedule): ad hoc, a
+          recurring cadence, or an equipment calibration/PM trigger. This assignment only decides
+          who is expected to log.
+        </p>
+      </BaseCard>
 
       <!-- Location & Lifecycle removed for log book assignments: site
            scoping + the effective-from/until window were more than these

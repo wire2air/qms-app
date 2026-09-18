@@ -9,8 +9,7 @@ import {
   IconCheck,
   IconCircleX,
 } from '@tabler/icons-vue'
-import { required, helpers } from '@vuelidate/validators'
-import { useValidator } from '@shared/composables/validator.js'
+import { required } from '@shared/components/form/validators.js'
 import { useDebounceFn } from '@vueuse/core'
 import { put } from '@/api'
 import { QMS_TEMPLATES } from '@/constants/formTemplates'
@@ -41,6 +40,9 @@ const open = defineModel({
   default: false,
 })
 
+const formRef = ref(null)
+const saveError = ref('')
+
 /**
  * Build the I&L config payload baked onto template.config when the
  * dialog is opened with `defaultClassification` set. Matches the shape
@@ -69,11 +71,10 @@ function classificationConfigDefaults(cls) {
 const templateForm = reactive({
   title: '',
   code: '',
+  // I&L log books still auto-stamp INSPECTION_LOG (the watch below); regular
+  // module/form templates leave this null — numbering is keyed by code.
   documentTypeId: null,
   status: 'DRAFT',
-  trainingRequired: false,
-  retrainingOnRevision: false,
-  selectedSites: [],
   schema: [],
   isAvailable: null,
   isChecking: false,
@@ -81,11 +82,7 @@ const templateForm = reactive({
   isValid: computed(() => {
     const titleValid = templateForm.title.trim().length > 0
     const codeValid = /^[a-z0-9-_]+$/i.test(templateForm.code.trim())
-    // I&L log books skip the manual Document Type pick; the watch
-    // below stamps INSPECTION_LOG so the field is always populated.
-    const documentTypeValid =
-      props.defaultClassification !== null || templateForm.documentTypeId !== null
-    return titleValid && codeValid && documentTypeValid && templateForm.code.trim().length >= 2
+    return titleValid && codeValid && templateForm.code.trim().length >= 2
   }),
 })
 
@@ -96,18 +93,6 @@ const isCodeChangeFromTitle = ref(false)
 // logs, so we hide the field and pin it to a catch-all type seeded
 // by migration 20260628000800.
 const INSPECTION_LOG_DOC_TYPE_ID = 'INSPECTION_LOG'
-
-const templateRules = computed(() => ({
-  title: { required: helpers.withMessage('Required', required) },
-  // Document Type only matters for controlled-document forms; I&L
-  // log books get the field hidden and auto-stamped below.
-  ...(props.defaultClassification
-    ? {}
-    : { documentTypeId: { required: helpers.withMessage('Required', required) } }),
-  code: { required: helpers.withMessage('Required', required) },
-}))
-
-const templateValidator = useValidator(templateRules, templateForm)
 
 const step = ref(1)
 const selectedPreset = ref(null)
@@ -187,6 +172,9 @@ watch(
     if (isOpen && props.defaultClassification) {
       templateForm.documentTypeId = INSPECTION_LOG_DOC_TYPE_ID
     }
+    if (!isOpen) {
+      saveError.value = ''
+    }
   },
   { immediate: true },
 )
@@ -202,22 +190,17 @@ const createTemplate = useLiveMutation(async (db, formData) => {
   const template = db.FormTemplate.create({
     title: formData.title,
     code: formData.code,
+    // Only the I&L path stamps a document type; module/form templates leave it null.
     documentTypeId: formData.documentTypeId,
     statusId,
     schema: formData.schema || [],
     config: {
-      trainingRequired: formData.trainingRequired,
-      retrainingOnRevision: formData.retrainingOnRevision,
+      trainingRequired: false,
+      retrainingOnRevision: false,
       ...(inspectionsConfig ?? {}),
     },
   })
   await template.save()
-
-  // Create site assignments
-  for (const siteId of formData.selectedSites) {
-    const sot = db.SiteOnTemplate.create({ siteId, templateId: template.id })
-    await sot.save()
-  }
 
   return template
 })
@@ -238,16 +221,16 @@ function closeWizard() {
   emit('cancel')
 }
 
-async function goToFormBuilder() {
-  const valid = await templateValidator.value.$validate()
-  if (!valid) return
-
+async function onSubmit() {
+  if (templateForm.isSubmitting) return
   templateForm.isSubmitting = true
+  saveError.value = ''
   try {
     const template = await createTemplate(templateForm)
     emit('next', template)
     open.value = false
   } catch (err) {
+    saveError.value = err?.message || 'Failed to create template'
     console.error('Failed to create template:', err)
   } finally {
     templateForm.isSubmitting = false
@@ -259,14 +242,12 @@ function resetForm() {
   templateForm.code = ''
   templateForm.documentTypeId = null
   templateForm.status = 'DRAFT'
-  templateForm.trainingRequired = false
-  templateForm.retrainingOnRevision = false
-  templateForm.selectedSites = []
   templateForm.schema = []
   templateForm.isAvailable = null
   templateForm.isChecking = false
   step.value = 1
   selectedPreset.value = null
+  saveError.value = ''
 }
 
 function nextStep() {
@@ -309,90 +290,58 @@ function prevStep() {
     <div class="tw:flex tw:flex-col tw:gap-4">
       <!-- Step 1: Metadata -->
       <div v-if="step === 1" class="tw:flex tw:flex-col tw:gap-4">
-        <!-- Template Name -->
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main"
-            >Template Name <span class="tw:text-bad">*</span></label
+        <BaseForm ref="formRef" hideFooter @submit="onSubmit">
+          <!-- Template Name -->
+          <BaseField
+            label="Template Name"
+            required
+            :value="templateForm.title"
+            :rules="[required()]"
           >
-          <BaseTextInput
-            v-model="templateForm.title"
-            name="title"
-            placeholder="e.g. Internal Quality Audit Checklist"
-          />
-        </div>
+            <template #default="field">
+              <BaseTextInput
+                v-bind="field"
+                v-model="templateForm.title"
+                placeholder="e.g. Internal Quality Audit Checklist"
+              />
+            </template>
+          </BaseField>
 
-        <!-- Document Type & Code Row.
-             Document Type is hidden in I&L mode — log books are auto-
-             stamped with the INSPECTION_LOG doc type. Code spans full
-             width when the doc-type field is hidden. -->
-        <div
-          class="tw:grid tw:gap-4"
-          :class="defaultClassification ? 'tw:grid-cols-1' : 'tw:grid-cols-2'"
-        >
-          <div v-if="!defaultClassification">
-            <label class="tw:text-sm tw:font-medium tw:text-on-main"
-              >Document Type <span class="tw:text-bad">*</span></label
+          <!-- Code drives record numbering (<CODE>-NNNN). -->
+          <div class="tw:grid tw:gap-4 tw:grid-cols-1">
+            <BaseField
+              label="Code"
+              required
+              hint="Used for Record ID generation."
+              :value="templateForm.code"
+              :rules="[required()]"
             >
-            <DocumentTypeSelectMenu v-model="templateForm.documentTypeId" required />
+              <template #default="field">
+                <div class="tw:relative">
+                  <BaseTextInput
+                    v-bind="field"
+                    v-model="templateForm.code"
+                    placeholder="e.g. QUA, AUD"
+                  />
+                  <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
+                    <BaseSpinner v-if="templateForm.isChecking" size="sm" />
+                    <IconCheck
+                      v-else-if="templateForm.isAvailable === true"
+                      :size="16"
+                      class="tw:text-green-600"
+                    />
+                    <IconCircleX
+                      v-else-if="templateForm.isAvailable === false"
+                      :size="16"
+                      class="tw:text-bad"
+                    />
+                  </div>
+                </div>
+              </template>
+            </BaseField>
           </div>
 
-          <div>
-            <label class="tw:text-sm tw:font-medium tw:text-on-main"
-              >Code <span class="tw:text-bad">*</span></label
-            >
-            <div class="tw:relative">
-              <BaseTextInput v-model="templateForm.code" name="code" placeholder="e.g. QUA, AUD" />
-              <div class="tw:absolute tw:right-2 tw:top-1/2 tw:-translate-y-1/2">
-                <div
-                  v-if="templateForm.isChecking"
-                  class="tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-                />
-                <IconCheck
-                  v-else-if="templateForm.isAvailable === true"
-                  :size="16"
-                  class="tw:text-green-600"
-                />
-                <IconCircleX
-                  v-else-if="templateForm.isAvailable === false"
-                  :size="16"
-                  class="tw:text-bad"
-                />
-              </div>
-            </div>
-            <div class="tw:text-xs tw:text-secondary tw:mt-1">Used for Record ID generation.</div>
-          </div>
-        </div>
-
-        <!-- Training Configuration — hidden in I&L mode. Inspection &
-             log entries are quick floor-worker actions; tying them to
-             training assignments is a controlled-document concern, not
-             a record-entry one. Admin can still flip these on the
-             template detail page if they need to. -->
-        <div v-if="!defaultClassification" class="tw:bg-main-hover tw:p-3 tw:rounded-lg">
-          <div class="tw:text-xs tw:font-semibold tw:uppercase tw:text-secondary tw:mb-3">
-            Training Configuration
-          </div>
-          <div class="tw:flex tw:flex-col tw:gap-3">
-            <div class="tw:flex tw:justify-between tw:items-center">
-              <span class="tw:text-sm tw:text-on-main">Training Required?</span>
-              <BaseSwitch v-model="templateForm.trainingRequired" />
-            </div>
-            <div class="tw:text-xs tw:text-secondary tw:-mt-2">
-              If enabled, users must link a training course when creating a record.
-            </div>
-
-            <div class="tw:flex tw:justify-between tw:items-center">
-              <span class="tw:text-sm tw:text-on-main">Retraining Required on Revision?</span>
-              <BaseSwitch v-model="templateForm.retrainingOnRevision" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Site Availability -->
-        <div>
-          <label class="tw:text-sm tw:font-medium tw:text-on-main">Site Availability</label>
-          <SiteSelectMenu v-model="templateForm.selectedSites" multiple />
-        </div>
+        </BaseForm>
       </div>
 
       <!-- Step 2: Template Selection with Previews -->
@@ -402,24 +351,26 @@ function prevStep() {
           step.
         </div>
 
-        <div class="tw:grid tw:grid-cols-2 tw:gap-4 tw:overflow-auto tw:max-h-125 tw:p-1">
+        <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-4 tw:overflow-auto tw:max-h-125 tw:p-1">
           <!-- Blank Option -->
-          <div
-            class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8 tw:border tw:border-divider tw:rounded-xl tw:cursor-pointer tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
+          <BaseClickableRow
+            class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:p-8 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
             :class="{ 'tw:border-primary tw:bg-main-hover': selectedPreset === 'blank' }"
+            aria-label="Start from a blank form"
             @click="selectBlank"
           >
             <IconCirclePlus :size="48" class="tw:text-secondary/40" />
             <div class="tw:text-lg tw:font-bold tw:mt-4 tw:text-on-main">Blank Form</div>
             <div class="tw:text-xs tw:text-secondary tw:text-center">Start from a clean slate</div>
-          </div>
+          </BaseClickableRow>
 
           <!-- Presets -->
-          <div
+          <BaseClickableRow
             v-for="preset in QMS_TEMPLATES"
             :key="preset.code"
-            class="tw:flex tw:flex-col tw:p-4 tw:border tw:border-divider tw:rounded-xl tw:cursor-pointer tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
+            class="tw:flex tw:flex-col tw:p-4 tw:border tw:border-divider tw:rounded-xl tw:transition-all tw:duration-200 tw:bg-main tw:hover:bg-main-hover tw:hover:border-primary"
             :class="{ 'tw:border-primary tw:bg-main-hover': selectedPreset === preset.title }"
+            :aria-label="`Use template ${preset.title}`"
             @click="applyTemplate(preset)"
           >
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-3">
@@ -436,7 +387,7 @@ function prevStep() {
                 <DynamicForm :fields="preset.schema" readonly :modelValue="{}" />
               </div>
             </div>
-          </div>
+          </BaseClickableRow>
         </div>
       </div>
     </div>
@@ -449,22 +400,25 @@ function prevStep() {
       </BaseButton>
       <div v-else />
 
-      <div class="tw:flex tw:gap-3">
-        <BaseButton variant="outline" :disabled="templateForm.isSubmitting" @click="closeWizard">
-          Cancel
-        </BaseButton>
-        <BaseButton v-if="step === 1" :disabled="!templateForm.isValid" @click="nextStep">
-          Next: Select Template
-          <IconArrowRight :size="16" class="tw:ml-1" />
-        </BaseButton>
-        <BaseButton
-          v-else
-          :disabled="selectedPreset === null || templateForm.isSubmitting"
-          @click="goToFormBuilder"
-        >
-          <IconBrush :size="16" class="tw:mr-1" />
-          Design Form
-        </BaseButton>
+      <div class="tw:flex tw:flex-col tw:items-end tw:gap-1">
+        <div v-if="saveError" class="tw:text-sm tw:text-bad">{{ saveError }}</div>
+        <div class="tw:flex tw:gap-3">
+          <BaseButton variant="outline" :disabled="templateForm.isSubmitting" @click="closeWizard">
+            Cancel
+          </BaseButton>
+          <BaseButton v-if="step === 1" :disabled="!templateForm.isValid" @click="nextStep">
+            Next: Select Template
+            <IconArrowRight :size="16" class="tw:ml-1" />
+          </BaseButton>
+          <BaseButton
+            v-else
+            :disabled="selectedPreset === null || templateForm.isSubmitting"
+            @click="onSubmit"
+          >
+            <IconBrush :size="16" class="tw:mr-1" />
+            Design Form
+          </BaseButton>
+        </div>
       </div>
     </div>
   </BaseDialog>

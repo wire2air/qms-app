@@ -87,10 +87,7 @@ async function onSubmit() {
         <p class="tw:text-sm tw:font-medium tw:text-on-main">{{ request.title }}</p>
       </div>
 
-      <div>
-        <label class="tw:block tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">
-          Upload Document
-        </label>
+      <BaseField label="Upload Document">
         <div
           v-if="selectedFile"
           class="tw:flex tw:items-center tw:gap-2 tw:p-2 tw:border tw:border-divider tw:rounded-lg"
@@ -118,23 +115,17 @@ async function onSubmit() {
         </div>
         <div v-if="selectedFile && !uploadedAsset" class="tw:mt-2">
           <BaseButton :disabled="uploading" size="sm" @click="onUpload">
-            <div
-              v-if="uploading"
-              class="tw:animate-spin tw:rounded-full tw:size-3 tw:border-2 tw:border-white tw:border-t-transparent"
-            />
+            <BaseSpinner v-if="uploading" size="xs" color="white" />
             <span>{{ uploading ? 'Uploading...' : 'Upload' }}</span>
           </BaseButton>
         </div>
-      </div>
+      </BaseField>
     </div>
 
     <div class="tw:flex tw:justify-end tw:gap-2 tw:px-4 tw:pb-4">
       <BaseButton variant="outline" @click="show = false">Cancel</BaseButton>
       <BaseButton :disabled="!uploadedAsset || submitting" @click="onSubmit">
-        <div
-          v-if="submitting"
-          class="tw:animate-spin tw:rounded-full tw:size-4 tw:border-2 tw:border-white tw:border-t-transparent"
-        />
+        <BaseSpinner v-if="submitting" size="sm" color="white" />
         <span>{{ submitting ? 'Submitting...' : 'Submit' }}</span>
       </BaseButton>
     </div>

@@ -1,7 +1,6 @@
 <script setup>
 import { IconSearch, IconUserOff } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
-import { get, put } from '@/api'
 
 const props = defineProps({
   roleId: {
@@ -26,33 +25,65 @@ const open = defineModel({
 })
 
 const toast = useToast()
-const allUsers = ref([])
 const selectedUserIds = ref([])
-const loading = ref(false)
+const saving = ref(false)
 const searchTerm = ref('')
 
+// The assignable roster, read through the syncEngine like every other entity
+// list (CLAUDE.md rule #4). This used to be `get('/v1/services/users')`, which
+// was the last consumer of that endpoint's ungated read — the route is now
+// behind `user_management:read`, and a roles administrator does not necessarily
+// hold it.
+//
+// Reading db.User instead is both the convention and the safer behaviour: the
+// syncEngine's copy is populated over GraphQL, where `users_sel` decides
+// visibility per caller (yourself, org-wide users, and anyone sharing one of
+// your sites — plus the whole company with a tenant-scoped
+// `user_management:read`). So an administrator sees exactly the people they are
+// allowed to see rather than a 403 and an empty dialog.
+//
+// Supplier accounts are excluded for the same reason UsersHome excludes them:
+// they are managed from Suppliers → Users, and they are not role subjects here.
+// No `initial` — the undefined phase is what distinguishes "still loading" from
+// "you can see nobody", and this dialog shows a different thing for each.
+const allUsers = useLiveQuery(
+  async (db) => {
+    const rows = await db.User.where().exec()
+    return rows.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
+  },
+  { models: ['User'] },
+)
+const loading = computed(() => allUsers.value === undefined)
+
+// Authoritative current assignments for this role (live). Used to compute the
+// add/remove diff on save and to delete the right RoleOnUser rows.
+const roleAssignments = useLiveQueryWithDeps(
+  [() => props.roleId],
+  async (db, [roleId]) => (roleId ? db.RoleOnUser.where('roleId', roleId).exec() : []),
+  { initial: [] },
+)
+
+const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
+  const assignment = db.RoleOnUser.create({ userId, roleId })
+  await assignment.save()
+  return assignment
+})
+
 const filteredUsers = computed(() => {
+  const rows = allUsers.value ?? []
   if (!searchTerm.value.trim()) {
-    return allUsers.value
+    return rows
   }
 
   const search = searchTerm.value.toLowerCase()
-  return allUsers.value.filter((user) => {
+  return rows.filter((user) => {
     const fullName = `${user.firstName} ${user.lastName}`.toLowerCase()
-    const email = user.email.toLowerCase()
+    const email = user.email?.toLowerCase() ?? ''
     return fullName.includes(search) || email.includes(search)
   })
 })
 
-const canUpdateRole = computed(() => isAllowed(['roles:update']))
-
-// Fetch all company users
-async function fetchAllUsers() {
-  const data = await get('/v1/services/users', {
-    loader: loading,
-  })
-  allUsers.value = data.users || []
-}
+const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
 
 // Check if user is selected
 function isUserSelected(userId) {
@@ -71,26 +102,29 @@ function toggleUserSelection(userId) {
   }
 }
 
-// Save user assignments
+// Save user assignments — diff the selection against the live RoleOnUser rows
+// and apply via the syncEngine (create adds, soft-delete removes), matching the
+// user page. One write path for the relationship.
 async function saveUserAssignments() {
-  if (!props.roleId) {
-    return
+  if (!props.roleId) return
+  saving.value = true
+  try {
+    const desired = new Set(selectedUserIds.value)
+    const current = roleAssignments.value
+    const currentIds = new Set(current.map((ra) => ra.userId))
+
+    const toAdd = [...desired].filter((id) => !currentIds.has(id))
+    const toRemove = current.filter((ra) => !desired.has(ra.userId))
+
+    for (const userId of toAdd) await addRoleOnUser({ userId, roleId: props.roleId })
+    for (const ra of toRemove) await ra.delete()
+
+    toast.success('User assignments updated successfully')
+    open.value = false
+    emit('saved')
+  } finally {
+    saving.value = false
   }
-
-  await put(
-    `/v1/services/roles/${props.roleId}/users`,
-    {
-      userIds: selectedUserIds.value,
-    },
-    {
-      loader: loading,
-    },
-  )
-
-  toast.success('User assignments updated successfully')
-
-  open.value = false
-  emit('saved')
 }
 
 // Initialize when dialog opens
@@ -98,9 +132,9 @@ watch(
   open,
   (val) => {
     if (val) {
-      // Set currently assigned users as selected
+      // Set currently assigned users as selected. The roster itself is a live
+      // query — there is nothing to fetch on open.
       selectedUserIds.value = props.assignedUsers.map((u) => u.id)
-      fetchAllUsers()
     } else {
       // Reset when closed
       searchTerm.value = ''
@@ -136,9 +170,7 @@ watch(
         class="tw:max-h-100 tw:overflow-y-auto custom-scrollbar tw:border tw:border-divider tw:rounded-lg"
       >
         <div v-if="loading" class="tw:flex tw:items-center tw:justify-center tw:py-12">
-          <div
-            class="tw:size-8 tw:animate-spin tw:rounded-full tw:border-2 tw:border-primary tw:border-t-transparent"
-          ></div>
+          <BaseSpinner size="md" />
         </div>
 
         <BaseEmptyState
@@ -149,10 +181,11 @@ watch(
         />
 
         <div v-else class="tw:divide-y tw:divide-divider">
-          <div
+          <BaseClickableRow
             v-for="user in filteredUsers"
             :key="user.id"
-            class="tw:flex tw:items-center tw:px-4 tw:py-3 tw:hover:bg-sidebar/20 tw:transition-colors tw:cursor-pointer"
+            class="tw:flex tw:items-center tw:px-4 tw:py-3 tw:hover:bg-sidebar/20 tw:transition-colors"
+            :aria-label="`Toggle selection for ${user.firstName} ${user.lastName}`"
             @click="toggleUserSelection(user.id)"
           >
             <BaseCheckbox
@@ -178,7 +211,7 @@ watch(
             >
               Currently Assigned
             </div>
-          </div>
+          </BaseClickableRow>
         </div>
       </div>
 
@@ -198,13 +231,10 @@ watch(
       <button
         v-if="canUpdateRole"
         class="tw:px-4 tw:py-2 tw:text-sm tw:font-bold tw:text-white tw:bg-primary tw:rounded-lg tw:cursor-pointer tw:hover:bg-primary/90 tw:transition-colors tw:border-0 tw:disabled:opacity-50 tw:disabled:cursor-not-allowed"
-        :disabled="loading"
+        :disabled="saving"
         @click="saveUserAssignments"
       >
-        <span
-          v-if="loading"
-          class="tw:inline-block tw:size-4 tw:animate-spin tw:rounded-full tw:border-2 tw:border-white tw:border-t-transparent tw:mr-2"
-        ></span>
+        <BaseSpinner v-if="saving" size="sm" color="white" class="tw:mr-2" />
         Save Assignments
       </button>
     </template>

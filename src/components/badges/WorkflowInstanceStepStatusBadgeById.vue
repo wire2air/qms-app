@@ -5,10 +5,14 @@ const props = defineProps({
   hideLabel: { type: Boolean, default: false },
 })
 
-const status = useLiveQueryWithDeps([() => props.statusId], async (db, [statusId]) => {
-  if (!statusId) return null
-  return db.WorkflowInstanceStepStatus.findByPk(statusId)
-})
+const status = useLiveQueryWithDeps(
+  [() => props.statusId],
+  async (db, [statusId]) => {
+    if (!statusId) return null
+    return db.WorkflowInstanceStepStatus.findByPk(statusId)
+  },
+  { models: ['WorkflowInstanceStepStatus'] },
+)
 </script>
 
 <template>

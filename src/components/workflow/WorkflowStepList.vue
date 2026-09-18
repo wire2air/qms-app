@@ -1,17 +1,28 @@
 <script setup>
-import { IconPlus } from '@tabler/icons-vue'
+import { IconPlus, IconChevronsUp, IconChevronsDown } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany.js'
+import { useSortable, moveArrayElement } from '@vueuse/integrations/useSortable'
+import { persistStepOrder, movedIdOrder } from './workflowStepOrder.js'
 
 const props = defineProps({
   versionId: { type: String, required: true },
   canUpdate: { type: Boolean, default: false },
   showChildSteps: { type: Boolean, default: false },
+  // workflow.moduleId — forwarded to the Add-Step wizard so it only offers the
+  // step types this kind of workflow supports.
+  moduleId: { type: String, default: null },
 })
+
+// Header-button intents bubble to the parent, which owns the two dialogs —
+// one instance each, rather than a pair per step card.
+const emit = defineEmits(['openSettings', 'openAssignees'])
 
 const stepId = defineModel('stepId', {
   type: String,
   default: null,
 })
+
+const toast = useToast()
 
 const steps = useLiveQueryWithDeps(
   [() => props.versionId],
@@ -19,13 +30,41 @@ const steps = useLiveQueryWithDeps(
     if (!vId) return []
     return db.WorkflowStep.where('workflowVersionId', vId).orderBy('stepOrder').exec()
   },
-  { initial: [] },
+
+  { models: ['WorkflowStep'], initial: [] },
 )
 
 // Tree helpers (used when showChildSteps = true)
 const rootSteps = computed(() =>
   steps.value.filter((s) => !s.parentStepId).sort((a, b) => a.stepOrder - b.stepOrder),
 )
+
+// Drag-to-reorder (user request 2026-08-16), matching document template
+// sections. Handle-based so a drag can't start from the card body, where
+// clicking expands the step. Persists through the same collision-safe path as
+// the arrow buttons, which stay for keyboard users.
+const flatListRef = ref(null)
+useSortable(flatListRef, steps, {
+  handle: '.step-drag-handle',
+  animation: 150,
+  onUpdate(e) {
+    const ids = movedIdOrder(steps.value, e.oldIndex, e.newIndex)
+    moveArrayElement(steps, e.oldIndex, e.newIndex, e)
+    nextTick(() => applyOrder(steps.value, ids))
+  },
+})
+
+const rootListRef = ref(null)
+useSortable(rootListRef, rootSteps, {
+  handle: '.step-drag-handle',
+  animation: 150,
+  onUpdate(e) {
+    // Root steps only — children are ordered within their own parent, and
+    // dragging one out of its parent is a different operation entirely.
+    const ids = movedIdOrder(rootSteps.value, e.oldIndex, e.newIndex)
+    nextTick(() => applyOrder(rootSteps.value, ids))
+  },
+})
 
 const childrenByParentId = computed(() =>
   steps.value.reduce((acc, s) => {
@@ -37,64 +76,162 @@ const childrenByParentId = computed(() =>
   }, {}),
 )
 
-function selectStep(step) {
-  stepId.value = step.id
+// Steps render EXPANDED by default (user request 2026-08-15) — the builder is
+// a document you read top-to-bottom, not a set of drawers to open. Each card
+// is its own toggle, so a step can be folded away individually; the parent
+// renders the editor into the #stepEditor slot below the card.
+//
+// Collapsed ids (not expanded ids) are tracked so a newly added step is
+// expanded automatically without having to watch for it.
+const collapsedIds = ref(new Set())
+
+function isExpanded(step) {
+  return !collapsedIds.value.has(step.id)
 }
 
-const createStep = useLiveMutation(async (db, { versionId, order, settings, parentStepId }) => {
-  const s = settings || {}
-  // formSchema starts empty. The previous auto-seed from the "TASK"
-  // FormTemplate (rich text + file upload) was silently adding a form
-  // to every new step — including APPROVAL steps that shouldn't have
-  // one at all. The Form tab on the step editor still lets authors
-  // explicitly pick or build a schema when they want one.
-  const step = db.WorkflowStep.create({
-    workflowVersionId: versionId,
-    name: `Step ${order}`,
-    description: '',
-    stepOrder: order,
-    approvalRule: s.defaultWorkflowApprovalRule ?? 'ALL',
-    slaDays: s.defaultSla ?? null,
-    requireComments: s.defaultWorkflowRequireComment ?? false,
-    requireEsignature: s.defaultWorkflowRequireSignature ?? false,
-    formSchema: [],
-    ...(parentStepId ? { parentStepId } : {}),
-  })
-  await step.save()
+// Collapse/expand all (user request 2026-08-16). Every step renders expanded
+// by default, so a five-step workflow is a long scroll when you only want to
+// see the shape of it.
+//
+// Reads "Expand all" only when EVERY step is collapsed — with a mix, the
+// useful action is to collapse the rest, so that is what a single click does.
+const allStepIds = computed(() => (steps.value ?? []).map((s) => s.id).filter(Boolean))
+const allCollapsed = computed(
+  () => allStepIds.value.length > 0 && allStepIds.value.every((id) => collapsedIds.value.has(id)),
+)
 
-  // Seed all allowed outcomes for the new step
-  const outcomes = await db.WorkflowStepOutcome.where().exec()
-  for (const o of outcomes) {
-    const record = db.AllowedOutcomeOnStep.create({ stepId: step.id, outcomeId: o.id })
-    await record.save()
+function toggleAll() {
+  if (allCollapsed.value) {
+    collapsedIds.value = new Set()
+    return
   }
+  // Includes child steps: collapsing only the roots would leave children
+  // expanded inside a folded parent and re-expand it visually.
+  collapsedIds.value = new Set(allStepIds.value)
+  stepId.value = null
+}
 
-  return step
-})
+function selectStep(step) {
+  const next = new Set(collapsedIds.value)
+  if (next.has(step.id)) next.delete(step.id)
+  else next.add(step.id)
+  collapsedIds.value = next
+  // Keep the v-model in sync for hosts that track "the step being worked on".
+  stepId.value = next.has(step.id) ? null : step.id
+}
+
+const createStep = useLiveMutation(
+  async (db, { versionId, order, settings, parentStepId, name, stepType, formSchema, roleIds }) => {
+    const s = settings || {}
+    // formSchema starts empty unless the Add-Step wizard handed one over
+    // (form block / preset pick). The old auto-seed from the "TASK"
+    // FormTemplate was silently adding a form to every new step — including
+    // APPROVAL steps that shouldn't have one at all. The Form tab on the
+    // step editor still lets authors explicitly pick or build a schema.
+    const step = db.WorkflowStep.create({
+      workflowVersionId: versionId,
+      name: name || `Step ${order}`,
+      description: '',
+      stepOrder: order,
+      ...(stepType ? { stepType } : {}),
+      approvalRule: s.defaultWorkflowApprovalRule ?? 'ALL',
+      slaDays: s.defaultSla ?? null,
+      requireComments: s.defaultWorkflowRequireComment ?? false,
+      requireEsignature: s.defaultWorkflowRequireSignature ?? false,
+      formSchema: formSchema ?? [],
+      // Sub-steps stay allowed by default on wizard-created Task steps
+      // (user decision 2026-08-12: no extra "allow sub-steps?" question —
+      // the record owner can always add sub-tasks at runtime; authors can
+      // still switch it off in the step editor's Compliance & options).
+      // Only meaningful for modules that support child steps (CAPA / CC).
+      ...(stepType === 'ACTION' && !parentStepId && props.showChildSteps
+        ? { allowChildSteps: true }
+        : {}),
+      ...(parentStepId ? { parentStepId } : {}),
+    })
+    await step.save()
+
+    // Seed all allowed outcomes for the new step
+    const outcomes = await db.WorkflowStepOutcome.where().exec()
+    for (const o of outcomes) {
+      const record = db.AllowedOutcomeOnStep.create({ stepId: step.id, outcomeId: o.id })
+      await record.save()
+    }
+
+    // Assignee roles picked in the wizard (templates are role-only).
+    for (const roleId of roleIds ?? []) {
+      const sr = db.WorkflowStepRole.create({ stepId: step.id, roleId })
+      await sr.save()
+    }
+
+    return step
+  },
+)
 
 function nextStepOrder() {
   const orders = steps.value.map((s) => s.stepOrder ?? 0)
   return (orders.length ? Math.max(...orders) : 0) + 1
 }
 
-async function addStep() {
-  const s = currentCompany.value?.settings || {}
-  const order = nextStepOrder()
-  const step = await createStep({ versionId: props.versionId, order, settings: s })
-  if (step) stepId.value = step.id
+// "Add Step" opens the guided wizard (type → task form → assignees) instead
+// of instantly dropping a bare "Step N" into the editor (user request
+// 2026-08-12). Sub-steps keep the instant path — they're small work items
+// under an already-configured parent.
+//
+// Steps can be added at the END (Add Step button) or IN BETWEEN two steps
+// (the + on the connector, redesign 2026-08-13): `insertBeforeOrder` carries
+// the insertion point into the wizard's submit.
+const showCreateDialog = ref(false)
+const insertBeforeOrder = ref(null)
+
+function addStep() {
+  insertBeforeOrder.value = null
+  showCreateDialog.value = true
 }
 
-async function addChildStep(parentId) {
+function addStepBefore(step) {
+  insertBeforeOrder.value = step?.stepOrder ?? null
+  showCreateDialog.value = true
+}
+
+async function handleWizardSubmit({ stepType, name, formSchema, roleIds }) {
   const s = currentCompany.value?.settings || {}
-  const order = nextStepOrder()
-  const step = await createStep({
+  let order
+  if (insertBeforeOrder.value != null) {
+    // Insert between: the new step takes the target's order and everything
+    // at/after it shifts down one slot. Descending so orders stay unique at
+    // every intermediate save. Children share the global order pool, so
+    // their relative order within each parent is preserved.
+    order = insertBeforeOrder.value
+    const toShift = steps.value
+      .filter((x) => (x.stepOrder ?? 0) >= order)
+      .sort((a, b) => (b.stepOrder ?? 0) - (a.stepOrder ?? 0))
+    for (const x of toShift) {
+      x.stepOrder = (x.stepOrder ?? 0) + 1
+      await x.save()
+    }
+  } else {
+    order = nextStepOrder()
+  }
+  insertBeforeOrder.value = null
+  await createStep({
     versionId: props.versionId,
     order,
     settings: s,
-    parentStepId: parentId,
+    name,
+    stepType,
+    formSchema,
+    roleIds,
   })
-  if (step) stepId.value = step.id
+  // The new step renders EXPANDED like every other (collapsedIds starts
+  // empty), so there is nothing to select — the wizard already collected
+  // name/type/form/assignees.
 }
+
+// (No template-level "Add Sub-step" — removed 2026-08-14: sub-steps are a
+// RUNTIME feature. `allowChildSteps` on a Task step lets the record owner
+// fan out ad-hoc sub-tasks on the running record; templates author only the
+// main flow. Existing child template steps still render for legacy data.)
 
 // Generic helpers for scoped remove/swap
 async function removeFromSiblings(step, siblings) {
@@ -102,22 +239,28 @@ async function removeFromSiblings(step, siblings) {
   if (index === -1) return
   const wasSelected = stepId.value === step.id
   await step.delete()
-  const remaining = siblings.filter((s) => s.id !== step.id)
-  if (wasSelected) {
-    const newIndex = Math.max(0, index - 1)
-    stepId.value = remaining[newIndex]?.id ?? null
+  // Deleting the OPEN step collapses the accordion — it used to fall back to
+  // the previous sibling, which now reads as "delete opened a different step".
+  if (wasSelected) stepId.value = null
+}
+
+// Reordering goes through persistStepOrder, which parks the steps in a free
+// numbering band before landing 1..n — a straight swap violates
+// uq_workflow_steps_version_order half-way through and silently persists
+// nothing. See workflowStepOrder.js for the full story.
+//
+// NOTE: no re-select — expansion state is keyed by step id and survives a
+// reorder on its own.
+async function applyOrder(list, orderedIds) {
+  try {
+    await persistStepOrder(list, orderedIds)
+  } catch (err) {
+    toast.error(err?.message || 'Failed to reorder steps')
   }
 }
 
 async function swapInList(list, fromIndex, toIndex) {
-  const a = list[fromIndex]
-  const b = list[toIndex]
-  if (!a || !b) return
-  const tmpOrder = a.stepOrder
-  a.stepOrder = b.stepOrder
-  b.stepOrder = tmpOrder
-  await Promise.all([a.save(), b.save()])
-  stepId.value = a.id
+  await applyOrder(list, movedIdOrder(list, fromIndex, toIndex))
 }
 
 // Flat mode (showChildSteps = false)
@@ -166,97 +309,172 @@ defineExpose({ addStep })
 </script>
 
 <template>
-  <aside
-    class="tw:w-80 tw:lg:w-96 tw:bg-main-hover tw:border-r tw:border-divider tw:flex tw:flex-col tw:shrink-0"
-  >
+  <!-- Workflow canvas (redesign 2026-08-13): the steps ARE the page — a
+       centered top-to-bottom flow with connectors, like a real workflow.
+       Each step renders EXPANDED by default with its configuration inline
+       below the card (#stepEditor slot, filled by the parent); clicking a
+       card folds that step away. Steps can be inserted in between via the +
+       on each connector, or appended with Add Step at the end. -->
+  <div class="tw:w-full tw:max-w-3xl tw:mx-auto tw:p-4 tw:md:p-8">
     <!-- Header -->
-    <div class="tw:p-4 tw:border-b tw:border-divider tw:flex tw:items-center tw:justify-between">
-      <h2 class="ds-label tw:text-on-main">Workflow Sequence</h2>
-      <span
-        class="tw:text-xs tw:font-medium tw:text-secondary tw:bg-main tw:px-2 tw:py-0.5 tw:rounded"
-      >
-        {{ steps?.length ?? 0 }} Step{{ (steps?.length ?? 0) !== 1 ? 's' : '' }}
-      </span>
+    <div class="tw:pb-4 tw:flex tw:items-center tw:justify-between">
+      <BaseText as="h2" variant="overline" color="inherit" class="tw:text-on-main">
+        Workflow Sequence
+      </BaseText>
+      <div class="tw:flex tw:items-center tw:gap-2">
+        <!-- Hidden for a single step, where there is nothing to collapse
+             relative to. -->
+        <button
+          v-if="allStepIds.length > 1"
+          type="button"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:font-medium tw:text-secondary tw:hover:text-primary tw:transition-colors"
+          @click="toggleAll"
+        >
+          <component :is="allCollapsed ? IconChevronsDown : IconChevronsUp" :size="14" />
+          {{ allCollapsed ? 'Expand all' : 'Collapse all' }}
+        </button>
+        <span
+          class="tw:text-xs tw:font-medium tw:text-secondary tw:bg-main-hover tw:px-2 tw:py-0.5 tw:rounded"
+        >
+          {{ steps?.length ?? 0 }} Step{{ (steps?.length ?? 0) !== 1 ? 's' : '' }}
+        </span>
+      </div>
     </div>
 
-    <!-- Step Cards -->
-    <div class="tw:flex-1 tw:overflow-y-auto tw:p-4 tw:space-y-3">
-      <!-- Nested mode -->
-      <template v-if="showChildSteps">
-        <div v-for="(step, index) in rootSteps" :key="step.id ?? index" class="tw:space-y-2">
+    <!-- Nested mode -->
+    <template v-if="showChildSteps">
+      <div ref="rootListRef" class="tw:contents">
+        <template v-for="(step, index) in rootSteps" :key="step.id ?? index">
+          <!-- Connector + insert point between this step and the previous one -->
+          <div v-if="index > 0" class="tw:flex tw:flex-col tw:items-center">
+            <div class="tw:w-px tw:h-3 tw:bg-divider"></div>
+            <BaseTooltip v-if="canUpdate" content="Insert a step here">
+              <button
+                type="button"
+                class="tw:flex tw:items-center tw:justify-center tw:w-6 tw:h-6 tw:rounded-full tw:border tw:border-divider tw:bg-main tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all"
+                :aria-label="`Insert a step before ${step.name}`"
+                @click="addStepBefore(step)"
+              >
+                <IconPlus :size="14" />
+              </button>
+            </BaseTooltip>
+            <div class="tw:w-px tw:h-3 tw:bg-divider"></div>
+          </div>
+
+          <div class="tw:space-y-2">
+            <WorkflowStepCard
+              :step="step"
+              :index="index"
+              :isSelected="isExpanded(step)"
+              :isFirst="index === 0"
+              :isLast="index === rootSteps.length - 1"
+              :canUpdate="canUpdate"
+              @select="selectStep(step)"
+              @remove="removeRootStep(index)"
+              @moveUp="moveRootStepUp(index)"
+              @moveDown="moveRootStepDown(index)"
+              @openSettings="emit('openSettings', step.id)"
+              @openAssignees="emit('openAssignees', step.id)"
+            >
+              <!-- Configuration lives INSIDE the card — one panel per step -->
+              <template v-if="isExpanded(step)" #expanded>
+                <slot name="stepEditor" :stepId="step.id" />
+              </template>
+            </WorkflowStepCard>
+
+            <!-- Child steps — display/maintenance of existing template children
+               only. No "Add Sub-step" here: sub-steps are added at RUNTIME by
+               the record owner when the step allows them. -->
+            <div v-if="(childrenByParentId[step.id] ?? []).length" class="tw:pl-6 tw:space-y-2">
+              <template v-for="(child, ci) in childrenByParentId[step.id] ?? []" :key="child.id">
+                <WorkflowStepCard
+                  :step="child"
+                  :index="ci"
+                  :isChild="true"
+                  :isSelected="isExpanded(child)"
+                  :isFirst="ci === 0"
+                  :isLast="ci === (childrenByParentId[step.id] ?? []).length - 1"
+                  :canUpdate="canUpdate"
+                  @select="selectStep(child)"
+                  @remove="removeChildStep(step.id, ci)"
+                  @moveUp="moveChildStepUp(step.id, ci)"
+                  @moveDown="moveChildStepDown(step.id, ci)"
+                  @openSettings="emit('openSettings', child.id)"
+                  @openAssignees="emit('openAssignees', child.id)"
+                >
+                  <template v-if="isExpanded(child)" #expanded>
+                    <slot name="stepEditor" :stepId="child.id" />
+                  </template>
+                </WorkflowStepCard>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <!-- Flat mode -->
+    <template v-else>
+      <div ref="flatListRef" class="tw:contents">
+        <template v-for="(step, index) in steps" :key="step.id ?? index">
+          <div v-if="index > 0" class="tw:flex tw:flex-col tw:items-center">
+            <div class="tw:w-px tw:h-3 tw:bg-divider"></div>
+            <BaseTooltip v-if="canUpdate" content="Insert a step here">
+              <button
+                type="button"
+                class="tw:flex tw:items-center tw:justify-center tw:w-6 tw:h-6 tw:rounded-full tw:border tw:border-divider tw:bg-main tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all"
+                :aria-label="`Insert a step before ${step.name}`"
+                @click="addStepBefore(step)"
+              >
+                <IconPlus :size="14" />
+              </button>
+            </BaseTooltip>
+            <div class="tw:w-px tw:h-3 tw:bg-divider"></div>
+          </div>
+
           <WorkflowStepCard
             :step="step"
             :index="index"
-            :isSelected="step.id === stepId"
+            :isSelected="isExpanded(step)"
             :isFirst="index === 0"
-            :isLast="index === rootSteps.length - 1"
+            :isLast="index === steps.length - 1"
             :canUpdate="canUpdate"
             @select="selectStep(step)"
-            @remove="removeRootStep(index)"
-            @moveUp="moveRootStepUp(index)"
-            @moveDown="moveRootStepDown(index)"
-          />
+            @remove="removeStep(index)"
+            @moveUp="moveStepUp(index)"
+            @moveDown="moveStepDown(index)"
+            @openSettings="emit('openSettings', step.id)"
+            @openAssignees="emit('openAssignees', step.id)"
+          >
+            <!-- Configuration lives INSIDE the card — one panel per step -->
+            <template v-if="isExpanded(step)" #expanded>
+              <slot name="stepEditor" :stepId="step.id" />
+            </template>
+          </WorkflowStepCard>
+        </template>
+      </div>
+    </template>
 
-          <!-- Child steps -->
-          <div class="tw:pl-6 tw:space-y-2">
-            <WorkflowStepCard
-              v-for="(child, ci) in childrenByParentId[step.id] ?? []"
-              :key="child.id"
-              :step="child"
-              :index="ci"
-              :isChild="true"
-              :isSelected="child.id === stepId"
-              :isFirst="ci === 0"
-              :isLast="ci === (childrenByParentId[step.id] ?? []).length - 1"
-              :canUpdate="canUpdate"
-              @select="selectStep(child)"
-              @remove="removeChildStep(step.id, ci)"
-              @moveUp="moveChildStepUp(step.id, ci)"
-              @moveDown="moveChildStepDown(step.id, ci)"
-            />
-
-            <!-- Add Sub-step Button — always available in the template editor.
-                 `allowChildSteps` governs runtime ad-hoc child additions in
-                 CAPAs, not template authoring. -->
-            <button
-              v-if="canUpdate"
-              class="tw:w-full tw:py-2 tw:border tw:border-dashed tw:border-divider tw:rounded-lg tw:flex tw:items-center tw:justify-center tw:gap-1.5 tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all"
-              @click="addChildStep(step.id)"
-            >
-              <IconPlus :size="14" />
-              <span class="tw:text-xs tw:font-bold">Add Sub-step</span>
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- Flat mode -->
-      <template v-else>
-        <WorkflowStepCard
-          v-for="(step, index) in steps"
-          :key="step.id ?? index"
-          :step="step"
-          :index="index"
-          :isSelected="step.id === stepId"
-          :isFirst="index === 0"
-          :isLast="index === steps.length - 1"
-          :canUpdate="canUpdate"
-          @select="selectStep(step)"
-          @remove="removeStep(index)"
-          @moveUp="moveStepUp(index)"
-          @moveDown="moveStepDown(index)"
-        />
-      </template>
-
-      <!-- Add Step Button -->
-      <button
-        v-if="canUpdate"
-        class="tw:w-full tw:py-4 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-xl tw:flex tw:items-center tw:justify-center tw:gap-2 tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all"
-        @click="addStep"
-      >
-        <IconPlus :size="20" />
-        <span class="tw:text-sm tw:font-bold">Add Step</span>
-      </button>
+    <!-- Connector into the Add Step button -->
+    <div v-if="canUpdate && (steps?.length ?? 0) > 0" class="tw:flex tw:flex-col tw:items-center">
+      <div class="tw:w-px tw:h-4 tw:bg-divider"></div>
     </div>
-  </aside>
+
+    <!-- Add Step Button — opens the guided wizard, appends at the end -->
+    <button
+      v-if="canUpdate"
+      class="tw:w-full tw:py-4 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-xl tw:flex tw:items-center tw:justify-center tw:gap-2 tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:hover:bg-primary/5 tw:transition-all"
+      @click="addStep"
+    >
+      <IconPlus :size="20" />
+      <span class="tw:text-sm tw:font-bold">Add Step</span>
+    </button>
+
+    <!-- Add-Step wizard: type → task form (Task only) → assignee roles -->
+    <WorkflowStepCreateDialog
+      v-model="showCreateDialog"
+      :moduleId="moduleId"
+      @submit="handleWizardSubmit"
+    />
+  </div>
 </template>

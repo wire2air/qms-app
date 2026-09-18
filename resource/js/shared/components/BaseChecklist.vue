@@ -70,6 +70,11 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // Applied to each body <tr> — used for striped-row styling.
+  rowClass: {
+    type: String,
+    default: '',
+  },
 })
 
 const modelValue = defineModel({ type: Array, default: () => [] })
@@ -80,58 +85,56 @@ const tableRows = computed(() =>
   (props.rows || []).map((row) => (typeof row === 'string' ? { label: row, value: row } : row)),
 )
 
-const hasUniformInputType = computed(() => {
-  if (props.columns.length === 0) return true
-  const firstType = props.columns[0].inputType || 'radio'
-  return props.columns.every((col) => (col.inputType || 'radio') === firstType)
-})
+// The uniform-vs-nested value-shape state machine lives in a unit-tested
+// composable (audit §7) — this component is just the table chrome over it.
+const { getRowValue, getCellValue, getValue, isCellSelected, handleValueChange } = useChecklistModel(
+  modelValue,
+  () => props.columns,
+  { interactive: () => isInteractive.value },
+)
 
-function getRowValue(rowIndex) {
-  return modelValue.value[rowIndex]
+// optionGroup column: ONE column, options rendered inline as a mutually-
+// exclusive radio set (groupType 'radio', the default) or a multi-select
+// checkbox set (groupType 'checkbox' → the cell stores an array). `inline`
+// (default true) lays options horizontally; false stacks them vertically.
+// 'radioGroup' is a legacy alias for the radio flavor.
+function isOptionGroupCol(col) {
+  return col.inputType === 'optionGroup' || col.inputType === 'radioGroup'
 }
-
-function getCellValue(rowIndex, colValue, defaultValue = undefined) {
-  const rowData = modelValue.value[rowIndex]
-  if (rowData && typeof rowData === 'object') {
-    return rowData[colValue] ?? defaultValue
+// Options may be strings ('Yes') or { label, value } objects.
+function rgValue(opt) {
+  return typeof opt === 'object' && opt !== null ? (opt.value ?? opt.label) : opt
+}
+function rgLabel(opt) {
+  return typeof opt === 'object' && opt !== null ? (opt.label ?? opt.value) : opt
+}
+function ogIsChecked(rowIndex, col, opt) {
+  const current = getValue(rowIndex, col.value, null)
+  if (col.groupType === 'checkbox') {
+    return Array.isArray(current) && current.includes(rgValue(opt))
   }
-  return defaultValue
+  return current === rgValue(opt)
 }
-
-function getValue(rowIndex, colValue, defaultValue = undefined) {
-  if (hasUniformInputType.value) {
-    return getRowValue(rowIndex) ?? defaultValue
+function ogToggle(rowIndex, col, opt) {
+  const v = rgValue(opt)
+  if (col.groupType === 'checkbox') {
+    const current = getValue(rowIndex, col.value, null)
+    const list = Array.isArray(current) ? [...current] : []
+    const i = list.indexOf(v)
+    if (i >= 0) list.splice(i, 1)
+    else list.push(v)
+    handleValueChange(rowIndex, col.value, list)
+    return
   }
-  return getCellValue(rowIndex, colValue, defaultValue)
+  handleValueChange(rowIndex, col.value, v)
 }
 
-function isCellSelected(rowIndex, colValue) {
-  return modelValue.value[rowIndex] === colValue
-}
-
-function handleSimpleCellChange(rowIndex, value) {
-  if (!isInteractive.value) return
-  const newValue = [...modelValue.value]
-  while (newValue.length <= rowIndex) newValue.push(null)
-  newValue[rowIndex] = value
-  modelValue.value = newValue
-}
-
-function handleNestedCellChange(rowIndex, colValue, value) {
-  if (!isInteractive.value) return
-  const newValue = [...modelValue.value]
-  while (newValue.length <= rowIndex) newValue.push({})
-  const currentRow = newValue[rowIndex] || {}
-  newValue[rowIndex] = { ...currentRow, [colValue]: value }
-  modelValue.value = newValue
-}
-
-function handleValueChange(rowIndex, colValue, value) {
-  if (hasUniformInputType.value) {
-    handleSimpleCellChange(rowIndex, value)
-  } else {
-    handleNestedCellChange(rowIndex, colValue, value)
-  }
+// lookup column: the cell stores an entity id; LookupSelectByEntity picks the
+// right select menu and applies the row-scoped cascade (the parent COLUMN's
+// value in this same row narrows the options).
+function lookupParentCol(col) {
+  if (!col.parentColumn) return null
+  return (props.columns || []).find((c) => c.value === col.parentColumn) || null
 }
 
 defineExpose({ getRowValue, getCellValue, isCellSelected })
@@ -174,7 +177,11 @@ defineExpose({ getRowValue, getCellValue, isCellSelected })
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, rowIndex) in tableRows" :key="rowIndex" class="tw:hover:bg-gray-50">
+          <tr
+            v-for="(row, rowIndex) in tableRows"
+            :key="rowIndex"
+            :class="['tw:hover:bg-gray-50', rowClass]"
+          >
             <!-- Row label -->
             <td
               :class="[
@@ -272,6 +279,73 @@ defineExpose({ getRowValue, getCellValue, isCellSelected })
                   :disabled="disabled"
                   :readonly="readonly"
                   @input="handleValueChange(rowIndex, col.value, $event.target.value)"
+                />
+              </template>
+
+              <!-- option group: ONE column, options inline as mutually-exclusive
+                   radios (or a checkbox set with groupType 'checkbox'); the safe
+                   alternative to separate radio columns, whose stale keys broke
+                   read-back. `inline: false` stacks options vertically. -->
+              <template v-else-if="isOptionGroupCol(col)">
+                <div
+                  :class="
+                    col.inline === false
+                      ? 'tw:inline-flex tw:flex-col tw:items-start tw:gap-1'
+                      : 'tw:inline-flex tw:flex-wrap tw:items-center tw:justify-center tw:gap-x-3 tw:gap-y-1'
+                  "
+                >
+                  <label
+                    v-for="opt in col.options || options"
+                    :key="rgValue(opt)"
+                    class="tw:inline-flex tw:items-center tw:gap-1.5"
+                    :class="isInteractive ? 'tw:cursor-pointer' : 'tw:cursor-not-allowed'"
+                  >
+                    <input
+                      :type="col.groupType === 'checkbox' ? 'checkbox' : 'radio'"
+                      class="tw:sr-only"
+                      :name="`${name}-row-${rowIndex}-${col.value}`"
+                      :value="rgValue(opt)"
+                      :checked="ogIsChecked(rowIndex, col, opt)"
+                      :disabled="disabled || readonly"
+                      @change="ogToggle(rowIndex, col, opt)"
+                    />
+                    <span
+                      :class="[
+                        'tw:size-4 tw:border-2 tw:flex tw:items-center tw:justify-center tw:transition-colors tw:shrink-0',
+                        col.groupType === 'checkbox' ? 'tw:rounded' : 'tw:rounded-full',
+                        ogIsChecked(rowIndex, col, opt)
+                          ? 'tw:border-primary tw:bg-primary'
+                          : 'tw:border-gray-300 tw:bg-white',
+                      ]"
+                    >
+                      <IconCheck
+                        v-if="col.groupType === 'checkbox' && ogIsChecked(rowIndex, col, opt)"
+                        :size="12"
+                        class="tw:text-white"
+                        :stroke-width="3"
+                      />
+                      <span
+                        v-else-if="ogIsChecked(rowIndex, col, opt)"
+                        class="tw:size-1.5 tw:rounded-full tw:bg-white"
+                      />
+                    </span>
+                    <span class="tw:text-sm tw:text-on-main">{{ rgLabel(opt) }}</span>
+                  </label>
+                </div>
+              </template>
+
+              <!-- lookup (entity) — options narrowed by the parent column's
+                   value in THIS row, when the author configured one. -->
+              <template v-else-if="col.inputType === 'lookup'">
+                <LookupSelectByEntity
+                  :entity="col.lookupEntity || 'product'"
+                  :modelValue="getValue(rowIndex, col.value, null)"
+                  :disabled="disabled || readonly"
+                  :parentEntity="lookupParentCol(col)?.lookupEntity || null"
+                  :parentValue="
+                    col.parentColumn ? getValue(rowIndex, col.parentColumn, null) : null
+                  "
+                  @update:modelValue="handleValueChange(rowIndex, col.value, $event)"
                 />
               </template>
 

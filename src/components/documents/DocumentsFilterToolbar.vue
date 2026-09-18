@@ -1,54 +1,68 @@
 <script setup>
-import { IconSearch } from '@tabler/icons-vue'
+/**
+ * Applied-filter token bar for the document register. The filter MENU itself
+ * (and the quick views) now live in the table toolbar — see DocumentsTable —
+ * so this renders only the removable tokens for what is currently applied, and
+ * disappears entirely when nothing is.
+ */
+const filters = defineModel('filters', { type: Object, required: true })
 
-const filters = defineModel('filters', {
-  type: Object,
-  required: true,
-})
+function arr(key) {
+  return Array.isArray(filters.value[key]) ? filters.value[key] : []
+}
+function removeValue(key, value) {
+  filters.value = { ...filters.value, [key]: arr(key).filter((v) => v !== value) }
+}
+const hasChips = computed(
+  () => arr('documentTypeId').length || arr('departmentId').length || arr('statusId').length,
+)
+
+function clearAll() {
+  filters.value = {
+    ...filters.value,
+    documentTypeId: [],
+    departmentId: [],
+    statusId: [],
+  }
+}
 </script>
 
 <template>
-  <div class="tw:bg-main-hover tw:mb-2 tw:rounded-xl">
-    <div class="tw:flex tw:items-center tw:p-2 tw:gap-2 tw:flex-wrap">
-      <!-- Search -->
-      <div class="tw:w-full tw:md:w-1/4">
-        <BaseTextInput v-model="filters.search" placeholder="Search documents..." clearBtn>
-          <template #icon>
-            <IconSearch class="tw:size-4 tw:text-secondary" />
-          </template>
-        </BaseTextInput>
-      </div>
-
-      <!-- Document Type Filter -->
-      <div class="tw:w-full tw:md:w-1/5">
-        <label class="tw:block tw:mb-1 tw:text-md tw:font-medium tw:text-on-main">
-          Document Type:
-        </label>
-        <DocumentTypeSelectMenu
-          v-model="filters.documentTypeId"
-          :multiple="false"
-          :required="false"
-        />
-      </div>
-
-      <!-- Department Filter -->
-      <div class="tw:w-full tw:md:w-1/5">
-        <label class="tw:block tw:mb-1 tw:text-md tw:font-medium tw:text-on-main">
-          Department:
-        </label>
-        <DepartmentSelectMenu v-model="filters.departmentId" />
-      </div>
-
-      <!-- Status Filter -->
-      <div class="tw:w-full tw:md:w-1/5">
-        <label class="tw:block tw:mb-1 tw:text-md tw:font-medium tw:text-on-main"> Status: </label>
-        <DocumentVersionStatusSelectMenu
-          v-model="filters.statusId"
-          label="Status"
-          bgColor="white"
-          hideBottomSpace
-        />
-      </div>
-    </div>
+  <!-- Sticky workspace toolbar: pins below the app bar while the list scrolls. -->
+  <div
+    v-if="hasChips"
+    class="tw:sticky tw:top-0 tw:z-sticky tw:flex tw:flex-wrap tw:items-center tw:gap-1.5 tw:bg-main tw:pt-1 tw:pb-2.5"
+  >
+    <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+      Filters
+    </span>
+    <DocumentTypeBadgeById
+      v-for="id in arr('documentTypeId')"
+      :key="`ty-${id}`"
+      :documentTypeId="id"
+      clearable
+      @clear="removeValue('documentTypeId', id)"
+    />
+    <DepartmentBadgeById
+      v-for="id in arr('departmentId')"
+      :key="`dp-${id}`"
+      :departmentId="id"
+      clearable
+      @clear="removeValue('departmentId', id)"
+    />
+    <DocumentVersionStatusBadgeById
+      v-for="id in arr('statusId')"
+      :key="`st-${id}`"
+      :statusId="id"
+      clearable
+      @clear="removeValue('statusId', id)"
+    />
+    <button
+      type="button"
+      class="tw:ms-1 tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
+      @click="clearAll"
+    >
+      Clear all
+    </button>
   </div>
 </template>

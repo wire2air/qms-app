@@ -6,6 +6,12 @@ import { DateTime } from 'luxon'
 @ClientModel('users', { primaryKey: 'id', syncField: 'updatedAt' })
 export class User extends BaseModel {
   static paranoid = true // Enable soft deletes using deletedAt field
+  // Service accounts are `users` rows but never people, so every roster —
+  // assignee pickers, recipient lists, team members — must leave them out.
+  // Listing them is wrong; resolving one by id is not, because a record an
+  // integration created still has to render its actor. findByPk() is
+  // deliberately unaffected.
+  static hiddenFromLists = 'isServiceAccount'
   constructor(...args) {
     super(...args)
     // Auto-assign companyId from current session on creation
@@ -27,21 +33,39 @@ export class User extends BaseModel {
   @Property({ type: String, required: true }) email = ''
   @Property({ type: String, required: true }) userStatusId = 'INACTIVE'
   @Property({ type: String, required: true }) companyId = ''
+  // Free-text title — for supplier users, and a denormalized copy of the
+  // employee-title name for internal users (read by the session + display sites).
   @Property({ type: String }) jobTitle = ''
+  // Internal staff: FK into the per-tenant employee_titles lookup.
+  @Property({ type: String }) employeeTitleId = null
   @Property({ type: String }) languageId = ''
   @Property({ type: String, required: true }) timeZone = 'UTC'
   @Property({ type: Boolean }) inviteSent = false
   @Property({ type: String }) color = '#2563eb'
   @Property({ type: String }) avatar = ''
   @Property({ type: Boolean }) isOwner = false
+  // A machine identity, not a person (backend migration 20260913100000).
+  // Enforced by `hiddenFromLists` above, not by each caller.
+  @Property({ type: Boolean }) isServiceAccount = false
   // INTERNAL — staff. EXTERNAL_SUPPLIER — supplier user (scoped + lands
   // on /supplier dashboard at login). Drives sidebar + routing.
   @Property({ type: String }) kind = 'INTERNAL'
   // Nullable UUID FKs default to null, not '', so PostGraphile's UUID
   // type validation doesn't reject "" → "Invalid UUID" on createUser.
   @Property({ type: String }) supplierId = null
+  // Marks who at a supplier receives its notifications. When nobody at a
+  // supplier carries it, NOTIFY_SUPPLIER falls back to all of its users — most
+  // suppliers have exactly one, and nobody will have ticked a box for them.
+  // TIER B on the users security guard: admins may set it, the row's own user
+  // may not.
+  @Property({ type: Boolean }) isPrimaryContact = false
   @Property({ type: String }) siteId = null
   @Property({ type: String }) departmentId = null
+  @Property({ type: String }) supervisorId = null
+  @Property({ type: DateTime }) hireDate = null
+  // Per-user app preferences (§39): dashboard widgets, table columns,
+  // one-time notification flags. Use the useUserSettings composable.
+  @Property({ type: Object }) settings = /** @type {Object} */ ({})
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

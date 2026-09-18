@@ -101,8 +101,9 @@ export async function freezeOptionLabels(db, formSchema, payload) {
 function collectOptionSetIds(fields, out) {
   for (const f of fields) {
     if (!f) continue
+    // lookup fields can also be option-set-sourced (lookupEntity 'optionSet').
     const usesOptionSet =
-      ['select', 'radio', 'optionGroup'].includes(f.type) && f.optionSetId
+      ['select', 'radio', 'optionGroup', 'lookup'].includes(f.type) && f.optionSetId
     if (usesOptionSet) out.add(f.optionSetId)
     if (Array.isArray(f.children)) collectOptionSetIds(f.children, out)
     if (Array.isArray(f.template)) collectOptionSetIds(f.template, out)
@@ -134,9 +135,10 @@ function freezeScope(fields, values, sets) {
     for (const f of fieldsList) {
       if (!f) continue
 
-      // Option-set value at this scope → freeze its label here.
+      // Option-set value at this scope → freeze its label here. Includes
+      // option-set-sourced lookup fields (lookupEntity 'optionSet').
       const usesOptionSet =
-        ['select', 'radio', 'optionGroup'].includes(f.type) && f.optionSetId
+        ['select', 'radio', 'optionGroup', 'lookup'].includes(f.type) && f.optionSetId
       if (usesOptionSet && f.name) {
         const v = out[f.name]
         const os = sets[f.optionSetId]

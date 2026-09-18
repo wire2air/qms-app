@@ -1,5 +1,5 @@
 <script setup>
-import WorkflowStep from '@/components/workflow/WorkflowStep.vue'
+import WorkflowStepRun from '@/components/workflow/WorkflowStepRun.vue'
 import WorkflowReassignDialog from '@/components/workflow/WorkflowReassignDialog.vue'
 import { CAPA_MODULE } from '@/components/workflow/workflowModule.js'
 
@@ -33,9 +33,9 @@ const workflowInstanceSteps = useLiveQueryWithDeps(
       .filter((s) => !s.parentInstanceStepId)
       .sort((a, b) => a.stepNumber - b.stepNumber)
   },
-  { initial: [] },
-)
 
+  { models: ['WorkflowInstanceStep'], initial: [] },
+)
 
 function openReassignDialog(instanceStepId) {
   reassignDialogRef.value?.open(instanceStepId)
@@ -49,42 +49,39 @@ function openReassignDialog(instanceStepId) {
 
 <template>
   <div class="tw:contents">
-  <template v-if="workflowInstanceSteps.length">
-    <WorkflowStep
-      v-for="(step, idx) in workflowInstanceSteps"
-      :key="step.id"
-      :module="CAPA_MODULE"
-      :instanceStepId="step.id"
-      :resourceId="capaId"
-      :isOwner="isOwner"
-      :displayNumber="String(idx + 1)"
-      @reassign="openReassignDialog"
-    >
-      <!-- CAPA stages can have nested sub-tasks under each parent. The
+    <template v-if="workflowInstanceSteps.length">
+      <WorkflowStepRun
+        :steps="workflowInstanceSteps"
+        :module="CAPA_MODULE"
+        :resourceId="capaId"
+        :isOwner="isOwner"
+        @reassign="openReassignDialog"
+      >
+        <!-- CAPA stages can have nested sub-tasks under each parent. The
            generic WorkflowStep hands us the parent step + definition via
            a scoped slot so we don't need to re-fetch them. -->
-      <template
-        #childSteps="{ instanceStep: parentStep, stepDefinition: parentDef, displayNumber: parentNum }"
-      >
-        <CapaWorkflowChildSteps
-          v-if="
-            parentStep &&
-            (parentDef?.allowChildSteps ||
-              parentStep.workflowInstanceId)
-          "
-          :parentInstanceStepId="parentStep.id"
-          :parentStepNumber="parentNum"
-          :workflowInstanceId="parentStep.workflowInstanceId"
-          :capaId="capaId"
-          :isOwner="isOwner"
-          :allowChildSteps="!!parentDef?.allowChildSteps && parentStep.statusId !== 'APPROVED'"
-          class="tw:mt-4 tw:mb-4"
-          @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
-        />
-      </template>
-    </WorkflowStep>
-  </template>
+        <template
+          #childSteps="{
+            instanceStep: parentStep,
+            stepDefinition: parentDef,
+            displayNumber: parentNum,
+          }"
+        >
+          <CapaWorkflowChildSteps
+            v-if="parentStep && (parentDef?.allowChildSteps || parentStep.workflowInstanceId)"
+            :parentInstanceStepId="parentStep.id"
+            :parentStepNumber="parentNum"
+            :workflowInstanceId="parentStep.workflowInstanceId"
+            :capaId="capaId"
+            :isOwner="isOwner"
+            :allowChildSteps="!!parentDef?.allowChildSteps && parentStep.statusId !== 'APPROVED'"
+            class="tw:mt-4 tw:mb-4"
+            @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
+          />
+        </template>
+      </WorkflowStepRun>
+    </template>
 
-  <WorkflowReassignDialog ref="reassignDialogRef" :module="CAPA_MODULE" :resourceId="capaId" />
+    <WorkflowReassignDialog ref="reassignDialogRef" :module="CAPA_MODULE" :resourceId="capaId" />
   </div>
 </template>

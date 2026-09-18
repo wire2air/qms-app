@@ -6,11 +6,23 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Compact mode: a single dropdown row instead of the card panels — for
+  // tight dialogs (e.g. Raise supplier NC's CAPA workflow). Same option pool
+  // and default auto-select; the `pick` event stays cards-only.
+  compact: {
+    type: Boolean,
+    default: false,
+  },
   moduleId: {
     type: String,
     default: null,
   },
 })
+
+// Fired only on an explicit user click of a card — NOT by the auto-select
+// watch below. Lets wizard-style parents (NC create) advance on the user's
+// pick without misfiring when the default workflow is pre-selected.
+const emit = defineEmits(['pick'])
 
 const selectedVersionId = defineModel({
   type: [String, null],
@@ -20,16 +32,19 @@ const selectedVersionId = defineModel({
 const workflows = useLiveQueryWithDeps(
   [() => props.moduleId],
   async (db, [moduleId]) => db.Workflow.where('moduleId', moduleId).exec(),
-  {
-    initial: [],
-  },
+
+  { models: ['Workflow'], initial: [] },
 )
 
 const versions = useLiveQuery(async (db) => db.WorkflowVersion.where().exec(), {
+  models: ['WorkflowVersion'],
   initial: [],
 })
 
-const steps = useLiveQuery(async (db) => db.WorkflowStep.where().exec(), { initial: [] })
+const steps = useLiveQuery(async (db) => db.WorkflowStep.where().exec(), {
+  models: ['WorkflowStep'],
+  initial: [],
+})
 
 const activeWorkflows = computed(() => {
   return workflows.value
@@ -64,10 +79,17 @@ function stepCount(versionId) {
   return steps.value.filter((s) => s.workflowVersionId === versionId).length
 }
 
+// Auto-select: the module's default workflow wins; a single available
+// workflow is the implicit default. Reduces friction — most tenants have
+// one blessed flow per module and shouldn't have to pick it every time.
 watch(
   activeWorkflows,
   (entries) => {
-    if (!selectedVersionId.value && entries.length === 1) {
+    if (selectedVersionId.value || !entries.length) return
+    const def = entries.find((e) => e.workflow.isDefault)
+    if (def) {
+      selectedVersionId.value = def.version.id
+    } else if (entries.length === 1) {
       selectedVersionId.value = entries[0].version.id
     }
   },
@@ -76,15 +98,42 @@ watch(
 
 function pickWorkflow(entry) {
   selectedVersionId.value = entry.version.id
+  emit('pick', entry)
 }
 
 function versionLabel(version) {
   return `v${version.versionLabel || `${version.versionMajor}.${version.versionMinor}`}`
 }
+
+// Compact-mode option rows — default workflows sort first so the dropdown
+// reads default-first even before the auto-select lands.
+const compactOptions = computed(() =>
+  [...displayWorkflows.value]
+    .sort((a, b) => Number(b.workflow.isDefault ?? false) - Number(a.workflow.isDefault ?? false))
+    .map((e) => ({
+      id: e.version.id,
+      name: [
+        e.workflow.name + (e.workflow.isDefault ? ' (default)' : ''),
+        versionLabel(e.version),
+        `${stepCount(e.version.id)} steps`,
+      ].join(' · '),
+    })),
+)
 </script>
 
 <template>
-  <div class="tw:space-y-3">
+  <!-- Compact: one dropdown row. required=true hides the null option; the
+       module-default auto-select above pre-fills before the first paint. -->
+  <BaseSelect
+    v-if="compact"
+    v-model="selectedVersionId"
+    :options="compactOptions"
+    optionLabel="name"
+    optionValue="id"
+    :required="true"
+  />
+
+  <div v-else class="tw:space-y-3">
     <!-- Empty state -->
     <div
       v-if="displayWorkflows.length === 0"
@@ -96,10 +145,10 @@ function versionLabel(version) {
 
     <!-- Workflow list -->
     <div v-else class="tw:grid tw:grid-cols-1 tw:gap-2">
-      <div
+      <BaseClickableRow
         v-for="entry in displayWorkflows"
         :key="entry.workflow.id"
-        class="tw:w-full tw:flex tw:items-center tw:justify-between tw:p-4 tw:rounded-xl tw:border-2 tw:cursor-pointer tw:transition-all tw:group"
+        class="tw:w-full tw:flex tw:items-center tw:justify-between tw:p-4 tw:rounded-xl tw:border-2 tw:transition-all tw:group"
         :class="[
           [
             selectedVersionId === entry.version.id
@@ -108,6 +157,7 @@ function versionLabel(version) {
             { 'tw:flex-col': dense },
           ],
         ]"
+        :aria-label="`Select workflow ${entry.workflow.name}`"
         @click="pickWorkflow(entry)"
       >
         <div class="tw:flex tw:items-center tw:gap-3">
@@ -128,6 +178,12 @@ function versionLabel(version) {
               :class="{ 'tw:text-primary': selectedVersionId === entry.version.id }"
             >
               {{ entry.workflow.name }}
+              <span
+                v-if="entry.workflow.isDefault"
+                class="tw:ml-1 tw:text-micro tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded tw:bg-primary/10 tw:text-primary tw:align-middle"
+              >
+                Default
+              </span>
             </p>
             <p
               v-if="entry.workflow.description"
@@ -141,19 +197,19 @@ function versionLabel(version) {
         <div class="tw:flex tw:items-center tw:gap-2 tw:shrink-0">
           <span
             v-if="stepCount(entry.version.id)"
-            class="tw:bg-sidebar-hover tw:px-2 tw:py-1 tw:rounded tw:text-[10px] tw:font-bold tw:text-secondary tw:flex tw:items-center tw:gap-1"
+            class="tw:bg-sidebar-hover tw:px-2 tw:py-1 tw:rounded tw:text-micro tw:font-bold tw:text-secondary tw:flex tw:items-center tw:gap-1"
           >
             <IconList :size="12" />
             {{ stepCount(entry.version.id) }} Steps
           </span>
           <span
             v-if="selectedVersionId === entry.version.id"
-            class="ds-label-sm tw:px-2 tw:py-0.5 tw:bg-primary tw:text-white tw:rounded"
+            class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wide tw:px-2 tw:py-0.5 tw:bg-primary tw:text-white tw:rounded"
           >
             Selected
           </span>
         </div>
-      </div>
+      </BaseClickableRow>
     </div>
   </div>
 </template>

@@ -30,15 +30,19 @@ const props = defineProps({
   versionId: { type: String, default: null },
 })
 
-const version = useLiveQueryWithDeps([() => props.versionId], async (db, [id]) =>
-  id ? db.DocumentVersion.findByPk(id) : null,
+const version = useLiveQueryWithDeps(
+  [() => props.versionId],
+  async (db, [id]) => (id ? db.DocumentVersion.findByPk(id) : null),
+  { models: ['DocumentVersion'] },
 )
 
 // Document context — original doc creator (Document.userId) counts as an
 // owner, alongside the current revision's author (DocumentVersion.createdBy).
 // Both are allowed to edit change control during draft/review.
-const document = useLiveQueryWithDeps([() => props.documentId], async (db, [id]) =>
-  id ? db.Document.findByPk(id) : null,
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => (id ? db.Document.findByPk(id) : null),
+  { models: ['Document'] },
 )
 
 // Collaborators have explicit edit access too — `users_on_documents`
@@ -53,7 +57,8 @@ const collaboratorRecords = useLiveQueryWithDeps(
     const rows = await db.UserOnDocument.where().exec()
     return rows.filter((r) => r.documentId === docId && !r.deletedAt)
   },
-  { initial: [] },
+
+  { models: ['UserOnDocument'], initial: [] },
 )
 
 const sections = useLiveQueryWithDeps(
@@ -63,7 +68,8 @@ const sections = useLiveQueryWithDeps(
     const rows = await db.DocumentSection.where('documentVersionId', vid).exec()
     return rows.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   },
-  { initial: [] },
+
+  { models: ['DocumentSection'], initial: [] },
 )
 
 // "Authorised editor" — owner, current revision author, or an explicit
@@ -84,7 +90,7 @@ const isAuthorisedEditor = computed(() => {
 // revision to change anything).
 const canUpdate = computed(
   () =>
-    isAllowed(['documents:update']) &&
+    isAllowed(['document_control:update']) &&
     isAuthorisedEditor.value &&
     version.value &&
     ['DRAFT', 'REJECTED'].includes(version.value.statusId),
@@ -115,34 +121,7 @@ const CHANGE_TYPES = [
 ]
 
 // Auto-save the version on field edits.
-const isSaving = ref(false)
-const saveError = ref(null)
-const isFirstLoad = ref(true)
-
-const debouncedSave = useDebounceFn(async () => {
-  if (!version.value || !canUpdate.value) return
-  isSaving.value = true
-  saveError.value = null
-  try {
-    await version.value.save()
-  } catch (err) {
-    saveError.value = err.message || 'Failed to save'
-  } finally {
-    isSaving.value = false
-  }
-}, 500)
-
-watch(
-  version,
-  (v) => {
-    if (isFirstLoad.value) {
-      isFirstLoad.value = false
-      return
-    }
-    if (v && canUpdate.value) debouncedSave()
-  },
-  { deep: true },
-)
+const { isSaving, saveError } = useAutoSave(version, { enabled: canUpdate })
 
 function toggleAffected(sectionId) {
   if (!version.value || !canUpdate.value) return
@@ -174,29 +153,30 @@ const STATUS_LABEL = {
 
 <template>
   <div v-if="!version" class="tw:py-10 tw:text-secondary tw:text-center">Loading…</div>
-  <div v-else class="tw:max-w-4xl tw:mx-auto tw:py-4 tw:flex tw:flex-col tw:gap-6">
+  <div v-else class="tw:py-4 tw:flex tw:flex-col tw:gap-6">
     <section class="tw:bg-sidebar tw:rounded-2xl tw:shadow-sm tw:border tw:border-divider tw:p-6">
-      <header class="tw:flex tw:items-start tw:justify-between tw:gap-3 tw:mb-6">
-        <div class="tw:flex tw:items-start tw:gap-3">
-          <div
-            class="tw:flex tw:items-center tw:justify-center tw:w-10 tw:h-10 tw:rounded-lg tw:bg-primary/10 tw:text-primary"
-          >
-            <IconHistory :size="22" />
-          </div>
-          <div>
-            <h2 class="tw:text-lg tw:font-bold tw:text-on-sidebar">Change Control</h2>
-            <p class="tw:text-xs tw:text-secondary tw:mt-0.5">
-              v{{ version.versionMajor }}.{{ version.versionMinor }} ·
-              {{ STATUS_LABEL[version.statusId] || version.statusId }}
-              <span v-if="!canUpdate" class="tw:ml-1 tw:inline-flex tw:items-center tw:gap-0.5">
-                <IconLock :size="11" /> read-only
-              </span>
-            </p>
-          </div>
-        </div>
-        <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
-        <span v-else-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</span>
-      </header>
+      <BaseSectionHeader
+        title="Change Control"
+        :icon="IconHistory"
+        iconVariant="boxed"
+        iconColor="primary"
+        :iconSize="22"
+        :level="2"
+        size="section-title"
+        class="tw:mb-6"
+      >
+        <template #subtitle>
+          v{{ version.versionMajor }}.{{ version.versionMinor }} ·
+          {{ STATUS_LABEL[version.statusId] || version.statusId }}
+          <span v-if="!canUpdate" class="tw:ml-1 tw:inline-flex tw:items-center tw:gap-0.5">
+            <IconLock :size="11" /> read-only
+          </span>
+        </template>
+        <template #actions>
+          <span v-if="isSaving" class="tw:text-xs tw:text-secondary">Saving…</span>
+          <span v-else-if="saveError" class="tw:text-xs tw:text-red-600">{{ saveError }}</span>
+        </template>
+      </BaseSectionHeader>
 
       <!-- v1.0 banner: optional fields -->
       <div
@@ -211,58 +191,63 @@ const STATUS_LABEL = {
       </div>
 
       <!-- Change reason -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5 tw:mb-5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField class="tw:mb-5">
+        <template #label>
           Reason for change
           <span v-if="!isInitial" class="tw:text-red-600">*</span>
-          <span class="tw:text-xs tw:font-normal tw:text-secondary tw:ml-1">(why this revision?)</span>
-        </label>
-        <BaseTextarea
-          v-if="canUpdate"
-          v-model="version.changeReason"
-          :rows="2"
-          placeholder="e.g. New calibration interval required by SOP-014 revision 4."
-        />
-        <div
-          v-else
-          class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm tw:whitespace-pre-wrap"
-        >
-          {{ version.changeReason || '—' }}
-        </div>
-      </div>
+          <span class="tw:text-xs tw:font-normal tw:text-secondary tw:ml-1"
+            >(why this revision?)</span
+          >
+        </template>
+        <template #default="{ id: fieldId }">
+          <BaseTextarea
+            v-if="canUpdate"
+            :id="fieldId"
+            v-model="version.changeReason"
+            :rows="2"
+            placeholder="e.g. New calibration interval required by SOP-014 revision 4."
+          />
+          <div
+            v-else
+            class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm tw:whitespace-pre-wrap"
+          >
+            {{ version.changeReason || '—' }}
+          </div>
+        </template>
+      </BaseField>
 
       <!-- Description of change -->
-      <div class="tw:flex tw:flex-col tw:gap-1.5 tw:mb-5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField class="tw:mb-5">
+        <template #label>
           Description of change
           <span class="tw:text-xs tw:font-normal tw:text-secondary tw:ml-1">
             (what reviewers should focus on)
           </span>
-        </label>
-        <BaseTextarea
-          v-if="canUpdate"
-          v-model="version.changeSummary"
-          :rows="3"
-          placeholder="Summarise the substantive content changes in this revision."
-        />
-        <div
-          v-else
-          class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm tw:whitespace-pre-wrap"
-        >
-          {{ version.changeSummary || '—' }}
-        </div>
-      </div>
+        </template>
+        <template #default="{ id: fieldId }">
+          <BaseTextarea
+            v-if="canUpdate"
+            :id="fieldId"
+            v-model="version.changeSummary"
+            :rows="3"
+            placeholder="Summarise the substantive content changes in this revision."
+          />
+          <div
+            v-else
+            class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm tw:whitespace-pre-wrap"
+          >
+            {{ version.changeSummary || '—' }}
+          </div>
+        </template>
+      </BaseField>
 
       <!-- Change type -->
-      <div class="tw:flex tw:flex-col tw:gap-2 tw:mb-5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField class="tw:mb-5">
+        <template #label>
           Change type
           <span v-if="!isInitial" class="tw:text-red-600">*</span>
-        </label>
-        <div
-          v-if="canUpdate"
-          class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2"
-        >
+        </template>
+        <div v-if="canUpdate" class="tw:grid tw:grid-cols-1 tw:md:grid-cols-3 tw:gap-2">
           <button
             v-for="opt in CHANGE_TYPES"
             :key="opt.value"
@@ -279,19 +264,22 @@ const STATUS_LABEL = {
             <span class="tw:text-xs tw:mt-1 tw:leading-snug">{{ opt.description }}</span>
           </button>
         </div>
-        <div v-else class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm">
+        <div
+          v-else
+          class="tw:p-3 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider tw:text-sm"
+        >
           {{ version.changeType || '—' }}
         </div>
-      </div>
+      </BaseField>
 
       <!-- Affected sections -->
-      <div v-if="sections.length" class="tw:flex tw:flex-col tw:gap-1.5 tw:mb-5">
-        <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
+      <BaseField v-if="sections.length" class="tw:mb-5">
+        <template #label>
           Affected sections
           <span class="tw:text-xs tw:font-normal tw:text-secondary tw:ml-1">
             (reviewer focus)
           </span>
-        </label>
+        </template>
         <div
           class="tw:max-h-48 tw:overflow-y-auto tw:rounded-lg tw:border tw:border-divider tw:bg-main-hover tw:p-2 tw:flex tw:flex-col tw:gap-1"
         >
@@ -322,7 +310,7 @@ const STATUS_LABEL = {
               "
             >
               <span
-                class="tw:size-4 tw:rounded tw:border tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-[10px]"
+                class="tw:size-4 tw:rounded tw:border tw:border-divider tw:flex tw:items-center tw:justify-center tw:text-micro"
                 :class="
                   (version.affectedSectionIds || []).includes(s.id)
                     ? 'tw:bg-primary tw:text-white tw:border-primary'
@@ -335,10 +323,12 @@ const STATUS_LABEL = {
             </div>
           </template>
         </div>
-      </div>
+      </BaseField>
 
       <!-- Regulatory impact -->
-      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider">
+      <div
+        class="tw:flex tw:flex-col tw:gap-3 tw:p-4 tw:rounded-lg tw:bg-main-hover tw:border tw:border-divider"
+      >
         <label
           class="tw:flex tw:items-start tw:gap-3"
           :class="canUpdate ? 'tw:cursor-pointer' : ''"
@@ -351,7 +341,9 @@ const STATUS_LABEL = {
             :disabled="!canUpdate"
           />
           <div class="tw:flex tw:flex-col tw:gap-0.5">
-            <span class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-1.5">
+            <span
+              class="tw:text-sm tw:font-medium tw:text-on-sidebar tw:flex tw:items-center tw:gap-1.5"
+            >
               <IconShieldCheck :size="14" /> Regulatory impact
             </span>
             <span class="tw:text-xs tw:text-secondary">
@@ -360,13 +352,16 @@ const STATUS_LABEL = {
           </div>
         </label>
 
-        <div v-if="version.regulatoryImpact" class="tw:flex tw:flex-col tw:gap-1.5">
-          <label class="tw:text-xs tw:font-medium tw:text-secondary">
-            Regulatory impact notes
-            <span class="tw:text-red-600">*</span>
-          </label>
+        <BaseField
+          v-if="version.regulatoryImpact"
+          v-slot="{ id: fieldId }"
+          label="Regulatory impact notes"
+          required
+          size="xs"
+        >
           <BaseTextarea
             v-if="canUpdate"
+            :id="fieldId"
             v-model="version.regulatoryImpactNotes"
             :rows="2"
             placeholder="Which standard / submission is affected? What changed?"
@@ -377,7 +372,7 @@ const STATUS_LABEL = {
           >
             {{ version.regulatoryImpactNotes || '—' }}
           </div>
-        </div>
+        </BaseField>
       </div>
     </section>
 
@@ -406,7 +401,8 @@ const STATUS_LABEL = {
     >
       <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
       <div>
-        Regulatory impact is flagged — notes are required. The save will fail until you fill them in.
+        Regulatory impact is flagged — notes are required. The save will fail until you fill them
+        in.
       </div>
     </div>
   </div>

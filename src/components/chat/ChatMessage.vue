@@ -1,21 +1,81 @@
 <script setup>
-import { IconUser, IconSparkles } from '@tabler/icons-vue'
+import { IconUser, IconSparkles, IconPaperclip } from '@tabler/icons-vue'
 import { markdownToHtml } from '@/utils/markdown.js'
 
 const props = defineProps({
   item: { type: Object, required: true }, // { kind: 'user' | 'assistant', text, ... }
+  // number → { entityType, id, to } built from the chat's tool results (ChatPanel),
+  // used to linkify record identifiers in the assistant markdown.
+  recordIndex: { type: Map, default: () => new Map() },
 })
 
+const router = useRouter()
 const isUser = computed(() => props.item.kind === 'user')
 
-// Render markdown only for assistant messages. The system prompt asks the
-// model to format with markdown (tables especially); we never let assistant
-// messages embed images (allowImages defaults to false) — chat content is
-// not a trusted source for arbitrary image URLs.
+// Wrap record identifiers (EV-…, NC-…, CAPA-…) that appear in the assistant
+// markdown in links to their detail page. Runs AFTER markdownToHtml's DOMPurify
+// pass and only inserts internal <a> elements pointing at app paths derived from
+// the tool results — no user-controlled HTML, so no new XSS surface.
+function linkifyRecords(html, index) {
+  if (!index || index.size === 0) return html
+  // Longest-first alternation with hyphen-aware boundaries so 'EV-000003' wins
+  // and never partial-matches a longer token.
+  const numbers = [...index.keys()].sort((a, b) => b.length - a.length)
+  const escaped = numbers.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const re = new RegExp(`(?<![\\w-])(${escaped.join('|')})(?![\\w-])`, 'g')
+
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+  const nodes = []
+  while (walker.nextNode()) {
+    const n = walker.currentNode
+    if (!n.parentElement?.closest('a')) nodes.push(n) // don't touch existing links
+  }
+  for (const node of nodes) {
+    const text = node.nodeValue
+    re.lastIndex = 0
+    let m
+    let last = 0
+    let frag = null
+    while ((m = re.exec(text)) !== null) {
+      const ref = index.get(m[1])
+      if (!ref) continue
+      if (!frag) frag = doc.createDocumentFragment()
+      if (m.index > last) frag.appendChild(doc.createTextNode(text.slice(last, m.index)))
+      const a = doc.createElement('a')
+      a.className = 'chat-record-link'
+      a.setAttribute('href', ref.to)
+      a.setAttribute('data-to', ref.to)
+      a.textContent = m[1]
+      frag.appendChild(a)
+      last = m.index + m[1].length
+    }
+    if (frag) {
+      if (last < text.length) frag.appendChild(doc.createTextNode(text.slice(last)))
+      node.parentNode.replaceChild(frag, node)
+    }
+  }
+  return doc.body.innerHTML
+}
+
+// Render markdown only for assistant messages. The system prompt asks the model
+// to format with markdown (tables especially); we never let assistant messages
+// embed images (allowImages defaults to false). Record refs are then linkified.
 const renderedHtml = computed(() => {
   if (isUser.value) return ''
-  return markdownToHtml(props.item.text ?? '', { breaks: true })
+  const html = markdownToHtml(props.item.text ?? '', { breaks: true })
+  return linkifyRecords(html, props.recordIndex)
 })
+
+// Linkified record refs are real <a href> (middle-click / open-in-new-tab work);
+// a left-click navigates in-app via the router instead of a full page load.
+function onContentClick(e) {
+  const a = e.target?.closest?.('a.chat-record-link')
+  if (!a) return
+  e.preventDefault()
+  const to = a.getAttribute('data-to')
+  if (to) router.push(to)
+}
 </script>
 
 <template>
@@ -33,11 +93,22 @@ const renderedHtml = computed(() => {
       class="tw:max-w-[85%] tw:rounded-2xl tw:px-3.5 tw:py-2 tw:text-sm tw:whitespace-pre-wrap tw:leading-relaxed tw:bg-primary tw:text-white tw:rounded-tr-sm"
     >
       {{ item.text }}
+      <div v-if="item.attachments?.length" class="tw:flex tw:flex-wrap tw:gap-1 tw:mt-1.5">
+        <span
+          v-for="(att, i) in item.attachments"
+          :key="`${att.name}-${i}`"
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-full tw:bg-white/20 tw:text-white tw:text-xs tw:px-2 tw:py-0.5"
+        >
+          <IconPaperclip :size="11" class="tw:flex-none" />
+          <span class="tw:max-w-44 tw:truncate">{{ att.name }}</span>
+        </span>
+      </div>
     </div>
 
     <div
       v-else
       class="chat-md tw:max-w-[85%] tw:rounded-2xl tw:px-3.5 tw:py-2 tw:text-sm tw:leading-relaxed tw:bg-main-hover tw:text-on-main tw:rounded-tl-sm"
+      @click="onContentClick"
       v-html="renderedHtml"
     />
   </div>
@@ -89,7 +160,6 @@ const renderedHtml = computed(() => {
   background: rgba(0, 0, 0, 0.05);
   padding: 0.1rem 0.3rem;
   border-radius: 0.25rem;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, monospace;
   font-size: 0.85em;
 }
 .chat-md pre {
@@ -123,6 +193,10 @@ const renderedHtml = computed(() => {
 .chat-md a {
   color: var(--color-primary, #2563eb);
   text-decoration: underline;
+}
+.chat-md a.chat-record-link {
+  font-weight: 500;
+  cursor: pointer;
 }
 .chat-md blockquote {
   border-left: 3px solid rgba(0, 0, 0, 0.15);

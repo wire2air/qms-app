@@ -84,6 +84,8 @@ async function loadPdfJs() {
  *
  * @param {File} file
  * @param {(stage: { phase: string, current?: number, total?: number, message?: string }) => void} [onProgress]
+ * @param {{ uploadImages?: boolean }} [options]  uploadImages: false → text-only
+ *   extraction (no asset uploads, no image scanning) — used by chat attachments
  * @returns {Promise<{
  *   text: string,
  *   pageCount: number,
@@ -95,7 +97,11 @@ async function loadPdfJs() {
  * }>}
  * @throws {PdfImportLimitError} on FILE_TOO_LARGE or TOO_MANY_PAGES
  */
-export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
+export async function parsePdfAndExtractImages(
+  file,
+  onProgress = () => {},
+  { uploadImages = true } = {},
+) {
   if (!file) throw new Error('No file provided')
   if (!file.type?.includes('pdf') && !file.name?.toLowerCase().endsWith('.pdf')) {
     throw new Error('File does not appear to be a PDF')
@@ -142,7 +148,7 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
 
     const page = await doc.getPage(pageNum)
     const lines = await extractLines(page)
-    const imageCandidates = await collectImageCandidates(page, doc, pdfjs)
+    const imageCandidates = uploadImages ? await collectImageCandidates(page, doc, pdfjs) : []
 
     pagesRaw.push({ pageNum, lines, imageCandidates })
   }
@@ -243,6 +249,136 @@ export async function parsePdfAndExtractImages(file, onProgress = () => {}) {
     recurringImagesSkipped,
     skippedDueToLimit,
   }
+}
+
+/**
+ * Read just the front of a PDF — locally, with no AI (user question
+ * 2026-08-16: "can we use that to get document title or does that require
+ * AI?").
+ *
+ * No model is needed for a title. PDFs carry one in their metadata, and where
+ * that is absent or junk the first substantial line of page 1 is nearly always
+ * it. What a model buys you is a SUMMARY, which is why the AI path exists —
+ * but it can be fed these few pages instead of the whole document.
+ *
+ * Deliberately unbounded by MAX_FILE_BYTES / MAX_PAGES: it touches only the
+ * first `maxPages` and extracts no images, so the very documents the full
+ * importer rejects are exactly the ones this has to work on.
+ *
+ * @returns {Promise<{title: string, text: string, pageCount: number}>}
+ */
+export async function extractPdfHeader(file, { maxPages = 3 } = {}) {
+  if (!file) throw new Error('No file provided')
+  const pdfjs = await loadPdfJs()
+  const buf = await file.arrayBuffer()
+  const doc = await pdfjs.getDocument({ data: buf }).promise
+
+  const meta = await doc.getMetadata().catch(() => null)
+  const lines = []
+  const pages = Math.min(doc.numPages, Math.max(1, maxPages))
+  for (let p = 1; p <= pages; p++) {
+    const page = await doc.getPage(p)
+    lines.push(...(await extractLines(page)))
+  }
+
+  return {
+    title: cleanPdfTitle(meta?.info?.Title) || titleFromLines(lines) || '',
+    text: lines.join('\n').trim(),
+    pageCount: doc.numPages,
+    // Read off the same lines, locally. Free, deterministic, and available on
+    // every path including with AI disabled.
+    ...extractHeaderFields(lines),
+  }
+}
+
+/**
+ * PDF `info.Title` is unreliable — authoring tools stuff it with the source
+ * filename ("Microsoft Word - SOP-001.docx") or leave a template's name behind.
+ * Strip the tell-tale prefixes and extensions; reject what's left if it looks
+ * like a filename rather than a title.
+ */
+function cleanPdfTitle(raw) {
+  let t = (raw ?? '').trim()
+  if (!t) return ''
+  t = t.replace(/^Microsoft\s+(Word|PowerPoint|Excel)\s*-\s*/i, '')
+  t = t.replace(/\.(docx?|pptx?|xlsx?|pdf)$/i, '').trim()
+  if (!t || t.length < 3) return ''
+  // "untitled", "document1" and friends are worse than nothing.
+  if (/^(untitled|document\s*\d*|presentation\s*\d*)$/i.test(t)) return ''
+  return t
+}
+
+/** First line that reads like a heading rather than a header/footer. */
+/**
+ * Read the page-one header block LOCALLY — no AI, no network, no cost.
+ *
+ * A controlled document prints its own identity in a key/value block at the
+ * top of page one: "Document Number: SOP-QA-006", "Department: Quality
+ * Assurance". We already have those lines — extractPdfHeader reads the first
+ * three pages on EVERY import path, including when AI is switched off
+ * entirely — so asking a model for them was both a needless round trip and
+ * less reliable, since on a long document the number is one line in thirty
+ * pages of noise.
+ *
+ * Labels vary by company, which is the whole difficulty; the alternatives
+ * below cover the forms seen in practice. A match must look like an
+ * identifier (letters/digits with separators, no spaces in the middle) so a
+ * sentence following the word "Reference" is not mistaken for a number.
+ *
+ * Returns { documentNumber, department }, each null when not printed. Never
+ * guesses: the caller falls back to the model, and then to its own default.
+ */
+const NUMBER_LABELS =
+  /^(?:document|doc|sop|wi|form|record|procedure)?\s*(?:number|no\.?|num|id|ident(?:ifier)?|ref(?:erence)?|#)\s*$/i
+const DEPARTMENT_LABELS = /^(?:department|dept\.?|function|owning\s+department)\s*$/i
+
+// An identifier, not prose: no interior whitespace runs, at least one digit or
+// two capitals, and short. "SOP-QA-006", "QMS/WI/14", "F024" pass;
+// "the applicable procedure" does not.
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._\-/]{1,48}$/
+
+function splitLabelled(line) {
+  const m = /^\s*([^:]{1,40}?)\s*[:\u2013\u2014-]\s*(.+?)\s*$/.exec(line)
+  return m ? { label: m[1], value: m[2] } : null
+}
+
+export function extractHeaderFields(lines) {
+  let documentNumber = null
+  let department = null
+
+  // Header blocks live at the very top. Scanning the whole 3 pages would start
+  // matching body prose such as "Reference: see section 4".
+  for (const raw of (lines ?? []).slice(0, 40)) {
+    const line = String(raw ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!line) continue
+    const hit = splitLabelled(line)
+    if (!hit) continue
+
+    if (!documentNumber && NUMBER_LABELS.test(hit.label) && IDENTIFIER.test(hit.value)) {
+      documentNumber = hit.value
+    }
+    if (!department && DEPARTMENT_LABELS.test(hit.label) && hit.value.length <= 100) {
+      department = hit.value
+    }
+    if (documentNumber && department) break
+  }
+
+  return { documentNumber, department }
+}
+
+function titleFromLines(lines) {
+  for (const raw of lines.slice(0, 40)) {
+    const line = raw.replace(/\s+/g, ' ').trim()
+    if (line.length < 4 || line.length > 120) continue
+    // Page numbers, dates, doc-control furniture.
+    if (/^(page\s*)?\d+(\s*of\s*\d+)?$/i.test(line)) continue
+    if (/^(rev(ision)?|version|effective|date|doc(ument)?\s*(no|#|id))\b/i.test(line)) continue
+    if (!/[a-z]/i.test(line)) continue
+    return line
+  }
+  return ''
 }
 
 // ─── Page extraction helpers ────────────────────────────────────────────

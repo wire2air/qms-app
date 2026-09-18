@@ -18,13 +18,8 @@ const columns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ]
 
-const pagination = ref({
-  page: 1,
-  rowsPerPage: 50,
-  sortBy: 'createdAt',
-  descending: true,
-  total: null,
-})
+const pagination = ref({ page: 1, pageSize: 50 })
+const sort = ref([{ id: 'createdAt', desc: true }])
 
 function rowMenuItems(row) {
   const items = []
@@ -39,13 +34,30 @@ function rowMenuItems(row) {
 </script>
 
 <template>
-  <BaseTable :pagination="pagination" :rows="rows" :columns="columns" rowKey="id">
+  <DataTable
+    v-model:pagination="pagination"
+    v-model:sort="sort"
+    :rows="rows"
+    :columns="columns"
+    rowKey="id"
+    :mobileCards="false"
+    searchable
+    exportManager
+    exportFilename="trainings.csv"
+  >
     <template #body-cell-title="{ row }">
       <RouterLink
         :to="getCompanyPath(`/trainings/${row.id}`)"
         class="tw:flex tw:items-center tw:gap-2 tw:text-on-main tw:hover:text-primary"
       >
         <span class="tw:font-medium">{{ row.title }}</span>
+        <span
+          v-if="row.sourceDocumentId"
+          class="tw:text-micro tw:font-semibold tw:uppercase tw:tracking-wide tw:text-secondary tw:bg-main-hover tw:rounded tw:px-1.5 tw:py-0.5"
+          title="Generated from a controlled document"
+        >
+          From document
+        </span>
       </RouterLink>
     </template>
 
@@ -64,5 +76,5 @@ function rowMenuItems(row) {
     <template #body-cell-actions="{ row }">
       <BaseRowMenu :items="rowMenuItems(row)" />
     </template>
-  </BaseTable>
+  </DataTable>
 </template>
