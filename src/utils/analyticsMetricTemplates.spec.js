@@ -23,13 +23,19 @@ import { METRIC_TEMPLATES, templatesForModule } from '@/utils/analyticsMetricTem
  * renames a column in a migration and not here, this fails.
  *
  * It is a regex over a migration rather than a database query because the unit
- * suite has no database — and it is pinned to the REGISTRY array literal, whose
- * shape is stable and whose drift would break the parse loudly rather than
- * silently returning an empty set (asserted below).
+ * suite has no database — and it is pinned to the seeding INSERT, whose shape is
+ * stable and whose drift would break the parse loudly rather than silently
+ * returning an empty set (asserted below).
+ *
+ * Repointed 2026-09-20. The 2026-09-18 database rebuild replaced the whole
+ * migration history: the two files this read were consolidated into
+ * 20260918020730-create-analytics-module-fields.js, and the shape changed from a
+ * `const REGISTRY` array of arrays to a SQL VALUES list carrying an explicit id
+ * first. The spec could not even load, so it failed on develop and took every
+ * frontend PR's CI with it.
  */
 const MIGRATIONS = [
-  '../../../qms/backend/api/migrations/20260828140000-custom-metrics-foundation.js',
-  '../../../qms/backend/api/migrations/20260917120000-custom-metrics-registry-four-modules.js',
+  '../../../qms/backend/api/migrations/20260918020730-create-analytics-module-fields.js',
 ]
 
 /** @returns {Map<string, {columns: Set<string>, dates: Set<string>, groupable: Set<string>, numbers: Set<string>}>} */
@@ -37,10 +43,11 @@ function readRegistry() {
   const byModule = new Map()
   for (const rel of MIGRATIONS) {
     const source = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
-    const body = source.slice(source.indexOf('const REGISTRY'))
-    // ['module', 'table', 'column', 'Label', 'kind', lookup, filterKey, groupable, filterable]
+    const body = source.slice(source.indexOf('INSERT INTO'))
+    // (id, module_id, source_table, column_name, label, kind, lookup_table,
+    //  filter_key, groupable, filterable, display_order, scope_role)
     const row =
-      /\[\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([^']*)',\s*'([a-z]+)',\s*(?:'[a-z_]+'|null),\s*(?:'[A-Za-z]+'|null),\s*(true|false),\s*(true|false)\s*\]/g
+      /\(\s*'[0-9a-f-]{36}',\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([^']*)',\s*'([a-z]+)',\s*(?:'[a-z_]+'|NULL),\s*(?:'[A-Za-z]+'|NULL),\s*(true|false),\s*(true|false),\s*\d+,\s*(?:'[a-z]+'|NULL)\s*\)/g
     let m
     while ((m = row.exec(body))) {
       const [, moduleId, table, column, , kind, groupable] = m
