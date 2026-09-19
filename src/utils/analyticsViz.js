@@ -303,6 +303,37 @@ export function isDimensionAllowed(metric, viz, dimension) {
 }
 
 /**
+ * The visualisation to reach for when the draft names none.
+ *
+ * ── WHY NOT SIMPLY THE FIRST ONE ────────────────────────────────────────────
+ * VIZ_RULES is ordered with `kpi` first, so "the first offered" meant every
+ * metric opened as a single number — including one whose whole purpose is a
+ * breakdown. Someone defines "Nonconformances by root cause", adds it to a
+ * dashboard, and the tile shows one total with the root cause thrown away. The
+ * builder then explains, correctly and too late, that "a single number shows one
+ * total, so there is nothing to show separately".
+ *
+ * The metric already said what it is for. A metric that declares a dimension was
+ * rolled up to be split by it, so the default follows that declaration and picks
+ * the first offered viz that can actually use one. A metric with no dimensions
+ * keeps the single number, which is the right answer for it.
+ *
+ * Only ever consulted for a draft with no usable viz of its own — a STORED
+ * widget names one, so this cannot reshape a tile someone already arranged.
+ *
+ * @param {object|null} metric
+ * @param {Array} offered  vizOptionsFor(metric), passed in to avoid recomputing
+ */
+function defaultVizFor(metric, offered) {
+  const hasDimension = (metric?.dimensions || []).some((d) => d?.key)
+  if (hasDimension) {
+    const splittable = offered.find((r) => vizRule(r.id)?.dimension !== 'none')
+    if (splittable) return splittable.id
+  }
+  return offered[0]?.id ?? null
+}
+
+/**
  * Coerce a (metric, viz, dimension) triple into one the server will accept.
  *
  * A saved widget outlives the catalog that produced it: a metric can lose a
@@ -321,7 +352,7 @@ export function isDimensionAllowed(metric, viz, dimension) {
  */
 export function clampQuestion(metric, draft = {}) {
   const offered = vizOptionsFor(metric)
-  const viz = offered.some((r) => r.id === draft.viz) ? draft.viz : (offered[0]?.id ?? DEFAULT_VIZ)
+  const viz = offered.some((r) => r.id === draft.viz) ? draft.viz : (defaultVizFor(metric, offered) ?? DEFAULT_VIZ)
   const rule = vizRule(viz)
 
   let dimension = isDimensionAllowed(metric, viz, draft.dimension) ? (draft.dimension ?? null) : null

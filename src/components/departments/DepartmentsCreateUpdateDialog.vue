@@ -211,9 +211,13 @@ async function onSubmit() {
       >
         <template #default="field">
           <div class="tw:relative">
+            <!-- maxlength matches departments.code — varchar(10). Same gap that
+                 let a too-long supplier code through to an opaque INSERT
+                 failure. -->
             <BaseTextInput
               v-bind="field"
               v-model="form.code"
+              :maxlength="10"
               placeholder="e.g. QA"
               :disabled="isEdit"
             />

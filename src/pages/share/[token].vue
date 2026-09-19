@@ -20,6 +20,80 @@ import { get, post } from '@/api'
 
 defineOptions({ name: 'SharedRecordPage' })
 
+/**
+ * Every call on this page is `showError: false`: the reader is outside the
+ * company, the page shows its own message in context, and the app-wide error
+ * toast would repeat it — or, for a 401, tell someone with no account to "sign
+ * in again".
+ */
+const QUIET = { showError: false }
+
+/**
+ * The words shown for a failed call.
+ *
+ * `@/api` throws an ApiError whose `.message` is the server's own
+ * (`{ error: { message } }`). This page used to read `err.response.data.message`
+ * — a shape ApiError does not have — so every failure showed the hard-coded
+ * fallback: "Too many attempts. Request a new code." and "That code has
+ * expired." both arrived as "That code is not correct.", which sends the reader
+ * back to retype a code that can no longer work.
+ */
+function outsiderMessage(err, fallback) {
+  const status = err?.status
+  const own = err?.message && !/^Request failed/.test(err.message) ? err.message : null
+  // A 401 here means THIS link's verified visit lapsed — never "sign in".
+  if (status === 401) return 'Your verified visit has ended. Request a new code to continue.'
+  if (status === 429) return own || 'Too many requests. Wait a minute and try again.'
+  if (status >= 400 && status < 500 && own) return own
+  return fallback
+}
+
+/**
+ * RS-L-06 — a Content-Security-Policy for the external share page.
+ *
+ * This page hands server-sanitised HTML (v-html) to a browser OUTSIDE the
+ * company. The sanitiser is the primary control; this is the second, so a
+ * sanitiser regression cannot become a third-party beacon, an exfiltrating
+ * fetch, or an injected script.
+ *
+ * Delivered as a `<meta http-equiv>` appended to <head>, which browsers enforce
+ * for every load after insertion. A response header would be stronger (it
+ * covers the shell itself and allows frame-ancestors), but the shell is served
+ * by Vite / static hosting, so a header is an infrastructure change and is left
+ * to one. Two consequences are deliberate:
+ *   - Applied only when /share/ was the DOCUMENT'S ENTRY URL. A policy cannot be
+ *     removed once added, so an internal user who navigated here inside the app
+ *     must not have the rest of their session narrowed.
+ *   - 'unsafe-inline' for styles only: Vue/Vite inject <style> for lazily
+ *     loaded chunks. Scripts are 'self' — nothing on this page needs more.
+ */
+const SHARE_PAGE_CSP = [
+  "default-src 'self'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
+  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join('; ')
+
+function applySharePageCsp() {
+  if (typeof document === 'undefined' || !document.head) return
+  if (document.querySelector('meta[http-equiv="Content-Security-Policy"]')) return
+  const nav = window.performance?.getEntriesByType?.('navigation')?.[0]
+  const entryPath = nav?.name ? new URL(nav.name, window.location.href).pathname : null
+  const isEntry = entryPath ? entryPath.startsWith('/share/') : !window.history.state?.back
+  if (!isEntry) return
+  const meta = document.createElement('meta')
+  meta.httpEquiv = 'Content-Security-Policy'
+  meta.content = SHARE_PAGE_CSP
+  document.head.appendChild(meta)
+}
+
 const route = useRoute()
 const token = computed(() => route.params.token)
 
@@ -34,6 +108,9 @@ const code = ref('')
 const sending = ref(false)
 const verifying = ref(false)
 const codeSent = ref(false)
+
+// "A Nonconformance", but "An Audit Records Package".
+const article = computed(() => (/^[aeiou]/i.test(label.value) ? 'An' : 'A'))
 
 /**
  * The image the reader has opened, or null.
@@ -71,13 +148,27 @@ const loadingItem = ref(false)
 async function openPackageItem(item) {
   if (loadingItem.value) return
   loadingItem.value = true
+  error.value = ''
   try {
-    const data = await get(`/v1/share/${token.value}/items/${item.id}`)
+    const data = await get(`/v1/share/${token.value}/items/${item.id}`, QUIET)
     openedItem.value = data.record
     openedItemMeta.value = item
     window.scrollTo({ top: 0 })
   } catch (err) {
-    error.value = err?.response?.data?.message || 'This record is no longer available.'
+    if (err?.status === 404 && err?.message === 'This link is no longer valid.') {
+      // The whole LINK died (withdrawn or expired) while the manifest was on
+      // screen. Show the dead-link state rather than a stale manifest whose
+      // every item silently does nothing.
+      record.value = null
+      needsVerification.value = false
+      error.value = err.message
+    } else if (err?.status === 401) {
+      // The verified visit lapsed: back to the code gate for this same link.
+      record.value = null
+      await load()
+    } else {
+      error.value = outsiderMessage(err, 'This record is no longer available.')
+    }
   } finally {
     loadingItem.value = false
   }
@@ -125,7 +216,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const data = await get(`/v1/share/${token.value}`)
+    const data = await get(`/v1/share/${token.value}`, QUIET)
     if (data.needsVerification) {
       needsVerification.value = true
       maskedEmail.value = data.maskedEmail
@@ -137,8 +228,13 @@ async function load() {
     }
   } catch (err) {
     // One message for expired, revoked and never-existed alike — the server
-    // does not distinguish them and neither should the page.
-    error.value = err?.response?.data?.message || 'This link is no longer valid.'
+    // does not distinguish them and neither should the page. Clear what was on
+    // screen: the dead-link state only renders with no record behind it, so a
+    // reload that fails after a verify would otherwise keep showing the record
+    // the link no longer grants.
+    record.value = null
+    needsVerification.value = false
+    error.value = outsiderMessage(err, 'This link is no longer valid.')
   } finally {
     loading.value = false
   }
@@ -148,11 +244,11 @@ async function requestCode() {
   sending.value = true
   error.value = ''
   try {
-    const data = await post(`/v1/share/${token.value}/request-code`, {})
+    const data = await post(`/v1/share/${token.value}/request-code`, {}, QUIET)
     maskedEmail.value = data.maskedEmail
     codeSent.value = true
   } catch (err) {
-    error.value = err?.response?.data?.message || 'Could not send a code.'
+    error.value = outsiderMessage(err, 'Could not send a code.')
   } finally {
     sending.value = false
   }
@@ -163,11 +259,11 @@ async function verify() {
   verifying.value = true
   error.value = ''
   try {
-    await post(`/v1/share/${token.value}/verify`, { code: code.value })
+    await post(`/v1/share/${token.value}/verify`, { code: code.value }, QUIET)
     code.value = ''
     await load()
   } catch (err) {
-    error.value = err?.response?.data?.message || 'That code is not correct.'
+    error.value = outsiderMessage(err, 'That code is not correct.')
   } finally {
     verifying.value = false
   }
@@ -179,7 +275,10 @@ function formatSize(bytes) {
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(Math.round(bytes / 1024), 1)} KB`
 }
 
-onMounted(load)
+onMounted(() => {
+  applySharePageCsp()
+  load()
+})
 </script>
 
 <template>
@@ -213,7 +312,7 @@ onMounted(load)
             >
               <IconLock :size="22" />
             </div>
-            <h1 class="tw:text-xl tw:font-semibold">A {{ label }} has been shared with you</h1>
+            <h1 class="tw:text-xl tw:font-semibold">{{ article }} {{ label }} has been shared with you</h1>
             <p class="tw:mt-2 tw:text-sm tw:text-secondary">
               To open it, we’ll email a short code to
               <strong class="tw:text-on-main">{{ maskedEmail }}</strong
@@ -274,7 +373,7 @@ onMounted(load)
             <li v-for="item in packageRecord.items" :key="item.id">
               <button
                 type="button"
-                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer hover:tw:bg-black/5"
+                class="tw:flex tw:w-full tw:items-center tw:gap-3 tw:px-4 tw:py-3 tw:text-left tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:bg-black/5"
                 :disabled="loadingItem"
                 @click="openPackageItem(item)"
               >
@@ -291,6 +390,7 @@ onMounted(load)
               </button>
             </li>
           </ul>
+          <p v-if="error" class="tw:mt-3 tw:text-sm tw:text-red-600">{{ error }}</p>
         </div>
 
         <!-- The record (a single share, or an opened package item) -->
@@ -298,7 +398,7 @@ onMounted(load)
           <div v-if="openedItem" class="tw:mb-4 tw:flex tw:items-center tw:gap-2 tw:print:hidden">
             <button
               type="button"
-              class="tw:text-sm tw:text-primary hover:tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              class="tw:text-sm tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
               @click="closePackageItem"
             >
               ← All shared records
@@ -306,7 +406,7 @@ onMounted(load)
             <span class="tw:flex-1" />
             <button
               type="button"
-              class="tw:text-sm tw:text-primary hover:tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
+              class="tw:text-sm tw:text-primary tw:hover:underline tw:bg-transparent tw:border-0 tw:cursor-pointer"
               @click="printPage"
             >
               Print
@@ -355,7 +455,7 @@ onMounted(load)
                       :href="f.url"
                       target="_blank"
                       rel="noopener"
-                      class="tw:flex tw:items-center tw:gap-2 tw:text-primary hover:tw:underline"
+                      class="tw:flex tw:items-center tw:gap-2 tw:text-primary tw:hover:underline"
                     >
                       <IconPaperclip :size="14" class="tw:shrink-0" />
                       <span class="tw:truncate">{{ f.name }}</span>
@@ -385,7 +485,7 @@ onMounted(load)
                   :href="f.url"
                   target="_blank"
                   rel="noopener"
-                  class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-primary hover:tw:underline"
+                  class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-primary tw:hover:underline"
                 >
                   <IconPaperclip :size="14" class="tw:shrink-0" />
                   <span class="tw:truncate">{{ f.name }}</span>

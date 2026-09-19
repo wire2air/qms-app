@@ -205,7 +205,13 @@ watch(
 
 const breadcrumbItems = computed(() => [
   { label: 'Users', to: getCompanyPath('/users') },
-  { label: user.value ? `${user.value.firstName} ${user.value.lastName}` : 'Loading...' },
+  {
+    label: user.value
+      ? `${user.value.firstName} ${user.value.lastName}`
+      : user.value === null
+        ? 'Not found'
+        : 'Loading...',
+  },
 ])
 
 async function sendInvitation() {

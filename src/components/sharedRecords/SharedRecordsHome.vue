@@ -177,7 +177,7 @@ async function withdrawSelected() {
     <BaseConfirmDialog
       v-model="confirmWithdraw.open"
       title="Withdraw access"
-      :message="`${confirmWithdraw.rows.length} ${confirmWithdraw.rows.length === 1 ? 'person' : 'people'} lose access immediately: ${confirmWithdraw.rows
+      :message="`${confirmWithdraw.rows.length} ${confirmWithdraw.rows.length === 1 ? 'person loses' : 'people lose'} access immediately: ${confirmWithdraw.rows
         .slice(0, 5)
         .map((r) => r.email)
         .join(', ')}${confirmWithdraw.rows.length > 5 ? `, and ${confirmWithdraw.rows.length - 5} more` : ''}. Their links stop working at once, including any files already open. Sharing again creates a new link.`"

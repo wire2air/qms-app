@@ -116,6 +116,30 @@ const columns = computed(() => {
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
 
+// DOCUMENT TYPE and CREATED BY only ever display via DocumentTypeBadgeById /
+// UserBadgeById — DataTable's fallback export reads the raw `documentTypeId`/
+// `userId` UUIDs, so hand it an explicit exportColumns list instead.
+function documentTypeLabel(id) {
+  return documentTypes.value.find((t) => t.id === id)?.name ?? ''
+}
+function userNameById(id) {
+  const user = users.value.find((u) => u.id === id)
+  if (!user) return ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+function statusLabel(id) {
+  return recordStatuses.value.find((s) => s.id === id)?.name ?? id ?? ''
+}
+
+const exportColumns = computed(() => [
+  { key: 'recordNumber', label: 'RECORD #', value: (row) => row.recordNumber ?? '' },
+  { key: 'documentTypeId', label: 'DOCUMENT TYPE', value: (row) => documentTypeLabel(row.documentTypeId) },
+  { key: 'statusId', label: 'STATUS', value: (row) => statusLabel(row.statusId) },
+  { key: 'createdBy', label: 'CREATED BY', value: (row) => userNameById(row.userId) },
+  { key: 'createdAt', label: 'CREATED', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
 </script>
@@ -132,6 +156,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     searchable
     filterable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="records.csv"
     @rowClick="openPreview"
   >

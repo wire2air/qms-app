@@ -32,8 +32,8 @@ describe('BaseBadge — clearable (rule #8: keyboard-operable remove)', () => {
 })
 
 describe('BaseBadge — size (folded in from BaseChip)', () => {
-  it('defaults to md metrics', () => {
-    const cls = mount(BaseBadge, { slots: { default: 'X' } }).classes().join(' ')
+  it('applies md metrics when size="md"', () => {
+    const cls = mount(BaseBadge, { props: { size: 'md' }, slots: { default: 'X' } }).classes().join(' ')
     expect(cls).toContain('tw:px-3')
     expect(cls).toContain('tw:text-sm')
   })
@@ -46,13 +46,19 @@ describe('BaseBadge — size (folded in from BaseChip)', () => {
 })
 
 describe('BaseBadge — select-trigger dark-mode fill', () => {
-  it('a plain (no-scheme) selectable trigger gets a theme-aware control fill', () => {
+  // Since `refactor(ds): merge BaseChip into BaseBadge` (3ff14cb0) a plain
+  // selectable badge is a GHOST trigger: no pill wrapper at all, so it reads as
+  // the value rather than as another chip. The theme-aware half of the original
+  // claim is what survives — `tw:text-on-main` is still the dark-mode fix
+  // (3d5c1620); the `bg-main-hover`/`border-divider` fill it used to pair with
+  // is gone by design, along with the border.
+  it('a plain (no-scheme) selectable trigger renders as a theme-aware ghost trigger', () => {
     const w = mount(BaseBadge, { props: { selectable: true }, slots: { default: 'San Jose' } })
     const cls = w.classes()
-    expect(cls).toContain('tw:bg-main-hover')
-    expect(cls).toContain('tw:border-divider')
     expect(cls).toContain('tw:text-on-main') // theme-aware text (white in dark)
-    expect(cls).not.toContain('tw:border-current/20')
+    expect(cls).not.toContain('tw:border-current/20') // no pill border
+    expect(cls).not.toContain('tw:bg-main-hover') // no pill fill
+    expect(cls).not.toContain('tw:rounded-md')
   })
 
   it('a scheme-colored selectable trigger keeps its color (no control fill)', () => {

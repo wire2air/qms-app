@@ -95,6 +95,38 @@ const columns = computed(() => [
   { name: 'actions', label: '', field: 'actions', align: 'right', filterType: false },
 ])
 
+// Log Book / Assignees / Status only ever display via templateLabel()/badge
+// components — DataTable's fallback export reads the raw `logBookId` UUID,
+// JSON-stringifies the `assignedRoleIds` UUID array, and prints the `active`
+// boolean as literal "true"/"false" — so hand it an explicit exportColumns
+// list instead.
+const roles = useLiveQuery((db) => db.Role.where().exec(), { models: ['Role'], initial: [] })
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function roleName(id) {
+  return roles.value.find((r) => r.id === id)?.name ?? ''
+}
+function userName(id) {
+  const user = users.value.find((u) => u.id === id)
+  if (!user) return ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+function assigneesLabel(row) {
+  const names = [
+    ...(row.assignedRoleIds ?? []).map(roleName),
+    ...(row.assignedUserIds ?? []).map(userName),
+  ].filter(Boolean)
+  return names.join('; ')
+}
+
+const exportColumns = computed(() => [
+  { key: 'logBook', label: 'Log Book', value: (row) => templateLabel(row.logBookId) },
+  { key: 'schedule', label: 'Schedule', value: (row) => scheduleSummary(row) },
+  { key: 'assignees', label: 'Assignees', value: (row) => assigneesLabel(row) },
+  { key: 'grace', label: 'Grace', value: (row) => `${row.graceMinutes} min` },
+  { key: 'active', label: 'Status', value: (row) => (row.active ? 'Active' : 'Inactive') },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 function goCreate() {
   router.push(getCompanyPath('/inspections-logs/form-assignments/create'))
 }
@@ -143,6 +175,7 @@ function goEdit(id) {
       searchable
       filterable
       exportManager
+      :exportColumns="exportColumns"
       exportFilename="log-book-assignments.csv"
       persistKey="formAssignment:list"
       noDataLabel="No log book assignments yet."

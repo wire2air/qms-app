@@ -185,7 +185,9 @@ function closeAssessmentReview() {
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const breadcrumbs = computed(() => [
   { label: 'Training Instances', to: getCompanyPath('/training-instances') },
-  { label: instance.value?.snapshot?.title || 'Loading…' },
+  {
+    label: instance.value?.snapshot?.title || (instance.value === null ? 'Not found' : 'Loading…'),
+  },
 ])
 const trainingInstanceBanners = computed(() => buildTrainingInstanceBanners(instance.value))
 const trainingInstanceActions = computed(() =>

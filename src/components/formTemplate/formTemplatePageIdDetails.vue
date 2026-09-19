@@ -275,6 +275,13 @@ async function handleArchiveToggle() {
           </div>
         </div>
       </div>
+
+      <BaseStatusState
+        v-else
+        variant="notfound"
+        title="Template not found"
+        description="This form template doesn't exist or you don't have access to it."
+      />
     </div>
 
     <!-- Right Sidebar (Metadata) -->

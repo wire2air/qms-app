@@ -42,8 +42,24 @@ export const isSuperUser = computed(() => {
 // EXTERNAL_SUPPLIER users get a stripped-down sidebar + a dedicated
 // /[code]/supplier dashboard. Mirrors the backend's `users.kind` column
 // and the per-company `kind` field on the session payload.
+//
+// `kind` is PER MEMBERSHIP and has never existed at the top level: a person can
+// be an internal user of one tenant and a supplier contact of another, so
+// /v1/auth/session emits it inside companies[<id>], exactly like userId,
+// departmentId and siteId. Reading it off the root returned undefined for
+// EVERY supplier, so this computed was permanently false and the whole
+// supplier branch — SUPPLIER_BLOCKED_SEGMENTS (the 2026-09-08 /auditee fix),
+// SUPPLIER_EXEMPT_SEGMENTS, the Supplier Portal sidebar and the post-login
+// dashboard routing — was unreachable code. Found 2026-09-14 by auditee
+// AE-J4, which caught a portal user opening /auditee/<id>. Same shape as the
+// per-membership owner-flag bug fixed the same day in utils/principal.js.
 export const isSupplier = computed(() => {
-  return currentSession.value?.kind === 'EXTERNAL_SUPPLIER'
+  const session = currentSession.value
+  if (!session) return false
+  const membership = session.companies?.[session.activeCompanyId]
+  // The root fallback is for a payload that predates the per-company field;
+  // it is not the normal path.
+  return (membership?.kind ?? session.kind) === 'EXTERNAL_SUPPLIER'
 })
 
 // AI sidecar gate. True when BOTH the global env switch

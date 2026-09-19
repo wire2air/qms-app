@@ -39,6 +39,18 @@ const editForm = ref({
 
 const newTag = ref('')
 
+// documents.periodicReviewMonths is a GraphQL Int — see the identical
+// comment in DocumentsCreateProperties.vue. `v-model.number` alone lets a
+// fractional value ("1.5") through to the mutation, which the server then
+// rejects with a raw GraphQL type error instead of a form validation message.
+const reviewMonthsModel = computed({
+  get: () => editForm.value.periodicReviewMonths,
+  set: (v) => {
+    const n = Math.round(Number(v))
+    editForm.value.periodicReviewMonths = Number.isFinite(n) ? Math.max(1, n) : 1
+  },
+})
+
 // Load document data when dialog opens
 watch(
   open,
@@ -153,10 +165,11 @@ async function onSubmit() {
                     <IconMinus :size="18" />
                   </button>
                   <input
-                    v-model.number="editForm.periodicReviewMonths"
+                    v-model.number="reviewMonthsModel"
                     class="tw:w-16 tw:text-center tw:bg-transparent tw:border-none tw:focus:ring-0 tw:text-sm tw:font-bold tw:outline-none"
                     type="number"
                     min="1"
+                    step="1"
                   />
                   <button
                     class="tw:px-3 tw:py-2 tw:hover:bg-sidebar tw:text-secondary"

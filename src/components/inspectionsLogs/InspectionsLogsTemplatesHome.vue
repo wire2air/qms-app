@@ -129,6 +129,31 @@ const columns = [
   { name: 'editWindow', label: 'Edit window', field: 'editWindowMode', align: 'left' },
   { name: 'esig', label: 'E-sig', field: 'signatureRequired', align: 'left' },
 ]
+
+// Category resolves via logBookTypes/typeName above; Supervisor only ever
+// displays via UserBadgeById — DataTable's fallback export reads the raw
+// `logBookTypeId`/`supervisorUserId` UUIDs, so hand it an explicit
+// exportColumns list instead.
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function supervisorLabel(id) {
+  const user = users.value.find((u) => u.id === id)
+  if (!user) return ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+
+const exportColumns = computed(() => [
+  { key: 'title', label: 'Log Book', value: (row) => row.title ?? '' },
+  { key: 'status', label: 'Status', value: (row) => row.statusId ?? '' },
+  { key: 'category', label: 'Category', value: (row) => typeName(row.logBookTypeId) },
+  {
+    key: 'type',
+    label: 'Type',
+    value: (row) => row.recordClassification?.replace('_', ' ') ?? '',
+  },
+  { key: 'supervisor', label: 'Supervisor', value: (row) => supervisorLabel(row.supervisorUserId) },
+  { key: 'editWindow', label: 'Edit window', value: (row) => editWindowSummary(row) },
+  { key: 'esig', label: 'E-sig', value: (row) => (row.signatureRequired ? 'Required' : '') },
+])
 </script>
 
 <template>
@@ -251,6 +276,7 @@ const columns = [
       :mobileCards="false"
       hidePagination
       exportManager
+      :exportColumns="exportColumns"
       exportFilename="log-books.csv"
       persistKey="inspectionsLogs:logBooks"
       noDataLabel="No log books yet."

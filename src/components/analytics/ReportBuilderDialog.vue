@@ -36,7 +36,7 @@ import {
 } from '@/utils/analyticsReportAccess.js'
 import { VISIBILITY } from '@/utils/analyticsDashboardAccess.js'
 import { dimensionOptionsFor } from '@/utils/analyticsViz.js'
-import { IconPlus, IconTrash } from '@tabler/icons-vue'
+import { IconGripVertical, IconPlus, IconTrash } from '@tabler/icons-vue'
 
 const props = defineProps({
   // An existing report to edit; null to create.
@@ -154,6 +154,37 @@ function toggleBreakdown(section, on) {
   section.breakdown = on ? { metricKey: null, dimension: null } : null
 }
 
+// ── drag reorder ────────────────────────────────────────────────────────────
+// Reuses the app's existing sortable wrapper rather than adding a drag library.
+//
+// The SIMPLER of the two cases the composable's docblock distinguishes: a
+// section carries no stored `order` field, so there is nothing to renumber and
+// nothing to persist per row. Moving the array element IS the change, and it
+// reaches the database with the rest of the draft when the dialog is saved —
+// hence no `onEnd`. A drag that the user then cancels out of is correctly
+// discarded along with every other edit in the dialog.
+//
+// `handle` is mandatory here, not stylistic: a section row is mostly text
+// inputs, and a whole-row drag would swallow click-to-place-cursor and text
+// selection in the title field. It is also what switches on the composable's
+// keyboard path (↑/↓/Home/End on the grip).
+const sectionsRef = ref(null)
+
+/** What a section is CALLED, for the grip's label and its move announcement. */
+function sectionLabel(section, index) {
+  return section?.title?.trim() || `Section ${index + 1}`
+}
+
+useListReorder(sectionsRef, () => form.value.definition.sections ?? [], {
+  handle: '[data-drag-handle]',
+  // Named rather than generic: a report can run to many sections, and "Moved to
+  // position 3 of 7" leaves a screen-reader user to work out which one moved.
+  // `to` is the destination index, so an untitled section is described by where
+  // it LANDED — the number the listener is about to see next to it.
+  announce: (section, to, total) =>
+    `${sectionLabel(section, to)} moved to position ${to + 1} of ${total}.`,
+})
+
 const canSave = computed(
   () => !!form.value.name.trim() && definitionHasContent(form.value.definition) && !saving.value,
 )
@@ -254,13 +285,32 @@ async function save() {
           </BaseButton>
         </div>
 
-        <div class="tw:flex tw:flex-col tw:gap-4">
+        <!--
+          `key` is the section OBJECT, not the loop index, and that is what makes
+          reordering correct rather than merely animated. With an index key Vue
+          keeps each DOM node where it is and rewrites its contents, so a moved
+          section's text input would keep the focus, caret and any uncommitted
+          IME state belonging to whichever section previously sat at that
+          position. Keying on identity moves the node with its data instead.
+          Sections carry no id and `normaliseDefinition` rebuilds a clean object
+          per section on save, so the object reference costs nothing stored.
+        -->
+        <div ref="sectionsRef" class="tw:flex tw:flex-col tw:gap-4">
           <BaseCard
             v-for="(section, i) in form.definition.sections"
-            :key="i"
+            :key="section"
             class="tw:flex tw:flex-col tw:gap-3"
           >
             <div class="tw:flex tw:items-end tw:gap-2">
+              <button
+                data-drag-handle
+                type="button"
+                class="tw:mb-2 tw:cursor-grab tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main"
+                :aria-label="`Reorder ${sectionLabel(section, i)}. Use arrow keys to move it, Home or End to send it to either end.`"
+                aria-keyshortcuts="ArrowUp ArrowDown Home End"
+              >
+                <IconGripVertical :size="16" aria-hidden="true" />
+              </button>
               <BaseTextInput
                 v-model="section.title"
                 label="Section title"
@@ -277,14 +327,27 @@ async function save() {
               </BaseButton>
             </div>
 
-            <BaseSelect
-              v-model="section.metricKeys"
-              label="Metrics"
-              multiple
-              :options="metricOptions"
-              :loading="metricsLoading"
-              placeholder="Choose what this section reports"
-            />
+            <div class="tw:flex tw:flex-col tw:gap-2">
+              <BaseSelect
+                v-model="section.metricKeys"
+                label="Metrics"
+                multiple
+                :options="metricOptions"
+                :loading="metricsLoading"
+                placeholder="Choose what this section reports"
+              />
+              <!--
+                The select CHOOSES; this list ORDERS. A `multiple` BaseSelect is
+                a set control — it has no notion of position and renders its
+                selection as the summary "3 selected" — yet `metricKeys` order
+                is what the exporter prints. See the component for the full
+                reasoning, including why the two are not fused into one control.
+              -->
+              <ReportSectionMetricList
+                :metricKeys="section.metricKeys"
+                :metricsByKey="metricsByKey"
+              />
+            </div>
 
             <BaseCheckbox
               :modelValue="!!section.breakdown"

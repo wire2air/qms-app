@@ -47,7 +47,7 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-SEC-07 | All create, update and delete actions are captured in a computer-generated, time-stamped audit trail                                                                                                        | T      | OQ-16     | TC-16-05     |        |     |
 | URS-SEC-08 | Audit entries cannot be edited or deleted by users, and prior values are preserved                                                                                                                          | T      | OQ-16     | TC-16-06     |        |     |
 | URS-SEC-09 | The audit trail can be filtered and exported for review                                                                                                                                                     | T      | OQ-16     | TC-16-07     |        |     |
-| URS-SEC-10 | Accurate, complete, human-readable copies of records can be produced for inspection                                                                                                                         | T      | OQ-16     | TC-16-08     |        |     |
+| URS-SEC-10 | Accurate, complete, human-readable copies of records can be produced for inspection                                                                                                                         | T, P   | OQ-16     | TC-16-08     |        |     |
 | URS-SEC-11 | Electronic signatures are permanently linked to the record signed and cannot be transferred                                                                                                                 | T      | OQ-16     | TC-16-09     |        |     |
 | URS-SEC-12 | Signing requires re-authentication with a credential distinct from the session                                                                                                                              | T      | OQ-16     | TC-16-10     |        |     |
 | URS-SEC-13 | Each signature records the signer's name, date and time, and the meaning of the signature                                                                                                                   | T      | OQ-16     | TC-16-11     |        |     |
@@ -88,9 +88,9 @@ A = Supplier assessment · P = Procedural control (SOP)
 | Req ID     | Requirement                                                                 | Method | Protocol | Test case | Result | Ref |
 | ---------- | --------------------------------------------------------------------------- | ------ | -------- | --------- | ------ | --- |
 | URS-TRN-01 | Training content, material and assessment can be authored                   | T      | OQ-02    | TC-02-01  |        |     |
-| URS-TRN-02 | Publishing locks training content against further edit                      | T      | OQ-02    | TC-02-02  |        |     |
+| URS-TRN-02 | Publishing locks training content against further edit in the application   | T, P   | OQ-02    | TC-02-02  |        |     |
 | URS-TRN-03 | Training is assigned to named individuals and/or roles                      | T      | OQ-02    | TC-02-03  |        |     |
-| URS-TRN-04 | Trainees must review all required material before assessment                | T      | OQ-02    | TC-02-04  |        |     |
+| URS-TRN-04 | Trainees review all required material before assessment in the application  | T, P   | OQ-02    | TC-02-04  |        |     |
 | URS-TRN-05 | Assessments are scored against a configured passing score                   | T      | OQ-02    | TC-02-05  |        |     |
 | URS-TRN-06 | The configured maximum number of attempts is enforced                       | T      | OQ-02    | TC-02-06  |        |     |
 | URS-TRN-07 | Training completion is signed by the trainee                                | T      | OQ-02    | TC-02-07  |        |     |
@@ -140,14 +140,14 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-CHG-05 | Implementation and closure are recorded, with signature where required  | T      | OQ-05    | TC-05-05  |        |     |
 | URS-CHG-06 | The full change history is available in the audit trail                 | T      | OQ-05    | TC-05-06  |        |     |
 
-## 9. Complaints
+## 9. Quality Complaints
 
 | Req ID     | Requirement                                                              | Method | Protocol | Test case | Result | Ref |
 | ---------- | ------------------------------------------------------------------------ | ------ | -------- | --------- | ------ | --- |
 | URS-CMP-01 | Complaints are logged with mandatory detail enforced                     | T      | OQ-06    | TC-06-01  |        |     |
 | URS-CMP-02 | Product, lot and customer detail are captured                            | T      | OQ-06    | TC-06-02  |        |     |
 | URS-CMP-03 | QA review, investigation decision and justification are recorded         | T      | OQ-06    | TC-06-03  |        |     |
-| URS-CMP-04 | Reportability to a regulator is assessed and the decision recorded       | T      | OQ-06    | TC-06-04  |        |     |
+| URS-CMP-04 | Reportability to a regulator is assessed and the decision recorded       | P      | OQ-06    | TC-06-04  |        |     |
 | URS-CMP-05 | A complaint can be escalated to a nonconformance, with the link retained | T      | OQ-06    | TC-06-05  |        |     |
 | URS-CMP-06 | Closure is controlled and recorded                                       | T      | OQ-06    | TC-06-06  |        |     |
 | URS-CMP-07 | A complaint record can be printed in full for inspection                 | T      | OQ-06    | TC-06-07  |        |     |
@@ -173,7 +173,7 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-RSK-01 | Risk assessment templates define the scoring method in use  | T      | OQ-08    | TC-08-01  |        |     |
 | URS-RSK-02 | A risk assessment is created and hazards recorded           | T      | OQ-08    | TC-08-02  |        |     |
 | URS-RSK-03 | Risk level is derived consistently from the recorded scores | T      | OQ-08    | TC-08-03  |        |     |
-| URS-RSK-04 | Mitigations are recorded and residual risk re-scored        | T      | OQ-08    | TC-08-04  |        |     |
+| URS-RSK-04 | Mitigations are recorded and residual risk re-scored        | T, P   | OQ-08    | TC-08-04  |        |     |
 | URS-RSK-05 | Risk assessments are reviewed and approved                  | T      | OQ-08    | TC-08-05  |        |     |
 | URS-RSK-06 | The full risk history is available in the audit trail       | T      | OQ-08    | TC-08-06  |        |     |
 
@@ -224,11 +224,11 @@ A = Supplier assessment · P = Procedural control (SOP)
 | Req ID     | Requirement                                                                        | Method | Protocol | Test case | Result | Ref |
 | ---------- | ---------------------------------------------------------------------------------- | ------ | -------- | --------- | ------ | --- |
 | URS-SUP-01 | Suppliers are registered with identifying and categorisation detail                | T      | OQ-12    | TC-12-01  |        |     |
-| URS-SUP-02 | Supplier qualification is assessed and scored                                      | T      | OQ-12    | TC-12-02  |        |     |
+| URS-SUP-02 | Supplier qualification is assessed and scored                                      | P      | OQ-12    | TC-12-02  |        |     |
 | URS-SUP-03 | Certificates are held with expiry dates and expiry is surfaced                     | T      | OQ-12    | TC-12-03  |        |     |
 | URS-SUP-04 | Approved status is controlled and visible                                          | T      | OQ-12    | TC-12-04  |        |     |
 | URS-SUP-05 | A supplier contact can participate in an assigned record step and see nothing else | T      | OQ-12    | TC-12-05  |        |     |
-| URS-SUP-06 | A supplier can be blocked and requalified, with reasons recorded                   | T      | OQ-12    | TC-12-06  |        |     |
+| URS-SUP-06 | A supplier can be blocked and requalified, under permission control                | T, P   | OQ-12    | TC-12-06  |        |     |
 | URS-SUP-07 | The full supplier history is available in the audit trail                          | T      | OQ-12    | TC-12-07  |        |     |
 
 ## 16. Forms & Workflows
@@ -269,29 +269,48 @@ A = Supplier assessment · P = Procedural control (SOP)
 | URS-RET-05 | A register of retained samples can be produced                         | T      | OQ-15    | TC-15-05  |        |     |
 | URS-RET-06 | The full sample history is available in the audit trail                | T      | OQ-15    | TC-15-06  |        |     |
 
-## 19. Coverage summary
+## 19. Customer Complaint Management
+
+Applies to the customer-facing **Complaint Management** module, verified by
+[OQ-17](/validation/oq/customer-complaints). Distinct from §9, which covers the internal
+Quality Complaints record. Organisations using only one module should mark the other
+section not applicable, with the reason.
+
+| Req ID     | Requirement                                                                            | Method | Protocol | Test case | Result | Ref |
+| ---------- | -------------------------------------------------------------------------------------- | ------ | -------- | --------- | ------ | --- |
+| URS-CCM-01 | Customer complaints are logged with mandatory detail enforced and uniquely identified   | T      | OQ-17    | TC-17-01  |        |     |
+| URS-CCM-02 | Classification, product and customer detail are captured, with attachments             | T      | OQ-17    | TC-17-02  |        |     |
+| URS-CCM-03 | Acceptance and assignment are controlled and attributed                                 | T      | OQ-17    | TC-17-03  |        |     |
+| URS-CCM-04 | Correspondence and resolution are recorded and attributed                               | T      | OQ-17    | TC-17-04  |        |     |
+| URS-CCM-05 | Closure is controlled, and where configured requires approval with an electronic signature | T   | OQ-17    | TC-17-05  |        |     |
+| URS-CCM-06 | A complaint can be escalated to a nonconformance, the link retained, and escalation is final | T | OQ-17  | TC-17-06  |        |     |
+| URS-CCM-07 | A customer complaint record can be printed in full for inspection                       | T      | OQ-17    | TC-17-07  |        |     |
+| URS-CCM-08 | The full complaint history is available in the audit trail                              | T      | OQ-17    | TC-17-08  |        |     |
+
+## 20. Coverage summary
 
 Complete after execution.
 
 | Module              | Requirements | Verified | Excluded (justified) | Open |
 | ------------------- | ------------ | -------- | -------------------- | ---- |
-| Cross-cutting (SEC) | 20           |          |                      |      |
+| Cross-cutting (SEC) | 23           |          |                      |      |
 | Document Control    | 16           |          |                      |      |
 | Training            | 11           |          |                      |      |
 | Nonconformance      | 10           |          |                      |      |
 | CAPA                | 10           |          |                      |      |
 | Change Control      | 6            |          |                      |      |
-| Complaints          | 8            |          |                      |      |
+| Quality Complaints  | 8            |          |                      |      |
+| Customer Complaints | 8            |          |                      |      |
 | Audit Management    | 8            |          |                      |      |
 | Risk Management     | 6            |          |                      |      |
-| QC Inspection       | 10           |          |                      |      |
+| QC Inspection       | 12           |          |                      |      |
 | Log Books           | 9            |          |                      |      |
 | Equipment           | 6            |          |                      |      |
 | Supplier Management | 7            |          |                      |      |
 | Forms & Workflows   | 11           |          |                      |      |
 | Item Master         | 6            |          |                      |      |
 | Retain Samples      | 6            |          |                      |      |
-| **Total**           | **150**      |          |                      |      |
+| **Total**           | **163**      |          |                      |      |
 
 | Role             | Name | Signature | Date |
 | ---------------- | ---- | --------- | ---- |

@@ -23,6 +23,8 @@ import { canEditDashboard, reindexPositions } from '@/utils/analyticsDashboardAc
 import { currentSession } from '@/utils/currentSession'
 import {
   IconChartBar,
+  IconChevronLeft,
+  IconChevronRight,
   IconPlus,
   IconGripVertical,
   IconPencil,
@@ -123,6 +125,52 @@ async function confirmRemove(w) {
     toast.success('Widget removed')
   } catch (err) {
     toast.error(err?.message || 'Could not remove the widget')
+  }
+}
+
+// ── tile width ──────────────────────────────────────────────────────────────
+/** The widest a tile may be, matching analytics_widgets_col_span_chk. */
+const MAX_SPAN = 4
+
+/**
+ * A widget's column span, clamped.
+ *
+ * Clamped on READ rather than trusted, because the value reaches here from a
+ * synced row that a future build — or a hand-written definition — could have
+ * written outside the range. A bad value should render as a sane tile, not as a
+ * board that overflows horizontally on every viewport.
+ */
+function spanOf(w) {
+  const n = Number(w?.colSpan)
+  if (!Number.isFinite(n)) return 1
+  return Math.min(MAX_SPAN, Math.max(1, Math.round(n)))
+}
+
+const setSpan = useLiveMutation(async (db, { id, colSpan }) => {
+  const w = await db.AnalyticsWidget.findByPk(id)
+  if (!w) throw new Error('That widget no longer exists.')
+  w.colSpan = colSpan
+  await w.save()
+  return w
+})
+
+/**
+ * Widen or narrow by one column.
+ *
+ * Buttons rather than a drag handle, deliberately. A horizontal resize grip is
+ * a mouse-only affordance unless it also grows a keyboard path, and there are
+ * only four possible widths — so two buttons express the whole range, are
+ * keyboard- and screen-reader-operable for free, and cannot land the tile
+ * somewhere between two columns. The same reasoning DocumentSectionsEditor
+ * records for replacing its drag with arrows.
+ */
+async function resizeWidget(w, delta) {
+  const next = spanOf(w) + delta
+  if (next < 1 || next > MAX_SPAN) return
+  try {
+    await setSpan({ id: w.id, colSpan: next })
+  } catch (err) {
+    toast.error(err?.message || 'Could not change the tile width')
   }
 }
 
@@ -237,11 +285,27 @@ function questionOf(w) {
       </BaseEmptyState>
 
       <ContentGrid v-else ref="gridRef" min="22rem">
+        <!--
+          The span is applied as an inline style rather than a Tailwind class
+          because `tw:col-span-{{ n }}` cannot work: Tailwind scans source text
+          for literal class names, so an interpolated one is never generated.
+          A static map of four classes would work, but the style is the honest
+          expression of "this many of whatever columns exist".
+
+          `min()` against the grid's own column count is what keeps a wide tile
+          from overflowing a narrow viewport: the grid is auto-fill, so on a
+          phone there may be only one column and a span of 3 must degrade to 1
+          rather than force horizontal scroll. CSS has no way to read the
+          resolved column count, so the clamp is expressed the other way round —
+          `grid-column: span N / span N` is already capped by the browser to the
+          number of columns that exist, which is exactly the behaviour wanted.
+        -->
         <div
           v-for="w in widgets"
           :key="w.id"
           :data-id="w.id"
           class="tw:relative tw:group"
+          :style="{ gridColumn: `span ${spanOf(w)} / span ${spanOf(w)}` }"
         >
           <div
             v-if="canEdit"
@@ -252,15 +316,36 @@ function questionOf(w) {
             <button
               data-drag-handle
               type="button"
-              class="tw:cursor-grab tw:rounded tw:p-1 tw:text-secondary hover:tw:text-on-main"
+              class="tw:cursor-grab tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main"
               :aria-label="`Reorder ${widgetLabel(w)}. Use arrow keys to move it, Home or End to send it to either end.`"
               aria-keyshortcuts="ArrowUp ArrowDown Home End"
             >
               <IconGripVertical :size="16" aria-hidden="true" />
             </button>
+
+            <!-- Width. Disabled rather than hidden at the ends, so the pair of
+                 controls does not reflow as the tile is resized. -->
             <button
               type="button"
-              class="tw:rounded tw:p-1 tw:text-secondary hover:tw:text-on-main"
+              class="tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main tw:disabled:opacity-30"
+              :disabled="spanOf(w) <= 1"
+              :aria-label="`Make ${widgetLabel(w)} narrower. Currently ${spanOf(w)} of ${MAX_SPAN} columns wide.`"
+              @click="resizeWidget(w, -1)"
+            >
+              <IconChevronLeft :size="16" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main tw:disabled:opacity-30"
+              :disabled="spanOf(w) >= MAX_SPAN"
+              :aria-label="`Make ${widgetLabel(w)} wider. Currently ${spanOf(w)} of ${MAX_SPAN} columns wide.`"
+              @click="resizeWidget(w, 1)"
+            >
+              <IconChevronRight :size="16" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="tw:rounded tw:p-1 tw:text-secondary tw:hover:text-on-main"
               aria-label="Edit widget"
               @click="editWidget(w)"
             >
@@ -268,7 +353,7 @@ function questionOf(w) {
             </button>
             <button
               type="button"
-              class="tw:rounded tw:p-1 tw:text-secondary hover:tw:text-bad"
+              class="tw:rounded tw:p-1 tw:text-secondary tw:hover:text-bad"
               aria-label="Remove widget"
               @click="confirmRemove(w)"
             >

@@ -439,20 +439,20 @@ async function save() {
         <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
           <BaseSelect
             v-model="form.dimension"
-            label="Split by"
+            label="Check separately by"
             :options="dimensionOptions"
             :disabled="!form.metricKey"
-            nullLabel="Whole metric — no split"
-            hint="Split the metric and every segment is checked on its own."
+            nullLabel="Whole metric — one combined check"
+            hint="Break the metric up and each group is checked against the threshold on its own."
           />
           <BaseSelect
             v-model="form.dimensionValue"
-            label="Only this segment"
+            label="Only this one"
             :options="dimensionValueOptions"
             :disabled="!form.dimension"
             :loading="slicesLoading"
-            nullLabel="Every segment, checked separately"
-            hint="Segments too small to report are not offered — they can never cross a threshold."
+            nullLabel="Every group, checked separately"
+            hint="Groups too small to report are not offered — they can never cross a threshold."
           />
         </div>
       </div>

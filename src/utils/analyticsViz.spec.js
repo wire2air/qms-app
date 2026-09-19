@@ -5,6 +5,7 @@ import {
   dimensionOptionsFor,
   isDimensionAllowed,
   clampQuestion,
+  vizRule,
 } from '@/utils/analyticsViz.js'
 
 /** A metric_catalog row, in the shape the picker actually receives. */
@@ -66,9 +67,32 @@ describe('clampQuestion', () => {
     expect(out.dimension).toBe('severity')
   })
 
-  it('degrades a viz this build no longer offers to the first one it does', () => {
+  it('degrades a viz this build no longer offers to one that can use the breakdown', () => {
+    // NOT "the first offered". VIZ_RULES leads with `kpi`, so first-offered made
+    // every metric default to a single number — including one whose entire
+    // purpose is a breakdown, whose dimension was then silently discarded. A
+    // metric that declares a dimension was rolled up to be split by it, so the
+    // fallback honours that declaration.
     const out = clampQuestion(metric(), question({ viz: 'histogram' }))
-    expect(out.viz).toBe(vizOptionsFor(metric())[0].id)
+    const rule = vizRule(out.viz)
+    expect(rule.dimension).not.toBe('none')
+    expect(vizOptionsFor(metric()).some((r) => r.id === out.viz)).toBe(true)
+  })
+
+  it('still falls back to a single number when the metric has no breakdown', () => {
+    // The other half of the same rule: with nothing to split by, a single number
+    // is the right answer and must stay the default.
+    const plain = { ...metric(), dimensions: [] }
+    const out = clampQuestion(plain, question({ viz: 'histogram' }))
+    expect(out.viz).toBe(vizOptionsFor(plain)[0].id)
+    expect(vizRule(out.viz).dimension).toBe('none')
+  })
+
+  it('never reshapes a viz the draft already names legally', () => {
+    // The guard that keeps this out of stored widgets: a saved tile names its
+    // own viz, so the new default cannot rearrange a dashboard someone built.
+    const out = clampQuestion(metric(), question({ viz: 'kpi' }))
+    expect(out.viz).toBe('kpi')
   })
 
   it('drops a dimension the metric has since stopped declaring', () => {

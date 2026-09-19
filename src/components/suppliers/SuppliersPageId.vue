@@ -28,7 +28,7 @@ const loading = computed(() => supplier.value === undefined)
 
 const breadcrumbs = computed(() => [
   { label: 'Suppliers', to: getCompanyPath('/suppliers') },
-  { label: supplier.value?.name || 'Loading...' },
+  { label: supplier.value?.name || (supplier.value === null ? 'Not found' : 'Loading...') },
 ])
 
 const { isSaving, saveError } = useAutoSave(supplier)

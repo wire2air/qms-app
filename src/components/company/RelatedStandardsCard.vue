@@ -39,7 +39,7 @@ const standards = useLiveQuery(
 )
 const deactivated = useLiveQuery(
   async (db) =>
-    (await db.RelatedStandard.where('id', undefined, { force: true }).exec()).filter(
+    (await db.RelatedStandard.where(undefined, undefined, { force: true }).exec()).filter(
       (d) => d.deletedAt,
     ),
   { models: ['RelatedStandard'], initial: [] },

@@ -44,7 +44,14 @@ describe('buildRoleActions', () => {
   })
 
   it('wires handlers to onSelect', () => {
-    const handlers = { save: vi.fn(), cancel: vi.fn(), activate: vi.fn(), deactivate: vi.fn() }
+    const handlers = {
+      save: vi.fn(),
+      cancel: vi.fn(),
+      lock: vi.fn(),
+      unlock: vi.fn(),
+      activate: vi.fn(),
+      deactivate: vi.fn(),
+    }
     const a = buildRoleActions({}, handlers)
     a.forEach((d) => d.onSelect())
     Object.values(handlers).forEach((fn) => expect(fn).toHaveBeenCalled())
