@@ -22,6 +22,9 @@ export const printModules = {
   //   LogBook     — many entries from one log book, date-range filtered
   FieldRecord: () => import('./FieldRecordPrint.vue'),
   LogBook: () => import('./LogBookPrint.vue'),
+  //   LogBookQrLabel — QR sticker(s) for the equipment / station, one per book
+  //     (?ids=a,b,c bulk | ?id= single, ?size=a4|4x2, ?copies=N)
+  LogBookQrLabel: () => import('./LogBookQrLabelPrint.vue'),
   // Audit report — header + conformance score + requirement results + findings.
   AuditInstance: () => import('./AuditInstancePrint.vue'),
   // Training Matrix report — employee × training with roles/status/type, filtered.
