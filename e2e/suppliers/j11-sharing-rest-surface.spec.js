@@ -14,10 +14,18 @@
 // `false` by default: on this path RLS does not run at all. Whatever the
 // controller checks IS the check. Nothing in the repository has ever tested it.
 //
-// What the controller checks is uneven, and the two halves of this spec are that
-// unevenness. CREATE calls `assertCanShareEntity` — entity must exist in the
+// What the controller checked was uneven, and the two halves of this spec were
+// that unevenness. CREATE calls `assertCanShareEntity` — entity must exist in the
 // caller's company AND the caller must hold the matching per-type `:update`
-// grant. READ and both REVOKE routes filter on `companyId` and nothing else.
+// grant. READ and both REVOKE routes filtered on `companyId` and nothing else.
+//
+// FIXED 2026-09-07 (PERM-R6). All four routes now run `assertCanShareEntity`:
+// `listShares` requires entityType + entityId (there is no longer a query that
+// means "every share in the tenant") and authorizes that entity; `revokeShare`
+// re-reads the share's OWN entity rather than trusting anything the caller
+// supplied; `revokeShareByEntityUser` authorizes the body's entity. The four
+// tests that recorded the gap have been INVERTED, as their own comments
+// instructed — they are the regression guard now, not the bug report.
 //
 // The entity→permission map is also the interesting counterpart to the RLS flat
 // OR. The `shared_with_user` INSERT policy ORs four grants together and never
@@ -149,7 +157,7 @@ test.describe('SUP-J11b · read and revoke carry no permission check', () => {
     expect(liveShare(doc.id), 'and nothing was written').toBe(0)
   })
 
-  test('KNOWN GAP · …but the same member CAN revoke someone else’s share by id', async ({
+  test('CONTROL · nor can the same member revoke someone else’s share by id', async ({
     request,
   }) => {
     const doc = seedDocument({ title: 'E2E SUP-J11 Revoke By Id' })
@@ -160,16 +168,15 @@ test.describe('SUP-J11b · read and revoke carry no permission check', () => {
 
     const res = await request.delete(`${SHARING}/${shareId}`, { failOnStatusCode: false })
 
-    // `revokeShare` looks the row up by { id, companyId } and destroys it. There
-    // is no assertCanShareEntity, no loadUserPermissions, no owner check — and
-    // with REST_RLS_ENABLED=false the DELETE/UPDATE policies never run. Granting
-    // is an authority; withdrawing one is not. When that is fixed this becomes
-    // 403 and the expectations below INVERT — do not delete them.
-    expect(res.status(), 'revoke by id is accepted from a zero-grant caller').toBeLessThan(300)
-    expect(liveShare(doc.id), 'the supplier has lost access, decided by nobody').toBe(0)
+    // INVERTED 2026-09-07 (PERM-R6), as this test's previous comment instructed.
+    // `revokeShare` now re-reads the share's OWN entityType/entityId and runs the
+    // same assertCanShareEntity that createShare has always run, so withdrawing a
+    // grant needs the authority that conferring one needs.
+    expect(res.status(), 'revoke by id is refused for a zero-grant caller').toBe(403)
+    expect(liveShare(doc.id), 'and the supplier keeps the access nobody revoked').toBe(1)
   })
 
-  test('KNOWN GAP · …and by (entity, user), which is the path the UI uses', async ({ request }) => {
+  test('CONTROL · …nor by (entity, user), which is the path the UI uses', async ({ request }) => {
     const doc = seedDocument({ title: 'E2E SUP-J11 Revoke By Entity' })
     created.documentIds.push(doc.id)
     created.shareIds.push(shareDocument(doc.id))
@@ -179,30 +186,33 @@ test.describe('SUP-J11b · read and revoke carry no permission check', () => {
       data: { entityType: 'Document', entityId: doc.id, userId: SUPPLIER_USER.id },
       failOnStatusCode: false,
     })
-    expect(res.status(), 'the convenience route is gated no differently').toBeLessThan(300)
-    expect(liveShare(doc.id), 'same outcome, one fewer round trip').toBe(0)
+    expect(res.status(), 'the convenience route is gated identically').toBe(403)
+    expect(liveShare(doc.id), 'same outcome: the grant stands').toBe(1)
   })
 
-  test('KNOWN GAP · …and can enumerate every grant in the tenant (F-05 over REST)', async ({
+  test('CONTROL · …and cannot enumerate the tenant’s grants (F-05 over REST)', async ({
     request,
   }) => {
     const doc = seedDocument({ title: 'E2E SUP-J11 Enumeration Probe' })
     created.documentIds.push(doc.id)
     created.shareIds.push(shareDocument(doc.id))
 
-    const res = await request.get(SHARING, { failOnStatusCode: false })
-    expect(res.status(), 'listShares has no permission gate either').toBe(200)
+    // INVERTED 2026-09-07 (PERM-R6). Two halves, because the fix has two parts.
+    //
+    // (1) The unscoped call — which used to return `where { companyId }`, i.e.
+    //     every share in the tenant joined to the recipient's and grantor's
+    //     names and emails — is now refused outright: entityType and entityId
+    //     are required, so there is no query that means "all of them".
+    const bare = await request.get(SHARING, { failOnStatusCode: false })
+    expect(bare.status(), 'listShares refuses an unscoped enumeration').toBe(400)
 
-    const body = await res.json()
-    const shares = body.shares ?? body.data?.shares ?? []
-    const mine = shares.filter((s) => s.entityId === doc.id)
-    // The company-wide `shared_with_user` SELECT policy (F-05) has a REST twin
-    // that RLS could not close even if the policy were narrowed, because on this
-    // path the policy does not run. The list also joins `users`, so it names the
-    // recipient — who holds what, for the whole tenant, to a caller holding
-    // nothing.
-    expect(mine.length, 'a grant this caller has no relationship to is listed').toBe(1)
-    expect(mine[0].user?.email, 'and the recipient is named').toBe(SUPPLIER_USER.email)
+    // (2) Scoped to a specific entity, it is authorized like every other read of
+    //     that entity's sharing — the same check createShare runs.
+    const scoped = await request.get(
+      `${SHARING}?entityType=Document&entityId=${doc.id}`,
+      { failOnStatusCode: false },
+    )
+    expect(scoped.status(), 'and a zero-grant caller cannot read even one entity').toBe(403)
   })
 })
 
@@ -218,7 +228,7 @@ test.describe('SUP-J11c · the same routes, called by the external party', () =>
   const created = { documentIds: [], shareIds: [] }
   test.afterAll(() => cleanup(created))
 
-  test('KNOWN GAP · a supplier enumerates the tenant’s grants, and can revoke another’s', async () => {
+  test('CONTROL · a supplier can neither enumerate the tenant’s grants nor revoke one', async () => {
     const doc = seedDocument({ title: 'E2E SUP-J11 External Caller Probe' })
     created.documentIds.push(doc.id)
     const shareId = shareDocument(doc.id)
@@ -226,21 +236,20 @@ test.describe('SUP-J11c · the same routes, called by the external party', () =>
 
     const ctx = await portalContext()
     try {
+      // INVERTED 2026-09-07 (PERM-R6). The external party is the reason this
+      // mattered most: an EXTERNAL_SUPPLIER session is FULL-scoped, so it reaches
+      // these routes as an ordinary member. It now meets the same two refusals.
       const list = await ctx.get(SHARING, { failOnStatusCode: false })
-      expect(list.status(), 'the external party reaches the sharing route at all').toBe(200)
+      expect(list.status(), 'the external party cannot enumerate at all').toBe(400)
 
-      const body = await list.json()
-      const shares = body.shares ?? body.data?.shares ?? []
-      expect(
-        shares.length,
-        'and reads the tenant-wide grant list — recipients, grantors, entity ids',
-      ).toBeGreaterThan(0)
+      const scoped = await ctx.get(`${SHARING}?entityType=Document&entityId=${doc.id}`, {
+        failOnStatusCode: false,
+      })
+      expect(scoped.status(), 'nor read one entity’s grants').toBe(403)
 
       const revoke = await ctx.delete(`${SHARING}/${shareId}`, { failOnStatusCode: false })
-      expect(revoke.status(), 'and withdraws a grant, holding no permission at all').toBeLessThan(
-        300,
-      )
-      expect(liveShare(doc.id), 'the grant is gone').toBe(0)
+      expect(revoke.status(), 'nor withdraw a grant it has no authority over').toBe(403)
+      expect(liveShare(doc.id), 'the grant stands').toBe(1)
     } finally {
       await ctx.dispose()
     }

@@ -25,7 +25,7 @@ const breadcrumbItems = computed(() => {
   const items = [
     { label: 'Form Templates', to: getCompanyPath('/templates') },
     {
-      label: template.value?.title || 'Template Details',
+      label: template.value?.title || (template.value === null ? 'Not found' : 'Template Details'),
       to: mode.value !== 'details' ? getCompanyPath(`/templates/${props.id}`) : undefined,
     },
   ]

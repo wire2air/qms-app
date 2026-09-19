@@ -47,6 +47,16 @@ export const permissionsChanged = ref(false)
 // `RoleOnUser` covers who holds a role. `RoleModulePermission` covers the grants
 // themselves — which module, which action, at which scope.
 //
+// `Team`, `UserOnTeam` and `RoleOnTeam` cover the SECOND path into the same
+// authorization engine (docs/modules/groups-teams F-06): `authz.has_permission`
+// resolves a role through `roles_on_users` OR through
+// `users_on_teams` JOIN `roles_on_teams`, so being added to (or removed from) a
+// team, or a team gaining or losing a role, changes someone's effective
+// permissions exactly as directly assigning or revoking a role does. All three
+// are real `@ClientModel`s with an audit trigger on `public` (models/team.js,
+// userOnTeam.js, roleOnTeam.js), so — unlike `RoleModulePermission` below —
+// they need no signal shim; the ordinary sync broadcast already fires for them.
+//
 // That third one is not a model and there is no such table on the client. It is
 // a SIGNAL (F-03). The grants live in `authz.role_module_permissions`, which can
 // never produce an ordinary sync event, for three independent reasons:
@@ -75,7 +85,14 @@ export const permissionsChanged = ref(false)
 // started with were retired models, and nothing noticed for months, because a
 // syncBus subscription to a name nobody emits is silent — it does not throw, it
 // just never fires.
-export const PERMISSION_MODELS = ['Role', 'RoleOnUser', 'RoleModulePermission']
+export const PERMISSION_MODELS = [
+  'Role',
+  'RoleOnUser',
+  'RoleModulePermission',
+  'Team',
+  'UserOnTeam',
+  'RoleOnTeam',
+]
 
 const REFRESH_DEBOUNCE_MS = 400
 

@@ -68,6 +68,24 @@ const scoredCount = computed(
   () => (manifest.value?.modules ?? []).filter((m) => m.score != null).length,
 )
 
+// Portfolio roll-up, computed server-side (internalDocsService.buildPortfolio).
+// Falls back to null so the header simply renders nothing on an older manifest
+// rather than showing a half-built stat.
+const portfolio = computed(() => manifest.value?.portfolio ?? null)
+
+// The denominator is shown next to the average, always. "76% across 35 of 38
+// packs" and "76%" are different claims, and the second one invites the reader
+// to assume the three unassessed modules are covered.
+const portfolioSummary = computed(() => {
+  const p = portfolio.value
+  if (!p || p.averageScore == null) return null
+  const covered =
+    p.scoredCount === p.moduleCount
+      ? `all ${p.moduleCount} packs`
+      : `${p.scoredCount} of ${p.moduleCount} packs`
+  return { average: p.averageScore, covered, unscored: p.unscored ?? [], bands: p.bands }
+})
+
 const flatByCategory = computed(() => {
   const groups = new Map()
   for (const d of manifest.value?.platformDocs ?? []) {
@@ -148,6 +166,35 @@ function docSubtitle(doc) {
 
     <!-- Module packs -->
     <PageSection title="Module Packs" :icon="IconBook">
+      <!--
+        Portfolio average. The denominator sits next to it deliberately: an
+        average over 35 of 38 packs is not "the portfolio", and the three that
+        carry no score are named rather than hidden — two of them decline a
+        score on principle, which is a fact about the estate worth surfacing.
+      -->
+      <div
+        v-if="portfolioSummary"
+        class="tw:mb-4 tw:flex tw:flex-wrap tw:items-baseline tw:gap-x-3 tw:gap-y-1"
+      >
+        <span class="tw:text-2xl tw:font-semibold">{{ portfolioSummary.average }}%</span>
+        <span class="tw:text-sm tw:text-secondary">
+          average readiness across {{ portfolioSummary.covered }}
+        </span>
+        <span class="tw:text-caption tw:text-secondary">
+          · {{ portfolioSummary.bands.strong }} at 80+
+          · {{ portfolioSummary.bands.conditional }} at 70–79
+          · {{ portfolioSummary.bands.weak }} under 70
+        </span>
+        <span
+          v-if="portfolioSummary.unscored.length"
+          class="tw:text-caption tw:text-secondary tw:basis-full"
+          :title="portfolioSummary.unscored.join(', ')"
+        >
+          Not included — no readiness score computed:
+          {{ portfolioSummary.unscored.join(', ') }}
+        </span>
+      </div>
+
       <template #actions>
         <div
           role="group"

@@ -17,6 +17,7 @@ import { IconSend, IconTrash, IconEye, IconClock, IconRobot } from '@tabler/icon
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { isAllowedOnRecord } from '@/utils/currentSession.js'
+import { shareLinkStatus, SHARE_LINK_STATUSES } from '@/utils/shareLinkStatus.js'
 
 const props = defineProps({
   /** Share entity type, e.g. 'Nonconformance'. */
@@ -61,8 +62,9 @@ const links = useLiveQueryWithDeps(
 const liveLinks = computed(() => (links.value || []).filter((l) => !l.revokedAt))
 const revokedLinks = computed(() => (links.value || []).filter((l) => l.revokedAt))
 
+/** One derivation for every surface — see utils/shareLinkStatus.js. */
 function isExpired(link) {
-  return new Date(link.expiresAt) <= new Date()
+  return shareLinkStatus(link) === SHARE_LINK_STATUSES.EXPIRED
 }
 
 /**
@@ -113,14 +115,28 @@ async function share() {
     if (data.invalid?.length) {
       toast.error(`Not a valid email address: ${data.invalid.join(', ')}`)
     }
+  } catch {
+    // The request wrapper has already shown the server's reason (showError);
+    // swallowing here keeps a 403 from surfacing as an unhandled rejection.
+    // The typed addresses stay in the box so they can be corrected.
   } finally {
     sending.value = false
   }
 }
 
+const revoking = ref(null) // id of the link being withdrawn
+
 async function revoke(link) {
-  await post(`/v1/services/recordShareLinks/${link.id}/revoke`, {}, { showError: true })
-  toast.success(`Access withdrawn for ${link.email}.`)
+  if (revoking.value) return
+  revoking.value = link.id
+  try {
+    await post(`/v1/services/recordShareLinks/${link.id}/revoke`, {}, { showError: true })
+    toast.success(`Access withdrawn for ${link.email}.`)
+  } catch {
+    // Reason already shown; the link stays listed because it is still live.
+  } finally {
+    revoking.value = null
+  }
 }
 </script>
 
@@ -166,8 +182,9 @@ async function revoke(link) {
           <button
             v-if="canShare"
             type="button"
-            class="tw:text-secondary hover:tw:text-red-600"
+            class="tw:text-secondary tw:hover:text-red-600"
             :aria-label="`Withdraw access for ${link.email}`"
+            :disabled="revoking === link.id"
             @click="revoke(link)"
           >
             <IconTrash :size="14" />

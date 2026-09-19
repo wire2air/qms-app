@@ -137,11 +137,6 @@ const createDepartment = useLiveMutation(async (db, data) => {
   return d
 })
 
-const getDisplayOrder = useLiveMutation(async (db) => {
-  const lastItem = await db.Department.where().orderBy('displayOrder', 'desc').first()
-  return (lastItem?.displayOrder || 0) + 1000
-})
-
 async function onSubmit() {
   if (isSubmitting.value) return
   isSubmitting.value = true
@@ -154,7 +149,6 @@ async function onSubmit() {
         siteId: form.value.siteId,
         description: form.value.description,
         supervisorUserId: form.value.supervisorUserId || null,
-        displayOrder: await getDisplayOrder(),
       })
       // Undefined means the save failed (useLiveMutation already toasted the
       // error). Keep the dialog open so the user can correct and retry.
@@ -217,9 +211,13 @@ async function onSubmit() {
       >
         <template #default="field">
           <div class="tw:relative">
+            <!-- maxlength matches departments.code — varchar(10). Same gap that
+                 let a too-long supplier code through to an opaque INSERT
+                 failure. -->
             <BaseTextInput
               v-bind="field"
               v-model="form.code"
+              :maxlength="10"
               placeholder="e.g. QA"
               :disabled="isEdit"
             />

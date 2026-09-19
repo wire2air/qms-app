@@ -294,6 +294,66 @@ export const USERS = {
     email: 'logadmin@e2e.test',
     name: 'Lena LogAdmin',
   },
+  // §39 — api_integrations CRUD, and document_control:READ only. The narrowness
+  // is load-bearing: assertNoPrivilegeEscalation refuses to grant a service
+  // account any permission the creator lacks, so this persona can be offered the
+  // E2E Author role (create/update) and must be refused, while E2E Reviewer
+  // (read alone) must be accepted. A persona holding everything could not test
+  // the guard at all.
+  intAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000073',
+    email: 'intadmin@e2e.test',
+    name: 'Ingrid Integrations',
+  },
+  // §40 (Auditee) — an invited participant on a certification audit. Holds NO
+  // role at all: `audit_instances_sel` admits them only through the
+  // audit_team_members branch, which is the population /auditee exists for.
+  // Any grant here would make every assertion about them pass for the wrong
+  // reason. Fixture ids live in e2e/fixtures/auditee.js.
+  auditeePeer: {
+    id: 'e2e10000-0000-4000-8000-000000000900',
+    email: 'auditeepeer@e2e.test',
+    name: 'Pia Participant',
+  },
+  // §45 (Complaints) — two SEPARATE authz modules: `complaints` (internal
+  // Quality Complaints) and `complaint_management` (Customer Complaints /
+  // support). No existing cast member held either before this.
+  // complaints:create/read/update/close/delete at TENANT scope — the QA
+  // owner who drives J1 (CRUD lifecycle) and J2 (status transitions).
+  complaintOwner: {
+    id: 'e2e10000-0000-4000-8000-000000000990',
+    email: 'complaintowner@e2e.test',
+    name: 'Connie ComplaintOwner',
+  },
+  // complaints:read/update at SITE scope (Primary Site) and NOTHING else.
+  // J4's positive-scope persona: sees a Primary-Site complaint they don't
+  // own, shut out of the Secondary-Site one — proves the SITE tier (fixed
+  // 2026-08-11, security-review §5) is actually enforced.
+  complaintSiteUser: {
+    id: 'e2e10000-0000-4000-8000-000000000991',
+    email: 'complaintsiteuser@e2e.test',
+    name: 'Sean SiteComplaint',
+  },
+  // complaint_management:create/read/update at TENANT scope — drives J3
+  // (Customer Complaint lifecycle: create → accept/assign → close).
+  supportAgent: {
+    id: 'e2e10000-0000-4000-8000-000000000992',
+    email: 'supportagent@e2e.test',
+    name: 'Priya SupportAgent',
+  },
+  // §46 (RCA) — rca_templates:create/read/update/delete + the SINGLE
+  // root_cause_categories:manage action (the module's whole permission
+  // surface). No existing cast member held either before this: `/rca-templates`
+  // itself carries no route guard at all (it's a template/reference route,
+  // tenant-public reads by design — see permissionGuard.js's ADMIN_PERMISSIONS
+  // comment), so `noAccess` reaches the PAGE same as anyone; this persona is
+  // what proves the WRITE controls actually require the grant. No e-sign PIN —
+  // this persona never signs anything.
+  rcaAdmin: {
+    id: 'e2e10000-0000-4000-8000-00000000000c',
+    email: 'rcaadmin@e2e.test',
+    name: 'Rhoda RcaAdmin',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -344,6 +404,7 @@ export const ALT_USERS = {
 
 // storageState files written by auth.setup.js, consumed via test.use().
 export const AUTH = {
+  intAdmin: 'e2e/.auth/intAdmin.json',
   owner: 'e2e/.auth/owner.json',
   author: 'e2e/.auth/author.json',
   reviewer: 'e2e/.auth/reviewer.json',
@@ -376,7 +437,12 @@ export const AUTH = {
   logOperator: 'e2e/.auth/logOperator.json',
   logSupervisor: 'e2e/.auth/logSupervisor.json',
   logAdmin: 'e2e/.auth/logAdmin.json',
+  auditeePeer: 'e2e/.auth/auditeePeer.json',
   altOwner: 'e2e/.auth/altOwner.json',
+  complaintOwner: 'e2e/.auth/complaintOwner.json',
+  complaintSiteUser: 'e2e/.auth/complaintSiteUser.json',
+  supportAgent: 'e2e/.auth/supportAgent.json',
+  rcaAdmin: 'e2e/.auth/rcaAdmin.json',
 }
 
 // Quality Events fixtures seeded by e2e-seed.sql §28.
@@ -773,4 +839,221 @@ export const ANALYTICS = {
   // the premise for "not found" states, which must be distinguishable from a
   // crash and from a private record leaking its existence.
   ABSENT_ID: 'e2eaffff-0000-4000-8000-0000000000ff',
+}
+
+// Equipment / calibration programme fixtures (e2e-seed.sql §36) — the
+// `equipment` Playwright project.
+//
+// The module mints NO persona of its own. The split it needs already exists in
+// the QC cast: `qcAuthor` owns the register (create + update + DELETE) and
+// `qcInspector` holds calibration_equipment:update and DELIBERATELY NOT delete.
+// That second persona is E1's — until 2026-09-07 the REST DELETE route asked
+// for `update`, so an inspector could tombstone an instrument the UI told them
+// they could not touch. Every probe in EQ-J3 is about that absence, so do not
+// widen the inspector's grants; §36 even ends with a DELETE that strips a
+// stray `calibration_equipment:delete` back off, because ON CONFLICT DO NOTHING
+// could never take one back.
+export const EQUIPMENT = {
+  // Register owner (create/update/delete) and the actor for every calibration
+  // and PM event these journeys record.
+  admin: { auth: AUTH.qcAuthor, user: USERS.qcAuthor },
+  // update-but-not-delete — the escalation persona.
+  technician: { auth: AUTH.qcInspector, user: USERS.qcInspector },
+  // Holds nothing on calibration_equipment. Reads the register anyway, because
+  // `equipment_sel` is a bare company_id match and calibration_equipment has NO
+  // `read` action in authz.module_actions (migration 20260810170000 dropped it).
+  reader: { auth: AUTH.noAccess, user: USERS.noAccess },
+
+  // Instruments. Dates are seeded RELATIVE to NOW(), so no absolute date
+  // appears here — a journey that needs one reads it out of the database.
+  calDue: {
+    id: 'e2eb0000-0000-4000-8000-000000000001',
+    code: 'E2E-CAL-DUE',
+    name: 'E2E Vernier Calipers (cal due)',
+    intervalMonths: 6,
+  },
+  calExpired: {
+    id: 'e2eb0000-0000-4000-8000-000000000002',
+    code: 'E2E-CAL-EXPIRED',
+    name: 'E2E pH Meter (out of calibration)',
+    intervalMonths: 3,
+  },
+  notTracked: {
+    id: 'e2eb0000-0000-4000-8000-000000000003',
+    code: 'E2E-NO-CAL',
+    name: 'E2E Bench Scale (uncontrolled)',
+  },
+  pmDue: {
+    id: 'e2eb0000-0000-4000-8000-000000000004',
+    code: 'E2E-PM-DUE',
+    name: 'E2E Autoclave (PM overdue)',
+    intervalMonths: 3,
+  },
+  // Secondary Site / Operations department — the row a site- or
+  // department-scoped grant would exclude.
+  otherDept: {
+    id: 'e2eb0000-0000-4000-8000-000000000005',
+    code: 'E2E-OPS-FORK',
+    name: 'E2E Forklift (Operations)',
+    siteId: 'e2e51000-0000-4000-8000-000000000003',
+    departmentId: 'e2e7d000-0000-4000-8000-000000000003',
+  },
+  // EQ-J3's denial target. Never delete this row from a spec — the journey's
+  // closing assertion is that it is still there.
+  undeletable: {
+    id: 'e2eb0000-0000-4000-8000-000000000006',
+    code: 'E2E-UNDELETABLE',
+    name: 'E2E Reference Thermometer (delete probe)',
+  },
+  alt: {
+    id: 'e2eb0000-0000-4000-8000-000000000021',
+    code: 'E2EALT-THERMO',
+    name: 'E2EALT Thermometer',
+  },
+
+  // The QC calibration-gate fixture (§36c). Its own product/spec/plan/template
+  // so it cannot disturb §22c, which four qcInspection journeys are frozen
+  // against.
+  qcGate: {
+    product: { id: 'e2eb1000-0000-4000-8000-000000000001', name: 'E2E Buffer Solution' },
+    specification: { id: 'e2eb1000-0000-4000-8000-000000000002', code: 'E2E-SPEC-PH' },
+    // requires_instrument = true, preferred_equipment_id = calExpired.
+    characteristic: { id: 'e2eb1000-0000-4000-8000-000000000003', code: 'PH', name: 'pH at 25C' },
+    samplingPlan: { id: 'e2eb1000-0000-4000-8000-000000000004' },
+    template: { id: 'e2eb1000-0000-4000-8000-000000000005', name: 'E2E Buffer Incoming Inspection' },
+  },
+}
+
+// Risk Assessment fixtures (e2e-seed.sql §44) — the `riskAssessment`
+// Playwright project.
+//
+// No persona of its own. The module's RLS borrows capa|ncr|change_control's
+// permissions (risk_assessments has none of its own — 10-permission-matrix.md
+// PERM-02, `risk_management`, is seeded but bound to no table), and the
+// existing cast already has the exact shape those borrowed permissions need:
+// `reviewer` (capa:update, the step-1 assignee on the dedicated workflow
+// below) is the RLS UPDATE policy's ADMITTING persona, `auditor` (capa:read
+// only) is its REFUSING-but-still-visible persona (F-01's own regression
+// suite calls this "the vacuity lesson" — a zero-grant probe is filtered by
+// the SELECT policy first and proves nothing about UPDATE), and `noAccess`
+// (no capa grants at all) is that zero-grant control. `author` already holds
+// risk_assessment_templates:create/read/update/delete for the template-CRUD
+// journey (J5) — PERM-01, native + own-scope capable, already correct.
+export const RISK_ASSESSMENT = {
+  // The dedicated CAPA workflow (§44c) — NOT the shared "E2E CAPA Review &
+  // Approval" one, whose step 1 form_schema is deliberately `[]` so
+  // fixtures/capas.js#completeReviewerStep can Mark Complete with no dialog.
+  // Attaching a riskAssessment field to that shared step would turn every
+  // OTHER CAPA journey's reviewer step into a form-fill step.
+  workflowName: 'E2E Risk Assessment Review',
+  step1Name: 'Risk Review',
+  step2Name: 'Final Approval',
+  // The seeded 3x3 matrix (§44b) — deliberately smaller than the admin
+  // dialog's DEFAULT_CONFIG() 5x5 default so every cell is easy to name.
+  template: {
+    id: 'e2eba000-0000-4000-8000-000000000001',
+    name: 'E2E Risk Matrix',
+    likelihood: {
+      low: { id: 'e2eba010-0000-4000-8000-000000000001', label: 'Low' },
+      medium: { id: 'e2eba010-0000-4000-8000-000000000002', label: 'Medium' },
+      high: { id: 'e2eba010-0000-4000-8000-000000000003', label: 'High' },
+    },
+    severity: {
+      minor: { id: 'e2eba020-0000-4000-8000-000000000001', label: 'Minor' },
+      moderate: { id: 'e2eba020-0000-4000-8000-000000000002', label: 'Moderate' },
+      severe: { id: 'e2eba020-0000-4000-8000-000000000003', label: 'Severe' },
+    },
+    riskLevels: {
+      low: { id: 'e2eba030-0000-4000-8000-000000000001', label: 'Low' },
+      medium: { id: 'e2eba030-0000-4000-8000-000000000002', label: 'Medium' },
+      high: { id: 'e2eba030-0000-4000-8000-000000000003', label: 'High' },
+    },
+  },
+}
+
+// Complaints fixtures (e2e-seed.sql §45) — the `complaints` Playwright
+// project. Two separate tables/modules: `complaints` (internal Quality
+// Complaints, CMP- numbers) and `customerComplaints` (support tickets,
+// CC- numbers, module id `complaint_management`). J1/J2 mint their OWN
+// complaint via the UI and purge it in beforeAll/afterAll (equipment EQ-J1
+// pattern) — siteScoped/secondarySite below exist ONLY for J4's scope probe,
+// never mutate their status from a lifecycle spec.
+export const COMPLAINTS = {
+  // Primary-Site complaint, owned by complaintOwner — complaintSiteUser can
+  // reach it via the SITE-scope grant (not ownership).
+  siteScoped: {
+    id: 'e2e5e000-0000-4000-8000-000000000001',
+    complaintNumber: 'CMP-E2E-001',
+    subject: 'E2E Complaint — Primary Site (scope fixture)',
+  },
+  // Secondary-Site complaint, same owner — must stay invisible to
+  // complaintSiteUser (Primary-Site-only grant).
+  secondarySite: {
+    id: 'e2e5e000-0000-4000-8000-000000000002',
+    complaintNumber: 'CMP-E2E-002',
+    subject: 'E2E Complaint — Secondary Site (out of scope)',
+  },
+  // E2EALT tenant fixture — J5 (tenant isolation).
+  altTenant: {
+    id: 'e2e5e000-0000-4000-8000-0000000000a1',
+    complaintNumber: 'CMP-EALT-001',
+  },
+}
+
+// Customer Complaints (support ticket) fixtures (e2e-seed.sql §45d).
+export const CUSTOMER_COMPLAINTS = {
+  // OPEN, unassigned — "assigned to me" scope has something to admit/refuse.
+  unassigned: {
+    id: 'e2e5e100-0000-4000-8000-000000000001',
+    complaintNumber: 'CC-E2E-001',
+    subject: 'E2E Customer Complaint (assigned-to scope fixture)',
+  },
+}
+
+// RCA (Root Cause Analysis) fixtures (e2e-seed.sql §46) — the `rca`
+// Playwright project. Two surfaces: the admin screen at /rca-templates
+// (Templates CRUD + Categories admin) and a dedicated CAPA workflow ("E2E RCA
+// Review", mirrors the riskAssessment sibling's §44c pattern exactly and for
+// the identical reason — the shared "E2E CAPA Review & Approval" workflow's
+// step 1 form_schema is `[]`, and attaching a field to it would turn every
+// OTHER CAPA suite's reviewer step into a form-fill step) whose reviewer step
+// carries a real `rca`-type field bound to `template` below. The seeded
+// `rootCause` row below is a THIRD, separate fixture — written directly
+// (mirroring how rcaRaDerivationService.js itself writes, as the superuser,
+// outside RLS) so the RLS/immutability journeys have a stable target that
+// does not depend on a workflow run having happened first.
+export const RCA = {
+  workflowName: 'E2E RCA Review', // step1 ACTION (rca field) → Reviewer, step2 APPROVAL+e-sign → Approver
+  template: {
+    id: 'e2ec1000-0000-4000-8000-000000000001',
+    name: 'E2E RCA Template',
+  },
+  categories: {
+    people: { id: 'e2ec2000-0000-4000-8000-000000000001', code: 'PEOPLE', name: 'People' },
+    machine: { id: 'e2ec2000-0000-4000-8000-000000000002', code: 'MACHINE', name: 'Machine' },
+    method: { id: 'e2ec2000-0000-4000-8000-000000000003', code: 'METHOD', name: 'Method' },
+    // PW-J3's deactivate/restore subject — never referenced by a lifecycle
+    // journey that expects it to stay active.
+    deactivateTarget: {
+      id: 'e2ec2000-0000-4000-8000-000000000004',
+      code: 'E2E_DEACTIVATE_TARGET',
+      name: 'E2E Deactivate Target',
+    },
+  },
+  // The NC every root_causes fixture row hangs off. Its own row — not shared
+  // with any other suite's fixture — so a PW-J probe can never change what
+  // NCR/CAPA/analytics/recordSharing assert.
+  nonconformance: {
+    id: 'e2ec3000-0000-4000-8000-000000000001',
+    ncNumber: 'NC-RCA-001',
+  },
+  // The seeded root_causes row. PW-J2/PW-J4 probe rewrites/reads against this
+  // exact id — never delete or genuinely mutate it from a spec; the seed
+  // restores description + category on every apply, but a run that leaves a
+  // dangling transaction open mid-probe would still be a mess for the next.
+  rootCause: {
+    id: 'e2ec4000-0000-4000-8000-000000000001',
+    resourceType: 'Nonconformance',
+    description: 'Seeded primary root cause — operator not trained on updated work instruction.',
+  },
 }

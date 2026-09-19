@@ -187,10 +187,12 @@ describe('DataTable — toolbar features', () => {
     expect(w.find('tbody tr').text()).toContain('Alpha')
   })
 
-  it('renders a search-scope dropdown alongside the search box', () => {
-    const w = mount(DataTable, { props: { columns, rows, searchable: true, hidePagination: true } })
-    expect(w.findAll('button').some((b) => b.attributes('title') === 'Search in')).toBe(true)
-  })
+  // The search-scope dropdown was removed from the toolbar by
+  // `fix(documents): search the list by name, drop broken search scopes` (d61138d4).
+  // `TableSearchScope.vue` survives with its own green spec but has no importer —
+  // DataTable references it only in a commented-out block at the top of the file.
+  // The `searchScope` v-model still works (applySearch honours it); only the
+  // built-in trigger is gone, so there is no button here to assert.
 
   it('scopes the search to the selected columns', async () => {
     const data = [

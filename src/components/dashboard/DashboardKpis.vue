@@ -10,7 +10,9 @@ import { DateTime } from 'luxon'
 const openNcs = useLiveQuery(
   async (db) => {
     const rows = await db.Nonconformance.where().exec()
-    return rows.filter((n) => n.statusId !== 'CLOSED')
+    // Excludes CANCELLED too, not just CLOSED — see DashboardOpenNcs.vue's
+    // comment and docs/modules/dashboard's 2026-09-07 addendum (D-1).
+    return rows.filter((n) => !['CLOSED', 'CANCELLED'].includes(n.statusId))
   },
 
   { models: ['Nonconformance'], initial: [] },

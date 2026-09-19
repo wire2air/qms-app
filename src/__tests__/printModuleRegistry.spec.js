@@ -41,7 +41,11 @@ function collectLinkedModules() {
     // The registry and the shell name every module by definition; and this
     // spec quotes the failing name in its own docblock.
     if (file.includes(join('components', 'print'))) continue
-    if (file.endsWith('printModuleRegistry.spec.js')) continue
+    // Specs are not deep links. A component spec mounts its subject with
+    // whatever `module` prop the real caller passes (RecordShareCard.spec.js
+    // uses 'ncr' and 'deviation' — authz module keys, not print modules), and
+    // scanning them reports a broken print button that no user can reach.
+    if (/\.spec\.js$/.test(file)) continue
     const text = readFileSync(file, 'utf8')
     for (const re of LINK_PATTERNS) {
       for (const m of text.matchAll(re)) {

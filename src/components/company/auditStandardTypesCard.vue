@@ -34,7 +34,7 @@ const standardTypes = useLiveQuery(
 
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.AuditStandardType.where('id', undefined, { force: true }).exec()
+    const all = await db.AuditStandardType.where(undefined, undefined, { force: true }).exec()
     return all.filter((c) => c.deletedAt)
   },
 

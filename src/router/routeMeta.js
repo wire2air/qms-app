@@ -41,9 +41,24 @@ import {
 } from '@tabler/icons-vue'
 
 /** @type {Record<string, import('@shared/composables/routeMetaHelpers.js').RouteMetaEntry>} */
+// F-18 (2026-09-07): the `permission` keys that used to sit on these entries
+// were DEAD — the only consumers of ROUTE_META are useRouteMeta.js and
+// useNavigationCommands.js, and both read solely `title`, `icon` and `parent`
+// (via shared/composables/routeMetaHelpers.js). Nothing ever read
+// `meta.permission`, so they were a second, silently divergent copy of the
+// route→permission map that permissionGuard.js actually enforces from its own
+// hardcoded tables — and they HAD diverged (e.g. /inspections-logs was
+// `field_records:create` here vs an any-of over log_books / inspections /
+// field_records in permissionGuard.js:106).
+//
+// Deleted rather than wired in, deliberately. Wiring them would newly close
+// /auditee, /templates, /workflow-templates and /approval-flows, and some name
+// modules that are public_read = true — a route gate there would bounce users the
+// RLS policy admits, exactly the failure permissionGuard.js avoids. If a route
+// needs gating, add it to permissionGuard.js, the one place that is enforced.
 export const ROUTE_META = {
   // ── Quality records ──────────────────────────────────────────────
-  '/documents': { title: 'Documents', icon: IconFileText, permission: 'document_control:read' },
+  '/documents': { title: 'Documents', icon: IconFileText },
   '/documents/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Document',
     icon: IconFileText,
@@ -52,14 +67,13 @@ export const ROUTE_META = {
   '/nonconformances': {
     title: 'Nonconformances',
     icon: IconAlertCircle,
-    permission: 'ncr:read',
   },
   '/nonconformances/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Nonconformance',
     icon: IconAlertCircle,
     parent: '/nonconformances',
   },
-  '/capas': { title: 'CAPAs', icon: IconShield, permission: 'capa:read' },
+  '/capas': { title: 'CAPAs', icon: IconShield },
   '/capas/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'CAPA',
     icon: IconShield,
@@ -68,7 +82,6 @@ export const ROUTE_META = {
   '/customer-complaints': {
     title: 'Customer Complaints',
     icon: IconHeadset,
-    permission: 'complaint_management:read',
   },
   '/customer-complaints/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Complaint',
@@ -78,26 +91,23 @@ export const ROUTE_META = {
   '/change-requests': {
     title: 'Change Control',
     icon: IconReplace,
-    permission: 'change_control:read',
   },
   '/change-requests/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Change Request',
     icon: IconReplace,
     parent: '/change-requests',
   },
-  '/audits': { title: 'Audits', icon: IconClipboardCheck, permission: 'audit_management:read' },
+  '/audits': { title: 'Audits', icon: IconClipboardCheck },
   '/auditee': {
     title: 'Auditee',
     icon: IconBuildingBank,
-    permission: 'audit_management:read',
   },
-  '/records': { title: 'Records', icon: IconTable, permission: 'records:read' },
+  '/records': { title: 'Records', icon: IconTable },
 
   // ── Analytics ────────────────────────────────────────────────────
   '/analytics': {
     title: 'Analytics',
     icon: IconChartBar,
-    permission: 'reports_dashboards:read',
   },
   // The whole subtree carries the same gate. Editing a dashboard needs more
   // than `read`, but that is enforced by RLS on the row — a route guard cannot
@@ -106,12 +116,10 @@ export const ROUTE_META = {
   '/analytics/dashboards': {
     title: 'Dashboards',
     icon: IconLayoutDashboard,
-    permission: 'reports_dashboards:read',
   },
   '/analytics/reports': {
     title: 'Reports',
     icon: IconFileAnalytics,
-    permission: 'reports_dashboards:read',
   },
   // The report page carries `?tab=schedules`, which makes a delivery schedule
   // linkable — and a linkable page needs a title and a way back. Same `read`
@@ -122,12 +130,10 @@ export const ROUTE_META = {
     title: (_p, ctx) => ctx.recordTitle ?? 'Report',
     icon: IconFileAnalytics,
     parent: '/analytics/reports',
-    permission: 'reports_dashboards:read',
   },
   '/analytics/explore': {
     title: 'Data Explorer',
     icon: IconCompass,
-    permission: 'reports_dashboards:read',
   },
   // Same gate as the rest of the subtree. Deliberately `read` and not `manage`,
   // even though naming SOMEBODY ELSE as a recipient needs `manage`: that seam
@@ -138,7 +144,6 @@ export const ROUTE_META = {
   '/analytics/alerts': {
     title: 'Alerts',
     icon: IconBellRinging,
-    permission: 'reports_dashboards:read',
   },
   '/analytics/alerts/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Alert',
@@ -151,16 +156,14 @@ export const ROUTE_META = {
   '/inspections-logs': {
     title: 'Inspections & Logs',
     icon: IconClipboardList,
-    permission: 'field_records:create',
   },
   '/qc-inspection': {
     title: 'QC Inspection',
     icon: IconTestPipe,
-    permission: 'inspection_qc:read',
   },
 
   // ── Training ─────────────────────────────────────────────────────
-  '/trainings': { title: 'Training Library', icon: IconSchool, permission: 'training:read' },
+  '/trainings': { title: 'Training Library', icon: IconSchool },
   '/trainings/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Training',
     icon: IconSchool,
@@ -169,17 +172,14 @@ export const ROUTE_META = {
   '/training-instances': {
     title: 'Training Matrix',
     icon: IconSchool,
-    permission: 'training_instances:read',
   },
   '/training-curriculum': {
     title: 'Training Curriculum',
     icon: IconSchool,
-    permission: 'training:read',
   },
   '/training-reports': {
     title: 'Matrix Report',
     icon: IconSchool,
-    permission: 'training_instances:read',
   },
 
   // ── Admin / settings ─────────────────────────────────────────────
@@ -187,37 +187,32 @@ export const ROUTE_META = {
   '/organization-security': {
     title: 'Organization Security',
     icon: IconShield,
-    permission: 'security:manage',
     parent: '/settings',
   },
   '/admin-security': {
     title: 'Security Center',
     icon: IconShield,
-    permission: 'security:manage',
     parent: '/settings',
   },
   '/vendor-access-log': {
     title: 'Vendor Access',
     icon: IconShield,
-    permission: 'security:manage',
     parent: '/settings',
   },
-  '/audit-logs': { title: 'Audit Logs', icon: IconShieldCheck, permission: 'audit_trail:read' },
-  '/settings': { title: 'Settings', icon: IconSettings, permission: 'company_settings:manage' },
+  '/audit-logs': { title: 'Audit Logs', icon: IconShieldCheck },
+  '/settings': { title: 'Settings', icon: IconSettings },
   '/notification-rules': {
     title: 'Notification Settings',
     icon: IconBell,
-    permission: 'company_settings:manage',
     parent: '/settings',
   },
-  '/templates': { title: 'Form Templates', icon: IconForms, permission: 'forms_templates:read' },
+  '/templates': { title: 'Form Templates', icon: IconForms },
   // Serves the merged Templates list (workflow templates for record modules +
   // document templates). The path stayed /workflow-templates so existing deep
   // links and the :id editor below keep working.
   '/workflow-templates': {
     title: 'Templates',
     icon: IconTemplate,
-    permission: 'workflows_templates:read',
   },
   '/workflow-templates/:id': {
     title: (_p, ctx) => ctx.recordTitle ?? 'Workflow',
@@ -227,7 +222,6 @@ export const ROUTE_META = {
   '/approval-flows': {
     title: 'Approval Flows',
     icon: IconArrowsShuffle,
-    permission: 'workflows_templates:read',
   },
   // Same editor as /workflow-templates/:id, mounted here so the sidebar keeps
   // Approval Flows highlighted while you're inside one.

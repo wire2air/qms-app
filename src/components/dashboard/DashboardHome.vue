@@ -4,9 +4,17 @@
  * widgets show via the Customize dialog AND drag panels to reorder them; both
  * the selection and the order are persisted on users.settings.dashboardWidgets
  * (§39, an ordered array of enabled ids), so it follows the user across devices.
+ *
+ * The grid reorders by drag OR by keyboard, both through useListReorder. The
+ * move onto that composable initially dropped `ghostClass: 'dashboard-ghost'`
+ * — the composable built its Sortable options from a fixed list and silently
+ * ignored the rest — so the 40%-opacity drop placeholder disappeared. Rather
+ * than accept that as the price of keyboard access, the composable now forwards
+ * ghostClass, which is a two-line passthrough and the same shape of omission it
+ * already documents for `onEnd`. A cosmetic option going missing without a word
+ * is how the NEXT consumer loses something that matters.
  */
 import { IconAdjustmentsHorizontal, IconLayoutDashboard } from '@tabler/icons-vue'
-import { useSortable, moveArrayElement } from '@vueuse/integrations/useSortable'
 import { currentSession, isAllowed } from '@/utils/currentSession'
 import { useUserSettings } from '@/composables/useUserSettings'
 import DashboardMyTasks from './DashboardMyTasks.vue'
@@ -54,6 +62,7 @@ const GRID_COMPONENTS = {
 }
 const GRID_IDS = Object.keys(GRID_COMPONENTS)
 
+const toast = useToast()
 const { getSetting, setSetting } = useUserSettings()
 
 const enabledIds = computed(() => {
@@ -83,21 +92,42 @@ watch(
   { immediate: true },
 )
 
-// Drag-to-reorder via the header grip (.drag-handle). moveArrayElement resets
-// the DOM and updates gridOrder on the NEXT tick, so we compute the resulting
-// order synchronously here and persist that (persisting gridOrder directly
-// would save the stale, pre-move order).
+// Reorder via the header grip, by drag OR by keyboard — the house composable
+// owns both, plus the live-region announcement. Replaced a raw `useSortable` on
+// 2026-09-17: the grip it drove was an `aria-hidden` <span>, so the order this
+// PERSISTS was mouse-only (WCAG 2.1.1). See DashboardWidgetCard's header.
+//
+// The old handler moved the array twice — `moveArrayElement` updates gridOrder
+// only on the next tick, so it recomputed the same splice by hand to get an
+// order worth saving. useListReorder splices the array the getter returns
+// SYNCHRONOUSLY, in one place, before it calls onEnd; by then gridOrder.value
+// already holds the new order and persistOrder's default argument is correct.
+// That is also what makes the keyboard path persist for free — it runs the same
+// moveItem + onEnd pair, and there is no drag event to read indices off.
 const gridRef = ref(null)
-useSortable(gridRef, gridOrder, {
-  handle: '.drag-handle',
-  animation: 150,
+
+/** What a widget is CALLED — the same label its card shows in its header. */
+function widgetLabel(id) {
+  return WIDGETS.find((w) => w.id === id)?.label || id
+}
+
+useListReorder(gridRef, () => gridOrder.value, {
+  handle: '[data-drag-handle]',
   ghostClass: 'dashboard-ghost',
-  onUpdate(e) {
-    moveArrayElement(gridOrder, e.oldIndex, e.newIndex, e)
-    const next = [...gridOrder.value]
-    const [moved] = next.splice(e.oldIndex, 1)
-    next.splice(e.newIndex, 0, moved)
-    persistOrder(next)
+  // Named rather than generic: the grid can hold seven panels, and "Moved to
+  // position 2 of 6" leaves a screen-reader user to work out which one moved.
+  announce: (id, to, total) => `${widgetLabel(id)} moved to position ${to + 1} of ${total}.`,
+  // Awaited and caught, unlike the drag-only handler this replaced, which let
+  // the save promise float. A rejected save used to be invisible-but-harmless:
+  // the panels stayed where they were dropped and the order silently reverted
+  // on reload. Now that the keyboard path persists through here too, a listener
+  // who has just been TOLD the panel moved deserves to hear if it did not stick.
+  async onEnd() {
+    try {
+      await persistOrder()
+    } catch (err) {
+      toast.error(err?.message || 'Could not save the new dashboard order')
+    }
   },
 })
 
@@ -128,7 +158,13 @@ async function saveEnabled(ids) {
     <!-- KPI row (full width) -->
     <DashboardKpis v-if="kpisOn" />
 
-    <!-- Reorderable widget grid (drag a panel by its header grip) -->
+    <!-- Reorderable widget grid: drag a panel by its header grip, or focus the
+         grip and use the arrow keys. `:key` is the widget ID, not the loop
+         index — an index key would keep each DOM node in place and rewrite its
+         contents, so a moved panel's grip would stay focused on whatever now
+         sits at that position and a run of ↑ presses would walk a different
+         widget each time. IDs come from GRID_COMPONENTS' keys and enabledIds
+         is filtered against them, so they are unique by construction. -->
     <div
       ref="gridRef"
       class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:xl:grid-cols-3 tw:gap-4 tw:items-start"
@@ -154,6 +190,8 @@ async function saveEnabled(ids) {
 </template>
 
 <style scoped>
+/* The drop placeholder while a panel is being dragged. `:deep` because the
+   class lands on a child component's root, which scoped styles cannot reach. */
 :deep(.dashboard-ghost) {
   opacity: 0.4;
 }

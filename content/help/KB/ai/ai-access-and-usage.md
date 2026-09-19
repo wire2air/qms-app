@@ -82,5 +82,5 @@ ever exposed.
 - [AI Assistant](./ai-assistant.md) — the in-product AI features themselves.
 - [Roles & Permissions](../administration/roles-and-permissions.md) — granting the AI
   permission.
-- [API Keys](../administration/api-keys.md) — machine-to-machine keys for non-AI
-  integrations.
+- [Service Accounts](../administration/service-accounts.md) — machine identities and
+  their API keys, for non-AI integrations.

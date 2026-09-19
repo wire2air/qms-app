@@ -59,7 +59,9 @@ const RULES = [
     // print modules (Capa/NC/CR/Audit/Complaint/InspectionLot/ModuleRecord),
     // whose <h1-6> are deliberate print-stylesheet semantics (recordPrint.css
     // targets them) — those may stay; the rest is tracked debt to sweep.
-    baseline: 151,
+    // 151 → 146 (2026-09-09): retiring the personal API-keys screen deleted
+    // five raw headings. Locked in so the ground gained is not quietly reused.
+    baseline: 146,
     hint: 'raw <h1-6> — use BaseHeading (semantic level + visual size)',
   },
 ]

@@ -274,6 +274,100 @@ watch(
   { immediate: true },
 )
 
+// ── Keyboard reorder (WCAG 2.1.1) ───────────────────────────────────────────
+// Same defect, same fix as FormCanvas.vue — see the long note there. The grip
+// below is a real <button> whose only handler was `@click.stop`, so it took
+// focus, announced itself as an action, and did nothing.
+//
+// This MIRRORS `src/composables/useListReorder.js` (onKeydown / moveItem /
+// refocus / live region) rather than importing it: that composable has no
+// `group`/`onAdd`/ghost-class support, and the nested dropzone below needs all
+// of it for cross-container drags.
+//
+// SCOPE: within-container only. This handler reorders a layout field's OWN
+// children; moving a field out of this container to another by keyboard is
+// deliberately not implemented (a feature, not the accessibility fix). Mouse
+// drag remains the only cross-container path.
+
+const KEY_STEP = { ArrowUp: -1, ArrowDown: 1, Home: 'first', End: 'last' }
+
+let liveRegionEl = null
+function liveRegion() {
+  if (liveRegionEl) return liveRegionEl
+  liveRegionEl = document.createElement('div')
+  liveRegionEl.setAttribute('aria-live', 'polite')
+  liveRegionEl.setAttribute('aria-atomic', 'true')
+  // Inline styles: this node lives on <body>, outside scoped styles.
+  liveRegionEl.style.cssText =
+    'position:absolute;width:1px;height:1px;margin:-1px;padding:0;' +
+    'overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;'
+  document.body.appendChild(liveRegionEl)
+  return liveRegionEl
+}
+
+function fieldLabel(f) {
+  return f?.label || f?.name || f?.type || 'Field'
+}
+
+// The card's own accessible name, used for the grip's label so the control
+// says WHICH field it moves.
+const ownLabel = computed(() => fieldLabel(props.field))
+
+function onChildrenKeydown(e) {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+  const step = KEY_STEP[e.key]
+  if (step === undefined) return
+  if (!e.target?.closest?.('.drag-handle')) return
+
+  const container = childrenDropzoneRef.value
+  if (!container) return
+
+  // The REAL nested array — the same object `children` (computed) exposes and
+  // the same one the nested useSortable above was handed, so mouse and
+  // keyboard mutate one array. Resolved off `props.field` directly rather than
+  // through the computed so it is unambiguously the mutable source.
+  const list = props.field.children || props.field.template
+  if (!Array.isArray(list) || list.length < 2) return
+
+  const items = Array.from(container.children)
+  const item = items.find((el) => el.contains(e.target))
+  if (!item) return
+
+  const from = items.indexOf(item)
+  if (from < 0 || from >= list.length) return
+  const to = step === 'first' ? 0 : step === 'last' ? list.length - 1 : from + step
+  if (to < 0 || to >= list.length) return
+
+  // This keydown started on a grip inside THIS container's own child card.
+  // Stop it so an ancestor card's handler doesn't act on the same press and
+  // move the wrong field (these components nest).
+  e.preventDefault()
+  e.stopPropagation()
+
+  const [moved] = list.splice(from, 1)
+  list.splice(to, 0, moved)
+
+  // Persistence: the host (FormBuilder / MiniFormBuilder) watches `schema`
+  // with `{ deep: true }` and emits `update:schema`. This splice mutates a
+  // nested array inside that same reactive tree, so it fires the identical
+  // save a mouse drag does — neither path emits anything of its own.
+  liveRegion().textContent = `${fieldLabel(moved)} moved to position ${to + 1} of ${list.length}.`
+  refocusGrip(to)
+}
+
+async function refocusGrip(index) {
+  await nextTick()
+  const container = childrenDropzoneRef.value
+  if (!container) return
+  const grip = Array.from(container.children)[index]?.querySelector('.drag-handle')
+  if (grip && typeof grip.focus === 'function') grip.focus()
+}
+
+onBeforeUnmount(() => {
+  liveRegionEl?.remove()
+  liveRegionEl = null
+})
+
 function onSelect() {
   emit('select', props.path)
 }
@@ -317,10 +411,19 @@ function beginEdit(which) {
          spot means the row of icons at the bottom is all "do something to this
          field" and the grip is unmistakably "move this field". SortableJS
          binds to `.drag-handle`. -->
+    <!-- The grip is also the KEYBOARD reorder control: ↑/↓ move one place,
+         Home/End jump to the ends, within this field's own container. The
+         handler lives on the container (this canvas, or the parent card's
+         children dropzone), matching how SortableJS binds. `focus-visible`
+         forces it visible — it is opacity-0 until hover, and a control you
+         cannot see is no more usable than one that does nothing. -->
     <button
-      class="drag-handle tw:absolute tw:top-0.5 tw:left-1/2 tw:-translate-x-1/2 tw:px-2 tw:rounded tw:text-secondary tw:hover:text-on-main tw:opacity-0 tw:group-hover:opacity-100 tw:transition-opacity tw:cursor-grab tw:active:cursor-grabbing tw:z-raised"
+      type="button"
+      class="drag-handle tw:absolute tw:top-0.5 tw:left-1/2 tw:-translate-x-1/2 tw:px-2 tw:rounded tw:text-secondary tw:hover:text-on-main tw:opacity-0 tw:group-hover:opacity-100 tw:focus-visible:opacity-100 tw:transition-opacity tw:cursor-grab tw:active:cursor-grabbing tw:z-raised"
       :class="{ 'tw:opacity-100': isSelected }"
-      title="Drag to reorder"
+      title="Drag to reorder, or use arrow keys"
+      :aria-label="`Reorder ${ownLabel}. Use arrow keys to move it up or down, Home or End to move it to the start or end.`"
+      aria-keyshortcuts="ArrowUp ArrowDown Home End"
       @click.stop
     >
       <IconGripHorizontal :size="16" />
@@ -597,6 +700,7 @@ function beginEdit(which) {
         ref="childrenDropzoneRef"
         class="tw:min-h-20 tw:p-3 tw:bg-main/50 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-xl tw:flex tw:flex-wrap tw:content-start tw:gap-2 tw:transition-all"
         :class="{ 'tw:border-primary tw:bg-primary/5': isDragging }"
+        @keydown="onChildrenKeydown"
       >
         <FormCanvasField
           v-for="(child, index) in children"

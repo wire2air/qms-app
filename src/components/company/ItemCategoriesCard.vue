@@ -1,13 +1,17 @@
 <script setup>
 import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
+import { isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const isOwner = computed(() => !!currentSession.value?.isOwner)
+// Same gate as the REST routes this card calls (routes/itemCategories.js —
+// enforcePermission('company_settings', 'manage')); owners pass via isAllowed's
+// short-circuit. It used to be `isOwner` alone, which hid the editor from the
+// very settings admins the server admits.
+const canManage = computed(() => isAllowed(['company_settings:manage']))
 
 const itemCategories = useLiveQuery(
   async (db) => db.ItemCategory.where().orderBy('displayOrder', 'asc').exec(),
@@ -19,7 +23,7 @@ const itemCategories = useLiveQuery(
 
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.ItemCategory.where('id', undefined, { force: true }).exec()
+    const all = await db.ItemCategory.where(undefined, undefined, { force: true }).exec()
     return all.filter((u) => u.deletedAt)
   },
   { models: ['ItemCategory'], initial: [] },
@@ -31,7 +35,7 @@ const columns = [
   { name: 'displayOrder', label: 'ORDER', field: 'displayOrder', align: 'center' },
 ]
 const rowActions = computed(() =>
-  isOwner.value
+  canManage.value
     ? [
         { key: 'edit', label: 'Edit', icon: IconPencil, onClick: (row) => openEdit(row) },
         {
@@ -176,17 +180,17 @@ const showDeactivated = ref(false)
           Distinct from Item Type and Item Group. Scoped to this company.
         </p>
       </div>
-      <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
+      <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="16" /></template>
         Add Category
       </BaseButton>
     </div>
 
     <div
-      v-if="!isOwner"
+      v-if="!canManage"
       class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800"
     >
-      Only the company owner can edit shared lookup data.
+      Editing item categories needs the Company Settings permission — you can view the list below.
     </div>
 
     <div class="tw:p-4">
@@ -238,7 +242,7 @@ const showDeactivated = ref(false)
               >
             </div>
             <button
-              v-if="isOwner"
+              v-if="canManage"
               class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
               @click="handleRestore(row)"
             >

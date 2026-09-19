@@ -293,9 +293,16 @@ shelf can be matched back to its record rather than relying on handwriting.
 
 ### Chain of custody
 
-Every movement is recorded as a custody event, so the sample's history is
-continuous from creation to disposal. That continuity is the point: a retain
-sample with a gap in its custody proves nothing.
+The system records four custody events: registration, relocation, seal break and
+disposal. Each carries who did it and when, and a relocation records both the
+previous and the new location.
+
+Two things it does **not** record, and they matter if you rely on this history as
+custody evidence. Taking a sample out for testing and returning it are not custody
+events — there is no withdraw or return action. Reducing the recorded quantity is
+an ordinary field edit, so a partial withdrawal leaves no event behind it. Keep
+those movements in your own custody log, and treat the timeline here as the record
+of where the sample has been rather than of everything done to it.
 
 ### Disposal
 

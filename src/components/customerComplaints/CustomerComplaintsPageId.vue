@@ -38,7 +38,12 @@ const loading = computed(() => complaint.value === undefined)
 
 const breadcrumbs = computed(() => [
   { label: 'Customer Complaints', to: getCompanyPath('/customer-complaints') },
-  { label: complaint.value?.complaintNumber || complaint.value?.subject || 'Loading…' },
+  {
+    label:
+      complaint.value?.complaintNumber ||
+      complaint.value?.subject ||
+      (complaint.value === null ? 'Not found' : 'Loading…'),
+  },
 ])
 
 const canUpdate = computed(() => isAllowed(['complaint_management:update']))

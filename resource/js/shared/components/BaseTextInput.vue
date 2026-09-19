@@ -79,6 +79,14 @@ const props = defineProps({
     type: String,
     default: undefined,
   },
+  // Needs to be a declared prop, not a fallthrough attr: this component's root
+  // is a wrapper <div>, so an undeclared `maxlength` lands on that div and
+  // silently does nothing to the field. Same reason min/max/step/pattern are
+  // declared above.
+  maxlength: {
+    type: [Number, String],
+    default: undefined,
+  },
   inputClass: {
     type: String,
     default: '',
@@ -262,6 +270,7 @@ defineExpose({
         :max="max"
         :step="step"
         :pattern="pattern"
+        :maxlength="maxlength"
         :spellcheck="spellcheckAttr"
         dir="auto"
         autocomplete="off"

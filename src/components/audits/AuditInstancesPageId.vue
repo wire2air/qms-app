@@ -580,16 +580,19 @@ const auditInstanceDetailConfig = computed(() =>
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Scope</p>
+              <!-- A single BaseRichTextEditor toggles :editable rather than being
+                   v-if'd in/out with a separate read-only v-html view. Closing out
+                   an audit flips isEditable false the moment the submit mutation
+                   lands, and tearing the whole editor down and rebuilding it on a
+                   status change is both wasteful and the kind of mid-life unmount
+                   that TipTap's bubble menus do not survive (see the BubbleMenu
+                   comment in BaseRichTextEditor.vue). Flipping the prop keeps one
+                   editor instance for the life of the page. -->
               <BaseRichTextEditor
-                v-if="isEditable"
+                v-if="isEditable || auditInstance.scope"
                 v-model="auditInstance.scope"
+                :editable="isEditable"
                 placeholder="What's in scope for this audit?"
-              />
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div
-                v-else-if="auditInstance.scope"
-                class="tw:text-sm tw:text-on-main"
-                v-html="auditInstance.scope"
               />
               <BaseText v-else color="secondary" class="tw:text-sm">—</BaseText>
             </div>
@@ -597,16 +600,12 @@ const auditInstanceDetailConfig = computed(() =>
               <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">
                 Objectives
               </p>
+              <!-- See the scope field's comment above — same fix. -->
               <BaseRichTextEditor
-                v-if="isEditable"
+                v-if="isEditable || auditInstance.objectives"
                 v-model="auditInstance.objectives"
+                :editable="isEditable"
                 placeholder="What outcomes does this audit need to produce?"
-              />
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div
-                v-else-if="auditInstance.objectives"
-                class="tw:text-sm tw:text-on-main"
-                v-html="auditInstance.objectives"
               />
               <BaseText v-else color="secondary" class="tw:text-sm">—</BaseText>
             </div>

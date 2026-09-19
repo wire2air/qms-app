@@ -88,11 +88,18 @@ const ModelRegistry = {
   hasIndex(modelName, field) {
     const schema = this.schemas[modelName]
     if (!schema) return false
-    return schema.indexes.some(
-      (idx) =>
-        (idx.type === 'single' && idx.field === field) ||
-        (idx.type === 'compound' && idx.fields?.[0] === field),
-    )
+    // Only a genuine 'single' index is usable via IDBObjectStore#index(field) —
+    // a compound index is created under its own joined name (e.g.
+    // '[fromType+fromId]'), not under its first field's name, so
+    // `store.index('fromType')` throws NotFoundError. Matching on a compound
+    // index's first field here previously made QueryBuilder try exactly that
+    // and crash (silently caught by useLiveQuery's try/catch), leaving any
+    // `.where(<compoundFirstField>, value)` query stuck on its `initial`
+    // value forever — e.g. RecordLink's customIndex declares only
+    // `[fromType+fromId]`/`[toType+toId]` (no standalone 'fromType'/'toType'
+    // index), so every `db.RecordLink.where('fromType', ...)` query (used by
+    // both the Complaints and Quality Events "escalated" tracking) failed.
+    return schema.indexes.some((idx) => idx.type === 'single' && idx.field === field)
   },
 }
 

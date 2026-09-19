@@ -1,13 +1,17 @@
 <script setup>
 import { IconPlus, IconPencil, IconTrash, IconRestore } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
+import { isAllowed } from '@/utils/currentSession.js'
 import { post, patch, del } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required } from '@shared/components/form/validators.js'
 
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const isOwner = computed(() => !!currentSession.value?.isOwner)
+// Same gate as the REST routes this card calls (routes/uoms.js —
+// enforcePermission('company_settings', 'manage')); owners pass via isAllowed's
+// short-circuit. It used to be `isOwner` alone, which hid the editor from the
+// very settings admins the server admits.
+const canManage = computed(() => isAllowed(['company_settings:manage']))
 
 const uoms = useLiveQuery(async (db) => db.Uom.where().orderBy('displayOrder', 'asc').exec(), {
   models: ['Uom'],
@@ -16,7 +20,11 @@ const uoms = useLiveQuery(async (db) => db.Uom.where().orderBy('displayOrder', '
 
 const deactivated = useLiveQuery(
   async (db) => {
-    const all = await db.Uom.where('id', undefined, { force: true }).exec()
+    // Full scan. `where('id', undefined)` looks indexed but is not: `id` is not
+    // a declared customIndex, so it becomes the in-memory condition
+    // `record.id === undefined` and matches nothing — the deactivated list was
+    // always empty and Restore was unreachable.
+    const all = await db.Uom.where(undefined, undefined, { force: true }).exec()
     return all.filter((u) => u.deletedAt)
   },
   { models: ['Uom'], initial: [] },
@@ -28,7 +36,7 @@ const columns = [
   { name: 'displayOrder', label: 'ORDER', field: 'displayOrder', align: 'center' },
 ]
 const rowActions = computed(() =>
-  isOwner.value
+  canManage.value
     ? [
         { key: 'edit', label: 'Edit', icon: IconPencil, onClick: (row) => openEdit(row) },
         {
@@ -173,17 +181,17 @@ const showDeactivated = ref(false)
           N/A. Scoped to this company.
         </p>
       </div>
-      <BaseButton v-if="isOwner" variant="primary" size="sm" @click="openAdd">
+      <BaseButton v-if="canManage" variant="primary" size="sm" @click="openAdd">
         <template #icon><IconPlus :size="16" /></template>
         Add Unit
       </BaseButton>
     </div>
 
     <div
-      v-if="!isOwner"
+      v-if="!canManage"
       class="tw:p-4 tw:bg-amber-50 tw:border-b tw:border-amber-200 tw:text-xs tw:text-amber-800"
     >
-      Only the company owner can edit shared lookup data.
+      Editing units needs the Company Settings permission — you can view the list below.
     </div>
 
     <div class="tw:p-4">
@@ -235,7 +243,7 @@ const showDeactivated = ref(false)
               >
             </div>
             <button
-              v-if="isOwner"
+              v-if="canManage"
               class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:hover:underline"
               @click="handleRestore(row)"
             >

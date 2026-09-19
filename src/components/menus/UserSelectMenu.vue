@@ -88,6 +88,8 @@ const users = useLiveQueryWithDeps(
     const all = await db.User.where().exec()
     const whitelist = userIds ? new Set(userIds) : null
     return all
+      // Service accounts never reach here: User.hiddenFromLists drops them
+      // from every list query in the engine, so this menu needs no filter.
       .filter((u) => (whitelist ? whitelist.has(u.id) : true))
       .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
       .filter((u) => (kind ? u.kind === kind : true))

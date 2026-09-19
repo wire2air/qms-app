@@ -375,7 +375,14 @@ function handleLinkKeydown(event) {
 // the cursor is inside a table — those have their own menus, and stacking
 // causes overlap. Default bubble-menu behavior shows for any non-empty
 // selection, including NodeSelection, which is why this filter is needed.
+//
+// The `isEditable` arm replaces what used to be `v-if="editable"` on the
+// component itself — see the BubbleMenu comment in the template for why these
+// menus must never be mounted/unmounted reactively. A custom shouldShow
+// REPLACES TipTap's default, and the default is the only thing that would
+// otherwise keep a read-only editor from popping a formatting toolbar.
 function textBubbleShouldShow({ editor, state }) {
+  if (!editor.isEditable) return false
   const { selection } = state
   if (selection.empty) return false
   if (selection.node) return false
@@ -460,11 +467,12 @@ onMounted(() => {
   }
 })
 
-onBeforeUnmount(() => {
-  if (editor.value) {
-    editor.value.destroy()
-  }
-})
+// NOTE: no manual editor.destroy() here. `useEditor` registers its own
+// onBeforeUnmount that destroys the editor, and tiptap's destroy() carries no
+// already-destroyed guard (it emits 'destroy', unmounts the view and drops all
+// listeners unconditionally). Because useEditor's hook is registered first it
+// also runs first, so a second destroy here ran against an already-unmounted
+// view — another uncaught teardown error on every navigation away.
 
 /**
  * Append plain text to the end of the document (new paragraph) — used by
@@ -511,14 +519,6 @@ defineExpose({
       <slot v-if="editable" name="toolbar-extra" :editor="editor" :append="appendText" />
     </EditorToolbar>
 
-    <!-- Image bubble menu (appears when an image node is selected) -->
-    <ImageBubbleMenu
-      v-if="editor && editable"
-      :editor="editor"
-      @replace="handleReplaceImage"
-      @crop="handleCropImage"
-    />
-
     <!-- Image Crop Dialog (opens before any image is uploaded) -->
     <ImageCropDialog
       v-model="showCropDialog"
@@ -539,13 +539,28 @@ defineExpose({
       @remove="handleLinkRemove"
     />
 
-    <!-- Bubble Menu (appears on text selection) -->
+    <!-- ⚠️ BubbleMenu must be gated on `editor` ONLY — never on `editable` or
+         any other value that flips during the editor's lifetime.
+         TipTap v3's BubbleMenu renders a plain <div> through Vue and then, in
+         its own onMounted, immediately calls `el.remove()` on it (see
+         @tiptap/vue-3/dist/menus/index.js) — it detaches Vue's node and
+         re-attaches it under the editor on show(), removes it again on hide().
+         Vue's vdom still records that node as a child of this wrapper, so the
+         real DOM and the vdom are permanently out of sync for these three
+         nodes. Unmounting them (a `v-if` flip) makes Vue patch the wrapper's
+         child list using a detached node as the insertion anchor, so it reads
+         a null container/parent and throws from inside its own patch:
+         "Cannot read properties of null (reading 'insertBefore' / 'parentNode'
+         / 'type' / 'emitsOptions')". Those land in a scheduler flush, which
+         leaves the queue corrupted — after that the router-view can no longer
+         re-render and the app is stuck on the current page.
+         Closing out an audit flipped `editable` false and did exactly this.
+         Visibility is TipTap's own job: gate it in shouldShow instead. -->
     <BubbleMenu
-      v-if="editor && editable"
+      v-if="editor"
       pluginKey="text-bubble-menu"
       :editor="editor"
       :shouldShow="textBubbleShouldShow"
-      :tippyOptions="{ duration: 100 }"
     >
       <div
         class="tw:flex tw:flex-wrap tw:max-w-[90vw] tw:items-center tw:gap-1 tw:p-1 tw:bg-white tw:rounded-lg tw:shadow-xl tw:border tw:border-divider"
@@ -619,16 +634,31 @@ defineExpose({
       </div>
     </BubbleMenu>
 
-    <!-- Table Toolbar (appears when cursor is in a table) -->
+    <!-- Table Toolbar (appears when cursor is in a table). `v-if="editor"`
+         only, and editability gated in shouldShow — see the text bubble
+         menu's comment above for why. -->
     <BubbleMenu
-      v-if="editor && editable"
+      v-if="editor"
       pluginKey="table-bubble-menu"
       :editor="editor"
-      :shouldShow="({ editor }) => editor.isActive('table')"
-      :tippyOptions="{ duration: 100, placement: 'top' }"
+      :shouldShow="({ editor }) => editor.isEditable && editor.isActive('table')"
+      :options="{ placement: 'top' }"
     >
       <TableToolbar :editor="editor" />
     </BubbleMenu>
+
+    <!-- Image bubble menu (appears when an image node is selected). Also a
+         BubbleMenu under the hood, so it lives here with the other two rather
+         than up beside the toolbar: keeping every TipTap-detached node in one
+         trailing group means no sibling that DOES toggle (EditorToolbar, the
+         dialogs) can ever end up resolving its insertion anchor through a node
+         that is no longer in the document. -->
+    <ImageBubbleMenu
+      v-if="editor"
+      :editor="editor"
+      @replace="handleReplaceImage"
+      @crop="handleCropImage"
+    />
 
     <!-- Editor Content -->
     <EditorContent :editor="editor" class="rich-text-editor-content" />

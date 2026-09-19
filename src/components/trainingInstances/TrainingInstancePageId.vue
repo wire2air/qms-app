@@ -3,7 +3,7 @@ import { IconBan, IconUserMinus, IconListSearch } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
-import { post } from '@/api'
+import { get, post } from '@/api'
 import { DateTime } from 'luxon'
 import {
   buildTrainingInstanceBanners,
@@ -14,6 +14,24 @@ import {
 const props = defineProps({
   id: { type: String, required: true },
 })
+
+// Reviewer-only answer key — see TrainingAssessmentView. Not in the snapshot,
+// because the snapshot is readable by the person being assessed.
+const answerKey = ref(null)
+watch(
+  () => props.id,
+  async (id) => {
+    answerKey.value = null
+    if (!id) return
+    try {
+      const data = await get(`/v1/services/trainingInstances/${id}/answer-key`)
+      answerKey.value = data?.answerKey ?? null
+    } catch (err) {
+      console.error('[training] could not load the assessment answer key', err)
+    }
+  },
+  { immediate: true },
+)
 
 const router = useRouter()
 const toast = useToast()
@@ -167,7 +185,9 @@ function closeAssessmentReview() {
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const breadcrumbs = computed(() => [
   { label: 'Training Instances', to: getCompanyPath('/training-instances') },
-  { label: instance.value?.snapshot?.title || 'Loading…' },
+  {
+    label: instance.value?.snapshot?.title || (instance.value === null ? 'Not found' : 'Loading…'),
+  },
 ])
 const trainingInstanceBanners = computed(() => buildTrainingInstanceBanners(instance.value))
 const trainingInstanceActions = computed(() =>
@@ -446,6 +466,7 @@ const trainingInstanceDetailConfig = computed(() =>
         :maxAttempts="instance.snapshot?.maxAttempts ?? 1"
         :readonly="true"
         :showCorrect="true"
+        :answerKey="answerKey"
       />
     </div>
     <template #footer="{ close }">

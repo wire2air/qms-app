@@ -11,10 +11,32 @@ import {
   IconUserShare,
   IconRefresh,
   IconCalendarExclamation,
+  IconAlertTriangle,
+  IconAlertCircle,
+  IconTool,
+  IconCertificate,
+  IconFileText,
+  IconFlag,
+  IconNotebook,
+  IconPackage,
+  IconShieldCheck,
+  IconCalendarTime,
+  IconUserExclamation,
+  IconMailForward,
+  IconBellRinging,
+  IconClipboardList,
+  IconThumbUp,
+  IconRobot,
+  IconUsers,
 } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { resolveTaskInstanceRoute } from '@/utils/taskRoute.js'
+import {
+  canonicalResourceType,
+  hasNotificationRoute,
+  notificationPath,
+} from '@/utils/notificationRoutes.js'
 import { db } from '@models/index'
 
 const props = defineProps({
@@ -27,6 +49,10 @@ const timeAgo = computed(() => {
   return props.notification.createdAt ? props.notification.createdAt.toRelative() : ''
 })
 
+// Covers all 37 seeded notification_types (was 9/31 — docs/modules/notifications
+// finding #8). Anything added to the catalog after this falls back to the
+// generic bell/gray below, same as before; the gap is now "a type nobody has
+// picked an icon for yet", not "most of the catalog".
 const TYPE_ICON_MAP = {
   DOCUMENT_APPROVED: IconCircleCheck,
   WORKFLOW_ACTION_REQUIRED: IconClock,
@@ -35,8 +61,36 @@ const TYPE_ICON_MAP = {
   TASK_REASSIGNED: IconUserShare,
   TASK_STATUS_CHANGED: IconRefresh,
   TASK_DUE_TOMORROW: IconCalendarExclamation,
+  TASK_OVERDUE: IconAlertCircle,
+  TASK_OVERDUE_ESCALATED: IconAlertTriangle,
+  TASK_ACTED_BY_OTHER: IconUsers,
   DOCUMENT_MESSAGE: IconMessage,
+  DOCUMENT_NEW_VERSION_SHARED: IconFileText,
   SYSTEM: IconInfoCircle,
+  NOTIFICATION_RULE: IconBellRinging,
+  AUTOMATION_RULE: IconRobot,
+  ASSET_REQUEST_RECEIVED: IconPackage,
+  ASSIGNMENT_MISSED: IconUserExclamation,
+  AUDIT_READINESS_NUDGE: IconClipboardList,
+  CUSTOMER_COMPLAINT_ASSIGNED: IconFlag,
+  CUSTOMER_COMPLAINT_CREATED: IconFlag,
+  CUSTOMER_COMPLAINT_CONVERTED_TO_NC: IconAlertTriangle,
+  CUSTOMER_COMPLAINT_REPLY_RECEIVED: IconMailForward,
+  EQUIPMENT_CALIBRATION_DUE: IconTool,
+  EQUIPMENT_PM_DUE: IconTool,
+  FIELD_RECORD_DIGEST: IconNotebook,
+  FIELD_RECORD_FLAGGED: IconFlag,
+  FIELD_RECORD_FLAGGED_CRITICAL: IconAlertTriangle,
+  FIELD_RECORD_REJECTED: IconAlertCircle,
+  FIELD_RECORD_RETURNED_FOR_INFO: IconMailForward,
+  LOG_BOOK_ENTRY_DUE: IconNotebook,
+  SUPPLIER_CERTIFICATE_EXPIRING: IconCertificate,
+  TRAINING_ASSIGNED: IconClipboardList,
+  TRAINING_COMPLETED: IconThumbUp,
+  TRAINING_ESCALATION: IconAlertTriangle,
+  TRAINING_INSTANCE_COMPLETED: IconCircleCheck,
+  TRAINING_REMINDER: IconCalendarTime,
+  TRAINING_VERIFICATION_REQUIRED: IconShieldCheck,
 }
 
 const TYPE_COLOR_MAP = {
@@ -47,84 +101,42 @@ const TYPE_COLOR_MAP = {
   TASK_REASSIGNED: 'tw:text-purple-600',
   TASK_STATUS_CHANGED: 'tw:text-blue-600',
   TASK_DUE_TOMORROW: 'tw:text-orange-600',
+  TASK_OVERDUE: 'tw:text-red-600',
+  TASK_OVERDUE_ESCALATED: 'tw:text-red-600',
+  TASK_ACTED_BY_OTHER: 'tw:text-blue-600',
   DOCUMENT_MESSAGE: 'tw:text-blue-600',
+  DOCUMENT_NEW_VERSION_SHARED: 'tw:text-blue-600',
   SYSTEM: 'tw:text-gray-600',
+  NOTIFICATION_RULE: 'tw:text-blue-600',
+  AUTOMATION_RULE: 'tw:text-purple-600',
+  ASSET_REQUEST_RECEIVED: 'tw:text-blue-600',
+  ASSIGNMENT_MISSED: 'tw:text-red-600',
+  AUDIT_READINESS_NUDGE: 'tw:text-amber-600',
+  CUSTOMER_COMPLAINT_ASSIGNED: 'tw:text-purple-600',
+  CUSTOMER_COMPLAINT_CREATED: 'tw:text-orange-600',
+  CUSTOMER_COMPLAINT_CONVERTED_TO_NC: 'tw:text-red-600',
+  CUSTOMER_COMPLAINT_REPLY_RECEIVED: 'tw:text-blue-600',
+  EQUIPMENT_CALIBRATION_DUE: 'tw:text-amber-600',
+  EQUIPMENT_PM_DUE: 'tw:text-amber-600',
+  FIELD_RECORD_DIGEST: 'tw:text-gray-600',
+  FIELD_RECORD_FLAGGED: 'tw:text-orange-600',
+  FIELD_RECORD_FLAGGED_CRITICAL: 'tw:text-red-600',
+  FIELD_RECORD_REJECTED: 'tw:text-red-600',
+  FIELD_RECORD_RETURNED_FOR_INFO: 'tw:text-orange-600',
+  LOG_BOOK_ENTRY_DUE: 'tw:text-amber-600',
+  SUPPLIER_CERTIFICATE_EXPIRING: 'tw:text-amber-600',
+  TRAINING_ASSIGNED: 'tw:text-purple-600',
+  TRAINING_COMPLETED: 'tw:text-green-600',
+  TRAINING_ESCALATION: 'tw:text-red-600',
+  TRAINING_INSTANCE_COMPLETED: 'tw:text-green-600',
+  TRAINING_REMINDER: 'tw:text-amber-600',
+  TRAINING_VERIFICATION_REQUIRED: 'tw:text-blue-600',
 }
 
 const typeIcon = computed(() => TYPE_ICON_MAP[props.notification.notificationTypeId] || IconBell)
 const typeColor = computed(
   () => TYPE_COLOR_MAP[props.notification.notificationTypeId] || 'tw:text-gray-600',
 )
-
-/**
- * Canonicalise the snake_case analytics vocabulary to the PascalCase one used
- * as keys below.
- *
- * Two vocabularies reach this resolver. Almost every emitter sends the model
- * name (`Nonconformance`), but the analytics worker tasks are raw-SQL jobs with
- * no model in scope and send the TABLE name instead — `evaluate_analytics_alerts`
- * emits `resourceType: 'analytics_alert'`. Both must land on the same page here
- * AND in the email builder, which normalises identically
- * (`analyticsCanonicalType` in `@qability/shared/utils/companyAppUrl.js`).
- *
- * Accepts singular or plural (`analytics_alert`, `analytics_alerts`) because the
- * emitter and the table disagree about which one they use.
- */
-function canonicalResourceType(resourceType) {
-  if (!resourceType.startsWith('analytics_')) return resourceType
-  const singular = resourceType.endsWith('s') ? resourceType.slice(0, -1) : resourceType
-  return singular
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('')
-}
-
-// Deep-link targets for a notification's `resourceType`. This table is the
-// in-app HALF of a pair: the email half is `entityRouteSegment` in
-// `@qability/shared/utils/companyAppUrl.js`. ONE notification row feeds both,
-// so a type that resolves differently in the two places sends the emailed link
-// and the in-app link to different pages — nothing tests that, and nobody finds
-// out until a customer says so. Add a type to BOTH or to neither.
-const RESOURCE_ROUTES = {
-  Document: (id) => getCompanyPath(`/documents/${id}`),
-  Record: (id) => getCompanyPath(`/records/${id}`),
-  WorkflowInstance: (id) => getCompanyPath(`/workflow-instances/${id}`),
-  // TaskInstance has NO standalone detail route (/task-instances/:id 404s) — it
-  // is resolved to its host entity in resolveTarget() below, matching the task
-  // inbox and the email deep link.
-  // Equipment has no detail page yet — land on the list (calibration reminders).
-  Equipment: () => getCompanyPath('/equipment'),
-  Nonconformance: (id) => getCompanyPath(`/nonconformances/${id}`),
-  Capa: (id) => getCompanyPath(`/capas/${id}`),
-  QualityEvent: (id) => getCompanyPath(`/qualityEvents/${id}`),
-  TrainingInstance: (id) => getCompanyPath(`/training-instances/${id}`),
-  LogBook: (id) => getCompanyPath(`/inspections-logs/log-books/${id}`),
-
-  // ── Analytics ──────────────────────────────────────────────────────────
-  // Dashboards and reports are the only analytics records with a page of
-  // their own, so they are the only ones that carry an id.
-  AnalyticsDashboard: (id) => getCompanyPath(`/analytics/dashboards/${id}`),
-  AnalyticsReport: (id) => getCompanyPath(`/analytics/reports/${id}`),
-  // A schedule is configuration hanging off a report and a run is a row in
-  // that report's history — neither is addressable, so both stop at the
-  // reports list. Resolving to the PARENT report would be a better landing
-  // spot, but it needs an id lookup the email builder (synchronous, no DB
-  // handle) cannot do, and a link that lands somewhere different depending on
-  // whether you clicked the email or the bell is worse than one that lands one
-  // level up in both.
-  AnalyticsReportSchedule: () => getCompanyPath('/analytics/reports'),
-  AnalyticsReportRun: () => getCompanyPath('/analytics/reports'),
-  // Alerts have no UI surface at all yet; the analytics home is the honest
-  // destination until one exists.
-  AnalyticsAlert: () => getCompanyPath('/analytics'),
-  AnalyticsAlertEvent: () => getCompanyPath('/analytics'),
-  // AnalyticsWidget is deliberately ABSENT. A widget is a layout cell inside a
-  // dashboard, not a record anyone navigates to; anything worth notifying about
-  // a widget (an alert on its metric) is worth notifying about its DASHBOARD,
-  // and the emitter already holds that id. Registering it would encode the lie
-  // that a widget id is navigable and silently drop the id on the way. It falls
-  // through to the analytics fallback below instead.
-}
 
 /**
  * Where a notification whose `resourceType` nobody registered lands.
@@ -143,7 +155,8 @@ const RESOURCE_ROUTES = {
 function fallbackTarget(resourceType, canonicalType) {
   console.warn(
     `[notifications] no deep-link route for resourceType "${resourceType}" — ` +
-      'add it to RESOURCE_ROUTES here AND to the backend entityRouteSegment',
+      'add it to RESOURCE_ROUTES in @/utils/notificationRoutes.js AND to the ' +
+      'backend entityRouteSegment',
   )
   return getCompanyPath(canonicalType.startsWith('Analytics') ? '/analytics' : '/notifications')
 }
@@ -155,7 +168,7 @@ function fallbackTarget(resourceType, canonicalType) {
 const hasTarget = computed(() => {
   const { resourceType, resourceId } = props.notification
   if (!resourceType || !resourceId) return false
-  return resourceType === 'TaskInstance' || !!RESOURCE_ROUTES[canonicalResourceType(resourceType)]
+  return resourceType === 'TaskInstance' || hasNotificationRoute(resourceType)
 })
 
 // Resolve the (company-prefixed) destination at click time. A TaskInstance needs
@@ -167,9 +180,9 @@ async function resolveTarget() {
     const task = await db.TaskInstance.findByPk(resourceId)
     return getCompanyPath(await resolveTaskInstanceRoute(db, task))
   }
-  const canonicalType = canonicalResourceType(resourceType)
-  const builder = RESOURCE_ROUTES[canonicalType]
-  return builder ? builder(resourceId) : fallbackTarget(resourceType, canonicalType)
+  const path = notificationPath(resourceType, resourceId)
+  if (path) return getCompanyPath(path)
+  return fallbackTarget(resourceType, canonicalResourceType(resourceType))
 }
 
 async function handleClick() {

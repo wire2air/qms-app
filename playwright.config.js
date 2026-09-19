@@ -43,11 +43,24 @@ export default defineConfig({
       testMatch: /fixtures\/auth\.setup\.js/,
     },
     {
+      // Purges the documents previous runs left behind. Same reason as qcSetup
+      // and inspectionsLogsSetup: Document/DocumentVersion/DocumentSection are
+      // synced models, so accumulated rows slow every fresh browser context's
+      // syncEngine bootstrap until UI steps time out. Measured 2026-09-08 at 894
+      // documents in the tenant — 890 of them leftovers — with three successive
+      // no-code-change runs degrading 17 → 10 → 9 passing.
+      // See e2e/fixtures/documents.setup.js.
+      name: 'documentsSetup',
+      testMatch: /fixtures\/documents\.setup\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // The journeys themselves — direct children of e2e/documents only, so the
       // screenshot suite below doesn't inflate this project's runtime.
       name: 'documents',
       testMatch: /documents\/[^/]+\.spec\.js$/,
-      dependencies: ['setup'],
+      dependencies: ['documentsSetup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -93,6 +106,23 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Complaints — TWO separate authz modules sharing one project. `complaints`
+      // (internal Quality Complaints, table `complaints`) has real own/site/
+      // tenant RLS scope tiers; `complaint_management` (Customer Complaints /
+      // support, table `customer_complaints`) has only tenant + assigned-to.
+      // The module had zero E2E coverage before this — no project, no seed
+      // section (e2e-seed.sql §45) — and the route naming is a trap worth
+      // knowing before touching this suite: `/complaints` (QaComplaintsIndex)
+      // is a QA lens over the INTERNAL `complaints` table despite a stale
+      // in-code comment claiming it shares `customer_complaints`; the separate
+      // `/customer-complaints` route is the actual support surface. J3 pins
+      // that the two never cross.
+      name: 'complaints',
+      testMatch: /complaints\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // The workflow ENGINE itself — the approval machinery Documents/CAPA/NCR/
       // CR/Audits/Training all instantiate. Until this project existed, workflow
       // behaviour was only ever exercised transitively through those six suites,
@@ -107,6 +137,25 @@ export default defineConfig({
       name: 'audits',
       testMatch: /audits\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Auditee — certification audits where the COMPANY is the one being
+      // audited (/auditee). Same table as `audits`, different surface, and it
+      // had no project and no seeded EXTERNAL row until e2e-seed.sql §40, so no
+      // test could have reached it. The access half matters as much as the
+      // journeys: /auditee carries NO permission gate for internal users by
+      // design (RLS admits invited participants through team membership), so
+      // the specs pin who sees what from both sides.
+      name: 'auditee',
+      testMatch: /auditee\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Same posture as qcInspection / inspectionsLogs / equipment: every
+      // detail page reads its record out of IndexedDB after a REST write, so
+      // readiness depends on a sync broadcast landing. One retry absorbs that
+      // lag; a genuine break fails both attempts, and the DB assertions are
+      // deterministic SQL.
+      retries: 1,
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -170,6 +219,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'groups',
+      testMatch: /groups\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'departments',
       testMatch: /departments\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
@@ -178,6 +233,18 @@ export default defineConfig({
     {
       name: 'users',
       testMatch: /users\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Settings & Profile — company settings cards, lookups, organization
+      // security and the self-service /profile page. Its personas (seed §41)
+      // are logged in on demand by e2e/fixtures/settings.js, not by `setup`,
+      // so the project adds nothing to the shared login budget. The company
+      // cards save over GraphQL (company.save() → updateCompany → RLS), not the
+      // REST route the module pack documents — see the fixture's header.
+      name: 'settings',
+      testMatch: /\/settings\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -200,6 +267,25 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Service accounts — the machine identities that own API keys, and the
+      // surface that REPLACED personal API keys (deleted 2026-09-09, because
+      // routes/apiKeys.js carried no enforcePermission of any kind: the
+      // permission was checked in the sidebar and nowhere else).
+      //
+      // Two halves, both in e2e/serviceAccounts/ and each with its own helper
+      // module: `api-*.spec.js` exercises the CREDENTIAL (issue a key, use it
+      // against the REST surface, revoke it), `ui-*.spec.js` the admin screen.
+      // They share a tenant and no fixtures — the seed deliberately does NOT
+      // clean service accounts up, because it runs at the start of every
+      // invocation and a shared DELETE would let one suite wipe another's
+      // fixtures mid-test, so each spec names its accounts with its own prefix
+      // and purges only that.
+      name: 'serviceAccounts',
+      testMatch: /serviceAccounts\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // Multi-site user assignment. Mostly RLS verdicts over raw GraphQL rather
       // than UI steps: what is under test is which records a `site`-scoped grant
       // reaches once a user holds several sites, and the UI is only one of the
@@ -218,6 +304,22 @@ export default defineConfig({
       // clients that question has to hold for.
       name: 'suppliers',
       testMatch: /suppliers\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Asset Request — supplier-portal-adjacent: no page of its own, just the
+      // REST surface plus the SuppliersAssetRequestsTab (internal) /
+      // SupplierAssetRequestsList (portal) UI. e2e/suppliers/j12 and j13
+      // already lock F-01 (read exposure) and F-03/F-08 (accept + lifecycle)
+      // at the raw HTTP/SQL layer; this project adds the UI-driven journeys
+      // neither of those exercises (create dialog, review dialog, the portal
+      // upload button) plus tenant isolation and an internal permission
+      // denial. No dedicated setup project — the fixture is one stable row
+      // (e2e-seed.sql §43) reset in each spec's own beforeAll/afterAll rather
+      // than an accumulating one like qcSetup/documentsSetup.
+      name: 'assetRequest',
+      testMatch: /assetRequest\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -328,6 +430,31 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Permissions & Authorization — the cross-cutting module that decides,
+      // for every other module, who may do what. It had no project here at all
+      // until 2026-09-17, which its own production-readiness doc named as one
+      // of the two hard zeros holding the module's score down: the decision
+      // engine has 151 integration tests and the enforcement WIRING had none.
+      //
+      // Most cases here probe the POLICY layer directly through `sqlAsAppUser`
+      // rather than driving a browser, and that is deliberate rather than a
+      // shortcut. A permission denial in this product is usually a zero-row
+      // SELECT or a trigger refusal, neither of which the DOM can distinguish
+      // from an empty table; and the defects these journeys pin (F-27's
+      // unreachable delete policies, the dormant workflow verbs) live
+      // specifically on the GraphQL/SQL path that a UI test never takes. The
+      // journeys that ARE about the UI agreeing with the transport drive the
+      // browser and the database in the same test.
+      //
+      // No `dependencies: ['setup']` on the SQL-layer files would be wrong even
+      // though they never open a page: they read personas and grants the e2e
+      // seed creates, and `setup` is what applies it.
+      name: 'permissions',
+      testMatch: /permissions\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       // App Builder — Forms. The headline here is the public fill surface: an
       // unauthenticated read that used to serve any ACTIVE template in any
       // tenant to anyone holding the row's UUID, now a server-minted revocable
@@ -359,6 +486,189 @@ export default defineConfig({
       testMatch: /customFields\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
       timeout: 120_000,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Equipment / calibration programme. The module had no E2E surface at all
+      // until 2026-09-07 — no project, no fixture, and zero equipment rows in
+      // e2e-seed.sql — and the absence was not neutral: with no persona holding
+      // a `calibration_equipment` grant, every write control in the register was
+      // hidden from every persona, so a browser could not have reached the
+      // module's defect even if someone had looked.
+      //
+      // EQ-J3 is why this project is worth more than its test count. E1 was a
+      // live REST privilege escalation: DELETE /v1/services/equipment/:id was
+      // gated on `calibration_equipment:update` while the RLS DELETE policy, the
+      // soft-delete guard trigger (migration 20260907150000) and the register's
+      // own button all demanded `:delete`. REST connects as the superuser, where
+      // the trigger self-skips by design ("the route has already checked"), so
+      // the route WAS the check and it asked the wrong question. J3 probes all
+      // three paths — the hidden button, the syncEngine's paranoid UPDATE, and
+      // the REST route — from the persona that held update and not delete.
+      //
+      // EQ-J4 reaches across into QC on purpose: `requires_calibration` is not
+      // bookkeeping, it is an enforced production control
+      // (inspectionResultService.js refuses a measurement taken with a lapsed
+      // instrument), and the frontend half of it is a banner with no `disabled`,
+      // so only a server-side assertion says anything.
+      name: 'equipment',
+      testMatch: /equipment\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Above the 120s default for the same reason as inspectionsLogs: the
+      // register renders out of IndexedDB, so nothing is readable until the
+      // syncEngine has bootstrapped Equipment into a fresh context, and a
+      // journey that needs a second persona pays that bootstrap again.
+      timeout: 180_000,
+      // The register is a live-query over IndexedDB fed by the sync socket, so
+      // a row written over REST appears only once the broadcast lands. The
+      // helpers already reload-and-retry; one Playwright-level retry covers the
+      // residual lag without masking a real failure — the DB-level probes are
+      // deterministic SQL and fail both attempts when something is genuinely
+      // broken.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Products / Item Master. The module had no browser coverage of any kind
+      // until 2026-09-08 — no project, no specs, and, more to the point, no
+      // persona holding a `products:*` grant. That last absence is why nothing
+      // could have been asserted even if specs had existed: /products is an
+      // ADMIN-tier route (permissionGuard.js ADMIN_PERMISSIONS), so a tenant
+      // with no products grant does not get an empty register, it gets bounced
+      // to /no-access. e2e-seed.sql §37 is that fixture.
+      //
+      // PJ-J5 and PJ-J11 are why this project is worth more than its test
+      // count. `products` has NO REST layer at all — no route gate in front, no
+      // service layer behind — so RLS and four triggers are the only
+      // enforcement the item master has, and until 2026-09-07/08 three of those
+      // four did not exist: any `products:update` holder could tombstone the
+      // entire register (P5), the weaker grant could undo a delete-holder's
+      // decision (P7), and the module's one business rule — no retiring an item
+      // while a live Specification points at it — lived in a Vue component in
+      // front of a syncEngine mutation (P8). Every one of those is probed from
+      // BOTH sides here, because a policy that quietly stopped matching
+      // anything refuses everyone and reads as a perfect guard against the
+      // denial half alone.
+      name: 'products',
+      testMatch: /products\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Above the 120s default, and above `equipment`/`inspectionsLogs`' 180s —
+      // reasoned, not copied. The register is a live query over IndexedDB, so
+      // nothing is readable until the syncEngine has bootstrapped Product into a
+      // fresh context, and this module's journeys additionally need
+      // ProductFamily, ProductType, ProductStatus, ItemCategory, Uom,
+      // Specification, ProductSupplier and ProductOption (the picker's view) in
+      // the same store before a dialog can render its pickers.
+      //
+      // What pushes it past 180s is the PERSONA COUNT. The access-tier and
+      // quick-add files each drive four personas — admin, editor, reader,
+      // owner — and every one is a separate browser context with its own empty
+      // IndexedDB paying that bootstrap again. `createPersonaPool` keeps it to
+      // one bootstrap per persona per file, but the first test in a file can
+      // legitimately pay two of them. Measured: `openRegister`'s 60s + 45s
+      // budget ran out once on a machine also running three other agents'
+      // suites, so it now makes three attempts (60/45/45) and the project
+      // budget has to cover that plus the assertions after it.
+      timeout: 240_000,
+      // A row written in SQL or over the lookup REST routes appears on the page
+      // only once the sync broadcast lands. The helpers already reload-and-retry
+      // (openRegister waits long and reloads once), and one Playwright-level
+      // retry covers the residual lag without masking a real failure: the
+      // DB-level probes are deterministic SQL and fail both attempts when
+      // something is genuinely broken.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Record Sharing — external share links (/share/:token). The only surface
+      // in the product an anonymous browser reads company records through, and
+      // until 2026-09-14 nobody but its author had ever walked it: token → code
+      // → projection → file → revoke. e2e-seed.sql §42 is its fixture.
+      //
+      // retries: 0 is deliberate, not an oversight. The code endpoints sit on
+      // strictAuthLimiter (20 / 15 min / IP, shared with every suite's MFA and
+      // reset flows); a full run spends seven, and a retry replays a serial
+      // file's OTP calls from the start. A flake here should be read, not
+      // re-rolled. See the budget note in e2e/fixtures/recordSharing.js.
+      name: 'recordSharing',
+      testMatch: /recordSharing\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // NC and auditee pages read out of IndexedDB, so a cold context pays one
+      // syncEngine bootstrap before the share card exists; several journeys open
+      // two such contexts.
+      timeout: 180_000,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Purges the CAPAs the rca / riskAssessment journeys leave behind. Both
+      // modules are embedded widgets with no entity of their own, so every
+      // journey mints a whole CAPA to carry the widget and nothing ever
+      // removed them. Measured 2026-09-15: 540 CAPAs in E2ELAB, 434 of them
+      // leftovers, plus 3,855 task_instances / 1,929 workflow_instances --
+      // enough syncEngine bootstrap load that UI steps began timing out in
+      // spots that move around the suite (RCA-J1 on 'Start CAPA' inside the
+      // shared createCapa fixture; PW-J3's category create missing its poll,
+      // while the identical sequence driven by hand worked every time).
+      // Same reason as qcSetup / documentsSetup / inspectionsLogsSetup.
+      // See e2e/fixtures/capas.setup.js.
+      name: 'capasSetup',
+      testMatch: /fixtures\/capas\.setup\.js/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Risk Assessment. Had ZERO E2E coverage before this — no project, no
+      // seed section (e2e-seed.sql §44 is new). The module is not a
+      // standalone page a user navigates to: it's an admin CRUD surface
+      // (/risk-assessment-templates) plus a form-builder widget
+      // (RiskAssessmentField.vue, field type `riskAssessment`) embedded in a
+      // CAPA/NCR/CR/Complaint workflow step, which derives a risk_assessments
+      // row server-side the moment that step's task reaches APPROVED. The
+      // journeys drive a dedicated CAPA workflow ("E2E Risk Assessment
+      // Review") built for exactly this, so they never disturb the shared
+      // "E2E CAPA Review & Approval" workflow every other CAPA suite depends
+      // on having an empty step-1 form_schema.
+      //
+      // RA-J3 is why this project is worth more than its test count: it is
+      // the regression guard for F-01 (docs/modules/risk-assessment/11 —
+      // `risk_assessments_update_rls` checked only company_id, no permission
+      // clause at all). CLOSED 2026-09-01 (migration 20260901180000) — this
+      // suite re-verifies it live, probed from both sides the way the
+      // module's own integration suite does (a zero-grant persona is
+      // filtered by the SELECT policy first and would pass against the
+      // defect too; the persona that matters holds capa:read and not
+      // capa:update).
+      name: 'riskAssessment',
+      testMatch: /riskAssessment\/[^/]+\.spec\.js$/,
+      dependencies: ['capasSetup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // RCA (Root Cause Analysis). Had ZERO E2E coverage before this — no
+      // project, no seed section (e2e-seed.sql §46 is new) — on the module
+      // docs/modules/rca/ scored the lowest production-readiness in the
+      // program (29/100, 2026-08-31), headlined by root_causes_update_rls
+      // carrying no permission clause at all (F-01). CLOSED on
+      // harden/rca-risk-assessment-phase1 (22-hardening-pass-2026-09-01.md):
+      // the policy now mirrors INSERT/DELETE's capa|ncr|change_control|
+      // complaints:update four-way OR, and a BEFORE UPDATE trigger
+      // (enforce_root_cause_immutable, ERRCODE QMSRC) refuses to change
+      // anything but deleted_at even for a caller who holds that OR.
+      //
+      // The module's only SCREEN is /rca-templates (Templates CRUD + Categories
+      // admin — root_cause_categories, gated by a single `manage` action
+      // covering create/update/delete, the "no separate read action" shape
+      // that recurs across this codebase). `root_causes` itself — the derived
+      // table the widget's Finalize step writes on workflow-step approval —
+      // has NO screen anywhere (F-08) and no existing workflow step in this
+      // seed carries an `rca`-type form field, so its RLS/immutability
+      // journeys probe the layer the fix actually lives at (`sqlAsAppUser`,
+      // the same role PostGraphile runs every request as) rather than
+      // reaching it through a newly-authored workflow.
+      name: 'rca',
+      testMatch: /rca\/[^/]+\.spec\.js$/,
+      dependencies: ['capasSetup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {

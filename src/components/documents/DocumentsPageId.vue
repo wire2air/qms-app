@@ -609,7 +609,7 @@ async function handleNewVersionConfirm(changeControl) {
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const breadcrumbs = computed(() => [
   { label: 'Documents', to: getCompanyPath('/documents') },
-  { label: document.value?.title || 'Loading…' },
+  { label: document.value?.title || (document.value === null ? 'Not found' : 'Loading…') },
 ])
 const documentBanners = computed(() => buildDocumentBanners(document.value))
 const documentTabs = computed(() => buildDocumentTabs(isRevisionVersion.value))
@@ -673,7 +673,9 @@ const documentDetailConfig = computed(() =>
     v-model:tab="activeContentTab"
     :config="documentDetailConfig"
     :record="document"
-    :loading="!document"
+    :loading="document === undefined"
+    :notFound="document === null"
+    notFoundDescription="This document doesn't exist or you don't have access to it."
     :rail="activeContentTab !== 'training'"
   >
     <template #title>

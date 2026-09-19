@@ -58,6 +58,13 @@ export class AnalyticsWidget extends BaseModel {
   @Property({ type: Object }) filters = {}
   // Dense 0-based ordering within the dashboard; the drag layout renumbers it.
   @Property({ type: Number, required: true }) position = 0
+  // How many GRID columns this tile takes, 1-4, enforced by a CHECK on the
+  // table. Relative, not absolute: the board is an auto-fill grid whose column
+  // count comes from the viewport, so a span of 3 on a narrow screen renders as
+  // full width rather than overflowing. There is no height — tiles size to
+  // their content, which is why a one-number KPI never has to be as tall as the
+  // table beside it.
+  @Property({ type: Number, required: true }) colSpan = 1
   @Property({ type: String }) createdBy = /** @type {String|null} */ (null)
   @Property({ type: String }) updatedBy = /** @type {String|null} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)

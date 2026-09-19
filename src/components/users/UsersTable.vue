@@ -87,6 +87,49 @@ const columns = computed(() => [
   { name: 'userStatusId', label: 'STATUS', field: 'userStatusId', align: 'left', sortable: true },
 ])
 
+// ROLES has no real `roles` field on the row — it's a join through
+// RoleOnUser, resolved per-row by UserRolesCell. DataTable's fallback export
+// reads `row.roles`, which doesn't exist, so build the same lookup here and
+// hand it an explicit exportColumns list instead.
+const roleNamesByUserId = useLiveQuery(
+  async (db) => {
+    const [assignments, roles] = await Promise.all([
+      db.RoleOnUser.where().exec(),
+      db.Role.where().exec(),
+    ])
+    const roleNameById = new Map(roles.map((r) => [r.id, r.name]))
+    const map = new Map()
+    for (const a of assignments) {
+      const name = roleNameById.get(a.roleId)
+      if (!name) continue
+      const list = map.get(a.userId) ?? []
+      list.push(name)
+      map.set(a.userId, list)
+    }
+    return map
+  },
+  { models: ['RoleOnUser', 'Role'], initial: new Map() },
+)
+
+const userStatuses = useLiveQuery((db) => db.UserStatus.where().exec(), {
+  models: ['UserStatus'],
+  initial: [],
+})
+function userStatusLabel(id) {
+  return userStatuses.value.find((s) => s.id === id)?.name ?? id ?? ''
+}
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'NAME', value: (row) => `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() },
+  { key: 'email', label: 'EMAIL', value: (row) => row.email ?? '' },
+  {
+    key: 'roles',
+    label: 'ROLES',
+    value: (row) => (roleNamesByUserId.value.get(row.id) ?? []).join(', '),
+  },
+  { key: 'userStatusId', label: 'STATUS', value: (row) => userStatusLabel(row.userStatusId) },
+])
+
 const pagination = ref({ page: 1, pageSize: 50 })
 // Sort id must match the column id ('name'), not the underlying field
 // ('firstName') — otherwise TanStack warns "Column with id 'firstName' does not
@@ -113,6 +156,7 @@ function openUser(row) {
     :selectable="canAssignRoles || canAssignSites"
     :bulkActions="bulkActions"
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="users.csv"
     @rowClick="openUser"
   >

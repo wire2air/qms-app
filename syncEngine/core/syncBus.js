@@ -19,10 +19,12 @@ const wildcardListeners = new Set() // { handler, raw }
  */
 function debounce(fn, ms) {
   let timer
-  return (event) => {
+  const wrapped = (event) => {
     clearTimeout(timer)
     timer = setTimeout(() => fn(event), ms)
   }
+  wrapped.cancel = () => clearTimeout(timer)
+  return wrapped
 }
 
 export const syncBus = {
@@ -39,12 +41,18 @@ export const syncBus = {
 
     if (modelName === '*') {
       wildcardListeners.add(entry)
-      return () => wildcardListeners.delete(entry)
+      return () => {
+        handler.cancel?.()
+        wildcardListeners.delete(entry)
+      }
     }
 
     if (!listeners.has(modelName)) listeners.set(modelName, new Set())
     listeners.get(modelName).add(entry)
-    return () => listeners.get(modelName)?.delete(entry)
+    return () => {
+      handler.cancel?.()
+      listeners.get(modelName)?.delete(entry)
+    }
   },
 
   /**

@@ -61,6 +61,82 @@ Later sections of the seed extend the same tenant for the other suites:
   Note §34's header: the …50/51/52 id slots belong to §30's roles-module cast, so
   this section owns …70/71/72 — reusing them does not fail, it silently hands the
   roles personas `field_records` verbs they are asserted not to have.
+- **Asset Request (§43)** — no new personas (reuses `owner` for internal
+  create/review/accept via the isOwner bypass, `noAccess` for the internal
+  permission-denial probe, and the existing supplier-portal cast). One stable
+  PENDING request + item against `SUPPLIER_IDS.withPortal` for the UI journeys
+  to anchor on, plus a supplier + request in `E2EALT` — the module had no
+  cross-tenant fixture at all before this. `e2e/suppliers/j12`/`j13` already
+  lock the module's F-01 (read exposure — **fixed**, see
+  `authorizeSupplierAssetRequestRead`) and F-03/F-08 findings at the raw
+  HTTP/SQL layer; the `assetRequest` project adds the UI-driven journeys
+  (create dialog, review dialog, the portal upload button) plus tenant
+  isolation and the internal permission boundary.
+- **Complaints (§45)** — the module had zero E2E coverage before this, and it
+  is really TWO sibling modules sharing the section: `complaints` (internal
+  Quality Complaints, table `complaints`) and `complaint_management` (Customer
+  Complaints / support, table `customer_complaints`). Three new personas —
+  `complaintOwner` (`complaints:create/read/update/close/delete` at TENANT
+  scope), `complaintSiteUser` (`complaints:read/update` at SITE scope, Primary
+  Site, and nothing else — the module's own/site/tenant tiers were fixed
+  2026-08-11 and this is the persona that proves SITE is actually enforced),
+  and `supportAgent` (`complaint_management:create/read/update` at TENANT
+  scope, since that module has only tenant + assigned-to scope, no site
+  tier). Fixtures: two internal complaints (Primary Site and Secondary Site,
+  both owned by `complaintOwner`) for the scope-boundary journey, one internal
+  complaint in `E2EALT` for tenant isolation, and one unassigned customer
+  complaint for the support lifecycle journey. `noAccess` (already in the
+  cast) is reused for the zero-grant denial probes. Route naming is a trap
+  here: `/complaints` (`QaComplaintsIndex.vue`) is a QA lens over the
+  INTERNAL `complaints` table despite a stale in-code comment claiming it
+  shares `customer_complaints` — verified by reading the component, not the
+  comment.
+- **Risk Assessment (§44)** — zero E2E coverage before this: no project, no
+  fixtures. The module has no standalone entity page (docs/modules/
+  risk-assessment: "a capture mechanism with no consumption mechanism") — it's
+  an admin CRUD surface at `/risk-assessment-templates` plus a form-builder
+  widget (`riskAssessment` field type) embedded in a CAPA/NCR/CR/Complaint
+  workflow step, which derives a `risk_assessments` row server-side the moment
+  that step's task reaches APPROVED. No new personas: `reviewer` (`capa:update`)
+  and `auditor` (`capa:read` only, no update) are already the exact admit/refuse
+  pair the borrowed RLS permissions need, and `author` already gets
+  `risk_assessment_templates:create/read/update/delete` for the template-CRUD
+  journey. Fixtures: a dedicated CAPA workflow, **E2E Risk Assessment Review**
+  (step 1 ACTION carries the `riskAssessment` field — deliberately NOT the
+  shared "E2E CAPA Review & Approval" workflow, whose empty step-1 form_schema
+  every other CAPA journey depends on), and a small deterministic 3×3 matrix
+  template, **E2E Risk Matrix**. The `riskAssessment` project's J3 is a
+  regression guard for F-01 (`risk_assessments_update_rls` had no permission
+  clause at all — **fixed** 2026-09-01), re-verified live rather than assumed
+  from the docs.
+- **RCA / Root Cause Analysis (§46)** — zero E2E coverage before this: no
+  project, no fixtures, no `rca` Playwright project. Per docs/modules/rca the
+  module "has no page of its own for its actual content" — `/rca-templates`
+  administers Templates (CRUD on `rca_templates`) and Categories (admin on
+  `root_cause_categories`, gated by a SINGLE `manage` action covering
+  create/update/delete — the "no separate read action" shape that recurs
+  across this codebase) only. The actual analysis is the embedded widget
+  (`rca` field type, `RcaField.vue`) inside a workflow step's task form,
+  which derives a `root_causes` row server-side the moment that step's task
+  reaches APPROVED — mirroring the `riskAssessment` sibling exactly (same
+  derivation service, same reasoning). One new persona, `rcaAdmin`
+  (`rca_templates:create/read/update/delete` + `root_cause_categories:manage`
+  — nobody in the existing cast held either); every other journey reuses
+  `owner`, `noAccess`, `author` (`ncr:*` at tenant scope) and `capaSiteEditor`
+  unmodified. Fixtures: a dedicated CAPA workflow, **E2E RCA Review** (step 1
+  ACTION carries the `rca` field — deliberately NOT the shared "E2E CAPA
+  Review & Approval" workflow, for the same reason Risk Assessment built its
+  own), a seeded template **E2E RCA Template** with all four method configs
+  pre-populated, four `root_cause_categories` rows (mirrors the real
+  bootstrap default's Fishbone 6Ms subset), a dedicated nonconformance, and a
+  seeded `root_causes` row written directly (there is no UI path to create
+  one outside a workflow run, and none of this seed's *other* NCR/CAPA
+  workflow steps carry an `rca`-type field). The `rca` project's PW-J4 is a
+  regression guard for F-01 (`root_causes_update_rls` had no permission
+  clause at all — **fixed** 2026-09-01) AND F-09 (a root cause could still be
+  rewritten after its enclosing step was approved and e-signed — closed by a
+  BEFORE UPDATE trigger, `enforce_root_cause_immutable`, ERRCODE `QMSRC`,
+  that refuses to change anything but `deleted_at`), both re-verified live.
 
 Roster and IDs live in [fixtures/cast.js](fixtures/cast.js).
 
@@ -82,6 +158,10 @@ npm run test:e2e:sites        # sites
 npm run test:e2e:depts        # departments
 npm run test:e2e:audits       # audits (standards, programs, instances, findings)
 npm run test:e2e:analytics    # analytics / QMS Intelligence
+npm run test:e2e:assetRequest # asset requests (supplier-portal-adjacent)
+npm run test:e2e:complaints   # complaints (internal Quality Complaints + Customer Complaints)
+npm run test:e2e:riskAssessment # risk assessment (workflow-embedded matrix widget + templates)
+npm run test:e2e:rca          # RCA (workflow-embedded analysis widget + templates + categories)
 npm run test:e2e:sites:headed # watch it drive a real browser
 
 # Inspections & Log Books has no npm alias yet — run it by project name.
@@ -322,6 +402,36 @@ added.
 | `audits/j10-rls-update-gate.spec.js` | PW-J10 🔴 finding #2 | raw `app_user` UPDATE rewrites findings, programs, requirements, standards and versions with no permission; CONTROL pins the fixed `audit_instances` policy |
 | `audits/j11-permission-denials.spec.js` | PW-J11 route tiers | `/audits` gated, detail routes open by design (RLS withholds the row), supplier exemption, read-only auditor, 403 create, 401 + sign-in bounce |
 | `audits/j12-tenant-isolation.spec.js` | PW-J12 cross-tenant | REST 404s on audit / finding / standard, the row is invisible to E2EALT under RLS, and nothing is mutated |
+
+### Complaints
+
+| Spec | Journey | Asserts (UI + DB) |
+|---|---|---|
+| `complaints/j1-create-crud.spec.js` | CMP-J1 internal complaint CRUD | create over REST lands OPEN in `complaints` (not `customer_complaints`), CMP- number minted, QA-review workflow auto-starts, live-query list/detail render, inline description edit auto-saves |
+| `complaints/j2-status-transitions.spec.js` | CMP-J2 the QMSCM lifecycle guard | SECURITY INVOKER + trigger-attachment premise check; `app_user` refused on every status write and on INSERT outside DRAFT/OPEN; trusted path walks OPEN→CLOSED→OPEN (reopen)→CANCELLED and DRAFT→OPEN / DRAFT→CANCELLED; CANCELLED terminal; `markComplete` 409s while a workflow step is open |
+| `complaints/j3-customer-complaint-lifecycle.spec.js` | CMP-J3 Customer Complaint (support) lifecycle | create → accept → assign → close over `complaint_management`, lands in `customer_complaints` only, terminal-close refusal, and a regression lock that the QA lens never surfaces a support ticket |
+| `complaints/j4-permission-scope-boundary.spec.js` | CMP-J4 permission/scope boundary | `complaints`' SITE tier admits a Primary-Site row and refuses Secondary-Site (both paired against a TENANT-scope persona seeing both); zero-grant denial on both modules' create, nav and detail routes |
+| `complaints/j5-tenant-isolation.spec.js` | CMP-J5 cross-tenant | E2EALT's complaint list excludes E2ELAB's, REST/RLS both refuse a cross-tenant read/write, paired against each tenant reaching its own row |
+
+### Risk Assessment
+
+| Spec | Journey | Asserts (UI + DB) |
+|---|---|---|
+| `riskAssessment/j1-workflow-lifecycle.spec.js` | RA-J1 workflow-embedded lifecycle | CAPA on the dedicated Risk Assessment workflow, reviewer scores + finalizes the matrix, Mark Complete fires COMPLETE_AND_ADVANCE, `risk_assessments` row derived server-side with the frozen likelihood/severity/RPN/justification; approver's e-signed final step leaves the row untouched; the model's own partial-unique-index claim verified live |
+| `riskAssessment/j2-state-machine.spec.js` | RA-J2 finalize state machine | IN PROGRESS → FINALIZED gated on a matrix cell alone (hazard category / INITIAL-RESIDUAL toggle both hidden fields); any post-finalize input change clears the stamp; FINALIZED → COMMITTED is not reachable by the widget itself — finalizing writes nothing until the parent task reaches APPROVED |
+| `riskAssessment/j3-rls-update-regression.spec.js` | RA-J3 🟢 F-01 regression guard | `risk_assessments_update_rls` — CLOSED 2026-09-01 — re-verified live: a `capa:read`-only holder cannot downgrade the score, rewrite the justification or soft-delete; a zero-grant probe is filtered by SELECT first (the vacuity case); CONTROL proves a `capa:update` holder still can; WITH CHECK refuses a cross-tenant rewrite |
+| `riskAssessment/j4-tenant-isolation.spec.js` | RA-J4 cross-tenant | the E2ELAB CAPA renders empty for an E2EALT session (RECORD-tier route, RLS-gated content); the `risk_assessments` row is invisible and unwritable under E2EALT's RLS session; the seeded template is invisible on E2EALT's admin page |
+| `riskAssessment/j5-template-crud.spec.js` | RA-J5 template CRUD | PERM-01 create → list (live query) → edit → paranoid soft-delete at `/risk-assessment-templates`; a zero-grant persona sees no New Template button; the seeded template is the one the workflow field is bound to (`riskAssessmentTemplateId`) |
+
+### RCA (Root Cause Analysis)
+
+| Spec | Journey | Asserts (UI + DB) |
+|---|---|---|
+| `rca/j1-analysis-lifecycle.spec.js` | PW-J1 workflow-embedded analysis lifecycle | CAPA on the dedicated `E2E RCA Review` workflow, reviewer picks a method (5 Whys), writes the primary root cause, Mark Complete auto-finalizes and fires COMPLETE_AND_ADVANCE, `root_causes` row derived server-side with the product's real `method_used` vocabulary (`5WHY`, not the model's dead `FIVE_WHY` enum); approver's e-signed final step closes the CAPA; the explicit "Finalize Analysis" button probed separately |
+| `rca/j2-templates-crud.spec.js` | PW-J2 Templates admin | create with all four method configs (Fishbone default 6Ms, 5 Whys, Is/Is Not, Why Tree) → edit → paranoid soft-delete at `/rca-templates`; `noAccess` reaches the UNGUARDED page but sees no write controls, and `rca_templates_ins` refuses the write at the RLS layer directly |
+| `rca/j3-categories-manage-boundary.spec.js` | PW-J3 Categories manage-only boundary | the single `root_cause_categories:manage` action gates all four REST routes (create/update/deactivate/restore); a holder drives the full cycle through the UI; a non-holder sees a view-only page and gets 403 on all four routes with nothing changed underneath |
+| `rca/j4-root-causes-boundary.spec.js` | PW-J4 🟢 F-01 + F-09 regression guard | `root_causes_update_rls` — CLOSED 2026-09-01 — re-verified live with the vacuity lesson observed (a zero-grant persona is filtered by SELECT first, so the admitting persona must hold a real parent-module grant); the `enforce_root_cause_immutable` (QMSRC) trigger refuses to rewrite content even for that same admitting persona, admitting only the `deleted_at` soft-delete path; INSERT/DELETE still require the OR; the cross-module read exposure (an `ncr:read` holder sees this Nonconformance-attached row) is pinned as a documented, open design decision |
+| `rca/j5-tenant-isolation.spec.js` | PW-J5 cross-tenant | `rca_templates` and `root_cause_categories` (both tenancy-only SELECT policies) and `root_causes` (borrowed-permission table) are all invisible to E2EALT — including its OWNER, whose isOwner bypass does not cross the tenant predicate; REST 404s on a cross-tenant category write |
 
 ## How it's built
 

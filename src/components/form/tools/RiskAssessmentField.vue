@@ -58,8 +58,15 @@ const template = useLiveQueryWithDeps(
   [() => props.field.riskAssessmentTemplate, () => effectiveTemplateId.value],
 
   async (db, [embedded, id]) => {
-    if (embedded?.config) return embedded
-    if (!id) return null
+    // id (effectiveTemplateId) already ranks the responder's own pick above
+    // the embedded snapshot — resolve it first, only falling back to the
+    // embed when there's no id at all. Checking embedded first (as before)
+    // permanently pinned the field to the form author's default template:
+    // setTemplate() correctly wrote a new _templateId, but this resolver kept
+    // returning the embedded snapshot regardless, so the picker snapped back
+    // and the matrix/grid never actually changed.
+    if (embedded?.config && embedded.id === id) return embedded
+    if (!id) return embedded?.config ? embedded : null
     return db.RiskAssessmentTemplate.findByPk(id)
   },
   { models: ['RiskAssessmentTemplate'] },

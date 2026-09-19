@@ -1,5 +1,5 @@
 <script setup>
-import { IconBellOff, IconCheck } from '@tabler/icons-vue'
+import { IconBell, IconBellOff, IconCheck } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 
 const filter = ref('all') // 'all' | 'unread'
@@ -39,10 +39,8 @@ const filterTabs = [
 </script>
 
 <template>
-  <div class="tw:py-6">
-    <!-- Page header -->
-    <BaseSectionHeader title="Notifications" :level="1" size="section-title" class="tw:mb-6">
-      <template v-if="unreadCount > 0" #subtitle> {{ unreadCount }} unread </template>
+  <BasePage width="standard">
+    <PageHeader :icon="IconBell" title="Notifications">
       <template #actions>
         <button
           v-if="unreadCount > 0"
@@ -53,10 +51,12 @@ const filterTabs = [
           Mark all as read
         </button>
       </template>
-    </BaseSectionHeader>
+    </PageHeader>
 
-    <!-- Filter tabs -->
-    <BaseTabs v-model="filter" :tabs="filterTabs" ariaLabel="Notification filter" class="tw:mb-4" />
+    <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
+      <BaseTabs v-model="filter" :tabs="filterTabs" ariaLabel="Notification filter" />
+      <span v-if="unreadCount > 0" class="tw:text-sm tw:text-secondary">{{ unreadCount }} unread</span>
+    </div>
 
     <!-- Loading -->
     <div v-if="loading" class="tw:flex tw:justify-center tw:py-16">
@@ -85,5 +85,5 @@ const filterTabs = [
         :notification="notification"
       />
     </div>
-  </div>
+  </BasePage>
 </template>

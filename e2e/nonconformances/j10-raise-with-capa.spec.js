@@ -6,10 +6,17 @@
 // remapped the rows (`UPDATE capas SET status_id='OPEN' WHERE status_id='PENDING'`)
 // and then DELETED the lookup row (`DELETE FROM capa_statuses WHERE id='PENDING'`).
 //
-// `raiseNcWithCapa` still writes the retired value:
+// `raiseNcWithCapa` wrote the retired value (CAPA-D1):
 //
 //     backend/api/controllers/nonconformances.js:400
 //     await capa.update({ statusId: 'PENDING', ... })
+//
+// FIXED on develop by f7ba9ce0 — that line now writes `statusId: 'OPEN'`
+// (controllers/nonconformances.js:419), and the commit left the post-mortem in
+// place above it. The rest of this header is kept as the record of WHY the
+// assertions below are shaped the way they are: the status is checked against
+// `capa_statuses` itself rather than against the string 'OPEN', so the next
+// vocabulary change fails here with a message that names the cause.
 //
 // TWO layers reject that, and the order matters for anyone debugging it. The
 // status trigger is a BEFORE-row trigger, so it fires ahead of the constraint
@@ -37,9 +44,10 @@
 // one transaction, so the CAPA takes the NC down with it and the user gets a 500
 // having created nothing.
 //
-// ⚠️ THIS TEST IS EXPECTED TO FAIL until the controller is fixed. It is red
-// because the defect is real and live on develop, not because the test is wrong.
-// Verified 2026-08-28: the endpoint returns 500.
+// ⚠️ HISTORY, not current state: this file was written as a FAILING test while
+// the defect was live (the endpoint returned 500, verified 2026-08-28). The fix
+// landed afterwards, so it is now a forward regression guard — it goes red again
+// the day the raise shortcut writes a status that `capa_statuses` does not hold.
 //
 // Nothing caught this. The NC journeys all raise a plain NC (`createCapa` unset)
 // and take the `else` branch two lines below the defect, so the entire suite

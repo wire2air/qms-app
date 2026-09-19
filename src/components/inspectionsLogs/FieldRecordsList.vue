@@ -478,15 +478,28 @@ function toggleColumn(name) {
   visibleColumnKeys.value = scalarFields.value.map((f) => f.name).filter((n) => set.has(n))
 }
 
+// Name lookup for the export's "Submitted By" column — the table itself
+// never shows this raw id (see UserBadgeById elsewhere), so export must
+// resolve it the same way instead of writing the UUID to the CSV.
+const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
+function userNameById(id) {
+  const user = users.value.find((u) => u.id === id)
+  if (!user) return id ?? ''
+  return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+}
+
 // ─── Print / Export ─────────────────────────────────────────────────
-// Only available when a single log book is selected. Exporting a mixed
-// view would produce columns that don't apply to every row.
+// Schema-derived columns (visibleColumns) only apply in log-book mode — a
+// mixed "all log books" view has no single schema to draw extra columns
+// from. That's fine for Export itself: it still works with just the base
+// columns (Form/Classification/Status/Submitted), it just skips the
+// schema-specific extras. Only Print (a single log book's printed sheet)
+// requires a log book to be selected.
 
 function exportCsv(exportRows) {
-  if (!isLogBookMode.value) return
-  const cols = visibleColumns.value
+  const cols = isLogBookMode.value ? visibleColumns.value : []
   const header = [
-    'Log Entry ID',
+    isLogBookMode.value ? 'Log Entry ID' : 'Form',
     'Submitted At',
     'Submitted By',
     'Status',
@@ -500,9 +513,9 @@ function exportCsv(exportRows) {
   const rows = sourceRows.map((r) => {
     const payload = payloadFor(r)
     return [
-      r.recordNumber ?? r.id,
-      r.submittedAt?.toISO ? r.submittedAt.toISO() : (r.submittedAt ?? ''),
-      r.submittedByUserId ?? '',
+      isLogBookMode.value ? (r.recordNumber ?? r.id) : templateTitle(r),
+      r.submittedAt?.formatDate ? r.submittedAt.formatDate('datetime') : fmtDate(r.submittedAt),
+      userNameById(r.submittedByUserId),
       r.statusId ?? '',
       ...cols.map((c) => formatCellValue(c, payload[c.name], { maxLength: 1000 })),
     ]
@@ -515,8 +528,8 @@ function exportCsv(exportRows) {
   const a = document.createElement('a')
   a.href = url
   const stamp = DateTime.now().toFormat('yyyy-LL-dd')
-  const slug = selectedTemplate.value.code?.toLowerCase() ?? 'log-book'
-  a.download = `${slug}-${stamp}.csv`
+  const slug = isLogBookMode.value ? selectedTemplate.value.code?.toLowerCase() : 'log-entries'
+  a.download = `${slug ?? 'log-entries'}-${stamp}.csv`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

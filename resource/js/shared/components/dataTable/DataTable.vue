@@ -80,7 +80,7 @@ const props = defineProps({
   // Opt-in: below `mobileBreakpoint` render a stacked card list instead of a
   // horizontal-scroll table. Off by default (cards read best when columns declare
   // a `mobile` priority); set `mobileCards` (true) per table to enable.
-  mobileCards: { type: Boolean, default: true },
+  mobileCards: { type: Boolean, default: false },
   mobileBreakpoint: {
     type: String,
     default: 'md',
@@ -972,7 +972,7 @@ defineExpose({ table })
                 role="separator"
                 aria-orientation="vertical"
                 :aria-label="`Resize ${column.columnDef.meta.col.label}`"
-                class="tw:absolute tw:top-0 tw:right-0 tw:z-10 tw:h-full tw:w-1.5 tw:cursor-col-resize tw:touch-none tw:select-none tw:transition-colors hover:tw:bg-primary/40"
+                class="tw:absolute tw:top-0 tw:right-0 tw:z-10 tw:h-full tw:w-1.5 tw:cursor-col-resize tw:touch-none tw:select-none tw:transition-colors tw:hover:bg-primary/40"
                 :class="column.getIsResizing() ? 'tw:bg-primary' : ''"
                 @click.stop
                 @mousedown="headerById[column.id]?.getResizeHandler()?.($event)"

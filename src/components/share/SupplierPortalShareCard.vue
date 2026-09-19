@@ -11,10 +11,21 @@
  * Nothing about the record's workflow changes, which is exactly why it works
  * on a closed record.
  *
- * `entityType` follows each table's RLS convention: 'Document' / 'Capa' /
- * 'Nonconformance' for the built-ins, the record's moduleKey for admin-defined
- * module records (records_sel matches shared_with_user.entity_type against
- * records.module_key).
+ * `entityType` follows each table's RLS convention. The built-ins are
+ * 'Document', 'Capa', 'Nonconformance', 'QualityEvent' and 'AuditInstance' —
+ * FIVE, not the three this comment used to name (PORTAL-F15, 2026-09-07);
+ * anything else is the record's moduleKey for admin-defined module records
+ * (records_sel matches shared_with_user.entity_type against records.module_key).
+ * The canonical list is `src/utils/portalShareEntities.js`, mirrored from
+ * `backend/shared/sharing/sharedWithUserEntities.js`.
+ *
+ * This component is type-agnostic — it takes whatever `entityType` its mounting
+ * page passes — so the reason no QualityEvent or AuditInstance share can be
+ * created from the UI is NOT here: it is that only the Documents page and the
+ * module-record rail mount it. Every layer beneath (the DB CHECK, the RLS gate,
+ * the REST controller, the sync side-effect and the portal dashboard) now
+ * accepts all five. Mounting it on the QE and Audit detail pages is a product
+ * decision, not a fix, and is deliberately not made here.
  */
 import { IconBuildingStore, IconTrash, IconPlus } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession.js'

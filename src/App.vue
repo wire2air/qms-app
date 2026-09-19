@@ -109,7 +109,14 @@ async function bootApp() {
     if (currentSession.value && isAuthRoute(currentPath) && !currentPath.startsWith('/signup')) {
       await initCurrentCompany()
       if (companies.value?.length > 0) {
-        gotoTenant(companies.value[0].code, '/dashboard')
+        // `/` (not `/dashboard`) so the fresh boot's own isSupplier branch
+        // decides the landing page for the target company — see index.vue and
+        // docs/modules/dashboard's 2026-09-07 addendum, finding 1. Session
+        // state here may be null (tenant-mismatch below) or scoped to a
+        // different company than companies.value[0], so deciding HERE would
+        // guess; deferring to the next load, where currentSession is freshly
+        // populated for the actual destination, does not.
+        gotoTenant(companies.value[0].code, '/')
         return
       }
     }
@@ -133,7 +140,11 @@ async function bootApp() {
     // Authenticated but not a member of this tenant → send them to one they
     // belong to; if they belong to none, to sign-in.
     if (companies.value?.length > 0) {
-      gotoTenant(companies.value[0].code, '/dashboard')
+      // `/`, not `/dashboard` — see the comment on the other gotoTenant call
+      // above; same reasoning, and currentSession is null here specifically
+      // (403/wrong-tenant → fetchUserSession sets it null), so a decision
+      // made at this call site couldn't consult isSupplier at all.
+      gotoTenant(companies.value[0].code, '/')
     } else {
       window.location.assign('/signin')
     }

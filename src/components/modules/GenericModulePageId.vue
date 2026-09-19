@@ -417,4 +417,20 @@ async function closeRecord() {
     </BaseDialog>
     <WorkflowInstanceEsignAuthDialog v-model="showCancelEsign" @verified="onCancelEsignVerified" />
   </BasePage>
+
+  <!-- record === undefined while the live query resolves; === null once it has
+       resolved and found nothing (bad/deleted id). Without this branch the
+       page rendered nothing at all for a nonexistent id — indistinguishable
+       from an infinite loading state. -->
+  <BasePage v-else width="wide">
+    <div class="tw:flex tw:flex-1 tw:items-center tw:justify-center tw:py-12">
+      <BaseSpinner v-if="record === undefined" />
+      <BaseStatusState
+        v-else
+        variant="notfound"
+        title="Record not found"
+        description="This record doesn't exist or you don't have access to it."
+      />
+    </div>
+  </BasePage>
 </template>

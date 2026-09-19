@@ -44,7 +44,7 @@ const severities = useLiveQuery((db) => db.EventSeverity.where().orderBy('rank',
 })
 const deactivated = useLiveQuery(
   async (db) =>
-    (await db.EventSeverity.where('id', undefined, { force: true }).exec()).filter(
+    (await db.EventSeverity.where(undefined, undefined, { force: true }).exec()).filter(
       (d) => d.deletedAt,
     ),
   { models: ['EventSeverity'], initial: [] },

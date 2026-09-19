@@ -402,7 +402,12 @@ const auditStandardDetailConfig = computed(() =>
     width: 'standard',
     breadcrumbs: [
       { label: 'Audits', to: getCompanyPath('/audits?tab=standards') },
-      { label: standard.value?.name || standard.value?.code || 'Loading…' },
+      {
+        label:
+          standard.value?.name ||
+          standard.value?.code ||
+          (standard.value === null ? 'Not found' : 'Loading…'),
+      },
     ],
     banners: () => auditStandardBanners.value,
     actions: auditStandardActions.value,

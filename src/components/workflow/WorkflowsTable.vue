@@ -102,6 +102,41 @@ function rowMenuItems(workflow) {
   return items
 }
 
+// TYPE/STEPS/VERSION/STATUS only ever display via ModuleBadgeById or the
+// computed `workflowMetaMap` (stepCount / the representative WorkflowVersion)
+// — none of those are real properties on the Workflow row itself, so
+// DataTable's fallback export reads a raw `moduleId` UUID for TYPE and
+// `undefined` for STEPS/VERSION/STATUS. Hand it an explicit exportColumns
+// list that mirrors the body-cell logic instead.
+function moduleLabel(id) {
+  return modules.value.find((m) => m.id === id)?.name ?? ''
+}
+function versionStatusLabel(id) {
+  return workflowVersionStatuses.value.find((s) => s.id === id)?.name ?? id ?? ''
+}
+function versionLabel(meta) {
+  if (!meta?.version) return ''
+  return `v${meta.version.versionLabel || `${meta.version.versionMajor ?? 1}.${meta.version.versionMinor ?? 0}`}`
+}
+
+const exportColumns = computed(() => [
+  { key: 'name', label: 'WORKFLOW NAME', value: (row) => row.name ?? '' },
+  { key: 'type', label: 'TYPE', value: (row) => moduleLabel(row.moduleId) },
+  {
+    key: 'steps',
+    label: 'STEPS',
+    value: (row) => workflowMetaMap.value[row.id]?.stepCount ?? 0,
+  },
+  { key: 'version', label: 'VERSION', value: (row) => versionLabel(workflowMetaMap.value[row.id]) },
+  {
+    key: 'statusId',
+    label: 'STATUS',
+    value: (row) => versionStatusLabel(workflowMetaMap.value[row.id]?.version?.statusId),
+  },
+  { key: 'createdAt', label: 'CREATED', value: (row) => row.createdAt?.formatDate?.('date') ?? '' },
+  // ACTIONS intentionally omitted — exportColumns is an explicit allowlist.
+])
+
 const pagination = ref({ page: 1, pageSize: 50 })
 const sort = ref([{ id: 'createdAt', desc: true }])
 </script>
@@ -117,6 +152,7 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     searchable
     filterable
     exportManager
+    :exportColumns="exportColumns"
     exportFilename="workflows.csv"
   >
     <template #body-cell-name="{ row }">

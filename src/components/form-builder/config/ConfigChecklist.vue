@@ -20,8 +20,21 @@ function columnInputTypeItems(col) {
 // row onwards.
 const rowsRef = ref(null)
 const columnsRef = ref(null)
-useListReorder(rowsRef, () => field.value?.rows, '.checklist-row-handle')
-useListReorder(columnsRef, () => field.value?.columns, '.checklist-col-handle')
+// Named announcements rather than the composable's generic fallback: a
+// checklist can run to a dozen rows, and "Moved to position 3 of 9" leaves a
+// screen-reader user to work out WHICH row moved. An unlabelled row is
+// described by the position it landed in, which is the number the listener is
+// about to see beside it.
+useListReorder(rowsRef, () => field.value?.rows, {
+  handle: '.checklist-row-handle',
+  announce: (row, to, total) =>
+    `${String(row || '').trim() || `Row ${to + 1}`} moved to position ${to + 1} of ${total}.`,
+})
+useListReorder(columnsRef, () => field.value?.columns, {
+  handle: '.checklist-col-handle',
+  announce: (col, to, total) =>
+    `${col?.label?.trim() || `Column ${to + 1}`} moved to position ${to + 1} of ${total}.`,
+})
 
 function addRow() {
   if (!field.value.rows) {
@@ -144,6 +157,31 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
   <div class="tw:flex tw:flex-col tw:gap-4">
     <div class="tw:flex tw:flex-col tw:gap-3">
       <BaseText as="div" variant="overline">Rows</BaseText>
+      <!--
+        Keyed by INDEX, deliberately, and it is the lesser of two evils rather
+        than an oversight — the columns below are keyed by identity and the
+        reasoning for the difference is the whole point.
+
+        An index key means a reordered row keeps its DOM node and has its
+        contents rewritten, so the caret (and any uncommitted IME composition)
+        stays with the POSITION instead of following the row that moved. That
+        is a real defect. But a row is a bare string, and every identity we
+        could key on instead is worse:
+
+          - The string itself collides. `addRow()` pushes '', so two fresh
+            rows are identical the moment you add them, and duplicate keys make
+            Vue patch the wrong node — a harder failure than a misplaced caret.
+          - A generated id would have to live ON the row, i.e. turn `rows` from
+            string[] into object[]. That shape is persisted and read positionally
+            by consumers that are NOT in this file: aiFormSerialize.js drops any
+            row that is not `typeof r === 'string'`, hydrateChecklistRows()
+            filters the same way, and lineClearance.js / BaseChecklist index
+            answers by row POSITION. Widening the shape here would silently
+            truncate checklists on the AI round-trip.
+
+        So the caret defect stays until `rows` gets a schema decision of its
+        own; fixing it from this file alone would corrupt saved templates.
+      -->
       <div ref="rowsRef" class="tw:contents">
         <div
           v-for="(row, index) in field.rows"
@@ -151,12 +189,28 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
           class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
         >
           <div class="tw:flex tw:gap-2 tw:items-center">
-            <span
+            <!--
+              A real <button>, not a <span>, and that is load-bearing rather
+              than tidiness. useListReorder gates its keyboard path on
+              `e.target.closest(handle)` — an element that cannot take focus can
+              never BE the target of a keydown, so as a <span> this grip had the
+              arrow-key handler attached and permanently unreachable. The
+              aria-label did not help either: on a <span> with no role it is
+              largely ignored by assistive tech, so the control neither
+              announced itself nor did anything.
+
+              That is the exact failure the composable's own docblock describes
+              (a control advertising a capability it does not have) — the
+              wrapper was fixed in 2026-08-19, this consumer was not.
+            -->
+            <button
+              type="button"
               class="checklist-row-handle tw:shrink-0 tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary"
-              :aria-label="`Drag to reorder row ${index + 1}`"
+              :aria-label="`Reorder row ${index + 1}. Use arrow keys to move it, Home or End to send it to either end.`"
+              aria-keyshortcuts="ArrowUp ArrowDown Home End"
             >
-              <IconGripVertical :size="15" />
-            </span>
+              <IconGripVertical :size="15" aria-hidden="true" />
+            </button>
             <div class="tw:flex-1">
               <BaseTextInput v-model="field.rows[index]" placeholder="Row Label" size="sm" />
             </div>
@@ -180,20 +234,38 @@ function removeColumnOption(selectColumnIndex, optionIndex) {
 
     <div class="tw:flex tw:flex-col tw:gap-3">
       <BaseText as="div" variant="overline">Columns</BaseText>
+      <!--
+        Keyed on the column OBJECT, not the index — same reason as
+        ReportBuilderDialog's sections: with an index key a dragged column keeps
+        its DOM node and only has its contents rewritten, so the label input's
+        caret and any in-flight IME composition stay at the POSITION rather than
+        following the column that moved. Keying on identity moves the node with
+        its data.
+
+        Unlike the rows above, this is safe here without touching the persisted
+        shape: columns are ALREADY objects, `addColumn()` pushes a fresh literal
+        per call, and useListReorder only splices — it never rebuilds an entry —
+        so every element is unique by reference even when two labels read the
+        same. `col.value` would NOT do: updateColumnValue() leaves it '' until a
+        label is typed, so two new columns would share a key.
+      -->
       <div ref="columnsRef" class="tw:contents">
         <div
           v-for="(col, index) in field.columns"
-          :key="'col-' + index"
+          :key="col"
           class="tw:bg-main-hover tw:p-3 tw:rounded-lg"
         >
           <div class="tw:flex tw:flex-col tw:gap-3">
             <div class="tw:flex tw:gap-2 tw:items-center">
-              <span
+              <!-- A <button> for the same reason as the row grip above. -->
+              <button
+                type="button"
                 class="checklist-col-handle tw:shrink-0 tw:cursor-grab tw:active:cursor-grabbing tw:text-secondary tw:hover:text-primary"
-                :aria-label="`Drag to reorder column ${index + 1}`"
+                :aria-label="`Reorder column ${index + 1}. Use arrow keys to move it, Home or End to send it to either end.`"
+                aria-keyshortcuts="ArrowUp ArrowDown Home End"
               >
-                <IconGripVertical :size="15" />
-              </span>
+                <IconGripVertical :size="15" aria-hidden="true" />
+              </button>
               <div class="tw:flex-1">
                 <BaseTextInput
                   v-model="col.label"
