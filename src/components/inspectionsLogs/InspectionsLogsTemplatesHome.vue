@@ -1,7 +1,19 @@
 <script setup>
-import { IconStack2, IconPlus, IconShieldCheck, IconClock } from '@tabler/icons-vue'
+import {
+  IconStack2,
+  IconPlus,
+  IconShieldCheck,
+  IconClock,
+  IconCopy,
+  IconQrcode,
+} from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Cloning is a
+// server-side transaction across five tables (the book plus its sites, document
+// links, assignment audience and reviewer roster) and mints a unique code; the
+// new rows reach IndexedDB through the normal sync push.
+import { post } from '@/api'
 
 // Embedded = hosted as the "Log Books" tab of the Inspections & Logs
 // workspace (the host owns the page header).
@@ -24,9 +36,94 @@ defineProps({ embedded: { type: Boolean, default: false } })
  * (filter state + URL sync + resolved content state) + `BaseListLayout`
  * (header / filters / state region).
  */
-const router = useRouter()
-
 const canCreate = computed(() => isAllowed(['forms_templates:create']))
+// Matches the server gate on POST /logBooks/:id/clone exactly — cloning
+// creates a book, so it is `create` and not `update`.
+const canClone = computed(() => isAllowed(['log_books:create']))
+
+const router = useRouter()
+const toast = useToast()
+const { confirm } = useConfirm()
+
+// Per-row so one slow clone only disables its own button, not the column.
+const cloningId = ref('')
+
+/**
+ * Copy a log book into a fresh DRAFT and open it for editing.
+ *
+ * Distinct from "Create replacement" on the detail page: that supersedes the
+ * book it came from (lineage, and approval obsoletes the original), whereas
+ * this leaves the source untouched and running. Hence the wording below —
+ * people reach for Clone when they mean "another book like this one".
+ */
+async function cloneLogBook(row) {
+  if (!canClone.value || cloningId.value) return
+  if (
+    !(await confirm({
+      title: 'Clone log book',
+      message:
+        `Create a copy of "${row.title}"?\n\n` +
+        'The copy starts as a new draft with the same log template, policy, ' +
+        'schedule, linked documents, assignments and reviewers. It gets its own ' +
+        'code and is not linked to this book — existing entries and this book ' +
+        'itself are untouched.',
+      okLabel: 'Clone',
+    }))
+  ) {
+    return
+  }
+
+  cloningId.value = row.id
+  try {
+    const res = await post(`/v1/services/logBooks/${row.id}/clone`, {})
+    const clone = res?.logBook
+    toast.success(`${clone?.code ?? 'Copy'} created — edit it, then submit for approval`)
+    if (clone?.id) {
+      router.push({
+        path: getCompanyPath(`/inspections-logs/log-books/${clone.id}`),
+        query: { tab: 'details' },
+      })
+    }
+  } catch (err) {
+    toast.error(err?.message || 'Failed to clone log book')
+  } finally {
+    cloningId.value = ''
+  }
+}
+
+// ── Bulk QR labels ──────────────────────────────────────────────────────────
+// Kitting out an area means printing a dozen stickers at once; doing that one
+// book at a time from each detail page is the reason this is here.
+const selectedIds = ref([])
+
+const bulkActions = computed(() => [
+  {
+    key: 'print-qr',
+    label: 'Print QR labels',
+    icon: IconQrcode,
+    run: (ids) => {
+      // Only ACTIVE books can take entries, so only they get a label — a
+      // sticker pointing at a draft or retired book sends a technician to a
+      // dead end nobody finds until they are stood in front of it.
+      const byId = new Map(templates.value.map((t) => [t.id, t]))
+      const printable = [...ids].filter((id) => byId.get(id)?.statusId === 'ACTIVE')
+      if (!printable.length) {
+        toast.error('Only active log books can have a QR label — nothing selected is active yet.')
+        return
+      }
+      const skipped = ids.length - printable.length
+      if (skipped > 0) {
+        toast.warning(
+          `Printing ${printable.length} label${printable.length === 1 ? '' : 's'} — skipped ${skipped} book${skipped === 1 ? '' : 's'} that cannot take entries yet.`,
+        )
+      }
+      window.open(
+        getCompanyPath(`/print?module=LogBookQrLabel&ids=${printable.join(',')}&size=a4`),
+        '_blank',
+      )
+    },
+  },
+])
 
 const showCreateDialog = ref(false)
 const pendingClassification = ref('OPERATIONAL_LOG')
@@ -120,7 +217,7 @@ function editWindowSummary(t) {
   return mode
 }
 
-const columns = [
+const columns = computed(() => [
   { name: 'title', label: 'Log Book', field: 'title', align: 'left', sortable: true },
   { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true },
   { name: 'category', label: 'Category', field: 'logBookTypeId', align: 'left' },
@@ -128,7 +225,12 @@ const columns = [
   { name: 'supervisor', label: 'Supervisor', field: 'supervisorUserId', align: 'left' },
   { name: 'editWindow', label: 'Edit window', field: 'editWindowMode', align: 'left' },
   { name: 'esig', label: 'E-sig', field: 'signatureRequired', align: 'left' },
-]
+  // Row actions — omitted entirely (not just disabled) without the permission,
+  // so the column header does not advertise something the user cannot do.
+  ...(canClone.value
+    ? [{ name: 'actions', label: '', field: 'id', align: 'right', sortable: false }]
+    : []),
+])
 
 // Category resolves via logBookTypes/typeName above; Supervisor only ever
 // displays via UserBadgeById — DataTable's fallback export reads the raw
@@ -270,9 +372,12 @@ const exportColumns = computed(() => [
 
     <!-- Log books list -->
     <DataTable
+      v-model:selected="selectedIds"
       :rows="templates"
       :columns="columns"
       rowKey="id"
+      :selectable="canClone"
+      :bulkActions="bulkActions"
       :mobileCards="false"
       hidePagination
       exportManager
@@ -335,6 +440,21 @@ const exportColumns = computed(() => [
           Required
         </span>
         <span v-else class="tw:text-secondary">—</span>
+      </template>
+
+      <template #body-cell-actions="{ row }">
+        <BaseButton
+          variant="outline"
+          size="sm"
+          :isLoading="cloningId === row.id"
+          :disabled="!!cloningId"
+          :title="`Clone ${row.code}`"
+          :aria-label="`Clone log book ${row.title}`"
+          @click="cloneLogBook(row)"
+        >
+          <IconCopy :size="16" />
+          Clone
+        </BaseButton>
       </template>
     </DataTable>
 
