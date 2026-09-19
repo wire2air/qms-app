@@ -73,6 +73,10 @@ export class LogBook extends BaseModel {
   // Allow supervisor over-the-shoulder approval at the operator's workstation
   // (PIN, no session switch). Only meaningful with reviewRequired.
   @Property({ type: Boolean }) overTheShoulderReview = false
+  // The reviewer may not be the person who filed the entry. Defaults from the
+  // classification at create (on for CONTROLLED_RECORD); a contract field,
+  // frozen once the book is approved.
+  @Property({ type: Boolean }) requireIndependentReview = false
   @Property({ type: String }) notifyOnSubmit = 'DIGEST'
 
   // Form definition

@@ -29,7 +29,11 @@ const reviewerRoleIds = computed(() => reviewers.value.filter((r) => r.roleId).m
 
 // Site-eligible internal users, minus the supervisor + already-added users.
 const eligibleUsers = useLiveQueryWithDeps(
-  [() => props.logBookId, () => props.logBook?.supervisorUserId, () => reviewerUserIds.value.join(',')],
+  [
+    () => props.logBookId,
+    () => props.logBook?.supervisorUserId,
+    () => reviewerUserIds.value.join(','),
+  ],
   async (db, [, supId]) => {
     if (!props.logBook) return []
     const ids = new Set(await resolveSiteEligibleUserIds(props.logBook))
@@ -37,7 +41,10 @@ const eligibleUsers = useLiveQueryWithDeps(
     const users = await db.User.where().exec()
     return users
       .filter((u) => ids.has(u.id) && !taken.has(u.id))
-      .map((u) => ({ id: u.id, name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email }))
+      .map((u) => ({
+        id: u.id,
+        name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name))
   },
   { models: ['User', 'UserSite', 'SiteOnLogBook', 'LogBookReviewer'], initial: [] },
@@ -94,11 +101,15 @@ async function removeReviewer(row) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-3">
     <div>
-      <BaseText as="h4" class="tw:text-sm tw:font-semibold tw:text-on-main">Reviewers</BaseText>
+      <BaseText as="h4" class="tw:text-sm tw:font-semibold tw:text-on-main"
+        >Who may approve entries</BaseText
+      >
       <p class="tw:text-caption tw:text-secondary">
-        Who can approve or reject entries. The Supervisor is always a reviewer; add more people or
-        roles so entries can be signed off when the supervisor is unavailable. Specific users are
-        limited to those with access to this log book's site.
+        Everyone here is told when this book needs attention — a flagged entry, and (when reviewer
+        approval is on) entries waiting for sign-off and the daily digest. They can all approve or
+        reject. The accountable supervisor is always included. Add people or roles so work still
+        gets picked up when someone is away. Named users are limited to those with access to this
+        log book's site; the supervisor is not.
       </p>
     </div>
 
@@ -107,21 +118,39 @@ async function removeReviewer(row) {
       <span v-if="logBook?.supervisorUserId" class="tw:inline-flex tw:items-center tw:gap-1">
         <IconShieldCheck :size="14" class="tw:text-emerald-600" />
         <UserBadgeById :userId="logBook.supervisorUserId" />
-        <span class="tw:text-caption tw:text-secondary">Supervisor</span>
+        <span class="tw:text-caption tw:text-secondary">Accountable supervisor</span>
       </span>
 
       <!-- Additional user reviewers -->
-      <span v-for="row in reviewers.filter((r) => r.userId)" :key="row.id" class="tw:inline-flex tw:items-center tw:gap-1">
+      <span
+        v-for="row in reviewers.filter((r) => r.userId)"
+        :key="row.id"
+        class="tw:inline-flex tw:items-center tw:gap-1"
+      >
         <UserBadgeById :userId="row.userId" />
-        <button v-if="canEdit" type="button" class="tw:text-secondary tw:hover:text-red-600" @click="removeReviewer(row)">
+        <button
+          v-if="canEdit"
+          type="button"
+          class="tw:text-secondary tw:hover:text-red-600"
+          @click="removeReviewer(row)"
+        >
           <IconX :size="13" />
         </button>
       </span>
 
       <!-- Additional role reviewers -->
-      <span v-for="row in reviewers.filter((r) => r.roleId)" :key="row.id" class="tw:inline-flex tw:items-center tw:gap-1">
+      <span
+        v-for="row in reviewers.filter((r) => r.roleId)"
+        :key="row.id"
+        class="tw:inline-flex tw:items-center tw:gap-1"
+      >
         <RoleBadgeById :roleId="row.roleId" />
-        <button v-if="canEdit" type="button" class="tw:text-secondary tw:hover:text-red-600" @click="removeReviewer(row)">
+        <button
+          v-if="canEdit"
+          type="button"
+          class="tw:text-secondary tw:hover:text-red-600"
+          @click="removeReviewer(row)"
+        >
           <IconX :size="13" />
         </button>
       </span>

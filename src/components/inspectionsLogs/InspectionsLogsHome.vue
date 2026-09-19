@@ -7,6 +7,7 @@ import {
   IconDeviceMobile,
 } from '@tabler/icons-vue'
 import { isAllowed, currentSession, isModuleEntitled } from '@/utils/currentSession.js'
+import { useLogBookReviewAuth } from '@/composables/useLogBookReviewAuth.js'
 import { DateTime } from 'luxon'
 
 /**
@@ -34,9 +35,7 @@ const ALL_TABS = [
 const tabs = computed(() => ALL_TABS.filter((t) => isAllowed([t.permission])))
 const validTabIds = computed(() => new Set(tabs.value.map((t) => t.value)))
 const firstTab = computed(() => tabs.value[0]?.value ?? 'logs')
-const activeTab = ref(
-  ALL_TABS.some((t) => t.value === route.query.tab) ? route.query.tab : 'logs',
-)
+const activeTab = ref(ALL_TABS.some((t) => t.value === route.query.tab) ? route.query.tab : 'logs')
 watch(
   () => route.query.tab,
   (v) => {
@@ -67,12 +66,7 @@ watch(
   { immediate: true },
 )
 
-// Round 1: scope the "Awaiting review" stat tile to the user's
-// supervised log books (the digest queue in #2 reads the same shape).
-const allLogBooks = useLiveQuery((db) => db.LogBook.where().exec(), {
-  models: ['LogBook'],
-  initial: [],
-})
+const { canReviewBook } = useLogBookReviewAuth()
 
 const allInstances = useLiveQuery((db) => db.AssignmentInstance.where().exec(), {
   models: ['AssignmentInstance'],
@@ -93,15 +87,18 @@ const stats = computed(() => {
   const myDue = allInstances.value.filter(
     (i) => i.assignedToUserId === userId && (i.statusId === 'DUE' || i.statusId === 'OVERDUE'),
   )
-  // Scope the count to the log books this user supervises so the tile
-  // reflects "what's waiting on YOU" not the global UNDER_REVIEW pile.
-  // Admins with fieldRecords:read_all see the global count via the
-  // Pending Review page's "view all" toggle.
-  const mySupervisedIds = new Set(
-    allLogBooks.value.filter((lb) => lb.supervisorUserId === userId).map((lb) => lb.id),
-  )
+  // Scope the count to the books this user may actually review, so the tile
+  // reflects "what's waiting on YOU" not the global UNDER_REVIEW pile. Admins
+  // with fieldRecords:read_all see the global count via the Pending Review
+  // page's "view all" toggle.
+  //
+  // Reviewable, not supervised (2026-09-19): review authorisation includes the
+  // reviewer roster, so counting only books where supervisorUserId matched
+  // showed 0 to someone with a queue full of entries they were entitled to
+  // approve. useLogBookReviewAuth is the client mirror of
+  // is_log_book_reviewer.
   const underReview = allRecords.value.filter(
-    (r) => r.statusId === 'UNDER_REVIEW' && mySupervisedIds.has(r.logBookId),
+    (r) => r.statusId === 'UNDER_REVIEW' && canReviewBook(r.logBookId),
   )
   const missedThisWeek = allInstances.value.filter(
     (i) => i.statusId === 'MISSED' && i.missedAt && i.missedAt >= startOfWeek,
@@ -116,6 +113,9 @@ const stats = computed(() => {
     submittedThisWeek: submittedThisWeek.length,
   }
 })
+
+// See the tiles' comment in the template for why Log Books is excluded.
+const showStats = computed(() => activeTab.value !== 'log-books')
 
 const showMobilePortal = ref(false)
 </script>
@@ -150,8 +150,13 @@ const showMobilePortal = ref(false)
       </template>
     </PageHeader>
 
-    <!-- Stat tiles -->
-    <div class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
+    <!-- Stat tiles.
+         Hidden on Log Books: every tile counts ENTRIES (due assignments,
+         records under review, missed/submitted this week), none of them say
+         anything about the books themselves, so on a list of templates they
+         read as four zeros that never move. They stay on Logs and
+         Assignments, where entry counts are the point. -->
+    <div v-if="showStats" class="tw:grid tw:grid-cols-2 tw:md:grid-cols-4 tw:gap-3">
       <div
         class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:flex tw:items-center tw:gap-4"
       >
@@ -161,7 +166,9 @@ const showMobilePortal = ref(false)
           <IconChecklist :size="20" />
         </div>
         <div>
-          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+          <div
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+          >
             My queue
           </div>
           <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.myDue }}</div>
@@ -178,7 +185,9 @@ const showMobilePortal = ref(false)
           <IconAlertCircle :size="20" />
         </div>
         <div>
-          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+          <div
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+          >
             Awaiting your review
           </div>
           <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">{{ stats.underReview }}</div>
@@ -193,7 +202,9 @@ const showMobilePortal = ref(false)
           <IconHistory :size="20" />
         </div>
         <div>
-          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+          <div
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+          >
             Missed this week
           </div>
           <div
@@ -213,7 +224,9 @@ const showMobilePortal = ref(false)
           <IconListCheck :size="20" />
         </div>
         <div>
-          <div class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary">
+          <div
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+          >
             Submitted this week
           </div>
           <div class="tw:text-2xl tw:font-bold tw:text-on-sidebar">
