@@ -47,6 +47,17 @@ export function buildLogBookActions(gates = {}, handlers = {}) {
       onSelect: handlers.discardDraft,
     },
     {
+      // Only an ACTIVE book: a label pointing at a book that cannot take
+      // entries is worse than no label, and printing one before approval is
+      // the easy way to end up with exactly that stuck to a machine.
+      id: 'printQr',
+      label: 'Print QR Label',
+      variant: 'outline',
+      priority: 12,
+      visible: !!hasLogBook && statusId === 'ACTIVE',
+      onSelect: handlers.printQrLabel,
+    },
+    {
       id: 'obsolete',
       label: 'Mark Obsolete',
       variant: 'danger',

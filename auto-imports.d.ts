@@ -57,6 +57,7 @@ declare global {
   const extendRef: typeof import('@vueuse/core').extendRef
   const extractHeaderFields: typeof import('./src/composables/usePdfImport.js').extractHeaderFields
   const extractPdfHeader: typeof import('./src/composables/usePdfImport.js').extractPdfHeader
+  const fetchStepReviewerPool: typeof import('./src/composables/useStepReviewerPool.js').fetchStepReviewerPool
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
   const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery
@@ -78,6 +79,7 @@ declare global {
   const injectLocal: typeof import('@vueuse/core').injectLocal
   const injectMultipleProps: typeof import('./resource/js/shared/composables/object.js').injectMultipleProps
   const injectProp: typeof import('./resource/js/shared/composables/object.js').injectProp
+  const invalidateStepReviewerPool: typeof import('./src/composables/useStepReviewerPool.js').invalidateStepReviewerPool
   const isAsync: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isAsync
   const isChecked: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isChecked
   const isDateNode: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isDateNode

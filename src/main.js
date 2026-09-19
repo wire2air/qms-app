@@ -98,7 +98,16 @@ function handleSessionExpired() {
   disconnectSocket()
   const path = window.location.pathname
   if (isPublicRoute(path)) return
-  window.location.href = '/signin'
+  // Carry where they were trying to go. Sending everyone to the dashboard is
+  // survivable when the user typed the URL themselves, but not when a machine
+  // produced it: a technician scanning a printed QR on a balance has no idea
+  // which log book the label meant, so losing the destination strands them.
+  // `next` rides the existing handoff token (auth/helpers.js) and is validated
+  // server-side by safeNext, which already rejects absolute and //-prefixed
+  // targets — so this widens the destination, not the trust boundary.
+  const next = `${path}${window.location.search}`
+  const suffix = next && next !== '/' ? `?next=${encodeURIComponent(next)}` : ''
+  window.location.href = `/signin${suffix}`
 }
 
 eventBus.on('auth:session-expired', handleSessionExpired)

@@ -7,12 +7,15 @@ import {
   IconPlus,
   IconEdit,
   IconClipboardList,
+  IconInfoCircle,
 } from '@tabler/icons-vue'
 import { useDebounceFn } from '@vueuse/core'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { humanizeCron } from '@/utils/cronHumanize.js'
 import { patch, del, post } from '@/api'
+import { pickActionableTask, mayActOnStepType } from '@/components/workflow/stepTakeover.js'
+import { LOG_BOOK_APPROVAL_MODULE } from '@/components/workflow/workflowModule.js'
 import FormBuilder from '@/components/form-builder/FormBuilder.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
 import { buildLogBookSections, buildLogBookActions } from './logBookDetailConfig.js'
@@ -124,6 +127,7 @@ watch(
         supervisorUserId: lb.supervisorUserId || null,
         codePrefix: lb.codePrefix ?? '{TYPECODE}-LOG-{DEPTCODE}',
         equipmentId: lb.equipmentId || null,
+        requireIndependentReview: !!lb.requireIndependentReview,
         syncsEquipmentCalibration: !!lb.syncsEquipmentCalibration,
         syncsEquipmentPm: !!lb.syncsEquipmentPm,
         scheduleMode: lb.scheduleMode ?? 'AD_HOC',
@@ -238,6 +242,12 @@ const debouncedSave = useDebounceFn(async () => {
       supervisorUserId: draft.value.supervisorUserId,
       codePrefix: draft.value.codePrefix?.trim() || undefined,
       equipmentId: draft.value.equipmentId,
+      // Only meaningful when entries are reviewed at all — forcing it on a
+      // book with no review step would be an inert setting, which is exactly
+      // what the summary flags as a gap elsewhere.
+      requireIndependentReview: draft.value.reviewRequired
+        ? !!draft.value.requireIndependentReview
+        : false,
       syncsEquipmentCalibration: draft.value.equipmentId
         ? !!draft.value.syncsEquipmentCalibration
         : false,
@@ -484,21 +494,67 @@ const canEditDetails = computed(
 const canEditFrozen = computed(() => canUpdate.value && isEditableDraft.value)
 const canEditPrefix = computed(() => canUpdate.value && isEditableDraft.value)
 
-// The current user's active approval task on this book — drives the
-// review banner. TaskActionBar re-queries the same task for its buttons.
-const myReviewTask = useLiveQueryWithDeps(
-  [() => (isUnderReview.value ? props.id : null), () => currentSession.value?.userId],
-  async (db, [bookId, userId]) => {
-    if (!bookId || !userId) return null
-    const tasks = await db.TaskInstance.where('[entityType+entityId]', ['LogBook', bookId]).exec()
-    return (
-      tasks.find(
-        (t) => t.assignedTo === userId && ['ASSIGNED', 'FORM_SUBMITTED'].includes(t.statusId),
-      ) || null
-    )
+// The Status field is a pause/resume control, and only an approved book can be
+// paused. Anywhere else the lifecycle belongs to the workflow, so there is
+// nothing to offer — see the field's comment in the template.
+const canPauseResume = computed(() => ['ACTIVE', 'INACTIVE'].includes(bookStatus.value))
+
+// Every actionable approval task on this book — not just mine. Which one
+// applies to the viewer, and whether acting on it is a takeover, is
+// pickActionableTask's decision (stepTakeover.js).
+const reviewTasks = useLiveQueryWithDeps(
+  [() => (isUnderReview.value ? props.id : null)],
+  async (db, [bookId]) => {
+    if (!bookId) return []
+    return db.TaskInstance.where('[entityType+entityId]', ['LogBook', bookId]).exec()
   },
-  { models: ['TaskInstance'] },
+  { models: ['TaskInstance'], initial: [] },
 )
+
+/**
+ * May a NON-assignee approve this book?
+ *
+ * Log books were assignee-only until 2026-09-19 for two stacked reasons: the
+ * log_books module had no `approve` verb, and LogBook was not in the server's
+ * SCOPED_RESOURCE_TYPES. Both are fixed, so the rule that already governs NC
+ * and CAPA applies here too — an assignment is routing, not a lock, and a book
+ * whose approver is on leave no longer sits until someone reassigns it.
+ *
+ * A hint only: assertCanActOnStep re-decides on the action itself.
+ */
+const mayTakeOverReview = computed(() =>
+  mayActOnStepType({
+    module: LOG_BOOK_APPROVAL_MODULE,
+    record: logBook.value,
+    stepType: 'APPROVAL',
+  }),
+)
+
+const actionableReview = computed(() =>
+  pickActionableTask({
+    tasks: reviewTasks.value,
+    userId: currentSession.value?.userId,
+    mayAct: mayTakeOverReview.value,
+    matrixApplies: !!LOG_BOOK_APPROVAL_MODULE.authzModule,
+  }),
+)
+
+const myReviewTask = computed(() => actionableReview.value.task)
+
+// Acting on someone else's task must never look like ordinary work — the
+// banner names the assignee instead (stepTakeover.js, "why a takeover must
+// LOOK different").
+const reviewIsTakeover = computed(() => actionableReview.value.isTakeover)
+const reviewAssignee = useLiveQueryWithDeps(
+  [() => actionableReview.value.assigneeId],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
+)
+const reviewAssigneeName = computed(() => {
+  const u = reviewAssignee.value
+  if (!u) return ''
+  return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || ''
+})
 const isReviewing = computed(() => isUnderReview.value && !!myReviewTask.value)
 // Scratch model for the read-only template preview in the review banner.
 const reviewPreviewData = ref({})
@@ -611,6 +667,20 @@ const breadcrumbs = computed(() => [
   { label: 'Log Books', to: getCompanyPath('/inspections-logs/templates') },
   { label: logBook.value?.title || 'Log Book' },
 ])
+/**
+ * Open the printable QR label for this book in a new tab.
+ *
+ * A new tab, not this one: the print view auto-fires window.print() and the
+ * person doing this is mid-edit on the book. The label encodes the lineage
+ * ROOT code, so the sticker keeps working after the book is replaced — see
+ * logBookLineage.js.
+ */
+function printQrLabel() {
+  if (!logBook.value) return
+  const url = getCompanyPath(`/print?module=LogBookQrLabel&id=${logBook.value.id}&size=a4&copies=8`)
+  window.open(url, '_blank')
+}
+
 const logBookActions = computed(() =>
   buildLogBookActions(
     {
@@ -618,9 +688,33 @@ const logBookActions = computed(() =>
       hasLogBook: !!logBook.value,
       statusId: bookStatus.value,
     },
-    { submitForApproval: openSubmit, createReplacement, discardDraft, markObsolete },
+    { submitForApproval: openSubmit, createReplacement, discardDraft, markObsolete, printQrLabel },
   ),
 )
+// ── "What this log book does" ───────────────────────────────────────────────
+// The form's controls are each clear and collectively unreadable: nothing on
+// the page says what the book, as configured, actually does — or which of its
+// switched-on settings cannot take effect. See logBookSummary.js.
+const showSummary = ref(false)
+
+const summaryDepartment = useLiveQueryWithDeps(
+  [() => logBook.value?.departmentId],
+  async (db, [id]) => (id ? db.Department.findByPk(id) : null),
+  { models: ['Department'] },
+)
+
+const summaryTypeName = computed(
+  () => logBookTypes.value.find((t) => t.id === logBook.value?.logBookTypeId)?.name ?? '',
+)
+
+// Summarise the SAVED book, not the unsaved draft — the question is what this
+// book does, and an autosave-in-flight draft would describe a state that is
+// not yet true of it.
+const summaryCronText = computed(() => {
+  const cron = logBook.value?.schedule?.cron
+  return cron ? humanizeCron(cron) : ''
+})
+
 const logBookDetailConfig = computed(() =>
   defineDetailConfig({
     variant: 'standard',
@@ -645,6 +739,17 @@ const logBookDetailConfig = computed(() =>
       <span class="tw:text-base tw:font-semibold tw:text-on-main">{{
         logBook?.title || 'Log Book'
       }}</span>
+      <BaseButton
+        v-if="logBook"
+        variant="text"
+        size="sm"
+        title="Read this book's configuration back in plain English"
+        aria-label="What this log book does"
+        @click="showSummary = true"
+      >
+        <IconInfoCircle :size="16" />
+        What this does
+      </BaseButton>
     </template>
 
     <template #status>
@@ -742,9 +847,20 @@ const logBookDetailConfig = computed(() =>
                 >
                   <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
                     <span class="tw:text-sm tw:font-semibold tw:text-amber-900">
-                      Your approval is requested — {{ logBook.code }} (V{{
-                        logBook.generation ?? 1
-                      }})
+                      <!-- A takeover must not read as ordinary work: name whose
+                           task it is, so it cannot be actioned without noticing.
+                           See stepTakeover.js. -->
+                      <template v-if="reviewIsTakeover">
+                        Awaiting approval by
+                        {{ reviewAssigneeName || 'the assignee' }} — {{ logBook.code }} (V{{
+                          logBook.generation ?? 1
+                        }}). You may approve on their behalf.
+                      </template>
+                      <template v-else>
+                        Your approval is requested — {{ logBook.code }} (V{{
+                          logBook.generation ?? 1
+                        }})
+                      </template>
                     </span>
                     <TaskActionBar entityType="LogBook" :entityId="logBook.id" />
                   </div>
@@ -865,9 +981,31 @@ const logBookDetailConfig = computed(() =>
                   >
                     <UserSelectMenu v-model="draft.ownerUserId" :disabled="!canEditDetails" />
                   </BaseField>
+                  <BaseField label="Record Id Prefix">
+                    <template v-if="canEditPrefix">
+                      <BaseTextInput
+                        v-model="draft.codePrefix"
+                        placeholder="{TYPECODE}-LOG-{DEPTCODE}"
+                      />
+                      <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                        Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
+                        <span class="tw:text-on-main">{TYPECODE}</span> resolve from the Department
+                        code + the Log book type's prefix (Lookups → Log Book Types) on save.
+                        Current:
+                        <span class="tw:text-on-main">{{ logBook.code }}</span>
+                      </p>
+                    </template>
+                    <template v-else>
+                      <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
+                      <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
+                        Locked — the log book has an effective version, so record IDs stay
+                        consistent.
+                      </p>
+                    </template>
+                  </BaseField>
                   <BaseField
-                    label="Supervisor (reviewer)"
-                    hint="Reviews and approves submitted entries when 'Require reviewer approval' is on. Entries land in this person's review queue."
+                    label="Accountable supervisor"
+                    hint="The one person accountable for this book's entries. They can always approve, and equipment-linked books mirror the instrument's custodian here. Others can be given approval rights under Reviewers — everyone listed there is notified too."
                   >
                     <UserSelectMenu
                       v-model="draft.supervisorUserId"
@@ -883,12 +1021,21 @@ const logBookDetailConfig = computed(() =>
                       equipment.
                     </div>
                   </BaseField>
-                  <BaseField v-slot="{ id: fieldId }" label="Status">
-                    <!-- Approved books: pause/resume here; Obsolete goes
-                         through the header action (requires a reason).
-                         Draft/review lifecycle is workflow-owned. -->
+                  <!-- Only rendered when it is an actual CONTROL: pause /
+                       resume on an approved book. Every other status
+                       (DRAFT, UNDER_REVIEW, REJECTED, OBSOLETE) is
+                       workflow-owned and was rendering a read-only badge that
+                       simply repeated the lifecycle banner above. A form field
+                       nobody can act on is noise, so the field is omitted
+                       rather than disabled. Obsolete goes through the header
+                       action, which takes a reason. -->
+                  <BaseField
+                    v-if="canPauseResume"
+                    v-slot="{ id: fieldId }"
+                    label="Status"
+                    hint="Pause a book to stop it accepting new entries; resume when it is back in use."
+                  >
                     <select
-                      v-if="['ACTIVE', 'INACTIVE'].includes(bookStatus)"
                       :id="fieldId"
                       v-model="draft.statusId"
                       :disabled="!canEditDetails"
@@ -897,7 +1044,6 @@ const logBookDetailConfig = computed(() =>
                       <option value="ACTIVE">Active</option>
                       <option value="INACTIVE">Inactive (paused)</option>
                     </select>
-                    <LogBookStatusBadge v-else :statusId="bookStatus" />
                   </BaseField>
                   <BaseField v-slot="{ id: fieldId }" label="Notification mode">
                     <select
@@ -930,26 +1076,6 @@ const logBookDetailConfig = computed(() =>
                     </p>
                   </BaseField>
                 </div>
-                <BaseField label="Record Id Prefix">
-                  <template v-if="canEditPrefix">
-                    <BaseTextInput
-                      v-model="draft.codePrefix"
-                      placeholder="{TYPECODE}-LOG-{DEPTCODE}"
-                    />
-                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
-                      <span class="tw:text-on-main">{TYPECODE}</span> resolve from the Department
-                      code + the Log book type's prefix (Lookups → Log Book Types) on save. Current:
-                      <span class="tw:text-on-main">{{ logBook.code }}</span>
-                    </p>
-                  </template>
-                  <template v-else>
-                    <div class="tw:text-sm tw:text-on-main">{{ logBook.code }}</div>
-                    <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                      Locked — the log book has an effective version, so record IDs stay consistent.
-                    </p>
-                  </template>
-                </BaseField>
                 <!-- Document links — which SOPs / work instructions this book
                      implements (audit crumb). Last field of Basics (user
                      layout decision 2026-08-06). -->
@@ -999,12 +1125,33 @@ const logBookDetailConfig = computed(() =>
               <section
                 class="tw:bg-white tw:rounded-lg tw:border tw:border-divider tw:p-4 tw:space-y-3"
               >
-                <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
-                  >Equipment</BaseText
-                >
+                <div class="tw:flex tw:items-center tw:gap-2">
+                  <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-main"
+                    >Equipment link</BaseText
+                  >
+                  <span
+                    class="tw:text-micro tw:uppercase tw:tracking-wider tw:rounded tw:border tw:border-divider tw:text-secondary tw:px-1.5 tw:py-0.5"
+                  >
+                    Optional
+                  </span>
+                </div>
+                <!-- Why this exists, stated once. Reported 2026-09-19: a linked
+                     instrument with no sync and no trigger is inert, so the
+                     field read as clutter. Naming what it UNLOCKS is what makes
+                     it possible to decide whether you want it. -->
+                <p class="tw:text-xs tw:text-secondary">
+                  Tie this book to an instrument when entries are about that instrument — a
+                  balance's daily calibration check, a chamber's PM round. Linking one lets entries
+                  roll the instrument's calibration or PM dates forward automatically, and lets the
+                  book become due from those dates instead of a fixed schedule. Leave it empty for a
+                  book that isn't about a single asset.
+                </p>
                 <BaseField label="Equipment">
                   <EquipmentSelectMenu v-model="draft.equipmentId" :disabled="!canEditFrozen" />
                 </BaseField>
+                <p v-if="!draft.equipmentId" class="tw:text-xs tw:text-secondary tw:italic">
+                  No instrument linked — date syncing and instrument-driven scheduling stay off.
+                </p>
 
                 <!-- Calibration sync: when this book is linked to an instrument,
                      opt in to auto-rolling that instrument's calibration from
@@ -1314,6 +1461,27 @@ const logBookDetailConfig = computed(() =>
                       </span>
                     </span>
                   </label>
+                  <!-- BaseCheckbox rather than a hand-rolled label + input:
+                       it renders its own label element and takes the
+                       description through its default slot, so the whole block
+                       stays clickable without adding to the raw-label design
+                       debt the ratchet guards. The siblings above predate it. -->
+                  <BaseCheckbox
+                    v-if="draft.reviewRequired"
+                    v-model="draft.requireIndependentReview"
+                    :disabled="!canEditFrozen"
+                    class="tw:items-start"
+                  >
+                    <span>
+                      Reviewer must be someone other than the author
+                      <span class="tw:block tw:text-caption tw:text-secondary">
+                        The person who filed an entry cannot approve, reject or return it — the
+                        second-person review a controlled record promises has to be an actual second
+                        person. Leave off for routine logs where one technician on shift would
+                        otherwise be unable to close their own round.
+                      </span>
+                    </span>
+                  </BaseCheckbox>
                 </div>
                 <div
                   v-if="draft.reviewRequired && !draft.supervisorUserId"
@@ -1322,9 +1490,12 @@ const logBookDetailConfig = computed(() =>
                   Reviewer approval is on but no <strong>Supervisor</strong> is set — set one in
                   Basics so entries have a designated reviewer.
                 </div>
-                <!-- Additional reviewers (users/roles) — editable while ACTIVE.
-                     Only relevant when reviewer approval is on. -->
-                <div v-if="draft.reviewRequired" class="tw:border-t tw:border-divider tw:pt-3">
+                <!-- Who may approve (users/roles) — editable while ACTIVE.
+                     NOT gated on reviewRequired any more (2026-09-19): this
+                     roster now also decides who is told about a FLAGGED entry,
+                     and flags can be raised on any book. Hiding it when entry
+                     review is off would hide a list that still routes work. -->
+                <div class="tw:border-t tw:border-divider tw:pt-3">
                   <LogBookReviewersEditor
                     :logBookId="props.id"
                     :logBook="logBook"
@@ -1600,6 +1771,19 @@ const logBookDetailConfig = computed(() =>
       </BaseTabs>
     </template>
   </BaseDetailLayout>
+
+  <LogBookSummaryDialog
+    v-model="showSummary"
+    :book="logBook"
+    :equipmentName="selectedEquipment?.name ?? ''"
+    :departmentName="summaryDepartment?.name ?? ''"
+    :typeName="summaryTypeName"
+    :cronText="summaryCronText"
+    :siteCount="siteLinks.length"
+    :documentCount="documentLinks.length"
+    :assignmentCount="logBookAssignments.filter((a) => a.active).length"
+    :hasWorkflow="!!logBook?.workflowVersionId"
+  />
 
   <!-- Submit-for-approval dialog (reviewer-per-step picker). -->
   <LogBookSubmitDialog

@@ -16,11 +16,12 @@ describe('buildLogBookActions', () => {
       .map((a) => a.id)
   }
 
-  it('always describes the four lifecycle actions', () => {
+  it('always describes every action, lifecycle and otherwise', () => {
     expect(buildLogBookActions({}, {}).map((a) => a.id)).toEqual([
       'submit',
       'replace',
       'discard',
+      'printQr',
       'obsolete',
     ])
   })
@@ -34,11 +35,30 @@ describe('buildLogBookActions', () => {
     }
   })
 
-  it('ACTIVE books offer replace + obsolete only', () => {
+  it('ACTIVE books offer replace + obsolete, plus the QR label', () => {
     expect(visibleIds({ canUpdate: true, hasLogBook: true, statusId: 'ACTIVE' })).toEqual([
       'replace',
+      'printQr',
       'obsolete',
     ])
+  })
+
+  it('offers the QR label without update rights — printing is a read', () => {
+    // A supervisor who can see a book but not edit it still needs to put a
+    // sticker on the machine. Unlike every other action here, this changes
+    // nothing.
+    expect(visibleIds({ canUpdate: false, hasLogBook: true, statusId: 'ACTIVE' })).toEqual([
+      'printQr',
+    ])
+  })
+
+  it('never offers a label for a book that cannot take entries', () => {
+    // A sticker on a machine pointing at a DRAFT or OBSOLETE book sends a
+    // technician to a dead end, and nobody discovers it until they are stood
+    // in front of it.
+    for (const statusId of ['DRAFT', 'REJECTED', 'UNDER_REVIEW', 'INACTIVE', 'OBSOLETE']) {
+      expect(visibleIds({ canUpdate: true, hasLogBook: true, statusId })).not.toContain('printQr')
+    }
   })
 
   it('UNDER_REVIEW / INACTIVE / OBSOLETE books offer no header actions', () => {

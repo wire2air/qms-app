@@ -140,19 +140,46 @@ watch(
 )
 
 // Track expanded state for grouped nav items — persisted per company so a
-// collapsed group stays collapsed across navigation and reloads.
+// group you opened or closed stays that way across navigation and reloads.
+//
+// Only an explicit toggle is stored. An untouched group falls back to
+// `groupHasActiveChild` (see below), which is why the value is read through
+// `isGroupExpanded` everywhere rather than off the object directly.
 const expandedGroups = useCompanyLocalStorage('sidebar-groups', {})
 
 function toggleGroup(label) {
   // Reassign (not mutate-in-place) so the localStorage-backed ref persists.
   expandedGroups.value = {
     ...expandedGroups.value,
-    [label]: !(expandedGroups.value[label] ?? true),
+    [label]: !isGroupExpanded(label),
   }
 }
 
+/**
+ * Does this group hold the page we are on?
+ *
+ * Drives the collapsed default: a deep link into a grouped page (or a reload
+ * sitting on one) must still show that page highlighted in the nav, so the one
+ * group containing it opens on its own. Every other group stays shut.
+ */
+function groupHasActiveChild(label) {
+  const group = navItems.value.find((i) => i.label === label)
+  return !!group?.children?.some((c) => isActive(c.to, c.matchPaths))
+}
+
+/**
+ * Collapsed by default (2026-09-19).
+ *
+ * Every group used to start open, which unrolled the whole tree on login and
+ * pushed the lower modules off-screen. Now a group opens only when the user
+ * opened it, or when it contains the current page.
+ *
+ * `?? groupHasActiveChild(label)` and not `?? false`: `undefined` means
+ * "never touched" and defers to the route, while a stored `false` is a
+ * deliberate close and wins even on the active group.
+ */
 function isGroupExpanded(label) {
-  return expandedGroups.value[label] ?? true
+  return expandedGroups.value[label] ?? groupHasActiveChild(label)
 }
 
 // Check if a route is active (including nested routes). `extraPaths` covers an
