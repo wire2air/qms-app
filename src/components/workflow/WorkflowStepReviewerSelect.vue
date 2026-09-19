@@ -22,6 +22,7 @@
  * naturally per module ('… before submitting this NC' vs 'this CAPA').
  */
 import { fetchStepReviewerPool } from '@/composables/useStepReviewerPool.js'
+import { resolvePickerRoleIds, isRoleUnstaffed } from './stepReviewerPool.js'
 
 const props = defineProps({
   module: { type: Object, required: true },
@@ -121,6 +122,36 @@ const stepRoleIds = computed(() => {
   if (usingServerPool.value) return (serverPool.value?.roles ?? []).map((r) => r.id)
   return (stepRoles.value ?? []).map((r) => r.roleId)
 })
+
+/**
+ * What the DROPDOWN filters by — deliberately NOT `stepRoleIds`.
+ *
+ * `stepRoleIds` is what the step DECLARES. Eligibility is a different
+ * question, and the server answers it: a step naming a role that nobody holds
+ * resolves to an EMPTY pool, and both `submitResourceForReview` (which only
+ * enforces the pool `if (candidatePool.length > 0)`) and the reviewerPool
+ * endpoint (`unrestricted: userIds.length === 0`) read that as "no constraint
+ * — anyone may be picked".
+ *
+ * Filtering the dropdown by the declared role anyway contradicted that: the
+ * server said "pick anyone", `candidateUsers` agreed, and then the menu below
+ * offered nobody because it was still filtering on a role with zero members.
+ * Fresh tenants hit this on every seeded workflow that names Quality Manager /
+ * Quality Engineer, since bootstrap assigns users to Admin only.
+ */
+const pickerRoleIds = computed(() =>
+  resolvePickerRoleIds(serverPool.value, stepRoleIds.value, usingServerPool.value),
+)
+
+/**
+ * The step names a role, but the pool came back unrestricted — i.e. the role
+ * exists and has no members. Worth saying out loud: the picker is showing
+ * everyone, and that is a gap in role assignment rather than the intended
+ * routing.
+ */
+const roleIsUnstaffed = computed(() =>
+  isRoleUnstaffed(serverPool.value, stepRoleIds.value, usingServerPool.value),
+)
 
 // Resolve role names for the empty-state hint — when a step has roles
 // and no eligible users hold them, the hint reads "No users assigned
@@ -352,13 +383,17 @@ watch(
       v-else
       v-model="modelValue"
       kind="INTERNAL"
-      :roleIdsFilter="stepRoleIds.length ? stepRoleIds : null"
+      :roleIdsFilter="pickerRoleIds"
       :required="true"
       :autoFill="false"
     />
 
+    <div v-if="roleIsUnstaffed" class="tw:text-xs tw:text-secondary tw:italic tw:px-1">
+      No one holds <strong>{{ stepRoleNames.join(', ') || "this step's role" }}</strong> yet, so
+      anyone may approve this step. Assign the role to route it properly.
+    </div>
     <div
-      v-if="usesSupplierPicker && !candidateUsers.length"
+      v-else-if="usesSupplierPicker && !candidateUsers.length"
       class="tw:text-xs tw:text-secondary tw:italic tw:px-1"
     >
       No active users at this supplier yet. Invite a user under
