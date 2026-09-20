@@ -1,4 +1,5 @@
 <script setup>
+import { defaultTrainingConfig } from './documentTrainingConfig.js'
 import { IconSchool, IconCalendar, IconUsers, IconClock, IconSparkles } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { DateTime } from 'luxon'
@@ -168,19 +169,11 @@ watch(
 // Ensure the version has a trainingConfig object to bind against when editing
 function ensureConfig() {
   if (!selectedVersion.value) return
+  // enabled:false — materialising a config for an existing version must not
+  // silently switch training ON for it. Only the author does that, from the
+  // Properties rail or the toggle below.
   if (!selectedVersion.value.trainingConfig) {
-    selectedVersion.value.trainingConfig = {
-      enabled: false,
-      autoLaunch: true,
-      managerId: null,
-      requireManagerVerification: true,
-      completionDueDays: 7,
-      passingScore: 80,
-      maxAttempts: 1,
-      curriculumIds: [],
-      userIds: [],
-      assessment: [],
-    }
+    selectedVersion.value.trainingConfig = defaultTrainingConfig(false)
   }
 }
 watch(selectedVersion, ensureConfig, { immediate: true })

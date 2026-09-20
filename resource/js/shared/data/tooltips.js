@@ -97,6 +97,36 @@ export const TOOLTIPS = [
       'People outside the company — a customer, a supplier’s quality lead, an auditor. Each one is emailed a secure link to a read-only summary of this record, opened with a code sent to that same address. Access lasts 30 days and can be withdrawn at any time from the Shared externally card.',
   },
   {
+    key: 'training.manager',
+    label: 'Training manager',
+    tooltip:
+      'The person accountable for this training: they are notified as people complete it, and — when manager verification is on — they are the one who attests that the trainee is genuinely competent, not merely finished. Defaults to the audience’s common supervisor where they share one, and is required before training can run.',
+  },
+  {
+    key: 'training.assessment',
+    label: 'Assessment',
+    tooltip:
+      'Quiz the trainee on the document’s content, so completion means they understood it rather than that they opened it. Leave it off for read-and-acknowledge training, where the record you want is simply that the person has seen the current revision.',
+  },
+  {
+    key: 'training.managerVerification',
+    label: 'Manager verification required',
+    tooltip:
+      'A manager must confirm the trainee is actually competent before the training counts as complete — the person’s own “I have read it” is not the end of it. Required where a regulator expects a second person to attest to competence. With it off, the training closes by itself the moment the trainee finishes.',
+  },
+  {
+    key: 'training.autoLaunch',
+    label: 'Auto-launch on effective',
+    tooltip:
+      'Assign the training to its audience automatically the moment this document becomes effective, rather than someone remembering to launch it. Off means the training exists but sits idle until launched by hand — useful when the rollout is scheduled separately from the document’s release.',
+  },
+  {
+    key: 'document.trainingEnabled',
+    label: 'Training',
+    tooltip:
+      'Assign training on this document when it becomes effective. Readers get a training task and, if you add questions, must pass an assessment before it counts as complete. Training is set per VERSION — a new revision re-trains its audience against the revision they will actually follow. Choose the audience and write the questions on the Training tab.',
+  },
+  {
     key: 'document.collaboration',
     label: 'Collaboration',
     tooltip:

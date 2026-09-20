@@ -1,4 +1,5 @@
 <script setup>
+import { defaultTrainingConfig } from './documentTrainingConfig.js'
 import {
   IconFileText,
   IconInfoCircle,
@@ -25,21 +26,11 @@ const customFieldsData = ref({})
 const customFieldsRef = ref(null)
 const selectedTemplate = ref(null)
 
-const DEFAULT_TRAINING_CONFIG = {
-  // Training defaults ON — the "Enable training" toggle now lives on the
-  // Properties tab so authors see it up front. They untoggle for docs that
-  // need no training; the submit-for-review gate enforces an audience.
-  enabled: true,
-  autoLaunch: true,
-  managerId: null,
-  requireManagerVerification: true,
-  completionDueDays: 7,
-  passingScore: 80,
-  maxAttempts: 1,
-  curriculumIds: [],
-  userIds: [],
-  assessment: [],
-}
+// Training defaults ON — the toggle sits on the Properties tab so authors see
+// it up front, and now on the detail page's Properties rail so it stays
+// changeable afterwards. They untoggle for docs that need no training; the
+// submit-for-review gate enforces an audience.
+const DEFAULT_TRAINING_CONFIG = defaultTrainingConfig(true)
 
 const DEFAULT_FORM = {
   title: '',
