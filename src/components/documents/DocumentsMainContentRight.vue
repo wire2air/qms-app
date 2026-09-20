@@ -2,6 +2,7 @@
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { IconSettings, IconHierarchy } from '@tabler/icons-vue'
+import { setTrainingEnabled, isTrainingEnabled } from './documentTrainingConfig.js'
 
 const props = defineProps({
   documentId: {
@@ -173,6 +174,32 @@ const debounceSaveVersion = useDebounceFn(() => {
   }
 }, 500)
 
+/**
+ * Turn training on or off for THIS version.
+ *
+ * Previously only settable when the document was created. The submit-for-review
+ * reminder offers "disable training and continue", which writes enabled:false
+ * and saves — so an author who then cancelled the submit was stuck with
+ * training off and nowhere to turn it back on (reported 2026-09-20).
+ *
+ * Written through setTrainingEnabled so everything already configured — the
+ * audience, pass mark, assessment — survives the round trip, and so a version
+ * whose trainingConfig is null (how a document created with training off is
+ * stored) gets a real config rather than a mutated null.
+ *
+ * No explicit save: the deep watcher on currentVersion below persists it, the
+ * same way every other field in this card does.
+ */
+const trainingEnabled = computed(() => isTrainingEnabled(currentVersion.value?.trainingConfig))
+
+function onTrainingEnabledChange(enabled) {
+  if (!currentVersion.value || !canEdit.value) return
+  currentVersion.value.trainingConfig = setTrainingEnabled(
+    currentVersion.value.trainingConfig,
+    enabled,
+  )
+}
+
 watch(
   document,
   () => {
@@ -223,10 +250,6 @@ watch(
           <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
           <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </BaseDetailField>
-
-        <BaseDetailField label="Status">
-          <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
         </BaseDetailField>
 
         <BaseDetailField label="Department">
@@ -353,6 +376,25 @@ watch(
               sha256: {{ currentVersion.snapshotSha256.slice(0, 16) }}…
             </p>
           </div>
+        </BaseDetailField>
+
+        <!-- Training. Only settable at create time until now, which made the
+             submit-for-review reminder's "disable training and continue" a
+             one-way door: it saves immediately, so cancelling the submit left
+             the author with training off and nowhere to turn it back on.
+             BaseSwitch, not a checkbox: the field label IS the label here, so
+             the control needs no visible text of its own — which is what kept
+             the checkbox's copy from matching the rest of the rail. -->
+        <BaseDetailField label="Training" dataKey="document.trainingEnabled" layout="inline">
+          <BaseSwitch
+            v-if="canEdit"
+            :modelValue="trainingEnabled"
+            label="Require training on this version"
+            @update:modelValue="onTrainingEnabledChange"
+          />
+          <BaseText v-else variant="body" weight="medium" class="tw:text-on-main">
+            {{ trainingEnabled ? 'Required' : 'Not required' }}
+          </BaseText>
         </BaseDetailField>
       </div>
     </BaseRailCard>
