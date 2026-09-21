@@ -23,13 +23,18 @@ vi.mock('@/utils/currentSession', () => ({
   isAllowed: (needed) => needed.every((p) => grantedPermissions.includes(p)),
 }))
 
-let savedSetting = null
+// Keyed by setting name, NOT one shared slot. The bag holds several unrelated
+// keys — `dashboardWidgets` here, `starredDashboards` for the chip row — and a
+// key-agnostic stub hands each reader whatever the last writer stored. That is
+// how the starred-dashboards code came to read the widget array and issue a
+// live entitlement query from this test.
+const saved = {}
 const setSetting = vi.fn(async (key, value) => {
-  savedSetting = value
+  saved[key] = value
 })
 vi.mock('@/composables/useUserSettings', () => ({
   useUserSettings: () => ({
-    getSetting: (key, fallback) => (savedSetting !== null ? savedSetting : fallback),
+    getSetting: (key, fallback) => (key in saved ? saved[key] : fallback),
     setSetting,
   }),
 }))
@@ -73,7 +78,7 @@ const ALL_PERMS = [
 describe('DashboardHome — widget-registry permission gate (R5)', () => {
   beforeEach(() => {
     grantedPermissions = []
-    savedSetting = null
+    for (const k of Object.keys(saved)) delete saved[k]
     setSetting.mockClear()
   })
 
@@ -117,13 +122,13 @@ describe('DashboardHome — widget-registry permission gate (R5)', () => {
 describe('DashboardHome — stale-permission self-heal (R7)', () => {
   beforeEach(() => {
     grantedPermissions = []
-    savedSetting = null
+    for (const k of Object.keys(saved)) delete saved[k]
     setSetting.mockClear()
   })
 
   it('silently drops a saved widget id whose permission was since revoked', () => {
     // The user previously enabled 'audits' while they held audit_management:read.
-    savedSetting = ['kpis', 'my-tasks', 'audits']
+    saved.dashboardWidgets = ['kpis', 'my-tasks', 'audits']
     grantedPermissions = [] // permission since revoked
     const w = mountHome()
 
@@ -133,7 +138,7 @@ describe('DashboardHome — stale-permission self-heal (R7)', () => {
   })
 
   it('keeps a saved widget id whose permission is still held', () => {
-    savedSetting = ['kpis', 'my-tasks', 'audits']
+    saved.dashboardWidgets = ['kpis', 'my-tasks', 'audits']
     grantedPermissions = ['audit_management:read']
     const w = mountHome()
     expect(w.find('.stub-audits').exists()).toBe(true)

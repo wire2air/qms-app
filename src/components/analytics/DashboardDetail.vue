@@ -30,6 +30,8 @@ import {
   IconPencil,
   IconTrash,
   IconUsers,
+  IconStar,
+  IconStarFilled,
 } from '@tabler/icons-vue'
 
 const route = useRoute()
@@ -83,6 +85,8 @@ const metricsByKey = computed(() => {
 function widgetLabel(w) {
   return w?.title?.trim() || metricsByKey.value[w?.metricKey]?.name || 'Widget'
 }
+
+const { isStarred, toggleStar } = useStarredDashboards()
 
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
@@ -232,6 +236,28 @@ function questionOf(w) {
     >
       <template #actions>
         <DashboardVisibilityBadgeById v-if="dashboard" :visibilityId="dashboard.visibility" />
+        <!--
+          Star is available to ANY reader, not gated on canEdit: pinning a board
+          to your own home page is a preference about your own screen, not a
+          change to the board. A read-only viewer of a shared dashboard is
+          exactly the person most likely to want it pinned.
+        -->
+        <BaseButton
+          v-if="dashboard"
+          size="sm"
+          variant="outline"
+          :aria-pressed="isStarred(dashboard.id)"
+          @click="toggleStar(dashboard.id)"
+        >
+          <IconStarFilled
+            v-if="isStarred(dashboard.id)"
+            :size="14"
+            class="tw:text-amber-500"
+            aria-hidden="true"
+          />
+          <IconStar v-else :size="14" aria-hidden="true" />
+          {{ isStarred(dashboard.id) ? 'Starred' : 'Star' }}
+        </BaseButton>
         <!--
           The badge STAYS alongside this button rather than becoming the button.
           A badge that is sometimes clickable and sometimes not is the worse

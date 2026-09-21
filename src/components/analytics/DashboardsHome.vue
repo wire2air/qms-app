@@ -26,7 +26,15 @@ import {
   partitionDashboards,
 } from '@/utils/analyticsDashboardAccess.js'
 import { currentSession, isAllowed } from '@/utils/currentSession'
-import { IconLayoutDashboard, IconPlus, IconLock, IconTrash, IconCompass } from '@tabler/icons-vue'
+import {
+  IconLayoutDashboard,
+  IconPlus,
+  IconLock,
+  IconTrash,
+  IconCompass,
+  IconStar,
+  IconStarFilled,
+} from '@tabler/icons-vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -36,6 +44,8 @@ const dashboards = useLiveQuery(async (db) => {
   const rows = await db.AnalyticsDashboard.where().exec()
   return rows.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)))
 }, { models: 'AnalyticsDashboard', initial: [] })
+
+const { isStarred, toggleStar } = useStarredDashboards()
 
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
@@ -190,15 +200,41 @@ async function remove(d) {
                 <BaseText variant="caption" color="secondary">
                   {{ d.isSystem ? 'Provided with Qability' : '' }}
                 </BaseText>
-                <BaseButton
-                  v-if="canDeleteDashboard(d, viewer)"
-                  size="sm"
-                  variant="ghost"
-                  aria-label="Delete dashboard"
-                  @click.stop.prevent="remove(d)"
-                >
-                  <IconTrash :size="14" aria-hidden="true" />
-                </BaseButton>
+                <div class="tw:flex tw:items-center tw:gap-1">
+                  <!--
+                    `.stop.prevent` is load-bearing: the whole card is a
+                    BaseClickableRow that navigates, so without it starring a
+                    board also opens it.
+
+                    aria-pressed rather than a label that changes meaning — a
+                    screen reader announces the toggle's STATE, and the name
+                    stays stable between presses.
+                  -->
+                  <BaseButton
+                    size="sm"
+                    variant="ghost"
+                    :aria-label="`Star ${d.name} to pin it to your home page`"
+                    :aria-pressed="isStarred(d.id)"
+                    @click.stop.prevent="toggleStar(d.id)"
+                  >
+                    <IconStarFilled
+                      v-if="isStarred(d.id)"
+                      :size="14"
+                      class="tw:text-amber-500"
+                      aria-hidden="true"
+                    />
+                    <IconStar v-else :size="14" aria-hidden="true" />
+                  </BaseButton>
+                  <BaseButton
+                    v-if="canDeleteDashboard(d, viewer)"
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Delete dashboard"
+                    @click.stop.prevent="remove(d)"
+                  >
+                    <IconTrash :size="14" aria-hidden="true" />
+                  </BaseButton>
+                </div>
               </div>
             </BaseCard>
           </BaseClickableRow>
