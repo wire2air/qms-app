@@ -385,6 +385,7 @@ declare global {
   const useSorted: typeof import('@vueuse/core').useSorted
   const useSpeechRecognition: typeof import('@vueuse/core').useSpeechRecognition
   const useSpeechSynthesis: typeof import('@vueuse/core').useSpeechSynthesis
+  const useStarredDashboards: typeof import('./src/composables/useStarredDashboards.js').useStarredDashboards
   const useStepUp: typeof import('./src/composables/useStepUp.js').useStepUp
   const useStepper: typeof import('@vueuse/core').useStepper
   const useStorage: typeof import('@vueuse/core').useStorage

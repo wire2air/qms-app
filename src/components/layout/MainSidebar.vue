@@ -100,9 +100,17 @@ const router = useRouter()
 // tenant's plan doesn't include that module. Fail-open (isModuleEntitled) means
 // unlimited tenants — every tenant today — see no change.
 function isNavItemEntitled(item) {
-  if (!item.permissions || item.permissions.length === 0) return true
-  const moduleId = item.permissions[0].split(':')[0]
-  return isModuleEntitled(moduleId)
+  // `entitlementModule` names the commercial key outright. Needed once an entry
+  // fronts several modules whose ids are not the feature the tenant buys: the
+  // five analytics_* modules are RBAC surfaces, while the thing a plan includes
+  // is still `reports_dashboards` (which is also what the server's
+  // analytics_feature_entitled() checks). Deriving the key from permissions[0]
+  // would pick one surface's id arbitrarily and make the gate depend on the
+  // order of a list written for a different purpose.
+  if (item.entitlementModule) return isModuleEntitled(item.entitlementModule)
+  const gate = item.permissions?.[0] ?? item.anyPermissions?.[0]
+  if (!gate) return true
+  return isModuleEntitled(gate.split(':')[0])
 }
 
 // Single visibility predicate for every nav item — RBAC gate + commercial
@@ -362,35 +370,64 @@ const navItems = computed(() => {
       //
       // This was a plain entry while it had one destination; Phase 6 gave it
       // three, which is the condition the earlier note set for promoting it.
-      // Every child carries reports_dashboards:read — editing a dashboard needs
-      // more than that, but WHICH dashboard decides it, and a nav guard cannot
-      // know that. Ownership is enforced on the row by RLS; duplicating it here
-      // would only create somewhere for the two rules to disagree.
+      // Editing a dashboard needs more than read, but WHICH dashboard decides
+      // it, and a nav guard cannot know that. Ownership is enforced on the row
+      // by RLS; duplicating it here would only create somewhere for the two
+      // rules to disagree.
+      //
+      // ── 2026-09-21 PERMISSION SPLIT ────────────────────────────────────
+      // The children no longer share one key: each carries its OWN module's
+      // read, so a role can be given Reports without Metrics. That is the whole
+      // point of the split, and it is why this header now carries
+      // `anyPermissions` rather than `permissions`.
+      //
+      // It MUST NOT go back to `permissions`: that is an EVERY-of test
+      // (isNavItemVisible → isAllowed), so listing the five there would hide
+      // Analytics from anyone who does not hold all five — the exact opposite
+      // of what is wanted. `anyPermissions` is the some-of form.
+      //
+      // `entitlementModule` pins the commercial gate to the shipped feature key.
+      // isNavItemEntitled() otherwise reads permissions[0], and with no
+      // `permissions` here there is nothing for it to read; the five new module
+      // ids are mirrored into entitlement by the migration, but the honest key
+      // for "does this tenant have Analytics" is still reports_dashboards —
+      // which is what analytics_feature_entitled() checks server-side.
       label: 'Analytics',
       icon: IconChartBar,
-      permissions: ['reports_dashboards:read'],
+      anyPermissions: [
+        'analytics_dashboards:read',
+        'analytics_metrics:read',
+        'analytics_reports:read',
+        'analytics_alerts:read',
+        'analytics_explore:read',
+      ],
+      entitlementModule: 'reports_dashboards',
       children: [
-        {
-          label: 'Overview',
-          permissions: ['reports_dashboards:read'],
-          icon: IconChartBar,
-          to: getCompanyPath('/analytics'),
-        },
+        // ── OVERVIEW REMOVED 2026-09-21 ──────────────────────────────────
+        // The catalog-driven /analytics page is gone from the nav. Its job —
+        // "show me every metric I can read" — is now answered by the seeded
+        // Quality System Overview board and its module siblings, which are
+        // curated rather than a dump of whatever the catalog returns.
+        //
+        // The ROUTE still resolves (it redirects to Dashboards) because deep
+        // links, bookmarks and notification destinations point at it. The
+        // component is still mounted at its own path for anyone who wants the
+        // browse-everything view; only the nav entry is gone.
         {
           label: 'Dashboards',
-          permissions: ['reports_dashboards:read'],
+          permissions: ['analytics_dashboards:read'],
           icon: IconLayoutDashboard,
           to: getCompanyPath('/analytics/dashboards'),
         },
         {
           label: 'Reports',
-          permissions: ['reports_dashboards:read'],
+          permissions: ['analytics_reports:read'],
           icon: IconFileAnalytics,
           to: getCompanyPath('/analytics/reports'),
         },
         {
           label: 'Data Explorer',
-          permissions: ['reports_dashboards:read'],
+          permissions: ['analytics_explore:read'],
           icon: IconCompass,
           to: getCompanyPath('/analytics/explore'),
         },
@@ -401,7 +438,7 @@ const navItems = computed(() => {
           // author an alert that mails only them, so the nav must not hide the
           // page from them.
           label: 'Alerts',
-          permissions: ['reports_dashboards:read'],
+          permissions: ['analytics_alerts:read'],
           icon: IconBellRinging,
           to: getCompanyPath('/analytics/alerts'),
         },
@@ -417,7 +454,7 @@ const navItems = computed(() => {
           // items above consume, not another view of data, and a definitional
           // tool belongs after the things that use it.
           label: 'Metrics',
-          permissions: ['reports_dashboards:read'],
+          permissions: ['analytics_metrics:read'],
           icon: IconMathFunction,
           to: getCompanyPath('/analytics/metrics'),
         },

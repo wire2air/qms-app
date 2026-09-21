@@ -17,6 +17,7 @@
 import { IconAdjustmentsHorizontal, IconLayoutDashboard } from '@tabler/icons-vue'
 import { currentSession, isAllowed } from '@/utils/currentSession'
 import { useUserSettings } from '@/composables/useUserSettings'
+import { useAnalyticsEntitlement } from '@/composables/useAnalytics.js'
 import DashboardMyTasks from './DashboardMyTasks.vue'
 import DashboardOpenNcs from './DashboardOpenNcs.vue'
 import DashboardCapasDue from './DashboardCapasDue.vue'
@@ -71,6 +72,95 @@ const enabledIds = computed(() => {
   return ids.filter((id) => availableIds.value.includes(id))
 })
 const kpisOn = computed(() => enabledIds.value.includes('kpis'))
+
+// ── Starred dashboards ─────────────────────────────────────────────────────
+// A chip row above the widgets: "Home" plus one chip per starred analytics
+// dashboard. Selecting a board SWITCHES to it — the home widgets come off and
+// the board takes their place, with "Home" as the way back. See
+// showHomeWidgets for why it replaces rather than appends.
+const { starredIds, pruneMissing } = useStarredDashboards()
+
+// Tri-state: null while the check is in flight, so the row does not flash in
+// and out on every load. A tenant without Reports & Dashboards never sees it.
+//
+// Gated on actually having a star: this is the HOME page, loaded by every user
+// on every session, and most have starred nothing. An unconditional query here
+// would add a GraphQL round trip to every page load to answer a question the
+// page would then not use.
+const { entitled } = useAnalyticsEntitlement({
+  enabled: () => starredIds.value.length > 0,
+})
+
+// Resolve the starred ids to live rows. RLS decides what is in the sync stream,
+// so a board that has been deleted — or flipped from `shared` back to `private`
+// by its owner — simply is not here, and must render as nothing rather than as
+// a chip that leads to an empty page.
+const starredDashboards = useLiveQueryWithDeps(
+  [() => starredIds.value.join(',')],
+  async (db, [joined]) => {
+    const ids = joined ? joined.split(',') : []
+    if (!ids.length) return []
+    const rows = await Promise.all(ids.map((id) => db.AnalyticsDashboard.findByPk(id)))
+    // Keep the user's own order, drop what no longer resolves.
+    return ids.map((id, i) => rows[i]).filter(Boolean)
+  },
+  { models: 'AnalyticsDashboard', initial: [] },
+)
+
+// Self-heal the stored list, the same way enabledIds self-heals against the
+// widget registry above. Without this a board someone unshared leaves a dead id
+// in the setting for ever.
+//
+// Guarded on a non-empty resolve: a live query returns [] before its first read
+// too, and pruning on that would wipe every star on a slow load.
+watch(starredDashboards, (list) => {
+  if (!list) return
+  if (!starredIds.value.length) return
+  if (!list.length) return
+  pruneMissing(list.map((d) => d.id))
+})
+
+const HOME_CHIP = 'home'
+const activeChip = ref(HOME_CHIP)
+
+const chips = computed(() => [
+  { value: HOME_CHIP, label: 'Home' },
+  ...(starredDashboards.value || []).map((d) => ({ value: d.id, label: d.name })),
+])
+
+// Only worth drawing when there is something to switch TO. A lone "Home" chip
+// is a control that does nothing.
+const showChips = computed(() => entitled.value === true && chips.value.length > 1)
+
+const selectedDashboard = computed(() =>
+  activeChip.value === HOME_CHIP
+    ? null
+    : (starredDashboards.value || []).find((d) => d.id === activeChip.value) || null,
+)
+
+/**
+ * The chips SWITCH the view; they do not stack it.
+ *
+ * Selecting a board replaces the home widgets rather than appending under them.
+ * The first build appended, and it read wrong in use: you pick a board and the
+ * thing you picked is off-screen below a full grid of unrelated widgets, with
+ * no indication it loaded. "Home" is one of the chips precisely so it is the
+ * way BACK — which only means anything if the other chips took you somewhere.
+ *
+ * This gates the KPI row, the widget grid, the empty state and Customize
+ * together, because all four are the Home view. Leaving any of them visible
+ * under a board would re-create the stacking in miniature.
+ */
+const showHomeWidgets = computed(() => selectedDashboard.value === null)
+
+// If the selected board stops resolving while it is open — unshared in another
+// tab, or deleted — fall back to Home rather than leaving a chip selected that
+// no longer names anything.
+watch([activeChip, starredDashboards], () => {
+  if (activeChip.value === HOME_CHIP) return
+  const stillThere = (starredDashboards.value || []).some((d) => d.id === activeChip.value)
+  if (!stillThere) activeChip.value = HOME_CHIP
+})
 
 // Local, reorderable copy of the enabled grid widgets (in saved order). The
 // watch only reacts to MEMBERSHIP changes (a widget toggled in the Customize
@@ -148,15 +238,42 @@ async function saveEnabled(ids) {
         Welcome back! Here's what's happening with {{ companyName }} today.
       </template>
       <template #actions>
-        <BaseButton variant="outline" size="sm" @click="showCustomize = true">
+        <!-- Customize edits the HOME widget set, so it is meaningless while a
+             board is open — and worse than meaningless: the dialog it opens
+             would list widgets that are not on screen. -->
+        <BaseButton
+          v-if="showHomeWidgets"
+          variant="outline"
+          size="sm"
+          @click="showCustomize = true"
+        >
           <template #icon><IconAdjustmentsHorizontal :size="16" /></template>
           Customize
         </BaseButton>
       </template>
     </PageHeader>
 
-    <!-- KPI row (full width) -->
-    <DashboardKpis v-if="kpisOn" />
+    <!--
+      Starred dashboards. Renders only when at least one board is starred, so
+      the default home page is exactly what it was before this existed.
+
+      BaseTabs rather than a hand-rolled button row: it is a real WAI-ARIA
+      tablist with roving tabindex and Arrow/Home/End, and it handles horizontal
+      overflow with edge fades and chevrons — which starts mattering at about
+      eight stars on a laptop. There is no BaseChip in this design system
+      despite what the CLAUDE.md table claims; `variant="pills"` is the chip
+      look.
+    -->
+    <BaseTabs
+      v-if="showChips"
+      v-model="activeChip"
+      :tabs="chips"
+      variant="pills"
+      ariaLabel="Home and starred dashboards"
+    />
+
+    <!-- KPI row (full width) — Home only; a board brings its own tiles. -->
+    <DashboardKpis v-if="kpisOn && showHomeWidgets" />
 
     <!-- Reorderable widget grid: drag a panel by its header grip, or focus the
          grip and use the arrow keys. `:key` is the widget ID, not the loop
@@ -166,6 +283,7 @@ async function saveEnabled(ids) {
          widget each time. IDs come from GRID_COMPONENTS' keys and enabledIds
          is filtered against them, so they are unique by construction. -->
     <div
+      v-if="showHomeWidgets"
       ref="gridRef"
       class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:xl:grid-cols-3 tw:gap-4 tw:items-start"
     >
@@ -173,12 +291,29 @@ async function saveEnabled(ids) {
     </div>
 
     <div
-      v-if="!enabledIds.length"
+      v-if="showHomeWidgets && !enabledIds.length"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-20 tw:text-secondary tw:gap-2"
     >
       <div class="tw:text-sm">Your dashboard is empty.</div>
       <BaseButton variant="outline" size="sm" @click="showCustomize = true">Add widgets</BaseButton>
     </div>
+
+<!--
+      The selected starred board, REPLACING the home widgets (see
+      showHomeWidgets). Only one of the two ever renders.
+
+      PageSection still titles it. The title is not redundant with the selected
+      chip: it is the only attribution on the numbers themselves once you have
+      scrolled the chip row off the top. Read-only by design; see
+      DashboardEmbeddedGrid.
+    -->
+    <PageSection
+      v-if="selectedDashboard"
+      :title="selectedDashboard.name"
+      :icon="IconLayoutDashboard"
+    >
+      <DashboardEmbeddedGrid :dashboardId="selectedDashboard.id" />
+    </PageSection>
 
     <DashboardCustomizeDialog
       v-model="showCustomize"

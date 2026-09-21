@@ -22,8 +22,12 @@
  * because a status vocabulary changed underneath it. If the list did not say so,
  * the only symptom would be a tile that quietly stopped appearing.
  */
-import { canManageCustomMetrics } from '@/utils/analyticsCustomMetricAccess.js'
-import { currentSession } from '@/utils/currentSession'
+import {
+  canCreateCustomMetrics,
+  canUpdateCustomMetrics,
+  canDeleteCustomMetrics,
+} from '@/utils/analyticsCustomMetricAccess.js'
+import { isAllowed } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Same reasoning
 // as ReportDetail's export: request_metric_refresh returns a graphile-worker job
 // id, not a record, so there is nothing for the SyncEngine to cache or broadcast.
@@ -53,9 +57,47 @@ const metrics = useLiveQuery(
 // The whole vocabulary, fetched ONCE here and handed to the dialog. The builder
 // slices it by module and source table; re-querying it per dialog open would
 // re-read the same static reference data on every click.
-const fields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exec(), {
+//
+// ── WHY THIS IS FILTERED, WHEN THE SERVER ALREADY FILTERS ─────────────────
+// analytics_module_fields is GLOBAL — no company_id — because the built-in
+// vocabulary is the same for every tenant. Custom modules broke that premise:
+// theirs belongs to exactly one tenant. The server now gates those rows on
+// ownership of the form template (analytics_module_field_visible, called from
+// analytics_module_fields_select_rls), which is the authoritative fix.
+//
+// This is the second layer, and it is not redundant. These rows live in
+// IndexedDB, which is per-COMPANY but survives a company switch in the same
+// browser profile, so a stale cache can still hold rows the server would no
+// longer serve. Filtering here means a module whose template this tenant does
+// not own can never reach the Module dropdown, cache or no cache.
+//
+// Built-in modules are unaffected: no FormTemplate row names them, so they
+// match the first branch and pass through.
+const allFields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exec(), {
   models: 'AnalyticsModuleField',
   initial: [],
+})
+
+// The custom modules THIS tenant owns. Same source the sidebar uses to decide
+// which module nav entries to draw — which is why the nav never leaked.
+const ownModuleKeys = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where().exec())
+      .filter((t) => t.isModule && t.internalName)
+      .map((t) => t.internalName),
+  { models: 'FormTemplate', initial: [] },
+)
+
+const fields = computed(() => {
+  const rows = allFields.value || []
+  const mine = new Set(ownModuleKeys.value || [])
+  // A module id is "custom" only when some FormTemplate claims it. We cannot
+  // ask that of templates we cannot see, so the test is the other way round:
+  // keep a row unless its module is a custom one that is NOT ours. Anything
+  // built-in, and anything of ours, stays.
+  const customSourced = rows.filter((f) => f.sourceTable === 'analytics_field_values')
+  const customKeys = new Set(customSourced.map((f) => f.moduleId))
+  return rows.filter((f) => !customKeys.has(f.moduleId) || mine.has(f.moduleId))
 })
 
 // The cap belongs to the ROLLUP (analytics_dimension_capacity), not to this
@@ -65,10 +107,23 @@ const fields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exec()
 const { metrics: catalog } = useMetricCatalog()
 const dimensionCap = computed(() => catalog.value?.[0]?.dimensionCapacity ?? 3)
 
+// Three verbs since the 2026-09-21 permission split: a role may now author
+// metrics without being trusted to destroy them, which the single
+// `reports_dashboards:manage` key could not express. Mirrors
+// analytics_custom_metrics_{insert,update,delete}_rls one for one.
+//
+// `isAllowed` rather than a raw permissions.includes(): it short-circuits true
+// for a company owner, who holds no role_module_permissions rows at all. The
+// line this replaces read the array directly and so drew a read-only page for
+// the owner of the tenant — the RLS would have allowed every write.
 const viewer = computed(() => ({
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canCreate: isAllowed(['analytics_metrics:create']),
+  canUpdate: isAllowed(['analytics_metrics:update']),
+  canDelete: isAllowed(['analytics_metrics:delete']),
 }))
-const canManage = computed(() => canManageCustomMetrics(viewer.value))
+const canCreate = computed(() => canCreateCustomMetrics(viewer.value))
+const canUpdate = computed(() => canUpdateCustomMetrics(viewer.value))
+const canDelete = computed(() => canDeleteCustomMetrics(viewer.value))
 
 const dialogOpen = ref(false)
 const editing = ref(null)
@@ -207,7 +262,7 @@ function moduleLabel(id) {
   <BasePage width="wide">
     <PageHeader :icon="IconMathFunction" title="Metrics">
       <template #actions>
-        <BaseButton v-if="canManage && entitled !== false" size="sm" @click="create">
+        <BaseButton v-if="canCreate && entitled !== false" size="sm" @click="create">
           <IconPlus :size="14" aria-hidden="true" />
           New metric
         </BaseButton>
@@ -236,13 +291,13 @@ function moduleLabel(id) {
           v-if="(metrics?.length ?? 0) === 0"
           title="No metrics defined yet"
           :description="
-            canManage
+            canCreate
               ? 'Create one to measure something the shipped metrics do not cover.'
               : 'Nobody has defined a metric for this workspace yet.'
           "
         >
           <template #action>
-            <BaseButton v-if="canManage" size="sm" @click="create">
+            <BaseButton v-if="canCreate" size="sm" @click="create">
               <IconPlus :size="14" aria-hidden="true" />
               New metric
             </BaseButton>
@@ -325,7 +380,7 @@ function moduleLabel(id) {
 
             <div class="tw:mt-3 tw:flex tw:items-center tw:justify-between">
               <BaseButton
-                v-if="canManage"
+                v-if="canUpdate"
                 size="sm"
                 variant="outline"
                 :disabled="!!m.compileError && !m.isPublished"
@@ -340,12 +395,12 @@ function moduleLabel(id) {
               </BaseButton>
               <span v-else />
 
-              <div v-if="canManage" class="tw:flex tw:items-center tw:gap-1">
+              <div v-if="canUpdate || canDelete" class="tw:flex tw:items-center tw:gap-1">
                 <!-- Only for a published metric with no compile error: there is
                      nothing to recompute for a draft (the rollup fan-out skips
                      inactive metrics) or for one that never compiled. -->
                 <BaseButton
-                  v-if="m.isPublished && !m.compileError"
+                  v-if="canUpdate && m.isPublished && !m.compileError"
                   size="sm"
                   variant="ghost"
                   :loading="refreshing.has(metricKeyOf(m))"
@@ -356,6 +411,7 @@ function moduleLabel(id) {
                   <IconRefresh :size="14" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton
+                  v-if="canUpdate"
                   size="sm"
                   variant="ghost"
                   :aria-label="`Edit metric ${m.name}`"
@@ -364,6 +420,7 @@ function moduleLabel(id) {
                   <IconPencil :size="14" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton
+                  v-if="canDelete"
                   size="sm"
                   variant="ghost"
                   :aria-label="`Delete metric ${m.name}`"

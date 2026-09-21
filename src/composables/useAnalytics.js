@@ -178,8 +178,13 @@ function nodesOf(data, field) {
  *
  * @returns {import('@/composables/useServerQuery.js').ServerQueryHandle & { entitled: import('vue').ComputedRef<boolean|null> }}
  */
-export function useAnalyticsEntitlement() {
-  const q = useGraphQLQuery(ENTITLEMENT_QUERY, {}, { initial: null })
+export function useAnalyticsEntitlement(options = {}) {
+  // `options` forwards straight through — in practice `enabled`, so a caller
+  // that only sometimes needs the answer does not pay for a round trip it will
+  // not read. The home page is the reason: it asks only when the user has
+  // actually starred a dashboard, which most have not, and an unconditional
+  // query there would add a GraphQL request to every single page load.
+  const q = useGraphQLQuery(ENTITLEMENT_QUERY, {}, { initial: null, ...options })
   // null while unknown — distinguishable from a definite `false`, so the page
   // shows a skeleton rather than flashing "not in your plan" on every load.
   const entitled = computed(() =>

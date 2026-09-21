@@ -158,7 +158,12 @@ function fallbackTarget(resourceType, canonicalType) {
       'add it to RESOURCE_ROUTES in @/utils/notificationRoutes.js AND to the ' +
       'backend entityRouteSegment',
   )
-  return getCompanyPath(canonicalType.startsWith('Analytics') ? '/analytics' : '/notifications')
+  // The Analytics fallback goes to Dashboards, not the old /analytics Overview
+  // page, which was removed on 2026-09-21. Any unregistered Analytics* type
+  // lands somewhere real rather than on a dead route.
+  return getCompanyPath(
+    canonicalType.startsWith('Analytics') ? '/analytics/dashboards' : '/notifications',
+  )
 }
 
 // Whether this notification has a REGISTERED destination — drives the chevron

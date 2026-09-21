@@ -520,6 +520,7 @@ declare module 'vue' {
     DashboardCustomizeDialog: typeof import('./src/components/dashboard/DashboardCustomizeDialog.vue')['default']
     DashboardDetail: typeof import('./src/components/analytics/DashboardDetail.vue')['default']
     DashboardDocsPending: typeof import('./src/components/dashboard/DashboardDocsPending.vue')['default']
+    DashboardEmbeddedGrid: typeof import('./src/components/analytics/DashboardEmbeddedGrid.vue')['default']
     DashboardHome: typeof import('./src/components/dashboard/DashboardHome.vue')['default']
     'DashboardHome.spec': typeof import('./src/components/dashboard/DashboardHome.spec.js')['default']
     DashboardKpis: typeof import('./src/components/dashboard/DashboardKpis.vue')['default']

@@ -203,7 +203,23 @@ const sourceTables = computed(() => {
   return [...seen].sort().map((t) => ({ value: t, label: sourceLabel(t) }))
 })
 
+/**
+ * The human name for a source table.
+ *
+ * For a built-in module the table IS the module ('capas' → "Capas"), so
+ * title-casing the identifier reads fine. For a CUSTOM module it does not: its
+ * answers live in the shared EAV projection, so every custom module's only
+ * source is `analytics_field_values` and the picker read "Analytics Field
+ * Values" — the name of internal plumbing, in a dialog whose whole job is to
+ * hide it. The author has already chosen the module one field up; this row is
+ * telling them which of its tables to measure, and there is exactly one.
+ *
+ * Named for what it holds instead. The stored VALUE is untouched — it is still
+ * `analytics_field_values`, which is what the compiler validates against and
+ * what pins module_key — so this is presentation only.
+ */
 function sourceLabel(t) {
+  if (t === 'analytics_field_values') return 'Form responses'
   return String(t ?? '')
     .split('_')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
