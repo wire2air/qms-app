@@ -22,8 +22,12 @@
  * because a status vocabulary changed underneath it. If the list did not say so,
  * the only symptom would be a tile that quietly stopped appearing.
  */
-import { canManageCustomMetrics } from '@/utils/analyticsCustomMetricAccess.js'
-import { currentSession } from '@/utils/currentSession'
+import {
+  canCreateCustomMetrics,
+  canUpdateCustomMetrics,
+  canDeleteCustomMetrics,
+} from '@/utils/analyticsCustomMetricAccess.js'
+import { isAllowed } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Same reasoning
 // as ReportDetail's export: request_metric_refresh returns a graphile-worker job
 // id, not a record, so there is nothing for the SyncEngine to cache or broadcast.
@@ -65,10 +69,23 @@ const fields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exec()
 const { metrics: catalog } = useMetricCatalog()
 const dimensionCap = computed(() => catalog.value?.[0]?.dimensionCapacity ?? 3)
 
+// Three verbs since the 2026-09-21 permission split: a role may now author
+// metrics without being trusted to destroy them, which the single
+// `reports_dashboards:manage` key could not express. Mirrors
+// analytics_custom_metrics_{insert,update,delete}_rls one for one.
+//
+// `isAllowed` rather than a raw permissions.includes(): it short-circuits true
+// for a company owner, who holds no role_module_permissions rows at all. The
+// line this replaces read the array directly and so drew a read-only page for
+// the owner of the tenant — the RLS would have allowed every write.
 const viewer = computed(() => ({
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canCreate: isAllowed(['analytics_metrics:create']),
+  canUpdate: isAllowed(['analytics_metrics:update']),
+  canDelete: isAllowed(['analytics_metrics:delete']),
 }))
-const canManage = computed(() => canManageCustomMetrics(viewer.value))
+const canCreate = computed(() => canCreateCustomMetrics(viewer.value))
+const canUpdate = computed(() => canUpdateCustomMetrics(viewer.value))
+const canDelete = computed(() => canDeleteCustomMetrics(viewer.value))
 
 const dialogOpen = ref(false)
 const editing = ref(null)
@@ -207,7 +224,7 @@ function moduleLabel(id) {
   <BasePage width="wide">
     <PageHeader :icon="IconMathFunction" title="Metrics">
       <template #actions>
-        <BaseButton v-if="canManage && entitled !== false" size="sm" @click="create">
+        <BaseButton v-if="canCreate && entitled !== false" size="sm" @click="create">
           <IconPlus :size="14" aria-hidden="true" />
           New metric
         </BaseButton>
@@ -236,13 +253,13 @@ function moduleLabel(id) {
           v-if="(metrics?.length ?? 0) === 0"
           title="No metrics defined yet"
           :description="
-            canManage
+            canCreate
               ? 'Create one to measure something the shipped metrics do not cover.'
               : 'Nobody has defined a metric for this workspace yet.'
           "
         >
           <template #action>
-            <BaseButton v-if="canManage" size="sm" @click="create">
+            <BaseButton v-if="canCreate" size="sm" @click="create">
               <IconPlus :size="14" aria-hidden="true" />
               New metric
             </BaseButton>
@@ -325,7 +342,7 @@ function moduleLabel(id) {
 
             <div class="tw:mt-3 tw:flex tw:items-center tw:justify-between">
               <BaseButton
-                v-if="canManage"
+                v-if="canUpdate"
                 size="sm"
                 variant="outline"
                 :disabled="!!m.compileError && !m.isPublished"
@@ -340,12 +357,12 @@ function moduleLabel(id) {
               </BaseButton>
               <span v-else />
 
-              <div v-if="canManage" class="tw:flex tw:items-center tw:gap-1">
+              <div v-if="canUpdate || canDelete" class="tw:flex tw:items-center tw:gap-1">
                 <!-- Only for a published metric with no compile error: there is
                      nothing to recompute for a draft (the rollup fan-out skips
                      inactive metrics) or for one that never compiled. -->
                 <BaseButton
-                  v-if="m.isPublished && !m.compileError"
+                  v-if="canUpdate && m.isPublished && !m.compileError"
                   size="sm"
                   variant="ghost"
                   :loading="refreshing.has(metricKeyOf(m))"
@@ -356,6 +373,7 @@ function moduleLabel(id) {
                   <IconRefresh :size="14" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton
+                  v-if="canUpdate"
                   size="sm"
                   variant="ghost"
                   :aria-label="`Edit metric ${m.name}`"
@@ -364,6 +382,7 @@ function moduleLabel(id) {
                   <IconPencil :size="14" aria-hidden="true" />
                 </BaseButton>
                 <BaseButton
+                  v-if="canDelete"
                   size="sm"
                   variant="ghost"
                   :aria-label="`Delete metric ${m.name}`"

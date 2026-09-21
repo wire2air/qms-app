@@ -14,7 +14,7 @@
 import { DEFAULT_PERIOD_TOKEN } from '@/utils/analyticsPeriods.js'
 import { DEFAULT_VIZ, clampQuestion } from '@/utils/analyticsViz.js'
 import { canEditDashboard } from '@/utils/analyticsDashboardAccess.js'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 import { IconCompass, IconLock, IconDeviceFloppy } from '@tabler/icons-vue'
 
 const toast = useToast()
@@ -40,7 +40,7 @@ const normalised = computed(() => clampQuestion(metric.value, question.value))
 // save button that 403s.
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canManage: isAllowed(['analytics_dashboards:manage']),
 }))
 
 const dashboards = useLiveQuery(async (db) => await db.AnalyticsDashboard.where().exec(), {

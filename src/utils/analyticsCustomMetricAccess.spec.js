@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   MEASURES,
-  canManageCustomMetrics,
+  canCreateCustomMetrics,
+  canUpdateCustomMetrics,
+  canDeleteCustomMetrics,
   humaniseCode,
   blankDefinition,
   definitionProblem,
@@ -47,11 +49,39 @@ function countDef(overrides = {}) {
   }
 }
 
-describe('canManageCustomMetrics', () => {
-  it('requires the manage permission', () => {
-    expect(canManageCustomMetrics({ canManage: true })).toBe(true)
-    expect(canManageCustomMetrics({ canManage: false })).toBe(false)
-    expect(canManageCustomMetrics()).toBe(false)
+describe('custom metric write gates', () => {
+  // Three separate verbs since the 2026-09-21 permission split. Before it these
+  // were one `manage` key, so "may author but not destroy" could not be said.
+  it('each gate requires its own permission', () => {
+    expect(canCreateCustomMetrics({ canCreate: true })).toBe(true)
+    expect(canCreateCustomMetrics({ canCreate: false })).toBe(false)
+    expect(canCreateCustomMetrics()).toBe(false)
+
+    expect(canUpdateCustomMetrics({ canUpdate: true })).toBe(true)
+    expect(canUpdateCustomMetrics({ canUpdate: false })).toBe(false)
+    expect(canUpdateCustomMetrics()).toBe(false)
+
+    expect(canDeleteCustomMetrics({ canDelete: true })).toBe(true)
+    expect(canDeleteCustomMetrics({ canDelete: false })).toBe(false)
+    expect(canDeleteCustomMetrics()).toBe(false)
+  })
+
+  // The case the split exists for, and the one the backend was measured on:
+  // create WITHOUT delete. Asserted here so a future refactor that collapses
+  // these back into one flag fails loudly.
+  it('lets create and delete disagree', () => {
+    const authorOnly = { canCreate: true, canUpdate: true, canDelete: false }
+    expect(canCreateCustomMetrics(authorOnly)).toBe(true)
+    expect(canUpdateCustomMetrics(authorOnly)).toBe(true)
+    expect(canDeleteCustomMetrics(authorOnly)).toBe(false)
+  })
+
+  // And the read-only viewer: sees definitions, writes nothing.
+  it('denies every write to a read-only viewer', () => {
+    const viewer = {}
+    expect(canCreateCustomMetrics(viewer)).toBe(false)
+    expect(canUpdateCustomMetrics(viewer)).toBe(false)
+    expect(canDeleteCustomMetrics(viewer)).toBe(false)
   })
 })
 

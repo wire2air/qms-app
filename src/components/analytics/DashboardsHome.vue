@@ -25,7 +25,7 @@ import {
   canDeleteDashboard,
   partitionDashboards,
 } from '@/utils/analyticsDashboardAccess.js'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 import { IconLayoutDashboard, IconPlus, IconLock, IconTrash, IconCompass } from '@tabler/icons-vue'
 
 const router = useRouter()
@@ -39,7 +39,7 @@ const dashboards = useLiveQuery(async (db) => {
 
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canManage: isAllowed(['analytics_dashboards:manage']),
 }))
 
 const groups = computed(() => partitionDashboards(dashboards.value ?? [], viewer.value.userId))

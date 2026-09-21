@@ -20,7 +20,7 @@
  * produces an error — not because hiding it protects anything.
  */
 import { canEditDashboard, reindexPositions } from '@/utils/analyticsDashboardAccess.js'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 import {
   IconChartBar,
   IconChevronLeft,
@@ -87,7 +87,7 @@ function widgetLabel(w) {
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
   // The server is authoritative; this only decides which buttons to draw.
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canManage: isAllowed(['analytics_dashboards:manage']),
 }))
 
 const canEdit = computed(() => canEditDashboard(dashboard.value, viewer.value))

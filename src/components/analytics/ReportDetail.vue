@@ -236,7 +236,7 @@ const requesting = ref(null)
 // reports_dashboards:export as app_user and raises without it; this only
 // decides whether to draw a button that would always fail. Same helper
 // AnalyticsWidget uses for its per-tile export.
-const canExport = computed(() => isAllowed(['reports_dashboards:export']))
+const canExport = computed(() => isAllowed(['analytics_reports:export']))
 
 async function requestExport(format) {
   if (requesting.value || !reportId.value) return

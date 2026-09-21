@@ -28,7 +28,7 @@
  *
  * Creating and editing live on the report page, not here — this is the list.
  */
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 import { canDeleteReport, canEditReport } from '@/utils/analyticsReportAccess.js'
 import {
   IconFileAnalytics,
@@ -84,7 +84,7 @@ function editReport(r) {
 const viewer = computed(() => ({
   userId: viewerId.value,
   // The server is authoritative; this only decides which buttons to draw.
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canManage: isAllowed(['analytics_reports:manage']),
 }))
 
 const removeReport = useLiveMutation(async (db, id) => {
