@@ -102,7 +102,7 @@ const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
   // isAllowed() already short-circuits for a company owner, which is the
   // `current_user_is_owner` branch of the policy.
-  canManage: isAllowed(['reports_dashboards:manage']),
+  canManage: isAllowed(['analytics_alerts:manage']),
 }))
 
 const canNameOthers = computed(() => canNameOtherRecipients(viewer.value))

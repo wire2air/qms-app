@@ -390,6 +390,7 @@ export default {
     "useSorted": true,
     "useSpeechRecognition": true,
     "useSpeechSynthesis": true,
+    "useStarredDashboards": true,
     "useStepUp": true,
     "useStepper": true,
     "useStorage": true,

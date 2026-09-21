@@ -68,10 +68,16 @@ const ADMIN_PERMISSIONS = {
   // database/rls.sql — and it stays true because a test says so, not because
   // this comment does: backend/api/tests/integration/analytics/moduleGrant.test.js.
   // If you are about to widen this guard, read that file first.
-  // NB there is no `create` action on this module, so if a future authoring
-  // route lands at /analytics/create, map it explicitly rather than letting
-  // createPermissionFrom() derive a `reports_dashboards:create` nobody holds.
-  analytics: 'reports_dashboards:read',
+  // ── 2026-09-21 PERMISSION SPLIT ──────────────────────────────────────
+  // `analytics` is no longer one key. The five surfaces are separate modules,
+  // so the guard resolves the SECOND path segment (see ANALYTICS_SUBTREE and
+  // its use in permissionFor). The entry below is the fallback for the bare
+  // /analytics route and for any sub-path not named there.
+  //
+  // It is deliberately the DASHBOARDS read and not an every-of list: a guard
+  // that demanded all five would bounce a Reports-only role off the whole area,
+  // which is the thing the split exists to make possible.
+  analytics: 'analytics_dashboards:read',
   'service-accounts': 'api_integrations:read',
   // NOTE (RA-1, 2026-09-07): `read` is no longer implied by any other grant on
   // a module — authz.effective_permission_strings stopped synthesising it. So
@@ -170,6 +176,30 @@ function firstSegment(path) {
   return path.split('/').filter(Boolean)[0] || ''
 }
 
+/**
+ * /analytics/<sub> → the module that owns that surface (2026-09-21 split).
+ *
+ * The guard otherwise keys on the FIRST path segment only, which was right when
+ * the whole area shared one permission and is wrong now: a role granted Reports
+ * but not Metrics must reach /analytics/reports and be bounced off
+ * /analytics/metrics. Resolved in permissionFor() before the generic lookup.
+ *
+ * `explore` has only a read action — the Data Explorer owns no artefact — so
+ * there is nothing else it could map to.
+ */
+const ANALYTICS_SUBTREE = {
+  dashboards: 'analytics_dashboards:read',
+  reports: 'analytics_reports:read',
+  alerts: 'analytics_alerts:read',
+  metrics: 'analytics_metrics:read',
+  explore: 'analytics_explore:read',
+  // The metric browser that used to BE /analytics. It renders the catalog, so
+  // it is gated as Metrics — not as its own surface, and deliberately not left
+  // to fall through to the bare-/analytics gate, which is broader than what the
+  // page shows.
+  browse: 'analytics_metrics:read',
+}
+
 // Path segments that mean "the create/new form" (e.g. /documents/create).
 // Record ids are UUIDs, so these never collide with a real detail route.
 const CREATE_SEGMENTS = new Set(['create', 'new'])
@@ -200,6 +230,13 @@ export function requiredPermissionFor(to) {
     const internalName = segs[1]
     if (!internalName) return null
     return CREATE_SEGMENTS.has(segs[2]) ? `${internalName}:create` : `${internalName}:read`
+  }
+
+  // Analytics: the surface is decided by the second segment, not the first.
+  // Falls through to ADMIN_PERMISSIONS.analytics for the bare /analytics route
+  // and for any sub-path this map does not name.
+  if (seg === 'analytics' && ANALYTICS_SUBTREE[segs[1]]) {
+    return ANALYTICS_SUBTREE[segs[1]]
   }
 
   const basePerm = ADMIN_PERMISSIONS[seg] || RECORD_LIST_PERMISSIONS[seg]

@@ -25,8 +25,17 @@ import {
   canDeleteDashboard,
   partitionDashboards,
 } from '@/utils/analyticsDashboardAccess.js'
-import { currentSession } from '@/utils/currentSession'
-import { IconLayoutDashboard, IconPlus, IconLock, IconTrash, IconCompass } from '@tabler/icons-vue'
+import { currentSession, isAllowed } from '@/utils/currentSession'
+import {
+  IconLayoutDashboard,
+  IconPlus,
+  IconLock,
+  IconTrash,
+  IconCompass,
+  IconChartBar,
+  IconStar,
+  IconStarFilled,
+} from '@tabler/icons-vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -37,12 +46,25 @@ const dashboards = useLiveQuery(async (db) => {
   return rows.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)))
 }, { models: 'AnalyticsDashboard', initial: [] })
 
+const { isStarred, toggleStar } = useStarredDashboards()
+
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canManage: isAllowed(['analytics_dashboards:manage']),
 }))
 
 const groups = computed(() => partitionDashboards(dashboards.value ?? [], viewer.value.userId))
+
+/**
+ * The metric browser moved to /analytics/browse on 2026-09-21 and is no longer
+ * in the sidebar, so this action is the only way to reach it from the nav.
+ *
+ * Gated on the SAME permission as its route (ANALYTICS_SUBTREE.browse), so a
+ * user granted Dashboards but not Metrics is not offered a link that the guard
+ * would immediately bounce them off. Declutter, not security — the guard is the
+ * gate; this only stops us advertising a dead end.
+ */
+const canBrowseMetrics = computed(() => isAllowed(['analytics_metrics:read']))
 
 // ── create ──────────────────────────────────────────────────────────────────
 const creating = ref(false)
@@ -93,6 +115,15 @@ async function remove(d) {
   <BasePage width="wide">
     <PageHeader :icon="IconLayoutDashboard" title="Dashboards">
       <template #actions>
+        <BaseButton
+          v-if="canBrowseMetrics"
+          size="sm"
+          variant="outline"
+          @click="router.push('/analytics/browse')"
+        >
+          <IconChartBar :size="14" aria-hidden="true" />
+          Browse all metrics
+        </BaseButton>
         <BaseButton size="sm" variant="outline" @click="router.push('/analytics/explore')">
           <IconCompass :size="14" aria-hidden="true" />
           Data Explorer
@@ -190,15 +221,41 @@ async function remove(d) {
                 <BaseText variant="caption" color="secondary">
                   {{ d.isSystem ? 'Provided with Qability' : '' }}
                 </BaseText>
-                <BaseButton
-                  v-if="canDeleteDashboard(d, viewer)"
-                  size="sm"
-                  variant="ghost"
-                  aria-label="Delete dashboard"
-                  @click.stop.prevent="remove(d)"
-                >
-                  <IconTrash :size="14" aria-hidden="true" />
-                </BaseButton>
+                <div class="tw:flex tw:items-center tw:gap-1">
+                  <!--
+                    `.stop.prevent` is load-bearing: the whole card is a
+                    BaseClickableRow that navigates, so without it starring a
+                    board also opens it.
+
+                    aria-pressed rather than a label that changes meaning — a
+                    screen reader announces the toggle's STATE, and the name
+                    stays stable between presses.
+                  -->
+                  <BaseButton
+                    size="sm"
+                    variant="ghost"
+                    :aria-label="`Star ${d.name} to pin it to your home page`"
+                    :aria-pressed="isStarred(d.id)"
+                    @click.stop.prevent="toggleStar(d.id)"
+                  >
+                    <IconStarFilled
+                      v-if="isStarred(d.id)"
+                      :size="14"
+                      class="tw:text-amber-500"
+                      aria-hidden="true"
+                    />
+                    <IconStar v-else :size="14" aria-hidden="true" />
+                  </BaseButton>
+                  <BaseButton
+                    v-if="canDeleteDashboard(d, viewer)"
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Delete dashboard"
+                    @click.stop.prevent="remove(d)"
+                  >
+                    <IconTrash :size="14" aria-hidden="true" />
+                  </BaseButton>
+                </div>
               </div>
             </BaseCard>
           </BaseClickableRow>

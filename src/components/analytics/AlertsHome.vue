@@ -73,7 +73,7 @@ const viewerId = computed(() => currentSession.value?.id ?? null)
 const viewer = computed(() => ({
   userId: viewerId.value,
   // The server is authoritative; this only decides which controls to draw.
-  canManage: isAllowed(['reports_dashboards:manage']),
+  canManage: isAllowed(['analytics_alerts:manage']),
 }))
 
 // Fetched HERE rather than inside the dialog, so opening and closing the

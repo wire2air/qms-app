@@ -84,7 +84,7 @@ const events = useLiveQueryWithDeps(
 
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
-  canManage: isAllowed(['reports_dashboards:manage']),
+  canManage: isAllowed(['analytics_alerts:manage']),
 }))
 
 const { metrics, loading: metricsLoading } = useMetricCatalog()

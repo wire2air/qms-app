@@ -86,6 +86,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/analytics/browse': RouteRecordInfo<
+      '/analytics/browse',
+      '/analytics/browse',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/analytics/dashboards/': RouteRecordInfo<
       '/analytics/dashboards/',
       '/analytics/dashboards',
@@ -920,6 +927,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/analytics/alerts/[id].vue': {
       routes:
         | '/analytics/alerts/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/browse.vue': {
+      routes:
+        | '/analytics/browse'
       views:
         | never
     }

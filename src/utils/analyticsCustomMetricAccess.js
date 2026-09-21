@@ -108,17 +108,37 @@ export function blankFilter() {
 }
 
 /**
- * Who may create or change one.
+ * Who may create / change / delete one — now three separate questions.
  *
- * Mirrors analytics_custom_metrics_{insert,update,delete}_rls, which gate on
- * `reports_dashboards:manage` (or company ownership, which isAllowed already
- * folds in) and NOT on per-row authorship — unlike dashboards and reports, a
- * custom metric has no owner column. Anyone with manage may edit anyone's.
+ * Mirrors analytics_custom_metrics_{insert,update,delete}_rls, which since the
+ * 2026-09-21 permission split gate on `analytics_metrics:create` / `:update` /
+ * `:delete` respectively, instead of the one coarse `reports_dashboards:manage`
+ * they all shared before. Company ownership still short-circuits every one of
+ * them, which `isAllowed` already folds in.
  *
- * @param {{ canManage?: boolean }} viewer
+ * Still NOT per-row authorship: unlike dashboards and reports, a custom metric
+ * has no owner column, so whoever holds the verb may act on anyone's. The split
+ * is about WHICH VERB, not whose row.
+ *
+ * Kept as three one-line functions rather than one taking an action string:
+ * every call site then names the verb it means at the point of use, and a
+ * missing case is a missing import rather than a typo'd argument that silently
+ * returns false.
+ *
+ * @param {{ canCreate?: boolean }} viewer
  */
-export function canManageCustomMetrics({ canManage = false } = {}) {
-  return !!canManage
+export function canCreateCustomMetrics({ canCreate = false } = {}) {
+  return !!canCreate
+}
+
+/** @param {{ canUpdate?: boolean }} viewer */
+export function canUpdateCustomMetrics({ canUpdate = false } = {}) {
+  return !!canUpdate
+}
+
+/** @param {{ canDelete?: boolean }} viewer */
+export function canDeleteCustomMetrics({ canDelete = false } = {}) {
+  return !!canDelete
 }
 
 /**
