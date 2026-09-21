@@ -95,15 +95,28 @@ function cancelEditTitle() {
 
     <!-- Form Builder -->
     <template v-else-if="template">
-      <!-- showReporting DORMANT 2026-08-28: the per-field "Report on this
-           field" toggle (analytics projection) confused authors next to the
-           Configure View flow that owns the record-list columns. Machinery
-           intact — flip to true to resurface metric authoring. -->
+      <!-- showReporting RESURFACED 2026-09-21 (was dormant since 2026-08-28).
+           It was switched off because the per-field "Report on this field"
+           toggle confused authors sitting next to the Configure View flow that
+           owns the record-list columns — the two look adjacent and do entirely
+           different things.
+
+           Turned back on because it is the ONLY way to mark a field reportable,
+           and without it a promoted custom module appears in the metric
+           builder's Module dropdown (promoteToModule seeds the registry rows)
+           and then measures nothing for ever: analytics_field_values is written
+           at record seal from `field.reporting`, which nothing else can set.
+
+           ⚠ On for EVERY template, not just modules (requester's decision,
+           2026-09-21). The recommendation was `!!template.isModule`, mirroring
+           showScoring just below — that keeps it off exactly where the 2026-08-28
+           confusion happened while still enabling module analytics. If authors
+           report the same confusion again, that is the first thing to try. -->
       <FormBuilder
         :title="builderTitle"
         :initialSchema="initialSchema"
         :showScoring="!!template.isModule"
-        :showReporting="false"
+        :showReporting="true"
         @save="saveSchema"
       >
         <template #title>
