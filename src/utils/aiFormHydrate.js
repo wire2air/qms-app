@@ -9,7 +9,12 @@
  * checklist field) and `WorkflowAiGenerateDialog` (per-step forms) so the
  * hydration logic lives in exactly one place.
  */
-import { FIELD_TYPES_CONFIG, FIELD_TYPES, FIELD_WIDTHS } from '@/constants/formBuilderConfig'
+import {
+  FIELD_TYPES_CONFIG,
+  FIELD_TYPES,
+  FIELD_WIDTHS,
+  LOOKUP_ENTITIES,
+} from '@/constants/formBuilderConfig'
 
 const VALID_WIDTHS = new Set(FIELD_WIDTHS.map((w) => w.value))
 
@@ -183,6 +188,15 @@ export function hydrateAiField(node, existingRoot, reservedNames = null) {
     const columns = hydrateChecklistColumns(node.columns)
     if (rows.length) config.rows = rows
     if (columns.length) config.columns = columns
+  }
+  // A lookup is only useful once it knows WHICH list to read. Without this the
+  // field lands on the builder's default entity (product) whatever the AI
+  // proposed, so "pick the shift" would silently become an item picker.
+  // Unknown values are ignored rather than written through — the select menu is
+  // resolved from LOOKUP_ENTITIES by name, so a bogus entity renders nothing.
+  if (type === 'lookup' && typeof node.lookupEntity === 'string') {
+    const entity = node.lookupEntity.trim()
+    if (LOOKUP_ENTITIES.some((e) => e.value === entity)) config.lookupEntity = entity
   }
   if (type === 'header' && config.label) config.text = config.label
   if (type === 'instructions' && typeof node.content === 'string' && node.content.trim()) {
