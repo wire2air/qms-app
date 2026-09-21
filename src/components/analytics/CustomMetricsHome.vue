@@ -57,9 +57,47 @@ const metrics = useLiveQuery(
 // The whole vocabulary, fetched ONCE here and handed to the dialog. The builder
 // slices it by module and source table; re-querying it per dialog open would
 // re-read the same static reference data on every click.
-const fields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exec(), {
+//
+// ── WHY THIS IS FILTERED, WHEN THE SERVER ALREADY FILTERS ─────────────────
+// analytics_module_fields is GLOBAL — no company_id — because the built-in
+// vocabulary is the same for every tenant. Custom modules broke that premise:
+// theirs belongs to exactly one tenant. The server now gates those rows on
+// ownership of the form template (analytics_module_field_visible, called from
+// analytics_module_fields_select_rls), which is the authoritative fix.
+//
+// This is the second layer, and it is not redundant. These rows live in
+// IndexedDB, which is per-COMPANY but survives a company switch in the same
+// browser profile, so a stale cache can still hold rows the server would no
+// longer serve. Filtering here means a module whose template this tenant does
+// not own can never reach the Module dropdown, cache or no cache.
+//
+// Built-in modules are unaffected: no FormTemplate row names them, so they
+// match the first branch and pass through.
+const allFields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exec(), {
   models: 'AnalyticsModuleField',
   initial: [],
+})
+
+// The custom modules THIS tenant owns. Same source the sidebar uses to decide
+// which module nav entries to draw — which is why the nav never leaked.
+const ownModuleKeys = useLiveQuery(
+  async (db) =>
+    (await db.FormTemplate.where().exec())
+      .filter((t) => t.isModule && t.internalName)
+      .map((t) => t.internalName),
+  { models: 'FormTemplate', initial: [] },
+)
+
+const fields = computed(() => {
+  const rows = allFields.value || []
+  const mine = new Set(ownModuleKeys.value || [])
+  // A module id is "custom" only when some FormTemplate claims it. We cannot
+  // ask that of templates we cannot see, so the test is the other way round:
+  // keep a row unless its module is a custom one that is NOT ours. Anything
+  // built-in, and anything of ours, stays.
+  const customSourced = rows.filter((f) => f.sourceTable === 'analytics_field_values')
+  const customKeys = new Set(customSourced.map((f) => f.moduleId))
+  return rows.filter((f) => !customKeys.has(f.moduleId) || mine.has(f.moduleId))
 })
 
 // The cap belongs to the ROLLUP (analytics_dimension_capacity), not to this
