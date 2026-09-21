@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ref, computed } from 'vue'
 import { mount } from '@vue/test-utils'
 
 // Docs/modules/dashboard 19-production-readiness.md's other top recommended
@@ -59,11 +60,43 @@ const stubs = {
   DashboardQcLots: { template: '<div class="stub-qc-lots" />' },
   DashboardDocsPending: { template: '<div class="stub-docs-pending" />' },
   DashboardRecentAudits: { template: '<div class="stub-audits" />' },
+  DashboardEmbeddedGrid: { template: '<div class="stub-embedded-board" />' },
 }
+
+// ── Starred-dashboard chips ────────────────────────────────────────────────
+// The chip row needs three things stubbed: the entitlement probe (a real
+// GraphQL round trip), the live query that resolves ids to board rows, and
+// DashboardEmbeddedGrid (its own live-query component). `starredBoards` is the
+// dial each test turns.
+let starredBoards = []
+vi.mock('@/composables/useAnalyticsEntitlement', () => ({
+  useAnalyticsEntitlement: () => ({ entitled: ref(true) }),
+}))
+vi.mock('@/composables/useLiveQuery', () => ({
+  useLiveQuery: () => ref([]),
+  useLiveQueryWithDeps: () => computed(() => starredBoards),
+}))
 
 const DashboardHome = (await import('./DashboardHome.vue')).default
 
+/**
+ * PageHeader teleports its title and #actions into the app chrome. Those
+ * targets live in MainHeader, which is not mounted here, so without them Vue
+ * warns on mount and — once an action becomes conditional — THROWS on update
+ * while trying to patch into a null container.
+ *
+ * Creating them makes the teleport resolve, which is what lets a test toggle a
+ * v-if'd header action at all. Nothing asserts on their contents; they exist so
+ * the component under test can render the way it does in the app.
+ */
 function mountHome() {
+  for (const id of ['main-header-title', 'main-header-actions']) {
+    if (!document.getElementById(id)) {
+      const el = document.createElement('div')
+      el.id = id
+      document.body.appendChild(el)
+    }
+  }
   return mount(DashboardHome, { global: { stubs } })
 }
 
@@ -142,5 +175,77 @@ describe('DashboardHome — stale-permission self-heal (R7)', () => {
     grantedPermissions = ['audit_management:read']
     const w = mountHome()
     expect(w.find('.stub-audits').exists()).toBe(true)
+  })
+})
+
+/**
+ * The chips SWITCH the view — they do not stack it.
+ *
+ * The first build APPENDED the selected board below the home widgets, and it
+ * read wrong in use: you pick a board and the thing you picked is off-screen
+ * under a full grid of unrelated widgets, with no sign it loaded. Reported from
+ * the running app, not caught here, because nothing in this file touched the
+ * chip row at all.
+ *
+ * What is pinned is the exclusivity in BOTH directions, because a one-way
+ * assertion passes for a build that renders neither, or both.
+ */
+describe('DashboardHome — starred board replaces the home view', () => {
+  beforeEach(() => {
+    grantedPermissions = [...ALL_PERMS]
+    for (const k of Object.keys(saved)) delete saved[k]
+    saved.starredDashboards = ['d1']
+    starredBoards = [{ id: 'd1', name: 'Custom Metrics' }]
+  })
+
+  it('shows the home widgets and no board until a chip is picked', () => {
+    const wrapper = mountHome()
+    expect(wrapper.find('.stub-my-tasks').exists()).toBe(true)
+    expect(wrapper.find('.stub-embedded-board').exists()).toBe(false)
+  })
+
+  it('swaps the widgets out for the board when its chip is picked', async () => {
+    const wrapper = mountHome()
+    wrapper.vm.activeChip = 'd1'
+    await wrapper.vm.$nextTick()
+
+    // The board is on screen...
+    expect(wrapper.find('.stub-embedded-board').exists()).toBe(true)
+    // ...and the home widgets are GONE, not merely pushed below it. This is the
+    // assertion the reported bug would fail.
+    expect(wrapper.find('.stub-my-tasks').exists()).toBe(false)
+    expect(wrapper.find('.stub-quick-actions').exists()).toBe(false)
+  })
+
+  // Switching back must RESTORE the home view — "Home" is the way back, and a
+  // one-way swap would strand the user on a board.
+  it('restores the home widgets when Home is picked again', async () => {
+    const wrapper = mountHome()
+
+    wrapper.vm.activeChip = 'd1'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.stub-my-tasks').exists()).toBe(false)
+
+    wrapper.vm.activeChip = 'home'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.stub-my-tasks').exists()).toBe(true)
+    expect(wrapper.find('.stub-embedded-board').exists()).toBe(false)
+  })
+
+  /**
+   * Customize edits the home widget set, so it must not be offered over a
+   * board — the dialog would list widgets that are not on screen.
+   *
+   * Asserted on the flag rather than the rendered button: PageHeader teleports
+   * its #actions slot out of this wrapper, so wrapper.text() is empty here and
+   * a text assertion would pass for ANY markup, including none.
+   */
+  it('withdraws the Customize affordance while a board is open', async () => {
+    const wrapper = mountHome()
+    expect(wrapper.vm.showHomeWidgets).toBe(true)
+
+    wrapper.vm.activeChip = 'd1'
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.showHomeWidgets).toBe(false)
   })
 })

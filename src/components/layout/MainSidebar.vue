@@ -403,12 +403,16 @@ const navItems = computed(() => {
       ],
       entitlementModule: 'reports_dashboards',
       children: [
-        {
-          label: 'Overview',
-          permissions: ['analytics_dashboards:read'],
-          icon: IconChartBar,
-          to: getCompanyPath('/analytics'),
-        },
+        // ── OVERVIEW REMOVED 2026-09-21 ──────────────────────────────────
+        // The catalog-driven /analytics page is gone from the nav. Its job —
+        // "show me every metric I can read" — is now answered by the seeded
+        // Quality System Overview board and its module siblings, which are
+        // curated rather than a dump of whatever the catalog returns.
+        //
+        // The ROUTE still resolves (it redirects to Dashboards) because deep
+        // links, bookmarks and notification destinations point at it. The
+        // component is still mounted at its own path for anyone who wants the
+        // browse-everything view; only the nav entry is gone.
         {
           label: 'Dashboards',
           permissions: ['analytics_dashboards:read'],

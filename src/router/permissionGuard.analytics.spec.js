@@ -61,6 +61,27 @@ describe('analytics route gates', () => {
     expect(requiredPermissionFor(route('/analytics/explore'))).toBe('analytics_explore:read')
   })
 
+  /**
+   * /analytics/browse is the metric browser that USED to be /analytics, moved
+   * there on 2026-09-21 when Overview left the nav.
+   *
+   * It must gate on Metrics. The trap it is pinned against: `browse` is not a
+   * module of its own, so leaving it out of ANALYTICS_SUBTREE is silent — the
+   * path falls through to the bare-/analytics default (dashboards:read) and a
+   * Dashboards-only role reads the whole metric catalog through a page nothing
+   * in the nav points at.
+   */
+  it('gates the metric browser as Metrics, not as the subtree default', () => {
+    expect(requiredPermissionFor(route('/analytics/browse'))).toBe('analytics_metrics:read')
+
+    as({ permissions: ['analytics_metrics:read'] })
+    expect(evaluateRoute(route('/analytics/browse'))).toBe(true)
+
+    // The fall-through case, stated explicitly.
+    as({ permissions: ['analytics_dashboards:read'] })
+    expect(evaluateRoute(route('/analytics/browse'))).toEqual(blocked('/analytics/browse'))
+  })
+
   // The bare route and anything unmapped fall back to the subtree default.
   // Deliberately dashboards' read and NOT an every-of list of all five: a guard
   // demanding all five would bounce a Reports-only role off the whole area.

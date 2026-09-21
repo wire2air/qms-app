@@ -96,10 +96,13 @@ export const RESOURCE_ROUTES = {
   // level up in both.
   AnalyticsReportSchedule: () => '/analytics/reports',
   AnalyticsReportRun: () => '/analytics/reports',
-  // Alerts have no UI surface at all yet; the analytics home is the honest
-  // destination until one exists.
-  AnalyticsAlert: () => '/analytics',
-  AnalyticsAlertEvent: () => '/analytics',
+  // Alerts DO have a surface — /analytics/alerts, added in Phase 8. The comment
+  // that used to sit here said they had none and pointed both types at
+  // /analytics, which was true when written and had gone stale; the 2026-09-21
+  // removal of the Overview page would have left them pointing at a route that
+  // no longer exists.
+  AnalyticsAlert: () => '/analytics/alerts',
+  AnalyticsAlertEvent: () => '/analytics/alerts',
   // AnalyticsWidget is deliberately ABSENT. A widget is a layout cell inside a
   // dashboard, not a record anyone navigates to; anything worth notifying about
   // a widget (an alert on its metric) is worth notifying about its DASHBOARD,

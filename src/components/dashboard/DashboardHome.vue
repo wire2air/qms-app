@@ -75,9 +75,9 @@ const kpisOn = computed(() => enabledIds.value.includes('kpis'))
 
 // ── Starred dashboards ─────────────────────────────────────────────────────
 // A chip row above the widgets: "Home" plus one chip per starred analytics
-// dashboard. Selecting a board APPENDS it below the home widgets rather than
-// replacing them — the home view stays put, and a pinned board reads as an
-// addition to it.
+// dashboard. Selecting a board SWITCHES to it — the home widgets come off and
+// the board takes their place, with "Home" as the way back. See
+// showHomeWidgets for why it replaces rather than appends.
 const { starredIds, pruneMissing } = useStarredDashboards()
 
 // Tri-state: null while the check is in flight, so the row does not flash in
@@ -137,6 +137,21 @@ const selectedDashboard = computed(() =>
     ? null
     : (starredDashboards.value || []).find((d) => d.id === activeChip.value) || null,
 )
+
+/**
+ * The chips SWITCH the view; they do not stack it.
+ *
+ * Selecting a board replaces the home widgets rather than appending under them.
+ * The first build appended, and it read wrong in use: you pick a board and the
+ * thing you picked is off-screen below a full grid of unrelated widgets, with
+ * no indication it loaded. "Home" is one of the chips precisely so it is the
+ * way BACK — which only means anything if the other chips took you somewhere.
+ *
+ * This gates the KPI row, the widget grid, the empty state and Customize
+ * together, because all four are the Home view. Leaving any of them visible
+ * under a board would re-create the stacking in miniature.
+ */
+const showHomeWidgets = computed(() => selectedDashboard.value === null)
 
 // If the selected board stops resolving while it is open — unshared in another
 // tab, or deleted — fall back to Home rather than leaving a chip selected that
@@ -223,7 +238,15 @@ async function saveEnabled(ids) {
         Welcome back! Here's what's happening with {{ companyName }} today.
       </template>
       <template #actions>
-        <BaseButton variant="outline" size="sm" @click="showCustomize = true">
+        <!-- Customize edits the HOME widget set, so it is meaningless while a
+             board is open — and worse than meaningless: the dialog it opens
+             would list widgets that are not on screen. -->
+        <BaseButton
+          v-if="showHomeWidgets"
+          variant="outline"
+          size="sm"
+          @click="showCustomize = true"
+        >
           <template #icon><IconAdjustmentsHorizontal :size="16" /></template>
           Customize
         </BaseButton>
@@ -249,8 +272,8 @@ async function saveEnabled(ids) {
       ariaLabel="Home and starred dashboards"
     />
 
-    <!-- KPI row (full width) -->
-    <DashboardKpis v-if="kpisOn" />
+    <!-- KPI row (full width) — Home only; a board brings its own tiles. -->
+    <DashboardKpis v-if="kpisOn && showHomeWidgets" />
 
     <!-- Reorderable widget grid: drag a panel by its header grip, or focus the
          grip and use the arrow keys. `:key` is the widget ID, not the loop
@@ -260,6 +283,7 @@ async function saveEnabled(ids) {
          widget each time. IDs come from GRID_COMPONENTS' keys and enabledIds
          is filtered against them, so they are unique by construction. -->
     <div
+      v-if="showHomeWidgets"
       ref="gridRef"
       class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:xl:grid-cols-3 tw:gap-4 tw:items-start"
     >
@@ -267,21 +291,21 @@ async function saveEnabled(ids) {
     </div>
 
     <div
-      v-if="!enabledIds.length"
+      v-if="showHomeWidgets && !enabledIds.length"
       class="tw:flex tw:flex-col tw:items-center tw:justify-center tw:py-20 tw:text-secondary tw:gap-2"
     >
       <div class="tw:text-sm">Your dashboard is empty.</div>
       <BaseButton variant="outline" size="sm" @click="showCustomize = true">Add widgets</BaseButton>
     </div>
 
-    <!--
-      The selected starred board, APPENDED below the home widgets rather than
-      replacing them: the home view stays where it was and the board reads as an
-      addition to it.
+<!--
+      The selected starred board, REPLACING the home widgets (see
+      showHomeWidgets). Only one of the two ever renders.
 
-      PageSection titles it, so a reader can tell whose numbers these are —
-      without that, a second grid of tiles under the home widgets is
-      unattributed. Read-only by design; see DashboardEmbeddedGrid.
+      PageSection still titles it. The title is not redundant with the selected
+      chip: it is the only attribution on the numbers themselves once you have
+      scrolled the chip row off the top. Read-only by design; see
+      DashboardEmbeddedGrid.
     -->
     <PageSection
       v-if="selectedDashboard"

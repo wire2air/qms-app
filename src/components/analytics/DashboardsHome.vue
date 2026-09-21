@@ -32,6 +32,7 @@ import {
   IconLock,
   IconTrash,
   IconCompass,
+  IconChartBar,
   IconStar,
   IconStarFilled,
 } from '@tabler/icons-vue'
@@ -53,6 +54,17 @@ const viewer = computed(() => ({
 }))
 
 const groups = computed(() => partitionDashboards(dashboards.value ?? [], viewer.value.userId))
+
+/**
+ * The metric browser moved to /analytics/browse on 2026-09-21 and is no longer
+ * in the sidebar, so this action is the only way to reach it from the nav.
+ *
+ * Gated on the SAME permission as its route (ANALYTICS_SUBTREE.browse), so a
+ * user granted Dashboards but not Metrics is not offered a link that the guard
+ * would immediately bounce them off. Declutter, not security — the guard is the
+ * gate; this only stops us advertising a dead end.
+ */
+const canBrowseMetrics = computed(() => isAllowed(['analytics_metrics:read']))
 
 // ── create ──────────────────────────────────────────────────────────────────
 const creating = ref(false)
@@ -103,6 +115,15 @@ async function remove(d) {
   <BasePage width="wide">
     <PageHeader :icon="IconLayoutDashboard" title="Dashboards">
       <template #actions>
+        <BaseButton
+          v-if="canBrowseMetrics"
+          size="sm"
+          variant="outline"
+          @click="router.push('/analytics/browse')"
+        >
+          <IconChartBar :size="14" aria-hidden="true" />
+          Browse all metrics
+        </BaseButton>
         <BaseButton size="sm" variant="outline" @click="router.push('/analytics/explore')">
           <IconCompass :size="14" aria-hidden="true" />
           Data Explorer
