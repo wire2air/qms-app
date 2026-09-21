@@ -2,7 +2,12 @@
  * Form Builder Composable
  * State management for the visual form builder
  */
-import { FIELD_TYPES, FIELD_WIDTHS, FIELD_KIND_OPTIONS } from '@/constants/formBuilderConfig'
+import {
+  FIELD_TYPES,
+  FIELD_WIDTHS,
+  FIELD_KIND_OPTIONS,
+  LOOKUP_ENTITIES,
+} from '@/constants/formBuilderConfig'
 // Field factory + AI hydration live in aiFormHydrate so non-builder hosts
 // (e.g. the workflow AI generator building per-step formSchemas) share them.
 import {
@@ -20,12 +25,32 @@ const VALID_WIDTHS = new Set(FIELD_WIDTHS.map((w) => w.value))
 
 // The field types the AI generator can emit (mirror of FIELD_TYPE_IDS in the
 // backend form.generate_schema task). In EDIT mode, a field whose current type
-// is OUTSIDE this set (repeater, lookup, rca, file, photo, inputTable, …) can't
-// be rebuilt from an AI descriptor, so it is always preserved wholesale by name
+// is OUTSIDE this set (repeater, rca, file, photo, inputTable, …) can't be
+// rebuilt from an AI descriptor, so it is always preserved wholesale by name
 // rather than re-hydrated.
+//
+// `lookup` joined the set (2026-09-20). It was excluded, so the model could not
+// propose one and fell back to inventing a select with a hand-typed option list
+// for things the system already holds — items, equipment, shifts. A lookup is a
+// descriptor plus one `lookupEntity` string, so it rebuilds cleanly.
 const AI_CURATED_TYPES = new Set([
-  'input', 'textarea', 'number', 'email', 'phone', 'select', 'checkbox', 'optionGroup',
-  'checklist', 'datetime', 'rating', 'toggle', 'textEditor', 'signature', 'header', 'instructions',
+  'input',
+  'textarea',
+  'number',
+  'email',
+  'phone',
+  'select',
+  'checkbox',
+  'optionGroup',
+  'checklist',
+  'datetime',
+  'rating',
+  'toggle',
+  'textEditor',
+  'signature',
+  'lookup',
+  'header',
+  'instructions',
 ])
 
 // Flatten a schema tree into a name → field-clone map (walks section children),
@@ -58,6 +83,11 @@ function overlayExistingField(existing, node) {
   if (['select', 'optionGroup', 'checkbox'].includes(f.type) && Array.isArray(node.options)) {
     const opts = node.options.filter((o) => typeof o === 'string' && o.trim()).map((o) => o.trim())
     if (opts.length) f.options = opts
+  }
+  // Re-point a kept lookup at a different list when the AI asked for one.
+  if (f.type === 'lookup' && typeof node.lookupEntity === 'string') {
+    const entity = node.lookupEntity.trim()
+    if (LOOKUP_ENTITIES.some((e) => e.value === entity)) f.lookupEntity = entity
   }
   // Checklist grid edits on a kept checklist field.
   if (f.type === 'checklist') {
@@ -189,10 +219,7 @@ export function useFormBuilder(initialSchema = []) {
       const parent = getFieldByPath(schema.value, parentPath)
       // Self-contained step sections (Approval / Effectiveness Check) carry no
       // form — refuse inserts into them no matter which path asked (2026-08-28).
-      if (
-        parent?.type === 'section' &&
-        ['APPROVAL', 'DELAY'].includes(parent?.routing?.type)
-      ) {
+      if (parent?.type === 'section' && ['APPROVAL', 'DELAY'].includes(parent?.routing?.type)) {
         return null
       }
       if (parent) {
@@ -473,7 +500,8 @@ export function useFormBuilder(initialSchema = []) {
     if (Array.isArray(preserveFrom)) indexFieldsByName(preserveFrom, existingByName)
 
     const newSchema = hydrateAiFields(fields, {
-      buildField: (node, root, reserved) => buildFieldFromNode(node, root, existingByName, reserved),
+      buildField: (node, root, reserved) =>
+        buildFieldFromNode(node, root, existingByName, reserved),
     })
 
     importSchema(newSchema)
