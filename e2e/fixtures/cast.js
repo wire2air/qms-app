@@ -387,6 +387,18 @@ export const USERS = {
     email: 'settingsadmin@e2e.test',
     name: 'Stella SettingsAdmin',
   },
+  // §49 (Dashboard) — holds its OWN dedicated role, `E2E Dashboard NoAccess`,
+  // seeded with zero grants. NOT `noAccess`: PW-J1 grants then revokes
+  // `ncr:read` live (fixtures/permissions.js's `grantToRole`, keyed by role
+  // NAME), and `noAccess` is trusted by 79 other spec files to hold literally
+  // nothing — granting anything to it, even briefly, risks corrupting every
+  // other spec's "zero grants" assumption if a run crashes mid-test or two
+  // projects race across parallel workers.
+  dashboardNoAccess: {
+    id: 'e2e10000-0000-4000-8000-000000000995',
+    email: 'dashboardnoaccess@e2e.test',
+    name: 'Daisy DashboardNoAccess',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -479,6 +491,7 @@ export const AUTH = {
   automationOwner: 'e2e/.auth/automationOwner.json',
   notifyRecipient: 'e2e/.auth/notifyRecipient.json',
   settingsAdmin: 'e2e/.auth/settingsAdmin.json',
+  dashboardNoAccess: 'e2e/.auth/dashboardNoAccess.json',
 }
 
 // Quality Events fixtures seeded by e2e-seed.sql §28.

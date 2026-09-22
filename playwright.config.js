@@ -723,6 +723,22 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Dashboard. Had ZERO E2E coverage before this — no project, no seed
+      // section (e2e-seed.sql §49 is new), and the module's own written
+      // roadmap (docs/modules/dashboard/14-playwright-journeys.md) confirms
+      // it explicitly ("zero test files reference any Dashboard* component").
+      // This project covers PW-J1 (permission-gated widget visibility, a live
+      // grant + revoke round-trip against a dedicated zero-grant role) and
+      // PW-J8 (the Customize dialog's checklist is structurally filtered, not
+      // just cosmetically hidden). PW-J2/J3/J4 (persistence, KPI nav, My
+      // Tasks deep-links) and PW-J5/J6/J7 (three confirmed defects the doc
+      // writes up as fail-until-fixed journeys) are left for a later pass.
+      name: 'dashboard',
+      testMatch: /dashboard\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

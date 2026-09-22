@@ -63,6 +63,7 @@
     "test:e2e:complaints": "playwright test --project=complaints",
     "test:e2e:automationRules": "playwright test --project=automationRules",
     "test:e2e:notifications": "playwright test --project=notifications",
+    "test:e2e:dashboard": "playwright test --project=dashboard",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "build:help": "node scripts/build-help-content.mjs",
