@@ -672,6 +672,22 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Automation Rules. Had ZERO E2E coverage before this — no project, no
+      // seed section (e2e-seed.sql §47 is new), and the module's own written
+      // roadmap (docs/modules/automation-rules/14-playwright-journeys.md)
+      // implemented none of its five planned journeys. This project covers
+      // PW-J1 (CRUD + toggle + soft-delete on the standalone /automation-rules
+      // page) and PW-J4 (the route's permission boundary — a single-action
+      // native module, `manage` is the only grant). PW-J2 (event-fired
+      // notification, needs a worker round-trip) and PW-J3 (module-scoped
+      // authoring via the Form Template Automation tab) are left for a later
+      // pass — see the roadmap doc.
+      name: 'automationRules',
+      testMatch: /automationRules\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

@@ -354,6 +354,16 @@ export const USERS = {
     email: 'rcaadmin@e2e.test',
     name: 'Rhoda RcaAdmin',
   },
+  // §47 (Automation Rules) — automation_rules:manage at TENANT scope, the
+  // module's ONLY grant (a single-action native module — RA-1 means even a
+  // read-only view needs it). No existing cast member held it before this.
+  // `noAccess` (already in the cast) is reused for the permission-boundary
+  // probe rather than minting a second persona.
+  automationOwner: {
+    id: 'e2e10000-0000-4000-8000-000000000993',
+    email: 'automationowner@e2e.test',
+    name: 'Anna AutomationOwner',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -443,6 +453,7 @@ export const AUTH = {
   complaintSiteUser: 'e2e/.auth/complaintSiteUser.json',
   supportAgent: 'e2e/.auth/supportAgent.json',
   rcaAdmin: 'e2e/.auth/rcaAdmin.json',
+  automationOwner: 'e2e/.auth/automationOwner.json',
 }
 
 // Quality Events fixtures seeded by e2e-seed.sql §28.
@@ -1056,4 +1067,14 @@ export const RCA = {
     resourceType: 'Nonconformance',
     description: 'Seeded primary root cause — operator not trained on updated work instruction.',
   },
+}
+
+// Automation Rules fixtures (e2e-seed.sql §47) — the `automationRules`
+// Playwright project. No rule rows are seeded: PW-J1 creates, edits, toggles
+// and soft-deletes its own rule via the UI (fixtures/automationRules.js
+// purges any leftover 'E2E J%'-named rule before each spec file, mirroring
+// the equipment/complaints pattern for record-CRUD journeys).
+export const AUTOMATION_RULES = {
+  // The single grant the module has (RA-1: read is no longer implied).
+  permission: { module: 'automation_rules', action: 'manage' },
 }

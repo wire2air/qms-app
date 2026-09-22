@@ -137,6 +137,21 @@ Later sections of the seed extend the same tenant for the other suites:
   rewritten after its enclosing step was approved and e-signed — closed by a
   BEFORE UPDATE trigger, `enforce_root_cause_immutable`, ERRCODE `QMSRC`,
   that refuses to change anything but `deleted_at`), both re-verified live.
+- **Automation Rules (§47)** — zero E2E coverage before this: no project, no
+  fixtures, and the module's own written roadmap
+  (`docs/modules/automation-rules/14-playwright-journeys.md`) implemented
+  none of its five planned journeys. One new persona, `automationOwner`
+  (`automation_rules:manage` — the module's only grantable action; `read` is
+  not implied by anything else since RA-1, 2026-09-07). No rule fixtures are
+  seeded — PW-J1 creates, edits, toggles and soft-deletes its own rule via the
+  UI, mirroring the equipment/complaints "own-fixture" journeys. `noAccess`
+  (already in the cast) drives PW-J4, the permission boundary: the route is
+  guarded on `automation_rules:manage` across its whole subtree
+  (`permissionGuard.js`), unlike most of this module's write-gated-but-
+  read-open siblings. PW-J2 (event-fired notification) and PW-J3
+  (module-scoped authoring via the Form Template Automation tab) are left for
+  a later pass — both need heavier fixtures (a worker round-trip; a promoted
+  Form Template) than this pass's scope.
 
 Roster and IDs live in [fixtures/cast.js](fixtures/cast.js).
 
@@ -162,6 +177,7 @@ npm run test:e2e:assetRequest # asset requests (supplier-portal-adjacent)
 npm run test:e2e:complaints   # complaints (internal Quality Complaints + Customer Complaints)
 npm run test:e2e:riskAssessment # risk assessment (workflow-embedded matrix widget + templates)
 npm run test:e2e:rca          # RCA (workflow-embedded analysis widget + templates + categories)
+npm run test:e2e:automationRules # automation rules (standalone /automation-rules page)
 npm run test:e2e:sites:headed # watch it drive a real browser
 
 # Inspections & Log Books has no npm alias yet — run it by project name.
@@ -432,6 +448,13 @@ added.
 | `rca/j3-categories-manage-boundary.spec.js` | PW-J3 Categories manage-only boundary | the single `root_cause_categories:manage` action gates all four REST routes (create/update/deactivate/restore); a holder drives the full cycle through the UI; a non-holder sees a view-only page and gets 403 on all four routes with nothing changed underneath |
 | `rca/j4-root-causes-boundary.spec.js` | PW-J4 🟢 F-01 + F-09 regression guard | `root_causes_update_rls` — CLOSED 2026-09-01 — re-verified live with the vacuity lesson observed (a zero-grant persona is filtered by SELECT first, so the admitting persona must hold a real parent-module grant); the `enforce_root_cause_immutable` (QMSRC) trigger refuses to rewrite content even for that same admitting persona, admitting only the `deleted_at` soft-delete path; INSERT/DELETE still require the OR; the cross-module read exposure (an `ncr:read` holder sees this Nonconformance-attached row) is pinned as a documented, open design decision |
 | `rca/j5-tenant-isolation.spec.js` | PW-J5 cross-tenant | `rca_templates` and `root_cause_categories` (both tenancy-only SELECT policies) and `root_causes` (borrowed-permission table) are all invisible to E2EALT — including its OWNER, whose isOwner bypass does not cross the tenant predicate; REST 404s on a cross-tenant category write |
+
+### Automation Rules
+
+| Spec | Journey | Asserts (UI + DB) |
+|---|---|---|
+| `automationRules/j1-crud-toggle-delete.spec.js` | PW-J1 CRUD + toggle + soft-delete | create (Object + one no-config action) lands with the right `object_type`/`trigger`/`actions` shape; edit changes the trigger in place (same row id); Active toggles off/on with no dialog, DB `is_active` flips; delete goes through the confirm dialog and soft-deletes (`deleted_at` set, row gone from the list) |
+| `automationRules/j4-permission-boundary.spec.js` | PW-J4 route permission boundary | `noAccess` (zero grants) is bounced to `/no-access` and never sees the page; CONTROL — `automationOwner` (`automation_rules:manage`) reaches it |
 
 ## How it's built
 
