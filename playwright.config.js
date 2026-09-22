@@ -698,6 +698,31 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      // Notifications. Had ZERO E2E coverage before this — no project, no
+      // seed section (e2e-seed.sql §48 is new). The module's own written
+      // roadmap (docs/modules/notifications/14-playwright-journeys.md) names
+      // documents/j10-collaboration-notifications.spec.js as the closest
+      // prior art, but that spec only ever asserts the `notifications` row
+      // directly and never opens the bell/panel/inbox UI. This project
+      // covers PW-J1 (inbox read/unread lifecycle: badge, panel preview cap,
+      // click-to-read+navigate, mark-all-read, All/Unread tabs, and a
+      // corrected regression pin for the unrouted-notification fallback —
+      // the roadmap doc's own suggested fixture and expected behaviour are
+      // both stale against current code, see j1's header comment) and PW-J4
+      // (the `/notification-rules` admin route's permission boundary).
+      // PW-J2/J3 (cc config, needs Mailhog) and PW-J5 (live push across two
+      // sessions) are left for a later pass.
+      name: 'notifications',
+      testMatch: /notifications\/[^/]+\.spec\.js$/,
+      dependencies: ['setup'],
+      // Same posture as automationRules: `fixtures/db.js`'s `docker exec`
+      // calls have been observed to ETIMEDOUT (15s) under load on this class
+      // of dev machine. One retry absorbs it; every DB assertion here is
+      // deterministic SQL, so a genuine break still fails both attempts.
+      retries: 1,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },

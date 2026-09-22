@@ -364,6 +364,29 @@ export const USERS = {
     email: 'automationowner@e2e.test',
     name: 'Anna AutomationOwner',
   },
+  // §48 (Notifications) — a brand-new persona nothing else in the suite ever
+  // assigns a task to, shares a record with, or otherwise notifies. Holds no
+  // role at all (same shape as noAccess). Reusing `reviewer` (as
+  // documents/j10 does) would work for a one-off DB assertion but not for
+  // PW-J1's exact-badge-count UI assertions — reviewer is the step-1 ACTION
+  // assignee across nearly every other module's workflow fixtures, so their
+  // inbox holds an unbounded, run-order-dependent number of notifications by
+  // the time this suite reaches PW-J1.
+  notifyRecipient: {
+    id: 'e2e10000-0000-4000-8000-000000000994',
+    email: 'notifyrecipient@e2e.test',
+    name: 'Nina NotifyRecipient',
+  },
+  // §41 (Settings) — seeded alongside the rest of that section but never
+  // wired into USERS/AUTH until PW-J4 (Notifications, §48) needed a persona
+  // holding exactly `company_settings:manage` — the one permission
+  // `/notification-rules` gates — to prove the GRANT admits, not just that
+  // owners bypass everything.
+  settingsAdmin: {
+    id: 'e2e10000-0000-4000-8000-000000000960',
+    email: 'settingsadmin@e2e.test',
+    name: 'Stella SettingsAdmin',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -454,6 +477,8 @@ export const AUTH = {
   supportAgent: 'e2e/.auth/supportAgent.json',
   rcaAdmin: 'e2e/.auth/rcaAdmin.json',
   automationOwner: 'e2e/.auth/automationOwner.json',
+  notifyRecipient: 'e2e/.auth/notifyRecipient.json',
+  settingsAdmin: 'e2e/.auth/settingsAdmin.json',
 }
 
 // Quality Events fixtures seeded by e2e-seed.sql §28.

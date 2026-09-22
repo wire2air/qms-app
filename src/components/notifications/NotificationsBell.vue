@@ -14,6 +14,7 @@ const unreadCount = computed(() => notifications.value.filter((n) => !n.isRead).
   <BasePopover placement="bottom-end" :offset="8">
     <template #button>
       <button
+        aria-label="Notifications"
         class="tw:relative tw:flex tw:items-center tw:justify-center tw:size-9 tw:rounded-full tw:hover:bg-main-hover tw:transition-colors"
       >
         <IconBell :size="20" class="tw:text-on-main" />
