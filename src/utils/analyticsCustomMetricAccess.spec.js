@@ -5,6 +5,7 @@ import {
   canUpdateCustomMetrics,
   canDeleteCustomMetrics,
   humaniseCode,
+  reportingKeyOptions,
   blankDefinition,
   definitionProblem,
   definitionSentence,
@@ -281,5 +282,171 @@ describe('definitionProblem', () => {
     expect(
       definitionProblem(countDef({ measure: { type: MEASURES.RATIO, numerator: [] } }), named, 3),
     ).toBe('A percentage needs a condition for the top of the fraction.')
+  })
+})
+
+/**
+ * A promoted FormTemplate, in the shape CustomMetricsHome hands the builder.
+ * Nested children and an un-flagged field are both present on purpose: the
+ * walker has to descend containers and skip anything not marked reportable.
+ */
+const LEAD_TEMPLATE = {
+  isModule: true,
+  internalName: 'lead_crm',
+  schema: [
+    { name: 'input_1', type: 'input', label: 'Lead name' },
+    {
+      name: 'section_1',
+      type: 'section',
+      label: 'Commercials',
+      children: [
+        {
+          name: 'number_1',
+          type: 'number',
+          label: 'Deal Value',
+          reporting: { enabled: true, key: 'deal_value' },
+        },
+        {
+          name: 'select_2',
+          type: 'select',
+          label: 'Lead Status',
+          reporting: { enabled: true, key: 'lead_status' },
+        },
+      ],
+    },
+    {
+      name: 'select_1',
+      type: 'select',
+      label: 'Lead Source',
+      reporting: { enabled: true, key: 'lead_source' },
+    },
+    // Flag off — declared but not reported on, so not measurable.
+    { name: 'input_2', type: 'input', label: 'Company', reporting: { enabled: false, key: 'co' } },
+  ],
+}
+
+describe('reportingKeyOptions', () => {
+  it('offers every reportable key, including ones nested in a section', () => {
+    expect(reportingKeyOptions([LEAD_TEMPLATE], 'lead_crm').map((o) => o.value)).toEqual([
+      'deal_value',
+      'lead_source',
+      'lead_status',
+    ])
+  })
+
+  it('labels by the field name the author gave, keeping the key visible', () => {
+    const [first] = reportingKeyOptions([LEAD_TEMPLATE], 'lead_crm')
+    expect(first).toEqual({ value: 'deal_value', label: 'Deal Value (deal_value)' })
+  })
+
+  it('skips fields whose reporting flag is off', () => {
+    expect(reportingKeyOptions([LEAD_TEMPLATE], 'lead_crm').map((o) => o.value)).not.toContain('co')
+  })
+
+  // A built-in module has no FormTemplate claiming it, so the picker must fall
+  // back to the typed input rather than rendering an empty dropdown.
+  it('returns nothing for a module no template claims', () => {
+    expect(reportingKeyOptions([LEAD_TEMPLATE], 'capa')).toEqual([])
+  })
+
+  it('returns nothing when no module is chosen yet', () => {
+    expect(reportingKeyOptions([LEAD_TEMPLATE], null)).toEqual([])
+  })
+
+  it('survives a template with no schema', () => {
+    const bare = { isModule: true, internalName: 'lead_crm' }
+    expect(reportingKeyOptions([bare], 'lead_crm')).toEqual([])
+  })
+})
+
+/**
+ * The EAV sum/avg guard — mirrored from the compiler so the form stops the
+ * author before the save rather than after it.
+ */
+describe('definitionProblem — measuring one answer on a custom module', () => {
+  const eavMeta = { name: 'Total deal value', moduleId: 'lead_crm' }
+  function eavDef(overrides = {}) {
+    return {
+      sourceTable: 'analytics_field_values',
+      timeField: 'occurred_at',
+      measure: { type: MEASURES.SUM, field: 'numeric_value' },
+      filters: [],
+      groupBy: [],
+      ...overrides,
+    }
+  }
+  const pinned = [{ field: 'reporting_key', op: 'in', values: ['deal_value'] }]
+
+  it('refuses a sum that does not say which answer', () => {
+    expect(definitionProblem(eavDef(), eavMeta, 3)).toBe(
+      'Choose which answer to measure, or break the results down by Field.',
+    )
+  })
+
+  it('refuses an average the same way', () => {
+    expect(
+      definitionProblem(
+        eavDef({ measure: { type: MEASURES.AVG, field: 'numeric_value' } }),
+        eavMeta,
+        3,
+      ),
+    ).toBe('Choose which answer to measure, or break the results down by Field.')
+  })
+
+  it('accepts one pinned to a single field', () => {
+    expect(definitionProblem(eavDef({ filters: pinned }), eavMeta, 3)).toBeNull()
+  })
+
+  // Two values re-admit exactly the mixing the rule exists to prevent.
+  it('refuses two fields at once', () => {
+    expect(
+      definitionProblem(
+        eavDef({ filters: [{ field: 'reporting_key', op: 'in', values: ['deal_value', 'score'] }] }),
+        eavMeta,
+        3,
+      ),
+    ).toBe('Choose which answer to measure, or break the results down by Field.')
+  })
+
+  // notIn leaves every other field in, so it pins nothing.
+  it('refuses a notIn filter', () => {
+    expect(
+      definitionProblem(
+        eavDef({ filters: [{ field: 'reporting_key', op: 'notIn', values: ['deal_value'] }] }),
+        eavMeta,
+        3,
+      ),
+    ).toBe('Choose which answer to measure, or break the results down by Field.')
+  })
+
+  // Breaking down BY field gives each one its own series, so nothing is ever
+  // added across two — the compiler accepts this shape and so must the form.
+  it('accepts a breakdown by field instead of a filter', () => {
+    expect(definitionProblem(eavDef({ groupBy: ['reporting_key'] }), eavMeta, 3)).toBeNull()
+  })
+
+  // Counting is already per-record (count(DISTINCT record_id)), so it does not
+  // need the pin — only sum and avg read numeric_value.
+  it('does not ask a count to name an answer', () => {
+    expect(
+      definitionProblem(eavDef({ measure: { type: MEASURES.COUNT } }), eavMeta, 3),
+    ).toBeNull()
+  })
+
+  // On a physical table the column IS the field, so the rule must not apply.
+  it('leaves a physical source alone', () => {
+    expect(
+      definitionProblem(
+        {
+          sourceTable: 'audit_findings',
+          timeField: 'created_at',
+          measure: { type: MEASURES.SUM, field: 'risk_score' },
+          filters: [],
+          groupBy: [],
+        },
+        { name: 'Risk', moduleId: 'audit_findings' },
+        3,
+      ),
+    ).toBeNull()
   })
 })

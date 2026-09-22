@@ -289,3 +289,165 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
     expect(w.vm.canSave).toBe(false)
   })
 })
+
+/** A custom module's registry rows — every one of them on the EAV source. */
+const LEAD_FIELDS = [
+  { moduleId: 'lead_crm', sourceTable: 'analytics_field_values', columnName: 'numeric_value', label: 'Value', kind: 'number', filterable: true, groupable: false, displayOrder: 10 },
+  { moduleId: 'lead_crm', sourceTable: 'analytics_field_values', columnName: 'occurred_at', label: 'Occurred', kind: 'date', filterable: true, groupable: false, displayOrder: 20 },
+  { moduleId: 'lead_crm', sourceTable: 'analytics_field_values', columnName: 'reporting_key', label: 'Field', kind: 'text', filterable: true, groupable: true, displayOrder: 30 },
+  { moduleId: 'lead_crm', sourceTable: 'analytics_field_values', columnName: 'site_id', label: 'Site', kind: 'uuid', filterable: true, groupable: true, displayOrder: 40 },
+]
+
+const LEAD_TEMPLATES = [
+  {
+    isModule: true,
+    internalName: 'lead_crm',
+    schema: [
+      { name: 'number_1', type: 'number', label: 'Deal Value', reporting: { enabled: true, key: 'deal_value' } },
+      { name: 'select_2', type: 'select', label: 'Lead Status', reporting: { enabled: true, key: 'lead_status' } },
+    ],
+  },
+]
+
+/**
+ * The reporting-key picker.
+ *
+ * A metric on analytics_field_values is WRONG without a reporting_key filter —
+ * the table holds one row per (record, reportable field), so an unfiltered one
+ * mixes every field together. The key is therefore not optional detail, and a
+ * mistyped one compiles cleanly and renders an empty series, which is the
+ * failure nobody investigates.
+ */
+describe('CustomMetricBuilderDialog — reporting-key picker', () => {
+  function openOnLeadCrm() {
+    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'lead_crm'
+    w.vm.form.definition.sourceTable = 'analytics_field_values'
+    return w
+  }
+
+  it('offers the module\'s declared keys', async () => {
+    const w = openOnLeadCrm()
+    await nextTick()
+    expect(w.vm.keyOptions.map((o) => o.value)).toEqual(['deal_value', 'lead_status'])
+  })
+
+  it('picks for reporting_key and types for everything else', async () => {
+    const w = openOnLeadCrm()
+    await nextTick()
+    expect(w.vm.picksFromKeys({ field: 'reporting_key' })).toBe(true)
+    // Site's values live in a lookup table the client does not mirror, so an
+    // empty dropdown would be worse than the typed input.
+    expect(w.vm.picksFromKeys({ field: 'site_id' })).toBe(false)
+  })
+
+  // A built-in module has no FormTemplate claiming it — the typed input must
+  // stay rather than a dropdown with nothing in it.
+  it('falls back to typing on a built-in module', async () => {
+    const w = mountDialog({ templates: LEAD_TEMPLATES })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'capa'
+    await nextTick()
+    expect(w.vm.keyOptions).toEqual([])
+    expect(w.vm.picksFromKeys({ field: 'reporting_key' })).toBe(false)
+  })
+
+  it('clears values when the filter field changes', async () => {
+    const w = openOnLeadCrm()
+    await nextTick()
+    // Values picked for one field are meaningless on another, and a dropdown
+    // cannot display them, so the row would look blank while still saving them.
+    const f = { field: 'site_id', op: 'in', values: ['deal_value'] }
+    w.vm.onFilterFieldChange(f)
+    expect(f.values).toEqual([])
+  })
+})
+
+/**
+ * "Which answer?" — the control that keeps a sum from mixing every numeric
+ * answer on the module together. It is stored as an ordinary reporting_key
+ * filter, so the two views of the same fact must stay in step.
+ */
+describe('CustomMetricBuilderDialog — which answer to measure', () => {
+  function openSum() {
+    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'lead_crm'
+    w.vm.form.definition.sourceTable = 'analytics_field_values'
+    return w
+  }
+
+  /**
+   * Set the measure AFTER the sourceTable watcher has flushed.
+   *
+   * Changing the source resets `measure` (it clears dependent fields, which is
+   * right when a person switches sources). Assigning both in the same tick
+   * means the reset lands last and silently undoes the measure — which is the
+   * same class of bug the `seeding` flag exists for.
+   */
+  async function setMeasure(w, measure) {
+    await nextTick()
+    w.vm.form.definition.measure = measure
+    await nextTick()
+  }
+
+  it('asks only when summing or averaging the EAV source', async () => {
+    const w = openSum()
+    await setMeasure(w, { type: 'sum', field: 'numeric_value' })
+    expect(w.vm.measuresEav).toBe(true)
+
+    await setMeasure(w, { type: 'count' })
+    // A count is already per-record, so it has nothing to pin.
+    expect(w.vm.measuresEav).toBe(false)
+  })
+
+  it('writes the choice as a reporting_key filter', async () => {
+    const w = openSum()
+    await setMeasure(w, { type: 'sum', field: 'numeric_value' })
+    w.vm.measuredKey = 'deal_value'
+    expect(w.vm.form.definition.filters).toEqual([
+      { field: 'reporting_key', op: 'in', values: ['deal_value'] },
+    ])
+  })
+
+  it('replaces rather than stacks when the choice changes', async () => {
+    const w = openSum()
+    await setMeasure(w, { type: 'sum', field: 'numeric_value' })
+    w.vm.measuredKey = 'deal_value'
+    w.vm.measuredKey = 'lead_status'
+    expect(w.vm.form.definition.filters).toEqual([
+      { field: 'reporting_key', op: 'in', values: ['lead_status'] },
+    ])
+  })
+
+  it('reads back a choice made in the filter list', async () => {
+    const w = openSum()
+    await setMeasure(w, { type: 'sum', field: 'numeric_value' })
+    w.vm.form.definition.filters = [
+      { field: 'reporting_key', op: 'in', values: ['deal_value'] },
+    ]
+    expect(w.vm.measuredKey).toBe('deal_value')
+  })
+
+  // An empty filter row fails compilation with a different and more confusing
+  // message, so clearing removes the row outright.
+  it('removes the filter when cleared rather than leaving it empty', async () => {
+    const w = openSum()
+    await setMeasure(w, { type: 'sum', field: 'numeric_value' })
+    w.vm.measuredKey = 'deal_value'
+    w.vm.measuredKey = null
+    expect(w.vm.form.definition.filters).toEqual([])
+  })
+
+  it('leaves other filters untouched', async () => {
+    const w = openSum()
+    await setMeasure(w, { type: 'sum', field: 'numeric_value' })
+    w.vm.form.definition.filters = [{ field: 'site_id', op: 'in', values: ['s1'] }]
+    w.vm.measuredKey = 'deal_value'
+    expect(w.vm.form.definition.filters).toEqual([
+      { field: 'site_id', op: 'in', values: ['s1'] },
+      { field: 'reporting_key', op: 'in', values: ['deal_value'] },
+    ])
+  })
+})

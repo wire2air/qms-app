@@ -80,13 +80,16 @@ const allFields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exe
 
 // The custom modules THIS tenant owns. Same source the sidebar uses to decide
 // which module nav entries to draw — which is why the nav never leaked.
-const ownModuleKeys = useLiveQuery(
-  async (db) =>
-    (await db.FormTemplate.where().exec())
-      .filter((t) => t.isModule && t.internalName)
-      .map((t) => t.internalName),
+// The whole row, not just the key: the builder reads `schema` off these to
+// offer a module's reporting keys as a picker (reportingKeyOptions). Same
+// query, same subscription — the keys below are derived from it rather than
+// fetched a second time.
+const ownModuleTemplates = useLiveQuery(
+  async (db) => (await db.FormTemplate.where().exec()).filter((t) => t.isModule && t.internalName),
   { models: 'FormTemplate', initial: [] },
 )
+
+const ownModuleKeys = computed(() => (ownModuleTemplates.value || []).map((t) => t.internalName))
 
 const fields = computed(() => {
   const rows = allFields.value || []
@@ -438,6 +441,7 @@ function moduleLabel(id) {
         v-model:open="dialogOpen"
         :metric="editing"
         :fields="fields ?? []"
+        :templates="ownModuleTemplates ?? []"
         :dimensionCap="dimensionCap"
       />
     </template>
