@@ -8,7 +8,14 @@ keywords: [automated testing, regression, supplier evidence, coverage, GAMP 5, t
 
 # Automated Regression Coverage
 
-**Document ID:** VAL-ARC-001 · **Version:** 1.0 · **System:** Qability QMS
+**Document ID:** VAL-ARC-001 · **Version:** 1.1 · **System:** Qability QMS
+
+> **Changes in 1.1 (2026-09-22).** Customer Complaint Management (§19) re-assessed after
+> five new E2E suites were added to that module: URS-CCM-03, -04, -05, -06 and -08 move
+> from *Not automated* / *Partial* to **Covered**, and URS-CCM-02 is reclassified as
+> **Product non-conformant** (defect CC-D1 — the fields it demands are not columns on the
+> customer complaint record). Summary totals and the by-module table are restated
+> accordingly, and the suite size is refreshed to the current 341 files / 1,418 tests.
 
 | Role             | Name | Title | Signature | Date |
 | ---------------- | ---- | ----- | --------- | ---- |
@@ -78,22 +85,22 @@ Across the 163 baseline requirements in the Traceability Matrix:
 
 | Status                       | Requirements | Share |
 | ---------------------------- | ------------ | ----- |
-| Covered                      | 62           | 38%   |
-| Partial                      | 55           | 34%   |
-| Not automated                | 34           | 21%   |
+| Covered                      | 66           | 40%   |
+| Partial                      | 54           | 33%   |
+| Not automated                | 30           | 18%   |
 | N/A (not verifiable by test) | 7            | 4%    |
-| Product non-conformant       | 4            | 2%    |
+| Product non-conformant       | 5            | 3%    |
 | Gap pinned                   | 1            | 1%    |
 | **Total**                    | **163**      |       |
 
-The suite behind these figures is **322 test files containing 1,231 tests**, organised as
+The suite behind these figures is **341 test files containing 1,418 tests**, organised as
 36 module suites driven against a running instance of the full application stack — the
 database, the API, the background worker, the data-sync layer and the web client — on a
 dedicated, isolated test tenant. Tests assert against the database as well as the screen,
 so a control that exists only in the interface is recorded as such rather than passing
 silently.
 
-**Read the two middle rows together.** Covered and Partial account for 72% of
+**Read the two middle rows together.** Covered and Partial account for 74% of
 requirements, but *Partial means your testing still carries the remainder*. The Note on
 every Partial row names the untested part. There is no row where a gap has been left
 unstated.
@@ -123,7 +130,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | 16 | Forms & Workflows ([OQ-13](/validation/oq/forms-and-workflows))                 | 11   | 5   | 3    | 3    | —   | —   | —   |
 | 17 | Item Master ([OQ-14](/validation/oq/item-master))                              | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 18 | Retain Samples ([OQ-15](/validation/oq/retain-samples))                         | 6    | 2   | 3    | 1    | —   | —   | —   |
-| 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 2   | 1    | 5    | —   | —   | —   |
+| 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 6   | —    | 1    | —   | 1   | —   |
 | **Total** |                                                                        | **163** | **62** | **55** | **34** | **7** | **4** | **1** |
 
 **Three things to take from this table.**
@@ -145,7 +152,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 
 ## Requirements where the product does not currently conform
 
-Four requirements have a test that asserts what the requirement demands, and the product
+Five requirements have a test that asserts what the requirement demands, and the product
 does not currently satisfy it. These are the rows to read before you plan your execution,
 because in each case the protocol's own note tells you what you will actually observe.
 
@@ -155,6 +162,7 @@ because in each case the protocol's own note tells you what you will actually ob
 | URS-TRN-04 | Trainees review all material before assessment        | Enforced in the browser only; a completion can be scored and signed without the material (defect D14)   | [OQ-02](/validation/oq/training-management) TC-02-04       |
 | URS-CAP-10 | The full CAPA history is available in the audit trail | The per-record dialog omits entries written under the other record-type spelling; the trail itself is complete (defect D9) | [OQ-04](/validation/oq/capa) TC-04-10                      |
 | URS-AUD-08 | Audit history is captured in the audit trail          | Writes made by the scheduled audit generator leave no trail entry                                       | [OQ-07](/validation/oq/audit-management)                   |
+| URS-CCM-02 | A customer complaint records its category, severity, product and lot reference | `customer_complaints` has **no such columns** — they belong to the internal Quality Complaint record. The API used to accept them and return 201 with the values silently discarded (defect CC-D1); it now refuses them outright | [OQ-17](/validation/oq/customer-complaints) TC-17-02 |
 
 :::warning Two of these bear directly on Part 11 signed records
 **URS-TRN-04** is the most consequential in this document. A read-and-understood training
@@ -410,14 +418,21 @@ assessment and the wording to record.
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
-| URS-CCM-01 | Covered | `e2e/complaints/j3-customer-complaint-lifecycle.spec.js` — "create: lands in customer_complaints, not complaints, gated on complaint_management:create" | Creation writes the customer table and is permission-gated. |
-| URS-CCM-02 | Not automated | — | Category, priority, product, order reference and attachments have no test. |
-| URS-CCM-03 | Covered | `e2e/complaints/j3-customer-complaint-lifecycle.spec.js` — "accept: the agent becomes the assignee and status moves off NEW" | Acceptance assigns the agent and advances status. |
-| URS-CCM-04 | Not automated | — | Correspondence with the customer and the recorded resolution have no test. |
-| URS-CCM-05 | Partial | `e2e/complaints/j3-customer-complaint-lifecycle.spec.js` — "close: a workflow-free ticket closes directly (no requireClosureApproval by default)" | Direct close proven; the closure-approval branch with signature is untested. |
-| URS-CCM-06 | Not automated | — | Conversion to a nonconformance, and its finality, have no test. |
-| URS-CCM-07 | Not automated | — | Printing a customer complaint in full has no test. |
-| URS-CCM-08 | Not automated | — | This module's audit history has no test. |
+| URS-CCM-01 | Covered | `j3-customer-complaint-lifecycle.spec.js` — "create: lands in customer_complaints, not complaints…"; `j9-intake-audit-trail.spec.js` — intake steps 3–8 | Creation is permission-gated, mints a per-company CC number, opens in New, records the recorder and the date raised, and never reaches the internal register. |
+| URS-CCM-02 | Product non-conformant | `j9-intake-audit-trail.spec.js` — "priority, source and customer reference persist and read back"; `j10-assignment-permissions.spec.js` — "an attachment persists against the ticket" | Priority, source, customer reference and attachments are proven and do persist. **Category, severity, product and lot reference cannot be recorded at all** — they are not columns on `customer_complaints` (defect CC-D1). See the non-conformance table above before executing TC-17-02. |
+| URS-CCM-03 | Covered | `j10-assignment-permissions.spec.js` — accept / reassign / no-access probes; `j3` — "accept: the agent becomes the assignee…" | Acceptance sets the assignee and advances status; reassignment works with no named-owner gate; a no-access account is refused every action at the API, not just in the interface. |
+| URS-CCM-04 | Covered | `j10-assignment-permissions.spec.js` — public reply, internal/QA notes, attachment | Correspondence persists and is attributed to the actor; a public reply sets Waiting on Customer; internal and QA notes never move the status. |
+| URS-CCM-05 | Covered | `j7-closure-approval.spec.js` — 10 tests across 5a and 5b | Both branches proven: direct close and second-close refusal; approval-on routes to PENDING_APPROVAL; a non-approver is refused; a wrong PIN is refused; the correct PIN closes it and the signature evidence lands in the audit trail; reopen returns to Open and clears the assignee. The empty system-wide signature register is asserted deliberately — see the note below. |
+| URS-CCM-06 | Covered | `j8-nc-escalation.spec.js` — 9 tests | Conversion mints a linked NC; the link resolves in both directions; and finality is proven at the **database** on both the trusted and untrusted paths, not merely by a missing button. |
+| URS-CCM-07 | Not automated | — | Printing a customer complaint in full has no test. Unchanged. |
+| URS-CCM-08 | Covered | `j9-intake-audit-trail.spec.js` — "intake and each subsequent change leave an audit entry…", "the audit trail is append-only" | Entries carry actor, timestamp and the changed values; UPDATE and DELETE against `audit_logs` are refused by the `audit_logs_immutable` trigger. |
+
+**Beyond the requirement baseline.** `j11-public-portal-autoclose.spec.js` (20 tests) covers
+two surfaces OQ-17 §5 lists as untested: the public HMAC status page (token scope, tamper
+and non-disclosure, internal-field leakage, customer attribution, the reopen window) and
+the auto-close worker (threshold honoured per tenant, opt-in, already-closed and escalated
+tickets untouched, SYSTEM attribution). These carry no URS row because the baseline does
+not describe them; they are recorded here so the coverage is not invisible.
 
 ## Observations on the requirement baseline
 
