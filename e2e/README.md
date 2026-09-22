@@ -143,15 +143,16 @@ Later sections of the seed extend the same tenant for the other suites:
   none of its five planned journeys. One new persona, `automationOwner`
   (`automation_rules:manage` — the module's only grantable action; `read` is
   not implied by anything else since RA-1, 2026-09-07). No rule fixtures are
-  seeded — PW-J1 creates, edits, toggles and soft-deletes its own rule via the
-  UI, mirroring the equipment/complaints "own-fixture" journeys. `noAccess`
-  (already in the cast) drives PW-J4, the permission boundary: the route is
-  guarded on `automation_rules:manage` across its whole subtree
+  seeded — PW-J1/PW-J3 create, edit, toggle and soft-delete their own rules
+  via the UI, mirroring the equipment/complaints "own-fixture" journeys.
+  `noAccess` (already in the cast) drives PW-J4, the permission boundary: the
+  route is guarded on `automation_rules:manage` across its whole subtree
   (`permissionGuard.js`), unlike most of this module's write-gated-but-
-  read-open siblings. PW-J2 (event-fired notification) and PW-J3
-  (module-scoped authoring via the Form Template Automation tab) are left for
-  a later pass — both need heavier fixtures (a worker round-trip; a promoted
-  Form Template) than this pass's scope.
+  read-open siblings. PW-J3 reuses the existing `e2emod` promoted-Module
+  fixture (§35) rather than seeding a second one — `/templates` itself
+  carries no route guard, so no new persona was needed there either. PW-J2
+  (event-fired notification, needs a worker round-trip) and PW-J5
+  (SCHEDULED-on-built-in smoke) are left for a later pass.
 
 Roster and IDs live in [fixtures/cast.js](fixtures/cast.js).
 
@@ -454,6 +455,7 @@ added.
 | Spec | Journey | Asserts (UI + DB) |
 |---|---|---|
 | `automationRules/j1-crud-toggle-delete.spec.js` | PW-J1 CRUD + toggle + soft-delete | create (Object + one no-config action) lands with the right `object_type`/`trigger`/`actions` shape; edit changes the trigger in place (same row id); Active toggles off/on with no dialog, DB `is_active` flips; delete goes through the confirm dialog and soft-deletes (`deleted_at` set, row gone from the list) |
+| `automationRules/j3-module-scoped-authoring.spec.js` | PW-J3 module-scoped authoring (UJ-06/UJ-07) | New rule from the `e2emod` Form Template's Automation tab — no Object picker, `object_type` lands as the module key; the rule shows in BOTH that tab's own list AND the standalone `/automation-rules` list with no per-module filter, Object column resolved to the module's display name |
 | `automationRules/j4-permission-boundary.spec.js` | PW-J4 route permission boundary | `noAccess` (zero grants) is bounced to `/no-access` and never sees the page; CONTROL — `automationOwner` (`automation_rules:manage`) reaches it |
 
 ## How it's built

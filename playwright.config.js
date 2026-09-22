@@ -677,14 +677,24 @@ export default defineConfig({
       // roadmap (docs/modules/automation-rules/14-playwright-journeys.md)
       // implemented none of its five planned journeys. This project covers
       // PW-J1 (CRUD + toggle + soft-delete on the standalone /automation-rules
-      // page) and PW-J4 (the route's permission boundary — a single-action
-      // native module, `manage` is the only grant). PW-J2 (event-fired
-      // notification, needs a worker round-trip) and PW-J3 (module-scoped
-      // authoring via the Form Template Automation tab) are left for a later
-      // pass — see the roadmap doc.
+      // page), PW-J3 (module-scoped authoring via the Form Template
+      // Automation tab) and PW-J4 (the route's permission boundary — a
+      // single-action native module, `manage` is the only grant). PW-J2
+      // (event-fired notification, needs a worker round-trip) is left for a
+      // later pass — see the roadmap doc.
       name: 'automationRules',
       testMatch: /automationRules\/[^/]+\.spec\.js$/,
       dependencies: ['setup'],
+      // Same posture as auditee/qcInspection/inspectionsLogs/equipment, for a
+      // DIFFERENT source of lag: whichever spec's createAutomationRule call
+      // runs first against a freshly-started `api` process pays a one-time
+      // PostGraphile plan-compile tax (confirmed via trace inspection — the
+      // GraphQL mutation payload is correct, the request just never gets a
+      // response inside a normal window); `fixtures/db.js`'s `docker exec`
+      // calls have also been observed to ETIMEDOUT (15s) under load. One
+      // retry absorbs both; a genuine break fails both attempts, and every DB
+      // assertion here is deterministic SQL.
+      retries: 1,
       use: { ...devices['Desktop Chrome'] },
     },
     {

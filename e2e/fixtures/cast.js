@@ -1077,4 +1077,16 @@ export const RCA = {
 export const AUTOMATION_RULES = {
   // The single grant the module has (RA-1: read is no longer implied).
   permission: { module: 'automation_rules', action: 'manage' },
+  // The promoted module (e2e-seed.sql §35) PW-J3 authors a module-scoped rule
+  // against — reused rather than seeding a second Module fixture. `/templates`
+  // carries no route guard (permissionGuard.js has no 'templates' entry — a
+  // template/reference route, tenant-public like /rca-templates), so
+  // `automationOwner` (the only extra grant PW-J3 needs is automation_rules:
+  // manage, already held) can open it directly. `moduleTitle` doubles as the
+  // label the standalone /automation-rules page's Object column renders for
+  // this rule (buildModuleAutomationObject: moduleConfig.displayName, which
+  // e2e-seed.sql §35 sets to the same string as the title).
+  moduleTemplateId: 'e2e60000-0000-4000-8000-000000000002',
+  moduleInternalName: 'e2emod',
+  moduleTitle: 'E2E Supplier Qualification',
 }

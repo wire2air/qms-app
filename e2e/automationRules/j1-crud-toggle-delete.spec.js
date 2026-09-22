@@ -54,7 +54,15 @@ test.describe('PW-J1 · Automation Rules CRUD, toggle, soft-delete', () => {
       await addActionInDialog(page, 'Notify Owner / Assignee')
       await page.getByRole('button', { name: 'Create Rule' }).click()
 
-      await expect(page.getByText(NAME).first()).toBeVisible({ timeout: 20_000 })
+      // Generous timeout on this FIRST mutation of a fresh run only: on a
+      // freshly-started `api` process, PostGraphile's first hit of a given
+      // mutation type appears to pay a one-time compile/plan-cache cost far
+      // above steady-state latency — PW-J3's identical createAutomationRule
+      // call, run moments later against the same process, resolves quickly.
+      // Confirmed via trace inspection: the payload sent here is byte-for-byte
+      // correct (right objectType/trigger/actions), the request just never got
+      // a response inside a shorter window.
+      await expect(page.getByText(NAME).first()).toBeVisible({ timeout: 60_000 })
 
       await expect
         .poll(() => findRule(NAME)?.id, { timeout: 20_000, message: 'the rule landed in Postgres' })
