@@ -159,6 +159,59 @@ export function humaniseCode(value) {
 }
 
 /**
+ * The reporting keys a custom module's form declares, as picker options.
+ *
+ * ── WHY THIS IS NOT THE `lookupTable` GAP ───────────────────────────────────
+ * The dialog's header calls out that filter VALUES are typed rather than
+ * picked, blocked on a missing Postgres-table → SyncEngine-model mapping. That
+ * blocker is real for enum and uuid fields, whose values live in a lookup table
+ * the client does not mirror.
+ *
+ * `reporting_key` is not one of those. Its registry row carries NO lookupTable
+ * (it is `kind: 'text'`), because its values are not rows anywhere — they are
+ * the keys an author typed into the form builder, and they live in
+ * `form_templates.schema`, which this client already holds: CustomMetricsHome
+ * reads FormTemplate to decide which modules are the tenant's own. So the
+ * picker is buildable today, from data already in memory, with no new endpoint.
+ *
+ * Worth doing rather than cosmetic: a metric on this source is WRONG without a
+ * reporting_key filter — analytics_field_values holds one row per (record,
+ * field), so an unfiltered metric mixes every field together. Making the author
+ * type a key they have to remember exactly, when a typo compiles cleanly and
+ * yields an empty series, is the usability half of a correctness problem.
+ *
+ * @param {object[]} templates FormTemplate rows (needs isModule, internalName, schema)
+ * @param {string} moduleId the custom module key, e.g. 'lead_crm'
+ * @returns {{value: string, label: string}[]} one option per reportable field
+ */
+export function reportingKeyOptions(templates, moduleId) {
+  if (!moduleId) return []
+  const template = (Array.isArray(templates) ? templates : []).find(
+    (t) => t?.isModule && t?.internalName === moduleId,
+  )
+  if (!template) return []
+
+  const out = []
+  const seen = new Set()
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node.children)) {
+      node.children.forEach(visit)
+      return
+    }
+    const key = node.reporting?.enabled && node.reporting?.key?.trim()
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    // Label first, key second: the author knows the field by the label they
+    // gave it, but the key is what the metric stores and what a stale
+    // definition would show, so hiding it would make a mismatch unreadable.
+    out.push({ value: key, label: node.label ? `${node.label} (${key})` : key })
+  }
+  ;(Array.isArray(template.schema) ? template.schema : []).forEach(visit)
+  return out.sort((a, b) => a.label.localeCompare(b.label))
+}
+
+/**
  * Adverbs for the grain, because the sentence needs "reported monthly" rather
  * than "reported Monthly" — GRAIN_OPTIONS holds the label for a dropdown, which
  * is a different job.
@@ -294,6 +347,29 @@ export function definitionProblem(definition, meta = {}, dimensionCap = 3) {
   }
   if (type === MEASURES.RATIO && !(definition.measure?.numerator ?? []).length) {
     return 'A percentage needs a condition for the top of the fraction.'
+  }
+
+  // Mirrors the compiler's refusal for the EAV source, so the author is stopped
+  // by the form rather than by a compile error after saving. Every numeric
+  // answer on a custom module shares one column, so a sum or average that does
+  // not name its field silently aggregates all of them — and it only starts
+  // being wrong when a SECOND number is marked reportable, long after the
+  // metric was written.
+  //
+  // Two shapes are safe, matching the compiler exactly: ONE field pinned by an
+  // 'in' filter, or a breakdown BY field, which gives each one its own series
+  // so nothing is ever added across two. Keep both arms in step with
+  // analytics_compile_custom_metric — a client that refuses what the server
+  // accepts is a form nobody can get past.
+  if (
+    definition.sourceTable === 'analytics_field_values' &&
+    [MEASURES.SUM, MEASURES.AVG].includes(type) &&
+    !(definition.filters ?? []).some(
+      (f) => f.field === 'reporting_key' && (f.op ?? 'in') === 'in' && (f.values ?? []).length === 1,
+    ) &&
+    !(definition.groupBy ?? []).includes('reporting_key')
+  ) {
+    return 'Choose which answer to measure, or break the results down by Field.'
   }
 
   for (const f of definition.filters ?? []) {

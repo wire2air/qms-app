@@ -22,13 +22,22 @@
  * banner is the only thing that says so. Silence here would leave a metric that
  * is saved, listed, and quietly absent from every dashboard.
  *
- * ── THE ONE THING THIS DOES NOT DO YET ──────────────────────────────────────
- * Filter values are typed, not picked. The registry names a `lookupTable` for
- * every enum and uuid field, so a picker is buildable — it needs a mapping from
- * a Postgres table name to the SyncEngine model that mirrors it, which does not
- * exist yet. Typed values are validated by the compiler and quote_literal()'d, so
- * this is a usability gap and not a correctness one. It is called out on the
- * field itself rather than left for the user to discover.
+ * ── WHAT IS STILL TYPED RATHER THAN PICKED ──────────────────────────────────
+ * Filter values for ENUM and UUID fields. The registry names a `lookupTable`
+ * for each, so a picker is buildable — it needs a mapping from a Postgres table
+ * name to the SyncEngine model that mirrors it, which does not exist yet. Typed
+ * values are validated by the compiler and quote_literal()'d, so this is a
+ * usability gap and not a correctness one. It is called out on the field itself
+ * rather than left for the user to discover.
+ *
+ * `reporting_key` is the EXCEPTION, and deliberately so: its values are not
+ * rows in a lookup table at all, they are the keys an author typed in the form
+ * builder, and they reach this client already — the parent reads FormTemplate
+ * to decide which modules are the tenant's own. So that one field gets a real
+ * picker today (reportingKeyOptions). It is also the field that most needed
+ * one: a metric on analytics_field_values is WRONG without a reporting_key
+ * filter, because the table holds one row per (record, field), and a mistyped
+ * key compiles cleanly and renders an empty series.
  */
 import {
   MEASURES,
@@ -42,6 +51,7 @@ import {
   definitionProblem,
   definitionSentence,
   humaniseCode,
+  reportingKeyOptions,
 } from '@/utils/analyticsCustomMetricAccess.js'
 import { templatesForModule } from '@/utils/analyticsMetricTemplates.js'
 import {
@@ -57,6 +67,8 @@ const props = defineProps({
   metric: { type: Object, default: null },
   /** Every AnalyticsModuleField the viewer can see — the parent fetches once. */
   fields: { type: Array, default: () => [] },
+  /** The tenant's own promoted FormTemplates — source of the reporting-key picker. */
+  templates: { type: Array, default: () => [] },
   /** analytics_dimension_capacity(), read from the metric catalog. */
   dimensionCap: { type: Number, default: 3 },
 })
@@ -452,6 +464,97 @@ function removeFilter(list, i) {
  * into an empty second value the moment the comma is typed, and the row then
  * reports itself invalid while the user is still mid-word.
  */
+/**
+ * The reporting keys this module declares, or [] when it has none to offer.
+ *
+ * Empty for every built-in module, and for a custom one whose form marks no
+ * field reportable — both of which fall back to the typed input below rather
+ * than rendering an empty dropdown the user cannot get past.
+ */
+const keyOptions = computed(() => reportingKeyOptions(props.templates, form.value.moduleId))
+
+/**
+ * Does this filter row get a picker instead of a text box?
+ *
+ * Only `reporting_key`, and only when the module actually declares keys. Every
+ * other field keeps the typed input: their values live in lookup tables the
+ * client does not mirror, which is the gap described in the header, and
+ * silently narrowing e.g. Site to an empty list would be worse than typing.
+ */
+function picksFromKeys(f) {
+  return f?.field === 'reporting_key' && keyOptions.value.length > 0
+}
+
+/**
+ * ── "WHICH ANSWER" — asked with the measure, stored as a filter ─────────────
+ *
+ * Every numeric answer on a custom module lands in the SAME column
+ * (analytics_field_values.numeric_value), one row per reportable field. So a
+ * sum or an average has to name the field it means, or it aggregates all of
+ * them together — kronor added to percentages.
+ *
+ * With one numeric field in the form that mistake is invisible, because the
+ * answer is right. It only becomes wrong when someone ticks "report on this
+ * field" on a SECOND number, months later, and the stored metric silently
+ * changes meaning. Measured on lead_crm against a simulated second field:
+ * sum 4,249,000 → 4,251,775 (0.07% off, nobody would question it) and
+ * avg 84,980 → 42,518.
+ *
+ * The compiler REFUSES this outright (analytics_compile_custom_metric), so the
+ * rule is enforced whatever writes the definition. This control exists so the
+ * author never meets that refusal: it asks the question at the moment the
+ * measure is chosen, in the words of the thing they picked.
+ *
+ * It reads and writes the ordinary `reporting_key` filter rather than a field
+ * of its own — the compiler's requirement is about the DEFINITION, and inventing
+ * a parallel place to store it would mean two things to keep in step. The filter
+ * row stays visible below, and editing it either way is the same edit.
+ */
+// Not asked when the author is already breaking down BY field: that gives each
+// one its own series, so nothing is added across two and the compiler accepts
+// it. Asking anyway would demand they narrow a chart they deliberately widened.
+const measuresEav = computed(
+  () =>
+    form.value.definition.sourceTable === 'analytics_field_values' &&
+    [MEASURES.SUM, MEASURES.AVG].includes(measureType.value) &&
+    !(form.value.definition.groupBy ?? []).includes('reporting_key'),
+)
+
+const measuredKey = computed({
+  get() {
+    const f = (form.value.definition.filters ?? []).find(
+      (x) => x.field === 'reporting_key' && (x.op ?? 'in') === 'in',
+    )
+    return f?.values?.length === 1 ? f.values[0] : null
+  },
+  set(key) {
+    const filters = form.value.definition.filters ?? (form.value.definition.filters = [])
+    const existing = filters.find((x) => x.field === 'reporting_key' && (x.op ?? 'in') === 'in')
+    if (!key) {
+      // Clearing it removes the row rather than leaving an empty filter behind,
+      // which the compiler rejects with a different, more confusing message
+      // ("Every filter needs at least one value").
+      if (existing) filters.splice(filters.indexOf(existing), 1)
+      return
+    }
+    if (existing) existing.values = [key]
+    else filters.push({ field: 'reporting_key', op: 'in', values: [key] })
+  },
+})
+
+/**
+ * Changing the field invalidates the values chosen for the old one.
+ *
+ * It always did — `lead_status` is not a site id either — but typed text at
+ * least stayed visible and obviously wrong. Values picked from a dropdown
+ * would survive into a field whose picker cannot display them, leaving a row
+ * that looks blank and saves a filter the author never sees. Cleared on the
+ * change instead, which is the same thing the user would do by hand.
+ */
+function onFilterFieldChange(f) {
+  f.values = []
+}
+
 function valuesText(f) {
   return (f.values ?? []).join(', ')
 }
@@ -632,6 +735,18 @@ async function save() {
               :searchable="false"
               required
             />
+            <!-- Asked here, stored as a reporting_key filter. Without it a sum
+                 mixes every numeric answer on the module together — see
+                 `measuredKey`. The compiler refuses the save outright, so this
+                 is the path that stops the author ever seeing that. -->
+            <BaseSelect
+              v-if="measuresEav && keyOptions.length"
+              v-model="measuredKey"
+              label="Which answer?"
+              :options="keyOptions"
+              hint="Every number on this module is stored together, so this picks the one to measure."
+              required
+            />
           </div>
 
           <!-- The ratio's numerator. Its own block, because "the top half of the
@@ -666,10 +781,24 @@ async function save() {
               :key="`num-${i}`"
               class="tw:mb-2 tw:grid tw:items-end tw:gap-2 tw:sm:grid-cols-[1fr_1fr_1fr_auto]"
             >
-              <BaseSelect v-model="f.field" label="Field" :options="filterFields" :searchable="false" />
+              <BaseSelect
+                v-model="f.field"
+                label="Field"
+                :options="filterFields"
+                :searchable="false"
+                @update:modelValue="onFilterFieldChange(f)"
+              />
               <BaseSelect v-model="f.op" label="Comparison" :options="OP_OPTIONS" :searchable="false" />
+              <BaseSelect
+                v-if="!VALUELESS_OPS.includes(f.op) && picksFromKeys(f)"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="keyOptions"
+                hint="The fields this form reports on"
+              />
               <BaseTextInput
-                v-if="!VALUELESS_OPS.includes(f.op)"
+                v-else-if="!VALUELESS_OPS.includes(f.op)"
                 :modelValue="valuesText(f)"
                 label="Values"
                 placeholder="CLOSED, CANCELLED"
@@ -712,10 +841,24 @@ async function save() {
               :key="`flt-${i}`"
               class="tw:mb-2 tw:grid tw:items-end tw:gap-2 tw:sm:grid-cols-[1fr_1fr_1fr_auto]"
             >
-              <BaseSelect v-model="f.field" label="Field" :options="filterFields" :searchable="false" />
+              <BaseSelect
+                v-model="f.field"
+                label="Field"
+                :options="filterFields"
+                :searchable="false"
+                @update:modelValue="onFilterFieldChange(f)"
+              />
               <BaseSelect v-model="f.op" label="Comparison" :options="OP_OPTIONS" :searchable="false" />
+              <BaseSelect
+                v-if="!VALUELESS_OPS.includes(f.op) && picksFromKeys(f)"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="keyOptions"
+                hint="The fields this form reports on"
+              />
               <BaseTextInput
-                v-if="!VALUELESS_OPS.includes(f.op)"
+                v-else-if="!VALUELESS_OPS.includes(f.op)"
                 :modelValue="valuesText(f)"
                 label="Values"
                 placeholder="CLOSED, CANCELLED"
