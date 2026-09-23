@@ -26,6 +26,10 @@ import {
   canCreateCustomMetrics,
   canUpdateCustomMetrics,
   canDeleteCustomMetrics,
+  metricState,
+  metricStateRank,
+  METRIC_STATE_OPTIONS,
+  METRIC_SORT_OPTIONS,
 } from '@/utils/analyticsCustomMetricAccess.js'
 import { isAllowed } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Same reasoning
@@ -41,18 +45,20 @@ import {
   IconPencil,
   IconTrash,
   IconAlertTriangle,
+  IconSearch,
 } from '@tabler/icons-vue'
 
 const toast = useToast()
 const { entitled } = useAnalyticsEntitlement()
 
-const metrics = useLiveQuery(
-  async (db) => {
-    const rows = await db.AnalyticsCustomMetric.where().exec()
-    return rows.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)))
-  },
-  { models: 'AnalyticsCustomMetric', initial: [] },
-)
+// Unsorted on purpose. Ordering is a user choice now (`sort` below), and it is
+// applied AFTER each row's state is derived — a sort by status cannot run here,
+// because the state depends on the metric catalog, which is a server-computed
+// aggregate this query has no access to.
+const metrics = useLiveQuery(async (db) => db.AnalyticsCustomMetric.where().exec(), {
+  models: 'AnalyticsCustomMetric',
+  initial: [],
+})
 
 // The whole vocabulary, fetched ONCE here and handed to the dialog. The builder
 // slices it by module and source table; re-querying it per dialog open would
@@ -225,6 +231,125 @@ async function refreshMetric(m) {
   }
 }
 
+/** Title-cased module slug, matching the builder. */
+function moduleLabel(id) {
+  return String(id ?? '')
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+// ── filtering, sorting and grouping ─────────────────────────────────────────
+/**
+ * ── WHY THIS IS NOT `useTableFilters` ──────────────────────────────────────
+ * That composable filters a flat list for a DataTable. This page ends in
+ * GROUPED sections, and one of its filters (status) keys off a value that is
+ * not on the record — it is derived per row from the metric catalog. So the
+ * pipeline is: derive state → filter → sort → group, and only the middle two
+ * steps are what the composable does.
+ */
+const filters = ref({ search: '', moduleId: null, state: null, sort: 'name' })
+
+const hasActiveFilters = computed(
+  () =>
+    !!filters.value.search.trim() ||
+    !!filters.value.moduleId ||
+    !!filters.value.state ||
+    filters.value.sort !== 'name',
+)
+
+function clearFilters() {
+  filters.value = { search: '', moduleId: null, state: null, sort: 'name' }
+}
+
+/**
+ * Every metric with its state and module label resolved once.
+ *
+ * Derived here rather than in the template so the badge, the status filter and
+ * the status sort all read the SAME value. Three call sites re-deriving it is
+ * how a filter starts disagreeing with the badge beside it.
+ */
+const decorated = computed(() =>
+  (metrics.value ?? []).map((m) => ({
+    metric: m,
+    state: metricState(m, !!catalogRow(m)),
+    moduleId: m.moduleId ?? '',
+    moduleName: moduleLabel(m.moduleId),
+  })),
+)
+
+/**
+ * Module options, built from the metrics that EXIST rather than from the
+ * registry.
+ *
+ * Offering every module a tenant could write a metric for would mean a dropdown
+ * where most choices return nothing — a filter that can produce an empty list
+ * is a filter people stop trusting. Count in the label for the same reason the
+ * section headers carry one: it answers "is there anything here" before the
+ * click.
+ */
+const moduleOptions = computed(() => {
+  const counts = new Map()
+  for (const row of decorated.value) {
+    counts.set(row.moduleId, (counts.get(row.moduleId) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, label: `${moduleLabel(value)} (${count})`, count }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+})
+
+const visible = computed(() => {
+  const term = filters.value.search.trim().toLowerCase()
+  const { moduleId, state } = filters.value
+  return decorated.value.filter((row) => {
+    if (moduleId && row.moduleId !== moduleId) return false
+    if (state && row.state !== state) return false
+    if (!term) return true
+    // Description too: a metric named "DOC total" is findable by the sentence
+    // that says what it totals, which is often the only memorable part.
+    const haystack = `${row.metric.name ?? ''} ${row.metric.description ?? ''}`.toLowerCase()
+    return haystack.includes(term)
+  })
+})
+
+/**
+ * The sections the page renders: one per module, each already sorted.
+ *
+ * Sections are always ordered by module name — the chosen sort applies WITHIN a
+ * section. Sorting the sections themselves by, say, status would mean a module
+ * heading moving every time a metric finishes compiling, and the grouping is
+ * there to be a stable place to look.
+ */
+const groups = computed(() => {
+  const byModule = new Map()
+  for (const row of visible.value) {
+    if (!byModule.has(row.moduleId)) byModule.set(row.moduleId, [])
+    byModule.get(row.moduleId).push(row)
+  }
+
+  const sort = filters.value.sort
+  const compare = {
+    name: (a, b) => String(a.metric.name).localeCompare(String(b.metric.name)),
+    // Inside one module every row shares a module name, so this degrades to
+    // name order rather than leaving the list in whatever order IndexedDB
+    // returned. The sort still does real work across sections.
+    module: (a, b) =>
+      a.moduleName.localeCompare(b.moduleName) ||
+      String(a.metric.name).localeCompare(String(b.metric.name)),
+    status: (a, b) =>
+      metricStateRank(a.state) - metricStateRank(b.state) ||
+      String(a.metric.name).localeCompare(String(b.metric.name)),
+  }[sort]
+
+  return [...byModule.entries()]
+    .map(([moduleId, rows]) => ({
+      moduleId,
+      label: moduleLabel(moduleId),
+      rows: rows.slice().sort(compare),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+})
+
 async function togglePublish(m) {
   // ⚠ Read the intent BEFORE the mutation, not after.
   //
@@ -250,14 +375,6 @@ async function togglePublish(m) {
   } catch (err) {
     toast.error(err?.message || 'Could not change whether this metric is published')
   }
-}
-
-/** Title-cased module slug, matching the builder. */
-function moduleLabel(id) {
-  return String(id ?? '')
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
 }
 </script>
 
@@ -289,9 +406,48 @@ function moduleLabel(id) {
         </BaseText>
       </PageSection>
 
-      <PageSection>
+      <!-- Only once there is something to filter. A toolbar above an empty
+           state is three controls that can only ever produce the same empty
+           state. -->
+      <BaseFilterBar
+        v-if="(metrics?.length ?? 0) > 0"
+        v-model:search="filters.search"
+        searchPlaceholder="Search metrics…"
+        :showClear="hasActiveFilters"
+        @clear="clearFilters"
+      >
+        <template #filters>
+          <BaseSelect
+            v-model="filters.moduleId"
+            :options="moduleOptions"
+            nullLabel="All modules"
+            :clearable="true"
+            :searchable="false"
+            size="sm"
+            aria-label="Filter by module"
+          />
+          <BaseSelect
+            v-model="filters.state"
+            :options="METRIC_STATE_OPTIONS"
+            nullLabel="Any status"
+            :clearable="true"
+            :searchable="false"
+            size="sm"
+            aria-label="Filter by status"
+          />
+          <BaseSelect
+            v-model="filters.sort"
+            :options="METRIC_SORT_OPTIONS"
+            :required="true"
+            :searchable="false"
+            size="sm"
+            aria-label="Sort metrics"
+          />
+        </template>
+      </BaseFilterBar>
+
+      <PageSection v-if="(metrics?.length ?? 0) === 0">
         <BaseEmptyState
-          v-if="(metrics?.length ?? 0) === 0"
           title="No metrics defined yet"
           :description="
             canCreate
@@ -306,136 +462,165 @@ function moduleLabel(id) {
             </BaseButton>
           </template>
         </BaseEmptyState>
+      </PageSection>
 
-        <ContentGrid v-else min="20rem">
-          <BaseCard v-for="m in metrics" :key="m.id" class="tw:h-full">
-            <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
-              <div class="tw:min-w-0">
-                <BaseText weight="medium" class="tw:truncate">{{ m.name }}</BaseText>
-                <BaseText variant="caption" color="secondary">
-                  {{ moduleLabel(m.moduleId) }}
-                </BaseText>
-              </div>
-              <BaseBadge
-                v-if="m.compileError"
-                class="tw:bg-amber-100 tw:text-amber-800"
-                aria-label="Needs attention"
-              >
-                <template #icon>
-                  <IconAlertTriangle :size="12" aria-hidden="true" />
-                </template>
-                Needs attention
-              </BaseBadge>
-              <!--
-                The fourth state, and the one that prompted all of this.
+      <!-- Distinct from "none defined": metrics exist, the filters just exclude
+           them all. Saying so — and offering the way back — is the difference
+           between a narrowed list and an app that looks broken. -->
+      <PageSection v-else-if="groups.length === 0">
+        <BaseEmptyState
+          :icon="IconSearch"
+          title="No metrics match"
+          description="Nothing here matches the current search and filters."
+        >
+          <template #action>
+            <BaseButton size="sm" variant="outline" @click="clearFilters">
+              Clear filters
+            </BaseButton>
+          </template>
+        </BaseEmptyState>
+      </PageSection>
 
-                metric_catalog() omits a metric with no rollup rows, so between
-                publishing and the next */15 tick a metric is not merely empty —
-                it is ABSENT from every picker, with nothing anywhere saying why.
-                The obvious reading is that publishing failed.
-
-                Absence from the catalog is exactly that window, so it is what
-                this badge tests. No timestamp is claimed: the catalog carries no
-                computed_at, and inventing one would be worse than saying nothing.
-              -->
-              <BaseBadge
-                v-else-if="m.isPublished && !catalogRow(m)"
-                class="tw:bg-amber-100 tw:text-amber-800"
-              >
-                <template #icon>
-                  <IconClock :size="12" aria-hidden="true" />
-                </template>
-                Preparing
-              </BaseBadge>
-              <BaseBadge v-else-if="m.isPublished" class="tw:bg-blue-100 tw:text-blue-700">
-                Published
-              </BaseBadge>
-              <BaseBadge v-else class="tw:bg-gray-100 tw:text-gray-700">Draft</BaseBadge>
-            </div>
-
-            <BaseText
-              v-if="m.description"
-              variant="caption"
-              color="secondary"
-              class="tw:mt-1 tw:line-clamp-2"
-            >
-              {{ m.description }}
-            </BaseText>
-
-            <!-- The compiler's own words. Not paraphrased: it names the field or
-                 the rule that failed, and a friendlier summary would lose the
-                 one detail that makes it fixable. -->
-            <BaseText v-if="m.compileError" variant="caption" color="bad" class="tw:mt-2">
-              {{ m.compileError }}
-            </BaseText>
-
-            <!-- Says what "Preparing" means, so the badge is not another thing
-                 to decode. Only while it applies. -->
-            <BaseText
-              v-else-if="m.isPublished && !catalogRow(m)"
-              variant="caption"
-              color="secondary"
-              class="tw:mt-2"
-            >
-              Not on dashboards yet — figures are worked out every 15 minutes. Refresh now to
-              skip the wait.
-            </BaseText>
-
-            <div class="tw:mt-3 tw:flex tw:items-center tw:justify-between">
-              <BaseButton
-                v-if="canUpdate"
-                size="sm"
-                variant="outline"
-                :disabled="!!m.compileError && !m.isPublished"
-                :title="
-                  m.compileError && !m.isPublished
-                    ? 'Fix the problem above before publishing'
-                    : undefined
-                "
-                @click="togglePublish(m)"
-              >
-                {{ m.isPublished ? 'Unpublish' : 'Publish' }}
-              </BaseButton>
-              <span v-else />
-
-              <div v-if="canUpdate || canDelete" class="tw:flex tw:items-center tw:gap-1">
-                <!-- Only for a published metric with no compile error: there is
-                     nothing to recompute for a draft (the rollup fan-out skips
-                     inactive metrics) or for one that never compiled. -->
-                <BaseButton
-                  v-if="canUpdate && m.isPublished && !m.compileError"
-                  size="sm"
-                  variant="ghost"
-                  :loading="refreshing.has(metricKeyOf(m))"
-                  :aria-label="`Refresh metric ${m.name} now`"
-                  title="Recompute this metric now instead of waiting for the next 15-minute refresh"
-                  @click="refreshMetric(m)"
+      <!-- One section per module. The count is in the heading rather than a
+           badge on each card: the question this grouping answers is "how much
+           has this module been measured", and that is a per-module number. -->
+      <template v-else>
+        <PageSection
+          v-for="group in groups"
+          :key="group.moduleId"
+          :title="group.label"
+          :subtitle="`${group.rows.length} ${group.rows.length === 1 ? 'metric' : 'metrics'}`"
+        >
+          <ContentGrid min="20rem">
+            <BaseCard v-for="{ metric: m } in group.rows" :key="m.id" class="tw:h-full">
+              <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
+                <!-- No module line here any more: the section heading above
+                     already names it, and repeating it on every card inside
+                     that section is the same word twice on one screen. -->
+                <div class="tw:min-w-0">
+                  <BaseText weight="medium" class="tw:truncate">{{ m.name }}</BaseText>
+                </div>
+                <BaseBadge
+                  v-if="m.compileError"
+                  class="tw:bg-amber-100 tw:text-amber-800"
+                  aria-label="Needs attention"
                 >
-                  <IconRefresh :size="14" aria-hidden="true" />
-                </BaseButton>
+                  <template #icon>
+                    <IconAlertTriangle :size="12" aria-hidden="true" />
+                  </template>
+                  Needs attention
+                </BaseBadge>
+                <!--
+                  The fourth state, and the one that prompted all of this.
+
+                  metric_catalog() omits a metric with no rollup rows, so between
+                  publishing and the next */15 tick a metric is not merely empty —
+                  it is ABSENT from every picker, with nothing anywhere saying why.
+                  The obvious reading is that publishing failed.
+
+                  Absence from the catalog is exactly that window, so it is what
+                  this badge tests. No timestamp is claimed: the catalog carries no
+                  computed_at, and inventing one would be worse than saying nothing.
+                -->
+                <BaseBadge
+                  v-else-if="m.isPublished && !catalogRow(m)"
+                  class="tw:bg-amber-100 tw:text-amber-800"
+                >
+                  <template #icon>
+                    <IconClock :size="12" aria-hidden="true" />
+                  </template>
+                  Preparing
+                </BaseBadge>
+                <BaseBadge v-else-if="m.isPublished" class="tw:bg-blue-100 tw:text-blue-700">
+                  Published
+                </BaseBadge>
+                <BaseBadge v-else class="tw:bg-gray-100 tw:text-gray-700">Draft</BaseBadge>
+              </div>
+
+              <BaseText
+                v-if="m.description"
+                variant="caption"
+                color="secondary"
+                class="tw:mt-1 tw:line-clamp-2"
+              >
+                {{ m.description }}
+              </BaseText>
+
+              <!-- The compiler's own words. Not paraphrased: it names the field or
+                   the rule that failed, and a friendlier summary would lose the
+                   one detail that makes it fixable. -->
+              <BaseText v-if="m.compileError" variant="caption" color="bad" class="tw:mt-2">
+                {{ m.compileError }}
+              </BaseText>
+
+              <!-- Says what "Preparing" means, so the badge is not another thing
+                   to decode. Only while it applies. -->
+              <BaseText
+                v-else-if="m.isPublished && !catalogRow(m)"
+                variant="caption"
+                color="secondary"
+                class="tw:mt-2"
+              >
+                Not on dashboards yet — figures are worked out every 15 minutes. Refresh now to
+                skip the wait.
+              </BaseText>
+
+              <div class="tw:mt-3 tw:flex tw:items-center tw:justify-between">
                 <BaseButton
                   v-if="canUpdate"
                   size="sm"
-                  variant="ghost"
-                  :aria-label="`Edit metric ${m.name}`"
-                  @click="edit(m)"
+                  variant="outline"
+                  :disabled="!!m.compileError && !m.isPublished"
+                  :title="
+                    m.compileError && !m.isPublished
+                      ? 'Fix the problem above before publishing'
+                      : undefined
+                  "
+                  @click="togglePublish(m)"
                 >
-                  <IconPencil :size="14" aria-hidden="true" />
+                  {{ m.isPublished ? 'Unpublish' : 'Publish' }}
                 </BaseButton>
-                <BaseButton
-                  v-if="canDelete"
-                  size="sm"
-                  variant="ghost"
-                  :aria-label="`Delete metric ${m.name}`"
-                  @click="remove(m)"
-                >
-                  <IconTrash :size="14" aria-hidden="true" />
-                </BaseButton>
+                <span v-else />
+
+                <div v-if="canUpdate || canDelete" class="tw:flex tw:items-center tw:gap-1">
+                  <!-- Only for a published metric with no compile error: there is
+                       nothing to recompute for a draft (the rollup fan-out skips
+                       inactive metrics) or for one that never compiled. -->
+                  <BaseButton
+                    v-if="canUpdate && m.isPublished && !m.compileError"
+                    size="sm"
+                    variant="ghost"
+                    :loading="refreshing.has(metricKeyOf(m))"
+                    :aria-label="`Refresh metric ${m.name} now`"
+                    title="Recompute this metric now instead of waiting for the next 15-minute refresh"
+                    @click="refreshMetric(m)"
+                  >
+                    <IconRefresh :size="14" aria-hidden="true" />
+                  </BaseButton>
+                  <BaseButton
+                    v-if="canUpdate"
+                    size="sm"
+                    variant="ghost"
+                    :aria-label="`Edit metric ${m.name}`"
+                    @click="edit(m)"
+                  >
+                    <IconPencil :size="14" aria-hidden="true" />
+                  </BaseButton>
+                  <BaseButton
+                    v-if="canDelete"
+                    size="sm"
+                    variant="ghost"
+                    :aria-label="`Delete metric ${m.name}`"
+                    @click="remove(m)"
+                  >
+                    <IconTrash :size="14" aria-hidden="true" />
+                  </BaseButton>
+                </div>
               </div>
-            </div>
-          </BaseCard>
-        </ContentGrid>
-      </PageSection>
+            </BaseCard>
+          </ContentGrid>
+        </PageSection>
+      </template>
 
       <CustomMetricBuilderDialog
         v-model:open="dialogOpen"

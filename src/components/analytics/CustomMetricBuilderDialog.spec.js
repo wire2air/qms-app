@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import CustomMetricBuilderDialog from './CustomMetricBuilderDialog.vue'
 import { METRIC_TEMPLATES } from '@/utils/analyticsMetricTemplates.js'
 
@@ -31,7 +31,34 @@ const FIELDS = [
   { moduleId: 'capa', sourceTable: 'capas', columnName: 'closed_at', label: 'Closed', kind: 'date', filterable: true, groupable: false, displayOrder: 4 },
   { moduleId: 'ncr', sourceTable: 'nonconformances', columnName: 'status_id', label: 'Status', kind: 'enum', filterable: true, groupable: true, displayOrder: 0 },
   { moduleId: 'ncr', sourceTable: 'nonconformances', columnName: 'created_at', label: 'Raised', kind: 'date', filterable: true, groupable: false, displayOrder: 1 },
+  // A custom module: its answers live in the shared EAV projection, so the
+  // vocabulary is the same six-plus-one columns for every one of them.
+  { moduleId: 'lead_crm', sourceTable: 'analytics_field_values', columnName: 'reporting_key', label: 'Field', kind: 'text', filterable: true, groupable: true, displayOrder: 30 },
+  { moduleId: 'lead_crm', sourceTable: 'analytics_field_values', columnName: 'text_value', label: 'Answer', kind: 'text', filterable: true, groupable: true, displayOrder: 35 },
+  { moduleId: 'lead_crm', sourceTable: 'analytics_field_values', columnName: 'occurred_at', label: 'Occurred', kind: 'date', filterable: true, groupable: false, displayOrder: 20 },
 ]
+
+/** The form behind that module — where a dropdown's legal answers live. */
+const LEAD_CRM_TEMPLATE = {
+  isModule: true,
+  internalName: 'lead_crm',
+  schema: [
+    {
+      name: 'select_1',
+      type: 'select',
+      label: 'Lead Source',
+      options: ['EMAIL', 'SMS', 'WEB', 'MANUAL'],
+      reporting: { enabled: true, key: 'lead_source' },
+    },
+    {
+      name: 'select_2',
+      type: 'select',
+      label: 'Lead Status',
+      options: ['OPEN', 'PROGRESS', 'CLOSED'],
+      reporting: { enabled: true, key: 'lead_status' },
+    },
+  ],
+}
 
 // The dialog renders its body inside BaseDialog and its actions inside
 // BaseDialogFooter, both of which teleport. Render slots inline so assertions
@@ -49,6 +76,12 @@ const FooterStub = {
 
 vi.mock('@/composables/useLiveQuery.js', () => ({
   useLiveMutation: (fn) => fn,
+  // The dialog loads filter-value pickers from the mirrored lookup tables. These
+  // tests assert the FORM, not the vocabulary, so the query resolves to nothing
+  // and every filter row falls back to the typed input — which is exactly the
+  // path this suite was written against. The value pickers have their own tests
+  // in analyticsLookupOptions.spec.js.
+  useLiveQueryWithDeps: (_deps, _fn, { initial } = {}) => ref(initial),
 }))
 
 function mountDialog(props = {}) {
@@ -234,18 +267,64 @@ describe('CustomMetricBuilderDialog — the definition panel', () => {
 })
 
 describe('CustomMetricBuilderDialog — guidance and limits', () => {
-  it('asks the six business questions', async () => {
+  it('asks the business questions, as named sections', async () => {
+    // Every question is a section header, so all of them are on screen even
+    // while only one panel is expanded — the form's shape is visible from the
+    // start rather than appearing a piece at a time.
     const w = mountDialog()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
     const text = w.text()
     expect(text).toContain('What are you measuring?')
-    expect(text).toContain('Which records should we measure?')
+    expect(text).toContain('Which records, and what about them?')
     expect(text).toContain('Which records should be included?')
     expect(text).toContain('When should a record count?')
-    expect(text).toContain('How should the results be broken down?')
-    expect(text).toContain('How should performance be interpreted?')
+    expect(text).toContain('Breakdown and reporting')
+  })
+
+  it('opens on the first section and leaves the rest collapsed', async () => {
+    // The point of the accordion: six stacked blocks were ~1,200px of scroll,
+    // which is how the footer's save error ended up naming a field that was
+    // off screen.
+    const w = mountDialog()
+    w.vm.startFromScratch()
+    await nextTick()
+    expect(w.vm.openSections).toEqual(['what'])
+  })
+
+  it('places a blocked save on the section that owns it', async () => {
+    // What makes the error reachable: the footer message can now open the
+    // section it refers to, which it could not do as a bare string.
+    const w = mountDialog()
+    w.vm.startFromScratch()
+    await nextTick()
+    expect(w.vm.problem).toBe('Give the metric a name.')
+    expect(w.vm.blockedSection).toBe('what')
+  })
+
+  it('summarises a finished section by its VALUE, not a tick', async () => {
+    // A collapsed section still has to be auditable. Which date a record counts
+    // by is the choice most often got wrong, so "When ✓" would hide exactly the
+    // thing worth checking.
+    const w = mountDialog()
+    w.vm.applyTemplate(OPEN_CAPAS)
+    await nextTick()
+    await nextTick()
+    expect(w.vm.summaries.when).toBe('Counted by Raised')
+    expect(w.vm.summaries.what).toContain(OPEN_CAPAS.name)
+  })
+
+  it('sets the source table itself when a module offers only one', async () => {
+    // Asking would be a required field with a single option — a gate that
+    // confirms something the author never chose. Every module in the registry
+    // currently has exactly one source table.
+    const w = mountDialog()
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'capa'
+    await nextTick()
+    await nextTick()
+    expect(w.vm.form.definition.sourceTable).toBe('capas')
   })
 
   it('says filters combine with AND, and never offers OR', async () => {
@@ -304,7 +383,20 @@ const LEAD_TEMPLATES = [
     internalName: 'lead_crm',
     schema: [
       { name: 'number_1', type: 'number', label: 'Deal Value', reporting: { enabled: true, key: 'deal_value' } },
-      { name: 'select_2', type: 'select', label: 'Lead Status', reporting: { enabled: true, key: 'lead_status' } },
+      {
+        name: 'select_2',
+        type: 'select',
+        label: 'Lead Status',
+        options: ['OPEN', 'PROGRESS', 'CLOSED'],
+        reporting: { enabled: true, key: 'lead_status' },
+      },
+      {
+        name: 'select_1',
+        type: 'select',
+        label: 'Lead Source',
+        options: ['WEB', 'EMAIL'],
+        reporting: { enabled: true, key: 'lead_source' },
+      },
     ],
   },
 ]
@@ -330,7 +422,11 @@ describe('CustomMetricBuilderDialog — reporting-key picker', () => {
   it('offers the module\'s declared keys', async () => {
     const w = openOnLeadCrm()
     await nextTick()
-    expect(w.vm.keyOptions.map((o) => o.value)).toEqual(['deal_value', 'lead_status'])
+    expect(w.vm.keyOptions.map((o) => o.value)).toEqual([
+      'deal_value',
+      'lead_source',
+      'lead_status',
+    ])
   })
 
   it('picks for reporting_key and types for everything else', async () => {
@@ -449,5 +545,239 @@ describe('CustomMetricBuilderDialog — which answer to measure', () => {
       { field: 'site_id', op: 'in', values: ['s1'] },
       { field: 'reporting_key', op: 'in', values: ['deal_value'] },
     ])
+  })
+})
+
+describe('CustomMetricBuilderDialog — a custom module’s answers', () => {
+  /** The dialog with the EAV module chosen and one filter row ready. */
+  async function mountEav(filters) {
+    const w = mountDialog({ templates: [LEAD_CRM_TEMPLATE] })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'lead_crm'
+    // Setting the module blanks the definition (the reset watcher), and the
+    // single-source-table watcher then fills sourceTable in. Both are flush
+    // 'pre', so the filters have to be written after they have run — writing
+    // them in the same tick is how they end up silently discarded.
+    await nextTick()
+    await nextTick()
+    w.vm.form.definition.filters = filters
+    await nextTick()
+    return w
+  }
+
+  it('offers the answers of the field the metric is pinned to', async () => {
+    // The shape that compiles: one row names the field, the next its answer.
+    // Both predicates land on the same row, which is why the pair counts.
+    const w = await mountEav([
+      { field: 'reporting_key', op: 'in', values: ['lead_source'] },
+      { field: 'text_value', op: 'in', values: [] },
+    ])
+    await nextTick()
+    const opts = w.vm.eavAnswerOptions(w.vm.form.definition.filters[1])
+    expect(opts.map((o) => o.value)).toEqual(['EMAIL', 'SMS', 'WEB', 'MANUAL'])
+  })
+
+  it('follows the pin when it names a different field', async () => {
+    const w = await mountEav([
+      { field: 'reporting_key', op: 'in', values: ['lead_status'] },
+      { field: 'text_value', op: 'in', values: [] },
+    ])
+    await nextTick()
+    const opts = w.vm.eavAnswerOptions(w.vm.form.definition.filters[1])
+    expect(opts.map((o) => o.value)).toEqual(['OPEN', 'PROGRESS', 'CLOSED'])
+  })
+
+  it('offers nothing while no field is pinned', async () => {
+    // ⚠ The load-bearing case. Without a pin the answer set is ambiguous, and a
+    // dropdown built from every field's options would offer answers belonging
+    // to a field this metric is not measuring.
+    const w = await mountEav([{ field: 'text_value', op: 'in', values: [] }])
+    await nextTick()
+    expect(w.vm.eavAnswerOptions(w.vm.form.definition.filters[0])).toEqual([])
+  })
+
+  it('offers nothing when the pin names several fields', async () => {
+    const w = await mountEav([
+      { field: 'reporting_key', op: 'in', values: ['lead_source', 'lead_status'] },
+      { field: 'text_value', op: 'in', values: [] },
+    ])
+    await nextTick()
+    expect(w.vm.eavAnswerOptions(w.vm.form.definition.filters[1])).toEqual([])
+  })
+
+  it('explains the missing pin instead of showing a bare text box', async () => {
+    // An author who adds "Answer is …" first has no way to know it depends on a
+    // row they have not written yet.
+    const w = await mountEav([{ field: 'text_value', op: 'in', values: [] }])
+    await nextTick()
+    expect(w.vm.answerHint(w.vm.form.definition.filters[0])).toContain('Field is')
+  })
+
+  it('warns when two different fields are filtered at once', async () => {
+    // Each answer is its own row, so this asks one row to be two fields. It
+    // compiles, it publishes, and it counts nothing.
+    const w = await mountEav([
+      { field: 'reporting_key', op: 'in', values: ['lead_source'] },
+      { field: 'reporting_key', op: 'in', values: ['lead_status'] },
+    ])
+    await nextTick()
+    expect(w.vm.eavConflict).toContain('will count nothing')
+  })
+})
+
+/**
+ * The custom-field row, end to end through the dialog.
+ *
+ * The helpers are unit-tested next door; what matters here is that the dialog
+ * shows ONE row for a custom field, and that everything downstream — the save
+ * payload, the validators, the conflict warning — sees the EXPANDED pair.
+ */
+describe('CustomMetricBuilderDialog — custom fields as one row', () => {
+  function openLeadCrm() {
+    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'lead_crm'
+    w.vm.form.definition.sourceTable = 'analytics_field_values'
+    return w
+  }
+
+  it('offers the form\'s fields instead of Field and Answer', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    const labels = w.vm.filterFields.map((o) => o.label)
+    expect(labels).toContain('Deal Value')
+    expect(labels).toContain('Lead Status')
+    expect(labels).not.toContain('Field')
+    expect(labels).not.toContain('Answer')
+  })
+
+  it('leaves a built-in module on the registry list', async () => {
+    const w = mountDialog({ templates: LEAD_TEMPLATES })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'capa'
+    w.vm.form.definition.sourceTable = 'capas'
+    await nextTick()
+    expect(w.vm.filterFields.map((o) => o.value)).toContain('status_id')
+  })
+
+  it('offers a custom field\'s own answers with no second row', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    const opts = w.vm.customFieldAnswerOptions({ field: 'custom:lead_status' })
+    expect(opts.map((o) => o.value)).toEqual(['OPEN', 'PROGRESS', 'CLOSED'])
+  })
+
+  it('stores the expanded pair, not the virtual row', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    w.vm.form.definition.filters = [
+      { field: 'custom:lead_status', op: 'in', values: ['OPEN'] },
+    ]
+    await nextTick()
+    expect(w.vm.storedDefinition.filters).toEqual([
+      { field: 'reporting_key', op: 'in', values: ['lead_status'] },
+      { field: 'text_value', op: 'in', values: ['OPEN'] },
+    ])
+  })
+
+  // ⚠ The warning reasons about reporting_key rows. Reading the unexpanded
+  // form would silence it exactly when two custom fields are filtered at once —
+  // the case that compiles, publishes and counts nothing.
+  it('still warns when two custom fields are filtered at once', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    w.vm.form.definition.filters = [
+      { field: 'custom:lead_status', op: 'in', values: ['OPEN'] },
+      { field: 'custom:lead_source', op: 'in', values: ['WEB'] },
+    ]
+    await nextTick()
+    expect(w.vm.eavConflict).toMatch(/count nothing/i)
+  })
+
+  // The sum/avg guard demands a single-key pin. A virtual row supplies one once
+  // expanded, so choosing the field is all the author has to do.
+  it('satisfies the sum guard with a virtual row alone', async () => {
+    const w = openLeadCrm()
+    // The sourceTable watcher resets `measure`, so set it on a later tick —
+    // same reason setMeasure exists in the block above.
+    await nextTick()
+    w.vm.form.definition.measure = { type: 'sum', field: 'numeric_value' }
+    await nextTick()
+    w.vm.form.definition.filters = [
+      { field: 'custom:deal_value', op: 'in', values: [] },
+    ]
+    w.vm.form.name = 'Total deal value'
+    await nextTick()
+    expect(w.vm.problem).toBeNull()
+  })
+})
+
+/** The breakdown half, through the dialog. */
+describe('CustomMetricBuilderDialog — custom fields as a breakdown', () => {
+  function openLeadCrm() {
+    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'lead_crm'
+    w.vm.form.definition.sourceTable = 'analytics_field_values'
+    return w
+  }
+
+  it('offers the form\'s fields instead of the raw Answer column', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    const labels = w.vm.groupFields.map((o) => o.label)
+    expect(labels).toContain('Lead Source')
+    expect(labels).not.toContain('Answer')
+    // "One series per reportable field" stays available.
+    expect(w.vm.groupFields.map((o) => o.value)).toContain('reporting_key')
+  })
+
+  it('stores the breakdown as text_value plus its pin', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    w.vm.form.definition.groupBy = ['custom:lead_source']
+    await nextTick()
+    expect(w.vm.storedDefinition.groupBy).toEqual(['text_value'])
+    expect(w.vm.storedDefinition.filters).toEqual([
+      { field: 'reporting_key', op: 'in', values: ['lead_source'] },
+    ])
+  })
+
+  // ⚠ The pin is a filter, so breaking down by a field the author ALSO filtered
+  // must not add it twice — a duplicate pin reads as "two fields at once" to
+  // the conflict warning and would fire it on a perfectly good metric.
+  it('does not double-pin a field that is also filtered', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    w.vm.form.definition.filters = [
+      { field: 'custom:lead_source', op: 'in', values: ['WEB'] },
+    ]
+    w.vm.form.definition.groupBy = ['custom:lead_source']
+    await nextTick()
+    expect(w.vm.storedDefinition.filters).toEqual([
+      { field: 'reporting_key', op: 'in', values: ['lead_source'] },
+      { field: 'text_value', op: 'in', values: ['WEB'] },
+    ])
+    expect(w.vm.eavConflict).toBeNull()
+  })
+
+  it('warns when the breakdown pins a different field than the filter', async () => {
+    const w = openLeadCrm()
+    await nextTick()
+    w.vm.form.definition.filters = [
+      { field: 'custom:lead_status', op: 'in', values: ['OPEN'] },
+    ]
+    w.vm.form.definition.groupBy = ['custom:lead_source']
+    await nextTick()
+    expect(w.vm.eavConflict).toMatch(/count nothing/i)
+  })
+
+  it('leaves a built-in module\'s breakdown list alone', async () => {
+    const w = mountDialog({ templates: LEAD_TEMPLATES })
+    w.vm.startFromScratch()
+    w.vm.form.moduleId = 'capa'
+    w.vm.form.definition.sourceTable = 'capas'
+    await nextTick()
+    expect(w.vm.groupFields.map((o) => o.value)).toContain('status_id')
   })
 })

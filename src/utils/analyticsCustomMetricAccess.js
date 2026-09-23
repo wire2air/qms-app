@@ -393,3 +393,573 @@ export function definitionProblem(definition, meta = {}, dimensionCap = 3) {
   }
   return null
 }
+
+/**
+ * The four states a saved metric can be in, and the order a list shows them in.
+ *
+ * ── WHY THIS IS A FUNCTION AND NOT A `status` COLUMN ───────────────────────
+ * Because three of the four are not stored anywhere. `isPublished` and
+ * `compileError` are columns; "preparing" is the ABSENCE of a catalog row for a
+ * published metric, which lives in a server-computed aggregate that is never
+ * written to IndexedDB (CLAUDE.md rule #4). So the state is necessarily derived
+ * at read time from two sources that cannot be joined in a query.
+ *
+ * ── THE PRECEDENCE IS THE BADGE'S, AND MUST STAY THAT WAY ──────────────────
+ * compileError wins over everything: a metric that did not compile has no
+ * metric behind it, so asking whether it is published is meaningless. Then
+ * "preparing", then published/draft. This mirrors the v-if chain the card
+ * renders — and that is the point of extracting it. A filter that classified a
+ * row differently from the badge next to it would be a list that appears to
+ * show the wrong cards, which is far more confusing than no filter at all.
+ *
+ * `catalogRow` is passed rather than looked up because the catalog is a
+ * server-computed aggregate the caller already holds; re-deriving it here would
+ * either duplicate `metricKeyOf` or take a dependency on useMetricCatalog from
+ * a pure module.
+ *
+ * @param {{ isPublished?: boolean, compileError?: string|null }} metric
+ * @param {boolean} hasCatalogRow Whether the rollup has computed this metric yet.
+ * @returns {'error'|'preparing'|'published'|'draft'}
+ */
+export function metricState(metric, hasCatalogRow) {
+  if (metric?.compileError) return 'error'
+  if (metric?.isPublished && !hasCatalogRow) return 'preparing'
+  return metric?.isPublished ? 'published' : 'draft'
+}
+
+/**
+ * Status filter options, in the order a reader scans for trouble.
+ *
+ * "Needs attention" first because it is the only state that requires an action,
+ * and a list of seven metrics with one broken is the case this filter exists
+ * for. The rest follow the lifecycle.
+ */
+export const METRIC_STATE_OPTIONS = [
+  { value: 'error', label: 'Needs attention' },
+  { value: 'preparing', label: 'Preparing' },
+  { value: 'published', label: 'Published' },
+  { value: 'draft', label: 'Draft' },
+]
+
+/** Sorts the list offers. Name is the default — it is the only stable one. */
+export const METRIC_SORT_OPTIONS = [
+  { value: 'name', label: 'Name (A–Z)' },
+  { value: 'module', label: 'Module' },
+  { value: 'status', label: 'Status' },
+]
+
+/**
+ * Rank for the 'status' sort, matching METRIC_STATE_OPTIONS.
+ *
+ * Sorting by status means "show me what needs looking at first", so it is the
+ * same order, not alphabetical — "Draft, Needs attention, Preparing, Published"
+ * would bury the one row that matters.
+ */
+const STATE_RANK = { error: 0, preparing: 1, published: 2, draft: 3 }
+
+export function metricStateRank(state) {
+  return STATE_RANK[state] ?? 99
+}
+
+/**
+ * The sections of the builder, in the order the form asks them.
+ *
+ * Ids rather than indices so a section can be inserted without renumbering
+ * every reference, and so `problemSection()` can name one in a way that reads
+ * at the call site.
+ */
+export const BUILDER_SECTIONS = {
+  WHAT: 'what',
+  RECORDS: 'records',
+  FILTERS: 'filters',
+  WHEN: 'when',
+  BREAKDOWN: 'breakdown',
+}
+
+/**
+ * Which section a save-blocking problem belongs to.
+ *
+ * ── WHY THIS IS SEPARATE FROM definitionProblem ────────────────────────────
+ * definitionProblem returns the sentence a person reads, and twenty tests pin
+ * that wording. Changing its return shape to carry a section would rewrite all
+ * of them for a presentational concern. So the message stays the contract and
+ * this maps it to a place.
+ *
+ * ── WHY IT MATCHES ON THE MESSAGE ──────────────────────────────────────────
+ * Which looks fragile, and is the reason the two live in the same file: the
+ * strings below are the strings above, and a change to one without the other
+ * is visible in one screen. The alternative — re-deriving "is the name empty"
+ * here — would be a second implementation of the same checks, free to disagree
+ * with the first about whether a form is savable.
+ *
+ * Returns null for a message it does not recognise, which the caller reads as
+ * "show it on the footer only". An unplaced message is a worse outcome than a
+ * wrongly-placed one.
+ *
+ * @param {string|null} problem The sentence from definitionProblem().
+ * @returns {string|null} A BUILDER_SECTIONS value, or null.
+ */
+export function problemSection(problem) {
+  if (!problem) return null
+  const s = String(problem)
+  if (s.startsWith('Give the metric a name')) return BUILDER_SECTIONS.WHAT
+  if (s.startsWith('Choose what this metric counts')) return BUILDER_SECTIONS.RECORDS
+  if (s.startsWith('Choose which date')) return BUILDER_SECTIONS.WHEN
+  if (
+    s.startsWith('Choose the field to measure') ||
+    s.startsWith('A percentage needs a condition') ||
+    s.startsWith('Choose which answer to measure')
+  ) {
+    return BUILDER_SECTIONS.RECORDS
+  }
+  if (s.startsWith('Every filter needs') || s.startsWith('Every condition needs')) {
+    return BUILDER_SECTIONS.FILTERS
+  }
+  if (s.startsWith('A metric can be grouped by at most')) return BUILDER_SECTIONS.BREAKDOWN
+  return null
+}
+
+/**
+ * A one-line summary of a completed section, for the collapsed state.
+ *
+ * ── WHY A SUMMARY AND NOT JUST A TICK ──────────────────────────────────────
+ * A collapsed section has to stay auditable. "When ✓" tells the author nothing
+ * about the single most consequential choice in the form — a CAPA raised in
+ * March and closed in June is a March figure or a June figure depending only on
+ * that field. So each summary names the VALUE, not the fact that one was given.
+ *
+ * Returns null when the section is not yet complete, which the caller reads as
+ * "keep it open".
+ *
+ * @param {string} section A BUILDER_SECTIONS value.
+ * @param {object} ctx Labels already resolved by the component, which owns the
+ *   registry rows: { name, moduleLabel, recordsLabel, measureLabel,
+ *   filterCount, timeLabel, breakdownLabel, grainLabel, directionLabel }.
+ * @returns {string|null}
+ */
+export function sectionSummary(section, ctx = {}) {
+  switch (section) {
+    case BUILDER_SECTIONS.WHAT:
+      if (!ctx.name?.trim()) return null
+      return ctx.moduleLabel ? `${ctx.name.trim()} · ${ctx.moduleLabel}` : ctx.name.trim()
+
+    case BUILDER_SECTIONS.RECORDS:
+      if (!ctx.recordsLabel || !ctx.measureLabel) return null
+      return `${ctx.recordsLabel} · ${ctx.measureLabel}`
+
+    case BUILDER_SECTIONS.FILTERS: {
+      // Zero filters is a complete answer, not a missing one — "every record
+      // counts" is what the form says when the list is empty, and collapsing it
+      // to nothing would hide a decision the author made.
+      const n = ctx.filterCount ?? 0
+      if (n === 0) return 'Every record counts'
+      return `${n} ${n === 1 ? 'filter' : 'filters'}`
+    }
+
+    case BUILDER_SECTIONS.WHEN:
+      if (!ctx.timeLabel) return null
+      return `Counted by ${ctx.timeLabel}`
+
+    case BUILDER_SECTIONS.BREAKDOWN:
+      return ctx.breakdownLabel || 'No breakdown'
+
+    default:
+      return null
+  }
+}
+
+/**
+ * What each control becomes in the generated query.
+ *
+ * ── WHY SQL IS NAMED HERE AND NOWHERE ELSE IN THE FORM ─────────────────────
+ * The rest of the dialog deliberately avoids it: the whole design is that an
+ * author describes a QUESTION and the server decides how to count it, so
+ * labelling a field "GROUP BY" would push the vocabulary back the other way.
+ *
+ * These live behind an info icon instead, which keeps the default reading
+ * business-first while giving the person who builds metrics for a living the
+ * one thing the form otherwise hides — what it actually compiles to. That
+ * audience is real: somebody has to tell a quality manager why a breakdown by
+ * date is refused, and "it is a GROUP BY and dates are unbounded" is the answer.
+ *
+ * Kept as prose rather than a bare clause name. "GROUP BY" alone tells a
+ * developer where it lands but not why the form restricts it, and the
+ * restrictions are the part that is surprising.
+ */
+export const FIELD_HELP = {
+  module:
+    'Scopes everything below. The module decides which table the metric reads and which columns it may name — the server rejects any field not registered for it, so this is also a security boundary, not just a filter on the pickers.',
+
+  records:
+    'The FROM table. Shown only when a module has more than one; today every module has exactly one, so it is normally chosen for you.',
+
+  measure:
+    'The SELECT expression. "Number of records" compiles to count(*); Total and Average to sum(col) / avg(col); a Percentage to count(*) FILTER (WHERE …) over count(*), so it is stored as two expressions rather than one.',
+
+  measureField:
+    'The column inside sum() or avg(). Only number fields appear — the registry records each column\'s kind, and the compiler refuses anything else rather than casting it.',
+
+  filters:
+    'The WHERE clause. Every row is joined with AND — the compiler cannot express OR, so two conditions on the same field mean "both", not "either". Values are compared against the stored id, never the label.',
+
+  numerator:
+    'The FILTER (WHERE …) inside the numerator only. The WHERE above still applies to both halves of the fraction, so repeating it here does not narrow the top — it just makes the percentage read 100%.',
+
+  timeField:
+    'The column the rollup buckets by — the date_trunc() argument. A record lands in exactly one period, decided by this column, so the same records counted by "Raised" and by "Closed" produce two genuinely different series.',
+
+  breakdown:
+    'The GROUP BY columns, stored as the metric\'s dimensions. Date columns are refused: grouping by a raw timestamp yields one row per record, which is why periods are handled by the grain instead.',
+
+  direction:
+    'Presentation only — it never changes the figure. It tells a dashboard whether a rise should be coloured as good or bad.',
+
+  grain:
+    'The bucket width the rollup computes at — date_trunc(\'month\', …) and so on. Stored per metric because it is the resolution the figures are kept at, not a display choice that can be changed later without recomputing.',
+}
+
+/**
+ * Every reportable field a custom module declares, with its answer options.
+ *
+ * ── WHY THIS EXISTS ALONGSIDE reportingKeyOptions ──────────────────────────
+ * That one answers "which key is this metric measuring" — a single picker, one
+ * choice, used with sum/avg. This one carries the whole field: its type, and
+ * for a dropdown the exact set of answers it can hold. The filter row needs
+ * both halves, and merging them would give the measure picker a payload it has
+ * no use for.
+ *
+ * ── WHY THE OPTIONS COME FROM THE FORM, NOT THE DATA ───────────────────────
+ * A custom module's answers live in analytics_field_values.text_value — free
+ * text as far as Postgres is concerned, with no lookup table to join. The set
+ * of legal answers exists only in `form_templates.schema`, as the `options`
+ * array the author typed into the form builder.
+ *
+ * Reading the distinct values out of the data instead would be wrong in both
+ * directions: an option nobody has chosen yet would be missing, and a value
+ * left behind by a since-renamed option would appear as though it were current.
+ * The form is the definition; the data is a sample of it.
+ *
+ * @param {object[]} templates FormTemplate rows (isModule, internalName, schema)
+ * @param {string} moduleId the custom module key, e.g. 'lead_crm'
+ * @returns {{key: string, label: string, type: string, options: string[]}[]}
+ */
+export function reportingFields(templates, moduleId) {
+  if (!moduleId) return []
+  const template = (Array.isArray(templates) ? templates : []).find(
+    (t) => t?.isModule && t?.internalName === moduleId,
+  )
+  if (!template) return []
+
+  const out = []
+  const seen = new Set()
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node.children)) {
+      node.children.forEach(visit)
+      return
+    }
+    const key = node.reporting?.enabled && node.reporting?.key?.trim()
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    out.push({
+      key,
+      label: node.label || key,
+      type: node.type || 'input',
+      // Only a dropdown-shaped field constrains its answers. Everything else
+      // (text, number, date) is open, and offering a picker built from nothing
+      // would be a dropdown with no way past.
+      options: Array.isArray(node.options) ? node.options.filter(Boolean).map(String) : [],
+    })
+  }
+  ;(Array.isArray(template.schema) ? template.schema : []).forEach(visit)
+  return out.sort((a, b) => a.label.localeCompare(b.label))
+}
+
+/**
+ * Why a second filter on a DIFFERENT custom field can never match, or null.
+ *
+ * ── THE SHAPE OF THE PROBLEM ───────────────────────────────────────────────
+ * analytics_field_values holds ONE ROW PER (record, field): a lead's source and
+ * its status are two rows, not two columns. The compiler ANDs every filter into
+ * a single WHERE over that table, so
+ *
+ *     reporting_key = 'lead_source' AND reporting_key = 'lead_status'
+ *
+ * is asking one row to be two fields at once. It compiles, it publishes, and it
+ * counts nothing — the same silent-zero failure the value pickers were built to
+ * remove, arriving by a different route.
+ *
+ * Reported rather than blocked: the definition is legal, the save succeeds, and
+ * refusing it would be this helper overruling the compiler. Saying so at the
+ * point the second filter is added is what the author needs.
+ *
+ * Only applies to the EAV source. On a real table two filters are two columns
+ * and AND is exactly right.
+ *
+ * @param {object} definition
+ * @returns {string|null}
+ */
+export function eavFilterConflict(definition) {
+  if (definition?.sourceTable !== 'analytics_field_values') return null
+  const keys = new Set()
+  for (const f of definition?.filters ?? []) {
+    if (f?.field !== 'reporting_key') continue
+    if ((f.op ?? 'in') !== 'in') continue
+    for (const v of f.values ?? []) keys.add(String(v))
+  }
+  if (keys.size < 2) return null
+  return (
+    `Filtering on ${keys.size} fields at once will count nothing. Each answer on this module ` +
+    'is stored as its own row, so one row cannot be two fields — filter on one, or break the ' +
+    'results down by Field to see them side by side.'
+  )
+}
+
+// ── custom-module fields, shown the way a built-in module's are ─────────────
+
+/**
+ * Marks a filter row that names a FORM FIELD rather than a registry column.
+ *
+ * A stored definition never contains this prefix: it is expanded on the way
+ * into the definition and recognised on the way back out. Chosen to be
+ * impossible to confuse with a real column, which must match ^[a-z_][a-z0-9_]*$
+ * — a colon cannot appear in one, so `custom:` can never collide.
+ */
+export const CUSTOM_FIELD_PREFIX = 'custom:'
+
+/**
+ * ── WHY CUSTOM MODULES GET A TRANSLATION LAYER AND BUILT-IN ONES DO NOT ─────
+ *
+ * On a built-in module the source table IS the module, so every field is a
+ * column and a filter is one predicate:
+ *
+ *     documents.status_id = 'ACTIVE'
+ *
+ * A custom module has no table. Its answers live in analytics_field_values, one
+ * ROW per (record, field), so "Lead Status is OPEN" is not one predicate but
+ * two, on the same row:
+ *
+ *     reporting_key = 'lead_status' AND text_value = 'OPEN'
+ *
+ * Exposing that pair in the builder made the author supply it themselves: one
+ * filter row picking the field out of `Field`, a second picking the answer out
+ * of `Answer`, the second silently depending on the first. That is the storage
+ * shape leaking into the question — nobody asks "which field, and what answer",
+ * they ask "which leads are OPEN". The pair also has a failure the author
+ * cannot see coming: two rows naming DIFFERENT fields compile, publish, and
+ * count nothing, because one row cannot be two fields at once.
+ *
+ * So the builder offers the FORM's own fields — "Lead Source", "Lead Status",
+ * each with the options the author typed into the form builder — and expands
+ * the choice into the pair on save. The definition written to the database is
+ * unchanged, byte for byte, from what the two-row form produced: the compiler,
+ * the registry and the security model see exactly what they saw before.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX. Two DIFFERENT custom fields filtered at once still
+ * cannot match — that is the compiler ANDing both predicates into one WHERE
+ * over one row, and no amount of UI changes it. `eavFilterConflict` still
+ * warns, and it still reads the expanded `reporting_key` rows, so the warning
+ * survives this change untouched.
+ */
+
+/** Is this a virtual form-field row rather than a registry column? */
+export function isCustomFieldRef(field) {
+  return typeof field === 'string' && field.startsWith(CUSTOM_FIELD_PREFIX)
+}
+
+/** The reporting key inside a virtual reference, or null. */
+export function customFieldKey(field) {
+  return isCustomFieldRef(field) ? field.slice(CUSTOM_FIELD_PREFIX.length) : null
+}
+
+/**
+ * Build the virtual reference for one reporting key.
+ *
+ * @param {string} key
+ */
+export function customFieldRef(key) {
+  return `${CUSTOM_FIELD_PREFIX}${key}`
+}
+
+/**
+ * The filter-field options a CUSTOM module should show.
+ *
+ * Replaces `Field` and `Answer` — the two halves of the storage shape — with
+ * the form's own fields. The remaining registry columns (Occurred, Site,
+ * Department, Owner) are genuine per-record facts and stay exactly as they are,
+ * which is why this returns them untouched rather than rebuilding the list.
+ *
+ * `Value` is dropped for the same reason `Answer` is: a numeric answer is
+ * reached through its field like any other, and leaving the raw column in the
+ * list offers a second, worse route to the same question.
+ *
+ * @param {{value: string, label: string}[]} registryOptions from analytics_module_fields
+ * @param {{key: string, label: string, type: string, options: string[]}[]} formFields
+ */
+export function customFilterFields(registryOptions, formFields) {
+  const HIDDEN = new Set(['reporting_key', 'text_value', 'numeric_value'])
+  const own = (formFields ?? []).map((f) => ({
+    value: customFieldRef(f.key),
+    label: f.label,
+  }))
+  const rest = (registryOptions ?? []).filter((o) => !HIDDEN.has(o.value))
+  return [...own, ...rest]
+}
+
+/**
+ * Expand every virtual row into the (reporting_key, text_value) pair the
+ * compiler expects, leaving real columns alone.
+ *
+ * Runs on save. A row with no values expands to the key pin alone, which is
+ * both what the author asked for ("any answer to this field") and what the
+ * sum/avg guard requires, so the two agree without special-casing.
+ *
+ * @param {object[]} filters
+ * @returns {object[]} filters in stored form
+ */
+export function expandCustomFilters(filters) {
+  const out = []
+  for (const f of filters ?? []) {
+    const key = customFieldKey(f?.field)
+    if (!key) {
+      out.push(f)
+      continue
+    }
+    out.push({ field: 'reporting_key', op: 'in', values: [key] })
+    if (!VALUELESS_OPS.includes(f.op) && (f.values ?? []).length) {
+      out.push({ field: 'text_value', op: f.op ?? 'in', values: [...f.values] })
+    } else if (VALUELESS_OPS.includes(f.op)) {
+      out.push({ field: 'text_value', op: f.op, values: [] })
+    }
+  }
+  return out
+}
+
+/**
+ * The inverse: fold a stored pair back into one virtual row for editing.
+ *
+ * ⚠ ONLY folds a pair it is certain about — a `reporting_key` row naming
+ * exactly ONE key, immediately followed by a `text_value` row. Anything else
+ * (two keys, a lone `text_value`, the pair interleaved with other filters) is
+ * left in its stored form and shown as the raw rows it is.
+ *
+ * That conservatism is deliberate. A definition written before this existed, or
+ * through the API, or by a future path, is not required to match this shape,
+ * and guessing at one would silently rewrite a filter the author did not touch.
+ * Showing it unfolded is honest: it still compiles, it still counts, and it
+ * still says what it does.
+ *
+ * @param {object[]} filters stored filters
+ * @returns {object[]} filters in editing form
+ */
+export function foldCustomFilters(filters) {
+  const list = filters ?? []
+  const out = []
+  for (let i = 0; i < list.length; i += 1) {
+    const f = list[i]
+    const isKeyPin =
+      f?.field === 'reporting_key' && (f.op ?? 'in') === 'in' && (f.values ?? []).length === 1
+    if (!isKeyPin) {
+      out.push(f)
+      continue
+    }
+    const next = list[i + 1]
+    if (next?.field === 'text_value') {
+      out.push({
+        field: customFieldRef(f.values[0]),
+        op: next.op ?? 'in',
+        values: [...(next.values ?? [])],
+      })
+      i += 1
+      continue
+    }
+    // A bare pin with no answer row: the author filtered to a field without
+    // narrowing the answer, which is a legal question ("leads that recorded a
+    // source"). Folds to a virtual row with no values rather than staying raw.
+    out.push({ field: customFieldRef(f.values[0]), op: 'in', values: [] })
+  }
+  return out
+}
+
+/**
+ * The breakdown options a CUSTOM module should show.
+ *
+ * ── WHY `Answer` ALONE IS A TRAP ───────────────────────────────────────────
+ * Grouping by `text_value` with no field pinned groups the answers of EVERY
+ * field together. On a lead form that renders one chart containing PROGRESS,
+ * WEB, OPEN, EMAIL and SMS side by side — statuses and sources mixed, as
+ * though they were values of one thing. It does not error and the bars are
+ * real; the chart is simply meaningless. Measured on lead_crm: 7 "segments"
+ * drawn from 3 unrelated fields.
+ *
+ * So `Answer` is replaced by the form's own fields. "Break down by Lead Source"
+ * expands to `groupBy: ['text_value']` plus a `reporting_key = 'lead_source'`
+ * filter, which is the pair that yields one series per source.
+ *
+ * `Field` stays, under its own label: "one series per reportable field" is a
+ * real question (it is how you chart several numeric answers at once, and the
+ * sum/avg guard accepts it), and it is not expressible any other way.
+ *
+ * @param {{value: string, label: string}[]} registryOptions
+ * @param {{key: string, label: string}[]} formFields
+ */
+export function customGroupFields(registryOptions, formFields) {
+  const own = (formFields ?? []).map((f) => ({
+    value: customFieldRef(f.key),
+    label: f.label,
+  }))
+  const rest = (registryOptions ?? []).filter((o) => o.value !== 'text_value')
+  return [...own, ...rest]
+}
+
+/**
+ * Expand a breakdown list, returning the groupBy AND the filter the pin needs.
+ *
+ * ⚠ Only ONE custom field can be broken down at a time, for the same reason
+ * only one can be filtered: each answer is its own row, so two pins ask one row
+ * to be two fields. The caller is expected to surface that; this keeps the
+ * FIRST and drops later ones rather than emitting a pair that counts nothing.
+ *
+ * @param {string[]} groupBy possibly containing virtual refs
+ * @returns {{groupBy: string[], pins: object[]}}
+ */
+export function expandCustomGroupBy(groupBy) {
+  const out = []
+  const pins = []
+  let taken = null
+  for (const g of groupBy ?? []) {
+    const key = customFieldKey(g)
+    if (!key) {
+      out.push(g)
+      continue
+    }
+    if (taken && taken !== key) continue
+    taken = key
+    if (!out.includes('text_value')) out.push('text_value')
+    if (!pins.length) pins.push({ field: 'reporting_key', op: 'in', values: [key] })
+  }
+  return { groupBy: out, pins }
+}
+
+/**
+ * Fold a stored breakdown back for editing: `text_value` grouped alongside a
+ * single-key pin becomes that field's virtual reference.
+ *
+ * Conservative in the same way foldCustomFilters is — with no pin, or several,
+ * the stored `text_value` is left as it is, because it means what it says.
+ *
+ * @param {string[]} groupBy
+ * @param {object[]} filters the STORED filters, read for the pin
+ */
+export function foldCustomGroupBy(groupBy, filters) {
+  const list = groupBy ?? []
+  if (!list.includes('text_value')) return list
+  const keys = new Set()
+  for (const f of filters ?? []) {
+    if (f?.field !== 'reporting_key' || (f.op ?? 'in') !== 'in') continue
+    for (const v of f.values ?? []) keys.add(String(v))
+  }
+  if (keys.size !== 1) return list
+  const [key] = [...keys]
+  return list.map((g) => (g === 'text_value' ? customFieldRef(key) : g))
+}

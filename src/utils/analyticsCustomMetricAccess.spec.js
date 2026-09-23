@@ -6,9 +6,26 @@ import {
   canDeleteCustomMetrics,
   humaniseCode,
   reportingKeyOptions,
+  customFilterFields,
+  customFieldRef,
+  customFieldKey,
+  expandCustomFilters,
+  foldCustomFilters,
+  customGroupFields,
+  expandCustomGroupBy,
+  foldCustomGroupBy,
   blankDefinition,
   definitionProblem,
   definitionSentence,
+  metricState,
+  metricStateRank,
+  METRIC_STATE_OPTIONS,
+  problemSection,
+  sectionSummary,
+  BUILDER_SECTIONS,
+  reportingFields,
+  eavFilterConflict,
+  FIELD_HELP,
 } from '@/utils/analyticsCustomMetricAccess.js'
 
 /**
@@ -448,5 +465,424 @@ describe('definitionProblem — measuring one answer on a custom module', () => 
         3,
       ),
     ).toBeNull()
+  })
+})
+
+describe('metricState', () => {
+  // The precedence, stated as tests, because the list's status filter and the
+  // card's badge both read this function. If they ever disagreed the page would
+  // show a card whose badge contradicts the filter that selected it.
+  it('reports a compile failure ahead of everything else', () => {
+    // Published AND broken is reachable: the server clears publication when a
+    // definition stops compiling, but the client row can still carry both until
+    // it syncs. The error is the fact worth showing either way.
+    expect(metricState({ compileError: 'no such field: foo', isPublished: true }, true)).toBe(
+      'error',
+    )
+    expect(metricState({ compileError: 'no such field: foo', isPublished: false }, false)).toBe(
+      'error',
+    )
+  })
+
+  it('calls a published metric with no rollup row "preparing"', () => {
+    expect(metricState({ isPublished: true }, false)).toBe('preparing')
+  })
+
+  it('is published only once the catalog has computed it', () => {
+    expect(metricState({ isPublished: true }, true)).toBe('published')
+  })
+
+  it('treats an unpublished metric as a draft regardless of the catalog', () => {
+    expect(metricState({ isPublished: false }, false)).toBe('draft')
+    // A catalog row can outlive unpublication until the next rollup prunes it;
+    // the stored intent is what decides, not the leftover aggregate.
+    expect(metricState({ isPublished: false }, true)).toBe('draft')
+  })
+
+  it('does not throw on a missing metric', () => {
+    expect(metricState(undefined, false)).toBe('draft')
+  })
+})
+
+describe('metricStateRank', () => {
+  it('sorts the states the way the filter lists them', () => {
+    const byRank = METRIC_STATE_OPTIONS.map((o) => o.value)
+      .slice()
+      .sort((a, b) => metricStateRank(a) - metricStateRank(b))
+    expect(byRank).toEqual(METRIC_STATE_OPTIONS.map((o) => o.value))
+  })
+
+  it('puts what needs action first and drafts last', () => {
+    expect(metricStateRank('error')).toBeLessThan(metricStateRank('published'))
+    expect(metricStateRank('preparing')).toBeLessThan(metricStateRank('published'))
+    expect(metricStateRank('published')).toBeLessThan(metricStateRank('draft'))
+  })
+
+  it('sends an unknown state to the end rather than the front', () => {
+    expect(metricStateRank('something-new')).toBeGreaterThan(metricStateRank('draft'))
+  })
+})
+
+describe('problemSection', () => {
+  // ⚠ These pair message-for-message with definitionProblem above. The two live
+  // in one file precisely so a reworded message and its placement can be seen
+  // together; a miss here is silent — the error just falls back to the footer.
+  it('places every message definitionProblem can return', () => {
+    expect(problemSection('Give the metric a name.')).toBe(BUILDER_SECTIONS.WHAT)
+    expect(problemSection('Choose what this metric counts.')).toBe(BUILDER_SECTIONS.RECORDS)
+    expect(problemSection('Choose the field to measure.')).toBe(BUILDER_SECTIONS.RECORDS)
+    expect(problemSection('A percentage needs a condition for the top of the fraction.')).toBe(
+      BUILDER_SECTIONS.RECORDS,
+    )
+    expect(problemSection('Choose which date it is counted by.')).toBe(BUILDER_SECTIONS.WHEN)
+    expect(problemSection('Every filter needs a field.')).toBe(BUILDER_SECTIONS.FILTERS)
+    expect(problemSection('Every condition needs at least one value.')).toBe(
+      BUILDER_SECTIONS.FILTERS,
+    )
+    expect(problemSection('A metric can be grouped by at most 3 things.')).toBe(
+      BUILDER_SECTIONS.BREAKDOWN,
+    )
+  })
+
+  it('returns null when there is no problem at all', () => {
+    expect(problemSection(null)).toBeNull()
+  })
+
+  it('returns null for a message it does not recognise', () => {
+    // Read by the caller as "footer only". An unplaced message beats a
+    // confidently misplaced one.
+    expect(problemSection('Something the compiler said')).toBeNull()
+  })
+})
+
+describe('sectionSummary', () => {
+  it('names the date a record counts by', () => {
+    // The single most consequential choice in the form. A tick would hide it.
+    expect(sectionSummary(BUILDER_SECTIONS.WHEN, { timeLabel: 'Raised' })).toBe('Counted by Raised')
+  })
+
+  it('pairs the metric name with its module', () => {
+    expect(sectionSummary(BUILDER_SECTIONS.WHAT, { name: 'Open CAPAs', moduleLabel: 'Capa' })).toBe(
+      'Open CAPAs · Capa',
+    )
+  })
+
+  it('treats no filters as an answer, not a gap', () => {
+    // "Every record counts" is a decision the author made; collapsing it to
+    // nothing would hide it.
+    expect(sectionSummary(BUILDER_SECTIONS.FILTERS, { filterCount: 0 })).toBe('Every record counts')
+    expect(sectionSummary(BUILDER_SECTIONS.FILTERS, { filterCount: 1 })).toBe('1 filter')
+    expect(sectionSummary(BUILDER_SECTIONS.FILTERS, { filterCount: 3 })).toBe('3 filters')
+  })
+
+  it('returns null while a section is incomplete, so it stays open', () => {
+    expect(sectionSummary(BUILDER_SECTIONS.WHAT, { name: '   ' })).toBeNull()
+    expect(sectionSummary(BUILDER_SECTIONS.WHEN, {})).toBeNull()
+    expect(sectionSummary(BUILDER_SECTIONS.RECORDS, { recordsLabel: 'Capas' })).toBeNull()
+  })
+
+  it('says so when no breakdown was chosen', () => {
+    expect(sectionSummary(BUILDER_SECTIONS.BREAKDOWN, {})).toBe('No breakdown')
+  })
+})
+
+/** A custom module's form, in the shape form_templates.schema stores. */
+const LEAD_CRM = [
+  {
+    isModule: true,
+    internalName: 'lead_crm',
+    schema: [
+      { name: 'input_1', type: 'input', label: 'Lead name' },
+      {
+        name: 'select_1',
+        type: 'select',
+        label: 'Lead Source',
+        options: ['EMAIL', 'SMS', 'WEB', 'MANUAL'],
+        reporting: { enabled: true, key: 'lead_source' },
+      },
+      {
+        name: 'number_1',
+        type: 'number',
+        label: 'Deal Value',
+        reporting: { enabled: true, key: 'deal_value' },
+      },
+      {
+        name: 'select_2',
+        type: 'select',
+        label: 'Lead Status',
+        options: ['OPEN', 'PROGRESS', 'CLOSED'],
+        reporting: { enabled: true, key: 'lead_status' },
+      },
+    ],
+  },
+]
+
+describe('reportingFields', () => {
+  it('returns only the fields marked reportable', () => {
+    // "Lead name" carries no reporting block, so nothing about it is stored in
+    // analytics_field_values and a metric could not reference it.
+    const keys = reportingFields(LEAD_CRM, 'lead_crm').map((f) => f.key)
+    expect(keys).toEqual(['deal_value', 'lead_source', 'lead_status'])
+  })
+
+  it('carries a dropdown field’s legal answers', () => {
+    // Straight from the form's `options` — the ONLY place the legal set exists.
+    // Reading distinct values out of the data instead would miss an option
+    // nobody has picked yet and would resurrect one since renamed.
+    const source = reportingFields(LEAD_CRM, 'lead_crm').find((f) => f.key === 'lead_source')
+    expect(source.options).toEqual(['EMAIL', 'SMS', 'WEB', 'MANUAL'])
+    expect(source.type).toBe('select')
+  })
+
+  it('leaves a non-dropdown field’s answers open', () => {
+    // A number has no fixed set, and a picker built from nothing is a control
+    // with no way past.
+    const value = reportingFields(LEAD_CRM, 'lead_crm').find((f) => f.key === 'deal_value')
+    expect(value.options).toEqual([])
+  })
+
+  it('returns nothing for a module it cannot see', () => {
+    expect(reportingFields(LEAD_CRM, 'not_a_module')).toEqual([])
+    expect(reportingFields([], 'lead_crm')).toEqual([])
+    expect(reportingFields(LEAD_CRM, null)).toEqual([])
+  })
+})
+
+describe('eavFilterConflict', () => {
+  const eav = (filters) => ({ sourceTable: 'analytics_field_values', filters })
+
+  it('warns when two different custom fields are filtered at once', () => {
+    // analytics_field_values holds one row per (record, field), and the compiler
+    // ANDs filters into a single WHERE — so this asks one row to be two fields.
+    // It compiles, it publishes, and it counts nothing.
+    const msg = eavFilterConflict(
+      eav([
+        { field: 'reporting_key', op: 'in', values: ['lead_source'] },
+        { field: 'reporting_key', op: 'in', values: ['lead_status'] },
+      ]),
+    )
+    expect(msg).toContain('will count nothing')
+    expect(msg).toContain('break the')
+  })
+
+  it('stays silent for the one-field case the compiler requires', () => {
+    expect(
+      eavFilterConflict(eav([{ field: 'reporting_key', op: 'in', values: ['deal_value'] }])),
+    ).toBeNull()
+  })
+
+  it('stays silent on a real table, where two filters are two columns', () => {
+    // The conflict is a property of EAV storage, not of filtering.
+    expect(
+      eavFilterConflict({
+        sourceTable: 'capas',
+        filters: [
+          { field: 'status_id', op: 'in', values: ['OPEN'] },
+          { field: 'priority_id', op: 'in', values: ['HIGH'] },
+        ],
+      }),
+    ).toBeNull()
+  })
+
+  it('ignores filters on the other registered columns', () => {
+    // site_id and occurred_at are real columns on the projection, so they AND
+    // with a reporting_key filter perfectly well.
+    expect(
+      eavFilterConflict(
+        eav([
+          { field: 'reporting_key', op: 'in', values: ['lead_source'] },
+          { field: 'site_id', op: 'isNotNull' },
+        ]),
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('FIELD_HELP', () => {
+  it('explains every control the dialog attaches an info icon to', () => {
+    for (const key of [
+      'module', 'records', 'measure', 'measureField', 'filters',
+      'numerator', 'timeField', 'breakdown', 'direction', 'grain',
+    ]) {
+      expect(FIELD_HELP[key], key).toBeTruthy()
+    }
+  })
+
+  it('names the clause each control compiles to', () => {
+    // The point of these: the rest of the form deliberately avoids SQL, so the
+    // info icon is the one place a developer can find out what it becomes.
+    expect(FIELD_HELP.filters).toContain('WHERE')
+    expect(FIELD_HELP.breakdown).toContain('GROUP BY')
+    expect(FIELD_HELP.measure).toContain('count(*)')
+  })
+
+  it('says direction never changes the figure', () => {
+    // The one control people assume is part of the calculation.
+    expect(FIELD_HELP.direction).toContain('never changes the figure')
+  })
+})
+
+/**
+ * The custom-field translation layer.
+ *
+ * A custom module has no table: "Lead Status is OPEN" is two predicates on one
+ * EAV row, not one predicate on a column. The builder shows one row and expands
+ * it on save, so these tests are mostly about the two directions agreeing.
+ */
+describe('custom-module field translation', () => {
+  const FORM_FIELDS = [
+    { key: 'lead_source', label: 'Lead Source', type: 'select', options: ['WEB', 'EMAIL'] },
+    { key: 'lead_status', label: 'Lead Status', type: 'select', options: ['OPEN', 'CLOSED'] },
+    { key: 'deal_value', label: 'Deal Value', type: 'number', options: [] },
+  ]
+  const REGISTRY = [
+    { value: 'numeric_value', label: 'Value' },
+    { value: 'occurred_at', label: 'Occurred' },
+    { value: 'reporting_key', label: 'Field' },
+    { value: 'text_value', label: 'Answer' },
+    { value: 'site_id', label: 'Site' },
+  ]
+
+  it('offers the form\'s own fields and hides the storage shape', () => {
+    const out = customFilterFields(REGISTRY, FORM_FIELDS)
+    expect(out.map((o) => o.label)).toEqual([
+      'Lead Source',
+      'Lead Status',
+      'Deal Value',
+      'Occurred',
+      'Site',
+    ])
+    // Field / Answer / Value are the EAV plumbing — never offered directly.
+    expect(out.map((o) => o.value)).not.toContain('reporting_key')
+    expect(out.map((o) => o.value)).not.toContain('text_value')
+    expect(out.map((o) => o.value)).not.toContain('numeric_value')
+  })
+
+  it('expands one virtual row into the pair the compiler expects', () => {
+    expect(
+      expandCustomFilters([{ field: customFieldRef('lead_status'), op: 'in', values: ['OPEN'] }]),
+    ).toEqual([
+      { field: 'reporting_key', op: 'in', values: ['lead_status'] },
+      { field: 'text_value', op: 'in', values: ['OPEN'] },
+    ])
+  })
+
+  // "Leads that recorded a source" is a legal question, and the bare pin is
+  // also the shape the sum/avg guard requires.
+  it('expands a value-less row to the key pin alone', () => {
+    expect(
+      expandCustomFilters([{ field: customFieldRef('deal_value'), op: 'in', values: [] }]),
+    ).toEqual([{ field: 'reporting_key', op: 'in', values: ['deal_value'] }])
+  })
+
+  it('leaves real registry columns untouched', () => {
+    const real = [{ field: 'site_id', op: 'in', values: ['s1'] }]
+    expect(expandCustomFilters(real)).toEqual(real)
+  })
+
+  it('round-trips an expanded pair back to one row', () => {
+    const virt = [{ field: customFieldRef('lead_source'), op: 'in', values: ['WEB', 'EMAIL'] }]
+    expect(foldCustomFilters(expandCustomFilters(virt))).toEqual(virt)
+  })
+
+  it('round-trips a mix of virtual and real rows', () => {
+    const virt = [
+      { field: customFieldRef('lead_status'), op: 'in', values: ['OPEN'] },
+      { field: 'site_id', op: 'in', values: ['s1'] },
+    ]
+    expect(foldCustomFilters(expandCustomFilters(virt))).toEqual(virt)
+  })
+
+  // ⚠ A definition written before this layer existed, or through the API, is
+  // not required to match the folded shape. Rewriting one would silently change
+  // a filter the author never touched.
+  it('leaves an ambiguous multi-key pin unfolded', () => {
+    const raw = [
+      { field: 'reporting_key', op: 'in', values: ['lead_source', 'lead_status'] },
+      { field: 'text_value', op: 'in', values: ['WEB'] },
+    ]
+    expect(foldCustomFilters(raw)).toEqual(raw)
+  })
+
+  it('leaves a lone Answer row unfolded', () => {
+    const raw = [{ field: 'text_value', op: 'in', values: ['WEB'] }]
+    expect(foldCustomFilters(raw)).toEqual(raw)
+  })
+
+  it('reads the key back out of a virtual reference', () => {
+    expect(customFieldKey(customFieldRef('lead_status'))).toBe('lead_status')
+    expect(customFieldKey('site_id')).toBeNull()
+  })
+})
+
+/**
+ * The breakdown half of the same translation.
+ *
+ * Sharper than the filter half: grouping by the raw `Answer` column with no
+ * field pinned draws one chart containing every field's answers — on lead_crm
+ * that is PROGRESS, WEB, OPEN, EMAIL and SMS side by side, statuses and sources
+ * mixed. Real bars, meaningless chart, no error.
+ */
+describe('custom-module breakdown translation', () => {
+  const FORM_FIELDS = [
+    { key: 'lead_source', label: 'Lead Source' },
+    { key: 'lead_status', label: 'Lead Status' },
+  ]
+  const REGISTRY = [
+    { value: 'reporting_key', label: 'Field' },
+    { value: 'text_value', label: 'Answer' },
+    { value: 'site_id', label: 'Site' },
+  ]
+
+  it('replaces Answer with the form\'s fields but keeps Field', () => {
+    const out = customGroupFields(REGISTRY, FORM_FIELDS)
+    expect(out.map((o) => o.label)).toEqual(['Lead Source', 'Lead Status', 'Field', 'Site'])
+    expect(out.map((o) => o.value)).not.toContain('text_value')
+    // "One series per reportable field" is a real question and is not
+    // expressible any other way, so Field survives.
+    expect(out.map((o) => o.value)).toContain('reporting_key')
+  })
+
+  it('expands a virtual breakdown into text_value plus its pin', () => {
+    expect(expandCustomGroupBy([customFieldRef('lead_source')])).toEqual({
+      groupBy: ['text_value'],
+      pins: [{ field: 'reporting_key', op: 'in', values: ['lead_source'] }],
+    })
+  })
+
+  it('leaves real columns alone and emits no pin', () => {
+    expect(expandCustomGroupBy(['site_id'])).toEqual({ groupBy: ['site_id'], pins: [] })
+  })
+
+  // Two pins would ask one row to be two fields, which counts nothing.
+  it('keeps only the first custom field when two are chosen', () => {
+    const out = expandCustomGroupBy([
+      customFieldRef('lead_source'),
+      customFieldRef('lead_status'),
+    ])
+    expect(out.groupBy).toEqual(['text_value'])
+    expect(out.pins).toEqual([{ field: 'reporting_key', op: 'in', values: ['lead_source'] }])
+  })
+
+  it('round-trips a virtual breakdown', () => {
+    const virt = [customFieldRef('lead_source')]
+    const { groupBy, pins } = expandCustomGroupBy(virt)
+    expect(foldCustomGroupBy(groupBy, pins)).toEqual(virt)
+  })
+
+  it('round-trips a virtual breakdown mixed with a real column', () => {
+    const virt = [customFieldRef('lead_status'), 'site_id']
+    const { groupBy, pins } = expandCustomGroupBy(virt)
+    expect(foldCustomGroupBy(groupBy, pins)).toEqual(virt)
+  })
+
+  // With no pin the stored text_value means what it says, so it is left alone.
+  it('leaves an unpinned text_value breakdown unfolded', () => {
+    expect(foldCustomGroupBy(['text_value'], [])).toEqual(['text_value'])
+  })
+
+  it('leaves it unfolded when two fields are pinned', () => {
+    const filters = [{ field: 'reporting_key', op: 'in', values: ['a', 'b'] }]
+    expect(foldCustomGroupBy(['text_value'], filters)).toEqual(['text_value'])
   })
 })

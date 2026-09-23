@@ -27,8 +27,10 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     headless: !process.env.E2E_HEADED,
-    trace: 'on',
-    video: 'on',
+    // E2E_LIGHT=1 turns off the always-on trace/video recording for timing
+    // comparisons and fast local loops. Default behaviour is unchanged.
+    trace: process.env.E2E_LIGHT ? 'off' : 'on',
+    video: process.env.E2E_LIGHT ? 'off' : 'on',
     screenshot: 'only-on-failure',
     // Safety nets: without these, navigation/action timeouts fall back to the
     // (large) test timeout, so a stalled goto or a locator that never resolves

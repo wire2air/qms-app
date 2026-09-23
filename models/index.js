@@ -153,6 +153,8 @@ import { RiskAssessment } from './riskAssessment'
 // Audit Management (Phase A foundation)
 import { AuditStandardType } from './auditStandardType'
 import { AuditFindingCategory } from './auditFindingCategory'
+import { AuditFindingStatus } from './auditFindingStatus'
+import { AuditFindingType } from './auditFindingType'
 import { AuditStandard } from './auditStandard'
 import { AuditStandardVersion } from './auditStandardVersion'
 import { AuditRequirement } from './auditRequirement'
@@ -401,6 +403,8 @@ export const db = {
   // Audit Management (Phase A foundation)
   AuditStandardType,
   AuditFindingCategory,
+  AuditFindingStatus,
+  AuditFindingType,
   AuditStandard,
   AuditStandardVersion,
   AuditRequirement,

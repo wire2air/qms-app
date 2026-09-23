@@ -22,13 +22,18 @@
  * banner is the only thing that says so. Silence here would leave a metric that
  * is saved, listed, and quietly absent from every dashboard.
  *
- * ── WHAT IS STILL TYPED RATHER THAN PICKED ──────────────────────────────────
- * Filter values for ENUM and UUID fields. The registry names a `lookupTable`
- * for each, so a picker is buildable — it needs a mapping from a Postgres table
- * name to the SyncEngine model that mirrors it, which does not exist yet. Typed
- * values are validated by the compiler and quote_literal()'d, so this is a
- * usability gap and not a correctness one. It is called out on the field itself
- * rather than left for the user to discover.
+ * ── FILTER VALUES ARE PICKED, NOT TYPED ─────────────────────────────────────
+ * Enum and uuid filter values come from the lookup table the registry names,
+ * resolved through analyticsLookupOptions. This was previously typed, and the
+ * reason it changed is worth keeping: the compiler checks that the FIELD is
+ * registered but never that the VALUE exists, so `Active` instead of `ACTIVE`
+ * compiled, published, and rendered a tile that read 0 forever with no error
+ * anywhere. That is not a usability gap — a permanently-zero figure on a
+ * quality dashboard is a confident wrong answer.
+ *
+ * A field whose lookup table the client does not mirror, or whose model has no
+ * rows yet, keeps the typed input with a hint saying the value must match
+ * exactly. Falling back beats an empty dropdown there is no way past.
  *
  * `reporting_key` is the EXCEPTION, and deliberately so: its values are not
  * rows in a lookup table at all, they are the keys an author typed in the form
@@ -50,9 +55,23 @@ import {
   blankFilter,
   definitionProblem,
   definitionSentence,
+  problemSection,
+  sectionSummary,
+  BUILDER_SECTIONS,
   humaniseCode,
   reportingKeyOptions,
+  reportingFields,
+  eavFilterConflict,
+  customFilterFields,
+  customFieldKey,
+  expandCustomFilters,
+  foldCustomFilters,
+  customGroupFields,
+  expandCustomGroupBy,
+  foldCustomGroupBy,
+  FIELD_HELP,
 } from '@/utils/analyticsCustomMetricAccess.js'
+import { loadLookupOptions, hasLookup } from '@/utils/analyticsLookupOptions.js'
 import { templatesForModule } from '@/utils/analyticsMetricTemplates.js'
 import {
   IconPlus,
@@ -179,10 +198,21 @@ watch(
             moduleId: props.metric.moduleId ?? null,
             direction: props.metric.direction ?? 'neutral',
             grain: props.metric.grain ?? 'month',
-            definition: {
-              ...blankDefinition(),
-              ...JSON.parse(JSON.stringify(props.metric.definition ?? {})),
-            },
+            // Stored (reporting_key, text_value) pairs fold back into the one
+            // virtual row the author chose, so editing shows the question they
+            // asked rather than the shape it is kept in. Only unambiguous pairs
+            // fold — see foldCustomFilters.
+            definition: (() => {
+              const d = {
+                ...blankDefinition(),
+                ...JSON.parse(JSON.stringify(props.metric.definition ?? {})),
+              }
+              return {
+                ...d,
+                groupBy: foldCustomGroupBy(d.groupBy, d.filters),
+                filters: foldCustomFilters(d.filters),
+              }
+            })(),
           }
         : blank(),
     )
@@ -248,8 +278,45 @@ const tableFields = computed(() =>
 const dateFields = computed(() =>
   tableFields.value.filter((f) => f.kind === 'date').map(asOption),
 )
-const filterFields = computed(() => tableFields.value.filter((f) => f.filterable).map(asOption))
-const groupFields = computed(() => tableFields.value.filter((f) => f.groupable).map(asOption))
+const registryFilterFields = computed(() =>
+  tableFields.value.filter((f) => f.filterable).map(asOption),
+)
+
+/** The form's own reportable fields, for a custom module. [] for a built-in one. */
+const ownFields = computed(() => reportingFields(props.templates, form.value.moduleId))
+
+/**
+ * What the filter-row Field picker offers.
+ *
+ * On a custom module the storage shape (Field + Answer) is replaced by the
+ * form's own fields — see customFilterFields. Everywhere else the registry is
+ * offered unchanged, because there a field already IS a column.
+ */
+const filterFields = computed(() => {
+  if (form.value.definition.sourceTable !== 'analytics_field_values') {
+    return registryFilterFields.value
+  }
+  if (!ownFields.value.length) return registryFilterFields.value
+  return customFilterFields(registryFilterFields.value, ownFields.value)
+})
+const registryGroupFields = computed(() =>
+  tableFields.value.filter((f) => f.groupable).map(asOption),
+)
+
+/**
+ * What the breakdown picker offers.
+ *
+ * Same swap as the filter list, and for a sharper reason: breaking down by the
+ * raw `Answer` column groups every field's answers into one chart — statuses
+ * and sources as though they were values of one thing. See customGroupFields.
+ */
+const groupFields = computed(() => {
+  if (form.value.definition.sourceTable !== 'analytics_field_values') {
+    return registryGroupFields.value
+  }
+  if (!ownFields.value.length) return registryGroupFields.value
+  return customGroupFields(registryGroupFields.value, ownFields.value)
+})
 const numberFields = computed(() =>
   tableFields.value.filter((f) => f.kind === 'number').map(asOption),
 )
@@ -268,6 +335,29 @@ watch(
     if (seeding.value) return
     form.value.definition = blankDefinition()
   },
+)
+
+/**
+ * Choose the source table when the module leaves no choice.
+ *
+ * Every module in the registry currently declares exactly one, so the picker
+ * above is hidden — but the field still has to be SET, because the compiler
+ * needs it and every section after this one is gated on it. Asking a required
+ * question with a single answer was the gate that confirmed nothing; setting it
+ * is the same decision made without the click.
+ *
+ * Still a watcher rather than a default, because the set of tables depends on
+ * the module and changes when it does.
+ */
+watch(
+  sourceTables,
+  (tables) => {
+    if (seeding.value) return
+    if (tables.length === 1 && !form.value.definition.sourceTable) {
+      form.value.definition.sourceTable = tables[0].value
+    }
+  },
+  { immediate: true },
 )
 watch(
   () => form.value.definition.sourceTable,
@@ -317,7 +407,31 @@ const measureHint = computed(() => {
   return ''
 })
 
-const problem = computed(() => definitionProblem(form.value.definition, form.value, props.dimensionCap))
+/**
+ * The definition as it will be STORED — virtual custom-field rows expanded.
+ *
+ * ⚠ Every check must read this, not `form.definition`. The validators and the
+ * conflict warning reason about `reporting_key` / `text_value` rows, which a
+ * virtual row does not contain until it is expanded. Reading the unexpanded
+ * form makes the sum/avg guard demand a pin the author has already given, and
+ * makes the two-field conflict warning go quiet exactly when it is needed.
+ */
+const storedDefinition = computed(() => {
+  const { groupBy, pins } = expandCustomGroupBy(form.value.definition.groupBy)
+  const filters = expandCustomFilters(form.value.definition.filters)
+  // The breakdown's pin is a filter, so it merges into the same list — unless
+  // the author already pinned that field themselves, in which case adding it
+  // again would read as "two fields at once" to the conflict warning.
+  const pinned = new Set(
+    filters
+      .filter((f) => f.field === 'reporting_key' && (f.op ?? 'in') === 'in')
+      .flatMap((f) => f.values ?? []),
+  )
+  const extra = pins.filter((p) => !p.values.every((v) => pinned.has(v)))
+  return { ...form.value.definition, groupBy, filters: [...filters, ...extra] }
+})
+
+const problem = computed(() => definitionProblem(storedDefinition.value, form.value, props.dimensionCap))
 const canSave = computed(() => !problem.value && !saving.value)
 
 // ── templates ───────────────────────────────────────────────────────────────
@@ -409,8 +523,11 @@ function applyTemplate(t) {
  * resolve against the table actually selected — a label from another table would
  * describe a metric that does not exist.
  */
+// Reads the STORED shape for the same reason the validators do: the sentence
+// resolves a filter's label from the registry, and a virtual row's field name
+// is not a registry column until it is expanded.
 const sentence = computed(() =>
-  definitionSentence(form.value.definition, form.value, tableFields.value),
+  definitionSentence(storedDefinition.value, form.value, tableFields.value),
 )
 
 // ── the configuration, read back ────────────────────────────────────────────
@@ -449,6 +566,124 @@ const breakdownSummary = computed(() => {
   return labels.length ? labels.join(', ') : null
 })
 
+// ── the section accordion ───────────────────────────────────────────────────
+/**
+ * ── WHY THE FORM COLLAPSES AT ALL ──────────────────────────────────────────
+ * Six stacked sections in one scroll is roughly 1,200px of form, and the save
+ * error lived only on the footer — so "Give the metric a name" appeared while
+ * the name field was several hundred pixels off screen, naming a problem with
+ * no way to see where it was. Collapsing turns the finished parts into one line
+ * each, which both shortens the scroll and makes the open section the place to
+ * look.
+ *
+ * ── WHY EACH SUMMARY NAMES A VALUE ─────────────────────────────────────────
+ * A collapsed section still has to be auditable at a glance, so the summaries
+ * read "Counted by Raised" rather than "When ✓". The one choice most often got
+ * wrong is which date a record counts by, and a tick would hide exactly that.
+ */
+const SECTION_ORDER = [
+  BUILDER_SECTIONS.WHAT,
+  BUILDER_SECTIONS.RECORDS,
+  BUILDER_SECTIONS.FILTERS,
+  BUILDER_SECTIONS.WHEN,
+  BUILDER_SECTIONS.BREAKDOWN,
+]
+
+const SECTION_TITLES = {
+  [BUILDER_SECTIONS.WHAT]: 'What are you measuring?',
+  [BUILDER_SECTIONS.RECORDS]: 'Which records, and what about them?',
+  [BUILDER_SECTIONS.FILTERS]: 'Which records should be included?',
+  [BUILDER_SECTIONS.WHEN]: 'When should a record count?',
+  [BUILDER_SECTIONS.BREAKDOWN]: 'Breakdown and reporting',
+}
+
+/** Which section the current save-blocking problem belongs to, if any. */
+const blockedSection = computed(() => problemSection(problem.value))
+
+/** The completed-state line for each section, keyed by section id. */
+const summaries = computed(() => {
+  const ctx = {
+    name: form.value.name,
+    moduleLabel: form.value.moduleId ? moduleLabel(form.value.moduleId) : null,
+    recordsLabel: form.value.definition.sourceTable
+      ? sourceLabel(form.value.definition.sourceTable)
+      : null,
+    measureLabel: form.value.definition.sourceTable ? measureLabel.value : null,
+    filterCount: (form.value.definition.filters ?? []).filter((f) => f.field).length,
+    timeLabel: form.value.definition.timeField ? fieldLabel(form.value.definition.timeField) : null,
+    breakdownLabel: breakdownSummary.value,
+  }
+  return Object.fromEntries(SECTION_ORDER.map((id) => [id, sectionSummary(id, ctx)]))
+})
+
+/**
+ * A section is reachable once the answers it depends on exist.
+ *
+ * The same two gates the form had as `v-if`, kept because they are real: with
+ * no module there are no fields to filter on, and with no source table there is
+ * nothing to measure. Expressed as `disabled` rather than by hiding the row, so
+ * the shape of the task is visible from the start instead of appearing a
+ * section at a time.
+ */
+function sectionEnabled(id) {
+  if (id === BUILDER_SECTIONS.WHAT) return true
+  if (!form.value.moduleId) return false
+  if (id === BUILDER_SECTIONS.RECORDS) return true
+  return !!form.value.definition.sourceTable
+}
+
+const sectionItems = computed(() =>
+  SECTION_ORDER.map((id) => ({
+    value: id,
+    title: SECTION_TITLES[id],
+    disabled: !sectionEnabled(id),
+  })),
+)
+
+const openSections = ref([BUILDER_SECTIONS.WHAT])
+
+/**
+ * Open the section a blocked save points at, and scroll to it.
+ *
+ * Driven by the footer error, which is what the user is looking at. NOT
+ * automatic: `problem` changes on every keystroke while a name is being typed,
+ * so a section that opened itself would fight the person filling in another.
+ */
+function revealProblem() {
+  const id = blockedSection.value
+  if (!id) return
+  if (!openSections.value.includes(id)) openSections.value = [...openSections.value, id]
+  nextTick(() => {
+    document.getElementById(`builder-section-${id}`)?.scrollIntoView({ block: 'center' })
+  })
+}
+
+/** Advance to the next reachable section, collapsing the one just finished. */
+function goToSection(id) {
+  if (!id) return
+  openSections.value = [id]
+  nextTick(() => {
+    document.getElementById(`builder-section-${id}`)?.scrollIntoView({ block: 'start' })
+  })
+}
+
+function nextSectionAfter(id) {
+  return SECTION_ORDER.slice(SECTION_ORDER.indexOf(id) + 1).find((x) => sectionEnabled(x)) ?? null
+}
+
+/**
+ * Re-open the first section whenever the dialog is opened fresh.
+ *
+ * Without this, closing the dialog mid-edit and reopening it for a DIFFERENT
+ * metric would show whatever section the last one was left on.
+ */
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) openSections.value = [BUILDER_SECTIONS.WHAT]
+  },
+)
+
 // ── filter rows ─────────────────────────────────────────────────────────────
 function addFilter(list) {
   list.push(blankFilter())
@@ -474,15 +709,166 @@ function removeFilter(list, i) {
 const keyOptions = computed(() => reportingKeyOptions(props.templates, form.value.moduleId))
 
 /**
- * Does this filter row get a picker instead of a text box?
+ * Does this filter row get the reporting-key picker?
  *
- * Only `reporting_key`, and only when the module actually declares keys. Every
- * other field keeps the typed input: their values live in lookup tables the
- * client does not mirror, which is the gap described in the header, and
- * silently narrowing e.g. Site to an empty list would be worse than typing.
+ * `reporting_key` keeps its own path because its options come from the form
+ * template's schema, not from a lookup table — see reportingKeyOptions.
  */
 function picksFromKeys(f) {
   return f?.field === 'reporting_key' && keyOptions.value.length > 0
+}
+
+// ── lookup-backed value pickers ─────────────────────────────────────────────
+/**
+ * Options for every lookup table the CURRENT module and source table reference.
+ *
+ * Loaded as one live query rather than one per filter row: the rows are
+ * reference data already in IndexedDB, the same table is usually referenced by
+ * several fields, and a query per row would re-read the same vocabulary each
+ * time a condition is added.
+ */
+const lookupTablesInScope = computed(() =>
+  [...new Set(tableFields.value.map((f) => f.lookupTable).filter(Boolean))].sort().join(','),
+)
+
+const lookupOptions = useLiveQueryWithDeps(
+  [() => lookupTablesInScope.value],
+  async (db, [joined]) => {
+    const out = {}
+    for (const t of joined ? joined.split(',') : []) out[t] = await loadLookupOptions(db, t)
+    return out
+  },
+  { initial: {} },
+)
+
+/** Whether the client mirrors each lookup table at all. */
+const mirrored = useLiveQueryWithDeps(
+  [() => lookupTablesInScope.value],
+  async (db, [joined]) =>
+    Object.fromEntries((joined ? joined.split(',') : []).map((t) => [t, hasLookup(db, t)])),
+  { initial: {} },
+)
+
+/** The registry row for a filter's field, or null. */
+function fieldRow(f) {
+  return tableFields.value.find((r) => r.columnName === f?.field) ?? null
+}
+
+/**
+ * Does this filter row get a lookup picker instead of a text box?
+ *
+ * Requires BOTH that the client mirrors the table and that it currently holds
+ * rows. The second half matters: a mirrored-but-empty model (bootstrap has not
+ * reached it yet) would render a dropdown with nothing in it and no way past,
+ * which is strictly worse than the text box it replaced.
+ */
+function picksFromLookup(f) {
+  const table = fieldRow(f)?.lookupTable
+  if (!table || picksFromKeys(f)) return false
+  return !!mirrored.value?.[table] && (lookupOptions.value?.[table]?.length ?? 0) > 0
+}
+
+/** The options for a lookup-backed filter row. */
+function lookupOptionsFor(f) {
+  return lookupOptions.value?.[fieldRow(f)?.lookupTable] ?? []
+}
+
+// ── custom-module answers ───────────────────────────────────────────────────
+/**
+/**
+ * The answers a custom module's `text_value` filter can hold.
+ *
+ * ── WHERE THE OPTIONS COME FROM, AND WHY NOT A LOOKUP TABLE ────────────────
+ * `text_value` is registered as kind 'text' with no lookupTable, and it could
+ * not have one: it holds the answers of EVERY dropdown on EVERY custom module
+ * in the tenant, whose option lists live in form_templates.schema and differ
+ * per module. So the picker above (lookupOptionsFor) cannot serve it — the set
+ * of legal answers exists only in the form.
+ *
+ * ── WHY IT DEPENDS ON ANOTHER FILTER ROW ───────────────────────────────────
+ * Which answers are legal depends on WHICH FIELD the metric has been pinned to,
+ * and that pin is a separate `reporting_key` filter. Two rows, read together:
+ *
+ *     reporting_key is lead_source     ← names the field
+ *     Answer        is WEB             ← this picker
+ *
+ * Both predicates land on the same row, which is what makes the pair compile
+ * and count. With no pin, or a pin naming several fields, the answer set is
+ * ambiguous and this returns [] — the text box comes back rather than a
+ * dropdown offering answers from a field the metric is not measuring.
+ *
+ * Reading the distinct values out of the data instead would be wrong both ways:
+ * an option nobody has chosen yet would be missing, and a value left behind by
+ * a since-renamed option would appear as though it were current.
+ */
+/**
+ * The answers a VIRTUAL custom-field row offers.
+ *
+ * Unlike eavAnswerOptions below, this needs no second filter row to tell it
+ * which field is meant — the row names its own field. That is the whole point
+ * of the virtual reference, and the reason this is a different function rather
+ * than a branch inside that one.
+ *
+ * Returns [] for a field with no fixed option list (text, number, date). The
+ * typed input then comes back, which is correct: those answers are open.
+ */
+function customFieldAnswerOptions(f) {
+  const key = customFieldKey(f?.field)
+  if (!key) return []
+  const field = ownFields.value.find((r) => r.key === key)
+  return (field?.options ?? []).map((o) => ({ value: o, label: humaniseCode(o) }))
+}
+
+function eavAnswerOptions(f) {
+  if (f?.field !== 'text_value') return []
+  if (form.value.definition.sourceTable !== 'analytics_field_values') return []
+
+  const pinned = new Set()
+  for (const other of form.value.definition.filters ?? []) {
+    if (other?.field !== 'reporting_key' || (other.op ?? 'in') !== 'in') continue
+    for (const v of other.values ?? []) pinned.add(String(v))
+  }
+  if (pinned.size !== 1) return []
+
+  const field = reportingFields(props.templates, form.value.moduleId).find((r) =>
+    pinned.has(r.key),
+  )
+  return (field?.options ?? []).map((o) => ({ value: o, label: humaniseCode(o) }))
+}
+
+/**
+ * Why an Answer filter has no picker yet — shown in place of one.
+ *
+ * The pin is not obvious: an author who adds "Answer is …" first has no way to
+ * know it depends on a second row they have not written. Saying so beats a
+ * silent text box.
+ */
+function answerHint(f) {
+  if (f?.field !== 'text_value') return null
+  if (eavAnswerOptions(f).length) return null
+  return 'Add a "Field is …" condition naming one field, and the answers it allows appear here.'
+}
+
+/**
+ * The warning shown when two custom fields are filtered at once.
+ *
+ * Not a save blocker — the definition is legal and the compiler accepts it. It
+ * simply cannot match, because each answer is its own row.
+ */
+const eavConflict = computed(() => eavFilterConflict(storedDefinition.value))
+
+/**
+ * The hint under a value input that is still typed.
+ *
+ * Only when a field HAS a lookup table the client cannot serve — the case where
+ * the author must reproduce a stored code exactly with no way to see the list.
+ */
+function typedValueHint(f) {
+  const row = fieldRow(f)
+  if (row?.lookupTable && !picksFromLookup(f)) {
+    return 'Type the stored codes exactly — an unrecognised value saves without error and counts nothing.'
+  }
+  return 'Comma separated'
 }
 
 /**
@@ -590,7 +976,10 @@ async function save() {
         moduleId: form.value.moduleId,
         direction: form.value.direction,
         grain: form.value.grain,
-        definition: form.value.definition,
+        // Virtual custom-field rows become the (reporting_key, text_value)
+        // pairs the compiler expects. Nothing else in the definition changes,
+        // so what is stored is byte-for-byte what the two-row form produced.
+        definition: storedDefinition.value,
       },
     })
     toast.success(props.metric ? 'Metric updated' : 'Metric created')
@@ -671,9 +1060,37 @@ async function save() {
       </template>
 
       <template v-else>
-      <!-- A. WHAT ──────────────────────────────────────────────────────────── -->
-      <div>
-        <BaseText weight="medium">What are you measuring?</BaseText>
+        <!-- ── THE FORM, ONE SECTION AT A TIME ───────────────────────────────
+             Was six stacked blocks in a single scroll. The accordion keeps the
+             finished ones as a line each, so the open section is the only place
+             to look and the save error is never pointing off screen. -->
+        <BaseAccordion v-model="openSections" :items="sectionItems" multiple :level="3">
+          <template #title="{ item }">
+            <span class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-2">
+              <span class="tw:shrink-0">{{ item.title }}</span>
+              <!-- The completed VALUE, not a tick. Which date a record counts
+                   by is the choice most often got wrong, and "When ✓" would
+                   hide exactly that. -->
+              <BaseText
+                v-if="summaries[item.value] && !openSections.includes(item.value)"
+                variant="caption"
+                color="secondary"
+                class="tw:truncate"
+              >
+                {{ summaries[item.value] }}
+              </BaseText>
+              <BaseBadge
+                v-if="blockedSection === item.value"
+                class="tw:ml-auto tw:shrink-0 tw:bg-amber-100 tw:text-amber-800"
+              >
+                Needs an answer
+              </BaseBadge>
+            </span>
+          </template>
+
+          <!-- A. WHAT ──────────────────────────────────────────────────────── -->
+          <template #what>
+            <div :id="`builder-section-${BUILDER_SECTIONS.WHAT}`">
         <BaseText variant="caption" color="secondary" class="tw:mb-2">
           Use a name your quality team will recognise on a dashboard.
         </BaseText>
@@ -682,14 +1099,18 @@ async function save() {
             v-model="form.name"
             label="Metric name"
             placeholder="e.g. Open documents by site"
+            :errorMsg="blockedSection === BUILDER_SECTIONS.WHAT ? problem : ''"
           />
           <BaseSelect
             v-model="form.moduleId"
-            label="Module"
             :options="modules"
             :searchable="false"
             required
-          />
+          >
+            <template #label>
+              <BaseLabel :help="FIELD_HELP.module" required>Module</BaseLabel>
+            </template>
+          </BaseSelect>
         </div>
         <BaseTextarea
           v-model="form.description"
@@ -698,43 +1119,61 @@ async function save() {
           class="tw:mt-3"
           placeholder="What this measures, and who reads it."
         />
-      </div>
+              <div v-if="form.moduleId" class="tw:mt-3 tw:flex tw:justify-end">
+                <BaseButton size="sm" variant="outline" @click="goToSection(nextSectionAfter(BUILDER_SECTIONS.WHAT))">
+                  Next
+                </BaseButton>
+              </div>
+            </div>
+          </template>
 
-      <template v-if="form.moduleId">
-        <!-- B. WHICH RECORDS ─────────────────────────────────────────────── -->
-        <div class="tw:border-t tw:border-divider tw:pt-4">
-          <BaseText weight="medium">Which records should we measure?</BaseText>
+          <!-- B. WHICH RECORDS ─────────────────────────────────────────────── -->
+          <template #records>
+            <div :id="`builder-section-${BUILDER_SECTIONS.RECORDS}`">
           <BaseText variant="caption" color="secondary" class="tw:mb-2">
             The records this metric counts, and what it works out about them.
           </BaseText>
+          <!-- Shown only when there is a genuine choice. Every module in the
+               registry currently has exactly one source table, so asking would
+               be a required field with a single option — a gate that confirms
+               something the author never chose. -->
           <BaseSelect
+            v-if="sourceTables.length > 1"
             v-model="form.definition.sourceTable"
-            label="Records"
             :options="sourceTables"
             :searchable="false"
             required
-          />
-        </div>
+            class="tw:mb-3"
+          >
+            <template #label>
+              <BaseLabel :help="FIELD_HELP.records" required>Records</BaseLabel>
+            </template>
+          </BaseSelect>
 
-        <template v-if="form.definition.sourceTable">
           <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
             <BaseSelect
               v-model="measureType"
-              label="What to work out"
               :options="MEASURE_OPTIONS"
               optionDescription="description"
               :hint="measureHint"
               :searchable="false"
               required
-            />
+            >
+              <template #label>
+                <BaseLabel :help="FIELD_HELP.measure" required>What to work out</BaseLabel>
+              </template>
+            </BaseSelect>
             <BaseSelect
               v-if="needsMeasureField"
               v-model="form.definition.measure.field"
-              label="Field to measure"
               :options="measureType === MEASURES.COUNT_DISTINCT ? filterFields : numberFields"
               :searchable="false"
               required
-            />
+            >
+              <template #label>
+                <BaseLabel :help="FIELD_HELP.measureField" required>Field to measure</BaseLabel>
+              </template>
+            </BaseSelect>
             <!-- Asked here, stored as a reporting_key filter. Without it a sum
                  mixes every numeric answer on the module together — see
                  `measuredKey`. The compiler refuses the save outright, so this
@@ -755,7 +1194,7 @@ async function save() {
                percentage that is always 100%. -->
           <div v-if="isRatio" class="tw:rounded tw:border tw:border-divider tw:p-3">
             <div class="tw:mb-1 tw:flex tw:items-center tw:justify-between">
-              <BaseText weight="medium">Counted as a success when…</BaseText>
+              <BaseLabel :help="FIELD_HELP.numerator">Counted as a success when…</BaseLabel>
               <BaseButton size="sm" variant="outline" @click="addFilter(form.definition.measure.numerator)">
                 <IconPlus :size="14" aria-hidden="true" />
                 Add condition
@@ -785,7 +1224,6 @@ async function save() {
                 v-model="f.field"
                 label="Field"
                 :options="filterFields"
-                :searchable="false"
                 @update:modelValue="onFilterFieldChange(f)"
               />
               <BaseSelect v-model="f.op" label="Comparison" :options="OP_OPTIONS" :searchable="false" />
@@ -797,12 +1235,43 @@ async function save() {
                 :options="keyOptions"
                 hint="The fields this form reports on"
               />
+              <!-- The stored id is what the compiler filters on, but the NAME is
+                   what the author recognises. Picking makes a value that does not
+                   exist unreachable — a typed one compiles fine and counts nothing. -->
+              <BaseSelect
+                v-else-if="!VALUELESS_OPS.includes(f.op) && picksFromLookup(f)"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="lookupOptionsFor(f)"
+              />
+              <!-- A custom module's own field: the row names it, so its answers
+                   need no second row to disambiguate them. -->
+              <BaseSelect
+                v-else-if="!VALUELESS_OPS.includes(f.op) && customFieldAnswerOptions(f).length"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="customFieldAnswerOptions(f)"
+                hint="The answers this field offers"
+              />
+              <!-- A custom module's answers, read from the form that defines
+                   them. Needs a `reporting_key` row pinning ONE field first —
+                   which answers are legal depends on which field is measured. -->
+              <BaseSelect
+                v-else-if="!VALUELESS_OPS.includes(f.op) && eavAnswerOptions(f).length"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="eavAnswerOptions(f)"
+                hint="The answers this field offers"
+              />
               <BaseTextInput
                 v-else-if="!VALUELESS_OPS.includes(f.op)"
                 :modelValue="valuesText(f)"
                 label="Values"
                 placeholder="CLOSED, CANCELLED"
-                hint="Comma separated"
+                :hint="answerHint(f) || typedValueHint(f)"
                 @update:modelValue="setValues(f, $event)"
               />
               <BaseButton
@@ -816,19 +1285,42 @@ async function save() {
             </div>
           </div>
 
+              <div class="tw:mt-3 tw:flex tw:justify-end">
+                <BaseButton size="sm" variant="outline" @click="goToSection(nextSectionAfter(BUILDER_SECTIONS.RECORDS))">
+                  Next
+                </BaseButton>
+              </div>
+            </div>
+          </template>
+
           <!-- C. WHICH ARE INCLUDED ────────────────────────────────────────
                Every row here is joined with AND, because that is the only thing
-               the compiler can express. The heading says "all of" rather than
+               the compiler can express. The copy says "all of" rather than
                leaving it implied: a user who assumes OR would build a filter
                that silently returns nothing. -->
-          <div class="tw:border-t tw:border-divider tw:pt-4">
+          <template #filters>
+            <div :id="`builder-section-${BUILDER_SECTIONS.FILTERS}`">
             <div class="tw:mb-1 tw:flex tw:items-center tw:justify-between">
-              <BaseText weight="medium">Which records should be included?</BaseText>
+              <BaseLabel :help="FIELD_HELP.filters">Conditions</BaseLabel>
               <BaseButton size="sm" variant="outline" @click="addFilter(form.definition.filters)">
                 <IconPlus :size="14" aria-hidden="true" />
                 Add filter
               </BaseButton>
             </div>
+            <!--
+              Reported, not refused. The definition is legal and the compiler
+              accepts it — it simply cannot match, because each answer on this
+              module is stored as its own row and one row cannot be two fields.
+              Blocking the save here would be this form overruling the server.
+            -->
+            <BaseBanner
+              v-if="eavConflict"
+              tone="warning"
+              :icon="IconAlertTriangle"
+              title="This combination will count nothing"
+              :message="eavConflict"
+              class="tw:mb-2"
+            />
             <BaseText variant="caption" color="secondary" class="tw:mb-2">
               Add a filter to measure only some records. A record must match
               <strong>all</strong> of them to be counted.
@@ -845,7 +1337,6 @@ async function save() {
                 v-model="f.field"
                 label="Field"
                 :options="filterFields"
-                :searchable="false"
                 @update:modelValue="onFilterFieldChange(f)"
               />
               <BaseSelect v-model="f.op" label="Comparison" :options="OP_OPTIONS" :searchable="false" />
@@ -857,12 +1348,43 @@ async function save() {
                 :options="keyOptions"
                 hint="The fields this form reports on"
               />
+              <!-- The stored id is what the compiler filters on, but the NAME is
+                   what the author recognises. Picking makes a value that does not
+                   exist unreachable — a typed one compiles fine and counts nothing. -->
+              <BaseSelect
+                v-else-if="!VALUELESS_OPS.includes(f.op) && picksFromLookup(f)"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="lookupOptionsFor(f)"
+              />
+              <!-- A custom module's own field: the row names it, so its answers
+                   need no second row to disambiguate them. -->
+              <BaseSelect
+                v-else-if="!VALUELESS_OPS.includes(f.op) && customFieldAnswerOptions(f).length"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="customFieldAnswerOptions(f)"
+                hint="The answers this field offers"
+              />
+              <!-- A custom module's answers, read from the form that defines
+                   them. Needs a `reporting_key` row pinning ONE field first —
+                   which answers are legal depends on which field is measured. -->
+              <BaseSelect
+                v-else-if="!VALUELESS_OPS.includes(f.op) && eavAnswerOptions(f).length"
+                v-model="f.values"
+                label="Values"
+                multiple
+                :options="eavAnswerOptions(f)"
+                hint="The answers this field offers"
+              />
               <BaseTextInput
                 v-else-if="!VALUELESS_OPS.includes(f.op)"
                 :modelValue="valuesText(f)"
                 label="Values"
                 placeholder="CLOSED, CANCELLED"
-                hint="Comma separated, exactly as stored"
+                :hint="answerHint(f) || typedValueHint(f)"
                 @update:modelValue="setValues(f, $event)"
               />
               <BaseButton
@@ -874,7 +1396,14 @@ async function save() {
                 <IconTrash :size="14" aria-hidden="true" />
               </BaseButton>
             </div>
-          </div>
+
+              <div class="tw:mt-3 tw:flex tw:justify-end">
+                <BaseButton size="sm" variant="outline" @click="goToSection(nextSectionAfter(BUILDER_SECTIONS.FILTERS))">
+                  Next
+                </BaseButton>
+              </div>
+            </div>
+          </template>
 
           <!-- D. WHEN ──────────────────────────────────────────────────────
                Its own section rather than a field beside "Records", because
@@ -882,23 +1411,36 @@ async function save() {
                choice in the form and the one most often got wrong. A CAPA raised
                in March and closed in June is a March figure or a June figure
                depending only on this. -->
-          <div class="tw:border-t tw:border-divider tw:pt-4">
-            <BaseText weight="medium">When should a record count?</BaseText>
+          <template #when>
+            <div :id="`builder-section-${BUILDER_SECTIONS.WHEN}`">
             <BaseText variant="caption" color="secondary" class="tw:mb-2">
               The date that decides which period a record falls into. Counting by when something
               was raised answers a different question from counting by when it was closed.
             </BaseText>
             <BaseSelect
               v-model="form.definition.timeField"
-              label="Counted by date"
               :options="dateFields"
-              :searchable="false"
               required
-            />
-          </div>
+            >
+              <template #label>
+                <BaseLabel :help="FIELD_HELP.timeField" required>Counted by date</BaseLabel>
+              </template>
+            </BaseSelect>
 
-          <!-- E. BREAKDOWN. The cap comes from the rollup, not from this form. -->
-          <div class="tw:border-t tw:border-divider tw:pt-4">
+              <div v-if="form.definition.timeField" class="tw:mt-3 tw:flex tw:justify-end">
+                <BaseButton size="sm" variant="outline" @click="goToSection(nextSectionAfter(BUILDER_SECTIONS.WHEN))">
+                  Next
+                </BaseButton>
+              </div>
+            </div>
+          </template>
+
+          <!-- E + F. Breakdown and reporting, merged: both are about how the
+               finished figure is PRESENTED rather than what it counts, and two
+               accordion rows for four controls is more chrome than content. -->
+          <template #breakdown>
+            <div :id="`builder-section-${BUILDER_SECTIONS.BREAKDOWN}`">
+          <div>
             <BaseText weight="medium">How should the results be broken down?</BaseText>
             <BaseText variant="caption" color="secondary" class="tw:mb-2">
               Optional. Choose a field to compare the figure across groups — by department, by
@@ -906,16 +1448,18 @@ async function save() {
             </BaseText>
             <BaseSelect
               v-model="form.definition.groupBy"
-              label="Break down by"
               :options="groupFields"
               multiple
-              :searchable="false"
               :hint="`Up to ${dimensionCap}. This is what a breakdown can be split on later.`"
-            />
+            >
+              <template #label>
+                <BaseLabel :help="FIELD_HELP.breakdown">Break down by</BaseLabel>
+              </template>
+            </BaseSelect>
           </div>
 
           <!-- F. PERFORMANCE ─────────────────────────────────────────────── -->
-          <div class="tw:border-t tw:border-divider tw:pt-4">
+          <div class="tw:mt-4 tw:border-t tw:border-divider tw:pt-4">
             <BaseText weight="medium">How should performance be interpreted?</BaseText>
             <BaseText variant="caption" color="secondary" class="tw:mb-2">
               How a dashboard should colour a rise or a fall, and how often the figure is
@@ -924,18 +1468,28 @@ async function save() {
             <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
               <BaseSelect
                 v-model="form.direction"
-                label="Direction"
                 :options="DIRECTION_OPTIONS"
                 :searchable="false"
-              />
+              >
+                <template #label>
+                  <BaseLabel :help="FIELD_HELP.direction">Direction</BaseLabel>
+                </template>
+              </BaseSelect>
               <BaseSelect
                 v-model="form.grain"
-                label="Reported"
                 :options="GRAIN_OPTIONS"
                 :searchable="false"
-              />
+              >
+                <template #label>
+                  <BaseLabel :help="FIELD_HELP.grain">Reported</BaseLabel>
+                </template>
+              </BaseSelect>
             </div>
-          </div>
+
+            </div>
+            </div>
+          </template>
+        </BaseAccordion>
 
           <!--
             The definition, in words.
@@ -986,23 +1540,41 @@ async function save() {
               has run. Every reader sees only the records their own access allows.
             </BaseText>
           </div>
-        </template>
-      </template>
       </template>
     </div>
 
     <!-- No footer while choosing: there is nothing to save yet, and a disabled
          Save button next to the cards reads as "these do not work". -->
     <template v-if="!choosing" #footer="{ close }">
-      <BaseDialogFooter
-        :loading="saving"
-        :disabled="!canSave"
-        :submitLabel="metric ? 'Save changes' : 'Save metric'"
-        :submitTitle="problem || undefined"
-        :error="problem || ''"
-        @cancel="close"
-        @submit="save"
-      />
+      <div class="tw:flex tw:w-full tw:flex-col tw:gap-2">
+        <!--
+          The reason a save is blocked, as a way BACK to the field.
+
+          It used to be a plain string on the footer, which meant "Give the
+          metric a name" could appear while the name field was several hundred
+          pixels off screen — naming a problem with no way to reach it. When the
+          message belongs to a section, this opens that section and scrolls to
+          it; when it does not, it stays the plain sentence it was.
+        -->
+        <button
+          v-if="problem && blockedSection"
+          type="button"
+          class="tw:flex tw:items-center tw:gap-1 tw:self-start tw:rounded tw:text-left tw:text-xs tw:text-bad tw:underline tw:underline-offset-2 tw:hover:opacity-80 tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"
+          @click="revealProblem"
+        >
+          <IconAlertTriangle :size="14" aria-hidden="true" />
+          {{ problem }}
+        </button>
+        <BaseDialogFooter
+          :loading="saving"
+          :disabled="!canSave"
+          :submitLabel="metric ? 'Save changes' : 'Save metric'"
+          :submitTitle="problem || undefined"
+          :error="blockedSection ? '' : problem || ''"
+          @cancel="close"
+          @submit="save"
+        />
+      </div>
     </template>
   </BaseDialog>
 </template>
