@@ -354,6 +354,20 @@ export const USERS = {
     email: 'rcaadmin@e2e.test',
     name: 'Rhoda RcaAdmin',
   },
+  // §47 (OQ Partial→Covered closure) — the ONLY holder of `ncr:delete` or
+  // `capa:delete` anywhere in this tenant. Measured before it was added: not
+  // one delete grant existed on either module, so URS-NCR-04's permanence
+  // requirement had no persona that could even attempt the refusal it asks
+  // for. Holds read on both too, because a soft delete is an UPDATE and an
+  // RLS-filtered UPDATE that matches nothing SUCCEEDS silently — without the
+  // SELECT grant "the delete touched nothing" would be indistinguishable from
+  // "the record was sealed". Deliberately NO `update`, so the DELETE arm also
+  // shows which policy actually governs a paranoid delete. No e-sign PIN.
+  recordDeleter: {
+    id: 'e2e10000-0000-4000-8000-0000000009a0',
+    email: 'recorddeleter@e2e.test',
+    name: 'Dana RecordDeleter',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -443,6 +457,7 @@ export const AUTH = {
   complaintSiteUser: 'e2e/.auth/complaintSiteUser.json',
   supportAgent: 'e2e/.auth/supportAgent.json',
   rcaAdmin: 'e2e/.auth/rcaAdmin.json',
+  recordDeleter: 'e2e/.auth/recordDeleter.json',
 }
 
 // Quality Events fixtures seeded by e2e-seed.sql §28.

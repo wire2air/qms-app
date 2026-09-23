@@ -8,8 +8,19 @@ keywords: [automated testing, regression, supplier evidence, coverage, GAMP 5, t
 
 # Automated Regression Coverage
 
-**Document ID:** VAL-ARC-001 · **Version:** 1.2 · **System:** Qability QMS
+**Document ID:** VAL-ARC-001 · **Version:** 1.3 · **System:** Qability QMS
 
+> **Changes in 1.3 (2026-09-23).** Training Management (§5) re-assessed after three new
+> E2E suites. **URS-TRN-01** and **URS-TRN-06** move from *Partial* to **Covered**
+> (Covered rises from 93 to 95; Partial falls from 38 to 36). **URS-TRN-10 remains
+> Partial**: the version pin itself is now proven end to end, but defect **TRN-D17** —
+> the learner holds no grant that admits them to the pinned document version, so they
+> cannot read it at all — means OQ-02 TC-02-09 step 3 is **not executable as written**.
+> Defect **TRN-D18** is also recorded against URS-TRN-01: a training with no questions
+> and no material publishes, launches, and mints a signed, score-100, VERIFIED
+> competency record for a learner who answered nothing. Both defects are pinned by test.
+> Suite size is unchanged in this revision and is restated at the next full assessment.
+>
 > **Changes in 1.2 (2026-09-22).** Seven modules re-assessed after 26 new E2E suites were
 > added across them: Change Control (§8), Quality Complaints (§9), Audit Management (§10),
 > Risk Management (§11), QC Inspection (§12), Log Books (§13) and Equipment & Calibration
@@ -96,8 +107,8 @@ Across the 163 baseline requirements in the Traceability Matrix:
 
 | Status                       | Requirements | Share |
 | ---------------------------- | ------------ | ----- |
-| Covered                      | 93           | 57%   |
-| Partial                      | 38           | 23%   |
+| Covered                      | 95           | 58%   |
+| Partial                      | 36           | 22%   |
 | Not automated                | 16           | 10%   |
 | N/A (not verifiable by test) | 7            | 4%    |
 | Product non-conformant       | 5            | 3%    |
@@ -134,7 +145,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | -- | ----------------------------------------------------------------------------- | ---- | --- | ---- | ---- | --- | --- | --- |
 | 3  | Cross-cutting — electronic records and access ([OQ-16](/validation/oq/security-and-electronic-records)) | 23   | 10  | 8    | 1    | 4   | —   | —   |
 | 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 7   | 6    | 3    | —   | —   | —   |
-| 5  | Training Management ([OQ-02](/validation/oq/training-management))              | 11   | 5   | 3    | 1    | —   | 2   | —   |
+| 5  | Training Management ([OQ-02](/validation/oq/training-management))              | 11   | 7   | 1    | 1    | —   | 2   | —   |
 | 6  | Nonconformance ([OQ-03](/validation/oq/nonconformance))                        | 10   | 5   | 3    | 2    | —   | —   | —   |
 | 7  | CAPA ([OQ-04](/validation/oq/capa))                                           | 10   | 5   | 3    | 1    | —   | 1   | —   |
 | 8  | Change Control ([OQ-05](/validation/oq/change-control))                        | 6    | 6   | —    | —    | —   | —   | —   |
@@ -251,16 +262,16 @@ assessment and the wording to record.
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
-| URS-TRN-01 | Partial | `e2e/training/j9-required-field-refusals.spec.js` — "control: the body the negative arm is derived from is accepted" | Passing score, material and assessment are not required at create. |
+| URS-TRN-01 | Covered | `e2e/training/j14-authoring-completeness.spec.js` — "TC-02-01 · content, material AND assessment are all authorable, and all survive to the published record" | Authoring proven in full; the three optional-at-create fields are now asserted as the documented defaults they are, plus defect TRN-D18 (a question-less training publishes and grades every learner 100). |
 | URS-TRN-02 | Product non-conformant | `e2e/training/j10-authoring-lock.spec.js` — "the assessment of a published training cannot be rewritten over REST" | Defect D13: the authoring lock is interface-only and the server applies the edit. |
 | URS-TRN-03 | Covered | `e2e/training/j1-learner-completes.spec.js` — "ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed" | Learner assignment through scored, signed completion is proven. |
 | URS-TRN-04 | Product non-conformant | `e2e/training/j11-material-review-gate.spec.js` — "a submit with NO material opened is refused, and writes no signed record" | Defect D14: a completion can be signed without opening the material. |
 | URS-TRN-05 | Covered | `e2e/training/j1-learner-completes.spec.js` — "a failing score does not complete the training and leaves a retry" | A failing score withholds completion and leaves a retry. |
-| URS-TRN-06 | Partial | `e2e/training/j1-learner-completes.spec.js` — "a failing score does not complete the training and leaves a retry" | Exhausting the maximum attempts and being refused is not tested. |
+| URS-TRN-06 | Covered | `e2e/training/j12-attempt-limit.spec.js` — "TC-02-06 steps 2-5 · attempts are counted, a retry is offered until the ceiling, and the attempt beyond it is REFUSED" | The ceiling is walked to exhaustion and the next attempt refused 400 at both `/submit` and `/start`, with nothing written; the UI lock-out and a fresh-cohort control are asserted alongside. |
 | URS-TRN-07 | Covered | `e2e/training/j1-learner-completes.spec.js` — "ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed" | Completion is scored and captured with an e-signature. |
 | URS-TRN-08 | Covered | `e2e/training/j2-manager-verification.spec.js` — "manager verifies a passed learner → VERIFIED, instance COMPLETED, verification recorded" | Manager verification is recorded against the completion. |
 | URS-TRN-09 | Covered | `e2e/training/j2-manager-verification.spec.js` — "rejecting for retraining → RETRAIN_REQUIRED plus a fresh retraining instance" | Rejection raises a fresh retraining instance. |
-| URS-TRN-10 | Partial | `e2e/training/j11-material-review-gate.spec.js` — "control: the same submit SUCCEEDS once the material has been viewed" | Serving the pinned version after a new release is not tested. |
+| URS-TRN-10 | Partial | `e2e/training/j13-material-version-pinning.spec.js` — "TC-02-09 steps 1-2 · launch pins v1.0, and releasing v2.0 does not move the pin" | The pin itself is proven end to end (launch freezes the effective version; a later release does not move it; a later launch pins the new one). Defect TRN-D17: the learner cannot READ the pinned version at all — no `document_control:read`, no task on the version, no share — so TC-02-09 step 3 is not executable. |
 | URS-TRN-11 | Not automated | — | No test produces a training record or matrix report per person or training. |
 
 ## 6. Nonconformance

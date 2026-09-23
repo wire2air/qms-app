@@ -25,6 +25,7 @@ export const MEASURES = {
   SUM: 'sum',
   AVG: 'avg',
   RATIO: 'ratio',
+  DURATION: 'duration',
 }
 
 /**
@@ -43,6 +44,25 @@ export const MEASURES = {
  * would offer a choice that fails on Save. Removed from the menu instead, and
  * the compiler's refusal remains as the backstop for a definition written by
  * any other path.
+ *
+ * ── aging, median, min and max ARE ABSENT FOR THE SAME REASON ───────────────
+ * All three are refused by the compiler as of 20260923210000, each with a
+ * message naming what to build instead. None is listed here.
+ *
+ * AGING ("average age of open records") is the one worth explaining, because it
+ * is asked for constantly and sounds trivially storable. It is
+ * sum(now() - raised) / count(*), and now() makes the figure a function of WHEN
+ * THE ROLLUP LAST RAN rather than of the data — while the rollup only rebuilds
+ * buckets whose source rows changed. An open record nobody edits ages every day
+ * and its bucket never refreshes, so its age freezes.
+ *
+ * Measured on Nordic CAPAs (39 open, 17 untouched for 30+ days): true average
+ * age today 81.4 days, in 30 days 111.4, what the metric would SHOW 93.7. The
+ * error also points the wrong way — a backlog going stale renders as improving.
+ *
+ * The substitute is a COUNT of what is still open grouped by the month it was
+ * raised: re-aggregatable, never stale, and the oldest bars ARE the backlog.
+ * Templates for it ship in analyticsMetricTemplates.js.
  */
 export const MEASURE_OPTIONS = [
   {
@@ -57,6 +77,16 @@ export const MEASURE_OPTIONS = [
   },
   { value: MEASURES.SUM, label: 'Total', description: 'Adds a number field up.' },
   { value: MEASURES.AVG, label: 'Average', description: 'The average of a number field.' },
+  {
+    value: MEASURES.DURATION,
+    label: 'Average time between dates',
+    // Says outright that unfinished records are excluded. "Average closure
+    // time" over a module with a backlog is ambiguous until you know whether
+    // the open ones counted as zero, and the answer affects how the figure is
+    // read: they are left out, so the number describes work that finished.
+    description:
+      'How long something took — from one date to another. Records that have not reached the end date yet are left out.',
+  },
 ]
 
 /**
@@ -275,6 +305,12 @@ export function definitionSentence(definition, meta = {}, fields = []) {
   const needsField = [MEASURES.SUM, MEASURES.AVG, MEASURES.COUNT_DISTINCT].includes(type)
   if (needsField && !labelOf(definition.measure?.field)) return null
 
+  // A duration names its two ends, so both must resolve before the sentence can
+  // be written — the same bar `needsField` sets for sum and average.
+  if (type === MEASURES.DURATION) {
+    if (!labelOf(definition.measure?.from) || !labelOf(definition.measure?.to)) return null
+  }
+
   // The same wording as the compiler's CASE, including "The share of records".
   const OPENING = {
     [MEASURES.COUNT]: 'Counts records',
@@ -282,8 +318,18 @@ export function definitionSentence(definition, meta = {}, fields = []) {
     [MEASURES.SUM]: 'Adds up values',
     [MEASURES.AVG]: 'Averages values',
     [MEASURES.RATIO]: 'The share of records',
+    // ⚠ Word-for-word the compiler's duration note, including the exclusion
+    // clause. This sentence is shown while authoring and the compiler's is
+    // stored on the metric; if they disagree, the tile contradicts the builder
+    // that produced it.
+    [MEASURES.DURATION]: null, // built below — it interpolates both ends
   }
-  let sentence = OPENING[type]
+  let sentence =
+    type === MEASURES.DURATION
+      ? `Average time from ${labelOf(definition.measure.from)} to ` +
+        `${labelOf(definition.measure.to)}, counting only records that reached ` +
+        `${labelOf(definition.measure.to)}`
+      : OPENING[type]
   if (!sentence) return null
 
   // Joined with "and", matching array_to_string(v_notes, ' and '). Never "or",
@@ -347,6 +393,21 @@ export function definitionProblem(definition, meta = {}, dimensionCap = 3) {
   }
   if (type === MEASURES.RATIO && !(definition.measure?.numerator ?? []).length) {
     return 'A percentage needs a condition for the top of the fraction.'
+  }
+
+  // Mirrors the compiler's duration refusals, so the author is stopped by the
+  // form rather than by a compile error after saving. Both ends are also
+  // re-checked server-side against the registry — this only catches the two
+  // cases the client can see without it.
+  if (type === MEASURES.DURATION) {
+    if (!definition.measure?.from || !definition.measure?.to) {
+      return 'A duration needs a start date and an end date.'
+    }
+    // Always zero. Worth its own sentence rather than letting someone save a
+    // metric that charts a flat line at 0 and wonder why.
+    if (definition.measure.from === definition.measure.to) {
+      return 'Pick two different dates — measuring a date to itself is always zero.'
+    }
   }
 
   // Mirrors the compiler's refusal for the EAV source, so the author is stopped
@@ -419,12 +480,35 @@ export function definitionProblem(definition, meta = {}, dimensionCap = 3) {
  *
  * @param {{ isPublished?: boolean, compileError?: string|null }} metric
  * @param {boolean} hasCatalogRow Whether the rollup has computed this metric yet.
- * @returns {'error'|'preparing'|'published'|'draft'}
+ * @param {{lastRefreshedAt?: string|null, lastRefreshRows?: number}|null} [refresh]
+ *        From custom_metric_refresh_state(). Distinguishes "never run" from
+ *        "ran and matched nothing" — see the body.
+ * @returns {'error'|'empty'|'preparing'|'published'|'draft'}
  */
-export function metricState(metric, hasCatalogRow) {
+export function metricState(metric, hasCatalogRow, refresh = null) {
   if (metric?.compileError) return 'error'
-  if (metric?.isPublished && !hasCatalogRow) return 'preparing'
-  return metric?.isPublished ? 'published' : 'draft'
+  if (!metric?.isPublished) return 'draft'
+  if (hasCatalogRow) return 'published'
+
+  // ── "Preparing" USED TO MEAN TWO OPPOSITE THINGS ──────────────────────────
+  // Absence from the catalog says only "no rollup rows", and that is true both
+  // while a metric waits for its first refresh AND after a refresh that
+  // legitimately matched nothing. The second rendered as "Preparing — figures
+  // are worked out every 15 minutes", a promise it could never keep.
+  //
+  // Found on a metric filtering `status_id IN ('AWAITING_DECISION')`, a status
+  // quality_event_statuses does not contain. It sat there indefinitely, and a
+  // person spotted it on a dashboard tile rather than anything in the system.
+  //
+  // `refresh` comes from custom_metric_refresh_state() (20260923220000): a
+  // timestamp with zero rows is a metric that HAS run and found nothing. It is
+  // not an error — the definition is valid and the answer is honestly zero —
+  // so it gets its own state rather than being folded into either neighbour.
+  //
+  // Absent `refresh` (an older client, or a shipped metric) falls back to the
+  // previous behaviour, which is wrong only in the way it always was.
+  if (refresh?.lastRefreshedAt && !refresh.lastRefreshRows) return 'empty'
+  return 'preparing'
 }
 
 /**
@@ -436,6 +520,10 @@ export function metricState(metric, hasCatalogRow) {
  */
 export const METRIC_STATE_OPTIONS = [
   { value: 'error', label: 'Needs attention' },
+  // Sits second because it is the state most likely to be a mistake that looks
+  // fine: the definition compiled, so nothing else flags it, yet the metric
+  // will never show a figure until someone changes it.
+  { value: 'empty', label: 'No matching records' },
   { value: 'preparing', label: 'Preparing' },
   { value: 'published', label: 'Published' },
   { value: 'draft', label: 'Draft' },
@@ -455,7 +543,7 @@ export const METRIC_SORT_OPTIONS = [
  * same order, not alphabetical — "Draft, Needs attention, Preparing, Published"
  * would bury the one row that matters.
  */
-const STATE_RANK = { error: 0, preparing: 1, published: 2, draft: 3 }
+const STATE_RANK = { error: 0, empty: 1, preparing: 2, published: 3, draft: 4 }
 
 export function metricStateRank(state) {
   return STATE_RANK[state] ?? 99

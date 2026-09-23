@@ -375,8 +375,14 @@ const measureType = computed({
     // Rebuilt rather than mutated: switching away from a ratio must drop its
     // numerator, and switching away from a sum must drop its field, or the
     // leftover key travels to the compiler and is rejected.
+    // Seeded per shape: a ratio needs somewhere to put its condition, and a
+    // duration needs both ends to exist as keys so the two pickers bind.
     form.value.definition.measure =
-      type === MEASURES.RATIO ? { type, numerator: [blankFilter()] } : { type }
+      type === MEASURES.RATIO
+        ? { type, numerator: [blankFilter()] }
+        : type === MEASURES.DURATION
+          ? { type, from: null, to: null }
+          : { type }
   },
 })
 
@@ -384,6 +390,20 @@ const needsMeasureField = computed(() =>
   [MEASURES.SUM, MEASURES.AVG, MEASURES.COUNT_DISTINCT].includes(measureType.value),
 )
 const isRatio = computed(() => measureType.value === MEASURES.RATIO)
+const isDuration = computed(() => measureType.value === MEASURES.DURATION)
+
+/**
+ * The end date a duration measures TO, excluded from the "from" list.
+ *
+ * Measuring a date to itself is always zero, and the compiler refuses it — so
+ * the pair is never offerable rather than offered-then-rejected.
+ */
+const durationFromFields = computed(() =>
+  dateFields.value.filter((o) => o.value !== form.value.definition.measure?.to),
+)
+const durationToFields = computed(() =>
+  dateFields.value.filter((o) => o.value !== form.value.definition.measure?.from),
+)
 
 /**
  * What the chosen measurement needs next.
@@ -402,6 +422,12 @@ const measureHint = computed(() => {
   }
   if (measureType.value === MEASURES.COUNT_DISTINCT) {
     return 'Counts how many different values appear, not how many records.'
+  }
+  if (isDuration.value) {
+    // The exclusion is the part worth saying: a backlog does NOT drag this
+    // figure down, which is the opposite of what people assume of an "average
+    // time" and the difference between reading it right and wrong.
+    return 'Records that have not reached the end date yet are left out, not counted as zero.'
   }
   return ''
 })
@@ -1161,6 +1187,32 @@ async function save() {
                 <BaseLabel :help="FIELD_HELP.measure" required>What to work out</BaseLabel>
               </template>
             </BaseSelect>
+            <!-- A duration's two ends. Each list excludes the other's choice,
+                 so the always-zero pair the compiler refuses cannot be built.
+                 Only kind='date' columns are offered (dateFields), which is the
+                 same set the compiler checks against. -->
+            <div v-if="isDuration" class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
+              <BaseSelect
+                v-model="form.definition.measure.from"
+                :options="durationFromFields"
+                :searchable="false"
+                required
+              >
+                <template #label>
+                  <BaseLabel required>From</BaseLabel>
+                </template>
+              </BaseSelect>
+              <BaseSelect
+                v-model="form.definition.measure.to"
+                :options="durationToFields"
+                :searchable="false"
+                required
+              >
+                <template #label>
+                  <BaseLabel required>To</BaseLabel>
+                </template>
+              </BaseSelect>
+            </div>
             <BaseSelect
               v-if="needsMeasureField"
               v-model="form.definition.measure.field"

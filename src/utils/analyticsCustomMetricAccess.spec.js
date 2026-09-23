@@ -856,3 +856,92 @@ describe('custom-module breakdown translation', () => {
     expect(foldCustomGroupBy(['text_value'], filters)).toEqual(['text_value'])
   })
 })
+
+/**
+ * Duration — the client half of the compiler's rules.
+ *
+ * These exist so the author is stopped by the FORM rather than by a compile
+ * error after saving. Each one mirrors a refusal in
+ * analytics_compile_custom_metric; if the two drift, the form either blocks a
+ * definition the server accepts or waves through one it does not.
+ */
+describe('definitionProblem — duration', () => {
+  const base = {
+    sourceTable: 'capas',
+    timeField: 'initiated_at',
+    measure: { type: 'duration', from: 'initiated_at', to: 'closed_at' },
+  }
+  const meta = { name: 'CAPA closure time' }
+
+  it('accepts a duration with two different dates', () => {
+    expect(definitionProblem(base, meta)).toBe(null)
+  })
+
+  it('asks for both ends when one is missing', () => {
+    expect(definitionProblem({ ...base, measure: { type: 'duration', from: 'initiated_at' } }, meta))
+      .toBe('A duration needs a start date and an end date.')
+    expect(definitionProblem({ ...base, measure: { type: 'duration', to: 'closed_at' } }, meta))
+      .toBe('A duration needs a start date and an end date.')
+  })
+
+  it('refuses a date measured to itself, which is always zero', () => {
+    const same = { ...base, measure: { type: 'duration', from: 'closed_at', to: 'closed_at' } }
+    expect(definitionProblem(same, meta)).toMatch(/two different dates/)
+  })
+
+  it('does not demand a measure field — a duration names dates, not a number', () => {
+    // sum/avg/countDistinct all require measure.field. A duration must not fall
+    // into that branch, or it would be unsaveable without a number column it
+    // has no use for. Asserted as "passes with no field at all", because the
+    // failure being guarded against is a non-null problem string.
+    expect(base.measure.field).toBeUndefined()
+    expect(definitionProblem(base, meta)).toBe(null)
+  })
+})
+
+/**
+ * The state that used to be invisible.
+ *
+ * A published metric with no rollup rows was always "Preparing", whether it had
+ * never run or had run and matched nothing. The second is a definition that
+ * will never show a figure — and it rendered under a caption promising one
+ * within 15 minutes.
+ */
+describe('metricState — ran but matched nothing', () => {
+  const published = { isPublished: true, compileError: null }
+
+  it('is "preparing" when the refresh has never run', () => {
+    expect(metricState(published, false, { lastRefreshedAt: null, lastRefreshRows: 0 }))
+      .toBe('preparing')
+  })
+
+  it('is "empty" once a refresh has run and produced nothing', () => {
+    expect(metricState(published, false, { lastRefreshedAt: '2026-09-23T10:00:00Z', lastRefreshRows: 0 }))
+      .toBe('empty')
+  })
+
+  it('is "published" as soon as there are figures', () => {
+    expect(metricState(published, true, { lastRefreshedAt: '2026-09-23T10:00:00Z', lastRefreshRows: 12 }))
+      .toBe('published')
+  })
+
+  it('never calls a broken definition empty — the compiler error wins', () => {
+    // An unparseable definition is a different problem with a different fix,
+    // and its message names the field. Burying it under "no matching records"
+    // would send the author looking at their filters instead.
+    expect(metricState({ isPublished: true, compileError: 'status_id cannot be grouped by.' },
+      false, { lastRefreshedAt: '2026-09-23T10:00:00Z', lastRefreshRows: 0 })).toBe('error')
+  })
+
+  it('falls back to the old behaviour without refresh state', () => {
+    // Older clients, and shipped metrics, pass nothing. Wrong only in the way
+    // it always was — never newly wrong.
+    expect(metricState(published, false)).toBe('preparing')
+    expect(metricState(published, true)).toBe('published')
+  })
+
+  it('ranks empty above preparing, so a mistake sorts before a wait', () => {
+    expect(metricStateRank('empty')).toBeLessThan(metricStateRank('preparing'))
+    expect(metricStateRank('error')).toBeLessThan(metricStateRank('empty'))
+  })
+})

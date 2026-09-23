@@ -369,9 +369,22 @@ export async function submitForReview(page, opts = {}) {
     // stayed disabled with "Pick at least one reviewer for <steps>". The
     // single-selects on the create form (Department) do commit on Enter, which is
     // why selectFirstByKeyboard is still correct for them.
-    const option = wanted
-      ? listbox.getByRole('option', { name: wanted }).first()
-      : listbox.getByRole('option').first()
+    // Step 1 defaults to the cast's canonical reviewer, NOT "whatever is first".
+    // The picker lists every eligible candidate, so its order is a property of
+    // the tenant's user set: adding `reviewer2@e2e.test` to the seed silently
+    // moved the first option off `reviewer@e2e.test`, while driveToEffective
+    // still waited on USERS.reviewer.id. The barrier could then never clear and
+    // j2/j3/j5 all died 45s later in `reviewer task assigned — last value "0"`,
+    // which reads like a broken workflow engine and is really a picker default.
+    // Falling back to the first option keeps every other caller unchanged.
+    const preferred = wanted ?? (i === 0 ? USERS.reviewer.name : null)
+    const preferredOption = preferred
+      ? listbox.getByRole('option', { name: preferred }).first()
+      : null
+    const option =
+      preferredOption && (await preferredOption.count().catch(() => 0))
+        ? preferredOption
+        : listbox.getByRole('option').first()
     await option.click()
 
     // A multi-select panel does NOT auto-close after a pick, and an open panel
