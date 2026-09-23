@@ -547,3 +547,38 @@ describe('useMetricBreakdown — the residual bucket is a summary, not a segment
     })
   })
 })
+
+describe('small-cell floor', () => {
+  // The server clamps too (20260923250000) and THAT is the control — a floor
+  // enforced only here protects only callers who come through this file, and
+  // pMinCell travels over GraphQL where anyone can replay a request.
+  //
+  // These tests exist so this client never sends a value the server has to
+  // correct, and so the floor is not quietly lowered back to a default. It was
+  // `?? 5`: passing 0 returned every withheld cell by name, two of them a
+  // single identifiable record each.
+
+  it('never asks for a cell smaller than five', () => {
+    for (const asked of [0, 1, 4, -1, -999]) {
+      useMetricBreakdown({ metricKey: 'capa.raised', dimension: 'department', minCell: asked })
+      expect(varsOf(lastHandle()).pMinCell, `asked ${asked}`).toBe(5)
+    }
+  })
+
+  it('honours a LARGER floor — more privacy is still the caller’s to ask for', () => {
+    useMetricBreakdown({ metricKey: 'capa.raised', dimension: 'department', minCell: 20 })
+    expect(varsOf(lastHandle()).pMinCell).toBe(20)
+  })
+
+  it('falls back to five when nothing is asked for', () => {
+    useMetricBreakdown({ metricKey: 'capa.raised', dimension: 'department' })
+    expect(varsOf(lastHandle()).pMinCell).toBe(5)
+  })
+
+  it('applies the same floor to the series path', () => {
+    // A series split by a dimension suppresses the same small cells a
+    // breakdown does; leaving one unclamped just moves the disclosure.
+    useMetricSeries({ metricKey: 'capa.raised', dimension: 'status', minCell: 0 })
+    expect(varsOf(lastHandle()).pMinCell).toBe(5)
+  })
+})
