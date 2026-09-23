@@ -2468,6 +2468,568 @@ export const METRIC_TEMPLATES = [
       groupBy: [],
     },
   },
+  // ── retain_samples ────────────────────────────────────────────────────────
+  // ⚠ STATUS AND SEAL STATE ARE DIFFERENT QUESTIONS. status_id is where the
+  // sample is in its lifecycle (RETAINED → DISPOSED); seal_state is whether the
+  // container has been opened. A sample can be RETAINED and BROKEN at once, and
+  // that combination is the one worth alerting on.
+  //
+  // Verified against dev: status_id ∈ {RETAINED}, seal_state ∈ {SEALED},
+  // sample_type ∈ {REFERENCE, RESERVE}. Only values that exist are filtered on
+  // — the qe-awaiting-decision template filtered a status this schema never had
+  // and read "Preparing" forever.
+  {
+    id: 'retain-held',
+    moduleId: 'retain_samples',
+    name: 'Samples retained',
+    description: 'Retain samples taken into storage.',
+    direction: 'neutral',
+    grain: 'month',
+    definition: {
+      sourceTable: 'retain_samples',
+      timeField: 'retained_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'retain-by-type',
+    moduleId: 'retain_samples',
+    name: 'Samples by type',
+    description: 'How retained samples split between reference and reserve.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'retain_samples',
+      timeField: 'retained_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: ['sample_type'],
+    },
+  },
+  {
+    id: 'retain-by-status',
+    moduleId: 'retain_samples',
+    name: 'Samples by status',
+    description: 'Where retained samples sit in their lifecycle.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'retain_samples',
+      timeField: 'retained_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: ['status_id'],
+    },
+  },
+  {
+    id: 'retain-disposed',
+    moduleId: 'retain_samples',
+    name: 'Samples disposed',
+    description: 'Retain samples destroyed once their retention period ended.',
+    direction: 'neutral',
+    grain: 'month',
+    definition: {
+      sourceTable: 'retain_samples',
+      timeField: 'disposed_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'disposed_at', op: 'isNotNull', values: [] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'retain-still-held',
+    moduleId: 'retain_samples',
+    name: 'Samples still held by month retained',
+    description: 'Samples not yet disposed, grouped by when they were taken.',
+    direction: 'neutral',
+    grain: 'month',
+    definition: {
+      sourceTable: 'retain_samples',
+      timeField: 'retained_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'disposed_at', op: 'isNull', values: [] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'retain-retention-days',
+    moduleId: 'retain_samples',
+    name: 'Average time held before disposal',
+    description: 'How long samples stay in storage before being destroyed.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'retain_samples',
+      timeField: 'retained_at',
+      measure: { type: MEASURES.DURATION, from: 'retained_at', to: 'disposed_at' },
+      filters: [],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'retain-by-location',
+    moduleId: 'retain_samples',
+    name: 'Samples by item',
+    description: 'Which items account for the retained sample inventory.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'retain_samples',
+      timeField: 'retained_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'disposed_at', op: 'isNull', values: [] }],
+      groupBy: ['product_id'],
+    },
+  },
+
+  // ── log_books ─────────────────────────────────────────────────────────────
+  // ⚠ THESE COUNT LOG BOOKS, NOT ENTRIES. A log book is a controlled document
+  // with a status, an effective date and a supersedes chain; the readings
+  // written into it live in a separate table and answer a separate question.
+  // "Entries completed this month" is NOT available from here, and a template
+  // named that way would be read as though it were.
+  //
+  // Verified against dev: status_id ∈ {ACTIVE, DRAFT}.
+  {
+    id: 'logbook-active',
+    moduleId: 'log_books',
+    name: 'Active log books',
+    description: 'Log books currently in use.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'log_books',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'status_id', op: 'in', values: ['ACTIVE'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'logbook-by-status',
+    moduleId: 'log_books',
+    name: 'Log books by status',
+    description: 'How log books split between draft and active.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'log_books',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: ['status_id'],
+    },
+  },
+  {
+    id: 'logbook-by-department',
+    moduleId: 'log_books',
+    name: 'Log books by department',
+    description: 'Which departments maintain log books.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'log_books',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'status_id', op: 'in', values: ['ACTIVE'] }],
+      groupBy: ['department_id'],
+    },
+  },
+  {
+    id: 'logbook-signature-required',
+    moduleId: 'log_books',
+    name: 'Log books requiring signature',
+    description: 'Share of log books that demand a signature on each entry.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'log_books',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'signature_required', op: 'in', values: ['true'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'logbook-draft-backlog',
+    moduleId: 'log_books',
+    name: 'Draft log books by month created',
+    description: 'Log books never brought into use, grouped by when they were drafted.',
+    direction: 'lower_is_better',
+    grain: 'month',
+    definition: {
+      sourceTable: 'log_books',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'status_id', op: 'in', values: ['DRAFT'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'logbook-draft-to-effective',
+    moduleId: 'log_books',
+    name: 'Average time from creation to effective',
+    description: 'How long a log book takes to be brought into use.',
+    direction: 'lower_is_better',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'log_books',
+      timeField: 'created_at',
+      measure: { type: MEASURES.DURATION, from: 'created_at', to: 'effective_at' },
+      filters: [],
+      groupBy: [],
+    },
+  },
+
+  // ── training_instances (verifications) ────────────────────────────────────
+  // ⚠ MODULE IS training_instances, NOT a module named after the table. The
+  // table's SELECT policy gates on has_permission('training_instances','read'),
+  // and the registry follows the policy, not the name.
+  //
+  // ⚠ signed_at IS THE EVENT, created_at IS THE ROW. "Verified in October"
+  // means the signature. Both are registered; these templates use signed_at
+  // except where the question is genuinely about the record appearing.
+  //
+  // Verified against dev: outcome ∈ {APPROVED} on all 250 rows. No template
+  // filters on a rejection value, because none exists in the data to confirm
+  // its spelling — an unverified guess is exactly the AWAITING_DECISION bug.
+  {
+    id: 'training-verified',
+    moduleId: 'training_instances',
+    name: 'Training verifications signed',
+    description: 'Competency verifications completed and signed off.',
+    direction: 'higher_is_better',
+    grain: 'month',
+    definition: {
+      sourceTable: 'training_verifications',
+      timeField: 'signed_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'training-verified-by-outcome',
+    moduleId: 'training_instances',
+    name: 'Verifications by outcome',
+    description: 'How competency verifications resolved.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'training_verifications',
+      timeField: 'signed_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: ['outcome'],
+    },
+  },
+  {
+    id: 'training-retraining-required',
+    moduleId: 'training_instances',
+    name: 'Verifications requiring retraining',
+    description: 'Competency checks that sent someone back for more training.',
+    direction: 'lower_is_better',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'training_verifications',
+      timeField: 'signed_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'retraining_required', op: 'in', values: ['true'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'training-independent-rate',
+    moduleId: 'training_instances',
+    name: 'Share cleared to work independently',
+    description: 'Verifications where the person was judged able to work unsupervised.',
+    direction: 'higher_is_better',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'training_verifications',
+      timeField: 'signed_at',
+      measure: {
+        type: MEASURES.RATIO,
+        numerator: [{ field: 'can_perform_independently', op: 'in', values: ['true'] }],
+      },
+      filters: [],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'training-practical-done',
+    moduleId: 'training_instances',
+    name: 'Practical observations completed',
+    description: 'Verifications backed by an observed practical assessment.',
+    direction: 'higher_is_better',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'training_verifications',
+      timeField: 'signed_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'practical_observation_completed', op: 'in', values: ['true'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'training-verification-lag',
+    moduleId: 'training_instances',
+    name: 'Average time from record to signature',
+    description: 'How long a verification waits between being raised and being signed.',
+    direction: 'lower_is_better',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'training_verifications',
+      timeField: 'created_at',
+      measure: { type: MEASURES.DURATION, from: 'created_at', to: 'signed_at' },
+      filters: [],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'training-unsigned-backlog',
+    moduleId: 'training_instances',
+    name: 'Unsigned verifications by month raised',
+    description: 'Verifications still awaiting signature, grouped by when they were raised.',
+    direction: 'lower_is_better',
+    grain: 'month',
+    definition: {
+      sourceTable: 'training_verifications',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'signed_at', op: 'isNull', values: [] }],
+      groupBy: [],
+    },
+  },
+
+  // ── audit_programs ────────────────────────────────────────────────────────
+  // ⚠ next_due_date IS IN THE FUTURE. Bucketing by it is a FORWARD schedule —
+  // "what is coming" — not a history. That is the useful question here and the
+  // templates using it say so in their names; a reader who expects a backward
+  // trend from a forward field would misread every one of them.
+  //
+  // Verified against dev: program_type_id ∈ {INTERNAL, EXTERNAL, SUPPLIER},
+  // frequency_id ∈ {ANNUAL, QUARTERLY, SEMI_ANNUAL}.
+  {
+    id: 'audit-programs-active',
+    moduleId: 'audit_programs',
+    name: 'Active audit programmes',
+    description: 'Audit programmes currently on schedule.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'audit_programs',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'active', op: 'in', values: ['true'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'audit-programs-by-type',
+    moduleId: 'audit_programs',
+    name: 'Programmes by type',
+    description: 'How audit programmes split between internal, external and supplier.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'audit_programs',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'active', op: 'in', values: ['true'] }],
+      groupBy: ['program_type_id'],
+    },
+  },
+  {
+    id: 'audit-programs-by-frequency',
+    moduleId: 'audit_programs',
+    name: 'Programmes by frequency',
+    description: 'How often audit programmes are scheduled to run.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'audit_programs',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'active', op: 'in', values: ['true'] }],
+      groupBy: ['frequency_id'],
+    },
+  },
+  {
+    id: 'audit-programs-due-ahead',
+    moduleId: 'audit_programs',
+    name: 'Programmes by month next due',
+    description: 'The forward audit schedule — when each programme comes up next.',
+    direction: 'neutral',
+    grain: 'month',
+    definition: {
+      sourceTable: 'audit_programs',
+      timeField: 'next_due_date',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'active', op: 'in', values: ['true'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'audit-programs-by-site',
+    moduleId: 'audit_programs',
+    name: 'Programmes by site',
+    description: 'How audit coverage is spread across sites.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'audit_programs',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'active', op: 'in', values: ['true'] }],
+      groupBy: ['site_id'],
+    },
+  },
+  {
+    id: 'audit-programs-supplier-share',
+    moduleId: 'audit_programs',
+    name: 'Share of programmes covering a supplier',
+    description: 'How much of the audit schedule is aimed at the supply base.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'audit_programs',
+      timeField: 'created_at',
+      measure: {
+        type: MEASURES.RATIO,
+        numerator: [{ field: 'supplier_id', op: 'isNotNull', values: [] }],
+      },
+      filters: [{ field: 'active', op: 'in', values: ['true'] }],
+      groupBy: [],
+    },
+  },
+
+  // ── products ──────────────────────────────────────────────────────────────
+  // ⚠ created_at IS THE ONLY TIME FIELD ON THIS TABLE. There is no approved_at
+  // and no effective_at, so every products metric is "items ADDED in a period",
+  // never "items approved". A template promising the latter cannot be built
+  // here, and this note exists so nobody spends an afternoon looking for one.
+  //
+  // Verified against dev: status_id ∈ {ACTIVE, DISCONTINUED, OBSOLETE,
+  // UNDER_REVIEW}. criticality is NULL on every row today — the by-criticality
+  // template will read all-blank, which is an honest answer about the data
+  // rather than a broken metric.
+  {
+    id: 'products-added',
+    moduleId: 'products',
+    name: 'Items added',
+    description: 'New items registered in the item master.',
+    direction: 'neutral',
+    grain: 'month',
+    definition: {
+      sourceTable: 'products',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'products-by-status',
+    moduleId: 'products',
+    name: 'Items by status',
+    description: 'How the item master splits between active, obsolete and under review.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'products',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [],
+      groupBy: ['status_id'],
+    },
+  },
+  {
+    id: 'products-under-review',
+    moduleId: 'products',
+    name: 'Items under review',
+    description: 'Items whose master data is being reworked.',
+    direction: 'lower_is_better',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'products',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'status_id', op: 'in', values: ['UNDER_REVIEW'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'products-inspection-required',
+    moduleId: 'products',
+    name: 'Share of items requiring inspection',
+    description: 'How much of the item master is subject to incoming inspection.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'products',
+      timeField: 'created_at',
+      measure: {
+        type: MEASURES.RATIO,
+        numerator: [{ field: 'inspection_required', op: 'in', values: ['true'] }],
+      },
+      filters: [{ field: 'status_id', op: 'in', values: ['ACTIVE'] }],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'products-by-criticality',
+    moduleId: 'products',
+    name: 'Items by criticality',
+    description: 'How active items split across criticality bands.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'products',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [{ field: 'status_id', op: 'in', values: ['ACTIVE'] }],
+      groupBy: ['criticality'],
+    },
+  },
+  {
+    id: 'products-lot-controlled',
+    moduleId: 'products',
+    name: 'Lot-controlled items',
+    description: 'Active items tracked by lot.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'products',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [
+        { field: 'status_id', op: 'in', values: ['ACTIVE'] },
+        { field: 'lot_controlled', op: 'in', values: ['true'] },
+      ],
+      groupBy: [],
+    },
+  },
+  {
+    id: 'products-hazardous',
+    moduleId: 'products',
+    name: 'Hazardous items',
+    description: 'Active items flagged as hazardous.',
+    direction: 'neutral',
+    grain: 'quarter',
+    definition: {
+      sourceTable: 'products',
+      timeField: 'created_at',
+      measure: { type: MEASURES.COUNT },
+      filters: [
+        { field: 'status_id', op: 'in', values: ['ACTIVE'] },
+        { field: 'is_hazardous', op: 'in', values: ['true'] },
+      ],
+      groupBy: [],
+    },
+  },
 ]
 
 /**

@@ -48,6 +48,7 @@ const MIGRATIONS = [
   '../../../qms/backend/api/migrations/20260923140000-register-modules-in-metric-builder.js',
   '../../../qms/backend/api/migrations/20260923170000-register-modules-round-two.js',
   '../../../qms/backend/api/migrations/20260923200000-cross-module-link-fields.js',
+  '../../../qms/backend/api/migrations/20260923230000-register-modules-round-three.js',
 ]
 
 /** @returns {Map<string, {columns: Set<string>, dates: Set<string>, groupable: Set<string>, numbers: Set<string>}>} */
@@ -82,10 +83,12 @@ function readRegistry() {
           dates: new Set(),
           groupable: new Set(),
           numbers: new Set(),
+          kinds: new Map(),
         })
       }
       const entry = byModule.get(key)
       entry.columns.add(column)
+      entry.kinds.set(column, kind)
       if (kind === 'date') entry.dates.add(column)
       if (kind === 'number') entry.numbers.add(column)
       if (groupable === 'true') entry.groupable.add(column)
@@ -181,6 +184,27 @@ const STATUS_SEEDS = {
     'REASSIGNED',
     'CANCELLED',
   ],
+
+  // ── 20260923230000 sources ──────────────────────────────────────────────
+  // ⚠ READ OFF LIVE DATA, NOT OFF A MODEL OR A GUESS. The whole reason this
+  // fixture exists is that a template once filtered 'AWAITING_DECISION', a
+  // quality-event status this schema has never had, and the fixture carried
+  // the same wrong vocabulary -- so it validated the mistake against itself
+  // and passed. Every value below was produced by
+  // `SELECT DISTINCT <col> FROM <table> WHERE deleted_at IS NULL` on dev-db.
+  //
+  // Where live data shows FEWER values than the column could hold, the short
+  // list is kept deliberately: a template may only filter on a value someone
+  // has confirmed exists. Widen this when the schema is checked, never to make
+  // a template pass.
+  retain_sample_statuses: ['RETAINED', 'DISPOSED'],
+  retain_sample_seal_states: ['SEALED', 'BROKEN'],
+  retain_sample_types: ['REFERENCE', 'RESERVE'],
+  log_book_statuses: ['DRAFT', 'ACTIVE'],
+  training_verification_outcomes: ['APPROVED'],
+  audit_program_types: ['INTERNAL', 'EXTERNAL', 'SUPPLIER'],
+  audit_program_frequencies: ['ANNUAL', 'QUARTERLY', 'SEMI_ANNUAL'],
+  product_statuses: ['ACTIVE', 'DISCONTINUED', 'OBSOLETE', 'UNDER_REVIEW'],
 }
 
 /** Which status lookup each source table's status_id points at. */
@@ -203,6 +227,10 @@ const STATUS_TABLE = {
   trainings: 'training_statuses',
   training_instances: 'training_instance_statuses',
   training_assignees: 'training_assignee_statuses',
+  // ── 20260923230000 ──────────────────────────────────────────────────────
+  retain_samples: 'retain_sample_statuses',
+  log_books: 'log_book_statuses',
+  products: 'product_statuses',
 }
 
 describe('the parsed registry', () => {
@@ -275,6 +303,27 @@ describe('METRIC_TEMPLATES', () => {
       if (![MEASURES.SUM, MEASURES.AVG].includes(type)) continue
       const entry = REGISTRY.get(`${t.moduleId}::${t.definition.sourceTable}`)
       expect(entry.numbers.has(field), `${t.id} averages non-numeric ${field}`).toBe(true)
+    }
+  })
+
+  // ⚠ THE DB IS THE ONLY PLACE THAT REJECTED THIS, AND IT REJECTED IT LATE.
+  // 20260923230000 was first written with kind 'boolean' -- the SQL type name,
+  // not one of the six analytics_module_fields_kind_chk accepts. Every check
+  // in this file passed, because none of them looked at `kind` at all; the
+  // INSERT then failed against app-db with a raw constraint violation quoting
+  // a row.
+  //
+  // The list is duplicated from the constraint on purpose: this spec cannot
+  // reach a database, so the alternative is not checking. Widening the
+  // constraint without widening this list fails here with a message saying so,
+  // which is the right way round -- a new kind is a deliberate act.
+  it('registers only kinds the database constraint accepts', () => {
+    const LEGAL = ['enum', 'uuid', 'date', 'number', 'text', 'bool']
+    const registry = readRegistry()
+    for (const [key, entry] of registry) {
+      for (const [column, kind] of entry.kinds) {
+        expect(LEGAL, `${key}.${column} has kind '${kind}'`).toContain(kind)
+      }
     }
   })
 
