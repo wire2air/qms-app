@@ -174,19 +174,34 @@ function bucketLabel(iso) {
   return dt.isValid ? dt.formatDate('date') : String(iso)
 }
 
-/** Group series rows by dimension value, ranked by total, tail folded to "Other". */
+/**
+ * Group series rows by dimension value, ranked by total, tail folded to "Other".
+ *
+ * ⚠ GROUPED BY VALUE, NAMED BY LABEL — and those are not the same thing.
+ * The value is the identity: two people can share a display name, and folding
+ * them into one line because of it would silently merge two owners' work.
+ * The label is only what the legend says. Grouping by label would be a data
+ * bug that looks like a rendering choice.
+ *
+ * Falls back to the value when there is no label — a dimension over a
+ * free-text column has no lookup to resolve, so the raw value IS the name.
+ */
 function groupedSeries(rows, toPoint) {
   const bySeries = new Map()
   const totals = new Map()
+  const names = new Map()
   for (const p of rows) {
     const key = p.dimensionValue ?? 'Unspecified'
     if (!bySeries.has(key)) bySeries.set(key, [])
     bySeries.get(key).push(p)
     totals.set(key, (totals.get(key) ?? 0) + (p.value ?? 0))
+    // First non-empty label wins; every row for one value carries the same one.
+    if (!names.has(key) && p.label) names.set(key, p.label)
   }
+  const nameOf = (key) => names.get(key) ?? key
   const ranked = [...bySeries.keys()].sort((a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0))
   if (ranked.length <= MAX_SERIES) {
-    return ranked.map((name) => ({ name, data: bySeries.get(name).map(toPoint) }))
+    return ranked.map((key) => ({ name: nameOf(key), data: bySeries.get(key).map(toPoint) }))
   }
   const kept = ranked.slice(0, MAX_SERIES - 1)
   const tail = ranked.slice(MAX_SERIES - 1)
@@ -198,7 +213,7 @@ function groupedSeries(rows, toPoint) {
     }
   }
   return [
-    ...kept.map((name) => ({ name, data: bySeries.get(name).map(toPoint) })),
+    ...kept.map((key) => ({ name: nameOf(key), data: bySeries.get(key).map(toPoint) })),
     {
       name: `Other (${tail.length})`,
       data: [...otherByBucket.entries()]
@@ -219,13 +234,17 @@ const chartSeries = computed(() => {
       // Apex heatmaps want one row per series with a point per x CATEGORY, and
       // every row must cover every category or the grid goes ragged.
       const byDim = new Map()
+      const heatNames = new Map()
       for (const p of rows) {
+        // Keyed by VALUE, labelled separately — see groupedSeries. Two owners
+        // sharing a display name must stay two rows of the grid.
         const key = p.dimensionValue ?? 'Unspecified'
         if (!byDim.has(key)) byDim.set(key, new Map())
         byDim.get(key).set(p.bucket, p)
+        if (!heatNames.has(key) && p.label) heatNames.set(key, p.label)
       }
-      return [...byDim.entries()].map(([name, cells]) => ({
-        name,
+      return [...byDim.entries()].map(([key, cells]) => ({
+        name: heatNames.get(key) ?? key,
         data: buckets.value.map((b) => {
           const cell = cells.get(b)
           return { x: bucketLabel(b), y: cell && !cell.suppressed ? cell.value : null }
@@ -351,7 +370,10 @@ const headline = computed(() => formatMetricValue(valueRow.value?.value, unit.va
 // spreadsheet reconciles with the one on screen — including its suppression.
 const seriesColumns = [
   { name: 'bucket', label: 'Period', field: 'bucket' },
-  { name: 'dimensionValue', label: 'Segment', field: 'dimensionValue' },
+  // The NAME, matching the legend, matching what breakdownColumns already did.
+  // Exporting the UUID meant the spreadsheet and the chart disagreed about who
+  // a row was about — the reconciliation this export exists for.
+  { name: 'dimensionValue', label: 'Segment', field: (r) => r.label || r.dimensionValue || '—' },
   {
     name: 'value',
     label: 'Value',

@@ -66,7 +66,13 @@ const LEAD_CRM_TEMPLATE = {
 const DialogStub = {
   name: 'BaseDialog',
   props: ['title', 'subtitle', 'size', 'persistent', 'showClose'],
-  template: '<div><slot /><slot name="footer" :close="() => {}" /></div>',
+  // Body and footer are separate elements so a test can assert WHICH ONE a
+  // control lives in. They were one div, which made "Create your own is on
+  // screen" true whether it was pinned or buried under 170 template cards --
+  // the exact difference the chooser footer exists to make.
+  template:
+    '<div><div class="dialog-body"><slot /></div>' +
+    '<div class="dialog-footer"><slot name="footer" :close="() => {}" /></div></div>',
 }
 const FooterStub = {
   name: 'BaseDialogFooter',
@@ -113,6 +119,27 @@ describe('CustomMetricBuilderDialog — templates', () => {
     expect(w.text()).toContain('Create your own')
     // None of the form's questions are on screen yet.
     expect(w.text()).not.toContain('What are you measuring?')
+  })
+
+  it('pins "Create your own" to the footer, not the end of the card list', () => {
+    // It used to sit at the bottom of the scrolling body, under every template
+    // in every module. At 73 templates that was merely awkward; at 170 it means
+    // someone whose question the list does not cover has to scroll past the
+    // whole list to find out they are allowed to write their own.
+    //
+    // Asserted as PLACEMENT, not presence: the old arrangement also put the
+    // words on screen, so `text()).toContain(...)` passed either way.
+    const w = mountDialog()
+    expect(w.get('.dialog-footer').text()).toContain('Create your own')
+    expect(w.get('.dialog-body').text()).not.toContain('Create your own')
+  })
+
+  it('offers no Save while choosing', () => {
+    // A disabled Save button beside the cards reads as "these do not work".
+    // The chooser's footer carries the escape hatch and nothing else.
+    const w = mountDialog()
+    expect(w.vm.choosing).toBe(true)
+    expect(w.find('.footer').exists()).toBe(false)
   })
 
   it('shows the form once "Create your own" is taken', async () => {

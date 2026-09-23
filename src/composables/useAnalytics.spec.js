@@ -271,6 +271,7 @@ describe('useMetricSeries', () => {
     {
       bucket: '2026-07-01',
       dimensionValue: 'site-a',
+      label: 'Malmo Plant',
       value: '4',
       numerator: '4',
       denominator: '10',
@@ -331,6 +332,33 @@ describe('useMetricSeries', () => {
   it('DOES ask for suppressed — it is a dimensioned concept and this path is dimensioned', () => {
     useMetricSeries({ metricKey: 'capa.raised' })
     expect(lastHandle().query).toMatch(/\bsuppressed\b/)
+  })
+
+  it('asks for the label, and keeps it as a string', () => {
+    // dimensionValue is a UUID for every dimension pointing at a record, so a
+    // legend built from it read d2000001-1111-4000-8000-000000000012 while the
+    // ranked charts — which go through metricBreakdown — said Anna Sorensen.
+    // Same metric, same person, two answers.
+    //
+    // Asserted on the QUERY as well as the row: the server has returned a label
+    // since 20260923240000, but a query that does not select it gets undefined
+    // and falls back to the UUID with nothing to show that anything is wrong.
+    const { points } = useMetricSeries({ metricKey: 'capa.raised' })
+    expect(lastHandle().query).toMatch(/\blabel\b/)
+
+    lastHandle().data.value = { metricSeries: { nodes: SERIES_NODES } }
+    expect(points.value[0].label).toBe('Malmo Plant')
+    // numeric() must not touch it — a label is text even when it looks like a
+    // number ("2024", a batch code, a numbered site).
+    expect(typeof points.value[0].label).toBe('string')
+  })
+
+  it('leaves label undefined when the server sends none, rather than inventing one', () => {
+    // A dimension over a free-text column has no lookup to resolve. The caller
+    // falls back to the raw value, which IS the name in that case.
+    const { points } = useMetricSeries({ metricKey: 'capa.raised' })
+    lastHandle().data.value = { metricSeries: { nodes: SERIES_NODES } }
+    expect(points.value[1].label).toBeUndefined()
   })
 
   it('applies the small-cell threshold and the series cap', () => {

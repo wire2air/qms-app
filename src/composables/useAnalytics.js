@@ -105,6 +105,12 @@ const METRIC_SERIES_QUERY = `
       nodes {
         bucket
         dimensionValue
+        # What the value is CALLED. dimensionValue is a UUID for every
+        # dimension that points at a record, so a legend built from it read
+        # d2000001-1111-4000-8000-000000000012 where the ranked charts, which
+        # go through metricBreakdown, said Anna Sorensen. Null when the
+        # dimension has no lookup (a free-text column) — fall back to the value.
+        label
         value
         numerator
         denominator

@@ -1075,12 +1075,6 @@ async function save() {
           </ContentGrid>
         </div>
 
-        <div class="tw:border-t tw:border-divider tw:pt-3">
-          <BaseButton variant="outline" size="sm" @click="startFromScratch">
-            <IconPencil :size="14" aria-hidden="true" />
-            Create your own
-          </BaseButton>
-        </div>
       </template>
 
       <template v-else>
@@ -1579,9 +1573,34 @@ async function save() {
       </template>
     </div>
 
-    <!-- No footer while choosing: there is nothing to save yet, and a disabled
-         Save button next to the cards reads as "these do not work". -->
-    <template v-if="!choosing" #footer="{ close }">
+    <!-- ── THE CHOOSER'S FOOTER ─────────────────────────────────────────────
+         NOT a BaseDialogFooter: there is nothing to save yet, and a disabled
+         Save button next to the cards reads as "these do not work".
+
+         What it does carry is the escape hatch. "Create your own" used to sit
+         at the BOTTOM OF THE SCROLL, under every template in every module —
+         170 of them now, where there were 73 when it was written. Someone who
+         wants to measure something this list does not cover had to scroll past
+         the entire list to discover they were allowed to. Pinned here it is
+         visible from the first card, which is the only place the choice is
+         actually being made.
+
+         Kept visually quiet (outline, small, right-aligned) because it is the
+         minority path: most people want a template and are finished in two
+         clicks. -->
+    <template v-if="choosing" #footer>
+      <div class="tw:flex tw:w-full tw:items-center tw:justify-between tw:gap-3">
+        <BaseText variant="caption" color="secondary" class="tw:min-w-0">
+          Nothing here fits?
+        </BaseText>
+        <BaseButton variant="outline" size="sm" @click="startFromScratch">
+          <IconPencil :size="14" aria-hidden="true" />
+          Create your own
+        </BaseButton>
+      </div>
+    </template>
+
+    <template v-else #footer="{ close }">
       <div class="tw:flex tw:w-full tw:flex-col tw:gap-2">
         <!--
           The reason a save is blocked, as a way BACK to the field.
