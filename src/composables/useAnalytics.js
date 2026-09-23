@@ -164,6 +164,27 @@ const ENTITLEMENT_QUERY = `
 `
 
 /** Series/breakdown cap. The functions bucket by month, so 600 covers 50 years. */
+/**
+ * The smallest group a breakdown will name, never below the server's floor.
+ *
+ * ⚠ THIS IS THE SECOND LAYER, NOT THE CONTROL. metric_breakdown and
+ * metric_series clamp with GREATEST(COALESCE(p_min_cell, 5), 5) as of
+ * 20260923250000, because a floor enforced here would protect only callers
+ * who come through this file — and the parameter travels over GraphQL, where
+ * anyone can replay a request with their own value.
+ *
+ * It was `?? 5`, a DEFAULT: passing 0 returned every withheld cell by name.
+ * Measured on a live tenant, a department breakdown that read
+ * "Other (6, 6 below threshold)" at 5 returned six named departments at 0,
+ * two of them with a count of one — a single identifiable record each.
+ *
+ * Kept here so this client never sends a value the server must correct, and so
+ * the intent is visible where the request is built.
+ */
+function minCellFloor(asked) {
+  return Math.max(Number.isFinite(asked) ? asked : 5, 5)
+}
+
 const SERIES_LIMIT = 600
 
 /** Coerce the BigFloat (string) fields of a row, leaving nulls as null. */
@@ -379,7 +400,7 @@ export function useMetricSeries(params, options = {}) {
       pPeriodStart: toValue(params.periodStart) ?? null,
       pPeriodEnd: toValue(params.periodEnd) ?? null,
       pDimension: toValue(params.dimension) ?? null,
-      pMinCell: toValue(params.minCell) ?? 5,
+      pMinCell: minCellFloor(toValue(params.minCell)),
       first: SERIES_LIMIT,
     }),
     { initial: null, ...options },
@@ -413,7 +434,7 @@ export function useMetricBreakdown(params, options = {}) {
       pPeriodStart: toValue(params.periodStart) ?? null,
       pPeriodEnd: toValue(params.periodEnd) ?? null,
       pLimit: toValue(params.limit) ?? 10,
-      pMinCell: toValue(params.minCell) ?? 5,
+      pMinCell: minCellFloor(toValue(params.minCell)),
       pRankBy: toValue(params.rankBy) ?? 'contribution',
     }),
     { initial: null, ...options },
