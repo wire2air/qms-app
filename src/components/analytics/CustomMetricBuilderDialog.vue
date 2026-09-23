@@ -61,7 +61,6 @@ import {
   humaniseCode,
   reportingKeyOptions,
   reportingFields,
-  eavFilterConflict,
   customFilterFields,
   customFieldKey,
   expandCustomFilters,
@@ -855,7 +854,6 @@ function answerHint(f) {
  * Not a save blocker — the definition is legal and the compiler accepts it. It
  * simply cannot match, because each answer is its own row.
  */
-const eavConflict = computed(() => eavFilterConflict(storedDefinition.value))
 
 /**
  * The hint under a value input that is still typed.
@@ -1307,21 +1305,7 @@ async function save() {
                 Add filter
               </BaseButton>
             </div>
-            <!--
-              Reported, not refused. The definition is legal and the compiler
-              accepts it — it simply cannot match, because each answer on this
-              module is stored as its own row and one row cannot be two fields.
-              Blocking the save here would be this form overruling the server.
-            -->
-            <BaseBanner
-              v-if="eavConflict"
-              tone="warning"
-              :icon="IconAlertTriangle"
-              title="This combination will count nothing"
-              :message="eavConflict"
-              class="tw:mb-2"
-            />
-            <BaseText variant="caption" color="secondary" class="tw:mb-2">
+                        <BaseText variant="caption" color="secondary" class="tw:mb-2">
               Add a filter to measure only some records. A record must match
               <strong>all</strong> of them to be counted.
             </BaseText>

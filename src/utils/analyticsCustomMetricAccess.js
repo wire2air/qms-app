@@ -676,43 +676,26 @@ export function reportingFields(templates, moduleId) {
 }
 
 /**
- * Why a second filter on a DIFFERENT custom field can never match, or null.
+ * ── RETIRED, AND KEPT AS A NO-OP ON PURPOSE ────────────────────────────────
  *
- * ── THE SHAPE OF THE PROBLEM ───────────────────────────────────────────────
- * analytics_field_values holds ONE ROW PER (record, field): a lead's source and
- * its status are two rows, not two columns. The compiler ANDs every filter into
- * a single WHERE over that table, so
+ * This warned that filtering two custom fields at once would count nothing,
+ * which was true: the compiler ANDed both predicates into one WHERE over one
+ * row, and a row is one (record, field), so it asked that row to be two fields
+ * at once. "Open web leads" returned 0 against a true 10.
  *
- *     reporting_key = 'lead_source' AND reporting_key = 'lead_status'
+ * The compiler now emits one EXISTS per field, correlated on record_id
+ * (migration 20260923120000), so the question it warned about is the question
+ * the builder is FOR. Leaving the warning would tell people not to do the
+ * thing that now works.
  *
- * is asking one row to be two fields at once. It compiles, it publishes, and it
- * counts nothing — the same silent-zero failure the value pickers were built to
- * remove, arriving by a different route.
+ * Kept as a function returning null rather than deleted: a stored definition
+ * written before today is unaffected either way, and callers that still import
+ * it keep working while they are cleaned up. It has no other behaviour.
  *
- * Reported rather than blocked: the definition is legal, the save succeeds, and
- * refusing it would be this helper overruling the compiler. Saying so at the
- * point the second filter is added is what the author needs.
- *
- * Only applies to the EAV source. On a real table two filters are two columns
- * and AND is exactly right.
- *
- * @param {object} definition
- * @returns {string|null}
+ * @returns {null} always
  */
-export function eavFilterConflict(definition) {
-  if (definition?.sourceTable !== 'analytics_field_values') return null
-  const keys = new Set()
-  for (const f of definition?.filters ?? []) {
-    if (f?.field !== 'reporting_key') continue
-    if ((f.op ?? 'in') !== 'in') continue
-    for (const v of f.values ?? []) keys.add(String(v))
-  }
-  if (keys.size < 2) return null
-  return (
-    `Filtering on ${keys.size} fields at once will count nothing. Each answer on this module ` +
-    'is stored as its own row, so one row cannot be two fields — filter on one, or break the ' +
-    'results down by Field to see them side by side.'
-  )
+export function eavFilterConflict() {
+  return null
 }
 
 // ── custom-module fields, shown the way a built-in module's are ─────────────
@@ -755,11 +738,11 @@ export const CUSTOM_FIELD_PREFIX = 'custom:'
  * unchanged, byte for byte, from what the two-row form produced: the compiler,
  * the registry and the security model see exactly what they saw before.
  *
- * ⚠ WHAT THIS DOES NOT FIX. Two DIFFERENT custom fields filtered at once still
- * cannot match — that is the compiler ANDing both predicates into one WHERE
- * over one row, and no amount of UI changes it. `eavFilterConflict` still
- * warns, and it still reads the expanded `reporting_key` rows, so the warning
- * survives this change untouched.
+ * Two DIFFERENT custom fields filtered at once used to be unaskable — the
+ * compiler ANDed both predicates into one WHERE over one row, so "open web
+ * leads" returned 0 against a true 10. The compiler now emits one EXISTS per
+ * field, correlated on record_id (migration 20260923120000), so the pair works
+ * and `eavFilterConflict` has been retired to a no-op.
  */
 
 /** Is this a virtual form-field row rather than a registry column? */

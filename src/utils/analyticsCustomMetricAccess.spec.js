@@ -648,52 +648,22 @@ describe('reportingFields', () => {
   })
 })
 
-describe('eavFilterConflict', () => {
-  const eav = (filters) => ({ sourceTable: 'analytics_field_values', filters })
-
-  it('warns when two different custom fields are filtered at once', () => {
-    // analytics_field_values holds one row per (record, field), and the compiler
-    // ANDs filters into a single WHERE — so this asks one row to be two fields.
-    // It compiles, it publishes, and it counts nothing.
-    const msg = eavFilterConflict(
-      eav([
-        { field: 'reporting_key', op: 'in', values: ['lead_source'] },
-        { field: 'reporting_key', op: 'in', values: ['lead_status'] },
-      ]),
-    )
-    expect(msg).toContain('will count nothing')
-    expect(msg).toContain('break the')
-  })
-
-  it('stays silent for the one-field case the compiler requires', () => {
-    expect(
-      eavFilterConflict(eav([{ field: 'reporting_key', op: 'in', values: ['deal_value'] }])),
-    ).toBeNull()
-  })
-
-  it('stays silent on a real table, where two filters are two columns', () => {
-    // The conflict is a property of EAV storage, not of filtering.
+describe('eavFilterConflict — retired', () => {
+  // It used to warn that filtering two custom fields at once would count
+  // nothing, which was true while the compiler ANDed both predicates over one
+  // row. The compiler now emits one EXISTS per field (migration
+  // 20260923120000), so that combination is the thing the builder is for.
+  // Pinned as a no-op so the warning cannot quietly come back and tell people
+  // not to do what now works.
+  it('never warns', () => {
     expect(
       eavFilterConflict({
-        sourceTable: 'capas',
+        sourceTable: 'analytics_field_values',
         filters: [
-          { field: 'status_id', op: 'in', values: ['OPEN'] },
-          { field: 'priority_id', op: 'in', values: ['HIGH'] },
+          { field: 'reporting_key', op: 'in', values: ['lead_source'] },
+          { field: 'reporting_key', op: 'in', values: ['lead_status'] },
         ],
       }),
-    ).toBeNull()
-  })
-
-  it('ignores filters on the other registered columns', () => {
-    // site_id and occurred_at are real columns on the projection, so they AND
-    // with a reporting_key filter perfectly well.
-    expect(
-      eavFilterConflict(
-        eav([
-          { field: 'reporting_key', op: 'in', values: ['lead_source'] },
-          { field: 'site_id', op: 'isNotNull' },
-        ]),
-      ),
     ).toBeNull()
   })
 })

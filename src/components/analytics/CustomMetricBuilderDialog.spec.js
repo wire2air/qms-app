@@ -621,7 +621,7 @@ describe('CustomMetricBuilderDialog — a custom module’s answers', () => {
       { field: 'reporting_key', op: 'in', values: ['lead_status'] },
     ])
     await nextTick()
-    expect(w.vm.eavConflict).toContain('will count nothing')
+    expect(w.vm.storedDefinition.filters.filter((f) => f.field === 'reporting_key')).toHaveLength(2)
   })
 })
 
@@ -680,10 +680,10 @@ describe('CustomMetricBuilderDialog — custom fields as one row', () => {
     ])
   })
 
-  // ⚠ The warning reasons about reporting_key rows. Reading the unexpanded
-  // form would silence it exactly when two custom fields are filtered at once —
-  // the case that compiles, publishes and counts nothing.
-  it('still warns when two custom fields are filtered at once', async () => {
+  // Two custom fields filtered at once is now a supported question — the
+  // compiler gives each one its own EXISTS. What still has to hold is that the
+  // stored definition carries BOTH pins, since that is what the compiler reads.
+  it('stores both pins when two custom fields are filtered', async () => {
     const w = openLeadCrm()
     await nextTick()
     w.vm.form.definition.filters = [
@@ -691,7 +691,10 @@ describe('CustomMetricBuilderDialog — custom fields as one row', () => {
       { field: 'custom:lead_source', op: 'in', values: ['WEB'] },
     ]
     await nextTick()
-    expect(w.vm.eavConflict).toMatch(/count nothing/i)
+    const keys = w.vm.storedDefinition.filters
+      .filter((f) => f.field === 'reporting_key')
+      .flatMap((f) => f.values)
+    expect(keys).toEqual(['lead_status', 'lead_source'])
   })
 
   // The sum/avg guard demands a single-key pin. A virtual row supplies one once
@@ -758,10 +761,9 @@ describe('CustomMetricBuilderDialog — custom fields as a breakdown', () => {
       { field: 'reporting_key', op: 'in', values: ['lead_source'] },
       { field: 'text_value', op: 'in', values: ['WEB'] },
     ])
-    expect(w.vm.eavConflict).toBeNull()
   })
 
-  it('warns when the breakdown pins a different field than the filter', async () => {
+  it('pins both fields when the breakdown names a different one', async () => {
     const w = openLeadCrm()
     await nextTick()
     w.vm.form.definition.filters = [
@@ -769,7 +771,10 @@ describe('CustomMetricBuilderDialog — custom fields as a breakdown', () => {
     ]
     w.vm.form.definition.groupBy = ['custom:lead_source']
     await nextTick()
-    expect(w.vm.eavConflict).toMatch(/count nothing/i)
+    const keys = w.vm.storedDefinition.filters
+      .filter((f) => f.field === 'reporting_key')
+      .flatMap((f) => f.values)
+    expect(keys).toEqual(['lead_status', 'lead_source'])
   })
 
   it('leaves a built-in module\'s breakdown list alone', async () => {
