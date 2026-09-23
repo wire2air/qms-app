@@ -257,6 +257,7 @@ export default {
     "useCssVar": true,
     "useCssVars": true,
     "useCurrentElement": true,
+    "useCustomMetricRefreshState": true,
     "useCycleList": true,
     "useDark": true,
     "useDateField": true,

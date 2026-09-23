@@ -271,6 +271,46 @@ export function useInsightStaleness(options = {}) {
   return { ...q, staleness, emptyReason }
 }
 
+/**
+ * Has each custom metric ever refreshed, and did that run produce anything?
+ *
+ * ⚠ SEPARATE FROM useMetricCatalog, AND IT HAS TO BE. The catalog lists only
+ * metrics that HAVE rollup rows, so it is definitionally silent about the ones
+ * this answers for — a metric that ran and matched nothing is absent from it
+ * for exactly the same reason as one that has never run.
+ *
+ * That ambiguity is what made "Preparing" mean two opposite things: a metric
+ * filtering on a status that does not exist sat under "figures are worked out
+ * every 15 minutes" indefinitely. See metricState().
+ */
+const REFRESH_STATE_QUERY = `
+  query CustomMetricRefreshState {
+    customMetricRefreshState {
+      nodes {
+        metricKey
+        # NULL = the worker has never completed a run for this metric, which is
+        # the only honest reading of "Preparing".
+        lastRefreshedAt
+        # 0 alongside a timestamp = it ran and matched nothing. A real answer,
+        # not a missing one.
+        lastRefreshRows
+      }
+    }
+  }
+`
+
+export function useCustomMetricRefreshState(options = {}) {
+  const q = useGraphQLQuery(REFRESH_STATE_QUERY, () => ({}), { initial: null, ...options })
+  const byMetricKey = computed(() => {
+    const out = new Map()
+    for (const row of nodesOf(q.data.value, 'customMetricRefreshState')) {
+      out.set(row.metricKey, row)
+    }
+    return out
+  })
+  return { ...q, byMetricKey }
+}
+
 export function useMetricCatalog(params = {}, options = {}) {
   const q = useGraphQLQuery(
     METRIC_CATALOG_QUERY,

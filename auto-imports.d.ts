@@ -249,6 +249,7 @@ declare global {
   const useCssVar: typeof import('@vueuse/core').useCssVar
   const useCssVars: typeof import('vue').useCssVars
   const useCurrentElement: typeof import('@vueuse/core').useCurrentElement
+  const useCustomMetricRefreshState: typeof import('./src/composables/useAnalytics.js').useCustomMetricRefreshState
   const useCycleList: typeof import('@vueuse/core').useCycleList
   const useDark: typeof import('@vueuse/core').useDark
   const useDateField: typeof import('./src/composables/useDateField.js').useDateField

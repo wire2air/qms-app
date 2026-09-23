@@ -35,6 +35,7 @@ import { isAllowed } from '@/utils/currentSession'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Same reasoning
 // as ReportDetail's export: request_metric_refresh returns a graphile-worker job
 // id, not a record, so there is nothing for the SyncEngine to cache or broadcast.
+import { DateTime } from 'luxon'
 import { graphqlRequest } from '@syncEngine/network/graphqlClient.js'
 import {
   IconMathFunction,
@@ -115,6 +116,29 @@ const fields = computed(() => {
 // the rollup ships with, so the builder still works if the catalog is empty.
 const { metrics: catalog } = useMetricCatalog()
 const dimensionCap = computed(() => catalog.value?.[0]?.dimensionCapacity ?? 3)
+
+// Whether each metric has ever refreshed, and what that run produced. The
+// catalog cannot answer this — it lists only metrics that HAVE rollup rows, so
+// it is silent about exactly the ones in question. See metricState().
+const { byMetricKey: refreshState } = useCustomMetricRefreshState()
+
+/**
+ * The state badge and caption must agree, so both read this rather than
+ * re-deriving the condition. Three call sites disagreeing about which metric is
+ * "empty" is how a filter starts contradicting the badge beside it — the same
+ * reasoning `decorated` already applies.
+ */
+function stateOf(m) {
+  return metricState(m, !!catalogRow(m), refreshState.value.get(metricKeyOf(m)) ?? null)
+}
+
+/** When the refresh last ran, for the "no matching records" caption. */
+function checkedAt(m) {
+  const iso = refreshState.value.get(metricKeyOf(m))?.lastRefreshedAt
+  if (!iso) return 'recently'
+  const when = DateTime.fromISO(iso)
+  return when.isValid ? when.formatDate('datetime') : 'recently'
+}
 
 // Three verbs since the 2026-09-21 permission split: a role may now author
 // metrics without being trusted to destroy them, which the single
@@ -272,7 +296,7 @@ function clearFilters() {
 const decorated = computed(() =>
   (metrics.value ?? []).map((m) => ({
     metric: m,
-    state: metricState(m, !!catalogRow(m)),
+    state: stateOf(m),
     moduleId: m.moduleId ?? '',
     moduleName: moduleLabel(m.moduleId),
   })),
@@ -522,6 +546,21 @@ async function togglePublish(m) {
                   this badge tests. No timestamp is claimed: the catalog carries no
                   computed_at, and inventing one would be worse than saying nothing.
                 -->
+                <!--
+                  Ran, and matched nothing. NOT an error — the definition is
+                  valid and zero is the honest answer — but it will never show a
+                  figure until someone changes it, so it must not sit under a
+                  badge that says "wait".
+                -->
+                <BaseBadge
+                  v-else-if="stateOf(m) === 'empty'"
+                  class="tw:bg-orange-100 tw:text-orange-800"
+                >
+                  <template #icon>
+                    <IconAlertTriangle :size="12" aria-hidden="true" />
+                  </template>
+                  No matching records
+                </BaseBadge>
                 <BaseBadge
                   v-else-if="m.isPublished && !catalogRow(m)"
                   class="tw:bg-amber-100 tw:text-amber-800"
@@ -555,6 +594,21 @@ async function togglePublish(m) {
 
               <!-- Says what "Preparing" means, so the badge is not another thing
                    to decode. Only while it applies. -->
+              <!--
+                Names the cause and the fix. The old copy said "figures are
+                worked out every 15 minutes" for this case too — a promise the
+                metric could never keep, which is how a filter on a status that
+                does not exist went unnoticed.
+              -->
+              <BaseText
+                v-else-if="stateOf(m) === 'empty'"
+                variant="caption"
+                color="secondary"
+                class="tw:mt-2"
+              >
+                Checked {{ checkedAt(m) }} — nothing matched. The definition is valid, so this is a real zero: usually a filter
+                naming a value that no record uses. Edit to check the filters.
+              </BaseText>
               <BaseText
                 v-else-if="m.isPublished && !catalogRow(m)"
                 variant="caption"

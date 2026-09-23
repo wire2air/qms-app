@@ -34,8 +34,20 @@ import { METRIC_TEMPLATES, templatesForModule } from '@/utils/analyticsMetricTem
  * first. The spec could not even load, so it failed on develop and took every
  * frontend PR's CI with it.
  */
+/**
+ * ⚠ EVERY migration that seeds analytics_module_fields must be listed, or the
+ * templates for whatever it registered fail here with "not in the registry" —
+ * which reads like a bad template rather than a missing file.
+ *
+ * The 2026-09-23 pair use a different shape from the 2026-09-18 baseline: a
+ * `const ROWS` array of arrays rather than a SQL VALUES list, and no id column.
+ * readRegistry parses both.
+ */
 const MIGRATIONS = [
   '../../../qms/backend/api/migrations/20260918020730-create-analytics-module-fields.js',
+  '../../../qms/backend/api/migrations/20260923140000-register-modules-in-metric-builder.js',
+  '../../../qms/backend/api/migrations/20260923170000-register-modules-round-two.js',
+  '../../../qms/backend/api/migrations/20260923200000-cross-module-link-fields.js',
 ]
 
 /** @returns {Map<string, {columns: Set<string>, dates: Set<string>, groupable: Set<string>, numbers: Set<string>}>} */
@@ -43,13 +55,25 @@ function readRegistry() {
   const byModule = new Map()
   for (const rel of MIGRATIONS) {
     const source = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
-    const body = source.slice(source.indexOf('INSERT INTO'))
+    // The 2026-09-23 migrations build their rows in a `const ROWS` array above
+    // the INSERT; the 2026-09-18 baseline lists them inside it. Start from
+    // whichever comes first so both shapes are reachable.
+    const rowsAt = source.indexOf('const ROWS = [')
+    const insertAt = source.indexOf('INSERT INTO')
+    const body = source.slice(rowsAt >= 0 ? rowsAt : insertAt)
     // (id, module_id, source_table, column_name, label, kind, lookup_table,
     //  filter_key, groupable, filterable, display_order, scope_role)
     const row =
       /\(\s*'[0-9a-f-]{36}',\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([^']*)',\s*'([a-z]+)',\s*(?:'[a-z_]+'|NULL),\s*(?:'[A-Za-z]+'|NULL),\s*(true|false),\s*(true|false),\s*\d+,\s*(?:'[a-z]+'|NULL)\s*\)/g
+    // The JS-array shape: ['module', 'table', 'column', 'Label', 'kind',
+    //                       lookup, filterKey, groupable, filterable, order, scope]
+    const jsRow =
+      /\[\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([a-z_]+)',\s*'([^']*)',\s*'([a-z]+)',\s*(?:'[a-z_]+'|null),\s*(?:'[A-Za-z]+'|null),\s*(true|false),\s*(?:true|false),\s*\d+,\s*(?:'[a-z]+'|null)\s*\]/g
+
     let m
-    while ((m = row.exec(body))) {
+    for (const re of [row, jsRow]) {
+      re.lastIndex = 0
+      while ((m = re.exec(body))) {
       const [, moduleId, table, column, , kind, groupable] = m
       const key = `${moduleId}::${table}`
       if (!byModule.has(key)) {
@@ -65,6 +89,7 @@ function readRegistry() {
       if (kind === 'date') entry.dates.add(column)
       if (kind === 'number') entry.numbers.add(column)
       if (groupable === 'true') entry.groupable.add(column)
+      }
     }
   }
   return byModule
@@ -84,20 +109,76 @@ const STATUS_SEEDS = {
   complaint_statuses: ['DRAFT', 'OPEN', 'CLOSED', 'CANCELLED'],
   change_request_statuses: ['DRAFT', 'OPEN', 'CLOSED', 'CANCELLED'],
   document_statuses: ['ACTIVE', 'ARCHIVED'],
-  quality_event_statuses: [
-    'DRAFT',
-    'OPEN',
-    'UNDER_REVIEW',
-    'AWAITING_DECISION',
-    'CLOSED',
-    'CANCELLED',
-  ],
+  // ⚠ FOUR VALUES, NOT SIX. This list said DRAFT / OPEN / UNDER_REVIEW /
+  // AWAITING_DECISION / CLOSED / CANCELLED until 2026-09-23, and the templates
+  // filtered on the two that do not exist. Because BOTH the templates and this
+  // fixture carried the same wrong vocabulary, the spec validated the mistake
+  // against itself and passed — the exact "asserting the same assumption twice"
+  // failure this file's header warns about for COLUMNS, reproduced for STATUSES.
+  //
+  // The four metrics compiled, published and matched nothing for ever; the UI
+  // rendered "Preparing", which reads as "not computed yet" rather than "this
+  // status does not exist". Found by a human looking at a dashboard tile, not
+  // by this suite.
+  //
+  // Verified against quality_event_statuses on app-db, which holds exactly
+  // these four. quality_events IS on the unified machine.
+  quality_event_statuses: ['DRAFT', 'OPEN', 'CLOSED', 'CANCELLED'],
   audit_finding_statuses: [
     'OPEN',
     'IN_REVIEW',
     'IN_REMEDIATION',
     'VERIFIED',
     'CLOSED',
+    'CANCELLED',
+  ],
+  // ── Added with the 2026-09-23 module registrations ───────────────────────
+  // Read from the lookup TABLES on app-db, not from the values that happen to
+  // appear in seeded data: a status nobody has used yet is still valid, and a
+  // template naming it must not fail here.
+  supplier_statuses: ['APPROVED', 'BLOCKED', 'PENDING', 'REJECTED'],
+  inspection_lot_statuses: ['CANCELLED', 'CLOSED', 'DRAFT', 'OPEN'],
+  customer_complaint_statuses: [
+    'ASSIGNED',
+    'CLOSED',
+    'CONVERTED_TO_NC',
+    'IN_PROGRESS',
+    'NEW',
+    'ON_HOLD',
+    'OPEN',
+    'PENDING_APPROVAL',
+    'RESOLVED',
+    'UNDER_REVIEW',
+    'WAITING_CUSTOMER',
+  ],
+  // ⚠ NO LOOKUP TABLE EXISTS for these two — audit_instances.status_id and the
+  // three training `status` columns are free text, which is why the registry
+  // records lookup_table NULL for them. Listed here anyway so a template naming
+  // a status the module does not use still fails this spec: the point of the
+  // check is that the value is REAL, and a missing foreign key makes a typo
+  // more dangerous, not less.
+  audit_instance_statuses: ['OPEN', 'CLOSED', 'CANCELLED'],
+  training_statuses: ['DRAFT', 'ACTIVE', 'ARCHIVED'],
+  training_instance_statuses: ['ACTIVE', 'PENDING_VERIFICATION', 'COMPLETED', 'CANCELLED'],
+  training_assignee_statuses: [
+    'ASSIGNED',
+    'IN_PROGRESS',
+    'COMPLETED',
+    'VERIFIED',
+    'FAILED',
+    'RETRAIN_REQUIRED',
+    'REMOVED',
+  ],
+  task_instance_statuses: [
+    'ASSIGNED',
+    'IN_PROGRESS',
+    'FORM_SUBMITTED',
+    'PENDING_APPROVAL',
+    'APPROVED',
+    'REJECTED',
+    'SENT_BACK',
+    'CHANGES_REQUESTED',
+    'REASSIGNED',
     'CANCELLED',
   ],
 }
@@ -111,6 +192,17 @@ const STATUS_TABLE = {
   change_requests: 'change_request_statuses',
   quality_events: 'quality_event_statuses',
   audit_findings: 'audit_finding_statuses',
+  suppliers: 'supplier_statuses',
+  audit_instances: 'audit_instance_statuses',
+  inspection_lots: 'inspection_lot_statuses',
+  customer_complaints: 'customer_complaint_statuses',
+  task_instances: 'task_instance_statuses',
+  // ⚠ These three carry their state in a column called `status`, not
+  // `status_id`. STATUS_TABLE is keyed by source table, so they resolve here;
+  // the check below reads whichever of the two columns a filter names.
+  trainings: 'training_statuses',
+  training_instances: 'training_instance_statuses',
+  training_assignees: 'training_assignee_statuses',
 }
 
 describe('the parsed registry', () => {
