@@ -8,7 +8,32 @@ keywords: [automated testing, regression, supplier evidence, coverage, GAMP 5, t
 
 # Automated Regression Coverage
 
-**Document ID:** VAL-ARC-001 · **Version:** 1.3 · **System:** Qability QMS
+**Document ID:** VAL-ARC-001 · **Version:** 1.4 · **System:** Qability QMS
+
+> **Changes in 1.4 (2026-09-24).** A correctness pass over this document, prompted by
+> the test-suite audit. No requirement changed because the product changed; three changed
+> because the document did not match the evidence.
+>
+> - **URS-DOC-07** moves from *Partial* to **Product non-conformant** (defect
+>   **DOC-REL-01**). Its note said "releasing an unapproved draft is never attempted" —
+>   that ceased to be true when `e2e/documents/j20-unapproved-release-in-review.spec.js`
+>   landed. The attempt is now made at three layers: the HTTP route and the raw-GraphQL
+>   path both refuse it, and the trusted database path permits `IN_REVIEW→EFFECTIVE`.
+>   One open edge, no shipped caller, and `REJECTED→EFFECTIVE` /
+>   `CHANGES_REQUESTED→EFFECTIVE` are both correctly refused.
+> - **URS-CCM-02** moves from *Product non-conformant* to **Gap pinned**. This document
+>   defines *Product non-conformant* as "a test asserts the behaviour the requirement
+>   demands, and the product does not meet it" — a RED test. The cited tests are green
+>   and assert only the fields that DO persist; nothing asserts the missing category,
+>   severity, product and lot columns. The finding (defect CC-D1) is unchanged and just
+>   as real; only its classification was wrong.
+> - A new section, **"Two opposite test conventions"**, is added ahead of the Summary.
+>   The suite contains 15 deliberately-RED requirement-asserting tests and 30
+>   deliberately-GREEN behaviour-pinning tests, and confusing the two destroys evidence.
+>   The rule was previously only implicit in the test sources.
+>
+> Summary totals are restated: Partial 36→35, Product non-conformant 4→5 net of both
+> moves, Gap pinned 4→5. Covered is unchanged at 95. All three tables reconcile to 163.
 
 > **Changes in 1.3 (2026-09-23).** Training Management (§5) re-assessed after three new
 > E2E suites. **URS-TRN-01** and **URS-TRN-06** move from *Partial* to **Covered**
@@ -101,6 +126,47 @@ Three points that a reader will otherwise get wrong:
   protocol say so. Publication locks and material review in
   [OQ-02](/validation/oq/training-management) are the two that matter most.
 
+## Two opposite test conventions — read this before triaging a red build
+
+The suite contains two kinds of test that deal with an open defect, and they behave in
+**opposite** ways. Confusing them destroys evidence, so the rule is stated here rather
+than left in the source files.
+
+| Convention | Marker in the test name | Status **today** | Status **when the defect is fixed** |
+| --- | --- | --- | --- |
+| Requirement-asserting | `🔴 … (FAILS TODAY)` | **RED** — expected to fail | turns **green** |
+| Behaviour-pinning | `KNOWN DEFECT …` | **GREEN** — expected to pass | turns **red** |
+
+Measured on the suite as it stands: **15 requirement-asserting tests across 11 files are
+deliberately red**, and **30 behaviour-pinning tests across 24 files are deliberately
+green**.
+
+**Why both exist.** A requirement-asserting test says what the product *must* do, and
+fails until it does — so the requirement cannot be quietly forgotten, and the row in this
+document reads *Product non-conformant*. A behaviour-pinning test records what the product
+*currently* does, so that a later change is noticed — the row reads *Gap pinned*, and the
+test is explicitly **not** evidence the requirement is met.
+
+**The trap, and it runs both ways.**
+
+- A red `FAILS TODAY` test is **not a broken test**. "Fixing" it to pass means deleting
+  the assertion that the requirement exists. The defect then has no automated witness.
+- A `KNOWN DEFECT` test going red is **good news, not a regression**. It means the
+  defect was fixed and the pin is now obsolete. Delete the pin and replace it with the
+  positive assertion — do not restore it.
+
+Every test of either kind carries the instruction in its own message. A `KNOWN DEFECT`
+pin that fires says, in the failure output, what to do — for example *"SIG-IMMUT-01 is
+FIXED — delete this pin and replace it with the positive assertion"*. Read the failure
+text before changing any test in this suite.
+
+**One defect, one witness.** Where a finding is asserted in red in one place, other files
+that touch it pin the measurement and defer, rather than asserting the same requirement a
+second time. `DOC-REL-01` is the worked example: the red assertion lives in
+`e2e/documents/j20-unapproved-release-in-review.spec.js`, and the integration-level test
+of the same transition graph records what the database does and points at j20. Two files
+going red for one defect is how a single finding becomes two in a validation report.
+
 ## Summary
 
 Across the 163 baseline requirements in the Traceability Matrix:
@@ -108,11 +174,11 @@ Across the 163 baseline requirements in the Traceability Matrix:
 | Status                       | Requirements | Share |
 | ---------------------------- | ------------ | ----- |
 | Covered                      | 95           | 58%   |
-| Partial                      | 36           | 22%   |
+| Partial                      | 35           | 21%   |
 | Not automated                | 16           | 10%   |
 | N/A (not verifiable by test) | 7            | 4%    |
 | Product non-conformant       | 5            | 3%    |
-| Gap pinned                   | 4            | 2%    |
+| Gap pinned                   | 5            | 3%    |
 | **Total**                    | **163**      |       |
 
 The suite behind these figures is **362 test files containing 1,456 tests**, organised as
@@ -144,7 +210,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | §  | Module                                                                        | Reqs | Cov | Part | None | N/A | PNC | Gap |
 | -- | ----------------------------------------------------------------------------- | ---- | --- | ---- | ---- | --- | --- | --- |
 | 3  | Cross-cutting — electronic records and access ([OQ-16](/validation/oq/security-and-electronic-records)) | 23   | 10  | 8    | 1    | 4   | —   | —   |
-| 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 7   | 6    | 3    | —   | —   | —   |
+| 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 7   | 5    | 3    | —   | 1   | —   |
 | 5  | Training Management ([OQ-02](/validation/oq/training-management))              | 11   | 7   | 1    | 1    | —   | 2   | —   |
 | 6  | Nonconformance ([OQ-03](/validation/oq/nonconformance))                        | 10   | 5   | 3    | 2    | —   | —   | —   |
 | 7  | CAPA ([OQ-04](/validation/oq/capa))                                           | 10   | 5   | 3    | 1    | —   | 1   | —   |
@@ -159,7 +225,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | 16 | Forms & Workflows ([OQ-13](/validation/oq/forms-and-workflows))                 | 11   | 5   | 3    | 3    | —   | —   | —   |
 | 17 | Item Master ([OQ-14](/validation/oq/item-master))                              | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 18 | Retain Samples ([OQ-15](/validation/oq/retain-samples))                         | 6    | 2   | 3    | 1    | —   | —   | —   |
-| 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 6   | —    | 1    | —   | 1   | —   |
+| 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 6   | —    | 1    | —   | —   | 1   |
 | **Total** |                                                                        | **163** | **93** | **38** | **16** | **7** | **5** | **4** |
 
 **Three things to take from this table.**
@@ -247,7 +313,7 @@ assessment and the wording to record.
 | URS-DOC-04 | Covered | `e2e/documents/j1-author-create-submit.spec.js` — "fill sections → submit → IN_REVIEW with doc number, workflow and task" | Document number and review workflow are assigned on submit. |
 | URS-DOC-05 | Covered | `e2e/documents/j3-reject-and-cancel.spec.js` — "reviewer rejects → REJECTED → author resubmits → IN_REVIEW" | Rejection returns the document to the author for resubmission. |
 | URS-DOC-06 | Covered | `e2e/documents/j2-review-approve-esign.spec.js` — "full approval chain with e-signature and snapshot" | Approval chain completes with e-signature and snapshot. |
-| URS-DOC-07 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | Releasing an unapproved draft is never attempted. |
+| URS-DOC-07 | Product non-conformant | `e2e/documents/j20-unapproved-release-in-review.spec.js` — "🔴 DOC-REL-01 · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused" | Defect **DOC-REL-01**: the HTTP route and the raw-GraphQL path both refuse an unapproved release, but the trusted database path permits `IN_REVIEW→EFFECTIVE`, so the seal TC-01-07 describes does not hold on every path. `REJECTED→EFFECTIVE` and `CHANGES_REQUESTED→EFFECTIVE` are correctly refused — this is one open edge, not an absent guard. No shipped caller reaches it. |
 | URS-DOC-08 | Covered | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | Exactly one version stays effective after supersede. |
 | URS-DOC-09 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | A blank change reason is never refused. |
 | URS-DOC-10 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | The revision-history view is not tested. |
@@ -449,7 +515,7 @@ assessment and the wording to record.
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
 | URS-CCM-01 | Covered | `j3-customer-complaint-lifecycle.spec.js` — "create: lands in customer_complaints, not complaints…"; `j9-intake-audit-trail.spec.js` — intake steps 3–8 | Creation is permission-gated, mints a per-company CC number, opens in New, records the recorder and the date raised, and never reaches the internal register. |
-| URS-CCM-02 | Product non-conformant | `j9-intake-audit-trail.spec.js` — "priority, source and customer reference persist and read back"; `j10-assignment-permissions.spec.js` — "an attachment persists against the ticket" | Priority, source, customer reference and attachments are proven and do persist. **Category, severity, product and lot reference cannot be recorded at all** — they are not columns on `customer_complaints` (defect CC-D1). See the non-conformance table above before executing TC-17-02. |
+| URS-CCM-02 | Gap pinned | `j9-intake-audit-trail.spec.js` — "priority, source and customer reference persist and read back"; `j10-assignment-permissions.spec.js` — "an attachment persists against the ticket" | Priority, source, customer reference and attachments are proven and do persist. **Category, severity, product and lot reference cannot be recorded at all** — they are not columns on `customer_complaints` (defect CC-D1). See the non-conformance table above before executing TC-17-02. |
 | URS-CCM-03 | Covered | `j10-assignment-permissions.spec.js` — accept / reassign / no-access probes; `j3` — "accept: the agent becomes the assignee…" | Acceptance sets the assignee and advances status; reassignment works with no named-owner gate; a no-access account is refused every action at the API, not just in the interface. |
 | URS-CCM-04 | Covered | `j10-assignment-permissions.spec.js` — public reply, internal/QA notes, attachment | Correspondence persists and is attributed to the actor; a public reply sets Waiting on Customer; internal and QA notes never move the status. |
 | URS-CCM-05 | Covered | `j7-closure-approval.spec.js` — 10 tests across 5a and 5b | Both branches proven: direct close and second-close refusal; approval-on routes to PENDING_APPROVAL; a non-approver is refused; a wrong PIN is refused; the correct PIN closes it and the signature evidence lands in the audit trail; reopen returns to Open and clears the assignee. The empty system-wide signature register is asserted deliberately — see the note below. |
