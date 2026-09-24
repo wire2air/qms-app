@@ -84,6 +84,19 @@ async function portalSignIn() {
   return { ctx, res, sid: sidFromSetCookie(res.headersArray()) }
 }
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// Playwright discards a worker after a failing test and RUNS the file's pending
+// `afterAll` before continuing in a fresh one, but the `beforeAll` of an
+// already-entered describe does NOT re-run. Here `beforeAll` INSERTS the portal access grant the whole file depends on
+// and `afterAll` deletes it, so a discard would leave later tests signing in
+// against a revoked grant and reporting the refusal as a scope finding.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it
+// against torn-down state, so one real failure stays one failure instead of
+// printing as several. See complaints/j11 for the alternative fix (arrange per
+// describe), which suits files whose tests can cheaply own their fixtures.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('PW-J11 · a PORTAL_ONLY session is confined to the portal', () => {
   test('GATE · a PORTAL_ONLY session is refused on the main app surface', async () => {
     expect(grantExists(), 'the temporary portal grant was created').toBe(true)

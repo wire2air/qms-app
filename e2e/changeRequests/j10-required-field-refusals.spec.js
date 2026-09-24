@@ -20,7 +20,7 @@
 // whole file would pass while proving nothing.
 import { test, expect } from '@playwright/test'
 import { DateTime } from 'luxon'
-import { AUTH, USERS, SITES, DEPARTMENTS, FIXTURES } from '../fixtures/cast.js'
+import { AUTH, USERS, SITES, DEPARTMENTS, FIXTURES, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 import { uniqueTitle } from '../fixtures/changeRequests.js'
 import {
@@ -40,8 +40,19 @@ function publishedCrWorkflowVersion() {
      LIMIT 1`)
 }
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function crCount() {
-  return Number(sqlValue(`SELECT count(*) FROM change_requests`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM change_requests WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 
 function findCrByTitle(title) {

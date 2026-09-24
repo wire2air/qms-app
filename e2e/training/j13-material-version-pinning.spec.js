@@ -78,6 +78,7 @@
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID, TRAINING } from '../fixtures/cast.js'
 import { sql, sqlValue, sqlAsAppUser } from '../fixtures/db.js'
+import { purgeTrainings } from '../fixtures/training.js'
 
 let seq = 0
 function uniqueSuffix() {
@@ -228,6 +229,13 @@ function cleanup({ trainingId, instanceId, doc }) {
 }
 
 test.describe('TRN-J13 · a launched training serves the document version effective at launch', () => {
+  // Teardown, at BOTH ends. The afterAll is the tidy path; the beforeAll is the
+  // one that matters, because it is the only one that runs after a previous run
+  // was killed part-way through. Until 2026-09-24 this file had neither, and
+  // its rows accumulated into the count that `j9` reads — see purgeTrainings().
+  test.beforeAll(() => purgeTrainings('J13'))
+  test.afterAll(() => purgeTrainings('J13'))
+
   test('TC-02-09 steps 1-2 · launch pins v1.0, and releasing v2.0 does not move the pin', async ({
     browser,
   }) => {

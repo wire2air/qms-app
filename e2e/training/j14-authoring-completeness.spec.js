@@ -52,6 +52,7 @@
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID, ESIGN_PIN, TRAINING } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
+import { purgeTrainings } from '../fixtures/training.js'
 
 let seq = 0
 function uniqueSuffix() {
@@ -104,6 +105,13 @@ function dropDocument(doc) {
 }
 
 test.describe('TRN-J14 · authoring completeness — what is required, and what is merely offered', () => {
+  // Teardown, at BOTH ends. The afterAll is the tidy path; the beforeAll is the
+  // one that matters, because it is the only one that runs after a previous run
+  // was killed part-way through. Until 2026-09-24 this file had neither, and
+  // its rows accumulated into the count that `j9` reads — see purgeTrainings().
+  test.beforeAll(() => purgeTrainings('J14'))
+  test.afterAll(() => purgeTrainings('J14'))
+
   test.use({ storageState: AUTH.trainingAdmin })
 
   // ── The POSITIVE half TC-02-01 actually asks for ─────────────────────────
@@ -280,7 +288,7 @@ test.describe('TRN-J14 · authoring completeness — what is required, and what 
     let emptyId = null
 
     try {
-      const before = Number(sqlValue(`SELECT count(*) FROM trainings`))
+      const before = Number(sqlValue(`SELECT count(*) FROM trainings WHERE company_id = '${COMPANY_ID}'`))
 
       const absent = await ctx.request.post('/api/v1/services/trainings', {
         data: { title: absentTitle },
@@ -290,7 +298,7 @@ test.describe('TRN-J14 · authoring completeness — what is required, and what 
         'omitting the key entirely 400s — at the MODEL layer, not the controller',
       ).toBe(400)
       expect((await absent.text()).toLowerCase()).toContain('assessment')
-      expect(Number(sqlValue(`SELECT count(*) FROM trainings`)), 'nothing was written').toBe(before)
+      expect(Number(sqlValue(`SELECT count(*) FROM trainings WHERE company_id = '${COMPANY_ID}'`)), 'nothing was written').toBe(before)
 
       const empty = await createTraining(ctx, { title: emptyTitle, assessment: [] })
       emptyId = empty.id

@@ -88,6 +88,14 @@ const props = defineProps({
   // plot is never read as "nothing happened".
   suppressedCount: { type: Number, default: 0 },
   suppressedLabel: { type: String, default: 'Withheld (small group)' },
+  // Shown when EVERY value is withheld and there is no plot to draw. The
+  // default states the rule; a caller that knows the threshold passes a line
+  // naming it, because "fell below the reporting threshold" tells a reader
+  // they are blocked without telling them what would unblock them.
+  suppressedDescription: {
+    type: String,
+    default: 'Every value in this view fell below the reporting threshold.',
+  },
   significantLabel: { type: String, default: 'statistically significant' },
   notSignificantLabel: { type: String, default: 'not statistically significant' },
   // `effective_scope` from the API — the tier this figure was computed under.
@@ -443,7 +451,7 @@ const mergedOptions = computed(() => {
           variant="denied"
           :icon="IconEyeOff"
           title="Withheld to protect small groups"
-          description="Every value in this view fell below the reporting threshold."
+          :description="suppressedDescription"
         />
       </slot>
     </div>

@@ -132,6 +132,21 @@ async function startedInProcessLot(page, suffix) {
   return lot
 }
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// Playwright discards a worker after a failing test and RUNS the file's pending
+// `afterAll` before continuing in a fresh one; the `beforeAll` of an
+// already-entered describe does NOT re-run. Here `beforeAll` installs the line
+// clearance TEMPLATE the whole file collects against and `afterAll` purges the
+// lots and forces the tenant flag back OFF — so a discard would leave the later
+// tests asserting a REQUIRED gate against a tenant the file had just switched
+// back to permissive, printing one real failure as several false "the gate does
+// not block" findings.
+//
+// Serial mode makes Playwright SKIP the remainder instead. The per-test
+// `setLineClearanceRequired()` calls stay: they make each test's precondition
+// explicit and must survive the flag being reset underneath them.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('PW-J17 — line clearance gates collection; check-in owns attribution', () => {
   test.use({ storageState: AUTH.qcInspector })
 

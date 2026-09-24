@@ -7,7 +7,7 @@
 // workflow steps.
 import { expect } from '@playwright/test'
 import { AUTH, USERS, COMPANY_ID, ESIGN_PIN, TRAINING } from './cast.js'
-import { sqlRow, sqlValue, waitForSqlValue } from './db.js'
+import { sql, sqlRow, sqlValue, waitForSqlValue } from './db.js'
 
 /**
  * Launch the seeded training as the training admin, returning the new
@@ -161,4 +161,45 @@ export const TRAINING_COMPANY_ID = COMPANY_ID
 export const TRAINING_AUTH = {
   admin: AUTH.trainingAdmin,
   learner: AUTH.learner,
+}
+
+/**
+ * Delete every training this spec minted, and everything hanging off it.
+ *
+ * WHY THIS EXISTS. Until 2026-09-24 not one of the thirteen training specs had
+ * an `afterAll`: cleanup was written inline at the end of each test, so any
+ * test that FAILED skipped its own DELETE and left its rows behind. The residue
+ * compounded — a measured 18 `E2E%` trainings in four generational batches, 16
+ * of them from `j10` alone at four rows per run.
+ *
+ * It was not merely untidy. `trainingCount()` in `j9` compares a row count
+ * before and after a refused create to prove nothing was written, and
+ * `j8`/`j9` run LAST in this project lexicographically, so they absorbed every
+ * leaked row the twelve specs above them had left. That is the whole reason
+ * they failed in a full run while passing 13/13 in isolation: the suite was
+ * reporting its own debris as a finding.
+ *
+ * ONE DELETE IS ENOUGH. All six tables referencing `trainings` are ON DELETE
+ * CASCADE (curriculum_trainings, training_document_links, training_external_links,
+ * training_instances, training_roles, training_users), and training_instances
+ * cascades onward to training_assessment_keys, training_assignees and
+ * training_verifications. Verified against the live schema, not inferred.
+ *
+ * SCOPED BY PREFIX, NOT BY `E2E%`. The seed's own `E2E Read & Understood
+ * Training` starts with `E2E` too, and deleting it would break every spec that
+ * launches from it. `E2E TRN-J<n>` is the convention every spec already uses
+ * for rows it mints.
+ *
+ * Call it from BOTH `beforeAll` and `afterAll`. The `afterAll` is the tidy
+ * path; the `beforeAll` is the one that matters, because it is the only one
+ * that runs after a previous run was killed part-way through.
+ *
+ * @param {string} tag the journey tag, e.g. 'J10' — no prefix, no wildcards
+ */
+export function purgeTrainings(tag) {
+  sql(
+    `DELETE FROM trainings
+      WHERE company_id = '${COMPANY_ID}'
+        AND title LIKE 'E2E TRN-${tag} %'`,
+  )
 }

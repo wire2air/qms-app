@@ -63,15 +63,49 @@ async function selectOptionInSection(page, sectionSelector, fieldLabel, optionTe
 }
 
 /**
- * Wait for the DRAFT preview's per-step reviewer pickers to populate
- * `pending_reviewers`. Each seeded step's role has exactly one member and the
- * pickers are `required`, so BaseSelect auto-fills them — this just barriers on
- * the resulting save so a following Submit consumes a complete set of picks.
+ * Fill the DRAFT preview's per-step reviewer pickers, then barrier on the save.
+ *
+ * ── WHY THIS PICKS EXPLICITLY ───────────────────────────────────────────────
+ * This helper used to rely on BaseSelect auto-filling every picker, on the
+ * stated premise that "each seeded step's role has exactly one member". That
+ * premise stopped being true when seed §31b added `reviewer2@e2e.test`:
+ *
+ *   step 1  Impact Review      E2E Reviewer   2 members  ← reviewer, reviewer2
+ *   step 2  Change Approval    E2E Approver   1 member
+ *   step 3  Implementation     E2E Author     1 member
+ *
+ * BaseSelect only auto-fills a `required` picker when the options resolve to
+ * exactly ONE candidate, so step 1 was left for the user to choose — and since
+ * `UserSelectMenu` sorts nothing, which of the two reviewers landed in
+ * `pending_reviewers` was not reproducible between runs on the same seed.
+ *
+ * The failure that produced was not a clean red. `waitForSqlValue` below only
+ * counts the jsonb keys, so an unfilled step 1 simply never reached the count
+ * and the helper timed out 30s later inside an unrelated test — or, worse, the
+ * auto-fill DID land on reviewer2 and the CR proceeded to a reviewer whose
+ * session the calling spec never authenticates as, so the later
+ * `completeReviewerStep` found no task and reported it as a workflow defect.
+ *
+ * This is the identical drift already fixed in `fixtures/nonconformances.js`;
+ * the locator below is the same proven `stepPicker` shape from `workflow/j4`.
+ *
+ * ── WHY NOT selectOption / getByRole('combobox') ────────────────────────────
+ * The step name is plain text with no `<label for>`, so `selectOption` cannot
+ * reach the control, and a bare `page.getByRole('combobox')` grabs whichever
+ * combobox happens to come first in the DOM — not this step's. Anchoring on
+ * the step name and walking to the next combobox is what makes it the RIGHT
+ * picker. Options carry the user's role list on a second line, so `hasText`
+ * (not an exact name match) is what matches.
  */
 export async function assignDraftReviewers(page, crId, { expectedSteps = 3 } = {}) {
   await page.goto(`/change-requests/${crId}`)
   // The pickers only render once the workflow template steps resolve from IDB.
   await expect(page.getByText('Approval Workflow Plan')).toBeVisible({ timeout: 20_000 })
+
+  // Step 1 is the only ambiguous one, so it is the only one picked by hand.
+  // Steps 2 and 3 still auto-fill — their roles really do have one member each,
+  // and the barrier below is what proves all three landed either way.
+  await pickStepReviewer(page, 'Impact Review', USERS.reviewer.name)
 
   // jsonb key count — one key per assigned step.
   await waitForSqlValue(
@@ -79,6 +113,46 @@ export async function assignDraftReviewers(page, crId, { expectedSteps = 3 } = {
        FROM change_requests WHERE id = '${crId}'`,
     { timeoutMs: 30_000, label: `pending_reviewers has ${expectedSteps} step picks` },
   )
+
+  // Name the person, not just the count. A run where step 1 silently went to
+  // reviewer2 satisfies the count above and then fails much later, in whichever
+  // spec tries to act as the reviewer — exactly the trail this fix removes.
+  await waitForSqlValue(
+    `SELECT pending_reviewers::text LIKE '%${USERS.reviewer.id}%'
+       FROM change_requests WHERE id = '${crId}'`,
+    { timeoutMs: 10_000, label: 'step 1 went to reviewer@e2e.test, not reviewer2' },
+  )
+}
+
+/**
+ * Open one step's reviewer picker and choose a named person.
+ *
+ * Tolerant by design: if the picker has already auto-filled (a role with one
+ * member) there is nothing to open, and this returns quietly rather than
+ * failing. Its job is to remove ambiguity where ambiguity exists, not to
+ * assert that a picker was present.
+ */
+async function pickStepReviewer(page, stepName, personName) {
+  const combo = page
+    .getByText(stepName, { exact: true })
+    .first()
+    .locator('xpath=following::*[@role="combobox"][1]')
+  if (!(await combo.count().catch(() => 0))) return
+
+  const listboxId = await combo.getAttribute('aria-controls')
+  const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
+
+  const opened = await expect(async () => {
+    if (!(await listbox.isVisible().catch(() => false))) await combo.click()
+    await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
+  })
+    .toPass({ timeout: 30_000 })
+    .then(() => true)
+    .catch(() => false)
+  if (!opened) return
+
+  await listbox.getByRole('option').filter({ hasText: personName }).first().click()
+  await expect(listbox).toBeHidden({ timeout: 5_000 }).catch(() => {})
 }
 
 /** Owner opens a DRAFT CR (action → confirm dialog → submitForReview). */

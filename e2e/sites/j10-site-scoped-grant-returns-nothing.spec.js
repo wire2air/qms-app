@@ -1,8 +1,10 @@
-// PW-J10 — 🔴 A site-scoped `sites:read` grant returns nothing. WRITTEN TO FAIL.
+// PW-J10 — A site-scoped `sites:read` grant must return the grantee's own site.
 //
 // ✅ RESOLVED 2026-08-04 by migration 20260804120000-bind-site-scope-org-modules,
 // which gives `sites`, `departments`, `user_management` and `audit_management` a
-// real `site_col`. The 🔴 assertions below now pass and are kept as the standing
+// real `site_col` (now carried by the rebuilt migration set as
+// 20260918020670-create-authz-module-table-bindings.js: `sites` binds site_col
+// to `id`, `departments` to `site_id`). The assertions below now pass and are kept as the standing
 // regression guard — the finding is only closed for as long as they stay green.
 // The mechanism description that follows documents the ORIGINAL defect; read it
 // as history, not as current behaviour.
@@ -62,13 +64,13 @@ test.describe('PW-J10 · a saved site-scoped grant matches zero rows', () => {
     await ctx.close()
   })
 
-  test('🔴 the grantee sees their own site in the list (FAILS TODAY)', async ({ browser }) => {
+  test('the grantee sees their own site in the list (regression guard)', async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.siteReader })
     const page = await ctx.newPage()
     await gotoSites(page)
 
-    // A site-scoped read grant should return the site the user belongs to.
-    // Today it returns nothing at all.
+    // A site-scoped read grant returns the site the user belongs to. Before
+    // the binding existed this returned nothing at all.
     await expect(
       page.getByRole('cell', { name: SITES.primary.name, exact: true }),
       'a site-scoped sites:read grant must return the grantee’s own site',
@@ -77,15 +79,15 @@ test.describe('PW-J10 · a saved site-scoped grant matches zero rows', () => {
     await ctx.close()
   })
 
-  test('🔴 and the empty state is indistinguishable from an empty tenant (FAILS TODAY)', async ({
+  test('and the empty state does not claim the tenant has no sites (regression guard)', async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.siteReader })
     const page = await ctx.newPage()
     await gotoSites(page)
 
-    // "No sites yet" is a lie here — the tenant has two. Whatever the fix,
-    // a scope tier that cannot match must not render as an empty dataset.
+    // "No sites yet" was a lie here — the tenant has two. A scope tier that
+    // cannot match must never render as an empty dataset.
     await expect(
       page.getByText('No sites yet'),
       'an unsatisfiable scope tier must not present as "there are no sites"',

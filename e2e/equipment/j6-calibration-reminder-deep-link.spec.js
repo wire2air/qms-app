@@ -30,6 +30,19 @@ import { registerRow } from '../fixtures/equipment.js'
 const NOTIFICATION_ID = 'e2eb2000-0000-4000-8000-000000000001'
 const TITLE = 'E2E J6 calibration due — Vernier Calipers'
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// Playwright discards a worker after a failing test and RUNS the file's pending
+// `afterAll` before continuing in a fresh one, but the `beforeAll` of an
+// already-entered describe does NOT re-run. Here `beforeAll` inserts the reminder notification the deep link resolves and
+// `afterAll` deletes it, so a discard would leave later tests following a link
+// to a notification the file had already removed.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it
+// against torn-down state, so one real failure stays one failure instead of
+// printing as several. See complaints/j11 for the alternative fix (arrange per
+// describe), which suits files whose tests can cheaply own their fixtures.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('EQ-J6 · the calibration reminder lands somewhere that exists', () => {
   test.beforeAll(() => {
     sql(`DELETE FROM notifications WHERE id = '${NOTIFICATION_ID}'`)

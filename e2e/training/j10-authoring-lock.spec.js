@@ -65,6 +65,7 @@
 import { test, expect } from '@playwright/test'
 import { AUTH, USERS, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
+import { purgeTrainings } from '../fixtures/training.js'
 
 // trainingAdmin holds training:create/read/update/delete/manage at TENANT scope
 // (e2e-seed.sql §19). That is load-bearing for every arm here: the refusal under
@@ -186,6 +187,13 @@ function removeDocument(documentId) {
 }
 
 test.describe('TRN-J10 · a published training is locked against content edits', () => {
+  // Teardown, at BOTH ends. The afterAll is the tidy path; the beforeAll is the
+  // one that matters, because it is the only one that runs after a previous run
+  // was killed part-way through. Until 2026-09-24 this file had neither, and
+  // its rows accumulated into the count that `j9` reads — see purgeTrainings().
+  test.beforeAll(() => purgeTrainings('J10'))
+  test.afterAll(() => purgeTrainings('J10'))
+
   test.use({ storageState: AS })
 
   test('control: an ACTIVE training can be minted, and a DRAFT one IS editable', async ({

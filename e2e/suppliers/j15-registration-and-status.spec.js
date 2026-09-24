@@ -33,7 +33,7 @@
 //     `supplierId` with no status check and there is no DB constraint, so the
 //     pin below records that rather than claiming enforcement.
 import { test, expect } from '@playwright/test'
-import { AUTH, SUPPLIER_IDS } from '../fixtures/cast.js'
+import { AUTH, SUPPLIER_IDS, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlRow, sqlValue } from '../fixtures/db.js'
 
 function uniqueSuffix() {
@@ -64,8 +64,19 @@ function findSupplierByCode(code) {
   return sqlValue(`SELECT id FROM suppliers WHERE code = '${code}' LIMIT 1`)
 }
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function supplierCount() {
-  return Number(sqlValue(`SELECT count(*) FROM suppliers`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM suppliers WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 
 /** `name`, `code` and `category` are the schema's only required keys. */

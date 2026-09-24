@@ -68,6 +68,7 @@ import {
   drillLocation,
   formatMetricValue,
   METRIC_PRECISION,
+  MIN_CELL_FLOOR,
   SUPPRESSED_LABEL,
 } from '@/utils/analyticsFormat.js'
 import { resolvePeriodToken, periodTokenLabel } from '@/utils/analyticsPeriods.js'
@@ -87,7 +88,7 @@ const props = defineProps({
   // while the catalog is still in flight.
   catalogLoaded: { type: Boolean, default: true },
   height: { type: Number, default: 260 },
-  minCell: { type: Number, default: 5 },
+  minCell: { type: Number, default: MIN_CELL_FLOOR },
   enabled: { type: Boolean, default: true },
   /**
    * An UNSAVED metric to preview — previewPayload() from
@@ -412,6 +413,27 @@ const suppressedDetail = computed(() => {
   return parts.length ? `(${parts.join('; ')}).` : null
 })
 
+/**
+ * Shown only when EVERY value is withheld, so there is no chart at all.
+ *
+ * Names the threshold and what to do about it. The old wording — "fell below
+ * the reporting threshold" — stated the rule and stopped, leaving a reader
+ * unable to tell whether one more record would help or nothing ever would.
+ *
+ * ⚠ IT SAYS "no segment reaches N", NEVER HOW FAR SHORT THEY FELL. The largest
+ * withheld cell is itself a protected figure: "the biggest has 4" is a count
+ * the threshold exists to hide, and repeating the view over different periods
+ * would narrow it further. The remedy is named without any figure being
+ * disclosed.
+ */
+const suppressedDescription = computed(() => {
+  const each = `No group in this view reaches the minimum of ${MIN_CELL_FLOOR} records.`
+  const remedy = dimension.value
+    ? ' Try a longer period, or split by something with fewer segments.'
+    : ' Try a longer period.'
+  return each + remedy
+})
+
 // ── shell wiring ────────────────────────────────────────────────────────────
 const loading = computed(() =>
   source.value === SOURCE.SERIES ? seriesLoading.value : breakdownLoading.value,
@@ -599,6 +621,7 @@ const exportName = computed(() => `${metricKey.value || 'metric'}-${props.questi
       :loading="loading"
       :error="error"
       :emptyTitle="emptyTitle"
+      :suppressedDescription="suppressedDescription"
       :errorTitle="errorTitle"
       :errorDescription="errorDescription"
       :ariaLabel="chartAriaLabel"

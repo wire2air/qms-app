@@ -97,6 +97,20 @@ test.afterAll(async () => {
   expect(passwordHashOf(SUBJECT), 'the seeded hash was restored').toBe(seededHash)
 })
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// Playwright discards a worker after a failing test and RUNS the file's pending
+// `afterAll` before continuing in a fresh one, but the `beforeAll` of an
+// already-entered describe does NOT re-run. Here teardown RESTORES the subject's seeded password hash, so a mid-file
+// discard would leave every later test authenticating against a credential the
+// file had already put back — and this file also carries `state.token` between
+// tests, which only a serial run makes meaningful.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it
+// against torn-down state, so one real failure stays one failure instead of
+// printing as several. See complaints/j11 for the alternative fix (arrange per
+// describe), which suits files whose tests can cheaply own their fixtures.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('PW-J10 · a reset link changes the password exactly once', () => {
   test('GATE · the two public pages complete a real password reset', async ({ page }) => {
     clearResendCooldown('pwreset', SUBJECT)

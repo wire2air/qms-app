@@ -131,6 +131,7 @@ import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, USERS, COMPANY_ID, TRAINING } from '../fixtures/cast.js'
 import { sql, sqlValue, sqlAsAppUser, siteGucSql } from '../fixtures/db.js'
 import { execFileSync } from 'node:child_process'
+import { purgeTrainings } from '../fixtures/training.js'
 
 let seq = 0
 function uniqueSuffix() {
@@ -324,6 +325,13 @@ function cleanup({ trainingId, instanceId, doc }) {
 }
 
 test.describe('TRN-J15 · TRN-D17 — why the learner cannot read the pinned material', () => {
+  // Teardown, at BOTH ends. The afterAll is the tidy path; the beforeAll is the
+  // one that matters, because it is the only one that runs after a previous run
+  // was killed part-way through. Until 2026-09-24 this file had neither, and
+  // its rows accumulated into the count that `j9` reads — see purgeTrainings().
+  test.beforeAll(() => purgeTrainings('J15'))
+  test.afterAll(() => purgeTrainings('J15'))
+
   test('KNOWN DEFECT TRN-D17 · a launched learner reads NOTHING of the linked document — and the control proves the probe works', async () => {
     // The baseline, restated at the tenant level rather than row by row, which
     // is a stronger statement than TRN-J13's per-row counts: it is not that the

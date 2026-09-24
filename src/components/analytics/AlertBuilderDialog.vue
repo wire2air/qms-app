@@ -72,6 +72,7 @@ import {
   severityRank,
 } from '@/utils/analyticsAlerts.js'
 import { dimensionOptionsFor, segmentLabel } from '@/utils/analyticsViz.js'
+import { MIN_CELL_FLOOR } from '@/utils/analyticsFormat.js'
 import { useMetricBreakdown } from '@/composables/useAnalytics.js'
 import { currentSession, isAllowed } from '@/utils/currentSession'
 import { IconAlertTriangle, IconPlus, IconTrash, IconUsers } from '@tabler/icons-vue'
@@ -243,7 +244,7 @@ const { rows: sliceRows, loading: slicesLoading } = useMetricBreakdown(
     metricKey: () => form.value.metricKey,
     dimension: () => form.value.dimension,
     limit: 200,
-    minCell: 5,
+    minCell: MIN_CELL_FLOOR,
     rankBy: 'contribution',
   },
   { enabled: () => !!(form.value.metricKey && form.value.dimension && open.value) },

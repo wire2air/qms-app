@@ -89,7 +89,7 @@
 import { test, expect } from '@playwright/test'
 import { AUTH, USERS, COMPANY_ID, ESIGN_PIN, TRAINING } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
-import { findAssignee } from '../fixtures/training.js'
+import { findAssignee, purgeTrainings } from '../fixtures/training.js'
 
 let seq = 0
 function uniqueSuffix() {
@@ -225,6 +225,13 @@ function cleanup({ trainingId, instanceId, doc }) {
 }
 
 test.describe('TRN-J11 · a completion signature requires the material to have been reviewed', () => {
+  // Teardown, at BOTH ends. The afterAll is the tidy path; the beforeAll is the
+  // one that matters, because it is the only one that runs after a previous run
+  // was killed part-way through. Until 2026-09-24 this file had neither, and
+  // its rows accumulated into the count that `j9` reads — see purgeTrainings().
+  test.beforeAll(() => purgeTrainings('J11'))
+  test.afterAll(() => purgeTrainings('J11'))
+
   test('control: the same submit SUCCEEDS once the material has been viewed', async ({
     browser,
   }) => {

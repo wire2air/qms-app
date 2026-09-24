@@ -6,7 +6,7 @@ import { graphqlRequest } from '@syncEngine/network/graphqlClient.js'
 // an action outcome, not a record. `apiClient` rather than `post` for one
 // reason only — see parsePlainJson below.
 import { apiClient } from '@/api'
-import { toNumber } from '@/utils/analyticsFormat.js'
+import { MIN_CELL_FLOOR, toNumber } from '@/utils/analyticsFormat.js'
 
 /**
  * Read side of the metric/semantic layer.
@@ -201,7 +201,7 @@ const ENTITLEMENT_QUERY = `
  * the intent is visible where the request is built.
  */
 function minCellFloor(asked) {
-  return Math.max(Number.isFinite(asked) ? asked : 5, 5)
+  return Math.max(Number.isFinite(asked) ? asked : MIN_CELL_FLOOR, MIN_CELL_FLOOR)
 }
 
 const SERIES_LIMIT = 600

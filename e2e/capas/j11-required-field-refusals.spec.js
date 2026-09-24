@@ -17,7 +17,7 @@
 // being valid for some unrelated reason, every negative arm would 400 for the
 // wrong reason and pass while proving nothing.
 import { test, expect } from '@playwright/test'
-import { AUTH, USERS, SITES, DEPARTMENTS } from '../fixtures/cast.js'
+import { AUTH, USERS, SITES, DEPARTMENTS, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue, findCapaByTitle } from '../fixtures/db.js'
 import { uniqueTitle } from '../fixtures/capas.js'
 import {
@@ -40,8 +40,19 @@ function publishedCapaWorkflowVersion() {
      LIMIT 1`)
 }
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function capaCount() {
-  return Number(sqlValue(`SELECT count(*) FROM capas`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM capas WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 
 /**

@@ -1,34 +1,46 @@
-// PW-J11 — 🔴 Ungated REST reads. WRITTEN TO FAIL AGAINST CURRENT CODE.
+// PW-J11 — REST sites reads must require `sites:read`.
 //
-// backend/api/routes/sites.js mounts enforcePermission on exactly three of its
-// six routes:
+// ✅ RESOLVED 2026-08-11 by commit ae766ed9, which mounted
+// `enforcePermission('sites', 'read')` on all three previously-ungated routes.
+// All six routes in backend/api/routes/sites.js are now gated (:51 :93 :132
+// :188 :238 :273). The assertions below now PASS and are kept as the standing
+// regression guard — the finding is closed only for as long as they stay green.
+// The mechanism description that follows documents the ORIGINAL defect; read it
+// as history, not as current behaviour.
 //
-//   POST   /v1/services/sites            enforcePermission('sites','create')  ✅
-//   PUT    /v1/services/sites/:id        enforcePermission('sites','update')  ✅
-//   DELETE /v1/services/sites/:id        enforcePermission('sites','delete')  ✅
+// ── The original defect (closed) ────────────────────────────────────────────
+// Three of the six routes carried `requireCompanyAccess` only:
+//
 //   GET    /v1/services/sites            requireCompanyAccess only            ❌
 //   GET    /v1/services/sites/:id        requireCompanyAccess only            ❌
 //   PUT    /v1/services/sites/checkcode  requireCompanyAccess only            ❌
 //
-// The three unguarded routes are readable by ANY authenticated member of the
-// company, including one holding zero permissions of any kind. RLS does not
-// cover for it: REST_RLS_ENABLED defaults off, so Sequelize connects as the DB
-// superuser and `sites_sel` never fires on this path at all.
+// They were readable by ANY authenticated member of the company, including one
+// holding zero permissions of any kind. RLS did not cover for it:
+// REST_RLS_ENABLED defaults off, so Sequelize connects as the DB superuser and
+// `sites_sel` never fires on this path at all.
 //
-// This is not the same finding as the UI guard (PW-J5). PW-J5 proves the SPA
-// refuses to render the page. This proves the data is one curl away regardless,
+// This was never the same finding as the UI guard (PW-J5). PW-J5 proves the SPA
+// refuses to render the page. This proved the data was one curl away regardless,
 // which is why an ADMIN-tier route guard is not a substitute for a route gate.
 //
-// The three "must be rejected" assertions FAIL TODAY (the routes return 200).
-// The two control assertions PASS today and pin the shape of the defect: the
-// write routes are correctly gated, so this is three missing mounts, not an
-// absent gating mechanism.
+// ── Why these three routes still exist ──────────────────────────────────────
+// Deletion was considered and rejected: this spec, `j6` (cross-tenant isolation
+// on GET /:id) and `e2e/authentication/j11` (GET /v1/services/sites as the
+// canonical requireCompanyAccess endpoint) all call them, and they are a
+// published, api-key-reachable OpenAPI surface. `checkcode` is gated on
+// `sites:read` rather than a write verb because reading is what it discloses —
+// it is an oracle for which site codes and names exist in a tenant.
+//
+// The two CONTROL tests pin the shape of the closed finding: the write routes
+// were always correctly gated, so this was three missing mounts, not an absent
+// gating mechanism.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, SITES } from '../fixtures/cast.js'
 
 const API = 'http://e2elab.localhost:4000'
 
-test.describe('PW-J11 · REST sites reads are ungated', () => {
+test.describe('PW-J11 · REST sites reads require sites:read', () => {
   test('GET /v1/services/sites rejects a zero-permission member', async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
     const res = await ctx.request.get(`${API}/v1/services/sites`)

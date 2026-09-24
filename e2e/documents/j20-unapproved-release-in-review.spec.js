@@ -169,6 +169,19 @@ function trustedTransition(versionId, toStatus) {
   }
 }
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// Playwright discards a worker after a failing test and RUNS the file's pending
+// `afterAll` before continuing in a fresh one, but the `beforeAll` of an
+// already-entered describe does NOT re-run. Here `beforeAll` seeds the IN_REVIEW document and `afterAll` hard-deletes it,
+// so a discard would leave later tests probing a document row that no longer
+// exists and reading the 404 as an unapproved-release finding.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it
+// against torn-down state, so one real failure stays one failure instead of
+// printing as several. See complaints/j11 for the alternative fix (arrange per
+// describe), which suits files whose tests can cheaply own their fixtures.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('PW-J20 · TC-01-07 · an IN_REVIEW (submitted, unapproved) version cannot be released', () => {
   let documentId
   let versionId

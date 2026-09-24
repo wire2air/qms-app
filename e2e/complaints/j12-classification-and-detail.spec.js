@@ -285,7 +285,7 @@ test.describe('CMP-J12 · classification, product and customer detail persist', 
   }) => {
     test.setTimeout(90_000)
     const page = await pool.page(browser, AUTH.complaintOwner)
-    const before = Number(sqlValue(`SELECT count(*) FROM complaints`))
+    const before = Number(sqlValue(`SELECT count(*) FROM complaints WHERE company_id = '${COMPANY_ID}'`))
 
     // A well-formed uuid that is not any lookup row anywhere. The zod schema
     // only checks the SHAPE (`z.string().uuid()`), so whatever refuses this is
@@ -300,7 +300,7 @@ test.describe('CMP-J12 · classification, product and customer detail persist', 
       'a category id that exists nowhere is refused — the schema checks shape, the FK checks reality',
     ).toBeGreaterThanOrEqual(400)
     expect(
-      Number(sqlValue(`SELECT count(*) FROM complaints`)),
+      Number(sqlValue(`SELECT count(*) FROM complaints WHERE company_id = '${COMPANY_ID}'`)),
       'and the refusal wrote no partial row',
     ).toBe(before)
   })

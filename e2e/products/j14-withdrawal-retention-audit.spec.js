@@ -180,6 +180,19 @@ function referencesToSubject() {
   }
 }
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// Playwright discards a worker after a failing test and RUNS the file's pending
+// `afterAll` before continuing in a fresh one, but the `beforeAll` of an
+// already-entered describe does NOT re-run. Here `beforeAll` sets the subject ACTIVE and seeds its hosts while `afterAll`
+// purges them and resets both statuses, so a discard would leave later tests
+// asserting withdrawal against a product already handed back to ACTIVE.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it
+// against torn-down state, so one real failure stays one failure instead of
+// printing as several. See complaints/j11 for the alternative fix (arrange per
+// describe), which suits files whose tests can cheaply own their fixtures.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('PJ-J14 · withdrawal: retention on existing records, and the audit entry', () => {
   test.beforeAll(() => {
     sql(`UPDATE products SET status_id = 'ACTIVE' WHERE id = '${SUBJECT.id}'`)
