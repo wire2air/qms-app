@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick, ref } from 'vue'
-import CustomMetricBuilderDialog from './CustomMetricBuilderDialog.vue'
+import CustomMetricBuilder from './CustomMetricBuilder.vue'
 import { METRIC_TEMPLATES } from '@/utils/analyticsMetricTemplates.js'
 
 /**
  * ── WHAT THIS FILE IS FOR ───────────────────────────────────────────────────
- * One behaviour above all: applying a template must SURVIVE. The dialog has two
+ * One behaviour above all: applying a template must SURVIVE. The builder has two
  * watchers that wipe dependent fields when the module or the source table
  * changes, which is right when a person changes them and wrong when the form is
  * written to programmatically. The edit path already carries a `seeding` flag
@@ -60,29 +60,34 @@ const LEAD_CRM_TEMPLATE = {
   ],
 }
 
-// The dialog renders its body inside BaseDialog and its actions inside
-// BaseDialogFooter, both of which teleport. Render slots inline so assertions
-// are about THIS component's markup.
-const DialogStub = {
-  name: 'BaseDialog',
-  props: ['title', 'subtitle', 'size', 'persistent', 'showClose'],
-  // Body and footer are separate elements so a test can assert WHICH ONE a
-  // control lives in. They were one div, which made "Create your own is on
-  // screen" true whether it was pinned or buried under 170 template cards --
-  // the exact difference the chooser footer exists to make.
-  template:
-    '<div><div class="dialog-body"><slot /></div>' +
-    '<div class="dialog-footer"><slot name="footer" :close="() => {}" /></div></div>',
-}
+// The builder renders inline: a scrolling `.builder-body` and a pinned
+// `.builder-actions` bar. They are separate elements so a test can assert WHICH
+// ONE a control lives in -- when the builder was a dialog, body and footer were
+// once one stubbed div, which made "Create your own is on screen" true whether
+// it was pinned or buried under 170 template cards, the exact difference the
+// chooser's action bar exists to make.
+//
+// BaseDialogFooter (the standard Cancel/Save row) is stubbed so its presence is
+// a plain `.footer` element carrying the props this component passes.
 const FooterStub = {
   name: 'BaseDialogFooter',
   props: ['loading', 'disabled', 'submitLabel', 'submitTitle', 'error'],
   template: '<div class="footer" :data-error="error" :data-disabled="disabled" />',
 }
 
+// The preview panel is replaced at the MODULE level, not just stubbed at mount.
+// unplugin-vue-components turns <CustomMetricPreviewPanel> into a static import,
+// so a `stubs` entry still loads the real file — and through it the tile →
+// AnalyticsWidget → exportUtils chain, which fails to parse under vitest
+// ("Invalid or unexpected token", pre-existing, unrelated to this form). This
+// suite is about the form; the panel's behaviour is not asserted here.
+vi.mock('./CustomMetricPreviewPanel.vue', () => ({
+  default: { name: 'CustomMetricPreviewPanel', render: () => null },
+}))
+
 vi.mock('@/composables/useLiveQuery.js', () => ({
   useLiveMutation: (fn) => fn,
-  // The dialog loads filter-value pickers from the mirrored lookup tables. These
+  // The builder loads filter-value pickers from the mirrored lookup tables. These
   // tests assert the FORM, not the vocabulary, so the query resolves to nothing
   // and every filter row falls back to the typed input — which is exactly the
   // path this suite was written against. The value pickers have their own tests
@@ -90,13 +95,15 @@ vi.mock('@/composables/useLiveQuery.js', () => ({
   useLiveQueryWithDeps: (_deps, _fn, { initial } = {}) => ref(initial),
 }))
 
-function mountDialog(props = {}) {
-  return mount(CustomMetricBuilderDialog, {
-    props: { open: true, fields: FIELDS, dimensionCap: 3, ...props },
+function mountBuilder(props = {}) {
+  return mount(CustomMetricBuilder, {
+    props: { fields: FIELDS, dimensionCap: 3, ...props },
     global: {
       stubs: {
-        BaseDialog: DialogStub,
         BaseDialogFooter: FooterStub,
+        // The live preview fetches from the server and has its own specs; these
+        // assert the form and its read-back, which must hold no figure.
+        CustomMetricPreviewPanel: true,
         BaseBanner: { props: ['title', 'message', 'tone'], template: '<div class="banner">{{ message }}</div>' },
       },
       mocks: { useToast: () => ({ success: vi.fn(), error: vi.fn() }) },
@@ -109,11 +116,11 @@ const OPEN_CAPAS = METRIC_TEMPLATES.find((t) => t.id === 'capa-open')
 /** One that carries a breakdown, so groupBy survival is covered too. */
 const BY_DEPARTMENT = METRIC_TEMPLATES.find((t) => t.id === 'capa-by-department')
 
-describe('CustomMetricBuilderDialog — templates', () => {
+describe('CustomMetricBuilder — templates', () => {
   it('opens on the chooser, not the form', () => {
-    // Template-first: the cards ARE the dialog, so the common case finishes in
+    // Template-first: the cards ARE the builder, so the common case finishes in
     // two clicks and the blank form is the escape hatch rather than the default.
-    const w = mountDialog()
+    const w = mountBuilder()
     expect(w.vm.choosing).toBe(true)
     expect(w.text()).toContain(OPEN_CAPAS.name)
     expect(w.text()).toContain('Create your own')
@@ -121,7 +128,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
     expect(w.text()).not.toContain('What are you measuring?')
   })
 
-  it('pins "Create your own" to the footer, not the end of the card list', () => {
+  it('pins "Create your own" to the action bar, not the end of the card list', () => {
     // It used to sit at the bottom of the scrolling body, under every template
     // in every module. At 73 templates that was merely awkward; at 170 it means
     // someone whose question the list does not cover has to scroll past the
@@ -129,21 +136,21 @@ describe('CustomMetricBuilderDialog — templates', () => {
     //
     // Asserted as PLACEMENT, not presence: the old arrangement also put the
     // words on screen, so `text()).toContain(...)` passed either way.
-    const w = mountDialog()
-    expect(w.get('.dialog-footer').text()).toContain('Create your own')
-    expect(w.get('.dialog-body').text()).not.toContain('Create your own')
+    const w = mountBuilder()
+    expect(w.get('.builder-actions').text()).toContain('Create your own')
+    expect(w.get('.builder-body').text()).not.toContain('Create your own')
   })
 
   it('offers no Save while choosing', () => {
     // A disabled Save button beside the cards reads as "these do not work".
-    // The chooser's footer carries the escape hatch and nothing else.
-    const w = mountDialog()
+    // The chooser's action bar carries the escape hatch (and Cancel), no Save.
+    const w = mountBuilder()
     expect(w.vm.choosing).toBe(true)
     expect(w.find('.footer').exists()).toBe(false)
   })
 
   it('shows the form once "Create your own" is taken', async () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.startFromScratch()
     await nextTick()
     expect(w.vm.choosing).toBe(false)
@@ -153,7 +160,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
   it('offers none when editing an existing metric', async () => {
     // Applying one here would silently replace a definition that dashboards,
     // reports and alerts may already be built on.
-    const w = mountDialog({
+    const w = mountBuilder({
       metric: {
         id: 'm1',
         name: 'Existing',
@@ -178,7 +185,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
     // ⚠ THE REGRESSION TEST. Without `seeding` in applyTemplate(), assigning
     // moduleId resets the whole definition and assigning sourceTable clears
     // timeField/filters/groupBy, so this assertion fails with an empty array.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -192,7 +199,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
   })
 
   it('keeps the breakdown it applied', async () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(BY_DEPARTMENT)
     await nextTick()
     await nextTick()
@@ -200,7 +207,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
   })
 
   it('copies the template’s name, direction and grain onto the form', async () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(BY_DEPARTMENT)
     await nextTick()
     expect(w.vm.form.name).toBe(BY_DEPARTMENT.name)
@@ -210,7 +217,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
   })
 
   it('leaves an applied template immediately saveable', async () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -222,7 +229,7 @@ describe('CustomMetricBuilderDialog — templates', () => {
     // The flag must not disable the watchers permanently — a real module change
     // has to keep clearing fields that belong to the old module, or the
     // definition compiles against a column the user can no longer see.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -244,14 +251,14 @@ describe('CustomMetricBuilderDialog — templates', () => {
   })
 })
 
-describe('CustomMetricBuilderDialog — the definition panel', () => {
+describe('CustomMetricBuilder — the definition panel', () => {
   it('says nothing until the definition can be described', () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     expect(w.text()).not.toContain("What you'll see")
   })
 
   it('describes the metric once it is complete', async () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -260,7 +267,7 @@ describe('CustomMetricBuilderDialog — the definition panel', () => {
   })
 
   it('updates when the configuration changes', async () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -276,7 +283,7 @@ describe('CustomMetricBuilderDialog — the definition panel', () => {
     // The metric does not exist until it is saved and the rollup has run, so
     // any number here would be fabricated — unacceptable in a product where
     // every tile prints the timestamp its figure was computed at.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(BY_DEPARTMENT)
     await nextTick()
     await nextTick()
@@ -293,12 +300,12 @@ describe('CustomMetricBuilderDialog — the definition panel', () => {
   })
 })
 
-describe('CustomMetricBuilderDialog — guidance and limits', () => {
+describe('CustomMetricBuilder — guidance and limits', () => {
   it('asks the business questions, as named sections', async () => {
     // Every question is a section header, so all of them are on screen even
     // while only one panel is expanded — the form's shape is visible from the
     // start rather than appearing a piece at a time.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -314,7 +321,7 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
     // The point of the accordion: six stacked blocks were ~1,200px of scroll,
     // which is how the footer's save error ended up naming a field that was
     // off screen.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.startFromScratch()
     await nextTick()
     expect(w.vm.openSections).toEqual(['what'])
@@ -323,7 +330,7 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
   it('places a blocked save on the section that owns it', async () => {
     // What makes the error reachable: the footer message can now open the
     // section it refers to, which it could not do as a bare string.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.startFromScratch()
     await nextTick()
     expect(w.vm.problem).toBe('Give the metric a name.')
@@ -334,7 +341,7 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
     // A collapsed section still has to be auditable. Which date a record counts
     // by is the choice most often got wrong, so "When ✓" would hide exactly the
     // thing worth checking.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -346,7 +353,7 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
     // Asking would be a required field with a single option — a gate that
     // confirms something the author never chose. Every module in the registry
     // currently has exactly one source table.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'capa'
     await nextTick()
@@ -357,7 +364,7 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
   it('says filters combine with AND, and never offers OR', async () => {
     // The compiler joins predicates with AND and cannot express anything else.
     // A user who assumes OR builds a filter that silently matches nothing.
-    const w = mountDialog()
+    const w = mountBuilder()
     w.vm.applyTemplate(OPEN_CAPAS)
     await nextTick()
     await nextTick()
@@ -366,7 +373,7 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
   })
 
   it('surfaces a compile error above everything else', async () => {
-    const w = mountDialog({
+    const w = mountBuilder({
       metric: {
         id: 'm1',
         name: 'Broken',
@@ -388,7 +395,7 @@ describe('CustomMetricBuilderDialog — guidance and limits', () => {
   })
 
   it('blocks saving with a human reason', () => {
-    const w = mountDialog()
+    const w = mountBuilder()
     // Nothing filled in: the message names the next thing to do rather than
     // reporting an invalid configuration.
     expect(w.vm.problem).toBe('Give the metric a name.')
@@ -437,9 +444,9 @@ const LEAD_TEMPLATES = [
  * mistyped one compiles cleanly and renders an empty series, which is the
  * failure nobody investigates.
  */
-describe('CustomMetricBuilderDialog — reporting-key picker', () => {
+describe('CustomMetricBuilder — reporting-key picker', () => {
   function openOnLeadCrm() {
-    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    const w = mountBuilder({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'lead_crm'
     w.vm.form.definition.sourceTable = 'analytics_field_values'
@@ -468,7 +475,7 @@ describe('CustomMetricBuilderDialog — reporting-key picker', () => {
   // A built-in module has no FormTemplate claiming it — the typed input must
   // stay rather than a dropdown with nothing in it.
   it('falls back to typing on a built-in module', async () => {
-    const w = mountDialog({ templates: LEAD_TEMPLATES })
+    const w = mountBuilder({ templates: LEAD_TEMPLATES })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'capa'
     await nextTick()
@@ -492,9 +499,9 @@ describe('CustomMetricBuilderDialog — reporting-key picker', () => {
  * answer on the module together. It is stored as an ordinary reporting_key
  * filter, so the two views of the same fact must stay in step.
  */
-describe('CustomMetricBuilderDialog — which answer to measure', () => {
+describe('CustomMetricBuilder — which answer to measure', () => {
   function openSum() {
-    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    const w = mountBuilder({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'lead_crm'
     w.vm.form.definition.sourceTable = 'analytics_field_values'
@@ -575,10 +582,10 @@ describe('CustomMetricBuilderDialog — which answer to measure', () => {
   })
 })
 
-describe('CustomMetricBuilderDialog — a custom module’s answers', () => {
-  /** The dialog with the EAV module chosen and one filter row ready. */
+describe('CustomMetricBuilder — a custom module’s answers', () => {
+  /** The builder with the EAV module chosen and one filter row ready. */
   async function mountEav(filters) {
-    const w = mountDialog({ templates: [LEAD_CRM_TEMPLATE] })
+    const w = mountBuilder({ templates: [LEAD_CRM_TEMPLATE] })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'lead_crm'
     // Setting the module blanks the definition (the reset watcher), and the
@@ -653,15 +660,15 @@ describe('CustomMetricBuilderDialog — a custom module’s answers', () => {
 })
 
 /**
- * The custom-field row, end to end through the dialog.
+ * The custom-field row, end to end through the builder.
  *
- * The helpers are unit-tested next door; what matters here is that the dialog
+ * The helpers are unit-tested next door; what matters here is that the builder
  * shows ONE row for a custom field, and that everything downstream — the save
  * payload, the validators, the conflict warning — sees the EXPANDED pair.
  */
-describe('CustomMetricBuilderDialog — custom fields as one row', () => {
+describe('CustomMetricBuilder — custom fields as one row', () => {
   function openLeadCrm() {
-    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    const w = mountBuilder({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'lead_crm'
     w.vm.form.definition.sourceTable = 'analytics_field_values'
@@ -679,7 +686,7 @@ describe('CustomMetricBuilderDialog — custom fields as one row', () => {
   })
 
   it('leaves a built-in module on the registry list', async () => {
-    const w = mountDialog({ templates: LEAD_TEMPLATES })
+    const w = mountBuilder({ templates: LEAD_TEMPLATES })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'capa'
     w.vm.form.definition.sourceTable = 'capas'
@@ -742,10 +749,10 @@ describe('CustomMetricBuilderDialog — custom fields as one row', () => {
   })
 })
 
-/** The breakdown half, through the dialog. */
-describe('CustomMetricBuilderDialog — custom fields as a breakdown', () => {
+/** The breakdown half, through the builder. */
+describe('CustomMetricBuilder — custom fields as a breakdown', () => {
   function openLeadCrm() {
-    const w = mountDialog({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
+    const w = mountBuilder({ fields: LEAD_FIELDS, templates: LEAD_TEMPLATES })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'lead_crm'
     w.vm.form.definition.sourceTable = 'analytics_field_values'
@@ -805,11 +812,73 @@ describe('CustomMetricBuilderDialog — custom fields as a breakdown', () => {
   })
 
   it('leaves a built-in module\'s breakdown list alone', async () => {
-    const w = mountDialog({ templates: LEAD_TEMPLATES })
+    const w = mountBuilder({ templates: LEAD_TEMPLATES })
     w.vm.startFromScratch()
     w.vm.form.moduleId = 'capa'
     w.vm.form.definition.sourceTable = 'capas'
     await nextTick()
     expect(w.vm.groupFields.map((o) => o.value)).toContain('status_id')
+  })
+})
+
+/**
+ * The `dirty` model — what the page's unsaved-changes guard reads.
+ *
+ * Two rules, because a new metric cannot use a baseline: BaseSelect autofills
+ * the required Module select the moment the form renders, so a snapshot taken
+ * at seeding would be dirty before anyone typed. See `isDirty`.
+ */
+describe('CustomMetricBuilder — unsaved changes', () => {
+  /** The last value the component wrote to v-model:dirty, or undefined. */
+  function lastDirty(w) {
+    return w.emitted('update:dirty')?.at(-1)?.[0]
+  }
+
+  it('is clean on the chooser, and dirty once a template is applied', async () => {
+    const w = mountBuilder()
+    expect(w.vm.choosing).toBe(true)
+    expect(w.vm.isDirty).toBe(false)
+
+    // Choosing the blank form is not a change: nothing has been entered yet.
+    w.vm.startFromScratch()
+    await nextTick()
+    await nextTick()
+    expect(w.vm.isDirty).toBe(false)
+
+    // A template sets a name the author chose, and leaving would lose it.
+    w.vm.applyTemplate(OPEN_CAPAS)
+    await nextTick()
+    await nextTick()
+    expect(w.vm.isDirty).toBe(true)
+    expect(lastDirty(w)).toBe(true)
+  })
+
+  it('is clean right after seeding an existing metric, dirty after an edit', async () => {
+    const w = mountBuilder({
+      metric: {
+        id: 'm1',
+        name: 'Existing',
+        moduleId: 'capa',
+        direction: 'neutral',
+        grain: 'month',
+        definition: {
+          sourceTable: 'capas',
+          timeField: 'created_at',
+          measure: { type: 'count' },
+          filters: [],
+          groupBy: [],
+        },
+      },
+    })
+    await nextTick()
+    await nextTick()
+    expect(w.vm.isDirty).toBe(false)
+    // Never having been told it is dirty is as good as being told it is clean.
+    expect(lastDirty(w) ?? false).toBe(false)
+
+    w.vm.form.name = 'Existing, renamed'
+    await nextTick()
+    expect(w.vm.isDirty).toBe(true)
+    expect(lastDirty(w)).toBe(true)
   })
 })

@@ -62,6 +62,20 @@ describe('analytics route gates', () => {
   })
 
   /**
+   * The metric builder is a page now (/analytics/metrics/new and /:id). The
+   * analytics branch returns before CREATE_SEGMENTS is consulted, so `new` does
+   * NOT become `analytics_metrics:create` here — the page itself checks create /
+   * update. Pinned so the deeper paths keep resolving to the Metrics gate rather
+   * than falling through to the dashboards default.
+   */
+  it('gates the metric builder pages as Metrics', () => {
+    expect(requiredPermissionFor(route('/analytics/metrics/new'))).toBe('analytics_metrics:read')
+    expect(
+      requiredPermissionFor(route('/analytics/metrics/3f2b8c1e-8d4a-4b6f-9e2a-1c5d7e9f0a12')),
+    ).toBe('analytics_metrics:read')
+  })
+
+  /**
    * /analytics/browse is the metric browser that USED to be /analytics, moved
    * there on 2026-09-21 when Overview left the nav.
    *

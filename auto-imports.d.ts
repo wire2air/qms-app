@@ -9,6 +9,8 @@ declare global {
   const EFFECTIVENESS_FILTER_OPTIONS: typeof import('./src/composables/useEffectivenessRollup.js').EFFECTIVENESS_FILTER_OPTIONS
   const EFFECTIVENESS_STATE_LABELS: typeof import('./src/composables/useEffectivenessRollup.js').EFFECTIVENESS_STATE_LABELS
   const EffectScope: typeof import('vue').EffectScope
+  const PREVIEW_DEBOUNCE_MS: typeof import('./src/composables/useAnalytics.js').PREVIEW_DEBOUNCE_MS
+  const PREVIEW_ERROR: typeof import('./src/composables/useAnalytics.js').PREVIEW_ERROR
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
   const STEP_GROUPING_ENABLED: typeof import('./src/composables/useWorkflowStepGrouping.js').STEP_GROUPING_ENABLED
@@ -86,6 +88,7 @@ declare global {
   const isDefined: typeof import('@vueuse/core').isDefined
   const isEffectivenessOverdue: typeof import('./src/composables/useEffectivenessRollup.js').isEffectivenessOverdue
   const isGroupableStep: typeof import('./src/composables/useWorkflowStepGrouping.js').isGroupableStep
+  const isPreviewTerminalError: typeof import('./src/composables/useAnalytics.js').isPreviewTerminalError
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly

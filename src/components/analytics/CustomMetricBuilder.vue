@@ -2,7 +2,11 @@
 /**
  * Build a metric without writing SQL.
  *
- * ── WHAT THIS DIALOG IS ACTUALLY DOING ──────────────────────────────────────
+ * ── WHAT THIS BUILDER IS ACTUALLY DOING ─────────────────────────────────────
+ * Rendered inline by the New/Edit metric page (CustomMetricEditor), which owns
+ * the page header and mounts this once per metric, after the row has loaded.
+ * Everything below is about the form itself.
+ *
  * Assembling a structured `definition` object. It never composes a query, and it
  * never sees one: on save the row goes to analytics_custom_metrics and a database
  * trigger compiles it into analytics_metrics, checking every identifier against
@@ -10,7 +14,7 @@
  * question — never a bad query.
  *
  * That is why the field pickers are populated from the SYNCED REGISTRY rather
- * than from anything hardcoded here. A field this dialog cannot offer is one the
+ * than from anything hardcoded here. A field this builder cannot offer is one the
  * compiler would reject anyway, and a field the registry gains appears here with
  * no frontend change at all.
  *
@@ -72,6 +76,7 @@ import {
 } from '@/utils/analyticsCustomMetricAccess.js'
 import { loadLookupOptions, hasLookup } from '@/utils/analyticsLookupOptions.js'
 import { templatesForModule } from '@/utils/analyticsMetricTemplates.js'
+import { draftCatalogRow, previewPayload } from '@/utils/analyticsMetricPreview.js'
 import {
   IconPlus,
   IconTrash,
@@ -91,8 +96,36 @@ const props = defineProps({
   dimensionCap: { type: Number, default: 3 },
 })
 
-const emit = defineEmits(['saved'])
-const open = defineModel('open', { type: Boolean, default: false })
+const emit = defineEmits(['saved', 'cancel'])
+
+/**
+ * Whether the form holds work that leaving the page would lose. Written by this
+ * component only (see `isDirty`); the page reads it for its unsaved-changes
+ * route guard.
+ */
+const dirty = defineModel('dirty', { type: Boolean, default: false })
+
+/**
+ * True while the template chooser is the whole builder.
+ *
+ * ── WHY THIS IS A MODE RATHER THAN A PANEL ABOVE THE FORM ──────────────────
+ * The first version showed the cards and the empty form together. That reads as
+ * "here are some shortcuts, and here is the real work" — so the form is what the
+ * user starts filling in, and the templates are decoration they scroll past.
+ *
+ * Making it a choice inverts that. Most people want one of eight common
+ * measures and should be finished in two clicks; the blank form is the escape
+ * hatch for the minority who want something else. Showing one at a time is what
+ * says so.
+ *
+ * Never shown when editing: a template would silently replace a definition that
+ * dashboards, reports and alerts may already be built on.
+ *
+ * A model rather than a local ref so the page can title itself to match ("What
+ * would you like to track?" is this component's heading, not the page's). This
+ * component is the only writer.
+ */
+const choosing = defineModel('choosing', { type: Boolean, default: false })
 
 const toast = useToast()
 const saving = ref(false)
@@ -121,13 +154,40 @@ function blank() {
  * The failure was almost invisible, which is why it survived a build, four lints
  * and a full unit run. `timeField` came back anyway — BaseSelect's autoFill
  * re-picks the first option on a required single select, and the first date
- * field happened to be the saved one — so the dialog looked correctly populated.
+ * field happened to be the saved one — so the form looked correctly populated.
  * Only `Split by`, a multiple select with no autoFill, stayed visibly empty, and
  * the next Save would have written the emptied definition back. Found by
  * comparing a screenshot against the stored row: groupBy was ["status_id"] in
  * the database and blank on screen.
  */
 const seeding = ref(false)
+
+/**
+ * The form as it stood when it was last known clean, serialised — or null.
+ *
+ * Set when an EXISTING metric finishes seeding (inside seedForm, at the same
+ * moment the `seeding` flag clears, so the reset watchers have already had
+ * their say) and again after every successful save. Declared up here, not with
+ * `isDirty`, because the immediate seeding watcher below writes it during setup.
+ */
+const baseline = ref(null)
+
+/** The part of the form a save would write, as one comparable string. */
+function snapshot() {
+  const f = form.value
+  return JSON.stringify({
+    name: f.name,
+    description: f.description,
+    moduleId: f.moduleId,
+    direction: f.direction,
+    grain: f.grain,
+    definition: storedDefinition.value,
+  })
+}
+
+function captureBaseline() {
+  baseline.value = snapshot()
+}
 
 /**
  * Hold `seeding` true until the reset watchers have flushed for this change.
@@ -159,36 +219,47 @@ const seeding = ref(false)
  */
 function seedForm(next) {
   seeding.value = true
+  // No baseline while the form is mid-seed: a stale one from the previous
+  // metric would compare against the new row and read as unsaved changes.
+  baseline.value = null
   const stop = watch(
     () => [form.value.moduleId, form.value.definition.sourceTable],
     () => {
       seeding.value = false
+      if (props.metric) captureBaseline()
       stop()
     },
     { flush: 'post' },
   )
   form.value = next
-  // A seed that changes NEITHER watched value — reopening an unchanged metric —
-  // leaves the watcher above waiting for a change that never comes. Clearing on
-  // the next tick as well is harmless when the watcher already fired (the flag
-  // is false and stop() has run) and is the only thing that clears it when it
-  // did not.
+  // A seed that changes NEITHER watched value — re-seeding with an unchanged
+  // module and source table — leaves the watcher above waiting for a change that
+  // never comes. Clearing on the next tick as well is harmless when the watcher
+  // already fired (the flag is false and stop() has run) and is the only thing
+  // that clears it when it did not.
   nextTick(() => {
     seeding.value = false
+    if (props.metric) captureBaseline()
     stop()
   })
 }
 
-// Re-seed on open, so cancelling and reopening does not resurrect the abandoned
-// draft. JSON round-trip rather than structuredClone: `props.metric` is a live
-// SyncEngine row and its `definition` arrives wrapped in a Vue reactive Proxy,
-// which structuredClone refuses outright with DataCloneError — the defect that
-// made the report Edit button silently inert (see A12). A definition is plain
-// JSON by construction, so the round-trip is total.
+// Seed once per metric. The page mounts this component only after the row has
+// loaded, so `immediate` covers the normal case; the id key covers the page
+// being reused for a different metric without a remount (route param change),
+// which must not carry the previous metric's form across. JSON round-trip
+// rather than structuredClone: `props.metric` is a live SyncEngine row and its
+// `definition` arrives wrapped in a Vue reactive Proxy, which structuredClone
+// refuses outright with DataCloneError — the defect that made the report Edit
+// button silently inert (see A12). A definition is plain JSON by construction,
+// so the round-trip is total.
+//
+// Keyed on the ID, not the row: the live row re-emits on every sync echo
+// (including our own save), and re-seeding on that would throw away whatever
+// the author is typing.
 watch(
-  () => [open.value, props.metric?.id],
+  () => props.metric?.id,
   () => {
-    if (!open.value) return
     seedForm(
       props.metric
         ? {
@@ -251,7 +322,7 @@ const sourceTables = computed(() => {
  * title-casing the identifier reads fine. For a CUSTOM module it does not: its
  * answers live in the shared EAV projection, so every custom module's only
  * source is `analytics_field_values` and the picker read "Analytics Field
- * Values" — the name of internal plumbing, in a dialog whose whole job is to
+ * Values" — the name of internal plumbing, in a form whose whole job is to
  * hide it. The author has already chosen the module one field up; this row is
  * telling them which of its tables to measure, and there is exactly one.
  *
@@ -459,6 +530,87 @@ const storedDefinition = computed(() => {
 const problem = computed(() => definitionProblem(storedDefinition.value, form.value, props.dimensionCap))
 const canSave = computed(() => !problem.value && !saving.value)
 
+// ── the live preview ────────────────────────────────────────────────────────
+// See qms/docs/plans/custom-metric-live-preview.md. The draft is shaped like a
+// catalog row so the widget settings (vizOptionsFor, dimensionOptionsFor,
+// clampQuestion) work on it unmodified, and the payload is the STORED
+// definition — the same object a save would write.
+const draftRow = computed(() =>
+  draftCatalogRow({
+    name: form.value.name?.trim() || 'Untitled metric',
+    moduleId: form.value.moduleId,
+    direction: form.value.direction,
+    grain: form.value.grain,
+    definition: storedDefinition.value,
+    fields: tableFields.value,
+  }),
+)
+
+/**
+ * Preview and Save are gated by the SAME rule: `problem`, the one Save uses.
+ *
+ * An earlier version exempted the name, so a finished definition could be
+ * previewed before it was named. Reverted on request (2026-09-24): two gates
+ * that disagree meant a live Preview button beside a disabled Save, which reads
+ * as the form being half-valid. One check, one message, both buttons follow it.
+ */
+const previewDefinition = computed(() =>
+  problem.value
+    ? null
+    : previewPayload({
+        moduleId: form.value.moduleId,
+        grain: form.value.grain,
+        direction: form.value.direction,
+        definition: storedDefinition.value,
+      }),
+)
+
+// ── unsaved changes ─────────────────────────────────────────────────────────
+/**
+ * Whether leaving now would lose work. Feeds the `dirty` model, which the page
+ * turns into an unsaved-changes route guard.
+ *
+ * ── WHY TWO DIFFERENT RULES ────────────────────────────────────────────────
+ * EDIT compares against a baseline snapshot taken when seeding finished. That
+ * is stable because BaseSelect's required-field autofill only fills a NULL
+ * value, and a saved metric's required fields are all non-null — so nothing
+ * writes to the form between seeding and the first real keystroke.
+ *
+ * NEW cannot work that way. The Module select is required and empty, so
+ * BaseSelect autofills it the instant the form renders; a baseline taken at
+ * seeding would already differ from the form before the user has done
+ * anything, and every "Create your own → Cancel" would prompt. So a new metric
+ * is dirty only once it holds something a person put there: a name, a
+ * description, a filter or a breakdown. Applying a template counts — it sets a
+ * name — which is right: the author chose it and would lose it by leaving.
+ *
+ * After a save the baseline is set whatever the mode, so a new metric that has
+ * been saved compares against what was stored, like an edit does.
+ *
+ * Never dirty on the chooser: nothing has been chosen yet.
+ */
+const isDirty = computed(() => {
+  if (choosing.value) return false
+  if (baseline.value !== null) return snapshot() !== baseline.value
+  // An existing metric still mid-seed has no baseline yet, and is not dirty.
+  if (props.metric) return false
+  const f = form.value
+  return Boolean(
+    f.name?.trim() ||
+      f.description?.trim() ||
+      f.definition.filters?.length ||
+      f.definition.groupBy?.length,
+  )
+})
+
+watch(
+  isDirty,
+  (value) => {
+    dirty.value = value
+  },
+  { immediate: true },
+)
+
 // ── templates ───────────────────────────────────────────────────────────────
 /**
  * Offered only when CREATING, and only until the form has been started.
@@ -471,28 +623,12 @@ const canSave = computed(() => !problem.value && !saving.value)
  */
 const templates = computed(() => (props.metric ? [] : templatesForModule()))
 
-/**
- * True while the template chooser is the whole dialog.
- *
- * ── WHY THIS IS A MODE RATHER THAN A PANEL ABOVE THE FORM ──────────────────
- * The first version showed the cards and the empty form together. That reads as
- * "here are some shortcuts, and here is the real work" — so the form is what the
- * user starts filling in, and the templates are decoration they scroll past.
- *
- * Making it a choice inverts that. Most people want one of eight common
- * measures and should be finished in two clicks; the blank form is the escape
- * hatch for the minority who want something else. Showing one at a time is what
- * says so.
- *
- * Never shown when editing: a template would silently replace a definition that
- * dashboards, reports and alerts may already be built on.
- */
-const choosing = ref(false)
-
+// The chooser opens for a new metric and never for an existing one — see the
+// `choosing` model's comment. Same trigger as the seeding watcher above.
 watch(
-  () => [open.value, props.metric?.id],
+  () => props.metric?.id,
   () => {
-    if (open.value) choosing.value = !props.metric
+    choosing.value = !props.metric
   },
   { immediate: true },
 )
@@ -697,15 +833,15 @@ function nextSectionAfter(id) {
 }
 
 /**
- * Re-open the first section whenever the dialog is opened fresh.
+ * Re-open the first section whenever a different metric is loaded.
  *
- * Without this, closing the dialog mid-edit and reopening it for a DIFFERENT
- * metric would show whatever section the last one was left on.
+ * Without this, a page reused for a DIFFERENT metric (route param change, no
+ * remount) would show whatever section the last one was left on.
  */
 watch(
-  () => props.open,
-  (isOpen) => {
-    if (isOpen) openSections.value = [BUILDER_SECTIONS.WHAT]
+  () => props.metric?.id,
+  () => {
+    openSections.value = [BUILDER_SECTIONS.WHAT]
   },
 )
 
@@ -1004,11 +1140,42 @@ async function save() {
         // pairs the compiler expects. Nothing else in the definition changes,
         // so what is stored is byte-for-byte what the two-row form produced.
         definition: storedDefinition.value,
+        // A NEW metric is published on save (2026-09-24): Save is already gated
+        // on the same check as Preview, so what is saved is a definition the
+        // author has seen figures for — holding it back as a draft only added a
+        // second click before anyone else could use it. An AFTER trigger on
+        // analytics_custom_metrics queues the rollup refresh the moment a
+        // published row compiles, so figures follow within about a minute
+        // rather than at the next */15 tick.
+        //
+        // Editing leaves isPublished alone: unpublishing is a deliberate choice
+        // on the Metrics list, and an edit must not quietly undo it.
+        ...(props.metric ? {} : { isPublished: true }),
       },
     })
-    toast.success(props.metric ? 'Metric updated' : 'Metric created')
+    // What was just stored is the new clean state. Set BEFORE emitting, and
+    // pushed to the model directly rather than left to the `isDirty` watcher
+    // (a pre-flush job): the page typically navigates away on `saved`, and its
+    // unsaved-changes guard can run before that watcher has flushed.
+    captureBaseline()
+    dirty.value = false
+    // Read off the SAVED row, not the form: the compiler runs on the server and
+    // clears is_published when the definition does not compile, so only the
+    // returned record knows whether this is now live.
+    if (saved?.compileError) {
+      toast.warning(
+        "Saved, but it doesn't compile yet, so it isn't published. Open it to fix the problem shown.",
+      )
+    } else if (saved?.isPublished) {
+      toast.success(
+        props.metric
+          ? 'Metric updated. New figures are being computed and appear within a minute.'
+          : 'Metric published. Its figures are being computed and appear within a minute.',
+      )
+    } else {
+      toast.success('Metric updated')
+    }
     emit('saved', saved)
-    open.value = false
   } catch (err) {
     toast.error(err?.message || 'Could not save the metric')
   } finally {
@@ -1018,19 +1185,24 @@ async function save() {
 </script>
 
 <template>
-  <BaseDialog
-    v-model="open"
-    :title="choosing ? 'What would you like to track?' : metric ? 'Edit metric' : 'New metric'"
-    :subtitle="
-      choosing
-        ? undefined
-        : 'Describe the question. The server works out how to count it, and every reader still sees only the records their own access allows.'
-    "
-    size="2xl"
-    persistent
-    showClose
-  >
+  <!--
+    Inline, filling a `BasePage fullHeight`: the body scrolls and the action bar
+    stays put underneath it, which is what the dialog's pinned footer gave us.
+    The page header carries "New metric" / "Edit metric"; the chooser's question
+    is this component's own heading because it is a different step, not a
+    different page.
+  -->
+  <div class="tw:flex tw:min-h-0 tw:flex-1 tw:flex-col">
+    <div class="builder-body tw:flex-1 tw:min-h-0 tw:overflow-y-auto">
     <div class="tw:flex tw:flex-col tw:gap-4">
+      <BaseText v-if="choosing" as="h2" variant="section-title" weight="bold">
+        What would you like to track?
+      </BaseText>
+      <BaseText v-else variant="caption" color="secondary">
+        Describe the question. The server works out how to count it, and every reader still sees
+        only the records their own access allows.
+      </BaseText>
+
       <!--
         Shown at the top, not buried at the bottom: a definition that did not
         compile is the single most important thing about the row being edited,
@@ -1045,7 +1217,7 @@ async function save() {
       />
 
       <!-- ── THE CHOOSER ───────────────────────────────────────────────────
-           The whole dialog while it is open, not a panel above the form. Most
+           The whole builder while it is showing, not a panel above the form. Most
            people want one of these and are finished in two clicks; the blank
            form is the escape hatch, not the main event. -->
       <template v-if="choosing">
@@ -1078,6 +1250,16 @@ async function save() {
       </template>
 
       <template v-else>
+        <!-- ── FORM LEFT, LIVE PREVIEW RIGHT ─────────────────────────────────
+             The DataExplorer grid: settings beside the answer, so a change to
+             the definition is seen as a change to the figure without scrolling.
+             Two columns from lg; the form gets the larger share from xl because
+             its filter rows are four controls wide. Below lg the preview follows
+             the form. See qms/docs/plans/custom-metric-live-preview.md §4.3. -->
+        <div
+          class="builder-columns tw:grid tw:gap-6 tw:lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] tw:xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+        >
+        <div class="tw:flex tw:min-w-0 tw:flex-col tw:gap-4">
         <!-- ── THE FORM, ONE SECTION AT A TIME ───────────────────────────────
              Was six stacked blocks in a single scroll. The accordion keeps the
              finished ones as a line each, so the open section is the only place
@@ -1524,15 +1706,17 @@ async function save() {
           <!--
             The definition, in words.
 
-            ⚠ There are NO FIGURES here, and that is not a limitation being worked
-            around. The metric does not exist until it is saved and compiled, and
-            its first figures arrive with the next rollup refresh — so any number
-            shown at this point would be invented. In a product where every tile
-            prints the timestamp its figure was computed at, a plausible-looking
-            fabricated count is worse than no preview at all.
+            ⚠ Still NO FIGURES in this panel — they live in the preview panel
+            beside it (CustomMetricPreviewPanel), which is the only place a number
+            for an unsaved metric may appear. Those figures are not estimated on
+            the client: the server compiles the draft and runs the real pipeline
+            inside a transaction it then rolls back, so they are what the saved
+            metric would show today, and nothing is stored. The design, and why
+            the earlier "any number here would be invented" rule no longer holds,
+            is in qms/docs/plans/custom-metric-live-preview.md.
 
-            The sentence is what CAN honestly be shown, and it is the same
-            sentence the compiler will store and every tile will display.
+            This panel stays a read-back: the sentence is the same one the
+            compiler will store and every tile will display.
           -->
           <div
             v-if="sentence"
@@ -1567,41 +1751,66 @@ async function save() {
             <BaseText class="tw:mt-3">{{ sentence }}</BaseText>
             <BaseText variant="caption" color="secondary" class="tw:mt-2">
               Figures appear once the metric is saved, published and the next analytics refresh
-              has run. Every reader sees only the records their own access allows.
+              has run — the preview is computed live and never stored. Every reader sees only the
+              records their own access allows.
             </BaseText>
           </div>
+        </div>
+
+        <!-- Sticky inside `.builder-body` (the scroll container), so the figure
+             stays in view while a long filter list scrolls past. `self-start`
+             is what lets sticky work in a grid cell, which otherwise stretches
+             to the row height and has nowhere to stick. -->
+        <div class="tw:min-w-0 tw:self-start tw:lg:sticky tw:lg:top-0">
+          <CustomMetricPreviewPanel
+            :draftRow="draftRow"
+            :previewDefinition="previewDefinition"
+            :problem="problem"
+          />
+        </div>
+        </div>
       </template>
     </div>
+    </div>
 
-    <!-- ── THE CHOOSER'S FOOTER ─────────────────────────────────────────────
-         NOT a BaseDialogFooter: there is nothing to save yet, and a disabled
-         Save button next to the cards reads as "these do not work".
+    <!--
+      The action bar: what the dialog's two #footer slots used to be. Outside
+      the scrolling body so it stays on screen however long the form or the
+      card list grows.
+    -->
+    <div class="builder-actions tw:border-t tw:border-divider tw:pt-3 tw:mt-3">
+      <!-- ── THE CHOOSER'S ACTIONS ───────────────────────────────────────────
+           NOT a BaseDialogFooter: there is nothing to save yet, and a disabled
+           Save button next to the cards reads as "these do not work".
 
-         What it does carry is the escape hatch. "Create your own" used to sit
-         at the BOTTOM OF THE SCROLL, under every template in every module —
-         170 of them now, where there were 73 when it was written. Someone who
-         wants to measure something this list does not cover had to scroll past
-         the entire list to discover they were allowed to. Pinned here it is
-         visible from the first card, which is the only place the choice is
-         actually being made.
+           What it does carry is the escape hatch. "Create your own" used to sit
+           at the BOTTOM OF THE SCROLL, under every template in every module —
+           170 of them now, where there were 73 when it was written. Someone who
+           wants to measure something this list does not cover had to scroll past
+           the entire list to discover they were allowed to. Pinned here it is
+           visible from the first card, which is the only place the choice is
+           actually being made.
 
-         Kept visually quiet (outline, small, right-aligned) because it is the
-         minority path: most people want a template and are finished in two
-         clicks. -->
-    <template v-if="choosing" #footer>
-      <div class="tw:flex tw:w-full tw:items-center tw:justify-between tw:gap-3">
+           Kept visually quiet (outline, small, right-aligned) because it is the
+           minority path: most people want a template and are finished in two
+           clicks. -->
+      <div
+        v-if="choosing"
+        class="tw:flex tw:w-full tw:items-center tw:justify-between tw:gap-3"
+      >
         <BaseText variant="caption" color="secondary" class="tw:min-w-0">
           Nothing here fits?
         </BaseText>
-        <BaseButton variant="outline" size="sm" @click="startFromScratch">
-          <IconPencil :size="14" aria-hidden="true" />
-          Create your own
-        </BaseButton>
+        <div class="tw:flex tw:shrink-0 tw:items-center tw:gap-2">
+          <BaseButton variant="outline" size="sm" @click="emit('cancel')">Cancel</BaseButton>
+          <BaseButton variant="outline" size="sm" @click="startFromScratch">
+            <IconPencil :size="14" aria-hidden="true" />
+            Create your own
+          </BaseButton>
+        </div>
       </div>
-    </template>
 
-    <template v-else #footer="{ close }">
-      <div class="tw:flex tw:w-full tw:flex-col tw:gap-2">
+      <div v-else class="tw:flex tw:w-full tw:flex-col tw:gap-2">
         <!--
           The reason a save is blocked, as a way BACK to the field.
 
@@ -1620,16 +1829,18 @@ async function save() {
           <IconAlertTriangle :size="14" aria-hidden="true" />
           {{ problem }}
         </button>
+        <!-- BaseDialogFooter is just the standard Cancel / Save button row; it
+             has no dependency on being inside a dialog. -->
         <BaseDialogFooter
           :loading="saving"
           :disabled="!canSave"
-          :submitLabel="metric ? 'Save changes' : 'Save metric'"
+          :submitLabel="metric ? 'Save changes' : 'Save and publish'"
           :submitTitle="problem || undefined"
           :error="blockedSection ? '' : problem || ''"
-          @cancel="close"
+          @cancel="emit('cancel')"
           @submit="save"
         />
       </div>
-    </template>
-  </BaseDialog>
+    </div>
+  </div>
 </template>

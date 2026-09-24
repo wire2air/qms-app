@@ -121,6 +121,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/analytics/metrics/[id]': RouteRecordInfo<
+      '/analytics/metrics/[id]',
+      '/analytics/metrics/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/analytics/metrics/new': RouteRecordInfo<
+      '/analytics/metrics/new',
+      '/analytics/metrics/new',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/analytics/reports/': RouteRecordInfo<
       '/analytics/reports/',
       '/analytics/reports',
@@ -957,6 +971,18 @@ declare module 'vue-router/auto-routes' {
     'src/pages/analytics/metrics/index.vue': {
       routes:
         | '/analytics/metrics/'
+      views:
+        | never
+    }
+    'src/pages/analytics/metrics/[id].vue': {
+      routes:
+        | '/analytics/metrics/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/metrics/new.vue': {
+      routes:
+        | '/analytics/metrics/new'
       views:
         | never
     }

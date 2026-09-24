@@ -15,9 +15,29 @@
  * breakdown as a prop, because a prop is exactly how another viewer's numbers
  * would get in.
  *
- * Shared by the dashboard view, the widget dialog's live preview, and the Data
- * Explorer — one renderer, so a tile cannot look different depending on where
- * you are standing.
+ * Shared by the dashboard view, the widget dialog's live preview, the Data
+ * Explorer and the metric builder's unsaved-metric preview — one renderer, so a
+ * tile cannot look different depending on where you are standing.
+ *
+ * ── PREVIEW MODE: STILL ITS OWN REQUESTS ────────────────────────────────────
+ * On the metric builder there is no saved metric to name, so the page passes a
+ * `previewDefinition` (the draft, from utils/analyticsMetricPreview.js) and a
+ * draft catalog row as `metric`. That is a QUESTION, not an answer: the tile
+ * still issues every request itself, through the same useMetricValue / Series /
+ * Breakdown calls, which route to the preview endpoint when the definition is
+ * set (debounced, superseded requests aborted). The rule above is untouched —
+ * no value, series or breakdown ever arrives as a prop.
+ *
+ * What preview mode changes is only what the tile may CLAIM:
+ *  - no tier, scope or stored freshness exist yet, so the meta line reads
+ *    "Preview — computed live from current records, not saved" plus the shadow
+ *    run's own compute time;
+ *  - the compiler's refusal is the error message, verbatim, and so are the
+ *    timeout and no-permission sentences (useAnalytics maps those);
+ *  - an empty result reads "Nothing matches right now" — a real zero, not a
+ *    missing period;
+ *  - nothing drills: the metric the rows came from was rolled back with the
+ *    request, so every drill target points at a metric that does not exist.
  *
  * ── SEMANTICS IT MUST NOT BREAK ─────────────────────────────────────────────
  *  - a suppressed cell is plotted as `null`, NEVER 0 — zero is information and a
@@ -34,10 +54,16 @@
  * working, not an error, and it has to say so — an empty chart would read as
  * "there is no data", which is a different and false claim.
  */
-import { IconLock, IconRefresh } from '@tabler/icons-vue'
+import { IconAlertTriangle, IconLock, IconRefresh } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { moduleIcon } from '@/utils/moduleIcons.js'
-import { useMetricValue, useMetricSeries, useMetricBreakdown } from '@/composables/useAnalytics.js'
+import {
+  useMetricValue,
+  useMetricSeries,
+  useMetricBreakdown,
+  isPreviewTerminalError,
+} from '@/composables/useAnalytics.js'
+import { PREVIEW_METRIC_KEY } from '@/utils/analyticsMetricPreview.js'
 import {
   drillLocation,
   formatMetricValue,
@@ -63,7 +89,16 @@ const props = defineProps({
   height: { type: Number, default: 260 },
   minCell: { type: Number, default: 5 },
   enabled: { type: Boolean, default: true },
+  /**
+   * An UNSAVED metric to preview — previewPayload() from
+   * utils/analyticsMetricPreview.js — or null for a normal tile. When set, every
+   * read goes to the preview endpoint and `question.metricKey` is a placeholder.
+   * See "PREVIEW MODE" in the header.
+   */
+  previewDefinition: { type: Object, default: null },
 })
+
+const isPreview = computed(() => !!props.previewDefinition)
 
 /**
  * BaseChart's categorical palette holds six accessible hues; a seventh split
@@ -89,7 +124,18 @@ const title = computed(() => props.question?.title || props.metric?.name || metr
 // A tile whose metric this viewer cannot read. Distinct from "no data".
 const unavailable = computed(() => props.catalogLoaded && !props.metric)
 
-const active = computed(() => props.enabled && !!props.metric && !!metricKey.value)
+// The placeholder key without a definition means the draft is not complete
+// enough to preview — ask nothing, rather than asking GraphQL for a metric
+// called "preview".
+const active = computed(
+  () =>
+    props.enabled &&
+    !!props.metric &&
+    !!metricKey.value &&
+    (isPreview.value || metricKey.value !== PREVIEW_METRIC_KEY),
+)
+
+const preview = () => props.previewDefinition
 
 // ── provenance + headline ───────────────────────────────────────────────────
 // Every tile states the scope, tier and freshness its number was computed
@@ -102,12 +148,14 @@ const {
   metric: valueRow,
   error: valueError,
   retry: retryValue,
+  previewMeta: valuePreviewMeta,
 } = useMetricValue(
   {
     metricKey,
     periodStart: () => period.value.periodStart,
     periodEnd: () => period.value.periodEnd,
     compare: () => props.question?.compare || 'previous_period',
+    preview,
   },
   { enabled: wantsValue },
 )
@@ -119,6 +167,7 @@ const {
   loading: seriesLoading,
   error: seriesError,
   retry: retrySeries,
+  previewMeta: seriesPreviewMeta,
 } = useMetricSeries(
   {
     metricKey,
@@ -128,6 +177,7 @@ const {
     // guarantees that, and clampQuestion repairs a stale stored value.
     dimension,
     minCell: () => props.minCell,
+    preview,
   },
   { enabled: seriesEnabled },
 )
@@ -135,10 +185,11 @@ const {
 const breakdownEnabled = computed(() => active.value && source.value === SOURCE.BREAKDOWN)
 
 const {
-  rows: breakdownRows,
+  rows: fetchedBreakdownRows,
   loading: breakdownLoading,
   error: breakdownError,
   retry: retryBreakdown,
+  previewMeta: breakdownPreviewMeta,
 } = useMetricBreakdown(
   {
     metricKey,
@@ -148,8 +199,25 @@ const {
     limit: () => shaping.value.limit ?? 10,
     minCell: () => props.minCell,
     rankBy: () => shaping.value.rankBy ?? 'contribution',
+    preview,
   },
   { enabled: breakdownEnabled },
+)
+
+/**
+ * The rows everything below renders. In preview the drill target is stripped:
+ * the shadow run computed it for a metric that was rolled back, and
+ * AnalyticsBreakdownList offers a row as a link exactly when it has a
+ * `drillRoute` (isDrillable), so blanking it is what disables the link.
+ */
+const breakdownRows = computed(() =>
+  isPreview.value
+    ? (fetchedBreakdownRows.value || []).map((r) => ({
+        ...r,
+        drillRoute: null,
+        drillFilters: null,
+      }))
+    : fetchedBreakdownRows.value,
 )
 
 // ── series-shaped charts ────────────────────────────────────────────────────
@@ -352,19 +420,54 @@ const error = computed(() =>
   source.value === SOURCE.SERIES ? seriesError.value : breakdownError.value,
 )
 
+// ── preview wording ─────────────────────────────────────────────────────────
+// Undefined outside preview, so BaseChart keeps its own default wording there.
+const emptyTitle = computed(() => (isPreview.value ? 'Nothing matches right now' : undefined))
+const errorTitle = computed(() => (isPreview.value ? "Can't preview this yet" : undefined))
+const errorDescription = computed(() =>
+  isPreview.value && error.value?.message ? error.value.message : undefined,
+)
+// The compiler's refusal and a missing grant cannot be retried away. Preview
+// only: a dashboard tile's RLS denial also arrives as code FORBIDDEN (the
+// GraphQL error normaliser maps 42501), and there Retry has always been shown.
+const canRetryBody = computed(() => !(isPreview.value && isPreviewTerminalError(error.value)))
+
+// The body read's meta (the headline read may be off, e.g. never for a KPI).
+const previewMeta = computed(() => {
+  if (!isPreview.value) return null
+  const body = source.value === SOURCE.SERIES ? seriesPreviewMeta.value : breakdownPreviewMeta.value
+  return body ?? valuePreviewMeta.value ?? null
+})
+
+const previewComputedAt = computed(() => {
+  const raw = previewMeta.value?.computedAt
+  if (!raw) return null
+  const dt = DateTime.fromISO(String(raw))
+  return dt.isValid ? dt.formatDate('datetime') : null
+})
+
 function retryBody() {
   if (source.value === SOURCE.SERIES) retrySeries()
   else retryBreakdown()
 }
 
 const drillTo = computed(() =>
-  drillLocation({
-    drillRoute: props.metric?.drill?.route,
-    drillFilters: props.metric?.drill?.filters,
-  }),
+  isPreview.value
+    ? null
+    : drillLocation({
+        drillRoute: props.metric?.drill?.route,
+        drillFilters: props.metric?.drill?.filters,
+      }),
 )
 
-const headline = computed(() => formatMetricValue(valueRow.value?.value, unit.value))
+// A failed preview keeps the last good figure, which belongs to an EARLIER
+// draft; blank it rather than print it beside the new draft's error.
+const headline = computed(() =>
+  formatMetricValue(
+    isPreview.value && (valueError.value || error.value) ? null : valueRow.value?.value,
+    unit.value,
+  ),
+)
 
 // Export the DATA behind the chart, not a picture of it, so a figure in a
 // spreadsheet reconciles with the one on screen — including its suppression.
@@ -432,7 +535,8 @@ const exportName = computed(() => `${metricKey.value || 'metric'}-${props.questi
     :periodStart="period.periodStart"
     :periodEnd="period.periodEnd"
     :compare="question.compare || 'previous_period'"
-    :enabled="enabled"
+    :enabled="active"
+    :previewDefinition="previewDefinition"
   />
 
   <AnalyticsWidget
@@ -440,9 +544,9 @@ const exportName = computed(() => `${metricKey.value || 'metric'}-${props.questi
     :title="title"
     :subtitle="metric.description"
     :icon="moduleIcon(metric.moduleId)"
-    :scope="valueRow?.effectiveScope ?? metric.effectiveScope"
-    :tier="valueRow?.tier ?? metric.tier"
-    :computedAt="valueRow?.computedAt"
+    :scope="isPreview ? null : (valueRow?.effectiveScope ?? metric.effectiveScope)"
+    :tier="isPreview ? null : (valueRow?.tier ?? metric.tier)"
+    :computedAt="isPreview ? null : valueRow?.computedAt"
     :calculationNote="metric.calculationNote"
     :periodStart="valueRow?.periodStart ?? period.periodStart"
     :periodEnd="valueRow?.periodEnd ?? period.periodEnd"
@@ -467,8 +571,10 @@ const exportName = computed(() => `${metricKey.value || 'metric'}-${props.questi
     <template v-if="question.viz === 'table'">
       <BaseSkeleton v-if="loading" variant="rect" :height="`${height}px`" />
       <div v-else-if="error" class="tw:flex tw:flex-col tw:items-center tw:gap-2 tw:py-8">
-        <BaseText variant="caption" color="secondary">Couldn't load this breakdown.</BaseText>
-        <BaseButton size="sm" variant="outline" @click="retryBody">
+        <BaseText variant="caption" color="secondary">
+          {{ errorDescription || "Couldn't load this breakdown." }}
+        </BaseText>
+        <BaseButton v-if="canRetryBody" size="sm" variant="outline" @click="retryBody">
           <IconRefresh :size="14" aria-hidden="true" />
           Retry
         </BaseButton>
@@ -476,7 +582,7 @@ const exportName = computed(() => `${metricKey.value || 'metric'}-${props.questi
       <BaseEmptyState
         v-else-if="!breakdownRows?.length"
         :icon="moduleIcon(metric.moduleId)"
-        title="No data for this period"
+        :title="emptyTitle || 'No data for this period'"
         dense
       />
       <AnalyticsBreakdownList v-else :rows="breakdownRows" :unit="unit" />
@@ -492,9 +598,12 @@ const exportName = computed(() => `${metricKey.value || 'metric'}-${props.questi
       :height="height"
       :loading="loading"
       :error="error"
+      :emptyTitle="emptyTitle"
+      :errorTitle="errorTitle"
+      :errorDescription="errorDescription"
       :ariaLabel="chartAriaLabel"
     >
-      <template #error-action>
+      <template v-if="canRetryBody" #error-action>
         <BaseButton size="sm" variant="outline" @click="retryBody">
           <IconRefresh :size="14" aria-hidden="true" />
           Retry
@@ -505,12 +614,43 @@ const exportName = computed(() => `${metricKey.value || 'metric'}-${props.questi
     <!-- The headline, scope and freshness all come from metric_value. If only
          that call failed the chart is still valid, so name what's missing
          rather than blanking the tile. -->
-    <template v-if="valueError" #footer>
-      <div class="tw:flex tw:items-center tw:gap-2">
-        <BaseText variant="caption" color="secondary">
-          Couldn't load this tile's headline figure, scope or freshness.
+    <template v-if="valueError || isPreview" #footer>
+      <!-- In preview this replaces the tier / scope / freshness line, which
+           would claim things about a metric that does not exist yet. -->
+      <template v-if="isPreview">
+        <BaseText
+          v-if="previewMeta?.driftWarning"
+          variant="caption"
+          color="inherit"
+          class="tw:inline-flex tw:items-start tw:gap-1 tw:text-warn"
+        >
+          <IconAlertTriangle :size="13" class="tw:mt-0.5 tw:shrink-0" aria-hidden="true" />
+          {{ previewMeta.driftWarning }}
         </BaseText>
-        <BaseButton size="sm" variant="text" @click="retryValue">Retry</BaseButton>
+        <BaseText variant="caption" color="secondary">
+          Preview — computed live from current records, not saved<template v-if="previewComputedAt">
+            · {{ previewComputedAt }}</template
+          >
+        </BaseText>
+      </template>
+      <!-- A body error in preview already says why; a second "couldn't load"
+           for the headline would repeat it. -->
+      <div v-if="valueError && !(isPreview && error)" class="tw:flex tw:items-center tw:gap-2">
+        <BaseText variant="caption" color="secondary">
+          {{
+            isPreview
+              ? valueError.message
+              : "Couldn't load this tile's headline figure, scope or freshness."
+          }}
+        </BaseText>
+        <BaseButton
+          v-if="!(isPreview && isPreviewTerminalError(valueError))"
+          size="sm"
+          variant="text"
+          @click="retryValue"
+        >
+          Retry
+        </BaseButton>
       </div>
     </template>
   </AnalyticsWidget>

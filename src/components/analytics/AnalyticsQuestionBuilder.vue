@@ -6,6 +6,13 @@
  * Explorer is precisely this builder with the save step removed, so duplicating
  * the picker logic would guarantee the two drifted.
  *
+ * The metric builder's live preview is the third user, with `lockMetric`: the
+ * metric is the one being defined, so the picker is hidden and `metrics` holds
+ * exactly one row — a DRAFT catalog row from utils/analyticsMetricPreview.js
+ * (draftCatalogRow). Everything else is unchanged, which is the point: the
+ * preview offers the same visualisations and splits a dashboard widget will,
+ * because the same rules below decide them from a row of the same shape.
+ *
  * ── THE CATALOG IS THE CONTRACT, IN BOTH DIRECTIONS ─────────────────────────
  * The metric list is `metricCatalog` and nothing else: it is already filtered
  * server-side by permission, commercial entitlement, and whether the rollup
@@ -48,6 +55,9 @@ const props = defineProps({
   // Hide the title field where a title makes no sense (the Explorer is not
   // saving anything to name).
   showTitle: { type: Boolean, default: true },
+  // Fix the question to the single entry in `metrics` and hide the picker —
+  // for the metric builder's preview, where there is nothing else to choose.
+  lockMetric: { type: Boolean, default: false },
 })
 
 /**
@@ -63,6 +73,20 @@ function patch(next) {
 
 const metric = computed(
   () => props.metrics.find((m) => m.metricKey === question.value?.metricKey) ?? null,
+)
+
+/**
+ * With the picker hidden nothing else can choose the metric, so adopt the one
+ * offered. Runs through onMetricChange so the viz/dimension are clamped against
+ * it in the same tick — a draft row's dimensions change as the author edits the
+ * group-by, and the watch further down re-clamps from there.
+ */
+watch(
+  () => (props.lockMetric ? (props.metrics[0]?.metricKey ?? null) : null),
+  (lockedKey) => {
+    if (lockedKey && question.value?.metricKey !== lockedKey) onMetricChange(lockedKey)
+  },
+  { immediate: true },
 )
 
 // Grouped by module so a 22-metric list reads as five short ones.
@@ -201,6 +225,7 @@ function onMetricChange(metricKey) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
     <BaseSelect
+      v-if="!lockMetric"
       :modelValue="question.metricKey"
       :options="metricOptions"
       optionGroup="group"
