@@ -368,6 +368,40 @@ export const USERS = {
     email: 'recorddeleter@e2e.test',
     name: 'Dana RecordDeleter',
   },
+  // §49 (OQ Partial→Covered closure, cross-cutting security) — the ONLY holder
+  // of `audit_trail:export` anywhere in this tenant. Measured before it was
+  // added: the whole tenant held exactly two audit_trail rows, both `read`
+  // (E2E Auditor, E2E Role Admin), so the export affordance was reachable only
+  // through `owner`'s isOwner short-circuit — which proves the button exists
+  // and nothing about the grant.
+  //
+  // She holds `read` AS WELL, and that is not redundancy.
+  // `authz.effective_permission_strings` emits one string per granted row and
+  // adds no implied read, so an export-only session carries
+  // `audit_trail:export` without `audit_trail:read` — `canRead` in
+  // AuditLogDialog.vue would be false, the dialog would render its DENIAL
+  // state, and the Export button (inside that `v-else`) would never mount at
+  // all. The persona would fail the journey it exists for, for a reason that
+  // reads like a product defect.
+  //
+  // Deliberately a SECOND persona rather than widening `auditor`: ALD-A5
+  // asserts that Ava, who holds read, is offered NO Export CSV button —
+  // read-is-not-export is a property this suite holds on purpose, and §49 must
+  // not buy URS-SEC-09 by breaking it.
+  //
+  // She also holds `ncr:read`, and ONLY `ncr:read`, for a structural reason:
+  // `AuditLogDialog` is embedded on ten DETAIL pages and on no standalone
+  // route, so an export journey must stand on a record the persona can open.
+  // `nonconformances_sel` would otherwise return nothing for her and the run
+  // would fail on a page that never rendered, reading as "the export button is
+  // missing". It costs nothing: the denial leg of ALD-A7 is `auditor`, who
+  // holds `ncr:read` too, so the pair still isolates `audit_trail:export`. No
+  // e-sign PIN — this persona never signs anything.
+  trailExporter: {
+    id: 'e2e10000-0000-4000-8000-0000000009b0',
+    email: 'trailexporter@e2e.test',
+    name: 'Tess TrailExporter',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -391,6 +425,8 @@ export const ROLES = {
   prize: { id: 'e2e30000-0000-4000-8000-000000000059', name: 'E2E Prize Role' },
   locked: { id: 'e2e30000-0000-4000-8000-000000000058', name: 'E2E Locked Role' },
   roleAdmin: { id: 'e2e30000-0000-4000-8000-000000000050', name: 'E2E Role Admin' },
+  // §49 — audit_trail read + export, nothing else. See `trailExporter` above.
+  trailExporter: { id: 'e2e30000-0000-4000-8000-0000000009b0', name: 'E2E Trail Exporter' },
 }
 
 // The capability the prize role carries, as the pair every probe checks. Kept
@@ -458,6 +494,7 @@ export const AUTH = {
   supportAgent: 'e2e/.auth/supportAgent.json',
   rcaAdmin: 'e2e/.auth/rcaAdmin.json',
   recordDeleter: 'e2e/.auth/recordDeleter.json',
+  trailExporter: 'e2e/.auth/trailExporter.json',
 }
 
 // Quality Events fixtures seeded by e2e-seed.sql §28.

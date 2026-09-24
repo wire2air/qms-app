@@ -238,15 +238,33 @@ test.describe('FORMS-F7 — version pinning when a form template is superseded',
 
     // And the guard f5 covers, re-stated where it belongs: the version cannot
     // be walked back to make the two agree again.
-    const backwards = sql(
-      `DO $$ BEGIN
-         UPDATE form_templates SET version = 1 WHERE id = '${T.templateId}';
-       EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'refused'; END $$;
-       SELECT version FROM form_templates WHERE id = '${T.templateId}';`,
-    )
+    //
+    // The REFUSAL is asserted, not just its after-effect. An
+    // `EXCEPTION WHEN OTHERS` wrapper swallows the raise, so a run in which the
+    // trigger had been dropped and the UPDATE silently did nothing would be
+    // indistinguishable from a run in which it fired. `sql()` throws on a
+    // non-zero psql exit (ON_ERROR_STOP=1), so the raise is caught here
+    // directly, and the message is matched against the product's own words.
+    let refusal = null
+    try {
+      sql(`UPDATE form_templates SET version = 1 WHERE id = '${T.templateId}'`)
+    } catch (err) {
+      refusal = `${err.stderr ?? ''}${err.message ?? ''}`
+    }
     expect(
-      Number(String(backwards).trim().split('\n').pop()),
-      'the version cannot go backwards — QMSFT refuses it (f5 pins the raise; this pins the effect)',
+      refusal,
+      'the version cannot go backwards — enforce_form_template_integrity must RAISE, ' +
+        'not merely leave the row alone (f5 pins the raise; this pins it at the point of use)',
+    ).toBeTruthy()
+    expect(
+      refusal,
+      'and it says why, in the HINT that names the freeze this whole file is about',
+    ).toMatch(/version cannot go backwards/i)
+
+    // …and the row is genuinely unchanged, so the refusal was atomic.
+    expect(
+      Number(sqlValue(`SELECT version FROM form_templates WHERE id = '${T.templateId}'`)),
+      'the refused UPDATE left the version where it was',
     ).toBe(2)
   })
 

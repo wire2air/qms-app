@@ -59,7 +59,7 @@
 // `createdAt` descending). A test that assumed they agreed would assert a
 // reversed sequence against one of them and read as a product bug.
 import { test, expect } from '../../video/fixtures/videoTest.js'
-import { AUTH, QC, USERS } from '../fixtures/cast.js'
+import { AUTH, ESIGN_PIN, QC, USERS } from '../fixtures/cast.js'
 import {
   createLotViaRest,
   createRetainSample,
@@ -359,7 +359,15 @@ test.describe('PW-J19 — the retain register', () => {
   // at exactly +30 days lands either side of the boundary depending on the hour.
   // +15 and −1 are chosen to sit clear of it; asserting the boundary itself
   // would be asserting the clock.
-  const registerSamples = { due: null, overdue: null, retained: null }
+  //
+  // AUDIT ADDITION (2026-09-23): a FOURTH fixture, `disposed`. The first draft
+  // seeded only the three RETAINED-derived states and never exercised the
+  // `Disposed` chip — which is the one bucket whose membership comes from the
+  // STORED `status_id` rather than from a date computed at render. Leaving it
+  // out meant the test proved the date arithmetic and said nothing about the
+  // stored-status branch of `derivedState()` (`if (row.statusId !== 'RETAINED')
+  // return row.statusId`), and URS-RET-05 asks for "status" filtering.
+  const registerSamples = { due: null, overdue: null, retained: null, disposed: null }
 
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.qcInspector })
@@ -369,20 +377,74 @@ test.describe('PW-J19 — the retain register', () => {
         ['due', 15],
         ['overdue', -1],
         ['retained', 400],
+        // Far future too, so that when it is disposed below its bucket can only
+        // be the STORED status — a +400d row is plainly neither DUE nor OVERDUE.
+        ['disposed', 400],
       ]) {
         const lot = await createLotViaRest(page, {})
         const s = await createRetainSample(page, lot.id, {
           quantity: '2',
           position: `J19 ${key}`,
         })
+        // ⚠ `updated_at` MUST be bumped alongside. The syncEngine bootstraps a
+        // DELTA filtered `updatedAt > lastSyncValue` (bootstrap.js:114-125), so
+        // a raw edit that leaves the timestamp behind can be skipped by any
+        // context whose watermark is already past it. A cold context (which is
+        // what each test below gets — Playwright builds a fresh BrowserContext
+        // per test and IndexedDB does not travel in `storageState`) reads the
+        // whole table and would be fine, but relying on that makes the fixture
+        // silently order-dependent. See j21's `backdateSamples` header for the
+        // measured version of this trap.
         sql(
-          `UPDATE retain_samples SET retain_until = (current_date + ${days})::date WHERE id = ${q(s.id)}`,
+          `UPDATE retain_samples
+              SET retain_until = (current_date + ${days})::date, updated_at = now()
+            WHERE id = ${q(s.id)}`,
         )
         registerSamples[key] = findRetainSample(s.id)
       }
     } finally {
       await ctx.close()
     }
+
+    // Dispose the fourth one, through the real e-signed endpoint.
+    //
+    // NOT as `qcInspector`: §22 withholds `retain_samples:dispose` from that
+    // role deliberately (the execute-vs-dispose split the whole cast is built
+    // around), and j12 asserts the 403. `retainCustodian` is the only persona
+    // in the tenant that holds it. They cannot reach /qc-inspection at all
+    // (finding #18) — which is exactly why this is a REST call and the register
+    // is then read back as the inspector.
+    //
+    // Driven through `POST …/dispose` rather than `UPDATE retain_samples SET
+    // status_id='DISPOSED'`, because that raw write is refused:
+    // `enforce_retain_sample_lifecycle` (ERRCODE QMSRS) admits a status change
+    // only from a trusted context, and a superuser seeding one would be
+    // fabricating a state the product never produces — the disposal would carry
+    // no signature, no audit row and no DISPOSED custody event.
+    const custodianCtx = await browser.newContext({ storageState: AUTH.retainCustodian })
+    const custodianPage = await custodianCtx.newPage()
+    try {
+      const res = await custodianPage.request.post(
+        `/api/v1/services/qcInspection/retainSamples/${registerSamples.disposed.id}/dispose`,
+        {
+          data: {
+            disposalMethod: 'Incinerated',
+            disposalNotes: 'J19 register fixture — disposed bucket.',
+            method: 'PIN',
+            token: ESIGN_PIN,
+            provider: null,
+          },
+        },
+      )
+      expect(res.ok(), `register disposal fixture failed: ${await res.text()}`).toBeTruthy()
+    } finally {
+      await custodianCtx.close()
+    }
+    registerSamples.disposed = findRetainSample(registerSamples.disposed.id)
+    expect(
+      registerSamples.disposed.statusId,
+      'the fourth fixture is genuinely DISPOSED, via the signed endpoint',
+    ).toBe('DISPOSED')
   })
 
   test('the register lists every column the protocol names, for a known sample', async ({
@@ -425,7 +487,7 @@ test.describe('PW-J19 — the retain register', () => {
     // and the badge each re-derive it, and nothing keeps the two in step but
     // duplicated code.
     await page.goto('/qc-inspection?tab=retain-samples')
-    const { due, overdue, retained } = registerSamples
+    const { due, overdue, retained, disposed } = registerSamples
     await expect(page.getByText(due.rsNumber).first()).toBeVisible({ timeout: 30_000 })
 
     // `Due ≤30d` uses U+2264, not '<='. A test that typed '<=' would find no
@@ -454,6 +516,33 @@ test.describe('PW-J19 — the retain register', () => {
       page.getByText(overdue.rsNumber),
       'and an overdue sample has left the plain Retained bucket',
     ).toHaveCount(0)
+    // AUDIT ADDITION: the disposed sample sits at +400 days too, so if the
+    // Retained bucket were keyed on the DATE alone it would be in here. It is
+    // not, because `derivedState` short-circuits on the stored status first.
+    await expect(
+      page.getByText(disposed.rsNumber),
+      'a DISPOSED sample is excluded from Retained although its date says otherwise',
+    ).toHaveCount(0)
+
+    // ── Disposed — the one bucket that is a STORED status, not a date ──────
+    // AUDIT ADDITION (2026-09-23). `derivedState()` opens with
+    // `if (row.statusId !== 'RETAINED') return row.statusId`, so this chip is
+    // the only one exercising that branch. Without it the whole chip test
+    // proved date arithmetic and nothing about status filtering, which is half
+    // of what URS-RET-05 asks for.
+    await chip('Disposed').click()
+    await expect(
+      page.getByText(disposed.rsNumber).first(),
+      'the e-signed disposal moved it into the Disposed bucket',
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(
+      page.getByText(retained.rsNumber),
+      'CONTROL — its twin at the same +400 days, never disposed, is not in this bucket',
+    ).toHaveCount(0)
+    await expect(
+      page.getByText(overdue.rsNumber),
+      'and neither is the overdue one',
+    ).toHaveCount(0)
 
     // The window is a hard-coded 30 and the protocol tells the reader to record
     // it against their own notice period, so pin it: a silent change to 60 would
@@ -463,6 +552,14 @@ test.describe('PW-J19 — the retain register', () => {
       Number(sqlValue(`SELECT (${q(due.retainUntil)}::date - current_date)`)),
       'the DUE fixture sits inside the 30-day window, not on its edge',
     ).toBeLessThanOrEqual(30)
+    // …and the two +400d fixtures differ ONLY in stored status, so the Disposed
+    // / Retained split above is attributable to that column and to nothing else.
+    expect(
+      sqlValue(
+        `SELECT (${q(retained.retainUntil)}::date = ${q(disposed.retainUntil)}::date)`,
+      ),
+      'the Retained and Disposed fixtures share a retain_until — only status_id separates them',
+    ).toBe('t')
   })
 
   test('the register exports and prints — the two evidence routes the protocol accepts', async ({
@@ -479,14 +576,28 @@ test.describe('PW-J19 — the retain register', () => {
 
     // ── CSV ────────────────────────────────────────────────────────────────
     // `exportManager` means Export opens a column/format dialog first; the
-    // confirm control inside it carries the same name, hence the scoping.
-    await page.getByRole('button', { name: 'Export' }).click()
+    // confirm control inside it carries the SAME accessible name, hence the
+    // scoping. `.first()` + `exact` on the trigger because the dialog's own
+    // button joins the page the moment it opens — the verified idiom from
+    // equipment/j7 and sites/j2.
+    const exportButton = page.getByRole('button', { name: 'Export', exact: true }).first()
+    await expect(exportButton, 'the register offers a CSV export').toBeVisible({ timeout: 30_000 })
+    await exportButton.click()
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByText('Choose columns and format')).toBeVisible({ timeout: 15_000 })
 
+    // The dialog's row scope defaults to "Current view", and no chip filter is
+    // applied on this freshly-loaded page — so all three fixtures are in it.
+    // Asserted rather than assumed: a leaked filter would silently shrink the
+    // extract and make the CONTROL below pass for the wrong reason.
+    await expect(
+      dialog.getByText(/Current view \(\d+\)/).first(),
+      'the extract covers the unfiltered view',
+    ).toBeVisible()
+
     const download = await Promise.all([
-      page.waitForEvent('download'),
-      dialog.getByRole('button', { name: 'Export' }).click(),
+      page.waitForEvent('download', { timeout: 30_000 }),
+      dialog.getByRole('button', { name: 'Export', exact: true }).click(),
     ]).then(([d]) => d)
     expect(download.suggestedFilename(), 'the extract is the register CSV').toBe(
       'retain-samples.csv',
@@ -495,13 +606,42 @@ test.describe('PW-J19 — the retain register', () => {
     const csv = readFileSync(await download.path(), 'utf8')
     expect(csv, 'the CSV carries the identifier column').toMatch(/SAMPLE #/)
     expect(csv, 'and the sample we seeded').toContain(registerSamples.due.rsNumber)
-    // The exported STATUS is the DERIVED state, not `status_id` — an overdue row
-    // exports OVERDUE although the stored status is RETAINED. Worth pinning:
-    // an extract that reported the stored value would silently contradict the
-    // register it was taken from.
-    expect(csv, 'the export reports the derived state, matching what the register shows').toMatch(
-      /OVERDUE/,
-    )
+
+    // The exported STATUS is the DERIVED state, not `status_id`: an overdue row
+    // exports OVERDUE although the stored status is RETAINED
+    // (RetainSamplesList.vue's status column sets `exportValue: derivedState`).
+    // Worth pinning — an extract reporting the stored value would silently
+    // contradict the register it was taken from.
+    //
+    // AUDIT CORRECTION (2026-09-23): the first draft asserted `toMatch(/OVERDUE/)`
+    // against the WHOLE FILE, which any other tenant row could satisfy. Scoped
+    // to the line carrying OUR overdue sample's RS number, and paired with the
+    // matching stored value so the divergence is the assertion rather than an
+    // incidental string match.
+    const overdueLine = csv
+      .split(/\r?\n/)
+      .find((l) => l.includes(registerSamples.overdue.rsNumber))
+    expect(overdueLine, 'the overdue sample is in the extract').toBeTruthy()
+    expect(
+      overdueLine,
+      'its exported status is the DERIVED state, OVERDUE',
+    ).toMatch(/\bOVERDUE\b/)
+    expect(
+      sqlValue(`SELECT status_id FROM retain_samples WHERE id = ${q(registerSamples.overdue.id)}`),
+      '…while the STORED status is still RETAINED — the export derives, it does not copy',
+    ).toBe('RETAINED')
+
+    // CONTROL. The same column on a sample that is NOT past due must not say
+    // OVERDUE, or the assertion above would hold for an export that hard-coded
+    // the word.
+    const retainedLine = csv
+      .split(/\r?\n/)
+      .find((l) => l.includes(registerSamples.retained.rsNumber))
+    expect(retainedLine, 'the far-future sample is in the extract too').toBeTruthy()
+    expect(
+      retainedLine,
+      'CONTROL — a sample 400 days out is exported RETAINED, not OVERDUE',
+    ).not.toMatch(/\bOVERDUE\b/)
 
     // ── Print register ─────────────────────────────────────────────────────
     // Opens in a new tab via window.open, and auto-fires window.print() shortly

@@ -108,7 +108,7 @@ test.describe('PW-J19 — the mandatory-comment setting', () => {
     page,
     browser,
   }) => {
-    // A live CR on the seeded workflow. Step 1 ("Change Review", ACTION, no
+    // A live CR on the seeded workflow. Step 1 ("Impact Review", ACTION, no
     // e-sign) is the completion step: an ACTION step is the cleanest place to
     // measure a COMMENT rule, because no e-signature requirement can absorb the
     // refusal and be mistaken for it.
@@ -159,9 +159,22 @@ test.describe('PW-J19 — the mandatory-comment setting', () => {
         rejected.status(),
         'CONTROL: the endpoint DOES enforce a comment — on the hardcoded rejection arm',
       ).toBe(400)
+
+      // The refusal text is NOT on `error.message`. `workflowActionSchema`'s
+      // `.superRefine` raises a ZOD issue, which `middleware/validate.js` collects
+      // into `ValidationError(fieldErrors)` — and that class hardcodes its message
+      // to the literal string "Validation failed" (`utils/errors.js:35`), putting
+      // the substance under `error.fields.<path>` (`utils/errorHandler.js:38-44`).
+      // Asserting `/comment is required/` against `.message` therefore fails
+      // against a perfectly correct refusal. `fixtures/equipment.js:249` records
+      // the same trap from the other side of the codebase.
+      const rejectedBody = await errorBody(rejected)
+      expect(rejectedBody.code, 'it is a schema refusal, not a controller one').toBe(
+        'VALIDATION_ERROR',
+      )
       expect(
-        (await errorBody(rejected)).message,
-        'and it says so in the words the schema uses',
+        (rejectedBody.raw?.error?.fields?.comment ?? []).join(' | '),
+        'and it names the COMMENT field, in the words the schema uses',
       ).toMatch(/comment is required/i)
 
       // Nothing moved. A refusal that had partially applied would make the
@@ -310,21 +323,49 @@ test.describe('PW-J19 — the mandatory-comment setting', () => {
       'steps in this database are configured to require a comment — the setting is used, not dormant',
     ).toBeGreaterThan(0)
 
-    // The completed-without-comment population that WF-D2 produces, counted so
-    // the finding carries a magnitude rather than an anecdote. Not asserted to
-    // be non-zero — a freshly reset database legitimately has none — but the
-    // query is here so the number can be read off a failing run.
-    const unjustified = sqlValue(
-      `SELECT count(*) FROM task_instances ti
-         JOIN workflow_instance_steps wis ON wis.id = ti.source_id
-        WHERE ti.source_type = 'WorkflowInstanceStep'
-          AND wis.require_comments IS TRUE
-          AND ti.status_id = 'APPROVED'
-          AND (ti.comment IS NULL OR btrim(ti.comment) = '')`,
+    // ── CONTROL for the population query below. ──────────────────────────────
+    // `>= 0` is not an assertion — count(*) satisfies it unconditionally, and
+    // this repository has already shipped that exact bug once (see the
+    // `isSqlReady` note in fixtures/db.js, where "0" was read as ready). So the
+    // denominator is asserted FIRST: there must be completed tasks on
+    // comment-mandatory steps AT ALL, otherwise the numerator below is zero for
+    // the boring reason and the finding would be unfalsifiable.
+    const mandatoryCompletions = Number(
+      sqlValue(
+        `SELECT count(*) FROM task_instances ti
+           JOIN workflow_instance_steps wis ON wis.id = ti.source_id
+          WHERE ti.source_type = 'WorkflowInstanceStep'
+            AND wis.require_comments IS TRUE
+            AND ti.status_id = 'APPROVED'`,
+      ),
     )
     expect(
-      Number(unjustified),
-      'the count of approvals completed with no comment on a comment-mandatory step (diagnostic, see WF-D2)',
-    ).toBeGreaterThanOrEqual(0)
+      mandatoryCompletions,
+      'CONTROL: tasks really have been completed on comment-mandatory steps — ' +
+        'without this the count below is zero for a reason that has nothing to do with WF-D2',
+    ).toBeGreaterThan(0)
+
+    // The completed-without-comment population that WF-D2 produces. Asserted as
+    // a real number, not a tautology: if `require_comments` were enforced
+    // anywhere in the completion path this set would be EMPTY, because a
+    // completion with no comment could never have been accepted on such a step.
+    // Measured at 40 on app-db, 2026-09-23.
+    const unjustified = Number(
+      sqlValue(
+        `SELECT count(*) FROM task_instances ti
+           JOIN workflow_instance_steps wis ON wis.id = ti.source_id
+          WHERE ti.source_type = 'WorkflowInstanceStep'
+            AND wis.require_comments IS TRUE
+            AND ti.status_id = 'APPROVED'
+            AND (ti.comment IS NULL OR btrim(ti.comment) = '')`,
+      ),
+    )
+    expect(
+      unjustified,
+      `KNOWN DEFECT WF-D2: ${unjustified} of ${mandatoryCompletions} approvals on ` +
+        'comment-mandatory steps carry NO justification at all. An enforced setting ' +
+        'would make this set empty by construction — so a non-zero value IS the defect, ' +
+        'measured on live data rather than manufactured by this test',
+    ).toBeGreaterThan(0)
   })
 })
