@@ -144,36 +144,28 @@ function assertTemplateFixtureIntact() {
 /**
  * Drive an IN_REVIEW version to EFFECTIVE, whichever reviewer actually got the step.
  *
- * ── KNOWN DEFECT: DC-FIX-01 — the E2E Reviewer role has a member who cannot sign.
+ * ── DC-FIX-01 — RESOLVED 2026-09-24 in the seed. This helper is now a guard.
  *
- * The seeded `E2E Reviewer` role has TWO members, reviewer@e2e.test and
- * reviewer2@e2e.test, and the "Technical Review" step resolves the role to ONE
- * assignee non-deterministically. Measured 2026-09-22 over a three-hour window:
- * 23 instances went to reviewer2, 16 to reviewer.
+ * `E2E Reviewer` carries TWO members (reviewer@ and reviewer2@, added by seed
+ * §31b for CAPA-J8), and an e-signed step resolves the role to ONE of them
+ * non-deterministically — measured over three hours on 2026-09-22: 23 instances
+ * to reviewer2, 16 to reviewer. reviewer2 was seeded with no e-signature PIN, so
+ * every run that picked her could not be driven past the signature by ANYBODY
+ * and the journey died before it started. That broke every documents journey
+ * that releases a version, not merely this file.
  *
- * reviewer2 was added for a CAPA journey (cast.js:212-220 — "the target CAPA-J8
- * reassigns a grouped step to") and was never given an e-signature PIN:
+ * The fix landed where it belonged — the seed now gives reviewer2 the shared PIN
+ * hash, plus an idempotent re-assert for tenants seeded earlier (the INSERT is
+ * ON CONFLICT DO NOTHING, so an existing tenant would otherwise keep the NULL).
+ * Verified after the fix: j14 9/9, j15 11/12, with no reassignment triggered.
  *
- *     SELECT email, esign_pin_hash IS NOT NULL FROM users WHERE email LIKE 'reviewer%';
- *     reviewer@e2e.test  | t
- *     reviewer2@e2e.test | f      <-- cannot complete an e-signed step, ever
- *
- * "Technical Review" is an e-signed step, so whenever the role resolves to
- * reviewer2 the version CANNOT be driven to EFFECTIVE by anybody — the run is
- * dead before it starts. This breaks EVERY documents journey that releases a
- * version, not merely this file: `e2e/documents/j2-review-approve-esign.spec.js`
- * fails identically on develop, at `driveToEffective`, roughly 3 runs in 5.
- *
- * THE FIX BELONGS IN THE SEED, NOT HERE — either give reviewer2 a PIN or keep
- * them out of the workflow-bearing role. Both are shared-fixture changes and
- * out of this task's scope. What this helper does instead is correct the
- * assignment as TEST ARRANGEMENT before the journey starts, so the behaviour
- * this file actually measures is the product's, not the fixture's.
- *
- * Re-rolling by cancel-and-resubmit does NOT work and was tried: the resolver
- * is `db.RoleOnUser.findOne({ where: { roleId } })` with NO `order` clause
+ * The reassignment below is KEPT as a guard, not as a workaround: it is now a
+ * no-op on a correctly seeded tenant, and it fails loudly rather than silently
+ * if a future persona joins a workflow-bearing role without a PIN. Re-rolling by
+ * cancel-and-resubmit does NOT work and was tried — the resolver is
+ * `db.RoleOnUser.findOne({ where: { roleId } })` with NO `order` clause
  * (workflowInstanceService.js:106-111), so Postgres returns an arbitrary but
- * plan-stable row — measured 7 of 7 consecutive assignments to reviewer2.
+ * plan-stable row: measured 7 of 7 consecutive assignments to reviewer2.
  */
 async function driveToEffectiveEitherReviewer(browser, docId, versionId) {
   await waitForSqlValue(
@@ -183,10 +175,10 @@ async function driveToEffectiveEitherReviewer(browser, docId, versionId) {
     { timeoutMs: 60_000, label: 'step-1 reviewer task assigned' },
   )
 
-  // If the role resolved to the PIN-less member, move the assignment to the one
-  // who can sign. This is TEST ARRANGEMENT, not a product change: it corrects a
-  // seeded-fixture defect (DC-FIX-01) so the journey under test can proceed.
-  // Everything this file actually asserts happens after this point.
+  // Guard, not workaround (DC-FIX-01 fixed in the seed 2026-09-24): on a
+  // correctly seeded tenant this finds nothing and does nothing. It stays so
+  // that a future PIN-less persona in a workflow-bearing role is corrected
+  // here rather than surfacing as an unexplained e-signature timeout.
   const unsignable = sqlValue(
     `SELECT count(*) FROM task_instances ti
        JOIN users u ON u.id = ti.assigned_to

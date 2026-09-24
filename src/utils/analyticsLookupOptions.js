@@ -14,7 +14,7 @@
  * stored value is still the id the compiler needs.
  *
  * ── HOW A TABLE NAME BECOMES A MODEL ────────────────────────────────────────
- * CustomMetricBuilderDialog's header described this as blocked on "a mapping
+ * CustomMetricBuilder's header described this as blocked on "a mapping
  * from a Postgres table name to the SyncEngine model that mirrors it, which
  * does not exist yet". That mapping turns out to exist already, on every model:
  * `@ClientModel('documentStatuses', …)` records its store name, and

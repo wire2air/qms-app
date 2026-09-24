@@ -18,9 +18,18 @@
 // 1. THE PALETTE — WHAT IS ASSERTED, AND WHY IT IS ASSERTED THIS WAY
 //
 // The registry is `src/constants/formBuilderConfig.js` → `FIELD_TYPES`
-// (Object.freeze, 31 entries / 30 real types; `inputTable` is sugar over
-// `repeater`). The renderer is `src/components/form/DynamicForm.js`, a render
-// function whose `createFieldComponent` switch maps each type to a component.
+// (Object.freeze, 31 entries, enumerated 2026-09-23). The renderer is
+// `src/components/form/DynamicForm.js`, a render function whose
+// `createFieldComponent` switch maps each type to a component.
+//
+// ⚠ `text` IS NOT A PALETTE TYPE. The first draft of this file probed one and
+// counted it toward its total. DynamicForm has a `case 'text'` (line 353) and
+// folds it into `input`, but `FIELD_TYPES` has no `text` key — it is a legacy
+// alias the renderer still honours for old schemas, not something an author can
+// place. `r1-plain-submission`'s two fields are declared `type: 'text'` for that
+// historical reason, which is precisely why r1 proves less than it appears to.
+// The split below is derived from the registry in the test body so this cannot
+// drift again.
 //
 // A probe template is built carrying ONE field of each of the types a plain
 // submission can actually round-trip, and the single submission is then read
@@ -30,22 +39,27 @@
 //
 // WHICH TYPES, AND THE HONEST REASON FOR EVERY OMISSION. This is a coverage
 // test, so a silently narrowed list would be the exact failure mode it exists
-// to prevent. The 30 registry types split as follows:
+// to prevent. The 31 registry types split as follows (18 probed + 13 excluded,
+// and the test body checks that arithmetic against FIELD_TYPES itself):
 //
-//   DRIVEN THROUGH THE UI (7) — every type DynamicForm renders through the
+//   DRIVEN THROUGH THE UI (6) — every type DynamicForm renders through the
 //   BaseTextInput family, i.e. every type with a real `<label for>` ↔
-//   `<input id>` pair, which is what `getByLabel` needs:
-//       input · number · email · phone · password · text · (select, via listbox)
+//   `<input id>` pair, which is what `getByLabel` needs, plus the dropdown:
+//       input · password · number · email · phone · (select, via listbox)
 //
-//   ASSERTED AT THE PAYLOAD (the rest of the round-trippable set) — types whose
-//   label is a hand-rolled `<div>` with no `for`/`id` association
+//   ASSERTED AT THE PAYLOAD (12, the rest of the round-trippable set) — types
+//   whose label is a hand-rolled `<div>` with no `for`/`id` association
 //   (`fieldLabelRow`, DynamicForm.js:290) or a canvas/graphical control:
-//       textarea · textEditor · datetime · checkbox · toggle · slider ·
-//       rating · colorPicker · signature · optionGroup · lookup
+//       textarea · textEditor · richTextAttachment · datetime · checkbox ·
+//       toggle · slider · rating · colorPicker · signature · optionGroup ·
+//       lookup
 //   These are declared in the schema and their values are submitted with the
 //   record, so the round-trip claim is still measured end to end — just not
 //   through a keystroke. Writing a fake `getByLabel` for them would not test
 //   more, it would test nothing and pass.
+//   (`richTextAttachment` round-trips its TEXT half only; its attachments live
+//   at the sibling key `<path>_attachments` and need a real MinIO upload, which
+//   is the same reason `file`/`photo` are excluded outright.)
 //
 //   STRUCTURALLY EXCLUDED, with the reason:
 //     header / section / row / column / separator / instructions — LAYOUT. They
@@ -117,12 +131,23 @@ const ORDER = {
  */
 const FIELDS = [
   { name: 'palInput', type: 'input', label: 'Palette Short Answer', ui: 'Palette Short Answer', value: 'a short answer' },
-  { name: 'palText', type: 'text', label: 'Palette Text', ui: 'Palette Text', value: 'plain text' },
+  // `password` is a REAL palette entry (FIELD_TYPES.password, "Password — a
+  // masked text field for secrets"), and it renders through the same
+  // BaseTextInput arm as `input` (DynamicForm.js:353-358), so it is driven by
+  // keystroke like the rest of that family.
+  { name: 'palPassword', type: 'password', label: 'Palette Password', ui: 'Palette Password', value: 'palette-secret-1' },
   { name: 'palNumber', type: 'number', label: 'Palette Number', ui: 'Palette Number', value: '42' },
   { name: 'palEmail', type: 'email', label: 'Palette Email', ui: 'Palette Email', value: 'palette@e2e.test' },
   { name: 'palPhone', type: 'phone', label: 'Palette Phone', ui: 'Palette Phone', value: '5551234567' },
   { name: 'palTextarea', type: 'textarea', label: 'Palette Paragraph', value: '<p>a paragraph</p>' },
   { name: 'palTextEditor', type: 'textEditor', label: 'Palette Rich Text', value: '<p><strong>rich</strong></p>' },
+  // `richTextAttachment` is the palette's 4th input type and was missing from
+  // the first draft of this list. Its TEXT half is an ordinary payload string;
+  // its attachment half lives at the sibling key `<path>_attachments`
+  // (DynamicForm.js:425) and needs a real MinIO upload, which is why only the
+  // text half is round-tripped here. Labelled by `fieldLabelRow`, so it is
+  // asserted at the payload rather than typed into.
+  { name: 'palRichAttach', type: 'richTextAttachment', label: 'Palette Rich Text + Attachments', value: '<p>rich with attachments</p>' },
   { name: 'palDatetime', type: 'datetime', label: 'Palette Date', mode: 'date', value: '2026-03-04' },
   { name: 'palCheckbox', type: 'checkbox', label: 'Palette Checkbox', value: true },
   { name: 'palToggle', type: 'toggle', label: 'Palette Toggle', value: true },
@@ -231,11 +256,50 @@ test.describe('REC-J8 — the typed field palette and field order', () => {
   }) => {
     // The guard against this file silently narrowing. If someone drops a type
     // from FIELDS to make a run go green, this fails first and says so.
-    expect(FIELDS.length, 'the palette probe covers 17 distinct typed fields').toBe(17)
+    expect(FIELDS.length, 'the palette probe covers 18 distinct typed fields').toBe(18)
     expect(
       new Set(FIELDS.map((f) => f.type)).size,
       'and no type is counted twice',
-    ).toBe(17)
+    ).toBe(18)
+
+    // ── The list is CHECKED AGAINST THE REGISTRY, not against itself. ────────
+    // The first draft of this file asserted "17 types" against a list that
+    // contained `text` — which is NOT in FIELD_TYPES at all. It is a renderer
+    // alias that DynamicForm.js:353-358 folds into `input` ("field.type ===
+    // 'input' || field.type === 'text' ? 'text' : field.type"), so no author
+    // can ever place one. It also omitted two types that ARE in the palette:
+    // `password` and `richTextAttachment`. A hand-maintained count can be
+    // internally consistent and still describe a product that does not exist,
+    // so the accounting is derived from the registry every run.
+    //
+    // FIELD_TYPES is `Object.freeze` in src/constants/formBuilderConfig.js.
+    // Imported rather than transcribed: a type added to the palette that
+    // belongs in neither bucket below turns this red instead of being covered
+    // by nobody and noticed by nobody.
+    const { FIELD_TYPES } = await import('../../src/constants/formBuilderConfig.js')
+    const registry = Object.keys(FIELD_TYPES)
+    expect(registry, 'the alias `text` is not a palette type').not.toContain('text')
+
+    // Every registry type is either probed here or excluded for a stated
+    // reason. The reasons are in the file header; this is their machine-checked
+    // form.
+    const EXCLUDED = {
+      layout: ['header', 'section', 'row', 'column', 'separator', 'instructions'],
+      container: ['repeater', 'inputTable', 'checklist'],
+      upload: ['file', 'photo'],
+      tool: ['rca', 'riskAssessment'],
+    }
+    const excluded = Object.values(EXCLUDED).flat()
+    const probed = FIELDS.map((f) => f.type)
+    expect(
+      registry.filter((t) => !probed.includes(t) && !excluded.includes(t)),
+      'every palette type is either round-tripped here or excluded with a reason — ' +
+        'a newly added field type must be classified, not silently skipped',
+    ).toEqual([])
+    expect(
+      probed.filter((t) => !registry.includes(t)),
+      'and nothing is probed that the palette does not actually offer',
+    ).toEqual([])
 
     const page = await pool.page(browser, AUTH.author)
     const tag = uniqueTag('REC-J8')
@@ -267,7 +331,7 @@ test.describe('REC-J8 — the typed field palette and field order', () => {
     await card.click()
 
     // ── Every typed control is actually ON SCREEN ──────────────────────────
-    // Asserted for ALL 17, not just the ones typed into. This is the palette
+    // Asserted for ALL 18, not just the ones typed into. This is the palette
     // claim: a type the renderer does not know falls through DynamicForm's
     // `default` arm and paints a red `Invalid Field.type "<type>"` instead of a
     // control — so a missing type is visible here even for the types whose
@@ -333,7 +397,7 @@ test.describe('REC-J8 — the typed field palette and field order', () => {
       'the dropdown stored the option VALUE, not its label',
     ).toBe('BETA')
 
-    // The seal still holds with a 17-field schema — r1 proved it for two.
+    // The seal still holds with an 18-field schema — r1 proved it for two.
     expect(
       Number(sqlValue(`SELECT jsonb_array_length(form_schema) FROM records WHERE id = '${id}'`)),
       'form_schema froze the whole typed schema at submission, not a subset',
@@ -424,14 +488,50 @@ test.describe('REC-J8 — the typed field palette and field order', () => {
     // schema array order is the render order (DynamicForm has no sort of its
     // own and no `position` field exists on a field object), so a persisted
     // order that did not repaint would be a half-working feature.
-    const labels = await page
-      .locator('[data-path]')
-      .evaluateAll((els) => els.map((el) => el.getAttribute('data-path')))
-    const firstTwo = labels.filter((p) => p !== null).slice(0, 2)
+    // ⚠ `data-path` IS NOT THE FIELD NAME. `FormCanvas.vue:262` passes
+    // `:path="String(index)"`, so `data-path` is the field's POSITION — "0",
+    // "1", "2", … It is therefore identical before and after a reorder and can
+    // never detect one. The first draft of this test read those values, took the
+    // first two and asserted only `length > 0`, which any canvas that rendered
+    // at all satisfies — a vacuous pass of exactly the shape fixtures/db.js
+    // warns about.
+    //
+    // What IS positional and meaningful is the visible LABEL of each card. The
+    // reorder moved field[0] below field[1], so the labels must now read in the
+    // swapped order. Labels are unique within this 4-field fixture, which is
+    // what makes them usable as identity here.
+    const labelOf = Object.fromEntries(FIELDS.slice(0, 4).map((f) => [f.name, f.label]))
+    const expectedLabels = expected.map((n) => labelOf[n])
+
+    // Identity comes off the card's own `aria-label` — FormCanvasField.vue:406
+    // renders `Select field ${field.label || field.name || field.type}` on the
+    // SAME element that carries `data-path`, so one `evaluateAll` yields DOM
+    // order and identity together, with no dependence on the card's inner
+    // chrome (type chips, the grip's aria text) staying put.
+    async function canvasLabelsInDomOrder() {
+      const aria = await page
+        .locator('[data-path]')
+        .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? ''))
+      return aria
+        .map((a) => Object.values(labelOf).find((l) => a === `Select field ${l}`) ?? null)
+        .filter(Boolean)
+    }
+
+    await expect
+      .poll(async () => (await canvasLabelsInDomOrder()).join(','), {
+        timeout: 30_000,
+        message: 'the canvas repainted in the new order',
+      })
+      .toBe(expectedLabels.join(','))
+
+    // CONTROL: the canvas really did carry every field of the fixture, so the
+    // comparison above ran on a complete list rather than a prefix that happened
+    // to match. Without this, a canvas that rendered only the first two cards
+    // would satisfy the order assertion for the wrong reason.
     expect(
-      firstTwo.length,
-      'the canvas exposes its fields in DOM order via data-path',
-    ).toBeGreaterThan(0)
+      (await canvasLabelsInDomOrder()).slice().sort(),
+      'CONTROL: all four fixture fields are on the canvas',
+    ).toEqual(Object.values(labelOf).slice().sort())
   })
 
   test('the frozen schema is what an auditor reads — a later template edit does not rewrite a sealed submission', () => {
@@ -476,7 +576,7 @@ test.describe('REC-J8 — the typed field palette and field order', () => {
 
     expect(
       Number(sqlValue(`SELECT jsonb_array_length(form_schema) FROM records WHERE id = '${recordId}'`)),
-      'the sealed submission still carries all 17 fields — the edit did not reach back',
+      'the sealed submission still carries all 18 fields — the edit did not reach back',
     ).toBe(sealedLength)
     expect(
       Number(sqlValue(`SELECT template_version FROM records WHERE id = '${recordId}'`)),

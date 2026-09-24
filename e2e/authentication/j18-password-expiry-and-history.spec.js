@@ -100,10 +100,12 @@
 // file additionally back-dates `password_changed_at`, which PW-J10 does not, so
 // it restores that column too — an E2E tenant left with an expired credential
 // would send every later authentication journey down the forced-change branch.
+import fs from 'node:fs'
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 import {
   AUTH_PERSONAS,
+  anonContext,
   anonPost,
   attemptLogin,
   clearLockout,
@@ -154,9 +156,46 @@ function completeForcedChange(pendingToken, newPassword) {
   return anonPost('/v1/auth/password/change-required', { pendingToken, newPassword })
 }
 
-/** A login that expects to be INTERRUPTED rather than to establish a session. */
+/**
+ * A login whose RESULT — interruption or session — is what is being measured.
+ *
+ * ⚠ `maxRedirects: 0` is load-bearing and is why this cannot simply call
+ * `anonPost`. The two outcomes this file distinguishes are shaped differently:
+ *
+ *   • an INTERRUPT (must-change / expiry) is a 200 carrying JSON, because
+ *     `interrupt()` falls through to `sendSuccess` for a password login —
+ *     `mode !== 'redirect'` (authFlow.js:203-204);
+ *   • a SUCCESS is a **302** into `/v1/auth/handoff`.
+ *
+ * Playwright's APIRequestContext follows redirects by default, so a successful
+ * login posted through `anonPost` comes back as the handoff's status, never 302
+ * — and every `toBe(302)` control below would fail against a perfectly working
+ * product. `attemptLogin` in fixtures/authentication.js already sets this flag
+ * for exactly this reason ("a success is a 302 into /v1/auth/handoff; don't
+ * follow it"); `anonPost` does not, because its other callers only ever probe
+ * interrupt/failure branches.
+ *
+ * Returns the same `{ status, body }` shape `anonPost` does, so the call sites
+ * read identically.
+ */
 async function loginRaw(email, password) {
-  return anonPost('/v1/auth/login', { email, password })
+  const ctx = await anonContext()
+  try {
+    const res = await ctx.post('/v1/auth/login', {
+      data: { email, password },
+      failOnStatusCode: false,
+      maxRedirects: 0,
+    })
+    let body = null
+    try {
+      body = await res.json()
+    } catch {
+      // A 302 carries no JSON body — that is the success case, not an error.
+    }
+    return { status: res.status(), body }
+  } finally {
+    await ctx.dispose()
+  }
 }
 
 let seededHash = null
@@ -409,10 +448,46 @@ test.describe('PW-J18 · URS-SEC-02 — history depth and expiry', () => {
     // the admin action `forcePasswordReset` (controllers/admin/securityCenter.js:172)
     // and cleared by every password set. An invited user therefore sets their own
     // password at invitation-accept and is never asked to change it.
-    const consumers = Number(
-      sqlValue(`SELECT 0`), // placeholder-free: the grep evidence lives in the comment
+    // The absence is asserted against the SOURCE, not against a `SELECT 0`.
+    // An earlier draft of this test wrote `expect(Number(sqlValue('SELECT 0')))
+    // .toBe(0)` here, with the grep evidence left in prose — which is a
+    // tautology: it passes whether the setting is wired up or not, and would
+    // never notice the day it is. Reading the two files that WOULD have to
+    // change is the only honest way to state "nothing consumes this", and it
+    // fails the moment someone wires it, which is exactly when this test should
+    // be revisited.
+    //
+    // `authFlow.js` is where the FIRST_LOGIN branch lives and `passwordPolicy.js`
+    // is where the policy is assembled; if the flag ever gains a consumer it will
+    // be in one of them.
+    const authFlowSrc = fs.readFileSync(
+      new URL('../../../qms/backend/api/controllers/auth/authFlow.js', import.meta.url),
+      'utf8',
     )
-    expect(consumers, 'sanity — the probe below is the real assertion').toBe(0)
+    expect(
+      /must_change_password|mustChangePassword/.test(authFlowSrc),
+      'the login gate reads the USERS column — the mechanism that does work',
+    ).toBe(true)
+    expect(
+      /forceChangeOnFirstLogin/.test(authFlowSrc),
+      'KNOWN DEFECT SEC-02-D1: the login gate does NOT read the policy flag. ' +
+        'force_change_on_first_login defaults true and decides nothing; an invited ' +
+        'user sets their own password at invitation-accept and is never asked to ' +
+        'change it.',
+    ).toBe(false)
+
+    // …and the flag really is declared, so this is a dormant setting rather
+    // than an imagined one. Without this half, "nothing reads it" would also be
+    // true of a setting that does not exist.
+    const policySrc = fs.readFileSync(
+      new URL('../../../qms/backend/api/services/passwordPolicy.js', import.meta.url),
+      'utf8',
+    )
+    expect(
+      /forceChangeOnFirstLogin/.test(policySrc),
+      'the flag IS assembled into the effective policy — it is offered to admins, ' +
+        'it simply has no consumer',
+    ).toBe(true)
 
     // The MECHANISM THAT DOES WORK, asserted so the observation is not merely a
     // comment: the column exists, defaults false, and is what the login gate

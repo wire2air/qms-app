@@ -1,5 +1,11 @@
 import { computed, toValue } from 'vue'
-import { useGraphQLQuery } from '@/composables/useServerQuery.js'
+import { useGraphQLQuery, useServerQueryWithDeps } from '@/composables/useServerQuery.js'
+import { graphqlRequest } from '@syncEngine/network/graphqlClient.js'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
+// The metric PREVIEW endpoint persists nothing and returns aggregates, so it is
+// an action outcome, not a record. `apiClient` rather than `post` for one
+// reason only — see parsePlainJson below.
+import { apiClient } from '@/api'
 import { toNumber } from '@/utils/analyticsFormat.js'
 
 /**
@@ -20,6 +26,19 @@ import { toNumber } from '@/utils/analyticsFormat.js'
  * `numeric` columns arrive as the `BigFloat` scalar — a STRING — so every
  * numeric field is coerced here, once, before it reaches a chart or a format
  * helper.
+ *
+ * ── THE ONE REST READ: THE UNSAVED-METRIC PREVIEW ───────────────────────────
+ * useMetricValue / useMetricSeries / useMetricBreakdown each take an optional
+ * `preview` param (the frozen `previewDefinition` from
+ * utils/analyticsMetricPreview.js). When it is set, the SAME composable sends
+ * the read to `POST /v1/services/analytics/metrics/preview` instead of GraphQL.
+ * That endpoint shadow-runs the draft through the real compiler, rollup SQL
+ * and metric_* read functions inside a rolled-back transaction (plan:
+ * qms/docs/plans/custom-metric-live-preview.md), and returns the same rows,
+ * camelCased the way PostGraphile names them. The response is re-wrapped into
+ * the GraphQL connection shape before it reaches the normalisers below, so a
+ * preview tile and a dashboard tile run the identical coercion and render the
+ * identical way. Still never cached, for the same three reasons as rule #4.
  */
 
 const METRIC_CATALOG_QUERY = `
@@ -198,6 +217,216 @@ function nodesOf(data, field) {
   return data?.[field]?.nodes ?? []
 }
 
+// ── preview transport ───────────────────────────────────────────────────────
+
+const PREVIEW_URL = '/v1/services/analytics/metrics/preview'
+
+/**
+ * How long a preview read waits for the draft to stop changing. A shadow run is
+ * a real (bounded) rollup recompute, so a request per keystroke would be both
+ * wasteful and pointless — every one but the last is superseded anyway.
+ */
+// Short since the Preview button (2026-09-24): an explicit press decides WHEN a
+// run happens, so this only coalesces the burst of reactive changes one press or
+// one settings-strip pick produces (the question re-clamp patches viz/dimension
+// right after). 600 ms made every press feel sluggish for no saving.
+export const PREVIEW_DEBOUNCE_MS = 150
+
+/** Where the preview-only fields ride on a handle's `data`. Never a GraphQL field name. */
+const PREVIEW_META = '__preview'
+
+/**
+ * Error codes a preview read can surface as `error.code`, and the sentence each
+ * one reads as. COMPILE_ERROR carries the compiler's own sentence instead.
+ */
+export const PREVIEW_ERROR = {
+  COMPILE_ERROR: 'COMPILE_ERROR',
+  TIMEOUT: 'PREVIEW_TIMEOUT',
+  FORBIDDEN: 'FORBIDDEN',
+  WINDOW_TOO_LARGE: 'PREVIEW_WINDOW_TOO_LARGE',
+}
+
+const PREVIEW_MESSAGES = {
+  [PREVIEW_ERROR.TIMEOUT]: 'Too much data to preview — narrow the period.',
+  [PREVIEW_ERROR.FORBIDDEN]: "You can't preview metrics.",
+  [PREVIEW_ERROR.WINDOW_TOO_LARGE]: 'Preview covers at most 24 months — choose a shorter period.',
+}
+
+/**
+ * Retrying cannot change the answer to these — the draft or the grant has to
+ * change first — so a tile should not offer a Retry button for them.
+ */
+export function isPreviewTerminalError(err) {
+  return (
+    err?.code === PREVIEW_ERROR.COMPILE_ERROR ||
+    err?.code === PREVIEW_ERROR.FORBIDDEN ||
+    err?.code === PREVIEW_ERROR.WINDOW_TOO_LARGE
+  )
+}
+
+/**
+ * ⚠ WHY NOT `post` FROM @/api. The shared axios instance's transformResponse
+ * turns every string that parses as an ISO date into a luxon DateTime. The
+ * GraphQL path returns plain strings (`bucket: "2026-08-01"`), and the tile's
+ * renderer calls DateTime.fromISO on them — handed a DateTime it plots nothing.
+ * Worse, the reviver cannot be undone reliably: a dimension VALUE such as
+ * "2026-W12" or "2026-01" would be converted too, and its original spelling
+ * lost. So this one request parses JSON plainly, and the rows reach the
+ * normalisers byte-for-byte as the GraphQL path delivers them.
+ */
+function parsePlainJson(data) {
+  if (typeof data !== 'string' || data === '') return data
+  try {
+    return JSON.parse(data)
+  } catch {
+    return data
+  }
+}
+
+/**
+ * Wait `ms`, or reject the moment `signal` aborts. This IS the debounce: every
+ * new run of a server query aborts the previous run's signal (useServerQuery's
+ * supersede rule), so a draft that changes again within the window cancels the
+ * pending request before it is ever sent, and an aborted run is dropped
+ * silently rather than surfaced as an error.
+ */
+function abortableDelay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason)
+      return
+    }
+    function onAbort() {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+function previewFailure(code, message, status = null) {
+  const err = new Error(message)
+  err.code = code
+  err.status = status
+  return err
+}
+
+/** Map the endpoint's HTTP failures onto the sentences the tile shows. */
+function previewError(err) {
+  if (err?.code === 'CANCELLED') return err
+  const body = err?.raw?.response?.data
+  // The 422 interceptor in api/client.js rewrites every 422 to
+  // VALIDATION_ERROR, so the endpoint's own code has to be read off the body.
+  const bodyCode = body?.error?.code ?? body?.code ?? null
+  if (err?.status === 422 && bodyCode === PREVIEW_ERROR.TIMEOUT) {
+    return previewFailure(PREVIEW_ERROR.TIMEOUT, PREVIEW_MESSAGES[PREVIEW_ERROR.TIMEOUT], 422)
+  }
+  // Same period, same answer: only picking a shorter one changes it, so this is
+  // terminal (no Retry) rather than the generic failure it would otherwise be.
+  if (err?.status === 400 && bodyCode === PREVIEW_ERROR.WINDOW_TOO_LARGE) {
+    return previewFailure(
+      PREVIEW_ERROR.WINDOW_TOO_LARGE,
+      PREVIEW_MESSAGES[PREVIEW_ERROR.WINDOW_TOO_LARGE],
+      400,
+    )
+  }
+  if (err?.status === 403) {
+    return previewFailure(PREVIEW_ERROR.FORBIDDEN, PREVIEW_MESSAGES[PREVIEW_ERROR.FORBIDDEN], 403)
+  }
+  return err
+}
+
+/**
+ * One preview read, returned in the GraphQL connection shape `{ [field]:
+ * { nodes } }` so the caller's normaliser cannot tell the difference.
+ * A compile error is thrown — it is the tile's error state, worded by the
+ * compiler — rather than returned as an empty result that would read as zero.
+ */
+async function fetchPreview(field, requestBody, signal) {
+  await abortableDelay(PREVIEW_DEBOUNCE_MS, signal)
+  let body
+  try {
+    const res = await apiClient.post(PREVIEW_URL, requestBody, {
+      signal,
+      transformResponse: [parsePlainJson],
+    })
+    body = res.data
+  } catch (err) {
+    throw previewError(err)
+  }
+  if (body?.compileError) {
+    throw previewFailure(PREVIEW_ERROR.COMPILE_ERROR, body.compileError)
+  }
+  return {
+    [field]: { nodes: Array.isArray(body?.rows) ? body.rows : [] },
+    [PREVIEW_META]: {
+      driftWarning: body?.driftWarning ?? null,
+      computedAt: body?.computedAt ?? null,
+    },
+  }
+}
+
+/**
+ * The shared read: GraphQL normally, the preview endpoint when `params.preview`
+ * resolves to a payload. One handle either way, so a tile never holds two
+ * queries and never has to choose between them.
+ *
+ * The preview request is a dependency by its JSON SERIALISATION, not its
+ * identity: a page that rebuilds an equal payload on every keystroke (a
+ * computed returning a fresh frozen object) must not refetch an unchanged
+ * question.
+ *
+ * @param {object} cfg
+ * @param {string} cfg.field            GraphQL field the normaliser reads
+ * @param {string} cfg.query            GraphQL document
+ * @param {() => object} cfg.variables  GraphQL variables
+ * @param {'value'|'series'|'breakdown'} cfg.kind
+ * @param {() => object} cfg.previewParams the endpoint's `params` for this read
+ * @param {*} cfg.preview               the previewDefinition (value, ref or getter)
+ * @param {object} [options]            useServerQuery options (`enabled`, …)
+ */
+function useMetricRead({ field, query, variables, kind, previewParams, preview }, options = {}) {
+  // A caller that never asks for preview mode (every dashboard surface) gets the
+  // plain GraphQL query, exactly as before this mode existed. Decided once, at
+  // setup: whether a component CAN preview is fixed by its code, whether it IS
+  // previewing is the reactive `preview` value below.
+  if (preview === undefined) {
+    const q = useGraphQLQuery(query, variables, { initial: null, ...options })
+    return { ...q, previewMeta: computed(() => null) }
+  }
+
+  function previewRequestKey() {
+    const def = toValue(preview)
+    if (!def) return null
+    return JSON.stringify({
+      moduleId: def.moduleId,
+      grain: def.grain,
+      direction: def.direction,
+      definition: def.definition,
+      kind,
+      params: previewParams(),
+    })
+  }
+
+  const q = useServerQueryWithDeps(
+    [variables, previewRequestKey],
+    (signal, [vars, previewKey]) =>
+      previewKey
+        ? fetchPreview(field, JSON.parse(previewKey), signal)
+        : graphqlRequest(query, vars, { signal }),
+    { initial: null, ...options },
+  )
+
+  // Null outside preview mode. `computedAt` is the shadow run's clock — the
+  // preview's replacement for a tile's tier/scope/freshness line.
+  const previewMeta = computed(() => q.data.value?.[PREVIEW_META] ?? null)
+  return { ...q, previewMeta }
+}
+
 /**
  * Does this tenant's plan include Reports & Dashboards? False means the whole
  * feature is unavailable — the page must say so rather than render an empty
@@ -356,18 +585,35 @@ export function useMetricCatalog(params = {}, options = {}) {
  * @param {*} [params.periodStart] ISO date
  * @param {*} [params.periodEnd]   ISO date
  * @param {*} [params.compare]     'previous_period' | 'same_period_last_year'
+ * @param {*} [params.preview]     a previewDefinition — reads an UNSAVED metric
+ *   through the preview endpoint instead (see the header); `metricKey` is then
+ *   ignored
  * @param {object} [options]
  */
 export function useMetricValue(params, options = {}) {
-  const q = useGraphQLQuery(
-    METRIC_VALUE_QUERY,
-    () => ({
-      pMetricKey: toValue(params.metricKey) ?? null,
-      pPeriodStart: toValue(params.periodStart) ?? null,
-      pPeriodEnd: toValue(params.periodEnd) ?? null,
-      pCompare: toValue(params.compare) ?? 'previous_period',
-    }),
-    { initial: null, ...options },
+  const q = useMetricRead(
+    {
+      field: 'metricValue',
+      query: METRIC_VALUE_QUERY,
+      variables: () => ({
+        pMetricKey: toValue(params.metricKey) ?? null,
+        pPeriodStart: toValue(params.periodStart) ?? null,
+        pPeriodEnd: toValue(params.periodEnd) ?? null,
+        pCompare: toValue(params.compare) ?? 'previous_period',
+      }),
+      kind: 'value',
+      previewParams: () => ({
+        periodStart: toValue(params.periodStart) ?? null,
+        periodEnd: toValue(params.periodEnd) ?? null,
+        compare: toValue(params.compare) ?? 'previous_period',
+        dimension: null,
+        limit: null,
+        minCell: null,
+        rankBy: null,
+      }),
+      preview: params.preview,
+    },
+    options,
   )
   const metric = computed(() => {
     const node = nodesOf(q.data.value, 'metricValue')[0]
@@ -389,21 +635,36 @@ export function useMetricValue(params, options = {}) {
  * Rows with `suppressed: true` carry a null value and MUST render as suppressed
  * — not as zero and not as a gap.
  *
- * @param {object} params — metricKey, periodStart, periodEnd, dimension, minCell
+ * @param {object} params — metricKey, periodStart, periodEnd, dimension, minCell,
+ *   and optionally `preview` (see useMetricValue)
  * @param {object} [options]
  */
 export function useMetricSeries(params, options = {}) {
-  const q = useGraphQLQuery(
-    METRIC_SERIES_QUERY,
-    () => ({
-      pMetricKey: toValue(params.metricKey) ?? null,
-      pPeriodStart: toValue(params.periodStart) ?? null,
-      pPeriodEnd: toValue(params.periodEnd) ?? null,
-      pDimension: toValue(params.dimension) ?? null,
-      pMinCell: minCellFloor(toValue(params.minCell)),
-      first: SERIES_LIMIT,
-    }),
-    { initial: null, ...options },
+  const q = useMetricRead(
+    {
+      field: 'metricSeries',
+      query: METRIC_SERIES_QUERY,
+      variables: () => ({
+        pMetricKey: toValue(params.metricKey) ?? null,
+        pPeriodStart: toValue(params.periodStart) ?? null,
+        pPeriodEnd: toValue(params.periodEnd) ?? null,
+        pDimension: toValue(params.dimension) ?? null,
+        pMinCell: minCellFloor(toValue(params.minCell)),
+        first: SERIES_LIMIT,
+      }),
+      kind: 'series',
+      previewParams: () => ({
+        periodStart: toValue(params.periodStart) ?? null,
+        periodEnd: toValue(params.periodEnd) ?? null,
+        compare: null,
+        dimension: toValue(params.dimension) ?? null,
+        limit: null,
+        minCell: minCellFloor(toValue(params.minCell)),
+        rankBy: null,
+      }),
+      preview: params.preview,
+    },
+    options,
   )
   const points = computed(() =>
     nodesOf(q.data.value, 'metricSeries').map((row) =>
@@ -422,22 +683,41 @@ export function useMetricSeries(params, options = {}) {
  * `dimension` accepts the metric's own declared dimension keys plus the three
  * scope dimensions 'site', 'department' and 'owner'.
  *
- * @param {object} params — metricKey, dimension, periodStart, periodEnd, limit, minCell, rankBy
+ * In preview mode the rows' `drillRoute` is whatever the shadow run computed
+ * for a metric that is about to be rolled back — the CALLER must not offer it
+ * as a link (AnalyticsQuestionTile strips it).
+ *
+ * @param {object} params — metricKey, dimension, periodStart, periodEnd, limit,
+ *   minCell, rankBy, and optionally `preview` (see useMetricValue)
  * @param {object} [options]
  */
 export function useMetricBreakdown(params, options = {}) {
-  const q = useGraphQLQuery(
-    METRIC_BREAKDOWN_QUERY,
-    () => ({
-      pMetricKey: toValue(params.metricKey) ?? null,
-      pDimension: toValue(params.dimension) ?? null,
-      pPeriodStart: toValue(params.periodStart) ?? null,
-      pPeriodEnd: toValue(params.periodEnd) ?? null,
-      pLimit: toValue(params.limit) ?? 10,
-      pMinCell: minCellFloor(toValue(params.minCell)),
-      pRankBy: toValue(params.rankBy) ?? 'contribution',
-    }),
-    { initial: null, ...options },
+  const q = useMetricRead(
+    {
+      field: 'metricBreakdown',
+      query: METRIC_BREAKDOWN_QUERY,
+      variables: () => ({
+        pMetricKey: toValue(params.metricKey) ?? null,
+        pDimension: toValue(params.dimension) ?? null,
+        pPeriodStart: toValue(params.periodStart) ?? null,
+        pPeriodEnd: toValue(params.periodEnd) ?? null,
+        pLimit: toValue(params.limit) ?? 10,
+        pMinCell: minCellFloor(toValue(params.minCell)),
+        pRankBy: toValue(params.rankBy) ?? 'contribution',
+      }),
+      kind: 'breakdown',
+      previewParams: () => ({
+        periodStart: toValue(params.periodStart) ?? null,
+        periodEnd: toValue(params.periodEnd) ?? null,
+        compare: null,
+        dimension: toValue(params.dimension) ?? null,
+        limit: toValue(params.limit) ?? 10,
+        minCell: minCellFloor(toValue(params.minCell)),
+        rankBy: toValue(params.rankBy) ?? 'contribution',
+      }),
+      preview: params.preview,
+    },
+    options,
   )
   const rows = computed(() =>
     nodesOf(q.data.value, 'metricBreakdown').map((row) =>

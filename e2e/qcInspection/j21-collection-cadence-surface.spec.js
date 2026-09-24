@@ -77,12 +77,48 @@
 // 180 minutes. Every state is reached by moving `collected_at` in the database
 // — backwards to make a collection overdue, left alone to make the next one
 // too early. A test that waited would be a test of the machine it ran on.
+// ── WHY THE "DISABLED" ASSERTION IS NOT MADE ON `disabled` ALONE ───────────
+//
+// AUDIT CORRECTION (2026-09-23). Both Collect controls are disabled by
+//
+//   :disabled="collectTooEarly || collectBlockedByLot || collectBlockedByClearance"
+//
+// (InspectionLotDetail.vue:978 and :1091), and the cadence BANNER renders on
+// `canCollect` alone — so it is on screen whichever of the three is true. The
+// first draft of this file asserted the banner and then `toBeDisabled()`, and
+// reasoned that the banner "rules out an unrelated block". It does not: a lot
+// with no active production batch, or an uncleared line, produces exactly the
+// same screen and exactly the same passing assertion, with the cadence proving
+// nothing.
+//
+// Two corrections, both applied below:
+//
+//   1. The other two blockers are asserted ABSENT as premises — the lot has an
+//      `active_batch_id` (createLot mints one whenever a batch number is given,
+//      inspectionLotService.js:573-585) and the tenant's QC_LINE_CLEARANCE
+//      template carries `lineClearanceRequired: false`. The second is
+//      TENANT-WIDE STATE THAT j17 FLIPS ON AND OFF, so it genuinely can be
+//      wrong when this file runs.
+//   2. The refusal is read off the button's TITLE, not its disabled flag. The
+//      three causes emit three different titles and only `collectTooEarly`
+//      yields `Next collection at HH:MM` (:1097). That string is attributable
+//      to the cadence and to nothing else.
+//
+// The `count()` loop is also asserted non-empty. `canCollect` is false for a
+// lot in the wrong phase, and a `for (i < 0)` loop over zero buttons passes
+// silently — the exact vacuous green this rule exists to prevent.
 import { test, expect } from '../../video/fixtures/videoTest.js'
 import { AUTH, COMPANY_ID } from '../fixtures/cast.js'
 import { collectSamples, createLotViaRest, findLotByNumber } from '../fixtures/qcInspection.js'
 import { sql, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`
+
+// `getLineClearanceTemplate` (inspectionLotService.js:1386) looks the tenant's
+// checklist up by this internal name; `assertBatchClearance` returns early when
+// `config.lineClearanceRequired` is falsy. j17 flips it true mid-suite and
+// restores it in afterAll — this file must not take that on trust.
+const LC_INTERNAL_NAME = 'QC_LINE_CLEARANCE'
 
 // e2e-seed.sql §48.
 const CADENCE_PLAN_ID = 'e2e98000-0000-4000-8000-000000000003'
@@ -114,11 +150,31 @@ function purgeJ21Lots() {
  * reasoning j17 uses for seeding a prior `assigned_to`.
  */
 async function startedCadenceLot(page, suffix) {
+  // j17 turns the tenant-wide clearance requirement ON for two of its tests and
+  // restores it in afterAll. A crashed j17 worker leaves it on, and then the
+  // FIRST collection here is refused by assertBatchClearance with a message
+  // about line clearance — which reads as a broken cadence fixture. Turned off
+  // explicitly, exactly as j17's own cadence test does (j17:565).
+  sql(
+    `UPDATE form_templates
+        SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{lineClearanceRequired}', 'false'::jsonb)
+      WHERE company_id = ${q(COMPANY_ID)} AND internal_name = ${q(LC_INTERNAL_NAME)}`,
+  )
+
   const lot = await createLotViaRest(page, {
     lotNumber: `E2E-LOT-${LOT_TAG}-${suffix}-${Date.now()}`,
     inspectionPoint: 'IN_PROCESS',
   })
   sql(`UPDATE inspection_lots SET sampling_plan_id = ${q(CADENCE_PLAN_ID)} WHERE id = ${q(lot.id)}`)
+  // `createLot` mints the first production batch and makes it active whenever a
+  // batch number was supplied (inspectionLotService.js:573-585), which
+  // `createLotViaRest` always does. Asserted rather than assumed: without it
+  // `collectBlockedByLot` is true and every disabled-button assertion below
+  // would be green for the wrong reason.
+  expect(
+    sqlValue(`SELECT active_batch_id FROM inspection_lots WHERE id = ${q(lot.id)}`),
+    'the lot has an active production batch, so only the cadence can gate collection',
+  ).toBeTruthy()
 
   const checkIn = await page.request.post(
     `/api/v1/services/qcInspection/lots/${lot.id}/check-in`,
@@ -140,6 +196,73 @@ async function collect(page, lotId, count = 1) {
 
 function sampleCount(lotId) {
   return Number(sqlValue(`SELECT count(*) FROM inspection_samples WHERE inspection_lot_id = ${q(lotId)}`))
+}
+
+/**
+ * Assert that neither of the OTHER two collect blockers is in play on this lot.
+ *
+ * Without this the "the button is disabled" assertion below is attributable to
+ * three different causes and therefore to none of them. Both are read from the
+ * database rather than from the screen, because the screen shows the same thing
+ * in all three cases.
+ */
+function expectOnlyCadenceCanBlock(lotId) {
+  // `collectBlockedByLot` — no active production batch, or a closed one.
+  const batch = sqlValue(
+    `SELECT b.id FROM inspection_lots l
+       JOIN inspection_batches b ON b.id = l.active_batch_id
+      WHERE l.id = ${q(lotId)} AND b.closed_at IS NULL`,
+  )
+  expect(
+    batch,
+    'the lot has an OPEN active production batch, so collectBlockedByLot is false',
+  ).toBeTruthy()
+
+  // `collectBlockedByClearance` — tenant-wide, and j17 turns it on.
+  const required = sql(
+    `SELECT coalesce(config->>'lineClearanceRequired', 'false') FROM form_templates
+      WHERE company_id = ${q(COMPANY_ID)} AND internal_name = ${q(LC_INTERNAL_NAME)}`,
+  )
+  expect(
+    required.split('\n').filter(Boolean),
+    'line clearance is NOT required tenant-wide, so collectBlockedByClearance is false ' +
+      '(j17 flips this on and restores it — a true here means it leaked)',
+  ).not.toContain('true')
+}
+
+/**
+ * The cadence refusal, read off the control the user would press.
+ *
+ * `collectTooEarly` is the ONLY one of the three blockers that titles the
+ * button `Next collection at HH:MM` (InspectionLotDetail.vue:1091-1101) — the
+ * other two title it "Select an open production lot…" / "Line clearance
+ * required…". So a matching title is a refusal the cadence caused.
+ */
+async function expectCadenceBlockedCollect(page) {
+  const buttons = page.getByRole('button', { name: 'Collect sample(s)' })
+  // Non-empty, or the loop below asserts nothing at all.
+  await expect
+    .poll(() => buttons.count(), { timeout: 30_000, message: 'the Collect controls are on screen' })
+    .toBeGreaterThan(0)
+
+  const count = await buttons.count()
+  let titled = 0
+  for (let i = 0; i < count; i += 1) {
+    await expect(
+      buttons.nth(i),
+      `collect control ${i + 1} is disabled while the interval has not elapsed`,
+    ).toBeDisabled()
+    const title = await buttons.nth(i).getAttribute('title')
+    if (title && /^Next collection at \S/.test(title)) titled += 1
+  }
+  // At least one control names the CADENCE as the reason. The banner-row button
+  // (:978) carries no cadence title by design, so this is "at least one", not
+  // "all" — but zero would mean the disablement came from somewhere else.
+  expect(
+    titled,
+    'at least one Collect control names the cadence as the reason it is disabled — ' +
+      'so the refusal is attributable to collectTooEarly, not to a missing batch or clearance',
+  ).toBeGreaterThan(0)
 }
 
 /**
@@ -216,6 +339,40 @@ test.describe('PW-J21 — collection cadence', () => {
       ),
       'exactly one ACTIVE in-process plan for this product — the resolver stays unambiguous',
     ).toBe('1')
+
+    // AUDIT CORRECTION (2026-09-23). The tenant-wide line-clearance requirement
+    // is the other thing that can disable the Collect button, and j17 flips it
+    // ON for two of its own tests. Its afterAll restores it, but Playwright
+    // discards the worker after a failed test — so a j17 failure can leave the
+    // tenant with the requirement set and make every "disabled" assertion in
+    // this file pass for the wrong reason. Pinned here as one legible premise
+    // failure rather than three misleading greens.
+    expect(
+      sql(
+        `SELECT coalesce(config->>'lineClearanceRequired', 'false') FROM form_templates
+          WHERE company_id = ${q(COMPANY_ID)} AND internal_name = ${q(LC_INTERNAL_NAME)}`,
+      )
+        .split('\n')
+        .filter(Boolean),
+      'line clearance is off tenant-wide, so collectBlockedByClearance cannot masquerade as the cadence',
+    ).not.toContain('true')
+
+    // And the server-side claim this whole file rests on, pinned at the source:
+    // `collection_interval_minutes` is written by samplingPlanService and read
+    // by nothing. Asserted as the column's presence + the absence of any lot
+    // column that could hold a derived due time — i.e. the due time genuinely
+    // is computed on the client and never persisted, which is the correction to
+    // j17's closing assertion (it reads the same absence and concludes, wrongly,
+    // that nothing can therefore be DISPLAYED).
+    expect(
+      sql(
+        `SELECT table_name || '.' || column_name FROM information_schema.columns
+          WHERE table_name IN ('inspection_samples', 'inspection_lots', 'inspection_batches')
+            AND (column_name LIKE '%due%' OR column_name LIKE '%next_collect%'
+                 OR column_name LIKE '%overdue%')`,
+      ),
+      'no due time is STORED — j17 asserts the same fact; what it infers from it is what this file corrects',
+    ).toBe('')
   })
 
   test('the record DOES display when the next collection is due — TC-09-12 step 5 is not N/A', async ({
@@ -280,7 +437,13 @@ test.describe('PW-J21 — collection cadence', () => {
         'InspectionLotDetail.vue:359-403 + 964-989. The claim came from reasoning over the ' +
         'schema (no due column is stored) — but the due time is derived on the client from ' +
         'collection_interval_minutes + collected_at and never persisted. Step 5 should be ' +
-        'executed, not marked N/A.',
+        'executed, not marked N/A. NOTE the coverage row for URS-QCI-12 lists a SECOND gap, ' +
+        '"takeover attribution" — that half is already closed by ' +
+        'j17-line-clearance-and-checkin-cadence.spec.js, "takeover is explicit and names the ' +
+        'inspector it took over from", which asserts CHECKED_IN.payload.previousInspector, the ' +
+        'taking actor, the moved assigned_to and both periods surviving as two events. The ' +
+        'coverage row is stale on that point; the cadence is the only part still open, and this ' +
+        'file closes it.',
     })
   })
 
@@ -305,21 +468,18 @@ test.describe('PW-J21 — collection cadence', () => {
 
     // ── The UI refuses ─────────────────────────────────────────────────────
     // 180 minutes out, minus the 5-minute grace, so `collectTooEarly` is true
-    // and stays true for the life of the test. The banner is asserted first so
-    // a disabled button cannot be mistaken for some unrelated block (an absent
-    // batch, an uncleared line) — the cadence has to be the reason.
-    const collectButtons = page.getByRole('button', { name: 'Collect sample(s)' })
+    // and stays true for the life of the test.
+    //
+    // AUDIT CORRECTION: the banner alone does NOT make the disablement
+    // attributable — it renders on `canCollect`, which is true for all three
+    // blockers. The other two are ruled out at the database first, and the
+    // refusal is then read off the button's own cadence title. See the header.
+    expectOnlyCadenceCanBlock(lot.id)
     await expect(
       page.getByText(/Next sample collection at \d/),
       'the page knows a unit was collected and when the next one is due',
     ).toBeVisible({ timeout: 30_000 })
-    const count = await collectButtons.count()
-    for (let i = 0; i < count; i += 1) {
-      await expect(
-        collectButtons.nth(i),
-        `collect control ${i + 1} is disabled while the interval has not elapsed`,
-      ).toBeDisabled()
-    }
+    await expectCadenceBlockedCollect(page)
 
     // ── The server does not ────────────────────────────────────────────────
     // The identical request the disabled button would have made, issued
@@ -340,10 +500,16 @@ test.describe('PW-J21 — collection cadence', () => {
     // the service says so in its own docstring ("the plan size is a guideline").
     // Pinned beside the interval because a reader weighing the cadence as a
     // control needs both facts: neither WHEN nor HOW MANY is enforced.
-    const over = await collect(page, lot.id, 9)
+    // Pin the plan's own size first, or "9" is just a number and the claim
+    // "more than the plan prescribes" rests on nothing the test checked.
+    const planSize = Number(
+      sqlValue(`SELECT per_collection_size FROM sampling_plans WHERE id = ${q(CADENCE_PLAN_ID)}`),
+    )
+    expect(planSize, 'the cadence plan prescribes a per-collection size').toBeGreaterThan(0)
+    const over = await collect(page, lot.id, planSize + 6)
     expect(
       over.ok(),
-      'and collecting more units than the plan prescribes is permitted, by design',
+      `and collecting ${planSize + 6} units where the plan prescribes ${planSize} is permitted, by design`,
     ).toBeTruthy()
 
     test.info().annotations.push({
@@ -372,14 +538,12 @@ test.describe('PW-J21 — collection cadence', () => {
       { timeoutMs: 30_000, label: 'first unit collected' },
     )
 
+    expectOnlyCadenceCanBlock(lot.id)
     await expect(
       page.getByText(/Next sample collection at \d/),
       'the page sees the collected unit',
     ).toBeVisible({ timeout: 30_000 })
-    await expect(
-      page.getByRole('button', { name: 'Collect sample(s)' }).first(),
-      'too early: disabled',
-    ).toBeDisabled({ timeout: 30_000 })
+    await expectCadenceBlockedCollect(page)
 
     // Age the collection past the interval — the window is now open. Read in a
     // fresh context for the reason `backdateSamples` documents.
@@ -392,10 +556,25 @@ test.describe('PW-J21 — collection cadence', () => {
         fresh.getByText(/Sample collection is due now — was due \d/),
         'the cadence has fallen due',
       ).toBeVisible({ timeout: 60_000 })
-      await expect(
-        fresh.getByRole('button', { name: 'Collect sample(s)' }).first(),
-        'interval elapsed: the control re-opens',
-      ).toBeEnabled({ timeout: 30_000 })
+      const reopened = fresh.getByRole('button', { name: 'Collect sample(s)' })
+      await expect
+        .poll(() => reopened.count(), { timeout: 30_000, message: 'the controls are on screen' })
+        .toBeGreaterThan(0)
+      const n = await reopened.count()
+      for (let i = 0; i < n; i += 1) {
+        await expect(
+          reopened.nth(i),
+          `interval elapsed: control ${i + 1} re-opens`,
+        ).toBeEnabled({ timeout: 30_000 })
+        // And the cadence title is GONE. Asserting only "enabled" would pass
+        // for a control that had stopped being gated at all; the title is what
+        // says the cadence specifically has released it.
+        const title = await reopened.nth(i).getAttribute('title')
+        expect(
+          title ?? '',
+          'no control still names the cadence as a reason to refuse',
+        ).not.toMatch(/^Next collection at/)
+      }
     } finally {
       await freshCtx.close()
     }

@@ -38,6 +38,7 @@ import {
   IconCompass,
   IconLayoutDashboard,
   IconFileAnalytics,
+  IconMathFunction,
 } from '@tabler/icons-vue'
 
 /** @type {Record<string, import('@shared/composables/routeMetaHelpers.js').RouteMetaEntry>} */
@@ -149,6 +150,27 @@ export const ROUTE_META = {
     title: (_p, ctx) => ctx.recordTitle ?? 'Alert',
     icon: IconBellRinging,
     parent: '/analytics/alerts',
+  },
+  // The metric builder is a page, not a dialog, so it needs a title and a way
+  // back. `new` is listed explicitly so it is not read as a record id and titled
+  // "Metric". Whether you may create or edit is checked by the page itself
+  // (analytics_metrics:create / :update) — the route guard gates the whole
+  // subtree on `analytics_metrics:read`.
+  '/analytics/metrics': {
+    title: 'Metrics',
+    icon: IconMathFunction,
+  },
+  // A function title on purpose: useNavigationCommands turns every STATIC title
+  // into a "Go to …" palette command, and no other create page is offered there.
+  '/analytics/metrics/new': {
+    title: () => 'New metric',
+    icon: IconMathFunction,
+    parent: '/analytics/metrics',
+  },
+  '/analytics/metrics/:id': {
+    title: (_p, ctx) => ctx.recordTitle ?? 'Metric',
+    icon: IconMathFunction,
+    parent: '/analytics/metrics',
   },
 
   // ── Operations ───────────────────────────────────────────────────

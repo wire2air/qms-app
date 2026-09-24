@@ -66,6 +66,9 @@
 // absence is also what a broken worker looks like. The registration control
 // above is what proves the worker is alive.
 import { test, expect } from '../../video/fixtures/videoTest.js'
+import { readFileSync, readdirSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { AUTH, COMPANY_ID, QC, USERS } from '../fixtures/cast.js'
 import { createLotViaRest, createRetainSample, findRetainSample } from '../fixtures/qcInspection.js'
 import { sql, sqlAsAppUser, sqlRow, sqlValue, waitForSqlValue } from '../fixtures/db.js'
@@ -104,10 +107,20 @@ function auditRows(retainSampleId, entityType) {
   })
 }
 
+/**
+ * The second storage location a MOVE needs.
+ *
+ * AUDIT CORRECTION (2026-09-23): the first draft looked this up by `code`
+ * ALONE. `storage_locations` has no unique index on code — only a PK — so a row
+ * with the same code in ANOTHER tenant (E2EALT, or demo data) would be returned
+ * and the PATCH below would then be writing a cross-tenant FK. Scoped to
+ * E2ELAB, matching j19's copy of the same helper.
+ */
 function ensureSecondLocation() {
   const existing = sqlValue(
     `SELECT id FROM storage_locations
-      WHERE code = 'E2E-RETAIN-B' AND deleted_at IS NULL LIMIT 1`,
+      WHERE company_id = ${q(COMPANY_ID)}
+        AND code = 'E2E-RETAIN-B' AND deleted_at IS NULL LIMIT 1`,
   )
   if (existing) return existing
   return sqlValue(
@@ -217,24 +230,98 @@ test.describe('PW-J20 — registration and location-change audit entries', () =>
     expect(custody[3], 'and timestamped').toBeTruthy()
 
     // ── KNOWN DEFECT RET-D3 · and the audit trail records nothing ──────────
-    // Held for a further interval past the custody event so a slow worker
-    // cannot make this read as a defect. The registration row for this same
-    // sample landed within the barrier above, which bounds how slow "slow"
-    // plausibly is.
-    await new Promise((r) => setTimeout(r, 8_000))
-    expect(
-      Number(sqlValue(`SELECT count(*) FROM audit_logs WHERE entity_id = ${q(sample.id)}`)),
-      'RET-D3: a relocation produces NO audit entry at all — the custody event is the only record',
-    ).toBe(auditBefore)
+    //
+    // AUDIT CORRECTION (2026-09-23). The first draft waited a flat 8 seconds
+    // and then asserted the count. A wall-clock sleep is not a barrier: it
+    // proves nothing about whether the worker had reached the move's job, so on
+    // a loaded machine the "defect" and "the worker is 9 seconds behind" are
+    // the same observation — and the test would report a fabricated finding.
+    //
+    // Replaced with a REAL barrier. A SECOND retain sample is registered AFTER
+    // the move, and its own CREATE row is waited for. The worker runs
+    // `concurrentJobs: 15` on a 2 s poll (qms/backend/worker/graphile.config.js),
+    // so it is not strictly FIFO on COMPLETION — but a job enqueued seconds
+    // later cannot be picked up before the move's job while 14 other slots sit
+    // idle. Once the later row exists, the move's job has been claimed and
+    // decided. That makes the zero below the worker's VERDICT rather than its
+    // backlog, which a wall-clock sleep never could.
+    //
+    // The `expect.poll` that follows holds the zero for a further window, so a
+    // pathological interleaving is caught as a flake rather than published as a
+    // finding.
+    const laterLot = await createLotViaRest(page, {})
+    const later = await createRetainSample(page, laterLot.id, { quantity: '1' })
+    await waitForSqlValue(
+      `SELECT count(*) FROM audit_logs
+        WHERE entity_id = ${q(later.id)} AND entity_type = 'RetainSamples' AND action = 'CREATE'`,
+      {
+        timeoutMs: 60_000,
+        label: 'BARRIER — a job enqueued AFTER the move has been drained',
+      },
+    )
 
-    // Stated against the CAUSE, not only the symptom, so the finding survives a
-    // run in which the worker genuinely was slow: `retain_samples` is not in
-    // the audit registry, so the default trackFields decide, and a location
-    // change moves none of them.
+    // Held at the same value across four reads over ~6 s. A count that is about
+    // to rise fails here; a count that is genuinely final does not.
+    for (let i = 0; i < 4; i += 1) {
+      expect(
+        Number(sqlValue(`SELECT count(*) FROM audit_logs WHERE entity_id = ${q(sample.id)}`)),
+        `RET-D3 (read ${i + 1}/4): a relocation produces NO audit entry at all — ` +
+          'the custody event is the only record',
+      ).toBe(auditBefore)
+      if (i < 3) await new Promise((r) => setTimeout(r, 2_000))
+    }
+
+    // ── The CAUSE, read from the product, not restated ─────────────────────
+    //
+    // AUDIT CORRECTION (2026-09-23). The first draft wrote
+    //
+    //   expect(['statusId','stateId','name','title','code'])
+    //     .not.toContain('storageLocationId')
+    //
+    // which asserts that a JavaScript array literal written two lines above
+    // does not contain a string — TRIVIALLY TRUE, independent of the product,
+    // and green forever even if `retain_samples` were registered tomorrow with
+    // every column tracked. It is replaced by reading the two facts out of the
+    // worker's own source, so the diagnosis fails the day the product changes:
+    //
+    //   1. DEFAULT_TRACK_FIELDS is still exactly those five, and
+    //   2. no registry module mentions `retain_samples` at all, so
+    //      getTableConfig() falls through to DEFAULT_CONFIG for it.
+    //
+    // Read as text rather than imported: the registry resolves `#services/*`
+    // through the worker package's own import map, which a Playwright process
+    // rooted in qms-app cannot resolve.
+    const registryDir = path.resolve(
+      fileURLToPath(import.meta.url),
+      '../../../../qms/backend/worker/services/audit',
+    )
+    const registrySrc = readFileSync(path.join(registryDir, 'registry.js'), 'utf8')
     expect(
-      ['statusId', 'stateId', 'name', 'title', 'code'],
-      'the registry default tracks only these five, and a move touches none of them',
-    ).not.toContain('storageLocationId')
+      registrySrc,
+      'DEFAULT_TRACK_FIELDS is still the five-field default a relocation cannot touch',
+    ).toContain("const DEFAULT_TRACK_FIELDS = ['statusId', 'stateId', 'name', 'title', 'code']")
+
+    const modulesDir = path.join(registryDir, 'registry', 'modules')
+    const mentioning = readdirSync(modulesDir)
+      .filter((f) => f.endsWith('.js') && !f.includes('.test.'))
+      .filter((f) => /\bretain_samples\b/.test(readFileSync(path.join(modulesDir, f), 'utf8')))
+    expect(
+      mentioning,
+      'no audit-registry module claims `retain_samples`, so it inherits DEFAULT_CONFIG — ' +
+        'which is WHY a storage_location_id change is dropped by the worker',
+    ).toEqual([])
+
+    // CONTROL on that method. A table that IS registered must be found by the
+    // same grep, or the empty result above would prove only that the grep is
+    // broken. `inspection_lots` is registered in inspections.js.
+    const controlHits = readdirSync(modulesDir)
+      .filter((f) => f.endsWith('.js') && !f.includes('.test.'))
+      .filter((f) => /\binspection_lots\b/.test(readFileSync(path.join(modulesDir, f), 'utf8')))
+    expect(
+      controlHits.length,
+      'CONTROL — the same search DOES find a registered sibling table, so the empty ' +
+        'result above is an absence in the product and not a broken probe',
+    ).toBeGreaterThan(0)
 
     // ── TC-15-06 step 2 · the panel is the legible evidence ────────────────
     // Scoped by the exact from → to string: the page also carries a Location
@@ -273,16 +360,43 @@ test.describe('PW-J20 — registration and location-change audit entries', () =>
     //
     // Probed from BOTH sides on purpose. An UPDATE that RLS filtered to zero
     // rows SUCCEEDS silently — `ok: true`, nothing changed — and would read as
-    // a passing guard while proving only that the row was invisible. So the
-    // reader is one who can SEE audit rows (qcInspector holds no audit_trail
-    // grant, which would make every probe vacuous), and the visibility is
-    // asserted before the refusal is.
+    // a passing guard while proving only that the row was invisible.
+    //
+    // AUDIT CORRECTION (2026-09-23), two of them.
+    //
+    // 1. The first draft's comment claimed qcInspector "holds no audit_trail
+    //    grant, which would make every probe vacuous". MEASURED: they hold no
+    //    `audit_trail` grant AND the probe is NOT vacuous, because
+    //    `audit_log_select_rls` carries a THIRD arm — `entity_type IN (SELECT
+    //    t.id FROM audit_entity_types t WHERE scope_allowed(t.module_id,
+    //    'read', …))` plus its alias union. `RetainSample` is registered there
+    //    against module `retain_samples`, and `RetainSamples` is an alias of
+    //    it, so the inspector's `retain_samples:read` admits them to exactly
+    //    these rows. (59 visible when this was measured.) The reasoning in the
+    //    comment was backwards even though the conclusion happened to hold.
+    //
+    // 2. The visibility the comment promised to assert was never asserted: the
+    //    row was fetched as the SUPERUSER, which says nothing about what
+    //    `app_user` can see. The read below now runs as `app_user`, so the
+    //    non-vacuity is established by the same session that is then refused.
     const row = sqlRow(
       `SELECT id::text, entity_id::text FROM audit_logs
         WHERE entity_type IN ('RetainSamples', 'RetainSample')
         ORDER BY created_at DESC LIMIT 1`,
     )
     expect(row, 'this suite has produced retain audit rows to probe').not.toBeNull()
+
+    const visible = sqlAsAppUser(
+      `SELECT count(*) FROM audit_logs WHERE entity_type IN ('RetainSamples', 'RetainSample');`,
+      { userId: USERS.qcInspector.id, companyId: COMPANY_ID },
+    )
+    expect(visible.ok, `the app_user read failed: ${visible.error}`).toBe(true)
+    expect(
+      Number((visible.output || '0').trim().split('\n').pop()),
+      'NON-VACUITY — this untrusted session CAN see retain audit rows (via the ' +
+        'audit_entity_types arm of audit_log_select_rls), so the refusal below is a real ' +
+        'refusal and not an empty filter',
+    ).toBeGreaterThan(0)
     const [auditId] = row
 
     // The structural guarantee: whatever a role can see, the table itself

@@ -88,16 +88,67 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
 
   await page.getByRole('button', { name: 'Create NC' }).click()
 
-  // "Assign Step Reviewers" dialog — the seeded steps each have exactly one
-  // role member, so both pickers auto-select once IDB resolves; just wait for
-  // Confirm to enable (gated on the first/required step having a pick).
+  // "Assign Step Reviewers" dialog.
+  //
+  // This block USED to rely on auto-select: "the seeded steps each have exactly
+  // one role member, so both pickers auto-select once IDB resolves". That is no
+  // longer true. `E2E Reviewer` now holds TWO members (reviewer@ and reviewer2@
+  // — measured live 2026-09-23), so step 1 no longer auto-resolves, Confirm
+  // stays enabled on step 2 alone, and the NC is created with NO step-1
+  // assignee. `completeReviewerStep` then waits 45s on USERS.reviewer.id and
+  // dies with `reviewer task assigned — last value: "0"`, which reads like a
+  // broken workflow engine and is really a seed change reaching an old comment.
+  // (The same reviewer2 addition broke documents/j2,j3,j5 the same way.)
+  //
+  // So: pick the canonical reviewer EXPLICITLY when the picker offers a choice,
+  // and fall back to whatever auto-select did when it does not.
   // Anchor on content, not role=dialog — headlessui's dialog wrapper reports
   // zero-size/hidden to Playwright even while its content is visible.
   await expect(page.getByText('Assign task to user for each workflow step before submitting.')).toBeVisible({
     timeout: 15_000,
   })
   const confirmBtn = page.getByRole('button', { name: 'Confirm' })
+
   await expect(confirmBtn).toBeEnabled({ timeout: 15_000 })
+
+  // Force step 1 onto the canonical reviewer.
+  //
+  // WorkflowStepReviewerSelect auto-fills each step itself (it is "the only
+  // writer"; BaseSelect's own autoFill is off), preferring `preferUserId` —
+  // which NonconformancesCreate passes as `initiatorId`, i.e. the RAISER —
+  // then a supervisor, then `users[0]`. While `E2E Reviewer` held exactly one
+  // member that always landed on reviewer@. Seed §31b added a second (Riley,
+  // the reassignment target capas/j8 needs), so step 1 now resolves to the
+  // raiser and `completeReviewerStep` waits out its 45s on USERS.reviewer.id —
+  // surfacing as `reviewer task assigned — last value "0"`, which reads like a
+  // broken workflow engine and is really an auto-fill preference meeting a
+  // changed seed.
+  //
+  // The locator is workflow/j4's proven `stepPicker` shape: the step name is
+  // plain text (no <label for>), so selectOption cannot reach it and
+  // page.getByRole('combobox') grabs the wrong control. Options carry the
+  // user's role list on a second line, so `hasText` — not an exact name — is
+  // what matches (same reason j4's pickReviewer does it).
+  const stepCombo = page
+    .getByText('Reviewer Check', { exact: true })
+    .first()
+    .locator('xpath=following::*[@role="combobox"][1]')
+  if (await stepCombo.count().catch(() => 0)) {
+    const listboxId = await stepCombo.getAttribute('aria-controls')
+    const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
+    const opened = await expect(async () => {
+      if (!(await listbox.isVisible().catch(() => false))) await stepCombo.click()
+      await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
+    })
+      .toPass({ timeout: 30_000 })
+      .then(() => true)
+      .catch(() => false)
+    if (opened) {
+      await listbox.getByRole('option').filter({ hasText: USERS.reviewer.name }).first().click()
+      await expect(listbox).toBeHidden({ timeout: 5_000 }).catch(() => {})
+    }
+  }
+
   if (onReviewerDialog) await onReviewerDialog(page)
   await confirmBtn.click()
 
