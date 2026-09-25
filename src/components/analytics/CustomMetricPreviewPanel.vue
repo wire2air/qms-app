@@ -41,6 +41,34 @@ const props = defineProps({
   previewDefinition: { type: Object, default: null },
   /** Why the definition cannot be previewed yet, or null. */
   problem: { type: String, default: null },
+  /**
+   * The line under the "Preview" heading.
+   *
+   * The default speaks for the BUILDER, where the definition is unsaved. The
+   * metrics list previews a metric that is already saved, where "nothing is
+   * saved until you press Save" would be untrue — and the useful thing to say
+   * there is what a disagreement with the dashboards means.
+   */
+  caption: {
+    type: String,
+    default: 'Computed live from current records — nothing is saved until you press Save.',
+  },
+  /**
+   * Run once, as soon as the definition is previewable, without waiting for the
+   * button.
+   *
+   * ⚠ OFF IN THE BUILDER, AND IT MUST STAY OFF THERE. The builder's definition
+   * changes on every keystroke, so an automatic run would spend a full
+   * server-side rollup recompute per pause in typing — the cost that made the
+   * run explicit in the first place (user decision 2026-09-24).
+   *
+   * The metrics list is the opposite case: the definition is SAVED and cannot
+   * change while the dialog is open, so there is exactly one run per open, and
+   * opening a dialog is already the deliberate act the button was asking for.
+   * Making the reader press a second button to see the thing they just asked
+   * to see is a click with nothing behind it.
+   */
+  autoRun: { type: Boolean, default: false },
 })
 
 const question = ref({
@@ -123,6 +151,27 @@ const tileMetric = computed(() =>
     : null,
 )
 
+// Apostrophes, so they live in the script rather than as entities in an
+// attribute expression, where they would not be decoded.
+const preparingTitle = "Working out this metric's figures…"
+const pressPreviewTitle = "Press Preview to see this metric's figures"
+
+/**
+ * The one automatic run, for a caller that opted in.
+ *
+ * Guarded on `snapshot` rather than a fired flag: once a run has happened there
+ * is a snapshot, so a later `ready` flicker — a field query resolving, the row
+ * being rebuilt — cannot spend a second recompute. Refresh preview stays the
+ * only way to run again.
+ */
+watch(
+  ready,
+  (isReady) => {
+    if (isReady && props.autoRun && !snapshot.value) runPreview()
+  },
+  { immediate: true },
+)
+
 function runPreview() {
   if (!ready.value) return
   snapshot.value = {
@@ -140,7 +189,7 @@ function runPreview() {
         <div>
           <BaseText weight="medium">Preview</BaseText>
           <BaseText variant="caption" color="secondary">
-            Computed live from current records — nothing is saved until you press Save.
+            {{ caption }}
           </BaseText>
         </div>
         <!--
@@ -195,7 +244,7 @@ function runPreview() {
     <BaseEmptyState
       v-else
       :icon="IconPlayerPlay"
-      title="Press Preview to see this metric's figures"
+      :title="autoRun ? preparingTitle : pressPreviewTitle"
       description="Computed live from current records — nothing is saved."
     />
   </div>

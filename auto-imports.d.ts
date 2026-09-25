@@ -204,6 +204,7 @@ declare global {
   const useActiveWorkflowEntries: typeof import('./src/composables/useActiveWorkflowEntries.js').useActiveWorkflowEntries
   const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage
   const useAnalyticsEntitlement: typeof import('./src/composables/useAnalytics.js').useAnalyticsEntitlement
+  const useAnalyticsModuleFields: typeof import('./src/composables/useAnalyticsModuleFields.js').useAnalyticsModuleFields
   const useAnimate: typeof import('@vueuse/core').useAnimate
   const useArrayDifference: typeof import('@vueuse/core').useArrayDifference
   const useArrayEvery: typeof import('@vueuse/core').useArrayEvery
