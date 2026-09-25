@@ -209,12 +209,29 @@ const MODULE_B_SCHEMA = JSON.stringify([
 // ─────────────────────────────────────────────────────────────────────────────
 
 function grantSql(roleId, moduleId, actions, scope) {
+  // module_company_id names WHICH tenant's catalogue row this grant points at,
+  // and rmp_module_action_fk requires the (module_id, action_id, company_id)
+  // triple to exist. It is carried from the matched row rather than hardcoded,
+  // because this helper grants BOTH kinds of module: a built-in lives on the
+  // all-zeroes global owner, a custom one (e2emodb) on this tenant. Pinning
+  // either value here would break the other half.
+  //
+  // The ORDER BY + LIMIT is the tie-break for a key that exists in both places:
+  // prefer this tenant's own row over the global one, which is the same
+  // precedence has_permission applies when it resolves a grant.
   return `
-    INSERT INTO authz.role_module_permissions (company_id, role_id, module_id, action_id, scope_id, granted_by)
-    SELECT ${quote(COMPANY_ID)}, ${quote(roleId)}, ma.module_id, ma.action_id, ${quote(scope)}, NULL
+    INSERT INTO authz.role_module_permissions (company_id, role_id, module_id, action_id, scope_id, granted_by, module_company_id)
+    SELECT ${quote(COMPANY_ID)}, ${quote(roleId)}, ma.module_id, ma.action_id, ${quote(scope)}, NULL, ma.company_id
       FROM authz.module_actions ma
      WHERE ma.module_id = ${quote(moduleId)}
        AND ma.action_id IN (${actions.map(quote).join(', ')})
+       AND ma.company_id IN (${quote(COMPANY_ID)}, '00000000-0000-0000-0000-000000000000')
+       AND ma.company_id = (
+         SELECT m2.company_id FROM authz.module_actions m2
+          WHERE m2.module_id = ma.module_id AND m2.action_id = ma.action_id
+            AND m2.company_id IN (${quote(COMPANY_ID)}, '00000000-0000-0000-0000-000000000000')
+          ORDER BY (m2.company_id = ${quote(COMPANY_ID)}) DESC
+          LIMIT 1)
     ON CONFLICT (company_id, role_id, module_id, action_id)
       DO UPDATE SET scope_id = EXCLUDED.scope_id;`
 }
@@ -274,12 +291,30 @@ export function provisionRecordsFixtures() {
     -- reads as nine broken tests. database/e2e-seed.sql has had the composite
     -- form all along; this fixture did not follow when the column was added.
     -- (No backticks in this comment: it sits inside a JS template literal.)
-    INSERT INTO authz.modules (id, name, section, display_order, is_active)
-    VALUES (${quote(R.moduleB.key)}, 'E2E Module B', 'Custom Modules', 901, true)
+    -- WARNING: company_id is load-bearing, and omitting it LEAKS this fixture
+    -- to every tenant. The column defaults to the all-zeroes GLOBAL owner,
+    -- where built-ins live, so an INSERT without it publishes "E2E Module B"
+    -- into every customer's permission matrix. Found on a live DB 2026-09-25:
+    -- two unrelated tenants had been granted actions on it, because it was
+    -- simply there to tick. promoteToModule (services/moduleRegistryService.js)
+    -- was made tenant-scoped on 2026-09-20 for that reason; this fixture and
+    -- e2e-seed.sql did not follow until now.
+    DELETE FROM authz.role_module_permissions
+     WHERE module_id = ${quote(R.moduleB.key)}
+       AND module_company_id = '00000000-0000-0000-0000-000000000000';
+    DELETE FROM authz.module_actions
+     WHERE module_id = ${quote(R.moduleB.key)}
+       AND company_id = '00000000-0000-0000-0000-000000000000';
+    DELETE FROM authz.modules
+     WHERE id = ${quote(R.moduleB.key)}
+       AND company_id = '00000000-0000-0000-0000-000000000000';
+
+    INSERT INTO authz.modules (id, name, section, display_order, is_active, company_id)
+    VALUES (${quote(R.moduleB.key)}, 'E2E Module B', 'Custom Modules', 901, true, ${quote(COMPANY_ID)})
     ON CONFLICT (id, company_id) DO UPDATE SET is_active = true;
 
-    INSERT INTO authz.module_actions (module_id, action_id)
-    SELECT ${quote(R.moduleB.key)}, a
+    INSERT INTO authz.module_actions (module_id, action_id, company_id)
+    SELECT ${quote(R.moduleB.key)}, a, ${quote(COMPANY_ID)}
       FROM unnest(ARRAY['create','read','update','delete','manage_access']::text[]) AS a
     ON CONFLICT DO NOTHING;
 
