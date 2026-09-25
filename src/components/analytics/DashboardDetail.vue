@@ -118,14 +118,19 @@ function editWidget(w) {
 const nextPosition = computed(() => (widgets.value?.length ?? 0))
 
 // ── delete ──────────────────────────────────────────────────────────────────
+// Returns a truthy marker so the caller can tell success from useLiveMutation's
+// swallowed failure, which resolves as `undefined` rather than throwing
+// (useLiveQuery.js:161-176). Without it a refused delete still toasted
+// "Widget removed" over a tile that was still on the board.
 const removeWidget = useLiveMutation(async (db, id) => {
   const w = await db.AnalyticsWidget.findByPk(id)
   if (w) await w.delete()
+  return true
 })
 
 async function confirmRemove(w) {
   try {
-    await removeWidget(w.id)
+    if (!(await removeWidget(w.id))) return
     toast.success('Widget removed')
   } catch (err) {
     toast.error(err?.message || 'Could not remove the widget')
@@ -333,11 +338,21 @@ function questionOf(w) {
           class="tw:relative tw:group"
           :style="{ gridColumn: `span ${spanOf(w)} / span ${spanOf(w)}` }"
         >
+          <!--
+            Hidden-until-hover ONLY where hover exists. `tw:opacity-0` on its own
+            is a hover-device assumption: a touch screen never fires hover, so
+            the whole toolbar stayed invisible — while remaining in the hit-test
+            tree, because opacity does not remove an element from it. That left
+            five invisible-but-tappable controls, one of them Remove, which
+            deletes with no confirm step. `tw:hover-hover:` scopes the hiding to
+            `@media (hover: hover)`, so pointer devices keep the clean tile and
+            touch devices get a permanently visible toolbar.
+          -->
           <div
             v-if="canEdit"
             class="tw:absolute tw:right-2 tw:top-2 tw:z-10 tw:flex tw:items-center tw:gap-1
-                   tw:opacity-0 tw:group-hover:opacity-100 tw:focus-within:opacity-100
-                   tw:transition-opacity"
+                   tw:hover-hover:opacity-0 tw:group-hover:opacity-100 tw:focus-within:opacity-100
+                   tw:transition-opacity tw:motion-reduce:transition-none"
           >
             <button
               data-drag-handle

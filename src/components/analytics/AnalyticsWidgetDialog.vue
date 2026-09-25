@@ -99,7 +99,7 @@ async function save() {
   saving.value = true
   const q = normalised.value
   try {
-    await saveWidget({
+    const saved = await saveWidget({
       id: props.widget?.id ?? null,
       attrs: {
         dashboardId: props.dashboardId,
@@ -115,13 +115,23 @@ async function save() {
         ...(props.widget ? {} : { position: props.nextPosition }),
       },
     })
+    // useLiveMutation RESOLVES on failure — it catches, toasts its own message
+    // and returns undefined rather than rethrowing (useLiveQuery.js:161-176).
+    // So the catch below never runs for a server-side failure, and everything
+    // after the await used to run regardless: a failed save announced "Widget
+    // added" and closed the dialog, discarding the draft it had just refused to
+    // store. The mutation returns the widget on success, so `undefined` is the
+    // failure signal. Not a toast here — useLiveMutation has already shown the
+    // real reason, and a second, vaguer one on top of it reads as two faults.
+    if (!saved) return
+
     toast.success(props.widget ? 'Widget updated' : 'Widget added')
     emit('saved')
     open.value = false
   } catch (err) {
-    // useLiveMutation resolves rather than rejects on some failures, so the
-    // catch alone is not a guarantee — surface whatever we do get, and never
-    // close the dialog on failure, which would silently discard the draft.
+    // Still reachable: anything thrown before the mutation runs (a validation
+    // throw in the mutationFn body is re-toasted by useLiveMutation, but a
+    // throw from findByPk's own lookup path lands here).
     toast.error(err?.message || 'Could not save the widget')
   } finally {
     saving.value = false

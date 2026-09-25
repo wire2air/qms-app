@@ -23,7 +23,7 @@
  * a timeout or a missing grant is shown as the sentence itself; and there is
  * nothing to drill into, because the records' metric was rolled back.
  */
-import { IconAlertTriangle, IconRefresh } from '@tabler/icons-vue'
+import { IconAlertTriangle, IconRefresh, IconLayoutDashboard } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 // Explicit import: a dynamic `<component :is>` cannot resolve an auto-imported
 // component from a string name.
@@ -57,6 +57,12 @@ const props = defineProps({
   periodEnd: { type: String, default: null },
   compare: { type: String, default: 'previous_period' },
   iconColor: { type: String, default: 'primary' },
+  /**
+   * Show the "Add to dashboard" action. Opt-in rather than always-on: this card
+   * also renders inside a dashboard tile and inside the metric-builder preview,
+   * where offering to add the thing you are already looking at is nonsense.
+   */
+  addable: { type: Boolean, default: false },
   // Gate so a tile does not fire before entitlement is known.
   enabled: { type: Boolean, default: true },
   // An UNSAVED metric to preview (previewPayload() from
@@ -64,6 +70,8 @@ const props = defineProps({
   // through the preview endpoint and `metricKey` is only a placeholder.
   previewDefinition: { type: Object, default: null },
 })
+
+const emit = defineEmits(['add'])
 
 const isPreview = computed(() => !!props.previewDefinition)
 
@@ -219,6 +227,20 @@ function openDrill() {
             :computedAt="metric?.computedAt"
             :calculationNote="calculationNote"
           />
+
+          <!--
+            Outside the v-if/v-else-if chain above: that chain picks ONE status
+            line, while this action is orthogonal to whichever was chosen.
+            @click.stop, because the card itself is a drill-through target —
+            without it, adding a tile would also navigate away to the records
+            behind the number. Same reason Retry stops propagation.
+          -->
+          <div v-if="addable" class="tw:flex">
+            <BaseButton size="sm" variant="text" @click.stop.prevent="emit('add')">
+              <IconLayoutDashboard :size="13" aria-hidden="true" />
+              Add to dashboard
+            </BaseButton>
+          </div>
         </div>
       </template>
     </BaseStatCard>

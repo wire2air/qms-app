@@ -56,10 +56,14 @@ const viewer = computed(() => ({
 const groups = computed(() => partitionDashboards(dashboards.value ?? [], viewer.value.userId))
 
 /**
- * The metric browser moved to /analytics/browse on 2026-09-21 and is no longer
- * in the sidebar, so this action is the only way to reach it from the nav.
+ * Points at /analytics/metrics since /analytics/browse was deleted.
  *
- * Gated on the SAME permission as its route (ANALYTICS_SUBTREE.browse), so a
+ * Browse duplicated what Metrics already does — list every metric this caller
+ * can read — and was the weaker of the two: it had no search, no per-metric
+ * preview, and no way to put anything on a board, which is what someone
+ * standing on the Dashboards page is trying to do.
+ *
+ * Gated on the SAME permission as its route (ANALYTICS_SUBTREE.metrics), so a
  * user granted Dashboards but not Metrics is not offered a link that the guard
  * would immediately bounce them off. Declutter, not security — the guard is the
  * gate; this only stops us advertising a dead end.
@@ -119,7 +123,7 @@ async function remove(d) {
           v-if="canBrowseMetrics"
           size="sm"
           variant="outline"
-          @click="router.push('/analytics/browse')"
+          @click="router.push('/analytics/metrics')"
         >
           <IconChartBar :size="14" aria-hidden="true" />
           Browse all metrics

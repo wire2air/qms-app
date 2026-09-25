@@ -63,6 +63,10 @@ const props = defineProps({
 
   // --- search ---
   searchable: { type: Boolean, default: true },
+  // Also match each option's description, not just its label. Opt-in: see the
+  // note in useSelectFilter.js. Ignored in remote mode, where the parent owns
+  // the filtering.
+  searchDescription: { type: Boolean, default: false },
   inputDebounce: { type: Number, default: 300 },
   remote: { type: Boolean, default: false },
 
@@ -121,6 +125,7 @@ const { query, filteredOptions, reset: resetQuery } = useSelectFilter(normalized
   remote: isRemote,
   emitFilter: (q) => emit('filter', q),
   debounce: () => props.inputDebounce,
+  searchDescription: () => props.searchDescription,
 })
 
 // Options shown in the panel — optionally drop already-selected ones.

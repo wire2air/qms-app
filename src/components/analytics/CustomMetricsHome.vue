@@ -32,6 +32,8 @@ import {
   METRIC_SORT_OPTIONS,
 } from '@/utils/analyticsCustomMetricAccess.js'
 import { isAllowed } from '@/utils/currentSession'
+import { DEFAULT_PERIOD_TOKEN } from '@/utils/analyticsPeriods.js'
+import { DEFAULT_VIZ, clampQuestion } from '@/utils/analyticsViz.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Same reasoning
 // as ReportDetail's export: request_metric_refresh returns a graphile-worker job
 // id, not a record, so there is nothing for the SyncEngine to cache or broadcast.
@@ -48,6 +50,7 @@ import {
   IconTrash,
   IconAlertTriangle,
   IconSearch,
+  IconLayoutDashboard,
 } from '@tabler/icons-vue'
 
 const toast = useToast()
@@ -78,6 +81,40 @@ const { fields: moduleFields } = useAnalyticsModuleFields()
 // The metric whose preview is open, or null. One at a time: each preview
 // recomputes a rollup server-side, and a list this long makes that cost easy to
 // trigger by browsing.
+/**
+ * "Add to dashboard" — the hand-off this page was missing.
+ *
+ * An author who has just published a metric is exactly the person who wants it
+ * on a board, and until now the only route was to leave, open a dashboard, open
+ * Add widget and find the metric again in a select holding every metric the
+ * tenant owns. `addingMetric` holds a CATALOG row (not the custom-metric
+ * record) because that is the shape the dialog and the question builder both
+ * speak — the button only appears when catalogRow(m) is non-null.
+ */
+const addingMetric = ref(null)
+const addOpen = computed({
+  get: () => !!addingMetric.value,
+  set: (v) => {
+    if (!v) addingMetric.value = null
+  },
+})
+
+const addQuestion = computed(() => {
+  const row = addingMetric.value
+  if (!row) return null
+  // Clamped against the catalog row, so the viz/dimension pair cannot be one
+  // the server would reject — the same rule the widget dialog applies.
+  return clampQuestion(row, {
+    metricKey: row.metricKey,
+    viz: DEFAULT_VIZ,
+    dimension: null,
+    periodToken: DEFAULT_PERIOD_TOKEN,
+    compare: null,
+    title: '',
+    filters: {},
+  })
+})
+
 const previewing = ref(null)
 const previewOpen = computed({
   get: () => !!previewing.value,
@@ -624,6 +661,24 @@ async function togglePublish(m) {
                   >
                     <IconEye :size="14" aria-hidden="true" />
                   </BaseButton>
+                  <!--
+                    Add to dashboard. Gated on the CATALOG row, not on
+                    `isPublished`: metric_catalog() omits a metric with no
+                    rollup rows, and a widget pointing at one renders an error
+                    tile rather than an empty one. The same null that drives the
+                    "Preparing" badge above therefore hides this button, so the
+                    action is offered exactly when it can succeed.
+                  -->
+                  <BaseButton
+                    v-if="catalogRow(m)"
+                    size="sm"
+                    variant="ghost"
+                    :aria-label="`Add metric ${m.name} to a dashboard`"
+                    title="Put this metric on one of your dashboards"
+                    @click="addingMetric = catalogRow(m)"
+                  >
+                    <IconLayoutDashboard :size="14" aria-hidden="true" />
+                  </BaseButton>
                   <!-- Only for a published metric with no compile error: there is
                        nothing to recompute for a draft (the rollup fan-out skips
                        inactive metrics) or for one that never compiled. -->
@@ -670,6 +725,16 @@ async function togglePublish(m) {
       v-model="previewOpen"
       :metric="previewing"
       :fields="moduleFields || []"
+    />
+
+    <!-- Keyed on the metric so reopening for a different one starts clean
+         rather than inheriting the previous dialog's chosen board. -->
+    <AddToDashboardDialog
+      v-if="addingMetric"
+      :key="addingMetric.metricKey"
+      v-model:open="addOpen"
+      :question="addQuestion"
+      :metric="addingMetric"
     />
   </BasePage>
 </template>
