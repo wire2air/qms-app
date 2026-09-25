@@ -80,16 +80,31 @@ function openPicker(page, label) {
 }
 
 /**
- * Any drillable tile on the command centre, chosen from what the page actually
+ * Any KPI tile on the command centre, chosen from what the page actually
  * renders.
  *
- * Not a named metric: "Key metrics" shows a SUBSET behind a "Show all 24
+ * Not a named metric: "Key metrics" shows a SUBSET behind a "Show all N
  * metrics" control, so a hardcoded name is a coin flip on whether it is on
- * screen. The aria-label suffix is the contract every drillable tile shares,
- * and deriving from it means this keeps working as the seeded catalog changes.
+ * screen.
+ *
+ * ── WHY THIS NO LONGER KEYS OFF THE DRILL CONTRACT ──────────────────────────
+ * It used to find a tile by the aria-label suffix "— open the records behind
+ * this number", which AnalyticsKpiCard emits ONLY when the metric carries a
+ * `drill` (route + filters). That was a safe handle while the catalog was the
+ * 27 SHIPPED metrics, every one of which declared one.
+ *
+ * Those were removed on 2026-09-25, and `drill` is not something a tenant can
+ * set: the custom-metric builder does not expose it and the compiler leaves the
+ * column NULL. So no metric in the seeded catalog is drillable, and a locator
+ * built on that suffix now matches nothing on a page that is otherwise working.
  */
-function anyDrillableTile(page) {
-  return page.getByRole('button', { name: /— open the records behind this number$/i }).first()
+function anyKpiTile(page) {
+  // A testid, added to AnalyticsKpiCard for this. The card's root element is a
+  // <div> when the metric is not drillable and BaseClickableRow when it is, so
+  // there is no stable role or class to key off — and matching on the metric
+  // NAME would also match the "Show all" list and the Data Explorer picker,
+  // where the same string appears.
+  return page.getByTestId('analytics-kpi-card').first()
 }
 
 test.describe('ANL-A13 · command centre', () => {
@@ -99,13 +114,13 @@ test.describe('ANL-A13 · command centre', () => {
 
   test('tiles resolve to real figures, and say what scope produced them', async ({ page }) => {
     const check = watchForErrors(page)
-    await gotoAnalytics(page)
+    // ⚠ /analytics/browse, NOT /analytics. The KPI strip (AnalyticsHome) moved
+    // behind the Dashboards page's "Browse all metrics" action; /analytics now
+    // renders DashboardsHome, which has no tiles at all. This test was asserting
+    // against a page that stopped carrying the thing it tests.
+    await gotoAnalytics(page, '/browse')
 
-    // ensureRollup has run, so at least one drillable tile MUST resolve.
-    // Asserting on a tile that carries the drill contract, rather than on "some
-    // card exists", is the difference between checking the page rendered and
-    // checking a number arrived.
-    const tile = anyDrillableTile(page)
+    const tile = anyKpiTile(page)
     await expect(tile).toBeVisible({ timeout: 20_000 })
 
     // Whatever it shows, it must not be the failure caption. A tile that cannot
@@ -120,28 +135,18 @@ test.describe('ANL-A13 · command centre', () => {
     check()
   })
 
-  test('a tile drills to the records behind its number', async ({ page }) => {
-    const check = watchForErrors(page)
-    await gotoAnalytics(page)
-
-    const tile = anyDrillableTile(page)
-    await expect(tile).toBeVisible({ timeout: 20_000 })
-    await tile.click()
-
-    // Somewhere real, and NOT still on analytics. The drill is the bridge from a
-    // number to an action; landing back on the dashboard, or on a route with
-    // nothing behind it, breaks the only thing a tile is for.
-    //
-    // Asserted as "a page rendered and it is not a not-found", rather than by
-    // looking for a <table>: the drill targets span several modules whose lists
-    // are built differently, and pinning one module's markup here would make
-    // this fail for a reason that has nothing to do with drilling.
-    await expect(page).not.toHaveURL(/\/analytics(\/|$)/)
-    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByText(/not found|no access|isn't included/i)).toHaveCount(0)
-
-    check()
-  })
+  // ⚠ REMOVED 2026-09-25 — 'a tile drills to the records behind its number'.
+  //
+  // The drill-through it asserted cannot happen for any metric this tenant can
+  // have. `analytics_metrics.drill` is populated only by the shipped catalog,
+  // which was deleted; the custom-metric builder has no field for it and the
+  // compiler writes NULL. The test was not detecting a regression — it was
+  // asserting a capability the product no longer offers to anyone.
+  //
+  // It is deleted rather than skipped because a skip implies "temporarily
+  // broken, fix the code". The correct fix is a PRODUCT decision — give custom
+  // metrics a drill target — and when that lands this test should be written
+  // against the new mechanism rather than restored against the old one.
 })
 
 test.describe('ANL-A13 · data explorer', () => {

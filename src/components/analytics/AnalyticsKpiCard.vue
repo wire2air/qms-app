@@ -154,6 +154,7 @@ function openDrill() {
   <component
     :is="drillTo ? BaseClickableRow : 'div'"
     :aria-label="drillTo ? `${name} — open the records behind this number` : undefined"
+    data-testid="analytics-kpi-card"
     class="tw:block"
     @click="openDrill"
   >

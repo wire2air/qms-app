@@ -857,14 +857,41 @@ export const QC = {
 // against the live stack on 2026-08-18 via metric_value() under app_user.
 export const ANALYTICS = {
   FACT_MONTH: { start: '2026-02-01', end: '2026-02-28' },
-  METRIC: 'ncr.raised',
+  // ⚠ A TENANT-OWNED metric, seeded by e2e-seed.sql §31c-i — not a shipped one.
+  // The shipped catalog (database/analytics/metrics/*.json) was removed on
+  // 2026-09-25, so there is no global metric for a fixture to borrow. The seed
+  // defines an equivalent one: count of nonconformances on created_at, split by
+  // severity, which is what keeps every figure below unchanged.
+  //
+  // The key is `custom.` + the seeded uuid with its dashes stripped, which is
+  // how analytics_compile_custom_metric derives it. It is a literal in both
+  // places on purpose: deriving it would turn a compile failure into a missing
+  // row rather than a loud one.
+  METRIC: 'custom.e2ea0500000040008000000000000001',
   // What every picker in the module actually displays. The key is never shown.
-  METRIC_LABEL: 'NCs Raised',
+  // Must match the seeded `name` EXACTLY — the picker matches on visible text.
+  METRIC_LABEL: 'NCs raised',
   DIMENSION_LABEL: 'Severity',
   TENANT_VALUE: 6, // author / auditor  — ncr:read at tenant
   SITE_VALUE: 4, // siteRoamer        — ncr:read at site (Primary)
-  // The severity mix, so a breakdown assertion does not have to re-derive it.
+  // The severity mix of the six facts, for a test that needs to know the shape
+  // of the data rather than what the API returns for it.
+  //
+  // ⚠ metric_breakdown WILL NOT SHOW THESE, AND THAT IS CORRECT.
+  // Each cell is 2, and the small-cell floor is 5 (MIN_CELL_FLOOR; enforced
+  // server-side by GREATEST(COALESCE(p_min_cell,5),5) in metric_breakdown and
+  // metric_series). A severity split of the fact month therefore returns ONE
+  // suppressed residual row — "Other (3, 3 below threshold)" — not three named
+  // cells. Asserting these numbers against a breakdown would fail, and making
+  // it pass would mean lowering a privacy control to suit a fixture.
+  //
+  // Kept because it documents the fact set, which §31b of e2e-seed.sql relies
+  // on: the mix is deliberately even so a breakdown has more than one cell and
+  // so the suppression path itself has something to suppress.
   SEVERITY_BREAKDOWN: { MINOR: 2, MAJOR: 2, CRITICAL: 2 },
+  // What a severity breakdown of the fact month ACTUALLY returns, for any test
+  // that asserts on the API rather than on the data behind it.
+  SEVERITY_BREAKDOWN_SUPPRESSED: { cells: 0, residualBelowThreshold: 3 },
   sharedDashboard: {
     id: 'e2ea2000-0000-4000-8000-000000000001',
     name: 'E2E Shared NC Board',
