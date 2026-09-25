@@ -65,6 +65,11 @@ export const RESOURCE_ROUTES = {
   QualityEvent: (id) => `/qualityEvents/${id}`,
   TrainingInstance: (id) => `/training-instances/${id}`,
   LogBook: (id) => `/inspections-logs/log-books/${id}`,
+  // A training assignment has no page keyed by its own id (the trainee page is
+  // /my-training/:trainingInstanceId), so both surfaces stop at the task inbox —
+  // mirrors ID_LESS_ROUTES.TrainingAssignee in companyAppUrl.js. The old email
+  // guess, /trainingassignees/:id, was a 404.
+  TrainingAssignee: () => '/task-instances',
 
   // ── The automation-engine targets that had no in-app route ──────────────
   // Each mirrors the backend OVERRIDES entry exactly, and each destination was
