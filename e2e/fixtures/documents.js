@@ -61,6 +61,51 @@ async function selectFirstByKeyboard(combo) {
   }).toPass({ timeout: 30_000 })
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
+
+  // ── WAIT FOR THE PANEL TO CLOSE, not just for the selection to be made. ────
+  //
+  // Enter commits the value, but the panel's close is ANIMATED and this helper
+  // used to return the instant the keystroke was sent. The next field's click
+  // then landed while the previous panel was still on top of it, and Playwright
+  // reported it against the WRONG control:
+  //
+  //   waiting for getByText('CAPA Type')… locator resolved to <div role=combobox>
+  //   … <div data-headlessui-state="open" id="headlessui-popover-panel-v-55">
+  //     subtree intercepts pointer events
+  //
+  // It reads as "CAPA Type is broken". It is not — `Department`, filled one line
+  // earlier, had not finished closing. Confirmed from the captured
+  // error-context of tasks/t1: the intercepting panel carries a "Search…" input,
+  // which CAPA Type does not have and Department does.
+  //
+  // This cost six failures in `tasks` and three in `rca` — two different
+  // projects, one shared helper, and a symptom that named neither.
+  //
+  // ⚠ WAIT ON THE POPOVER PANEL, NOT THE LISTBOX. They are different elements
+  // and only one of them blocks the next click:
+  //
+  //   <div id="headlessui-popover-panel-v-55" data-headlessui-state="open">  ← intercepts
+  //     <input role="combobox" aria-controls="v-14-listbox" placeholder="Search…">
+  //     <ul id="v-14-listbox">                                               ← the listbox
+  //
+  // `aria-controls` on the trigger points at the LISTBOX. A first version of
+  // this wait watched that, saw it go hidden, returned — and the enclosing
+  // POPOVER was still animating shut, still swallowing pointer events. The run
+  // failed identically, which is how this comment came to be written twice.
+  //
+  // ⏱ ONE bounded wait, not a retry loop. `toHaveCount(0)` already polls
+  // internally until the deadline, so wrapping it in `toPass` nested two
+  // pollers and multiplied the budget by every field on the form: the first
+  // version of this cost 10.8 MINUTES for a single test that used to take ~40s.
+  // A settle is worth a second, never a minute.
+  //
+  // Best-effort by design: a field with no popover (a plain inline select) must
+  // not fail here, because this is a settle, not an assertion.
+  await expect(
+    page.locator('[id^="headlessui-popover-panel-"][data-headlessui-state="open"]'),
+  )
+    .toHaveCount(0, { timeout: 2_000 })
+    .catch(() => {})
 }
 
 /** Open a labelled select and choose an option by its visible text. */

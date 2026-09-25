@@ -43,6 +43,7 @@ import {
   IconClock,
   IconPlus,
   IconLock,
+  IconEye,
   IconPencil,
   IconTrash,
   IconAlertTriangle,
@@ -66,6 +67,24 @@ const metrics = useLiveQuery(async (db) => db.AnalyticsCustomMetric.where().exec
 // dimension cap the builder needs moved with it to CustomMetricEditor when the
 // builder became a page.
 const { metrics: catalog } = useMetricCatalog()
+
+// The field vocabulary came BACK to this page when every card grew a Preview:
+// draftCatalogRow reads `kind` and `groupable` off these to work out a metric's
+// dimensions and unit, so the preview panel cannot render without them. Shared
+// with CustomMetricEditor rather than copied — the tenant filter inside is a
+// security filter, and a second copy of one drifts.
+const { fields: moduleFields } = useAnalyticsModuleFields()
+
+// The metric whose preview is open, or null. One at a time: each preview
+// recomputes a rollup server-side, and a list this long makes that cost easy to
+// trigger by browsing.
+const previewing = ref(null)
+const previewOpen = computed({
+  get: () => !!previewing.value,
+  set: (v) => {
+    if (!v) previewing.value = null
+  },
+})
 
 // Whether each metric has ever refreshed, and what that run produced. The
 // catalog cannot answer this — it lists only metrics that HAVE rollup rows, so
@@ -584,7 +603,27 @@ async function togglePublish(m) {
                 </BaseButton>
                 <span v-else />
 
-                <div v-if="canUpdate || canDelete" class="tw:flex tw:items-center tw:gap-1">
+                <div class="tw:flex tw:items-center tw:gap-1">
+                  <!--
+                    On EVERY card, including drafts and the ones that matched
+                    nothing. The preview endpoint takes a definition rather than
+                    an id and rolls its transaction back, so "is it published"
+                    simply does not apply — unlike Refresh below.
+
+                    It earns its place most on the two states that currently
+                    send the reader to Edit: a draft, which has no figures
+                    anywhere else, and "No matching records", where seeing the
+                    empty result beside the filters is the whole diagnosis.
+                  -->
+                  <BaseButton
+                    size="sm"
+                    variant="ghost"
+                    :aria-label="`Preview metric ${m.name}`"
+                    title="See this metric's figures, computed live"
+                    @click="previewing = m"
+                  >
+                    <IconEye :size="14" aria-hidden="true" />
+                  </BaseButton>
                   <!-- Only for a published metric with no compile error: there is
                        nothing to recompute for a draft (the rollup fan-out skips
                        inactive metrics) or for one that never compiled. -->
@@ -624,5 +663,13 @@ async function togglePublish(m) {
         </PageSection>
       </template>
     </template>
+
+    <!-- One at a time, and nothing runs until the panel's own Preview button is
+         pressed: each run recomputes a rollup server-side. -->
+    <CustomMetricPreviewDialog
+      v-model="previewOpen"
+      :metric="previewing"
+      :fields="moduleFields || []"
+    />
   </BasePage>
 </template>

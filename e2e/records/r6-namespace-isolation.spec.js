@@ -41,7 +41,7 @@
 // numbers by accident.
 //
 //   namespace          persona     grant
-//   records (plain)    author      records:create/read/update/delete @tenant
+//   records (plain)    controller  records:read @tenant (see the note below)
 //   e2emod             reviewer    e2emod:create/read/update/delete  @tenant
 //   e2emodb            approver    e2emodb:create/read/update        @tenant
 //
@@ -57,10 +57,24 @@
 // WHAT WAS MEASURED (app-db, 2026-09-01)
 //
 //   persona     e2emod:read   e2emodb:read   records:read   rows seen per namespace
-//   author         false         false          true         0 / 0 / all plain
+//   controller     false         false          true         0 / 0 / all plain
 //   reviewer       true          false          false        all e2emod / 0 / 0
 //   approver       false         true           false        0 / all e2emodb / 0
 //   noAccess       false         false          false        0 / 0 / 0
+//
+// ⚠ THE PLAIN HOLDER IS `controller`, NOT `author` — changed 2026-09-24.
+// The table above was measured on 2026-09-01, when `author` held records:* and
+// nothing else. Seed §35 later assigned author the `E2E Module Owner` role
+// (e2e-seed.sql: "author -> Module Owner"), which carries e2emod CRUD at tenant
+// scope for REC-J4's benefit. From that moment `author` legitimately read
+// e2emod records, and four assertions in this file went red against a product
+// that was behaving exactly as granted.
+//
+// That is a FIXTURE DRIFT, not a leak. The matrix needs a persona holding the
+// plain grant and ONLY the plain grant; `controller` is the one that still
+// does (E2E Records Reader — records:read @tenant, verified against app-db).
+// Re-pointing the row keeps the question this file asks intact; changing the
+// assertion would have recorded a namespace leak that does not exist.
 //
 // The `false` column entries are the finding. Each one is a namespace the
 // persona holds a full CRUD grant NEXT DOOR to, on the same table, and reaches
@@ -91,7 +105,7 @@ const PROBE = {
 
 // namespace → [the persona that holds it, the two that must not reach it]
 const NAMESPACES = [
-  { key: null, label: 'records (plain)', probe: PROBE.plain, holder: 'author' },
+  { key: null, label: 'records (plain)', probe: PROBE.plain, holder: 'controller' },
   { key: RECORDS.module.key, label: 'e2emod', probe: PROBE.modA, holder: 'reviewer' },
   { key: RECORDS.moduleB.key, label: 'e2emodb', probe: PROBE.modB, holder: 'approver' },
 ]
@@ -358,15 +372,19 @@ test.describe('REC-J6 — per-module namespace isolation', () => {
     // and NOT a magic value — so a module grant must not reach them and
     // `records:read` must not reach a module's rows. Both halves, because the
     // COALESCE is exactly the kind of expression an edit can invert.
-    expect(hasPermissionLegacy(USERS.author.id, 'records:read'), 'author holds records:read').toBe(
-      true,
-    )
+    // `controller`, not `author` — author also holds e2emod CRUD from seed §35,
+    // so it cannot answer "a records:* grant does not reach a module's rows".
+    // See the drift note in the header.
     expect(
-      recordsVisibleTo(USERS.author.id, [PROBE.plain]),
+      hasPermissionLegacy(USERS.controller.id, 'records:read'),
+      'controller holds records:read',
+    ).toBe(true)
+    expect(
+      recordsVisibleTo(USERS.controller.id, [PROBE.plain]),
       '…and reads the plain submission',
     ).toBe(1)
     expect(
-      recordsVisibleTo(USERS.author.id, [PROBE.modA, PROBE.modB]),
+      recordsVisibleTo(USERS.controller.id, [PROBE.modA, PROBE.modB]),
       '…and neither promoted module’s records',
     ).toBe(0)
 

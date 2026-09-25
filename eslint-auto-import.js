@@ -212,6 +212,7 @@ export default {
     "useActiveWorkflowEntries": true,
     "useAiUsage": true,
     "useAnalyticsEntitlement": true,
+    "useAnalyticsModuleFields": true,
     "useAnimate": true,
     "useArrayDifference": true,
     "useArrayEvery": true,

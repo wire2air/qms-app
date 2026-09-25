@@ -264,9 +264,19 @@ export function provisionRecordsFixtures() {
     -- actions. Without the second, has_permission_legacy('e2emodb:read')
     -- resolves nothing and returns false, and every probe against this module
     -- fails for a reason unrelated to what it tests.
+    -- WARNING: ON CONFLICT (id, company_id), not (id). authz.modules is
+    -- multi-tenant -- its primary key is the COMPOSITE (id, company_id), and
+    -- company_id is NOT NULL with a global default, so a module row is
+    -- shared-by-default but tenant-overridable. Naming only id raises
+    -- "there is no unique or exclusion constraint matching the ON CONFLICT
+    -- specification" and takes the WHOLE provisioning script with it -- every
+    -- records spec then fails in its beforeAll, which is how a one-word drift
+    -- reads as nine broken tests. database/e2e-seed.sql has had the composite
+    -- form all along; this fixture did not follow when the column was added.
+    -- (No backticks in this comment: it sits inside a JS template literal.)
     INSERT INTO authz.modules (id, name, section, display_order, is_active)
     VALUES (${quote(R.moduleB.key)}, 'E2E Module B', 'Custom Modules', 901, true)
-    ON CONFLICT (id) DO UPDATE SET is_active = true;
+    ON CONFLICT (id, company_id) DO UPDATE SET is_active = true;
 
     INSERT INTO authz.module_actions (module_id, action_id)
     SELECT ${quote(R.moduleB.key)}, a

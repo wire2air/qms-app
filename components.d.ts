@@ -515,6 +515,7 @@ declare module 'vue' {
     CustomMetricBuilder: typeof import('./src/components/analytics/CustomMetricBuilder.vue')['default']
     'CustomMetricBuilder.spec': typeof import('./src/components/analytics/CustomMetricBuilder.spec.js')['default']
     CustomMetricEditor: typeof import('./src/components/analytics/CustomMetricEditor.vue')['default']
+    CustomMetricPreviewDialog: typeof import('./src/components/analytics/CustomMetricPreviewDialog.vue')['default']
     CustomMetricPreviewPanel: typeof import('./src/components/analytics/CustomMetricPreviewPanel.vue')['default']
     CustomMetricsHome: typeof import('./src/components/analytics/CustomMetricsHome.vue')['default']
     CustomPlanTableFields: typeof import('./src/components/qcInspection/CustomPlanTableFields.vue')['default']

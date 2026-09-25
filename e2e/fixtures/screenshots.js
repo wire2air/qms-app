@@ -12,12 +12,26 @@
 // moves faster than a human can follow, and the pause is what makes each state
 // observable while the run drives itself. It is NOT a substitute for waiting on
 // the UI — always assert the expected state first, then call shot().
+//
+// It is GATED ON `E2E_HEADED`, which is the same flag playwright.config.js uses
+// to decide `headless`. The reason it exists — a human watching the run — does
+// not apply when nobody is watching, and the cost is not small: 285 screenshot
+// captures x 3s is roughly 14 minutes of unconditional sleep in a suite that
+// runs `workers: 1`. That is time bought with nothing.
+//
+// Deliberately gated rather than deleted: run with `E2E_HEADED=1` and the pause
+// is back, unchanged, which is the only mode where it ever did anything.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/** Deliberate settle/observation pause before every capture. Do not remove. */
-export const OBSERVE_MS = 3_000
+/**
+ * Deliberate settle/observation pause before every capture.
+ *
+ * 3s when a human is watching (`E2E_HEADED`), 0 otherwise. Do not remove — see
+ * the header for why it exists and why it is gated rather than deleted.
+ */
+export const OBSERVE_MS = process.env.E2E_HEADED ? 3_000 : 0
 
 // e2e/fixtures/ → qms-app/tests/screenshots
 const SCREENSHOT_ROOT = path.resolve(
@@ -42,7 +56,10 @@ export function shooter(module) {
   const dir = screenshotDir(module)
   return async function shot(page, name) {
     const file = path.join(dir, name.endsWith('.png') ? name : `${name}.png`)
-    await page.waitForTimeout(OBSERVE_MS) // observation pause — see header
+    // Skipped entirely when headless — `waitForTimeout(0)` still yields to the
+    // event loop 285 times, and the screenshot itself already waits for the
+    // page to be capturable.
+    if (OBSERVE_MS) await page.waitForTimeout(OBSERVE_MS) // observation pause — see header
     await page.screenshot({ path: file, fullPage: true })
     return file
   }

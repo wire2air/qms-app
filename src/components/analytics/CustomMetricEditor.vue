@@ -64,52 +64,18 @@ watch(
 // slices it by module and source table; re-querying it inside the builder per
 // section would re-read the same static reference data over and over.
 //
-// ── WHY THIS IS FILTERED, WHEN THE SERVER ALREADY FILTERS ─────────────────
-// analytics_module_fields is GLOBAL — no company_id — because the built-in
-// vocabulary is the same for every tenant. Custom modules broke that premise:
-// theirs belongs to exactly one tenant. The server now gates those rows on
-// ownership of the form template (analytics_module_field_visible, called from
-// analytics_module_fields_select_rls), which is the authoritative fix.
-//
-// This is the second layer, and it is not redundant. These rows live in
-// IndexedDB, which is per-COMPANY but survives a company switch in the same
-// browser profile, so a stale cache can still hold rows the server would no
-// longer serve. Filtering here means a module whose template this tenant does
-// not own can never reach the Module dropdown, cache or no cache.
-//
-// Built-in modules are unaffected: no FormTemplate row names them, so they
-// match the first branch and pass through.
+// The tenant filtering — and why a second layer is not redundant over the
+// server's own — lives in the composable. It moved there when the metrics LIST
+// grew a preview and needed the same rows: that filter is a security filter,
+// and two copies of one would drift.
 //
 // No `initial: []` — see the header: undefined is the loading signal the
-// builder's mount waits on.
-const allFields = useLiveQuery(async (db) => db.AnalyticsModuleField.where().exec(), {
-  models: 'AnalyticsModuleField',
-})
-
-// The custom modules THIS tenant owns. Same source the sidebar uses to decide
-// which module nav entries to draw — which is why the nav never leaked.
-// The whole row, not just the key: the builder reads `schema` off these to
-// offer a module's reporting keys as a picker (reportingKeyOptions). Same
-// query, same subscription — the keys below are derived from it rather than
-// fetched a second time.
-const ownModuleTemplates = useLiveQuery(
-  async (db) => (await db.FormTemplate.where().exec()).filter((t) => t.isModule && t.internalName),
-  { models: 'FormTemplate' },
-)
-
-const ownModuleKeys = computed(() => (ownModuleTemplates.value || []).map((t) => t.internalName))
-
-const fields = computed(() => {
-  const rows = allFields.value || []
-  const mine = new Set(ownModuleKeys.value || [])
-  // A module id is "custom" only when some FormTemplate claims it. We cannot
-  // ask that of templates we cannot see, so the test is the other way round:
-  // keep a row unless its module is a custom one that is NOT ours. Anything
-  // built-in, and anything of ours, stays.
-  const customSourced = rows.filter((f) => f.sourceTable === 'analytics_field_values')
-  const customKeys = new Set(customSourced.map((f) => f.moduleId))
-  return rows.filter((f) => !customKeys.has(f.moduleId) || mine.has(f.moduleId))
-})
+// builder's mount waits on, which the composable preserves.
+const {
+  fields,
+  templates: ownModuleTemplates,
+  loading: fieldsLoading,
+} = useAnalyticsModuleFields()
 
 // The cap belongs to the ROLLUP (analytics_dimension_capacity), not to this
 // page, so it is read from the catalog rather than written here — the same
@@ -132,10 +98,7 @@ const allowed = computed(() =>
 )
 
 const loading = computed(
-  () =>
-    allFields.value === undefined ||
-    ownModuleTemplates.value === undefined ||
-    (!isCreate.value && metric.value === undefined),
+  () => fieldsLoading.value || (!isCreate.value && metric.value === undefined),
 )
 
 const notFound = computed(() => !isCreate.value && metric.value === null)
