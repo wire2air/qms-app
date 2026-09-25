@@ -193,11 +193,6 @@ const ANALYTICS_SUBTREE = {
   alerts: 'analytics_alerts:read',
   metrics: 'analytics_metrics:read',
   explore: 'analytics_explore:read',
-  // The metric browser that used to BE /analytics. It renders the catalog, so
-  // it is gated as Metrics — not as its own surface, and deliberately not left
-  // to fall through to the bare-/analytics gate, which is broader than what the
-  // page shows.
-  browse: 'analytics_metrics:read',
 }
 
 // Path segments that mean "the create/new form" (e.g. /documents/create).

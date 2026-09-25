@@ -9,11 +9,20 @@ import { useDebounceFn } from '@vueuse/core'
  *   debounced `filter` event and leaves the option list untouched — the parent
  *   owns `loading` + `options`. Local filtering is bypassed.
  *
+ * `searchDescription` widens the local haystack to include each option's
+ * description. It is OPT-IN rather than the default because the description is
+ * a second line of prose: matching it silently turns a list that appeared not
+ * to match into one that does, for reasons the user cannot see in the row they
+ * are shown. Worth it where descriptions are the only thing separating two
+ * near-identical labels ("Open CAPAs" vs "Open CAPAs (current)"), wrong where
+ * they are incidental help text.
+ *
  * @param {import('vue').Ref} normalizedOptions  from useSelectOptions
  * @param {object} cfg
  * @param {() => boolean} cfg.remote       whether remote filtering is active
  * @param {(query: string) => void} cfg.emitFilter  fired (debounced) in remote mode
  * @param {() => number} cfg.debounce      debounce window in ms
+ * @param {() => boolean} [cfg.searchDescription]  also match option.description
  */
 export function useSelectFilter(normalizedOptions, cfg) {
   const query = ref('')
@@ -31,7 +40,14 @@ export function useSelectFilter(normalizedOptions, cfg) {
     if (cfg.remote()) return normalizedOptions.value
     const q = query.value.trim().toLowerCase()
     if (!q) return normalizedOptions.value
-    return normalizedOptions.value.filter((o) => o.label.toLowerCase().includes(q))
+    const alsoDescription = cfg.searchDescription?.() ?? false
+    return normalizedOptions.value.filter((o) => {
+      if (o.label.toLowerCase().includes(q)) return true
+      if (!alsoDescription) return false
+      return String(o.description ?? '')
+        .toLowerCase()
+        .includes(q)
+    })
   })
 
   function reset() {

@@ -114,11 +114,14 @@ test.describe('ANL-A13 · command centre', () => {
 
   test('tiles resolve to real figures, and say what scope produced them', async ({ page }) => {
     const check = watchForErrors(page)
-    // ⚠ /analytics/browse, NOT /analytics. The KPI strip (AnalyticsHome) moved
-    // behind the Dashboards page's "Browse all metrics" action; /analytics now
-    // renders DashboardsHome, which has no tiles at all. This test was asserting
-    // against a page that stopped carrying the thing it tests.
-    await gotoAnalytics(page, '/browse')
+    // ⚠ A MODULE's insights tab, not /analytics. The KPI strip lived on
+    // /analytics/browse (AnalyticsHome) until that page was deleted on
+    // 2026-09-25 for duplicating /analytics/metrics without its search,
+    // preview or add-to-dashboard. ModuleInsightsTab renders the same
+    // AnalyticsKpiCard, so the promise under test — every figure states the
+    // scope and freshness it was computed under — is asserted where it still
+    // ships. /analytics redirects to Dashboards, which has no tiles at all.
+    await page.goto('/nonconformances?tab=insights', { waitUntil: 'domcontentloaded' })
 
     const tile = anyKpiTile(page)
     await expect(tile).toBeVisible({ timeout: 20_000 })

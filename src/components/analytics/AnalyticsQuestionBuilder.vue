@@ -29,6 +29,16 @@
  * split by Site and a stacked bar may not, and the control order reflects the
  * dependency rather than hiding it. `src/utils/analyticsViz.js` owns that rule.
  *
+ * ── WHY THE METRIC PICKER OPTS OUT OF autoFill ──────────────────────────────
+ * BaseSelect auto-selects the first option when `required` is set, which is
+ * right for a field with a defensible default and wrong here: the catalog is
+ * ordered `module_id, id`, so the "default" is whichever metric sorts first
+ * alphabetically by module — on a 140-metric tenant, "Audit findings by
+ * department". That is not a suggestion, it is an accident of sort order, and
+ * it arrives with a live preview that makes it look like a decision already
+ * taken. Opting out restores the placeholder ("Choose what to measure") and
+ * the dialog's own "Pick a metric" empty state, which assumes a null metric.
+ *
  * ── WHY THE PERIOD IS A SELECT AND NOT A DATE PICKER ────────────────────────
  * `period_token` must stay RELATIVE so a saved dashboard keeps meaning "the last
  * twelve months" instead of freezing to whichever twelve were current when it
@@ -230,10 +240,12 @@ function onMetricChange(metricKey) {
       :options="metricOptions"
       optionGroup="group"
       optionDescription="description"
+      searchDescription
       label="Metric"
       :hint="metric?.description || ''"
       :loading="loading"
       :required="true"
+      :autoFill="false"
       placeholder="Choose what to measure"
       @update:modelValue="onMetricChange"
     />

@@ -68,7 +68,7 @@ async function save() {
   saving.value = true
   const q = normalised.value
   try {
-    await saveAsWidget({
+    const saved = await saveAsWidget({
       dashboardId: targetDashboard.value,
       attrs: {
         metricKey: q.metricKey,
@@ -80,6 +80,10 @@ async function save() {
         filters: q.filters ?? {},
       },
     })
+    // useLiveMutation resolves with `undefined` on failure rather than throwing
+    // (useLiveQuery.js:161-176), so without this a refused save still announced
+    // success. It has already toasted the real reason.
+    if (!saved) return
     toast.success('Saved to dashboard')
   } catch (err) {
     toast.error(err?.message || 'Could not save the widget')
