@@ -47,14 +47,16 @@ const objects = computed(() => [
   ...AUTOMATION_OBJECTS,
   ...moduleTemplates.value.map(buildModuleAutomationObject),
 ])
-const objectByValue = computed(() =>
-  Object.fromEntries(objects.value.map((o) => [o.value, o])),
-)
+const objectByValue = computed(() => Object.fromEntries(objects.value.map((o) => [o.value, o])))
 
 const objectType = ref(AUTOMATION_OBJECTS[0]?.value ?? null)
 const pickedStatuses = ref([])
 const groupIds = ref([])
 const userIds = ref([])
+// Outside addresses. NotificationCcField has always offered these — the panel
+// simply never bound the third model, so the input was invisible here and a
+// rule that tells only an outside auditor could not be written at all.
+const emails = ref([])
 const siteIds = ref([])
 const departmentIds = ref([])
 const saving = ref(false)
@@ -109,13 +111,21 @@ const supportsSupplier = computed(() => !!selected.value?.supplierField)
 
 const notifySupplier = ref(false)
 
-// The supplier counts as a recipient in its own right — a rule that tells only
-// the supplier is a perfectly ordinary rule.
+// Every kind of recipient counts on its own. The supplier is a recipient in its
+// own right, and so is a bare email address: "tell our contract sterilised-
+// packaging auditor when this NC closes" names nobody with an account, and
+// requiring a user or group first made that rule unwritable — the save button
+// simply stayed dead with no explanation (reported 2026-09-26).
 const hasRecipients = computed(
-  () => groupIds.value.length > 0 || userIds.value.length > 0 || notifySupplier.value,
+  () =>
+    groupIds.value.length > 0 ||
+    userIds.value.length > 0 ||
+    emails.value.length > 0 ||
+    notifySupplier.value,
 )
 const canSave = computed(
-  () => !!objectType.value && pickedStatuses.value.length > 0 && hasRecipients.value && !saving.value,
+  () =>
+    !!objectType.value && pickedStatuses.value.length > 0 && hasRecipients.value && !saving.value,
 )
 
 /** Reset the per-object choices when the record type changes. */
@@ -156,6 +166,12 @@ async function save() {
     if (userIds.value.length) {
       actions.push({ type: 'NOTIFY_USER', config: { userIds: [...userIds.value] } })
     }
+    // Outside addresses. send_notification's literal-email branch mails these
+    // without an in-app notification, which is the only thing it can do for
+    // someone with no account.
+    if (emails.value.length) {
+      actions.push({ type: 'NOTIFY_EMAIL', config: { emails: [...emails.value] } })
+    }
     // No config: the rule cannot name a supplier, because "the supplier" means
     // whichever one the record is about. The resolver reads supplier_id off the
     // row and finds that supplier's point(s) of contact.
@@ -183,6 +199,7 @@ async function save() {
     pickedStatuses.value = []
     groupIds.value = []
     userIds.value = []
+    emails.value = []
     siteIds.value = []
     departmentIds.value = []
     notifySupplier.value = false
@@ -235,8 +252,11 @@ async function save() {
         <NotificationCcField
           :groupIds="groupIds"
           :userIds="userIds"
+          :emails="emails"
+          hint="Everyone listed is notified when the record reaches one of the statuses above. Outside addresses receive email only — they have no account to show an in-app notification in."
           @update:groupIds="(v) => (groupIds = v)"
           @update:userIds="(v) => (userIds = v)"
+          @update:emails="(v) => (emails = v)"
         />
         <div v-if="supportsSupplier" class="tw:mt-3">
           <BaseCheckbox v-model="notifySupplier" label="Also notify the supplier on the record" />
