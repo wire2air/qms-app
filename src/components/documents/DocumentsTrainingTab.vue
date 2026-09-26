@@ -381,6 +381,28 @@ function libraryAssigneeStats(instanceId) {
       @apply="handleQuestionsApply"
     />
 
+    <!-- Configured on this version, but the version is past editing.
+         Until 2026-09-27 nothing rendered here: the config block above was the
+         only thing that showed a version's training, and it is gated on the
+         version being DRAFT-ish. Submitting for approval therefore hid the
+         quiz from everyone — including the approver being asked to approve it,
+         and the author who wrote it — and the tab fell through to the "no
+         training configured" card below, which was not merely unhelpful but
+         untrue. -->
+    <div v-else-if="selectedVersion?.trainingConfig?.enabled" class="tw:flex tw:flex-col tw:gap-3">
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
+        <BaseText variant="overline">
+          Training config for this version
+          <span class="tw:font-normal tw:text-on-sidebar tw:ml-1">
+            (v{{ selectedVersion.versionMajor }}.{{ selectedVersion.versionMinor }} ·
+            {{ selectedVersion.statusId }})
+          </span>
+        </BaseText>
+        <BaseCaption>Read-only — this version is no longer editable.</BaseCaption>
+      </div>
+      <DocumentsCreateTraining :modelValue="selectedVersion.trainingConfig" readonly />
+    </div>
+
     <!-- No training configured AND not on an editable version → empty state -->
     <BaseCard v-else-if="!training" class="tw:text-center" padding="lg">
       <IconSchool :size="48" class="tw:mx-auto tw:mb-3 tw:text-gray-300" />

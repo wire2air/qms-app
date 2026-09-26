@@ -12,6 +12,24 @@ import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed } from '@/utils/currentSession.js'
 import { commonSupervisorId } from '@/utils/trainingManager'
 
+/**
+ * Show the configuration without letting it be changed.
+ *
+ * Training config lives on the VERSION, and this editor used to be the only
+ * thing that rendered it — gated on the version still being editable. So the
+ * moment a document was submitted for approval the quiz disappeared, and the
+ * training tab fell through to "No training has been configured for this
+ * document yet." for everyone, author included (reported 2026-09-27).
+ *
+ * The approver is precisely the person who needs to read the questions before
+ * approving them, so the answer is a read-only rendering rather than a
+ * summary: what they review is then literally what was authored, with no
+ * second presentation to drift.
+ */
+defineProps({
+  readonly: { type: Boolean, default: false },
+})
+
 // The third copy of this shape, now the same one. A `default` on a model that
 // every caller passes is a fallback, not a policy — enabled:false so an
 // unbound instance never reads as opted in.
@@ -151,7 +169,11 @@ const hasAssessment = computed({
             }}
           </p>
         </div>
-        <BaseSwitch v-model="config.enabled" label="Enable training for this version" />
+        <BaseSwitch
+          v-model="config.enabled"
+          label="Enable training for this version"
+          :disabled="readonly"
+        />
       </div>
     </div>
 
@@ -180,7 +202,11 @@ const hasAssessment = computed({
                   </p>
                   <HelpButton slug="KB/training/training-curriculum" :size="14" />
                 </div>
-                <CurriculumSelectMenu v-model="config.curriculumIds" :multiple="true" />
+                <CurriculumSelectMenu
+                  v-model="config.curriculumIds"
+                  :multiple="true"
+                  :disabled="readonly"
+                />
                 <RouterLink
                   v-if="canManageCurricula"
                   :to="getCompanyPath('/training-curriculum')"
@@ -197,7 +223,7 @@ const hasAssessment = computed({
                 >
                   Specific Users
                 </p>
-                <UserSelectMenu v-model="config.userIds" :multiple="true" />
+                <UserSelectMenu v-model="config.userIds" :multiple="true" :disabled="readonly" />
               </div>
             </div>
           </div>
@@ -215,7 +241,11 @@ const hasAssessment = computed({
                   </span>
                 </BaseTooltip>
               </div>
-              <BaseSwitch v-model="hasAssessment" label="Add an assessment the trainee must pass" />
+              <BaseSwitch
+                v-model="hasAssessment"
+                label="Add an assessment the trainee must pass"
+                :disabled="readonly"
+              />
             </div>
 
             <div v-if="hasAssessment" class="tw:flex tw:flex-col tw:gap-3">
@@ -232,8 +262,14 @@ const hasAssessment = computed({
                     class="tw:w-6 tw:h-6 tw:rounded-full tw:bg-gray-100 tw:text-gray-600 tw:text-xs tw:font-bold tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:mt-1"
                     >{{ qIdx + 1 }}</span
                   >
-                  <BaseTextInput v-model="q.text" placeholder="Question text" class="tw:flex-1" />
+                  <BaseTextInput
+                    v-model="q.text"
+                    placeholder="Question text"
+                    class="tw:flex-1"
+                    :disabled="readonly"
+                  />
                   <button
+                    v-if="!readonly"
                     class="tw:p-1 tw:text-secondary tw:hover:text-red-600"
                     @click="removeQuestion(qIdx)"
                   >
@@ -255,6 +291,7 @@ const hasAssessment = computed({
                         ? 'tw:bg-primary tw:text-white'
                         : 'tw:bg-gray-100 tw:text-secondary'
                     "
+                    :disabled="readonly"
                     @click="q.type = 'single'"
                   >
                     Single Choice
@@ -266,6 +303,7 @@ const hasAssessment = computed({
                         ? 'tw:bg-primary tw:text-white'
                         : 'tw:bg-gray-100 tw:text-secondary'
                     "
+                    :disabled="readonly"
                     @click="q.type = 'multiple'"
                   >
                     Multiple Choice
@@ -287,11 +325,17 @@ const hasAssessment = computed({
                     <input
                       :type="q.type === 'single' ? 'radio' : 'checkbox'"
                       :checked="opt.isCorrect"
+                      :disabled="readonly"
                       @change="setCorrect(q, opt.id)"
                     />
-                    <BaseTextInput v-model="opt.text" placeholder="Option text" class="tw:flex-1" />
+                    <BaseTextInput
+                      v-model="opt.text"
+                      placeholder="Option text"
+                      class="tw:flex-1"
+                      :disabled="readonly"
+                    />
                     <button
-                      v-if="q.options.length > 2"
+                      v-if="!readonly && q.options.length > 2"
                       class="tw:p-1 tw:text-secondary tw:hover:text-red-600"
                       @click="removeOption(q, opt.id)"
                     >
@@ -299,6 +343,7 @@ const hasAssessment = computed({
                     </button>
                   </div>
                   <button
+                    v-if="!readonly"
                     class="tw:text-xs tw:text-primary tw:hover:underline tw:self-start"
                     @click="addOption(q)"
                   >
@@ -308,6 +353,7 @@ const hasAssessment = computed({
               </div>
 
               <button
+                v-if="!readonly"
                 class="tw:w-full tw:py-3 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:transition-all tw:flex tw:items-center tw:justify-center tw:gap-2 tw:font-medium tw:text-sm"
                 @click="addQuestion"
               >
@@ -331,7 +377,11 @@ const hasAssessment = computed({
               <BaseLabel dataKey="training.manager" required class="tw:mb-1">
                 Training manager
               </BaseLabel>
-              <UserSelectMenu v-model="config.managerId" nullLabel="Select a manager" />
+              <UserSelectMenu
+                v-model="config.managerId"
+                nullLabel="Select a manager"
+                :disabled="readonly"
+              />
               <BaseErrorText v-if="managerMissing" class="tw:mt-1">
                 Required before this training can run.
               </BaseErrorText>
@@ -342,7 +392,12 @@ const hasAssessment = computed({
               >
                 Due (days after effective)
               </p>
-              <BaseTextInput v-model.number="config.completionDueDays" type="number" min="1" />
+              <BaseTextInput
+                v-model.number="config.completionDueDays"
+                type="number"
+                min="1"
+                :disabled="readonly"
+              />
             </div>
             <div v-if="hasAssessment">
               <p
@@ -350,7 +405,13 @@ const hasAssessment = computed({
               >
                 Passing Score (%)
               </p>
-              <BaseTextInput v-model.number="config.passingScore" type="number" min="0" max="100" />
+              <BaseTextInput
+                v-model.number="config.passingScore"
+                type="number"
+                min="0"
+                max="100"
+                :disabled="readonly"
+              />
             </div>
             <div v-if="hasAssessment">
               <p
@@ -358,7 +419,13 @@ const hasAssessment = computed({
               >
                 Max Attempts
               </p>
-              <BaseTextInput v-model.number="config.maxAttempts" type="number" min="1" max="10" />
+              <BaseTextInput
+                v-model.number="config.maxAttempts"
+                type="number"
+                min="1"
+                max="10"
+                :disabled="readonly"
+              />
             </div>
           </div>
 
