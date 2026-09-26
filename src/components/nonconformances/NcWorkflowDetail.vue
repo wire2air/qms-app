@@ -56,7 +56,32 @@ function openReassignDialog(instanceStepId) {
         :resourceId="ncId"
         :isOwner="isOwner"
         @reassign="openReassignDialog"
-      />
+      >
+        <!-- Sub-tasks under any step whose template allows them. Available to
+             every record module since 2026-09-26 — the engine always supported
+             ad-hoc children, only the creation endpoint and this wiring were
+             CAPA/Change-Control-only. -->
+        <template
+          #childSteps="{
+            instanceStep: parentStep,
+            stepDefinition: parentDef,
+            displayNumber: parentNum,
+          }"
+        >
+          <WorkflowChildSteps
+            v-if="parentStep && parentDef?.allowChildSteps && parentStep.workflowInstanceId"
+            :parentInstanceStepId="parentStep.id"
+            :parentStepNumber="parentNum"
+            :workflowInstanceId="parentStep.workflowInstanceId"
+            :module="NC_MODULE"
+            :resourceId="ncId"
+            :isOwner="isOwner"
+            :allowChildSteps="!!parentDef?.allowChildSteps && parentStep.statusId !== 'APPROVED'"
+            class="tw:mt-4 tw:mb-4"
+            @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
+          />
+        </template>
+      </WorkflowStepRun>
     </template>
 
     <!-- Reassign dialog — shared with CAPA + CR -->

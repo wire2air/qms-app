@@ -49,7 +49,32 @@ function openReassignDialog(instanceStepId) {
         :resourceId="complaintId"
         :isOwner="isOwner"
         @reassign="openReassignDialog"
-      />
+      >
+        <!-- Sub-tasks under any step whose template allows them. Available to
+             every record module since 2026-09-26 — the engine always supported
+             ad-hoc children, only the creation endpoint and this wiring were
+             CAPA/Change-Control-only. -->
+        <template
+          #childSteps="{
+            instanceStep: parentStep,
+            stepDefinition: parentDef,
+            displayNumber: parentNum,
+          }"
+        >
+          <WorkflowChildSteps
+            v-if="parentStep && parentDef?.allowChildSteps && parentStep.workflowInstanceId"
+            :parentInstanceStepId="parentStep.id"
+            :parentStepNumber="parentNum"
+            :workflowInstanceId="parentStep.workflowInstanceId"
+            :module="COMPLAINT_MODULE"
+            :resourceId="complaintId"
+            :isOwner="isOwner"
+            :allowChildSteps="!!parentDef?.allowChildSteps && parentStep.statusId !== 'APPROVED'"
+            class="tw:mt-4 tw:mb-4"
+            @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
+          />
+        </template>
+      </WorkflowStepRun>
     </template>
     <div v-else class="tw:text-sm tw:text-secondary tw:italic">
       No QA-review workflow yet. Accept the complaint (or submit for review) to start it.

@@ -73,11 +73,20 @@ const workflow = useLiveQueryWithDeps(
   { models: ['Workflow'] },
 )
 
-// Child steps (runtime sub-tasks) are a CAPA / Change Control capability.
+// Child steps (runtime sub-tasks) used to be a CAPA / Change Control
+// capability: MODULES_WITH_CHILD_STEPS listed those two, and the toggle was
+// hidden everywhere else.
+//
+// The restriction was never in the engine — activateInstanceStep cascades into
+// the first PENDING child and advanceFromStep navigates siblings by
+// (parentInstanceStepId, stepOrder), both written for ad-hoc as well as
+// template-spawned steps. What was missing was a creation endpoint outside
+// those two modules, which workflowChildStepService now provides for all of
+// them. So the gate is simply "can this module hold a Task step at all" —
+// sub-tasks hang off ACTION steps, and an approval-only flow has none.
 // (The per-step "Allowed Outcomes" picker that used to be gated here was
 // dead UI — permanently v-show="false" — and went away with the 2026-08-15
 // step-panel trim. The engine derives outcomes from the step type.)
-const MODULES_WITH_CHILD_STEPS = ['CAPA', 'CHANGE_CONTROL']
 // Task forms exist only in RECORD workflows. Approval flows (Document
 // Control, Log Book, Audit Standard, Audit Instance, QC) gate a transition —
 // reviewers approve or reject, there is nothing to fill in — so they can't
@@ -88,10 +97,8 @@ const MODULES_WITH_CHILD_STEPS = ['CAPA', 'CHANGE_CONTROL']
 // <WorkflowStep>. That answered "can a form display?" when the real question
 // is "is this module about capturing work?" — hence the explicit map.)
 const showFormSchema = computed(() => !isApprovalOnlyModule(workflow.value?.moduleId))
-const showAllowChildSteps = computed(() =>
-  MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId),
-)
-const showChildSteps = computed(() => MODULES_WITH_CHILD_STEPS.includes(workflow.value?.moduleId))
+const showAllowChildSteps = computed(() => !isApprovalOnlyModule(workflow.value?.moduleId))
+const showChildSteps = computed(() => !isApprovalOnlyModule(workflow.value?.moduleId))
 // Workflow templates assign approvers by ROLE only. The specific
 // reviewer (a named user) is chosen by the owner when the workflow is
 // attached to an entity and submitted (the reviewer-per-step picker

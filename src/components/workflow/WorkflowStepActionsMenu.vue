@@ -268,10 +268,10 @@ const items = computed(() => {
       every item is unclickable. See the prop's own comment in
       resource/js/shared/components/BaseMenu.vue.
 
-      This component is SHARED: NC (WorkflowStep.vue / WorkflowStepGroup.vue),
-      CAPA (CapaWorkflowChildStep.vue, CapaWorkflowChildSteps.vue) and Change
-      Requests (ChangeRequestWorkflowChildStep.vue) all render it, so this
-      fixes the same defect in all three modules at once.
+      This component is SHARED: every module's root steps (WorkflowStep.vue /
+      WorkflowStepGroup.vue), the generic sub-task card (WorkflowChildStep.vue)
+      and CAPA's richer one (CapaWorkflowChildStep.vue) all render it, so this
+      fixes the same defect everywhere at once.
     -->
     <BaseMenu :items="items" flip />
 

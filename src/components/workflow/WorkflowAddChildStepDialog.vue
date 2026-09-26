@@ -1,9 +1,13 @@
 <script setup>
 /**
- * Owner adds an implementation sub-task under the CR's Implementation
- * stage (or any other parent stage with allowChildSteps=true). Pre-
- * selects the seeded Task / Action form template — same UX as the
- * CAPA add-child-step dialog.
+ * Add an ad-hoc sub-task under a parent step with allowChildSteps=true.
+ *
+ * Module-agnostic: posts to the shared childSteps endpoint using the module
+ * descriptor's resourceType, so a promoted module posts its own module key and
+ * is gated by that module's own grants.
+ *
+ * Was ChangeRequestAddChildStepDialog, with a near-identical CAPA twin. Pre-
+ * selects the seeded Task / Action form template, as both did.
  */
 import { IconForms, IconPlus, IconCopy, IconPencil, IconTrash } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -13,7 +17,8 @@ import { db } from '@models/index'
 import { required } from '@shared/components/form/validators.js'
 
 const props = defineProps({
-  crId: { type: String, required: true },
+  module: { type: Object, required: true },
+  resourceId: { type: String, required: true },
   parentInstanceStepId: { type: String, required: true },
 })
 
@@ -116,17 +121,23 @@ async function onValidSubmit() {
   submitting.value = true
   saveError.value = ''
   try {
-    await post(`/v1/services/changeRequests/${props.crId}/addChildStep`, {
-      parentInstanceStepId: props.parentInstanceStepId,
-      name: form.value.name,
-      description: form.value.description || null,
-      slaDays: form.value.slaDays || null,
-      assigneeUserId: form.value.assigneeUserId,
-      formSchema: form.value.formSchema || [],
-      roleIds: inheritedRoleIds.value,
-      requireComments: !!form.value.requireComments,
-      requireEsignature: !!form.value.requireEsignature,
-    })
+    // The module-agnostic route. CAPA and Change Request keep their older
+    // per-module URLs for compatibility, but both reach the same service, so
+    // there is no behavioural reason to branch here.
+    await post(
+      `/v1/services/workflowInstances/${props.module.resourceType}/${props.resourceId}/childSteps`,
+      {
+        parentInstanceStepId: props.parentInstanceStepId,
+        name: form.value.name,
+        description: form.value.description || null,
+        slaDays: form.value.slaDays || null,
+        assigneeUserId: form.value.assigneeUserId,
+        formSchema: form.value.formSchema || [],
+        roleIds: inheritedRoleIds.value,
+        requireComments: !!form.value.requireComments,
+        requireEsignature: !!form.value.requireEsignature,
+      },
+    )
     isOpen.value = false
     toast.success('Sub-task added')
     emit('added')
