@@ -3,6 +3,7 @@ import { IconCheck, IconChevronDown, IconChevronRight } from '@tabler/icons-vue'
 import { currentSession } from '@/utils/currentSession.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
+import { isAllowed } from '@/utils/currentSession.js'
 
 const props = defineProps({
   instance: { type: Object, required: true },
@@ -92,6 +93,19 @@ const managerName = computed(() => {
  * trainees still verifies everybody else in the same action.
  */
 const isSelf = (a) => a.userId === currentSession.value?.userId
+
+/**
+ * Who may move the accountability.
+ *
+ * Verification stays manager-only — deciding WHO the manager is, is admin
+ * work, and `training_instances:manage` is the verb that already gates every
+ * other administrative action on an instance. Offered to people who are NOT
+ * the manager as well: they are exactly who hits the dead end when the named
+ * manager is away or is themselves a trainee.
+ */
+const canReassignManager = computed(() => isAllowed(['training_instances:manage']))
+const showReassign = ref(false)
+const traineeUserIds = computed(() => (pendingAssignees.value ?? []).map((a) => a.userId))
 
 const selectedAssigneeIds = ref([])
 watch(
@@ -252,8 +266,23 @@ async function onEsignVerified(esign) {
     Select a training instance to verify.
   </div>
   <div v-else-if="!isManager" class="tw:p-8 tw:text-center tw:text-secondary">
-    Only the training manager can verify assignees for this training.
-    <template v-if="managerName">That is {{ managerName }}.</template>
+    <p>
+      Only the training manager can verify assignees for this training.
+      <template v-if="managerName">That is {{ managerName }}.</template>
+    </p>
+    <!-- The dead end this refusal used to be: a manager on leave, or one who
+         is a trainee on their own instance, left nothing that could move.
+         Widening who may attest would weaken the control; moving the
+         accountability does not. -->
+    <BaseButton
+      v-if="canReassignManager"
+      variant="outline"
+      size="sm"
+      class="tw:mt-3"
+      @click="showReassign = true"
+    >
+      Reassign verifier
+    </BaseButton>
   </div>
   <BaseCard v-else class="tw:flex tw:flex-col tw:gap-5">
     <!-- Header -->
@@ -267,6 +296,15 @@ async function onEsignVerified(esign) {
           {{ instance.snapshot?.passingScore ?? 70 }}%
           <template v-if="managerName"> · Verified by {{ managerName }}</template>
         </p>
+        <BaseButton
+          v-if="canReassignManager"
+          variant="secondary"
+          size="sm"
+          class="tw:mt-1"
+          @click="showReassign = true"
+        >
+          Reassign verifier
+        </BaseButton>
       </div>
       <TrainingInstanceStatusBadgeById :statusId="instance.status" />
     </div>
@@ -474,4 +512,12 @@ async function onEsignVerified(esign) {
 
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
   </BaseCard>
+
+  <TrainingReassignManagerDialog
+    v-if="instance && canReassignManager"
+    v-model="showReassign"
+    :instanceId="instance.id"
+    :traineeUserIds="traineeUserIds"
+    :currentManagerId="training?.managerId ?? null"
+  />
 </template>
