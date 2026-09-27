@@ -53,6 +53,27 @@ const pendingAssignees = useLiveQueryWithDeps(
 
 const isManager = computed(() => training.value?.managerId === currentSession.value?.userId)
 
+/**
+ * Who is accountable for verifying this training.
+ *
+ * The panel knew the manager all along — isManager above gates the whole
+ * surface on it — but never said who it was. Someone looking at a pending
+ * verification could not tell whose sign-off it was waiting on without
+ * opening the training itself (reported 2026-09-27). It matters most to the
+ * people who CANNOT act: the refusal below tells them only that they are not
+ * the manager, not who is.
+ */
+const manager = useLiveQueryWithDeps(
+  [() => training.value?.managerId],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
+)
+const managerName = computed(() => {
+  const m = manager.value
+  if (!m) return ''
+  return `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email
+})
+
 // Selection — default to all pending whenever the instance changes
 const selectedAssigneeIds = ref([])
 watch(
@@ -208,6 +229,7 @@ async function onEsignVerified(esign) {
   </div>
   <div v-else-if="!isManager" class="tw:p-8 tw:text-center tw:text-secondary">
     Only the training manager can verify assignees for this training.
+    <template v-if="managerName">That is {{ managerName }}.</template>
   </div>
   <BaseCard v-else class="tw:flex tw:flex-col tw:gap-5">
     <!-- Header -->
@@ -219,6 +241,7 @@ async function onEsignVerified(esign) {
         <p class="tw:text-sm tw:text-secondary">
           Launched {{ instance.createdAt?.formatDate('date') }} · Passing score
           {{ instance.snapshot?.passingScore ?? 70 }}%
+          <template v-if="managerName"> · Verified by {{ managerName }}</template>
         </p>
       </div>
       <TrainingInstanceStatusBadgeById :statusId="instance.status" />
@@ -254,7 +277,9 @@ async function onEsignVerified(esign) {
             <UserBadgeById :userId="a.userId" />
             <span
               class="tw:text-xs tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded"
-              :class="isPassed(a) ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
+              :class="
+                isPassed(a) ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'
+              "
             >
               {{ isPassed(a) ? 'Passed' : 'Failed' }}
             </span>
@@ -310,6 +335,9 @@ async function onEsignVerified(esign) {
     <div v-if="allSelectedPassed" class="tw:border tw:border-divider tw:rounded-lg tw:p-4">
       <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
         Manager Competency Verification
+        <span v-if="managerName" class="tw:font-normal tw:text-secondary">
+          — {{ managerName }}
+        </span>
       </BaseText>
       <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
         <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">

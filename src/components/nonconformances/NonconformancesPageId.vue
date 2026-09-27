@@ -31,7 +31,9 @@ const loading = computed(() => nc.value === undefined)
 
 const breadcrumbs = computed(() => [
   { label: 'Nonconformances', to: getCompanyPath('/nonconformances') },
-  { label: nc.value?.ncNumber || nc.value?.title || (nc.value === null ? 'Not found' : 'Loading…') },
+  {
+    label: nc.value?.ncNumber || nc.value?.title || (nc.value === null ? 'Not found' : 'Loading…'),
+  },
 ])
 
 // ─── Inline disposition auto-save ─────────────────────────────────────────────
@@ -553,6 +555,98 @@ const ncDetailConfig = computed(() =>
            wasn't spawned from an audit finding. -->
       <AuditOriginPanel entityType="Nonconformance" :entityId="id" />
 
+      <!-- Product impact — supplier, supplier-facing + Convert path, product,
+           qty+UOM, PO/Order/Lot. Above NC Details because on most records the
+           affected item and lot ARE the subject: the description below reads
+           as "which cookie, which line, which date" and this says which lot it
+           was. Editable rows always render so a missing value can be ADDED;
+           read-only mode keeps hiding empties. -->
+      <FormSection
+        v-if="
+          isEditable ||
+          nc.supplierId ||
+          nc.productId ||
+          nc.qtyAffected ||
+          nc.poNumber ||
+          nc.orderNumber ||
+          nc.lotNumber
+        "
+        title="Product impact"
+      >
+        <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
+          <SupplierSelectMenu
+            v-if="isEditable && nc.statusId === 'DRAFT'"
+            v-model="nc.supplierId"
+          />
+          <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Supplier facing — free toggle while DRAFT; once OPEN the
+             owner can still CONVERT internal → supplier-facing. -->
+        <BaseDetailField label="Supplier facing">
+          <BaseInlineSelect
+            v-if="isEditable && nc.statusId === 'DRAFT'"
+            v-model="audienceModel"
+            :items="[
+              { id: 'INTERNAL', name: 'No — internal' },
+              { id: 'SUPPLIER', name: 'Yes — supplier facing' },
+            ]"
+            :required="true"
+          />
+          <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+            <span
+              class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
+              :class="
+                nc.isSupplierFacing
+                  ? 'tw:bg-violet-100 tw:text-violet-700'
+                  : 'tw:bg-gray-100 tw:text-secondary'
+              "
+            >
+              {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
+            </span>
+            <button
+              v-if="canConvertToSupplier"
+              class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+              @click="openConvertDialog"
+            >
+              Convert…
+            </button>
+          </div>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.productId" label="Product">
+          <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
+          <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
+          <div v-if="isEditable" class="tw:flex tw:gap-1">
+            <BaseTextInput v-model="qtyAffectedModel" type="number" size="sm" class="tw:flex-1" />
+            <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
+          </div>
+          <BaseText v-else variant="body" weight="medium">
+            {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
+          <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+            {{ nc.poNumber }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
+          <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+            {{ nc.orderNumber }}
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
+          <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
+          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+            {{ nc.lotNumber }}
+          </BaseText>
+        </BaseDetailField>
+      </FormSection>
+
       <!-- NC Details card -->
       <FormSection title="NC Details">
         <template #actions>
@@ -944,95 +1038,12 @@ const ncDetailConfig = computed(() =>
            General. Self-hides when none configured. -->
       <CustomFieldsCard entityType="Nonconformance" :entityId="id" :editable="isEditable" />
 
-      <!-- 2. Product impact — supplier, supplier-facing + Convert path, product, qty+UOM, PO/Order/Lot.
-               Collapsed by default; editable rows always render so a missing value can be ADDED;
-               read-only mode keeps hiding empties. -->
-      <BaseRailCard
-        v-if="
-          isEditable ||
-          nc.supplierId ||
-          nc.productId ||
-          nc.qtyAffected ||
-          nc.poNumber ||
-          nc.orderNumber ||
-          nc.lotNumber
-        "
-        title="Product impact"
-        :defaultOpen="false"
-      >
-        <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
-          <SupplierSelectMenu
-            v-if="isEditable && nc.statusId === 'DRAFT'"
-            v-model="nc.supplierId"
-          />
-          <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <!-- Supplier facing — free toggle while DRAFT; once OPEN the
-             owner can still CONVERT internal → supplier-facing. -->
-        <BaseDetailField label="Supplier facing">
-          <BaseInlineSelect
-            v-if="isEditable && nc.statusId === 'DRAFT'"
-            v-model="audienceModel"
-            :items="[
-              { id: 'INTERNAL', name: 'No — internal' },
-              { id: 'SUPPLIER', name: 'Yes — supplier facing' },
-            ]"
-            :required="true"
-          />
-          <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-            <span
-              class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
-              :class="
-                nc.isSupplierFacing
-                  ? 'tw:bg-violet-100 tw:text-violet-700'
-                  : 'tw:bg-gray-100 tw:text-secondary'
-              "
-            >
-              {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
-            </span>
-            <button
-              v-if="canConvertToSupplier"
-              class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
-              @click="openConvertDialog"
-            >
-              Convert…
-            </button>
-          </div>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.productId" label="Product">
-          <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
-          <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
-          <div v-if="isEditable" class="tw:flex tw:gap-1">
-            <BaseTextInput v-model="qtyAffectedModel" type="number" size="sm" class="tw:flex-1" />
-            <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
-          </div>
-          <BaseText v-else variant="body" weight="medium">
-            {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
-          <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-            {{ nc.poNumber }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
-          <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-            {{ nc.orderNumber }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
-          <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-            {{ nc.lotNumber }}
-          </BaseText>
-        </BaseDetailField>
-      </BaseRailCard>
+      <!-- Product impact moved OUT of the rail into the details section
+           (2026-09-27, user request): it is a seven-field edit form, and the
+           rail is for glanceable metadata — "never the full edit form", per
+           the detail-page rules. Collapsed at the bottom of the rail it was
+           also easy to miss on a record whose whole subject is an affected
+           item and lot. -->
 
       <!-- 3. People — initiator, responsible party, site, department -->
       <BaseRailCard title="People" grid>

@@ -71,9 +71,7 @@ const roleAssignments = useLiveQueryWithDeps(
 // folded back into an already-applied create migration, so it never ran on
 // pre-existing databases. Without the dedupe the select renders duplicate
 // entries and `toRemove` below repeats an id once per surviving row.
-const assignedRoleIds = computed(() => [
-  ...new Set(roleAssignments.value.map((ra) => ra.roleId)),
-])
+const assignedRoleIds = computed(() => [...new Set(roleAssignments.value.map((ra) => ra.roleId))])
 
 const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
   const assignment = db.RoleOnUser.create({ userId, roleId })
@@ -363,7 +361,10 @@ const userDetailConfig = computed(() =>
 
     <template #actions>
       <div class="tw:flex tw:items-center tw:gap-2">
-        <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary">
+        <div
+          v-if="isSaving"
+          class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
+        >
           <BaseSpinner size="xs" />
           Saving...
         </div>
@@ -500,11 +501,19 @@ const userDetailConfig = computed(() =>
             </div>
           </div>
 
-          <!-- Additional Sites — the multi-site assignment.
+          <!-- Site access — primary + additional, grouped.
+               The two were separated (primary sits in the grid above, this
+               block further down) and the picker's label was rendering empty,
+               so the control read as an unexplained dropdown: reported as
+               "unable to select the site under User" (2026-09-27). The group
+               heading names the relationship, and the tooltip on it carries
+               the purpose so it does not have to be inferred from position.
+
                The primary site is always effective and is deliberately NOT
                rendered here as a removable chip; the effective line below is
                what answers "what will this person actually see?". -->
           <div class="tw:pt-4 tw:border-t tw:border-divider">
+            <BaseLabel dataKey="user.siteAccess" class="tw:mb-2" />
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
               <BaseLabel dataKey="user.additionalSites" color="secondary" />
               <span class="tw:text-xs tw:text-secondary">
@@ -544,7 +553,9 @@ const userDetailConfig = computed(() =>
                 :style="{ backgroundColor: user?.color || '#2563eb' }"
               ></div>
               <div>
-                <p class="tw:text-sm tw:font-bold tw:text-on-main">{{ user?.color || '#2563eb' }}</p>
+                <p class="tw:text-sm tw:font-bold tw:text-on-main">
+                  {{ user?.color || '#2563eb' }}
+                </p>
                 <p class="tw:text-xs tw:text-secondary">Used for avatar and identification</p>
               </div>
             </div>
