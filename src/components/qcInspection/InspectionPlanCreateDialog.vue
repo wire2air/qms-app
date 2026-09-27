@@ -138,7 +138,7 @@ async function onSubmit() {
             </template>
           </BaseField>
           <BaseField
-            label="Inspection point"
+            label="Select Inspection point"
             required
             :value="form.inspectionPoint"
             :rules="[required()]"

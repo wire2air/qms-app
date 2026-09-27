@@ -249,7 +249,7 @@ async function onSubmit() {
               />
             </template>
           </BaseField>
-          <BaseField label="Inspection point">
+          <BaseField label="Select Inspection point">
             <SegmentedControl
               v-model="form.inspectionPoint"
               :options="POINTS"
