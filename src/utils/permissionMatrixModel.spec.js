@@ -48,10 +48,16 @@ describe('projectGrantsToState', () => {
 })
 
 describe('buildDesiredPermissions', () => {
-  it('writes capabilities at writeScope and implies read when equal', () => {
+  // Was: "implies read when equal" — read was omitted when capabilities
+  // existed at the same scope, because any grant used to imply read. RA-1
+  // (2026-09-07) made `read` a real action, so that omission became a silent
+  // REVOCATION: saving a role stripped read from every module where it held
+  // capabilities, and nothing errored.
+  it('ALWAYS stores read alongside capabilities — read is not implied', () => {
     const state = { capa: { readScope: 'site', writeScope: 'site', caps: { approve: true } } }
     const out = buildDesiredPermissions(MODULES, state, READ, SCOPE_RANK)
-    expect(out).toEqual([{ module: 'capa', action: 'approve', scope: 'site' }]) // read implied
+    expect(out).toContainEqual({ module: 'capa', action: 'approve', scope: 'site' })
+    expect(out).toContainEqual({ module: 'capa', action: 'read', scope: 'site' })
   })
 
   it('stores read explicitly when wider than writes (read=Site, approve=Own)', () => {
@@ -61,10 +67,11 @@ describe('buildDesiredPermissions', () => {
     expect(out).toContainEqual({ module: 'capa', action: 'read', scope: 'site' })
   })
 
-  it('clamps write that exceeds read', () => {
+  it('clamps write that exceeds read, and still stores read', () => {
     const state = { capa: { readScope: 'department', writeScope: 'tenant', caps: { update: true } } }
     const out = buildDesiredPermissions(MODULES, state, READ, SCOPE_RANK)
-    expect(out).toEqual([{ module: 'capa', action: 'update', scope: 'department' }])
+    expect(out).toContainEqual({ module: 'capa', action: 'update', scope: 'department' })
+    expect(out).toContainEqual({ module: 'capa', action: 'read', scope: 'department' })
   })
 
   it('emits a read-only grant when no capabilities', () => {
@@ -72,6 +79,27 @@ describe('buildDesiredPermissions', () => {
     expect(buildDesiredPermissions(MODULES, state, READ, SCOPE_RANK)).toEqual([
       { module: 'capa', action: 'read', scope: 'own' },
     ])
+  })
+
+  it('REGRESSION — saving a role never strips its read grant', () => {
+    // The shape that broke a live tenant: a Quality Manager holding workflow
+    // verbs on 28 modules, none of them with read, so every surface gated on
+    // `<module>:read` refused — the Training Verification menu simply was not
+    // there. It had been granted read by the seed; SAVING the role through
+    // this screen removed it.
+    //
+    // Asserted per module rather than in aggregate so a future change that
+    // drops read for one shape and not another fails loudly here.
+    const shapes = {
+      'capa (many caps, same scope)': { readScope: 'tenant', writeScope: 'tenant', caps: { approve: true, update: true, close: true } },
+      'capa (single cap)': { readScope: 'tenant', writeScope: 'tenant', caps: { update: true } },
+      'capa (narrower write)': { readScope: 'tenant', writeScope: 'own', caps: { update: true } },
+      'capa (no caps)': { readScope: 'tenant', writeScope: 'tenant', caps: {} },
+    }
+    for (const [label, cfg] of Object.entries(shapes)) {
+      const out = buildDesiredPermissions(MODULES, { capa: cfg }, READ, SCOPE_RANK)
+      expect(out.some((p) => p.action === 'read'), label).toBe(true)
+    }
   })
 
   it('sends nothing for no access', () => {
