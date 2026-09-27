@@ -706,6 +706,61 @@ const EntityType = {
   LineClearanceChecklist: 'Line Clearance',
 }
 
+/**
+ * Verifying manager per training row, for the My Trainings view.
+ *
+ * A trainee could see what they had been assigned and when it was due, but not
+ * who signs it off — so "who do I chase?" meant opening the training
+ * (reported 2026-09-27). The chain is TrainingAssignee -> TrainingInstance ->
+ * Training.managerId, none of which the task row carries.
+ *
+ * Built as a map keyed by the task's entityId rather than resolved per cell:
+ * the same training usually covers many rows, and a per-cell live query would
+ * repeat the three hops for each of them.
+ *
+ * Only computed for TRAINING tasks. The other kinds have no manager to show,
+ * and this table serves every task kind.
+ */
+const managerByAssigneeId = useLiveQueryWithDeps(
+  [() => props.taskKindId, () => taskInstances.value?.map((r) => r.entityId).join(',')],
+  async (db, [kind, key]) => {
+    if (kind !== 'TRAINING' || !key) return {}
+    const assigneeIds = [...new Set(key.split(',').filter(Boolean))]
+    const out = {}
+    const instanceCache = new Map()
+    const trainingCache = new Map()
+    const userCache = new Map()
+
+    for (const assigneeId of assigneeIds) {
+      const assignee = await db.TrainingAssignee.findByPk(assigneeId)
+      if (!assignee?.trainingInstanceId) continue
+
+      if (!instanceCache.has(assignee.trainingInstanceId)) {
+        instanceCache.set(
+          assignee.trainingInstanceId,
+          await db.TrainingInstance.findByPk(assignee.trainingInstanceId),
+        )
+      }
+      const instance = instanceCache.get(assignee.trainingInstanceId)
+      if (!instance?.trainingId) continue
+
+      if (!trainingCache.has(instance.trainingId)) {
+        trainingCache.set(instance.trainingId, await db.Training.findByPk(instance.trainingId))
+      }
+      const training = trainingCache.get(instance.trainingId)
+      if (!training?.managerId) continue
+
+      if (!userCache.has(training.managerId)) {
+        userCache.set(training.managerId, await db.User.findByPk(training.managerId))
+      }
+      const u = userCache.get(training.managerId)
+      if (u) out[assigneeId] = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+    }
+    return out
+  },
+  { models: ['TrainingAssignee', 'TrainingInstance', 'Training', 'User'], initial: {} },
+)
+
 const columns = computed(() => {
   // Only columns backed by a real scalar on the row can be filtered. `title`,
   // `type` and `status` are resolved per-entity-type through the maps above
@@ -734,6 +789,19 @@ const columns = computed(() => {
             name: 'assignee',
             label: 'ASSIGNEE',
             field: (row) => assigneeName(row),
+            align: 'left',
+            sortable: true,
+            filterType: 'text',
+          },
+        ]
+      : []),
+    // My Trainings only — see managerByAssigneeId above.
+    ...(props.taskKindId === 'TRAINING'
+      ? [
+          {
+            name: 'trainingManager',
+            label: 'MANAGER',
+            field: (row) => managerByAssigneeId.value[row.entityId] || '—',
             align: 'left',
             sortable: true,
             filterType: 'text',
