@@ -1,5 +1,6 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { hydrateAll } from '@syncEngine/sync/hydrateSubtree.js'
 import { isAllowed, currentSession, canUseAi } from '@/utils/currentSession.js'
 import { useDocuments } from '@/composables/useDocuments.js'
 // Bespoke header controls still need these; the toolbar buttons are now
@@ -30,6 +31,38 @@ const document = useLiveQueryWithDeps(
   },
   { models: ['Document'] },
 )
+/**
+ * Pull this document's own rows on open, regardless of the sync watermark.
+ *
+ * Delta sync fetches rows NEWER than a per-model watermark. Gaining access to
+ * a record does not touch its rows, so a reviewer added to a document already
+ * holds a watermark past every section the author wrote — and those sections
+ * are never requested again. Submitting for approval touches the document and
+ * its version (the status changes) and mints the task, so those three arrive
+ * and the document opens; the sections do not, and every one renders empty
+ * (reported 2026-09-27).
+ *
+ * Cheap: three filtered queries scoped to one document, on a page the user
+ * just chose to open. It fixes nothing that is already correct — bulkPut over
+ * identical rows is a no-op to the reader — and repairs the case the client
+ * cannot detect on its own.
+ *
+ * Not awaited: IDB already has whatever it has, the live queries below render
+ * from it immediately, and syncBus re-runs them when the rows land.
+ */
+watch(
+  () => props.id,
+  (id) => {
+    if (!id) return
+    hydrateAll([
+      ['DocumentVersion', { documentId: { equalTo: id } }],
+      ['DocumentSection', { documentId: { equalTo: id } }],
+      ['UserOnDocument', { documentId: { equalTo: id } }],
+    ])
+  },
+  { immediate: true },
+)
+
 const versions = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
