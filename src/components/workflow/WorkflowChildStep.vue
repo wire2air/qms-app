@@ -1,5 +1,11 @@
 <script setup>
 /**
+ * One ad-hoc sub-task card. The default renderer for WorkflowChildSteps.
+ *
+ * Was ChangeRequestWorkflowChildStep; now takes the module descriptor rather
+ * than a CR id, so every record module gets the same card. CAPA keeps its own
+ * richer card and passes it through the list's #child slot.
+ *
  * Single child sub-task card under a CR Implementation stage. Simpler
  * than the parent step — Mark Complete + Reassign + Cancel inline,
  * plus a Send Back menu for the assignee. No nested children.
@@ -18,11 +24,11 @@ import { post } from '@/api'
 import { currentSession } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
-import { CR_MODULE } from '@/components/workflow/workflowModule.js'
 
 const props = defineProps({
   instanceStepId: { type: String, required: true },
-  crId: { type: String, required: true },
+  module: { type: Object, required: true },
+  resourceId: { type: String, required: true },
   isOwner: { type: Boolean, default: false },
   displayNumber: { type: String, default: null },
 })
@@ -91,7 +97,7 @@ async function handleCancelStep() {
   if (cancelling.value) return
   cancelling.value = true
   try {
-    await post(`/v1/services/changeRequests/${props.crId}/cancelStep`, {
+    await post(`/v1/services/${props.module.apiPath}/${props.resourceId}/cancelStep`, {
       workflowInstanceStepId: props.instanceStepId,
       reason: cancelReason.value.trim() || null,
     })
@@ -280,9 +286,9 @@ function getStatusLabel(statusId) {
         </button>
         <div @click.stop>
           <WorkflowStepActionsMenu
-            :module="CR_MODULE"
+            :module="module"
             :instanceStepId="instanceStepId"
-            :resourceId="crId"
+            :resourceId="resourceId"
             :isOwner="isOwner"
             :requireEsignature="requireEsignature"
             :hideOutcomes="['COMPLETE_AND_ADVANCE']"

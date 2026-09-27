@@ -1,10 +1,18 @@
 <script setup>
 /**
- * List of child sub-tasks under a CR workflow stage that has
- * allowChildSteps=true (the seeded Implementation stage). The CR owner
- * can add ad-hoc sub-tasks here (DOC_UPDATE / TRAINING_ASSIGN /
- * SUPPLIER_NOTIFY / VALIDATION etc. — for v2 they're free-form, the
- * task-generation rules from prompt P2 are deferred).
+ * Sub-tasks under a workflow step whose template sets allowChildSteps.
+ *
+ * Module-agnostic: it takes the same `module` descriptor every other workflow
+ * component takes, so it serves NC, CAPA, Change Control, both complaint
+ * modules and any promoted module (whose descriptor formModuleFor() builds
+ * with the tenant's module key as resourceType).
+ *
+ * Was ChangeRequestWorkflowChildSteps. CAPA had a near-identical twin, and no
+ * other module had one at all — which is why sub-tasks appeared to be a CAPA /
+ * Change Control feature when the engine underneath has always been generic.
+ *
+ * The per-child rendering goes through the #child slot so a module with a
+ * richer card of its own (CAPA) can supply it without forking this list.
  */
 import { IconPlus } from '@tabler/icons-vue'
 
@@ -12,7 +20,9 @@ const props = defineProps({
   parentInstanceStepId: { type: String, required: true },
   parentStepNumber: { type: [Number, String], default: null },
   workflowInstanceId: { type: String, required: true },
-  crId: { type: String, required: true },
+  /** The module descriptor — carries resourceType, which the API path needs. */
+  module: { type: Object, required: true },
+  resourceId: { type: String, required: true },
   isOwner: { type: Boolean, default: false },
   allowChildSteps: { type: Boolean, default: false },
 })
@@ -46,6 +56,10 @@ const PARENT_TERMINAL_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'SKIPPED'
 const isParentTerminal = computed(() =>
   PARENT_TERMINAL_STATUSES.includes(parentInstanceStep.value?.statusId),
 )
+// `isOwner` here is the host's "may this person drive the record" flag, which
+// each detail page already derives from the permission matrix (recordScope.js).
+// It matches what the server enforces on the endpoint — the module's `update`
+// verb — so the button is not offered where the POST would be refused.
 const canAddSubTask = computed(
   () => props.allowChildSteps && props.isOwner && !isParentTerminal.value,
 )
@@ -75,23 +89,30 @@ function openAdd() {
     </div>
 
     <div v-if="!childSteps.length" class="tw:text-xs tw:text-secondary tw:italic">
-      No sub-tasks yet. Click "Add Sub-task" to add one (document update, training assignment,
-      supplier notification, validation, etc.).
+      No sub-tasks yet.
     </div>
 
-    <ChangeRequestWorkflowChildStep
-      v-for="(child, idx) in childSteps"
-      :key="child.id"
-      :instanceStepId="child.id"
-      :crId="crId"
-      :isOwner="isOwner"
-      :displayNumber="`${parentStepNumber}.${idx + 1}`"
-      @reassign="(id) => emit('reassign', id)"
-    />
+    <template v-for="(child, idx) in childSteps" :key="child.id">
+      <slot
+        name="child"
+        :instanceStepId="child.id"
+        :displayNumber="`${parentStepNumber}.${idx + 1}`"
+      >
+        <WorkflowChildStep
+          :instanceStepId="child.id"
+          :module="module"
+          :resourceId="resourceId"
+          :isOwner="isOwner"
+          :displayNumber="`${parentStepNumber}.${idx + 1}`"
+          @reassign="(id) => emit('reassign', id)"
+        />
+      </slot>
+    </template>
 
-    <ChangeRequestAddChildStepDialog
+    <WorkflowAddChildStepDialog
       v-model="showAddDialog"
-      :crId="crId"
+      :module="module"
+      :resourceId="resourceId"
       :parentInstanceStepId="parentInstanceStepId"
     />
   </div>
