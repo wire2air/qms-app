@@ -75,22 +75,46 @@ const managerName = computed(() => {
 })
 
 // Selection — default to all pending whenever the instance changes
+/**
+ * Segregation of duties, mirrored from the server.
+ *
+ * Competency verification is a second person attesting that the learner can do
+ * the job, so verifying yourself is not a control. The API refuses it outright
+ * (controllers/trainingInstances.js — "You cannot verify your own training"),
+ * but this panel offered the row anyway: `manager_id` may legitimately name
+ * someone who is also in the cohort, and for them the checkbox was ticked BY
+ * DEFAULT, the buttons were live, and Approve failed at the server.
+ *
+ * Reported 2026-09-27: "i can see approve, reject button and select checkboxes
+ * and when press approve server rejects it, ideally it should be disabled."
+ *
+ * The rule is per ROW, not per panel — a manager who is one of several
+ * trainees still verifies everybody else in the same action.
+ */
+const isSelf = (a) => a.userId === currentSession.value?.userId
+
 const selectedAssigneeIds = ref([])
 watch(
   () => pendingAssignees.value,
   (list) => {
-    selectedAssigneeIds.value = list.map((a) => a.id)
+    // Never pre-select yourself; the server would refuse the whole batch.
+    selectedAssigneeIds.value = list.filter((a) => !isSelf(a)).map((a) => a.id)
   },
   { immediate: true },
 )
 
 function toggleAssignee(id) {
+  const row = pendingAssignees.value.find((a) => a.id === id)
+  if (row && isSelf(row)) return
   if (selectedAssigneeIds.value.includes(id)) {
     selectedAssigneeIds.value = selectedAssigneeIds.value.filter((x) => x !== id)
   } else {
     selectedAssigneeIds.value = [...selectedAssigneeIds.value, id]
   }
 }
+
+/** Rows this person may actually act on — everyone but themselves. */
+const verifiableAssignees = computed(() => pendingAssignees.value.filter((a) => !isSelf(a)))
 
 // Per-assignee answer review — manager can expand a row to see what the
 // trainee picked vs. the correct answers. Uses the instance snapshot's
@@ -120,10 +144,10 @@ const allSelectedPassed = computed(
 const effectiveReject = computed(() => form.value.retrainingRequired || !allSelectedPassed.value)
 
 function toggleAll() {
-  if (selectedAssigneeIds.value.length === pendingAssignees.value.length) {
+  if (selectedAssigneeIds.value.length === verifiableAssignees.value.length) {
     selectedAssigneeIds.value = []
   } else {
-    selectedAssigneeIds.value = pendingAssignees.value.map((a) => a.id)
+    selectedAssigneeIds.value = verifiableAssignees.value.map((a) => a.id)
   }
 }
 
@@ -271,10 +295,13 @@ async function onEsignVerified(esign) {
             <input
               type="checkbox"
               :checked="selectedAssigneeIds.includes(a.id)"
-              class="tw:cursor-pointer"
+              :disabled="isSelf(a)"
+              :title="isSelf(a) ? 'You cannot verify your own training' : undefined"
+              :class="isSelf(a) ? 'tw:cursor-not-allowed' : 'tw:cursor-pointer'"
               @change="toggleAssignee(a.id)"
             />
             <UserBadgeById :userId="a.userId" />
+            <BaseChip v-if="isSelf(a)" size="sm"> You — someone else must verify </BaseChip>
             <span
               class="tw:text-xs tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded"
               :class="
@@ -321,6 +348,19 @@ async function onEsignVerified(esign) {
     </div>
 
     <p v-if="assigneeError" class="tw:text-sm tw:text-red-600">{{ assigneeError }}</p>
+
+    <!-- Nothing this person may act on — every pending row is their own.
+         Without this the buttons are simply dead: correct, but unexplained,
+         which is how the previous version's server-side refusal felt. -->
+    <div
+      v-if="pendingAssignees.length && !verifiableAssignees.length"
+      class="tw:border tw:border-amber-200 tw:bg-amber-50/60 tw:rounded-lg tw:p-3 tw:text-sm tw:text-amber-800"
+    >
+      This training is assigned to you, and competency verification has to be done by someone other
+      than the trainee. Someone else with access to Training Verification must sign this
+      off<template v-if="managerName"> — normally {{ managerName }}</template
+      >.
+    </div>
 
     <!-- Mixed/failed selection: approval is not available -->
     <div
