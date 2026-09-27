@@ -133,6 +133,12 @@ export const TOOLTIPS = [
       'Invite co-authors to contribute to this draft. Each collaborator gets a task and email notification, and you can discuss changes in the chat below before submitting for review.',
   },
   {
+    key: 'user.siteAccess',
+    label: 'Site access',
+    tooltip:
+      'Which locations this person reaches. Their PRIMARY site (set above) is always included; anything listed under Additional sites is reached on top of it. Site access only matters for roles granted at "Site" scope — a role scoped to the whole company already reaches everywhere, and one scoped to Own only reaches this person\'s own records.',
+  },
+  {
     key: 'user.additionalSites',
     label: 'Additional Sites',
     tooltip:

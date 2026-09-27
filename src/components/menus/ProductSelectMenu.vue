@@ -2,6 +2,7 @@
 import { IconPlus } from '@tabler/icons-vue'
 import { IndexedDB, syncBus } from '@syncEngine/index'
 import { isAllowed } from '@/utils/currentSession.js'
+import { hydrateSubtree } from '@syncEngine/sync/hydrateSubtree.js'
 
 const props = defineProps({
   // Restrict to items supplied by this supplier (Item↔Supplier M2M);
@@ -33,6 +34,29 @@ const modelValue = defineModel({
   default: null,
 })
 
+/**
+ * Refresh the option list on mount, because nothing else ever will.
+ *
+ * `product_options` is a VIEW, and a view cannot belong to a logical
+ * replication publication — it holds 0 rows in pg_publication_tables. The sync
+ * service therefore never broadcasts a change to it, so an item created
+ * anywhere else (Item Master, another tab, a colleague) does not reach an
+ * already-running session: the picker keeps showing the list it bootstrapped
+ * with. Reported 2026-09-27 — "created a new item, it is not showing up under
+ * the item dropdown".
+ *
+ * The inline-create path below papers over its own case by writing the option
+ * row to IndexedDB by hand, which is why creating THROUGH the picker appeared
+ * to work while creating anywhere else did not.
+ *
+ * Filtered to ACTIVE rather than fetched wholesale: that is exactly the set
+ * this menu renders (see `options` below), so it is a picker refreshing its own
+ * list, not a client re-pulling a table.
+ */
+onMounted(() => {
+  hydrateSubtree('ProductOption', { statusId: { equalTo: 'ACTIVE' } })
+})
+
 // ProductOption projection (view `product_options`) — id / sku / name only, so
 // the picker resolves for users without products:read. Item CREATION below
 // still goes through Product and still requires products:create.
@@ -52,11 +76,7 @@ const products = useLiveQueryWithDeps(
 // dropdown doesn't drop an existing selection (BaseSelect clears a value
 // that's not among its items).
 const selectedIds = computed(() =>
-  Array.isArray(modelValue.value)
-    ? modelValue.value
-    : modelValue.value
-      ? [modelValue.value]
-      : [],
+  Array.isArray(modelValue.value) ? modelValue.value : modelValue.value ? [modelValue.value] : [],
 )
 
 // QMS users key off the SKU#, so the dropdown lists (and searches) each item
@@ -111,7 +131,12 @@ async function onProductCreated(newProduct) {
       createdAt: iso(newProduct.createdAt),
       updatedAt: iso(newProduct.updatedAt),
     })
-    syncBus.emit({ modelName: 'ProductOption', modelId: newProduct.id, action: 'update', type: 'sync' })
+    syncBus.emit({
+      modelName: 'ProductOption',
+      modelId: newProduct.id,
+      action: 'update',
+      type: 'sync',
+    })
   } catch (err) {
     // The option list refreshes on the next reload either way; the selection
     // below must not depend on this succeeding.
@@ -129,7 +154,6 @@ async function onProductCreated(newProduct) {
 
   nextTick(() => createIconRef.value?.focus?.())
 }
-
 </script>
 
 <template>
