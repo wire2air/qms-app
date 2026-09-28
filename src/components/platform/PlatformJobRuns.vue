@@ -154,7 +154,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer))
       class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-secondary"
     >
       Showing runs of cron
-      <span class="tw:font-mono tw:text-on-main">{{ filters.cronId }}</span>
+      <span class="tw:text-on-main">{{ filters.cronId }}</span>
       <BaseButton variant="secondary" size="sm" @click="filters.cronId = null">Show all</BaseButton>
     </div>
 

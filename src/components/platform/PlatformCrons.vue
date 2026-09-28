@@ -168,7 +168,7 @@ onMounted(load)
       </template>
       <template #body-cell-schedule="{ row }">
         <div class="tw:text-sm tw:text-on-main">{{ row.schedule }}</div>
-        <div class="tw:font-mono tw:text-xs tw:text-secondary">{{ row.pattern }}</div>
+        <div class="tw:text-xs tw:text-secondary">{{ row.pattern }}</div>
       </template>
       <template #body-cell-last="{ row }">
         <template v-if="row.lastStartedAt">

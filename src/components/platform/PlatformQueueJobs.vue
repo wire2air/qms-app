@@ -232,7 +232,7 @@ onBeforeUnmount(() => {
             @rowClick="openDetail"
           >
             <template #body-cell-id="{ row }">
-              <span class="tw:font-mono tw:text-xs tw:text-secondary">#{{ row.id }}</span>
+              <span class="tw:text-xs tw:text-secondary">#{{ row.id }}</span>
             </template>
             <template #body-cell-taskIdentifier="{ row }">
               <div class="tw:text-sm tw:font-medium tw:text-on-main">{{ row.taskIdentifier }}</div>
