@@ -1,5 +1,5 @@
 <script setup>
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { IconSettings, IconHierarchy } from '@tabler/icons-vue'
 import { setTrainingEnabled, isTrainingEnabled } from './documentTrainingConfig.js'
@@ -53,6 +53,37 @@ const canEdit = computed(
     document.value?.statusId !== 'ARCHIVED' &&
     !props.reviewMode &&
     ['DRAFT', 'REJECTED'].includes(currentVersion.value?.statusId),
+)
+
+/**
+ * Custodianship — who may hand the document to someone else, and who may
+ * decide who works on it.
+ *
+ * Separate from `canEdit` on purpose. canEdit is about the VERSION being a
+ * working draft: once a version is in review or effective, its content is
+ * locked and you make a new draft to change it. That is right for content and
+ * wrong for custodianship — an effective document is exactly the one most
+ * likely to outlive its owner, and gating the Owner field on version status
+ * meant that for an EFFECTIVE document nobody could change the owner at all,
+ * company owner included. The database always allowed it; the interface never
+ * offered it (reported 2026-09-28).
+ *
+ * Product decision: the owner may hand the document on at any time, and so may
+ * a company owner. Collaborators are the owner's call for the same reason —
+ * deciding who works on a document is custodianship, not content.
+ */
+const isDocOwner = computed(
+  () =>
+    !!document.value &&
+    (document.value.userId === currentSession.value?.userId ||
+      document.value.authorId === currentSession.value?.userId),
+)
+const isCompanyOwner = computed(() => currentSession.value?.isOwner === true)
+const canManageCustody = computed(
+  () =>
+    (isDocOwner.value || isCompanyOwner.value) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    !props.reviewMode,
 )
 
 /**
@@ -242,12 +273,12 @@ watch(
              review, effectiveness, default step assignee); Author is the
              originator. Both reassignable inline when editable. -->
         <BaseDetailField label="Owner">
-          <UserSelectMenu v-if="canEdit" v-model="document.userId" :required="true" />
+          <UserSelectMenu v-if="canManageCustody" v-model="document.userId" :required="true" />
           <UserBadgeById v-else :userId="document.userId" />
         </BaseDetailField>
 
         <BaseDetailField label="Author">
-          <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
+          <UserSelectMenu v-if="canManageCustody" v-model="document.authorId" :required="true" />
           <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </BaseDetailField>
@@ -401,7 +432,7 @@ watch(
 
     <!-- Collaborators + Chat — one section right below Properties. The chat only
          appears once collaborators exist. -->
-    <DocumentsCollaborationCard :documentId="document.id" :canEdit="canEdit" />
+    <DocumentsCollaborationCard :documentId="document.id" :canEdit="canManageCustody" />
 
     <!-- Admin-defined custom fields, right after Properties. Self-hides when
          none configured. -->
