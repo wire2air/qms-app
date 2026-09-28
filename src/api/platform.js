@@ -205,6 +205,67 @@ export function listPlatformAudit(limit = 100) {
   return get('/v1/platform/audit', { params: { limit }, loader: false })
 }
 
+// ── Delivery: email log + job queue ──────────────────────────────────────────
+export function listEmailLogs(params = {}) {
+  return get('/v1/platform/email-logs', { params, loader: false })
+}
+
+export function listQueueJobs(params = {}) {
+  return get('/v1/platform/queue/jobs', { params, loader: false })
+}
+
+export function retryQueueJob(id) {
+  return post(`/v1/platform/queue/jobs/${id}/retry`, {}, { showSuccess: 'Job queued to run now' })
+}
+
+export function removeQueueJob(id) {
+  return del(`/v1/platform/queue/jobs/${id}`, { showSuccess: 'Job removed from the queue' })
+}
+
+export function getOperationsSummary() {
+  return get('/v1/platform/operations/summary', { loader: false })
+}
+
+export function listJobRuns(params = {}) {
+  return get('/v1/platform/queue/runs', { params, loader: false })
+}
+
+export function listCrons() {
+  return get('/v1/platform/crons', { loader: false })
+}
+
+export function runCronNow(id) {
+  return post(
+    `/v1/platform/crons/${encodeURIComponent(id)}/run`,
+    {},
+    { showSuccess: 'Cron queued to run now' },
+  )
+}
+
+export const RUN_STATUSES = [
+  { id: 'succeeded', label: 'Succeeded', class: 'tw:bg-green-100 tw:text-green-700' },
+  { id: 'failed', label: 'Failed', class: 'tw:bg-red-100 tw:text-red-700' },
+]
+
+export const EMAIL_STATUSES = [
+  { id: 'sent', label: 'Sent', class: 'tw:bg-green-100 tw:text-green-700' },
+  { id: 'failed', label: 'Failed', class: 'tw:bg-red-100 tw:text-red-700' },
+  {
+    id: 'skipped_inactive',
+    label: 'Skipped (inactive)',
+    class: 'tw:bg-amber-100 tw:text-amber-700',
+  },
+  { id: 'blocked', label: 'Blocked', class: 'tw:bg-gray-200 tw:text-gray-600' },
+  { id: 'deduplicated', label: 'Duplicate suppressed', class: 'tw:bg-blue-100 tw:text-blue-700' },
+]
+
+export const JOB_STATES = [
+  { id: 'failed', label: 'Failed', class: 'tw:bg-red-100 tw:text-red-700' },
+  { id: 'running', label: 'Running', class: 'tw:bg-blue-100 tw:text-blue-700' },
+  { id: 'waiting', label: 'Waiting', class: 'tw:bg-amber-100 tw:text-amber-700' },
+  { id: 'scheduled', label: 'Scheduled', class: 'tw:bg-gray-200 tw:text-gray-600' },
+]
+
 // Tenant lifecycle states + display metadata, shared by console pages.
 export const COMPANY_STATUSES = [
   { id: 'active', label: 'Active', class: 'tw:bg-green-100 tw:text-green-700' },
