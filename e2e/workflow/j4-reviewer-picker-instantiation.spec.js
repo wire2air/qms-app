@@ -93,7 +93,7 @@ async function pickReviewer(page, combo, pick) {
 }
 
 test.describe('PW-J4 · reviewer picker → workflow instantiation', () => {
-  test('picking a reviewer per step mints one instance, one step per template step, one ledger row per reviewer, and activates only the first root step', async ({
+  test('picking a reviewer per step mints one instance, one step per template step, one ledger row per reviewer, and activates only the first root step', { tag: ['@validation', '@URS-WFL-06'] }, async ({
     page,
   }) => {
     test.setTimeout(180_000)

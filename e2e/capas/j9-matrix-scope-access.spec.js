@@ -58,118 +58,122 @@ function assignedTaskId(capaId, userId) {
 }
 
 test.describe('PW-J9 · site-scoped matrix access', () => {
-  test('a site-scoped editor — no assignment, no ownership — edits, completes and approves', async ({
-    browser,
-  }) => {
-    test.setTimeout(300_000)
-    const capa = await openedCapaAt(browser, 'J9-insite', 'Primary Site')
-    expect(capa.ownerId, 'the editor does not own this CAPA').not.toBe(USERS.capaSiteEditor.id)
+  test(
+    'a site-scoped editor — no assignment, no ownership — edits, completes and approves',
+    { tag: ['@validation', '@URS-SEC-23'] },
+    async ({ browser }) => {
+      test.setTimeout(300_000)
+      const capa = await openedCapaAt(browser, 'J9-insite', 'Primary Site')
+      expect(capa.ownerId, 'the editor does not own this CAPA').not.toBe(USERS.capaSiteEditor.id)
 
-    // RLS admits them: capa:read at SITE scope covers a Primary Site row.
-    expect(canSee(USERS.capaSiteEditor.id, capa.id), 'site scope covers the record').toBe(true)
+      // RLS admits them: capa:read at SITE scope covers a Primary Site row.
+      expect(canSee(USERS.capaSiteEditor.id, capa.id), 'site scope covers the record').toBe(true)
 
-    const ctx = await browser.newContext({ storageState: AUTH.capaSiteEditor })
-    const page = await ctx.newPage()
-    await page.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
+      const ctx = await browser.newContext({ storageState: AUTH.capaSiteEditor })
+      const page = await ctx.newPage()
+      await page.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
 
-    // 1. EDIT the record — the problem statement is inline-editable for them
-    //    (isEditable consults isAllowedOnRecord, not ownership). The field
-    //    already carries the create-time statement, so click INTO the rendered
-    //    content (click-to-edit) rather than the empty-state label.
-    const marker = `Edited by site-scoped editor ${Date.now()}`
-    await clickWhenReady(page, page.getByText('seeded problem statement').first())
-    // The click swaps the read-only view for a fresh TipTap mount; typing
-    // immediately races its focus. Wait for the editor node and click INTO it
-    // so the caret exists before the keystrokes.
-    const editor = page.locator('.ProseMirror').first()
-    await expect(editor).toBeVisible({ timeout: 10_000 })
-    await editor.click()
-    await page.keyboard.type(marker)
-    // Autosave is debounced; clicking elsewhere flushes focus out of TipTap.
-    await page.getByText('CAPA Details').first().click()
-    await waitForSqlValue(
-      `SELECT count(*) FROM capas WHERE id = '${capa.id}' AND description ILIKE '%${marker}%'`,
-      { timeoutMs: 30_000, label: 'description edit persisted' },
-    )
+      // 1. EDIT the record — the problem statement is inline-editable for them
+      //    (isEditable consults isAllowedOnRecord, not ownership). The field
+      //    already carries the create-time statement, so click INTO the rendered
+      //    content (click-to-edit) rather than the empty-state label.
+      const marker = `Edited by site-scoped editor ${Date.now()}`
+      await clickWhenReady(page, page.getByText('seeded problem statement').first())
+      // The click swaps the read-only view for a fresh TipTap mount; typing
+      // immediately races its focus. Wait for the editor node and click INTO it
+      // so the caret exists before the keystrokes.
+      const editor = page.locator('.ProseMirror').first()
+      await expect(editor).toBeVisible({ timeout: 10_000 })
+      await editor.click()
+      await page.keyboard.type(marker)
+      // Autosave is debounced; clicking elsewhere flushes focus out of TipTap.
+      await page.getByText('CAPA Details').first().click()
+      await waitForSqlValue(
+        `SELECT count(*) FROM capas WHERE id = '${capa.id}' AND description ILIKE '%${marker}%'`,
+        { timeoutMs: 30_000, label: 'description edit persisted' },
+      )
 
-    // 2. COMPLETE the reviewer's ACTION step on their behalf. The affordance
-    //    must NAME the assignee — that labelling is the guard against
-    //    accidental takeover, so it is asserted, not just clicked.
-    await clickWhenReady(
-      page,
-      page.getByRole('button', { name: `Mark Complete on behalf of ${USERS.reviewer.name}` }),
-    )
-    await waitForSqlValue(
-      `SELECT count(*) FROM task_instances
+      // 2. COMPLETE the reviewer's ACTION step on their behalf. The affordance
+      //    must NAME the assignee — that labelling is the guard against
+      //    accidental takeover, so it is asserted, not just clicked.
+      await clickWhenReady(
+        page,
+        page.getByRole('button', { name: `Mark Complete on behalf of ${USERS.reviewer.name}` }),
+      )
+      await waitForSqlValue(
+        `SELECT count(*) FROM task_instances
         WHERE entity_type = 'Capa' AND entity_id = '${capa.id}'
           AND assigned_to = '${USERS.approver.id}' AND status_id = 'ASSIGNED'`,
-      { timeoutMs: 45_000, label: 'approver task after takeover completion' },
-    )
+        { timeoutMs: 45_000, label: 'approver task after takeover completion' },
+      )
 
-    // 3. APPROVE the e-signed APPROVAL step on the approver's behalf —
-    //    capa:approve at site scope is what admits them to this one.
-    await clickWhenReady(
-      page,
-      page.getByRole('button', { name: `Approve on behalf of ${USERS.approver.name}` }),
-    )
-    const pin = page.getByPlaceholder('Enter your e-signature PIN')
-    await expect(pin).toBeVisible({ timeout: 15_000 })
-    await pin.fill(ESIGN_PIN)
-    await page.getByRole('button', { name: 'Sign' }).click()
+      // 3. APPROVE the e-signed APPROVAL step on the approver's behalf —
+      //    capa:approve at site scope is what admits them to this one.
+      await clickWhenReady(
+        page,
+        page.getByRole('button', { name: `Approve on behalf of ${USERS.approver.name}` }),
+      )
+      const pin = page.getByPlaceholder('Enter your e-signature PIN')
+      await expect(pin).toBeVisible({ timeout: 15_000 })
+      await pin.fill(ESIGN_PIN)
+      await page.getByRole('button', { name: 'Sign' }).click()
 
-    await waitForSqlValue(
-      `SELECT count(*) FROM workflow_instances
+      await waitForSqlValue(
+        `SELECT count(*) FROM workflow_instances
         WHERE resource_type = 'Capa' AND resource_id = '${capa.id}' AND status_id = 'COMPLETED'`,
-      { timeoutMs: 45_000, label: 'workflow completed by the site-scoped editor' },
-    )
+        { timeoutMs: 45_000, label: 'workflow completed by the site-scoped editor' },
+      )
 
-    // The signature is the EDITOR's, with the assignee recorded via the
-    // takeover attribution — acting on behalf of is not impersonation.
-    const signerCount = sqlValue(
-      `SELECT count(*) FROM signatures s
+      // The signature is the EDITOR's, with the assignee recorded via the
+      // takeover attribution — acting on behalf of is not impersonation.
+      const signerCount = sqlValue(
+        `SELECT count(*) FROM signatures s
         JOIN task_instances ti ON ti.id = s.task_instance_id
         WHERE s.user_id = '${USERS.capaSiteEditor.id}'
           AND ti.entity_type = 'Capa' AND ti.entity_id = '${capa.id}'`,
-    )
-    expect(Number(signerCount), 'signature attributed to the actual actor').toBeGreaterThan(0)
-    await ctx.close()
-  })
+      )
+      expect(Number(signerCount), 'signature attributed to the actual actor').toBeGreaterThan(0)
+      await ctx.close()
+    },
+  )
 
-  test('no capa:update → read-only: no affordance in the UI, 403 from the API', async ({
-    browser,
-  }) => {
-    test.setTimeout(240_000)
-    const capa = await openedCapaAt(browser, 'J9-noverb', 'Primary Site')
-    const taskId = assignedTaskId(capa.id, USERS.reviewer.id)
-    expect(taskId, 'reviewer task exists').toBeTruthy()
+  test(
+    'no capa:update → read-only: no affordance in the UI, 403 from the API',
+    { tag: ['@validation', '@URS-SEC-22'] },
+    async ({ browser }) => {
+      test.setTimeout(240_000)
+      const capa = await openedCapaAt(browser, 'J9-noverb', 'Primary Site')
+      const taskId = assignedTaskId(capa.id, USERS.reviewer.id)
+      expect(taskId, 'reviewer task exists').toBeTruthy()
 
-    const ctx = await browser.newContext({ storageState: AUTH.auditor })
-    const page = await ctx.newPage()
-    await page.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
+      const ctx = await browser.newContext({ storageState: AUTH.auditor })
+      const page = await ctx.newPage()
+      await page.goto(`/capas/${capa.id}`, { waitUntil: 'domcontentloaded' })
 
-    // They can read it (capa:read at tenant)…
-    await expect(page.getByText(capa.capaNumber).first()).toBeVisible({ timeout: 30_000 })
-    // …but no complete/approve affordance renders, own or on-behalf.
-    await expect(page.getByRole('button', { name: /Mark Complete/ })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /^Approve/ })).toHaveCount(0)
+      // They can read it (capa:read at tenant)…
+      await expect(page.getByText(capa.capaNumber).first()).toBeVisible({ timeout: 30_000 })
+      // …but no complete/approve affordance renders, own or on-behalf.
+      await expect(page.getByRole('button', { name: /Mark Complete/ })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /^Approve/ })).toHaveCount(0)
 
-    // The server agrees, independently of the UI: acting on the reviewer's
-    // task without the verb is refused.
-    const res = await ctx.request.post(`/api/v1/services/taskInstances/${taskId}/action`, {
-      data: { action: 'APPROVED', outcomeId: 'COMPLETE_AND_ADVANCE' },
-    })
-    expect(res.status(), 'task action without capa:update').toBe(403)
+      // The server agrees, independently of the UI: acting on the reviewer's
+      // task without the verb is refused.
+      const res = await ctx.request.post(`/api/v1/services/taskInstances/${taskId}/action`, {
+        data: { action: 'APPROVED', outcomeId: 'COMPLETE_AND_ADVANCE' },
+      })
+      expect(res.status(), 'task action without capa:update').toBe(403)
 
-    // And the record itself rejects mutation through the update-gated path.
-    const submit = await ctx.request.post(`/api/v1/services/capas/${capa.id}/submitForReview`, {
-      data: {},
-    })
-    expect(submit.status(), 'record mutation without capa:update').toBe(403)
+      // And the record itself rejects mutation through the update-gated path.
+      const submit = await ctx.request.post(`/api/v1/services/capas/${capa.id}/submitForReview`, {
+        data: {},
+      })
+      expect(submit.status(), 'record mutation without capa:update').toBe(403)
 
-    // Nothing moved.
-    expect(sqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}'`)).toBe('OPEN')
-    await ctx.close()
-  })
+      // Nothing moved.
+      expect(sqlValue(`SELECT status_id FROM capas WHERE id = '${capa.id}'`)).toBe('OPEN')
+      await ctx.close()
+    },
+  )
 
   test('capa:update held, record out of site scope → invisible, and actions refuse', async ({
     browser,

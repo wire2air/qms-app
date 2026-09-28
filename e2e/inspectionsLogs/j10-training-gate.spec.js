@@ -160,7 +160,7 @@ test.afterAll(async () => {
 })
 
 test.describe('IL-J10 — only a trained operator may record', () => {
-  test('an untrained operator is refused, and the refusal names the document they owe', { tag: '@smoke' }, async ({
+  test('an untrained operator is refused, and the refusal names the document they owe', { tag: ['@smoke', '@validation', '@URS-LOG-05'] }, async ({
     browser,
   }) => {
     // TC-10-05 steps 1 and 2.

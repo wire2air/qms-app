@@ -151,11 +151,14 @@ test.describe('PW-J1 · a recurring program mints its own audit', () => {
     },
   )
 
-  test('🔴 generator-created rows leave no audit trail (finding #4) (FAILS TODAY)', async () => {
-    test.setTimeout(120_000)
-    // Self-contained: insert the program with SQL (no UI, no shared state) so a
-    // failure here can never rewind another test's setup.
-    const programId = sqlValue(`
+  test(
+    '🔴 generator-created rows leave no audit trail (finding #4) (FAILS TODAY)',
+    { tag: ['@validation', '@URS-AUD-08'] },
+    async () => {
+      test.setTimeout(120_000)
+      // Self-contained: insert the program with SQL (no UI, no shared state) so a
+      // failure here can never rewind another test's setup.
+      const programId = sqlValue(`
       INSERT INTO audit_programs
         (company_id, name, program_type_id, audit_standard_id, frequency_id, days_interval,
          next_due_date, manager_user_id, active, created_by)
@@ -165,29 +168,31 @@ test.describe('PW-J1 · a recurring program mints its own audit', () => {
          '${USERS.author.id}', true, '${USERS.author.id}')
       RETURNING id`)
 
-    enqueueGenerator()
-    const instanceId = await waitForSqlValue(
-      `SELECT id FROM audit_instances WHERE audit_program_id = '${programId}' ORDER BY created_at DESC LIMIT 1`,
-      { timeoutMs: 90_000, label: 'generator minted an instance' },
-    )
-
-    // audit_event.js drops the row entirely when payload.user_id is falsy, and
-    // JOB-02 never sets app.current_user_id — so the INSERT is absent from the
-    // trail rather than recorded with a null actor. Poll, so a slow pipeline
-    // can't be mistaken for the defect.
-    let rows = 0
-    for (let i = 0; i < 10 && rows === 0; i++) {
-      rows = Number(
-        sqlValue(
-          `SELECT count(*) FROM audit_logs WHERE entity_type = 'AuditInstances' AND entity_id = '${instanceId}'`,
-        ),
+      enqueueGenerator()
+      const instanceId = await waitForSqlValue(
+        `SELECT id FROM audit_instances WHERE audit_program_id = '${programId}' ORDER BY created_at DESC LIMIT 1`,
+        { timeoutMs: 90_000, label: 'generator minted an instance' },
       )
-      if (rows === 0) await new Promise((r) => setTimeout(r, 2_000))
-    }
-    expect(rows, 'a cron-generated audit must still be attributable in audit_logs').toBeGreaterThan(
-      0,
-    )
-  })
+
+      // audit_event.js drops the row entirely when payload.user_id is falsy, and
+      // JOB-02 never sets app.current_user_id — so the INSERT is absent from the
+      // trail rather than recorded with a null actor. Poll, so a slow pipeline
+      // can't be mistaken for the defect.
+      let rows = 0
+      for (let i = 0; i < 10 && rows === 0; i++) {
+        rows = Number(
+          sqlValue(
+            `SELECT count(*) FROM audit_logs WHERE entity_type = 'AuditInstances' AND entity_id = '${instanceId}'`,
+          ),
+        )
+        if (rows === 0) await new Promise((r) => setTimeout(r, 2_000))
+      }
+      expect(
+        rows,
+        'a cron-generated audit must still be attributable in audit_logs',
+      ).toBeGreaterThan(0)
+    },
+  )
 
   test('🔴 an open program page reverts the generator’s schedule advance (FAILS TODAY)', async ({
     page,

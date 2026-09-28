@@ -18,7 +18,7 @@ import {
 test.describe('PW-J1 · learner completes an assigned training', () => {
   test(
     'ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed',
-    { tag: '@smoke' },
+    { tag: ['@smoke', '@validation', '@URS-TRN-03', '@URS-TRN-07'] },
     async ({ browser }) => {
       test.setTimeout(90_000)
 
@@ -71,25 +71,29 @@ test.describe('PW-J1 · learner completes an assigned training', () => {
     },
   )
 
-  test('a failing score does not complete the training and leaves a retry', async ({ browser }) => {
-    test.setTimeout(90_000)
+  test(
+    'a failing score does not complete the training and leaves a retry',
+    { tag: ['@validation', '@URS-TRN-05'] },
+    async ({ browser }) => {
+      test.setTimeout(90_000)
 
-    const adminCtx = await browser.newContext({ storageState: AUTH.trainingAdmin })
-    const adminPage = await adminCtx.newPage()
-    const instanceId = await launchTraining(adminPage)
-    await adminCtx.close()
+      const adminCtx = await browser.newContext({ storageState: AUTH.trainingAdmin })
+      const adminPage = await adminCtx.newPage()
+      const instanceId = await launchTraining(adminPage)
+      await adminCtx.close()
 
-    const learnerCtx = await browser.newContext({ storageState: AUTH.learner })
-    const learnerPage = await learnerCtx.newPage()
-    // One right, one wrong → 50, under the passing score of 70.
-    await completeTrainingViaUi(learnerPage, instanceId, TRAINING.halfAnswers)
+      const learnerCtx = await browser.newContext({ storageState: AUTH.learner })
+      const learnerPage = await learnerCtx.newPage()
+      // One right, one wrong → 50, under the passing score of 70.
+      await completeTrainingViaUi(learnerPage, instanceId, TRAINING.halfAnswers)
 
-    await waitForAssigneeStatus(instanceId, 'FAILED')
-    const failed = findAssignee(instanceId)
-    expect(failed.score).toBe(50)
-    expect(failed.attemptCount).toBe(1)
-    // maxAttempts is 2, so a retry is still available and the instance stays open.
-    expect(instanceStatus(instanceId)).toBe('ACTIVE')
-    await learnerCtx.close()
-  })
+      await waitForAssigneeStatus(instanceId, 'FAILED')
+      const failed = findAssignee(instanceId)
+      expect(failed.score).toBe(50)
+      expect(failed.attemptCount).toBe(1)
+      // maxAttempts is 2, so a retry is still available and the instance stays open.
+      expect(instanceStatus(instanceId)).toBe('ACTIVE')
+      await learnerCtx.close()
+    },
+  )
 })

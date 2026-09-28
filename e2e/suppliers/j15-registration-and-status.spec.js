@@ -96,7 +96,7 @@ test.describe('PW-J15 · supplier registration', () => {
     for (const id of created) sql(`DELETE FROM suppliers WHERE id = '${id}'`)
   })
 
-  test('TC-12-01: a supplier is registered with name, code and category', async ({ browser }) => {
+  test('TC-12-01: a supplier is registered with name, code and category', { tag: ['@validation', '@URS-SUP-01'] }, async ({ browser }) => {
     test.setTimeout(60_000)
     const ctx = await browser.newContext({ storageState: AUTH.owner })
     const suffix = uniqueSuffix()
@@ -221,7 +221,7 @@ test.describe('PW-J15 · supplier status control', () => {
     return id
   }
 
-  test('TC-12-04: a pending supplier is approved, and the change is attributed', async ({
+  test('TC-12-04: a pending supplier is approved, and the change is attributed', { tag: ['@validation', '@URS-SUP-04'] }, async ({
     browser,
   }) => {
     test.setTimeout(60_000)
@@ -277,7 +277,7 @@ test.describe('PW-J15 · supplier status control', () => {
   // requirement: they pin behaviour the protocol records as procedural, and
   // tagging them would trace a requirement to a test asserting the opposite.
 
-  test('known-gap: there is no status transition graph — any status follows any other', async ({
+  test('known-gap: there is no status transition graph — any status follows any other', { tag: ['@validation', '@URS-SUP-06'] }, async ({
     browser,
   }) => {
     // The Zod enum constrains the VOCABULARY only; its own comment says so

@@ -101,7 +101,7 @@ async function rejectWithSignatureFallback(browser, storageState, crId, stepId, 
 }
 
 test.describe('PW-J7 · reject and resubmit', () => {
-  test('rejecting a step terminates the whole cycle and returns the record to the owner', async ({
+  test('rejecting a step terminates the whole cycle and returns the record to the owner', { tag: ['@validation', '@URS-WFL-09'] }, async ({
     page,
     browser,
   }) => {

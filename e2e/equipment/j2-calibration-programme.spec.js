@@ -179,7 +179,7 @@ test.describe('EQ-J2 · the calibration programme', () => {
     sql(`DELETE FROM suppliers WHERE id = '${ALT_VENDOR_ID}'`)
   })
 
-  test('the register paints the calibration schedule — overdue red, due-soon amber, clear neutral', async ({
+  test('the register paints the calibration schedule — overdue red, due-soon amber, clear neutral', { tag: ['@validation', '@URS-EQP-05'] }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, EQUIPMENT.admin.auth)
@@ -209,7 +209,7 @@ test.describe('EQ-J2 · the calibration programme', () => {
     ).toHaveCount(0)
   })
 
-  test('recording a calibration is e-signed and evidenced, and the schedule rolls forward', async ({
+  test('recording a calibration is e-signed and evidenced, and the schedule rolls forward', { tag: ['@validation', '@URS-EQP-02'] }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, EQUIPMENT.admin.auth)

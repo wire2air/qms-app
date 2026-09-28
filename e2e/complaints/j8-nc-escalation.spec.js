@@ -251,7 +251,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
   })
 
   // ── OQ steps 1 + 2 ────────────────────────────────────────────────────────
-  test('steps 1–2 · conversion mints an NC with its own number, pre-filled from the complaint', async ({
+  test('steps 1–2 · conversion mints an NC with its own number, pre-filled from the complaint', { tag: ['@validation', '@URS-CCM-06'] }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, AUTH.owner)
@@ -296,7 +296,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
   })
 
   // ── OQ steps 3 + 4 — the bidirectional link, asserted in the DB ───────────
-  test('steps 3–4 · the link resolves in BOTH directions (record_links, both lookup shapes)', async () => {
+  test('steps 3–4 · the link resolves in BOTH directions (record_links, both lookup shapes)', { tag: ['@validation', '@URS-CCM-06'] }, async () => {
     const complaint = findCustomerComplaintBySubject(SUBJECT)
     const nc = findNcByTitle(NC_TITLE)
     expect(complaint && nc, 'the conversion test left both records behind').toBeTruthy()
@@ -360,7 +360,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
   })
 
   // ── OQ step 5 ─────────────────────────────────────────────────────────────
-  test('step 5 · the complaint status reflects the escalation', async () => {
+  test('step 5 · the complaint status reflects the escalation', { tag: ['@validation', '@URS-CCM-06'] }, async () => {
     const complaint = findCustomerComplaintBySubject(SUBJECT)
     expect(
       complaint.statusId,
@@ -369,7 +369,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
   })
 
   // ── OQ step 6 — THE CONTROL. Three arms, all direct writes. ──────────────
-  test('step 6a · the SERVICE layer refuses every onward action on a converted complaint', async ({
+  test('step 6a · the SERVICE layer refuses every onward action on a converted complaint', { tag: ['@validation', '@URS-CCM-06'] }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, AUTH.owner)
@@ -422,7 +422,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
     ).toBe('CONVERTED_TO_NC')
   })
 
-  test('step 6b · the DATABASE refuses it too — untrusted arm (SyncEngine / raw GraphQL)', async () => {
+  test('step 6b · the DATABASE refuses it too — untrusted arm (SyncEngine / raw GraphQL)', { tag: ['@validation', '@URS-CCM-06'] }, async () => {
     const complaint = findCustomerComplaintBySubject(SUBJECT)
 
     // Two-sided, per CMP-J2's discipline. First prove supportAgent actually
@@ -454,7 +454,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
     ).toBe('CONVERTED_TO_NC')
   })
 
-  test('step 6c · the DATABASE refuses it on the TRUSTED arm too — CONVERTED_TO_NC has no outgoing edge', async () => {
+  test('step 6c · the DATABASE refuses it on the TRUSTED arm too — CONVERTED_TO_NC has no outgoing edge', { tag: ['@validation', '@URS-CCM-06'] }, async () => {
     const complaint = findCustomerComplaintBySubject(SUBJECT)
 
     // This is the assertion the protocol's step 6 actually describes: "the
@@ -492,7 +492,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
   })
 
   // ── OQ step 7 ─────────────────────────────────────────────────────────────
-  test('step 7 · the conversion is recorded in the complaint audit trail', async () => {
+  test('step 7 · the conversion is recorded in the complaint audit trail', { tag: ['@validation', '@URS-CCM-06'] }, async () => {
     const complaint = findCustomerComplaintBySubject(SUBJECT)
     const nc = findNcByTitle(NC_TITLE)
 
@@ -545,7 +545,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
   })
 
   // ── The documented LIMIT (protocol note under step 6) ────────────────────
-  test('documented limit · status is sealed but DESCRIPTIVE fields are NOT frozen', async () => {
+  test('documented limit · status is sealed but DESCRIPTIVE fields are NOT frozen', { tag: ['@validation', '@URS-CCM-06'] }, async () => {
     const complaint = findCustomerComplaintBySubject(SUBJECT)
     const probe = `${SUBJECT} [edited after escalation]`
 
@@ -590,7 +590,7 @@ test.describe('CMP-J8 · OQ TC-17-06 — escalation to a nonconformance', () => 
   })
 
   // ── Gating divergence found while grounding this file ────────────────────
-  test('gating · the convert ROUTE accepts complaint_management:update alone, though the UI also demands ncr:create', async ({
+  test('gating · the convert ROUTE accepts complaint_management:update alone, though the UI also demands ncr:create', { tag: ['@validation', '@URS-CCM-06'] }, async ({
     browser,
   }) => {
     // Regression lock on a real divergence, not a nicety. The route is gated

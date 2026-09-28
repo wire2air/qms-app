@@ -170,7 +170,7 @@ test.describe('RA-J9 · TC-08-01 / TC-08-02 the scoring method is defined and co
     }
   })
 
-  test('step 5 — a user without risk_assessment_templates:update cannot alter the template, proven AT THE POLICY (an inspection is not evidence)', async () => {
+  test('step 5 — a user without risk_assessment_templates:update cannot alter the template, proven AT THE POLICY (an inspection is not evidence)', { tag: ['@validation', '@URS-RSK-01'] }, async () => {
     const before = readTemplateConfig()
     expect(before, 'arrange: the template is readable').toBeTruthy()
 
@@ -294,7 +294,7 @@ test.describe('RA-J9 · TC-08-01 / TC-08-02 the scoring method is defined and co
     ).toBe('1')
   })
 
-  test('TC-08-02 steps 2 and 6 — the matrix offers ONLY the template\'s own values, and both axes are required before an assessment can be finalized', async ({
+  test('TC-08-02 steps 2 and 6 — the matrix offers ONLY the template\'s own values, and both axes are required before an assessment can be finalized', { tag: ['@validation', '@URS-RSK-02'] }, async ({
     browser,
   }) => {
     test.setTimeout(300_000)

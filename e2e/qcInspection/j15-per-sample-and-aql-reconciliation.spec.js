@@ -230,7 +230,7 @@ test.describe('PW-J15 — per-sample capture, amendment, and AQL reconciliation'
     ).toBe('COMPLETED')
   })
 
-  test('KNOWN DEFECT — amending a result overwrites it; the superseded value is not recoverable anywhere', async ({
+  test('KNOWN DEFECT — amending a result overwrites it; the superseded value is not recoverable anywhere', { tag: ['@validation', '@URS-QCI-04'] }, async ({
     page,
   }) => {
     // OQ-09 TC-09-04 step 7 and its note: "The original is not retained … this
@@ -345,7 +345,7 @@ test.describe('PW-J15 — per-sample capture, amendment, and AQL reconciliation'
     })
   })
 
-  test('the lot reconciles defect counts against the sampling plan: below, at, and on the reject number', async ({
+  test('the lot reconciles defect counts against the sampling plan: below, at, and on the reject number', { tag: ['@validation', '@URS-QCI-06'] }, async ({
     page,
   }) => {
     // OQ-09 TC-09-06 steps 1–4. The lot must agree with its OWN snapshotted

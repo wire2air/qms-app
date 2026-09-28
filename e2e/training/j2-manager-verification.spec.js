@@ -29,7 +29,7 @@ async function instanceWithCompletedLearner(browser, answers = TRAINING.correctA
 }
 
 test.describe('PW-J2 · manager competency verification', () => {
-  test('manager verifies a passed learner → VERIFIED, instance COMPLETED, verification recorded', { tag: ['@journey', '@p1'] }, async ({
+  test('manager verifies a passed learner → VERIFIED, instance COMPLETED, verification recorded', { tag: ['@journey', '@p1', '@validation', '@URS-SEC-13', '@URS-TRN-08'] }, async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -69,7 +69,7 @@ test.describe('PW-J2 · manager competency verification', () => {
     expect(row[5], 'verification is e-signed').toBe('t')
   })
 
-  test('rejecting for retraining → RETRAIN_REQUIRED plus a fresh retraining instance', async ({
+  test('rejecting for retraining → RETRAIN_REQUIRED plus a fresh retraining instance', { tag: ['@validation', '@URS-TRN-09'] }, async ({
     browser,
   }) => {
     test.setTimeout(120_000)

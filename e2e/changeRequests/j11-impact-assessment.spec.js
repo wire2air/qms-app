@@ -246,65 +246,67 @@ test.describe('PW-J11 · impact and risk assessment (TC-05-02)', () => {
   test.beforeAll(() => purgeJ11ChangeRequests())
   test.afterAll(() => purgeJ11ChangeRequests())
 
-  test('TC-05-02 steps 1–3 · the assessment an executor types is saved and reads back', async ({
-    browser,
-  }) => {
-    test.setTimeout(150_000)
-    const ctx = await browser.newContext({ storageState: AUTH.author })
-    const page = await ctx.newPage()
+  test(
+    'TC-05-02 steps 1–3 · the assessment an executor types is saved and reads back',
+    { tag: ['@validation', '@URS-CHG-02'] },
+    async ({ browser }) => {
+      test.setTimeout(150_000)
+      const ctx = await browser.newContext({ storageState: AUTH.author })
+      const page = await ctx.newPage()
 
-    const cr = await createAssessedCr(page, 'J11-record')
+      const cr = await createAssessedCr(page, 'J11-record')
 
-    // Saved (step 1 reason/justification · step 2 the record's assessment
-    // surface · step 3 regulatory notifiability).
-    const saved = assessmentOf(cr.id)
-    expect(saved.classification, 'Classification persisted as the picked enum').toBe(
-      ASSESSMENT.classification.id,
-    )
-    expect(saved.changeNature, 'Change Nature (planned/emergency) persisted').toBe(
-      ASSESSMENT.changeNature.id,
-    )
-    expect(saved.changeDuration, 'Change Duration (temporary/permanent) persisted').toBe(
-      ASSESSMENT.changeDuration.id,
-    )
-    expect(saved.regulatoryImpact, 'regulatory notifiability persisted — TC-05-02 step 3').toBe(
-      ASSESSMENT.regulatoryImpact.id,
-    )
-    expect(
-      saved.customerNotificationRequired,
-      'customer-notification flag persisted alongside it',
-    ).toBe(ASSESSMENT.customerNotificationRequired.id)
+      // Saved (step 1 reason/justification · step 2 the record's assessment
+      // surface · step 3 regulatory notifiability).
+      const saved = assessmentOf(cr.id)
+      expect(saved.classification, 'Classification persisted as the picked enum').toBe(
+        ASSESSMENT.classification.id,
+      )
+      expect(saved.changeNature, 'Change Nature (planned/emergency) persisted').toBe(
+        ASSESSMENT.changeNature.id,
+      )
+      expect(saved.changeDuration, 'Change Duration (temporary/permanent) persisted').toBe(
+        ASSESSMENT.changeDuration.id,
+      )
+      expect(saved.regulatoryImpact, 'regulatory notifiability persisted — TC-05-02 step 3').toBe(
+        ASSESSMENT.regulatoryImpact.id,
+      )
+      expect(
+        saved.customerNotificationRequired,
+        'customer-notification flag persisted alongside it',
+      ).toBe(ASSESSMENT.customerNotificationRequired.id)
 
-    // The two prose columns are read one at a time — see `proseColumn`.
-    expect(
-      proseColumn(cr.id, 'reason_for_change'),
-      'Reason for Change kept the text that was typed',
-    ).toContain('EU Annex 1 revision')
-    expect(
-      proseColumn(cr.id, 'business_justification'),
-      'Business Justification kept the text that was typed',
-    ).toContain('three product families')
+      // The two prose columns are read one at a time — see `proseColumn`.
+      expect(
+        proseColumn(cr.id, 'reason_for_change'),
+        'Reason for Change kept the text that was typed',
+      ).toContain('EU Annex 1 revision')
+      expect(
+        proseColumn(cr.id, 'business_justification'),
+        'Business Justification kept the text that was typed',
+      ).toContain('three product families')
 
-    // Retrievable: a fresh page load renders the same values back at the
-    // author. This is the "and retrievable" half of step 2 — a value that
-    // persisted but never rendered is not evidence for an executor.
-    await page.goto(`/change-requests/${cr.id}`)
-    await expect(page.getByText(cr.title).first()).toBeVisible({ timeout: 30_000 })
-    await expect(
-      page.getByText(ASSESSMENT.classification.id, { exact: true }).first(),
-      'Classification renders on the rail (raw enum — the rail prints cr.classification unmapped)',
-    ).toBeVisible({ timeout: 20_000 })
-    await expect(
-      page.getByText('EU Annex 1 revision', { exact: false }).first(),
-      'Reason for Change renders in the Reason & Justification section',
-    ).toBeVisible({ timeout: 20_000 })
-    await expect(
-      page.getByText('three product families', { exact: false }).first(),
-      'Business Justification renders alongside it',
-    ).toBeVisible({ timeout: 20_000 })
+      // Retrievable: a fresh page load renders the same values back at the
+      // author. This is the "and retrievable" half of step 2 — a value that
+      // persisted but never rendered is not evidence for an executor.
+      await page.goto(`/change-requests/${cr.id}`)
+      await expect(page.getByText(cr.title).first()).toBeVisible({ timeout: 30_000 })
+      await expect(
+        page.getByText(ASSESSMENT.classification.id, { exact: true }).first(),
+        'Classification renders on the rail (raw enum — the rail prints cr.classification unmapped)',
+      ).toBeVisible({ timeout: 20_000 })
+      await expect(
+        page.getByText('EU Annex 1 revision', { exact: false }).first(),
+        'Reason for Change renders in the Reason & Justification section',
+      ).toBeVisible({ timeout: 20_000 })
+      await expect(
+        page.getByText('three product families', { exact: false }).first(),
+        'Business Justification renders alongside it',
+      ).toBeVisible({ timeout: 20_000 })
 
-    await ctx.close()
-  })
+      await ctx.close()
+    },
+  )
 
   // KNOWN DEFECT (pinned, not fixed): the detail rail prints
   // `{{ cr.classification || '—' }}` raw — 'MAJOR', not 'Major' — while every

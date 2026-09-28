@@ -243,7 +243,7 @@ test.describe('PW-J10 · a reset link changes the password exactly once', () => 
     clearLockout(SUBJECT)
   })
 
-  test('GATE · a weak password is refused by the SERVER, not just by the page', async ({ page }) => {
+  test('GATE · a weak password is refused by the SERVER, not just by the page', { tag: ['@validation', '@URS-SEC-02'] }, async ({ page }) => {
     // Mint a fresh token: the previous one is spent.
     clearResendCooldown('pwreset', SUBJECT)
     const knownMail = await mailIdsTo(SUBJECT)

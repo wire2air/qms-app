@@ -76,7 +76,7 @@ test.describe('PW-J1 — incoming inspection lifecycle', () => {
     await qaCtx.close()
   })
 
-  test('the seeded template, spec and sampling plan are snapshotted onto the lot', async ({ browser }) => {
+  test('the seeded template, spec and sampling plan are snapshotted onto the lot', { tag: ['@validation', '@URS-QCI-03'] }, async ({ browser }) => {
     // Lots snapshot their spec + sampling plan at create so a later edit to the
     // master record cannot retroactively change what was inspected against —
     // the module's core traceability guarantee (00-inventory §D).

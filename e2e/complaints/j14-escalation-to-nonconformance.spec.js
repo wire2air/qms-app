@@ -145,7 +145,7 @@ test.describe('CMP-J14 · escalation to a nonconformance', () => {
   test.beforeAll(() => purgeJ14())
   test.afterAll(() => purgeJ14())
 
-  test('TC-06-05 steps 1-5 · converting one complaint creates the NC, links it both ways, and CLOSES the complaint', { tag: ['@journey', '@p1'] }, async ({
+  test('TC-06-05 steps 1-5 · converting one complaint creates the NC, links it both ways, and CLOSES the complaint', { tag: ['@journey', '@p1', '@validation', '@URS-CMP-05'] }, async ({
     browser,
   }) => {
     test.setTimeout(120_000)

@@ -201,7 +201,7 @@ test.describe('PW-J17 — line clearance gates collection; check-in owns attribu
     ).toBeTruthy()
   })
 
-  test('with clearance REQUIRED the gate blocks, a Hold does not lift it, and a Release does', async ({
+  test('with clearance REQUIRED the gate blocks, a Hold does not lift it, and a Release does', { tag: ['@validation', '@URS-QCI-11'] }, async ({
     page,
   }) => {
     // OQ-09 TC-09-11 steps 1–5 and 7, in order.

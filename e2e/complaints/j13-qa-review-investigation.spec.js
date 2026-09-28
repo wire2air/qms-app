@@ -160,7 +160,7 @@ test.describe('CMP-J13 · QA review and the investigation decision', () => {
     ).toBe('t')
   })
 
-  test('KNOWN DEFECT · declining an investigation with NO justification is accepted, at every layer', async ({
+  test('KNOWN DEFECT · declining an investigation with NO justification is accepted, at every layer', { tag: ['@validation', '@URS-CMP-03'] }, async ({
     browser,
   }) => {
     test.setTimeout(90_000)

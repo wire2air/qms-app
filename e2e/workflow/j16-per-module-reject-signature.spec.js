@@ -101,137 +101,138 @@ function postReject(ctx, crId, data) {
 }
 
 test.describe('PW-J16 · F-16 per-module reject must sign', () => {
-  test('rejecting an e-sign-required step through the per-module endpoint demands a signature, then writes one', async ({
-    page,
-    browser,
-  }) => {
-    test.setTimeout(300_000)
+  test(
+    'rejecting an e-sign-required step through the per-module endpoint demands a signature, then writes one',
+    { tag: ['@validation', '@URS-SEC-12', '@URS-WFL-08'] },
+    async ({ page, browser }) => {
+      test.setTimeout(300_000)
 
-    const { crId, instanceId, stepId, task } = await reachApprovalStep(page, browser, 'J16-sign')
-    expect(signatureCountForInstance(instanceId), 'no signature exists yet').toBe(0)
+      const { crId, instanceId, stepId, task } = await reachApprovalStep(page, browser, 'J16-sign')
+      expect(signatureCountForInstance(instanceId), 'no signature exists yet').toBe(0)
 
-    const ctx = await browser.newContext({ storageState: AUTH.approver })
-    try {
-      // ── 1. No credentials → refused, fail-closed, machine-readable. ─────────
-      const bare = await postReject(ctx, crId, {
-        workflowInstanceStepId: stepId,
-        comment: 'PW-J16 — rejecting without a signature.',
-      })
-      const bareBody = await errorBody(bare)
-      expect(
-        bare.status(),
-        `an unsigned reject on an e-sign step must be refused (body: ${JSON.stringify(bareBody.raw)})`,
-      ).toBe(400)
-      expect(bareBody.code, 'the refusal is machine-readable so the FE can open its dialog').toBe(
-        'ESIGNATURE_REQUIRED',
-      )
-      expect(bareBody.message).toMatch(/e-signature/i)
-
-      expect(stepStatus(stepId), 'the step did not move').toBe('IN_PROGRESS')
-      expect(taskStatus(task.id), 'the approver task did not move').toBe('ASSIGNED')
-      expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`)).toBe(
-        'UNDER_REVIEW',
-      )
-      expect(signatureCountForInstance(instanceId), 'nothing was signed').toBe(0)
-
-      // ── 2. Wrong credentials → refused, atomically. ─────────────────────────
-      // This is the assertion that proves the signature is written INSIDE the
-      // rejection's transaction rather than alongside it. If the two were
-      // separate, a bad PIN would leave the record rejected and unsigned — a
-      // strictly worse state than the finding described.
-      const wrong = await postReject(ctx, crId, {
-        workflowInstanceStepId: stepId,
-        comment: 'PW-J16 — rejecting with the wrong PIN.',
-        method: 'PIN',
-        token: '00000000',
-      })
-      expect(wrong.status(), 'a bad PIN must be refused').toBe(400)
-      expect((await errorBody(wrong)).message).toMatch(/invalid pin|no e-signature pin/i)
-      // The failed attempt just incremented `esign:pinfail:<approver>`. Five of
-      // those in a 15-minute window turn every later signature attempt into a
-      // 429 ESIGN_PIN_LOCKED — including step 3 below, and including every other
-      // spec that signs as this persona. Clear it immediately.
-      clearEsignPinLockout(USERS.approver.id)
-
-      expect(stepStatus(stepId), 'the step did not move on a bad PIN').toBe('IN_PROGRESS')
-      expect(taskStatus(task.id), 'the task did not move on a bad PIN').toBe('ASSIGNED')
-      expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`)).toBe(
-        'UNDER_REVIEW',
-      )
-      expect(signatureCountForInstance(instanceId), 'a failed verification signs nothing').toBe(0)
-
-      // ── 2b. Template tampering does NOT disarm the gate (F-05 × F-16). ──────
-      // If this endpoint resolved `requireEsignature` from the TEMPLATE, a
-      // `workflows_templates:update` holder could switch the brand-new
-      // signature gate off on an approval already in flight — reopening F-05
-      // through the door F-16's fix just built. `resolveStepRequiresEsignature`
-      // reads the frozen INSTANCE snapshot first, so the edit is inert here.
-      //
-      // Run inline on this same instance rather than as its own test: reaching
-      // an e-sign APPROVAL step costs a full CR create + reviewer completion,
-      // and the state this needs is exactly the state we are already holding.
-      const templateStepId = sqlValue(
-        `SELECT step_id FROM workflow_instance_steps WHERE id = '${stepId}'`,
-      )
-      sql(`UPDATE workflow_steps SET require_esignature = false WHERE id = '${templateStepId}'`)
+      const ctx = await browser.newContext({ storageState: AUTH.approver })
       try {
-        const tampered = await postReject(ctx, crId, {
+        // ── 1. No credentials → refused, fail-closed, machine-readable. ─────────
+        const bare = await postReject(ctx, crId, {
           workflowInstanceStepId: stepId,
-          comment: 'PW-J16 — template disarmed, the instance snapshot must still bite.',
+          comment: 'PW-J16 — rejecting without a signature.',
         })
-        const tamperedBody = await errorBody(tampered)
+        const bareBody = await errorBody(bare)
         expect(
-          tampered.status(),
-          `the in-flight approval keeps the signature requirement it started under (body: ${JSON.stringify(tamperedBody.raw)})`,
+          bare.status(),
+          `an unsigned reject on an e-sign step must be refused (body: ${JSON.stringify(bareBody.raw)})`,
         ).toBe(400)
-        expect(tamperedBody.code).toBe('ESIGNATURE_REQUIRED')
-        expect(taskStatus(task.id), 'nothing was rejected unsigned').toBe('ASSIGNED')
-        expect(signatureCountForInstance(instanceId)).toBe(0)
+        expect(bareBody.code, 'the refusal is machine-readable so the FE can open its dialog').toBe(
+          'ESIGNATURE_REQUIRED',
+        )
+        expect(bareBody.message).toMatch(/e-signature/i)
+
+        expect(stepStatus(stepId), 'the step did not move').toBe('IN_PROGRESS')
+        expect(taskStatus(task.id), 'the approver task did not move').toBe('ASSIGNED')
+        expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`)).toBe(
+          'UNDER_REVIEW',
+        )
+        expect(signatureCountForInstance(instanceId), 'nothing was signed').toBe(0)
+
+        // ── 2. Wrong credentials → refused, atomically. ─────────────────────────
+        // This is the assertion that proves the signature is written INSIDE the
+        // rejection's transaction rather than alongside it. If the two were
+        // separate, a bad PIN would leave the record rejected and unsigned — a
+        // strictly worse state than the finding described.
+        const wrong = await postReject(ctx, crId, {
+          workflowInstanceStepId: stepId,
+          comment: 'PW-J16 — rejecting with the wrong PIN.',
+          method: 'PIN',
+          token: '00000000',
+        })
+        expect(wrong.status(), 'a bad PIN must be refused').toBe(400)
+        expect((await errorBody(wrong)).message).toMatch(/invalid pin|no e-signature pin/i)
+        // The failed attempt just incremented `esign:pinfail:<approver>`. Five of
+        // those in a 15-minute window turn every later signature attempt into a
+        // 429 ESIGN_PIN_LOCKED — including step 3 below, and including every other
+        // spec that signs as this persona. Clear it immediately.
+        clearEsignPinLockout(USERS.approver.id)
+
+        expect(stepStatus(stepId), 'the step did not move on a bad PIN').toBe('IN_PROGRESS')
+        expect(taskStatus(task.id), 'the task did not move on a bad PIN').toBe('ASSIGNED')
+        expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`)).toBe(
+          'UNDER_REVIEW',
+        )
+        expect(signatureCountForInstance(instanceId), 'a failed verification signs nothing').toBe(0)
+
+        // ── 2b. Template tampering does NOT disarm the gate (F-05 × F-16). ──────
+        // If this endpoint resolved `requireEsignature` from the TEMPLATE, a
+        // `workflows_templates:update` holder could switch the brand-new
+        // signature gate off on an approval already in flight — reopening F-05
+        // through the door F-16's fix just built. `resolveStepRequiresEsignature`
+        // reads the frozen INSTANCE snapshot first, so the edit is inert here.
+        //
+        // Run inline on this same instance rather than as its own test: reaching
+        // an e-sign APPROVAL step costs a full CR create + reviewer completion,
+        // and the state this needs is exactly the state we are already holding.
+        const templateStepId = sqlValue(
+          `SELECT step_id FROM workflow_instance_steps WHERE id = '${stepId}'`,
+        )
+        sql(`UPDATE workflow_steps SET require_esignature = false WHERE id = '${templateStepId}'`)
+        try {
+          const tampered = await postReject(ctx, crId, {
+            workflowInstanceStepId: stepId,
+            comment: 'PW-J16 — template disarmed, the instance snapshot must still bite.',
+          })
+          const tamperedBody = await errorBody(tampered)
+          expect(
+            tampered.status(),
+            `the in-flight approval keeps the signature requirement it started under (body: ${JSON.stringify(tamperedBody.raw)})`,
+          ).toBe(400)
+          expect(tamperedBody.code).toBe('ESIGNATURE_REQUIRED')
+          expect(taskStatus(task.id), 'nothing was rejected unsigned').toBe('ASSIGNED')
+          expect(signatureCountForInstance(instanceId)).toBe(0)
+        } finally {
+          sql(`UPDATE workflow_steps SET require_esignature = true WHERE id = '${templateStepId}'`)
+        }
+
+        // ── 3. Correct credentials → 200, and the ledger row exists. ────────────
+        const signed = await postReject(ctx, crId, {
+          workflowInstanceStepId: stepId,
+          comment: 'PW-J16 — signed rejection.',
+          method: 'PIN',
+          token: ESIGN_PIN,
+          provider: null,
+        })
+        expect(
+          signed.status(),
+          `a correctly signed reject must succeed (body: ${JSON.stringify(
+            (await errorBody(signed)).raw,
+          )})`,
+        ).toBe(200)
       } finally {
-        sql(`UPDATE workflow_steps SET require_esignature = true WHERE id = '${templateStepId}'`)
+        await ctx.close()
       }
 
-      // ── 3. Correct credentials → 200, and the ledger row exists. ────────────
-      const signed = await postReject(ctx, crId, {
-        workflowInstanceStepId: stepId,
-        comment: 'PW-J16 — signed rejection.',
-        method: 'PIN',
-        token: ESIGN_PIN,
-        provider: null,
-      })
+      // The Part-11 record. `signatures` binds to the TASK — anything that joins
+      // it to a step has to go through `task_instances` where
+      // `source_type = 'WorkflowInstanceStep'`.
+      const sigs = signaturesForTask(task.id)
+      expect(sigs.length, 'exactly one signature was written for the rejection').toBe(1)
+      expect(sigs[0].userId, 'signed by the reviewer who rejected').toBe(USERS.approver.id)
+      expect(sigs[0].meaning, 'the signature records what was signed').toBe('REJECTED')
+      expect(sigs[0].comments, 'the rejection reason is carried onto the signature').toMatch(
+        /signed rejection/i,
+      )
       expect(
-        signed.status(),
-        `a correctly signed reject must succeed (body: ${JSON.stringify(
-          (await errorBody(signed)).raw,
-        )})`,
-      ).toBe(200)
-    } finally {
-      await ctx.close()
-    }
+        signatureCountForInstance(instanceId),
+        'one signature across the whole instance — no duplicate from the refused attempts',
+      ).toBe(1)
 
-    // The Part-11 record. `signatures` binds to the TASK — anything that joins
-    // it to a step has to go through `task_instances` where
-    // `source_type = 'WorkflowInstanceStep'`.
-    const sigs = signaturesForTask(task.id)
-    expect(sigs.length, 'exactly one signature was written for the rejection').toBe(1)
-    expect(sigs[0].userId, 'signed by the reviewer who rejected').toBe(USERS.approver.id)
-    expect(sigs[0].meaning, 'the signature records what was signed').toBe('REJECTED')
-    expect(sigs[0].comments, 'the rejection reason is carried onto the signature').toMatch(
-      /signed rejection/i,
-    )
-    expect(
-      signatureCountForInstance(instanceId),
-      'one signature across the whole instance — no duplicate from the refused attempts',
-    ).toBe(1)
-
-    // And the rejection itself actually happened.
-    expect(taskStatus(task.id)).toBe('REJECTED')
-    expect(stepStatus(stepId)).toBe('REJECTED')
-    expect(
-      sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`),
-      'the CR returns to DRAFT for rework (changeRequestHandler.onRejection)',
-    ).toBe('DRAFT')
-  })
+      // And the rejection itself actually happened.
+      expect(taskStatus(task.id)).toBe('REJECTED')
+      expect(stepStatus(stepId)).toBe('REJECTED')
+      expect(
+        sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`),
+        'the CR returns to DRAFT for rework (changeRequestHandler.onRejection)',
+      ).toBe('DRAFT')
+    },
+  )
 
   test('CONTROL: a step that does NOT require a signature still rejects without one', async ({
     page,

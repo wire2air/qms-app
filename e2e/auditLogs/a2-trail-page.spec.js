@@ -61,7 +61,7 @@ test.describe('ALD-A2 — the trail page', () => {
 
   test(
     'a granted persona reads the page; a denied persona never reaches it',
-    { tag: '@smoke' },
+    { tag: ['@smoke', '@validation', '@URS-SEC-05'] },
     async ({ browser }) => {
       test.setTimeout(TRAIL_SYNC_TIMEOUT + 60_000)
 

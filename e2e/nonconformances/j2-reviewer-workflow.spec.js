@@ -16,7 +16,7 @@ import { clickWhenReady } from '../fixtures/documents.js'
 import { findNcByTitle, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 
 test.describe('PW-J2 · reviewer completes the ACTION step; approver rejects the APPROVAL step', () => {
-  test('reviewer Mark-Completes step 1 -> workflow advances, approver task created', async ({
+  test('reviewer Mark-Completes step 1 -> workflow advances, approver task created', { tag: ['@validation', '@URS-NCR-05'] }, async ({
     browser,
   }) => {
     test.setTimeout(150_000)

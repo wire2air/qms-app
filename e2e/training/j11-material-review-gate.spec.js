@@ -299,7 +299,7 @@ test.describe('TRN-J11 · a completion signature requires the material to have b
     }
   })
 
-  test('a submit with NO material opened is refused, and writes no signed record', async ({
+  test('a submit with NO material opened is refused, and writes no signed record', { tag: ['@validation', '@URS-TRN-04'] }, async ({
     browser,
   }) => {
     // THE CORE ARM. Straight to /submit from ASSIGNED — no /start, no

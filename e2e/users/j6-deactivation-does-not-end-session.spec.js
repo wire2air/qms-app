@@ -122,7 +122,7 @@ test.describe('USER-J6 · deactivation and the live session', () => {
     await api.close()
   })
 
-  test('✅ a session opened BEFORE the deactivation is cut off', async ({ browser }) => {
+  test('✅ a session opened BEFORE the deactivation is cut off', { tag: ['@validation', '@URS-SEC-16'] }, async ({ browser }) => {
     // THE QUESTION. Log in first, deactivate second, then act on the original
     // context WITHOUT reloading — exactly the shape of the real incident, where
     // the person whose access you just revoked still has the tab open.

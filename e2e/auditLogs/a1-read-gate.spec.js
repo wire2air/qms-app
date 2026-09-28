@@ -350,26 +350,30 @@ test.describe('ALD-A1 — audit_log_select_rls gates on audit_trail:read', () =>
     ).toBe(0)
   })
 
-  test('the company clause is intact — a granted reader sees one tenant only', () => {
-    // The gate is a conjunction: `company_id = … AND (owner OR permission)`.
-    // Repointing the permission half is the kind of edit that can lose the other
-    // half, and the audit trail is the last table in the product where a tenant
-    // boundary should be taken on trust.
-    const altRows = Number(
-      sqlValue(`SELECT count(*) FROM audit_logs WHERE company_id = '${ALT_COMPANY_ID}'`),
-    )
-    expect(altRows, 'the second tenant has a trail to leak').toBeGreaterThan(0)
-
-    for (const persona of ['auditor', 'roleAdmin']) {
-      const res = sqlAsAppUser(
-        `SELECT 'RESULT=' || count(*)::text FROM audit_logs WHERE company_id = '${ALT_COMPANY_ID}';`,
-        { userId: USERS[persona].id, companyId: COMPANY_ID },
+  test(
+    'the company clause is intact — a granted reader sees one tenant only',
+    { tag: ['@validation', '@URS-SEC-06'] },
+    () => {
+      // The gate is a conjunction: `company_id = … AND (owner OR permission)`.
+      // Repointing the permission half is the kind of edit that can lose the other
+      // half, and the audit trail is the last table in the product where a tenant
+      // boundary should be taken on trust.
+      const altRows = Number(
+        sqlValue(`SELECT count(*) FROM audit_logs WHERE company_id = '${ALT_COMPANY_ID}'`),
       )
-      expect(res.ok, `cross-tenant probe ran (stderr: ${res.error})`).toBeTruthy()
-      expect(
-        Number(/RESULT=(\d+)/.exec(res.output)?.[1]),
-        `${persona} holds audit_trail:read in E2E Lab and reads zero rows of E2E Alt`,
-      ).toBe(0)
-    }
-  })
+      expect(altRows, 'the second tenant has a trail to leak').toBeGreaterThan(0)
+
+      for (const persona of ['auditor', 'roleAdmin']) {
+        const res = sqlAsAppUser(
+          `SELECT 'RESULT=' || count(*)::text FROM audit_logs WHERE company_id = '${ALT_COMPANY_ID}';`,
+          { userId: USERS[persona].id, companyId: COMPANY_ID },
+        )
+        expect(res.ok, `cross-tenant probe ran (stderr: ${res.error})`).toBeTruthy()
+        expect(
+          Number(/RESULT=(\d+)/.exec(res.output)?.[1]),
+          `${persona} holds audit_trail:read in E2E Lab and reads zero rows of E2E Alt`,
+        ).toBe(0)
+      }
+    },
+  )
 })

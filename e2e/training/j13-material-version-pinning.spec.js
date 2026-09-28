@@ -236,7 +236,7 @@ test.describe('TRN-J13 · a launched training serves the document version effect
   test.beforeAll(() => purgeTrainings('J13'))
   test.afterAll(() => purgeTrainings('J13'))
 
-  test('TC-02-09 steps 1-2 · launch pins v1.0, and releasing v2.0 does not move the pin', async ({
+  test('TC-02-09 steps 1-2 · launch pins v1.0, and releasing v2.0 does not move the pin', { tag: ['@validation', '@URS-TRN-10'] }, async ({
     browser,
   }) => {
     // The core arm. Steps 1 and 2 in one test on purpose: "the pin did not

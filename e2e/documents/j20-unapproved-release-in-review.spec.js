@@ -346,28 +346,32 @@ test.describe('PW-J20 · TC-01-07 · an IN_REVIEW (submitted, unapproved) versio
   // LAYER: DATABASE, trusted — THE FINDING.
   // ─────────────────────────────────────────────────────────────────────────
 
-  test('🔴 DOC-REL-01 (FAILS TODAY) · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused — an unapproved version must not be publishable on ANY path', () => {
-    // 🔴 THIS TEST IS EXPECTED TO FAIL against current code. It asserts what
-    // URS-DOC-07 / TC-01-07 DEMANDS, not what the product does, per the honesty
-    // rule: the requirement is that no path can release an unapproved version,
-    // and the protocol's own note is that the restriction is "enforced at the
-    // server, not merely hidden in the interface. The database permits no direct
-    // Draft-to-Effective transition on any path."
-    //
-    // IN_REVIEW is unapproved. The trusted transition graph permits
-    // IN_REVIEW->EFFECTIVE. So the seal the protocol describes does not hold for
-    // the one unapproved state a submitted document actually occupies.
-    //
-    // It goes GREEN the day 'IN_REVIEW->EFFECTIVE' is removed from
-    // enforce_document_version_transition(). Until then the pin below records
-    // what actually happens, so the file stays diagnostic while this is red.
-    const r = trustedTransition(versionId, 'EFFECTIVE')
-    expect(
-      r.accepted,
-      'an unapproved (IN_REVIEW) version must NOT be publishable on the trusted path either',
-    ).toBe(false)
-    expect(r.error).toMatch(/Illegal document version status transition: IN_REVIEW -> EFFECTIVE/i)
-  })
+  test(
+    '🔴 DOC-REL-01 (FAILS TODAY) · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused — an unapproved version must not be publishable on ANY path',
+    { tag: ['@validation', '@URS-DOC-07'] },
+    () => {
+      // 🔴 THIS TEST IS EXPECTED TO FAIL against current code. It asserts what
+      // URS-DOC-07 / TC-01-07 DEMANDS, not what the product does, per the honesty
+      // rule: the requirement is that no path can release an unapproved version,
+      // and the protocol's own note is that the restriction is "enforced at the
+      // server, not merely hidden in the interface. The database permits no direct
+      // Draft-to-Effective transition on any path."
+      //
+      // IN_REVIEW is unapproved. The trusted transition graph permits
+      // IN_REVIEW->EFFECTIVE. So the seal the protocol describes does not hold for
+      // the one unapproved state a submitted document actually occupies.
+      //
+      // It goes GREEN the day 'IN_REVIEW->EFFECTIVE' is removed from
+      // enforce_document_version_transition(). Until then the pin below records
+      // what actually happens, so the file stays diagnostic while this is red.
+      const r = trustedTransition(versionId, 'EFFECTIVE')
+      expect(
+        r.accepted,
+        'an unapproved (IN_REVIEW) version must NOT be publishable on the trusted path either',
+      ).toBe(false)
+      expect(r.error).toMatch(/Illegal document version status transition: IN_REVIEW -> EFFECTIVE/i)
+    },
+  )
 
   test('PIN · the actual behaviour today: the trusted path ACCEPTS IN_REVIEW→EFFECTIVE, publishing an unapproved version', () => {
     // The diagnostic twin of the gate above. Pinned rather than merely described

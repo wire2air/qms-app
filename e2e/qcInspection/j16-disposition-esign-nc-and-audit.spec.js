@@ -160,7 +160,7 @@ test.describe('PW-J16 — e-signed disposition, result lock, NC raise, audit tra
   test.beforeAll(() => purgeJ16Lots())
   test.afterAll(() => purgeJ16Lots())
 
-  test('the disposition is refused without an e-signature, and accepted with one — recording name, meaning and time', async ({
+  test('the disposition is refused without an e-signature, and accepted with one — recording name, meaning and time', { tag: ['@validation', '@URS-QCI-08'] }, async ({
     browser,
   }) => {
     // OQ-09 TC-09-08 steps 2, 3 and 5.
@@ -276,7 +276,7 @@ test.describe('PW-J16 — e-signed disposition, result lock, NC raise, audit tra
     await qaCtx.close()
   })
 
-  test('results are locked once the lot is under review, and stay locked after approval', async ({
+  test('results are locked once the lot is under review, and stay locked after approval', { tag: ['@validation', '@URS-QCI-10'] }, async ({
     browser,
   }) => {
     // OQ-09 TC-09-08 step 4 — "Attempt to change a result after approval:
@@ -372,7 +372,7 @@ test.describe('PW-J16 — e-signed disposition, result lock, NC raise, audit tra
     await qaCtx.close()
   })
 
-  test('a rejected lot raises a pre-linked nonconformance, visible from both sides; a released lot cannot', async ({
+  test('a rejected lot raises a pre-linked nonconformance, visible from both sides; a released lot cannot', { tag: ['@validation', '@URS-QCI-07'] }, async ({
     browser,
   }) => {
     // OQ-09 TC-09-07 steps 3 and 4.

@@ -191,7 +191,7 @@ test.describe('PJ-J2 · list, filter, sort, paginate, pick', () => {
     ).toBeEnabled()
   })
 
-  test('the QC lot picker offers ACTIVE items and refuses the OBSOLETE one', async ({
+  test('the QC lot picker offers ACTIVE items and refuses the OBSOLETE one', { tag: ['@validation', '@URS-ITM-04'] }, async ({
     browser,
   }) => {
     // The picker is how most users encounter an item, and it reads

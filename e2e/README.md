@@ -206,6 +206,26 @@ Rules:
 - `--list` footers include the `setup`/`*Setup` projects; count real tests with
   `grep -vi 'setup\]'`.
 
+### Validation evidence (`@validation`, `@URS-*`)
+
+Every test that [VAL-ARC-001](../content/validation/framework/automated-regression-coverage.md)
+(the customer-facing *Automated Regression Coverage* document at
+`/validation/framework/automated-regression-coverage`) cites as evidence for a
+baseline user requirement carries `@validation` plus one `@URS-XXX-NN` tag per
+requirement it evidences. The tags are **generated from the document**, not
+written by hand:
+
+| Command | What it does |
+| --- | --- |
+| `npm run test:e2e:validation` | Runs the whole evidence set (~155 tests). Trace and video stay on — this run *is* evidence. |
+| `npx playwright test --grep @URS-DOC-07` | Re-runs one requirement's evidence. |
+| `npm run validation:tags` | After editing the document: adds any missing tags to the specs. |
+| `npm run lint:validation-tags` | Fails if the document and the tags disagree (an unresolved citation, a cited test missing its tags, or a tagged test the document no longer cites). |
+
+A red test in this run is not automatically a failure of the requirement: rows
+marked *Product non-conformant* cite **deliberately red** tests. Read the
+document's "Two opposite test conventions" section before triaging.
+
 ### The `analytics` suite is shaped differently
 
 Two things separate it from every other project here, and both are premises

@@ -7,7 +7,7 @@ import { findNcByTitle, sqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · owner raises an NC, it opens for review', () => {
-  test('raise NC → auto-opened (OPEN), workflow instantiated', { tag: '@smoke' }, async ({ page }) => {
+  test('raise NC → auto-opened (OPEN), workflow instantiated', { tag: ['@smoke', '@validation', '@URS-NCR-02', '@URS-NCR-04'] }, async ({ page }) => {
     const title = uniqueTitle('J1')
     const counterBefore = Number(
       sqlValue(

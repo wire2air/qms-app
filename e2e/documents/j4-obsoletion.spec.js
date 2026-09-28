@@ -21,7 +21,7 @@ function obsoletionOf(docId) {
 }
 
 test.describe('PW-J4 · obsoletion (archive) from detail and list', () => {
-  test('detail archive: reason validation → ARCHIVED + soft-deleted + audit stamps', async ({ browser }) => {
+  test('detail archive: reason validation → ARCHIVED + soft-deleted + audit stamps', { tag: ['@validation', '@URS-DOC-13'] }, async ({ browser }) => {
     test.setTimeout(120_000)
     const ctx = await browser.newContext({ storageState: AUTH.owner })
     const page = await ctx.newPage()

@@ -80,7 +80,7 @@ test.describe('PW-J1 · related records', () => {
     await ctx.close()
   })
 
-  test('link, see it on the record, unlink', { tag: '@smoke' }, async ({ browser }) => {
+  test('link, see it on the record, unlink', { tag: ['@smoke', '@validation', '@URS-CAP-09'] }, async ({ browser }) => {
     test.setTimeout(180_000)
     const { nc, capa } = pickPair()
     expect(nc?.id, 'the tenant has an NC to link').toBeTruthy()

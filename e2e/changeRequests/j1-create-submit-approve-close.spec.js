@@ -72,7 +72,7 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     )
   })
 
-  test('reviewer → approver → implementation completes the workflow, CR stays OPEN', { tag: ['@journey', '@p1'] }, async ({
+  test('reviewer → approver → implementation completes the workflow, CR stays OPEN', { tag: ['@journey', '@p1', '@validation', '@URS-CHG-03'] }, async ({
     page,
     browser,
   }) => {
@@ -120,7 +120,7 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     ).toBeGreaterThan(0)
   })
 
-  test('owner closes a finished OPEN CR with e-signature → CLOSED + Part-11 ledger row', { tag: ['@journey', '@p1'] }, async ({
+  test('owner closes a finished OPEN CR with e-signature → CLOSED + Part-11 ledger row', { tag: ['@journey', '@p1', '@validation', '@URS-CHG-05'] }, async ({
     page,
     browser,
   }) => {

@@ -101,7 +101,7 @@ test.describe('CMP-J17 · the printed complaint record', () => {
   test.beforeAll(() => purgeJ17())
   test.afterAll(() => purgeJ17())
 
-  test('TC-06-07 steps 1+2 · the printout carries the narrative, classification, product and lot, customer detail and the QA assessment', async ({
+  test('TC-06-07 steps 1+2 · the printout carries the narrative, classification, product and lot, customer detail and the QA assessment', { tag: ['@validation', '@URS-CMP-07'] }, async ({
     browser,
   }) => {
     test.setTimeout(180_000)

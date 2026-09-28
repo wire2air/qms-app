@@ -463,7 +463,7 @@ test.describe('RA-J7 · TC-08-05 review and approval of the step carrying the as
     ).toBe('edited after approval, outside the interface')
   })
 
-  test('step 5 — the in-place upsert is scoped to ONE instance step: a send-back re-score leaves a SECOND live assessment (KNOWN DEFECT RA-D1)', async ({
+  test('step 5 — the in-place upsert is scoped to ONE instance step: a send-back re-score leaves a SECOND live assessment (KNOWN DEFECT RA-D1)', { tag: ['@validation', '@URS-RSK-05'] }, async ({
     browser,
   }) => {
     test.setTimeout(360_000)

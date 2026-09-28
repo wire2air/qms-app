@@ -226,7 +226,7 @@ test.describe('TRN-J10 · a published training is locked against content edits',
 
   test(
     'the assessment of a published training cannot be rewritten over REST',
-    { tag: '@smoke' },
+    { tag: ['@smoke', '@validation', '@URS-TRN-02'] },
     async ({ browser }) => {
       // THE CORE ARM. A learner who passed yesterday was graded against the
       // original questions; swapping them changes what that signed pass attests.

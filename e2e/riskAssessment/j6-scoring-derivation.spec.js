@@ -271,7 +271,7 @@ async function arrangeScoredStep(browser, tag) {
 }
 
 test.describe('RA-J6 · TC-08-03 risk level derivation against a hand calculation', () => {
-  test('every cell in the hand-calculation table derives the expected RPN *and* the expected band', async ({
+  test('every cell in the hand-calculation table derives the expected RPN *and* the expected band', { tag: ['@validation', '@URS-RSK-03'] }, async ({
     browser,
   }) => {
     test.setTimeout(300_000)

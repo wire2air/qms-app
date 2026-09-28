@@ -192,7 +192,7 @@ test.describe('ROLE-J1 · a visible control and its enforcing policy agree', () 
     ])
   })
 
-  test('🔍 AGREEMENT · every persona × every surface: what is offered is what is permitted', async ({
+  test('🔍 AGREEMENT · every persona × every surface: what is offered is what is permitted', { tag: ['@validation', '@URS-SEC-04'] }, async ({
     browser,
   }) => {
     // The core assertion. Built as a LEDGER rather than a loop of bare expects so

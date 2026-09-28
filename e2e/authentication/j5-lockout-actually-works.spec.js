@@ -89,7 +89,7 @@ test.beforeEach(() => {
 })
 
 test.describe('PW-J5 · the per-account lockout is real, bounded, and clearable', () => {
-  test(`GATE · ${MAX} failures lock the account, and the lock refuses the CORRECT password (G3)`, async () => {
+  test(`GATE · ${MAX} failures lock the account, and the lock refuses the CORRECT password (G3)`, { tag: ['@validation', '@URS-SEC-03'] }, async () => {
     const lockedBefore = loginEventCount(TARGET, 'ACCOUNT_LOCKED')
 
     const statuses = await failLogins(TARGET, MAX, { source: SRC_LOCK })

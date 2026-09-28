@@ -335,7 +335,7 @@ test.describe('RA-J8 · TC-08-06 audit trail of the risk assessment', () => {
     ).toBe(false)
   })
 
-  test('step 2 — a score change records BOTH the previous and the new value', async ({
+  test('step 2 — a score change records BOTH the previous and the new value', { tag: ['@validation', '@URS-RSK-06'] }, async ({
     browser,
   }) => {
     test.setTimeout(300_000)

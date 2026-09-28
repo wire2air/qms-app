@@ -15,7 +15,7 @@ test.describe('PW-J1 · author creates an SOP and submits it for review', () => 
     await expect(page.getByRole('button', { name: 'Create Document' })).toBeVisible({ timeout: 20_000 })
   })
 
-  test('create from template → DRAFT 1.0 with no doc number', { tag: '@smoke' }, async ({ page }) => {
+  test('create from template → DRAFT 1.0 with no doc number', { tag: ['@smoke', '@validation', '@URS-DOC-03'] }, async ({ page }) => {
     const title = uniqueTitle('J1-create')
     await createSopDocument(page, title)
 
@@ -49,7 +49,7 @@ test.describe('PW-J1 · author creates an SOP and submits it for review', () => 
     expect(versionsOf(doc.id)[0].statusId).toBe('DRAFT')
   })
 
-  test('fill sections → submit → IN_REVIEW with doc number, workflow and task', { tag: ['@smoke', '@p0'] }, async ({ page }) => {
+  test('fill sections → submit → IN_REVIEW with doc number, workflow and task', { tag: ['@smoke', '@p0', '@validation', '@URS-DOC-02', '@URS-DOC-04'] }, async ({ page }) => {
     const title = uniqueTitle('J1-submit')
     await createSopDocument(page, title)
     const created = findDocumentByTitle(title)

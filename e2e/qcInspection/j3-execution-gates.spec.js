@@ -14,7 +14,7 @@ import { checkInLot, createLotViaRest, findLotByNumber, openLot, recordResults }
 import { sqlValue, waitForSqlValue } from '../fixtures/db.js'
 
 test.describe('PW-J3 — execution gates', () => {
-  test('results cannot be recorded until an inspector checks in', async ({ browser }) => {
+  test('results cannot be recorded until an inspector checks in', { tag: ['@validation', '@URS-QCI-12'] }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.qcInspector })
     const page = await ctx.newPage()
     const lot = await createLotViaRest(page, {})

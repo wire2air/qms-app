@@ -85,7 +85,7 @@ function auditRow(entityId, action, since) {
 }
 
 test.describe('ALD-A3 — a real change becomes a readable audit row', () => {
-  test('trigger → worker → audit_logs, with the diff the registry says it should carry', { tag: '@smoke' }, async () => {
+  test('trigger → worker → audit_logs, with the diff the registry says it should carry', { tag: ['@smoke', '@validation', '@URS-SEC-07'] }, async () => {
     const since = dbNow()
 
     // ── Hop 1+2, the CREATE. The INSERT is itself the auditable act.

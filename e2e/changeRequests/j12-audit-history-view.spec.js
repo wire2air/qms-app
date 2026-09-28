@@ -441,7 +441,7 @@ test.describe('PW-J12 · the record’s audit history view (TC-05-06)', () => {
     // read-only dialog is asserted in the first test of this file.
   })
 
-  test('TC-05-06 step 1 · a closed change request’s history view holds creation, submission, approval and closure', async ({
+  test('TC-05-06 step 1 · a closed change request’s history view holds creation, submission, approval and closure', { tag: ['@validation', '@URS-CHG-06'] }, async ({
     browser,
   }) => {
     test.setTimeout(300_000)

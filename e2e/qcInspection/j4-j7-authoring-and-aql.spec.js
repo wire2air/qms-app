@@ -19,7 +19,7 @@ const stamp = () => `${Date.now()}`
 test.describe('PW-J4 — sampling plan authoring', () => {
   test.use({ storageState: AUTH.qcAuthor })
 
-  test('create, preview and approve a sampling plan', async ({ page }) => {
+  test('create, preview and approve a sampling plan', { tag: ['@validation', '@URS-QCI-02'] }, async ({ page }) => {
     await page.goto('/qc-inspection?tab=sampling-plans')
     const name = `E2E Plan ${stamp()}`
 
@@ -85,7 +85,7 @@ test.describe('PW-J4 — sampling plan authoring', () => {
 test.describe('PW-J5 — specification authoring', () => {
   test.use({ storageState: AUTH.qcAuthor })
 
-  test('create a spec with characteristics and approve it to EFFECTIVE', async ({ page }) => {
+  test('create a spec with characteristics and approve it to EFFECTIVE', { tag: ['@validation', '@URS-QCI-01'] }, async ({ page }) => {
     await page.goto('/qc-inspection?tab=specifications')
     const name = `E2E Spec ${stamp()}`
 

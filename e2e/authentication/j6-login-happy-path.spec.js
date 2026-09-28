@@ -65,7 +65,7 @@ test.afterAll(() => {
 })
 
 test.describe('PW-J6 · signing in through the real page produces a complete session', () => {
-  test('GATE · the sign-in page authenticates and writes every side effect', { tag: ['@smoke', '@p0'] }, async ({ browser }) => {
+  test('GATE · the sign-in page authenticates and writes every side effect', { tag: ['@smoke', '@p0', '@validation', '@URS-SEC-01'] }, async ({ browser }) => {
     const since = nowIso()
     const context = await browser.newContext()
     const page = await context.newPage()

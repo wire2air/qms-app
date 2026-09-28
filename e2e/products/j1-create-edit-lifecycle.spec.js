@@ -79,7 +79,7 @@ test.describe('PJ-J1 · the item lifecycle', () => {
 
   test(
     'create: the dialog writes over GraphQL and issues no products REST call',
-    { tag: '@smoke' },
+    { tag: ['@smoke', '@validation', '@URS-ITM-01'] },
     async ({ browser }) => {
       const page = await pool.page(browser, PRODUCTS.admin.auth)
       await openRegister(page)
@@ -149,98 +149,104 @@ test.describe('PJ-J1 · the item lifecycle', () => {
     },
   )
 
-  test('edit: the detail page saves the same way, and SKU stays immutable', async ({ browser }) => {
-    const page = await pool.page(browser, PRODUCTS.admin.auth)
-    const created = ensureSubject()
-    expect(created, 'the subject item exists').not.toBeNull()
+  test(
+    'edit: the detail page saves the same way, and SKU stays immutable',
+    { tag: ['@validation', '@URS-ITM-02'] },
+    async ({ browser }) => {
+      const page = await pool.page(browser, PRODUCTS.admin.auth)
+      const created = ensureSubject()
+      expect(created, 'the subject item exists').not.toBeNull()
 
-    await openItemDetail(page, { id: created.id, name: created.name })
+      await openItemDetail(page, { id: created.id, name: created.name })
 
-    const restCalls = recordRestCalls(page)
-    const mutations = recordGraphqlMutations(page)
+      const restCalls = recordRestCalls(page)
+      const mutations = recordGraphqlMutations(page)
 
-    await page.getByRole('button', { name: 'Edit', exact: true }).click()
-    const d = dialog(page)
-    await expect(d.getByText('Edit Item', { exact: true })).toBeVisible()
-
-    // SKU is `:disabled="isEdit"` — the item's key is immutable once issued,
-    // because every other record refers to it by that string. Asserted rather
-    // than assumed: an editable SKU would silently re-point the human meaning of
-    // every historical reference.
-    await expect(
-      d.getByRole('textbox', { name: 'SKU', exact: true }),
-      'SKU is not editable after creation',
-    ).toBeDisabled()
-
-    await d.getByRole('textbox', { name: 'Item Name', exact: true }).fill(RENAMED)
-    await d.getByRole('textbox', { name: 'Revision', exact: true }).fill('B')
-    await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
-
-    await expect
-      .poll(() => findProductBySku(SKU)?.revision, {
-        timeout: 30_000,
-        message: 'the edit landed in Postgres',
-      })
-      .toBe('B')
-
-    const after = findProductBySku(SKU)
-    expect(after.name).toBe(RENAMED)
-    expect(after.sku, 'the SKU is unchanged').toBe(SKU)
-
-    expect(
-      restCalls.filter((c) => /product/i.test(c)),
-      'edit takes the same GraphQL path as create',
-    ).toEqual([])
-    expect(mutations, 'the update mutation went out').toContain('updateProduct')
-  })
-
-  test('lifecycle: all four statuses are reachable and each repaints the badge', async ({
-    browser,
-  }) => {
-    // ACTIVE (green) → UNDER_REVIEW (amber) → OBSOLETE (gray) → DISCONTINUED
-    // (red) → back to ACTIVE. The colours are Tailwind classes in
-    // ProductStatusBadge.vue's SCHEME_MAP, which is the only place the mapping
-    // exists — there is no status colour in the database — so asserting the
-    // class IS asserting the mapping.
-    //
-    // This item carries NO Specification, and that matters for the OBSOLETE
-    // step: `enforce_product_specification_link_trg` (migration 20260910120000)
-    // refuses status→OBSOLETE while a LIVE spec references the item. PJ-J5
-    // covers that rule from the other side; here the point is that the ordinary
-    // path is open, so the guard has not become a tax on every retirement.
-    const page = await pool.page(browser, PRODUCTS.admin.auth)
-    const created = ensureSubject()
-    expect(created, 'the subject item exists').not.toBeNull()
-    const subjectName = created.name
-
-    const STEPS = [
-      { id: 'UNDER_REVIEW', label: 'Under Review', colour: /bg-amber-100/ },
-      { id: 'OBSOLETE', label: 'Obsolete', colour: /bg-gray-100/ },
-      { id: 'DISCONTINUED', label: 'Discontinued', colour: /bg-red-100/ },
-      { id: 'ACTIVE', label: 'Active', colour: /bg-green-100/ },
-    ]
-
-    for (const step of STEPS) {
-      await openItemDetail(page, { id: created.id, name: subjectName })
       await page.getByRole('button', { name: 'Edit', exact: true }).click()
-      await expect(dialog(page).getByText('Edit Item', { exact: true })).toBeVisible()
-      await selectByNearbyLabel(page, 'Status', step.label)
+      const d = dialog(page)
+      await expect(d.getByText('Edit Item', { exact: true })).toBeVisible()
+
+      // SKU is `:disabled="isEdit"` — the item's key is immutable once issued,
+      // because every other record refers to it by that string. Asserted rather
+      // than assumed: an editable SKU would silently re-point the human meaning of
+      // every historical reference.
+      await expect(
+        d.getByRole('textbox', { name: 'SKU', exact: true }),
+        'SKU is not editable after creation',
+      ).toBeDisabled()
+
+      await d.getByRole('textbox', { name: 'Item Name', exact: true }).fill(RENAMED)
+      await d.getByRole('textbox', { name: 'Revision', exact: true }).fill('B')
       await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
 
       await expect
-        .poll(() => findProductBySku(SKU)?.statusId, {
+        .poll(() => findProductBySku(SKU)?.revision, {
           timeout: 30_000,
-          message: `status moved to ${step.id} in Postgres`,
+          message: 'the edit landed in Postgres',
         })
-        .toBe(step.id)
+        .toBe('B')
 
-      // The dialog must be gone before the badge is located: while it is open
-      // the status select's own option text carries the same label.
-      await expect(dialog(page)).toHaveCount(0, { timeout: 15_000 })
-      await expect(
-        statusBadge(page, step.label),
-        `the ${step.id} badge is painted ${String(step.colour)}`,
-      ).toHaveClass(step.colour, { timeout: 30_000 })
-    }
-  })
+      const after = findProductBySku(SKU)
+      expect(after.name).toBe(RENAMED)
+      expect(after.sku, 'the SKU is unchanged').toBe(SKU)
+
+      expect(
+        restCalls.filter((c) => /product/i.test(c)),
+        'edit takes the same GraphQL path as create',
+      ).toEqual([])
+      expect(mutations, 'the update mutation went out').toContain('updateProduct')
+    },
+  )
+
+  test(
+    'lifecycle: all four statuses are reachable and each repaints the badge',
+    { tag: ['@validation', '@URS-ITM-05'] },
+    async ({ browser }) => {
+      // ACTIVE (green) → UNDER_REVIEW (amber) → OBSOLETE (gray) → DISCONTINUED
+      // (red) → back to ACTIVE. The colours are Tailwind classes in
+      // ProductStatusBadge.vue's SCHEME_MAP, which is the only place the mapping
+      // exists — there is no status colour in the database — so asserting the
+      // class IS asserting the mapping.
+      //
+      // This item carries NO Specification, and that matters for the OBSOLETE
+      // step: `enforce_product_specification_link_trg` (migration 20260910120000)
+      // refuses status→OBSOLETE while a LIVE spec references the item. PJ-J5
+      // covers that rule from the other side; here the point is that the ordinary
+      // path is open, so the guard has not become a tax on every retirement.
+      const page = await pool.page(browser, PRODUCTS.admin.auth)
+      const created = ensureSubject()
+      expect(created, 'the subject item exists').not.toBeNull()
+      const subjectName = created.name
+
+      const STEPS = [
+        { id: 'UNDER_REVIEW', label: 'Under Review', colour: /bg-amber-100/ },
+        { id: 'OBSOLETE', label: 'Obsolete', colour: /bg-gray-100/ },
+        { id: 'DISCONTINUED', label: 'Discontinued', colour: /bg-red-100/ },
+        { id: 'ACTIVE', label: 'Active', colour: /bg-green-100/ },
+      ]
+
+      for (const step of STEPS) {
+        await openItemDetail(page, { id: created.id, name: subjectName })
+        await page.getByRole('button', { name: 'Edit', exact: true }).click()
+        await expect(dialog(page).getByText('Edit Item', { exact: true })).toBeVisible()
+        await selectByNearbyLabel(page, 'Status', step.label)
+        await page.getByRole('button', { name: 'Save Changes', exact: true }).click()
+
+        await expect
+          .poll(() => findProductBySku(SKU)?.statusId, {
+            timeout: 30_000,
+            message: `status moved to ${step.id} in Postgres`,
+          })
+          .toBe(step.id)
+
+        // The dialog must be gone before the badge is located: while it is open
+        // the status select's own option text carries the same label.
+        await expect(dialog(page)).toHaveCount(0, { timeout: 15_000 })
+        await expect(
+          statusBadge(page, step.label),
+          `the ${step.id} badge is painted ${String(step.colour)}`,
+        ).toHaveClass(step.colour, { timeout: 30_000 })
+      }
+    },
+  )
 })

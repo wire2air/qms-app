@@ -141,7 +141,7 @@ test.describe('PJ-J10 · the audit registry, field by field', () => {
     expect(after.isHazardous).toBe(false)
   })
 
-  test('a browser edit of ONLY the revision produces an audit row, attributed', async ({
+  test('a browser edit of ONLY the revision produces an audit row, attributed', { tag: ['@validation', '@URS-ITM-06'] }, async ({
     browser,
   }) => {
     // The end-to-end proof: the dialog → syncEngine → GraphQL → app_user →

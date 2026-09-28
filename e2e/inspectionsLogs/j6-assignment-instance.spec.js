@@ -32,7 +32,7 @@ const pool = createPersonaPool()
 test.afterAll(() => pool.close())
 
 test.describe('IL-J6 — scheduled assignment instances', () => {
-  test('filling the entry discharges the instance and links the two both ways', async ({
+  test('filling the entry discharges the instance and links the two both ways', { tag: ['@validation', '@URS-LOG-03'] }, async ({
     browser,
   }) => {
     const instance = createDueInstance({ book: OPS, userId: USERS.logOperator.id })

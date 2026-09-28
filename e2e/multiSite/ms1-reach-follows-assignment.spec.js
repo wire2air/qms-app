@@ -71,7 +71,7 @@ test.describe('MS · a site-scoped grant reaches every assigned site', () => {
     ).toBe(false)
   })
 
-  test('MS-J2 · assigning a second site widens the reach', async ({ browser }) => {
+  test('MS-J2 · assigning a second site widens the reach', { tag: ['@validation', '@URS-SEC-21'] }, async ({ browser }) => {
     assignSite(ROAMER, SITES.secondary.id)
     bumpEpoch(ROAMER)
 

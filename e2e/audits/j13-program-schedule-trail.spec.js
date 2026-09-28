@@ -119,7 +119,7 @@ test.beforeAll(purge)
 test.afterAll(purge)
 
 test.describe('PW-J13 · the audit programme schedule', () => {
-  test('a recurring programme is projected onto the annual calendar before any instance exists', async ({
+  test('a recurring programme is projected onto the annual calendar before any instance exists', { tag: ['@validation', '@URS-AUD-02'] }, async ({
     page,
   }) => {
     // TC-07-02 step 3 — "Confirm the schedule is visible in the programme and,

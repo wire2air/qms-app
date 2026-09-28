@@ -21,7 +21,7 @@ import { signWithPin } from '../fixtures/esign.js'
 test.describe('PW-J2 · review → e-signed approval → effective', () => {
   test(
     'full approval chain with e-signature and snapshot',
-    { tag: ['@smoke', '@p0'] },
+    { tag: ['@smoke', '@p0', '@validation', '@URS-SEC-11', '@URS-DOC-06'] },
     async ({ browser }) => {
       test.setTimeout(300_000)
 

@@ -41,7 +41,7 @@ async function waitForReviewerTask(versionId) {
 }
 
 test.describe('PW-J3 · rejection loop + cancel review', () => {
-  test('reviewer rejects → REJECTED → author resubmits → IN_REVIEW', async ({ browser }) => {
+  test('reviewer rejects → REJECTED → author resubmits → IN_REVIEW', { tag: ['@validation', '@URS-DOC-05'] }, async ({ browser }) => {
     test.setTimeout(180_000)
     const { ctx: authorCtx, page: authorPage, doc, version } = await authorSubmits(browser, 'J3-reject')
     await waitForReviewerTask(version.id)
