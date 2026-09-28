@@ -150,7 +150,7 @@ test.describe('FORMS-F5 — structural fields are write-once, on every connectio
     )
   })
 
-  test('version is monotonic — pinned in direction, not in cadence', () => {
+  test('version is monotonic — pinned in direction, not in cadence', { tag: ['@validation', '@URS-WFL-03'] }, () => {
     const before = Number(
       sqlValue(`SELECT version FROM form_templates WHERE id = '${STRUCT.id}'`),
     )

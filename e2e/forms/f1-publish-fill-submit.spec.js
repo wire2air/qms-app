@@ -163,65 +163,67 @@ test.beforeAll(() => {
 })
 
 test.describe('FORMS-F1 — the publication model, end to end', () => {
-  test('the owner publishes through ShareFormDialog and the database mints the link', async ({
-    browser,
-  }) => {
-    // ── The negative half, taken FIRST, while it is still true ───────────────
-    // The template's primary key was the capability until 2026-09-01. It is not
-    // one now, and the cheapest place to prove that is here — the same row that
-    // is about to become reachable is unreachable by its id, before and after.
-    const anon = await anonymousApi()
-    const byRawId = await publicGet(anon, SUBJECT.id)
-    expect(byRawId.status(), 'a template UUID is not a key to the public surface').toBe(
-      REFUSAL.status,
-    )
-    await anon.dispose()
+  test(
+    'the owner publishes through ShareFormDialog and the database mints the link',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      // ── The negative half, taken FIRST, while it is still true ───────────────
+      // The template's primary key was the capability until 2026-09-01. It is not
+      // one now, and the cheapest place to prove that is here — the same row that
+      // is about to become reachable is unreachable by its id, before and after.
+      const anon = await anonymousApi()
+      const byRawId = await publicGet(anon, SUBJECT.id)
+      expect(byRawId.status(), 'a template UUID is not a key to the public surface').toBe(
+        REFUSAL.status,
+      )
+      await anon.dispose()
 
-    // ── Publish, through the real dialog ────────────────────────────────────
-    const { ctx, dialog } = await openShareDialog(browser)
+      // ── Publish, through the real dialog ────────────────────────────────────
+      const { ctx, dialog } = await openShareDialog(browser)
 
-    // The honest default, visible in the UI: an ACTIVE form is NOT shared. This
-    // sentence is the product's answer to "activation was publication".
-    await expect(
-      dialog,
-      'an ACTIVE but unpublished form says so, and offers no link',
-    ).toContainText('not published')
+      // The honest default, visible in the UI: an ACTIVE form is NOT shared. This
+      // sentence is the product's answer to "activation was publication".
+      await expect(
+        dialog,
+        'an ACTIVE but unpublished form says so, and offers no link',
+      ).toContainText('not published')
 
-    await dialog.getByRole('button', { name: 'Publish public link' }).click()
+      await dialog.getByRole('button', { name: 'Publish public link' }).click()
 
-    // ── The link the dialog now shows ───────────────────────────────────────
-    const linkField = dialog.getByRole('textbox')
-    await expect(linkField, 'publishing reveals the link').toBeVisible({ timeout: 20_000 })
-    await expect
-      .poll(async () => (await linkField.inputValue()) || '', {
-        timeout: 20_000,
-        message: 'the Share dialog renders the minted URL',
-      })
-      .toMatch(/\/form\/[0-9a-f]{64}$/)
-    publishedUrl = await linkField.inputValue()
+      // ── The link the dialog now shows ───────────────────────────────────────
+      const linkField = dialog.getByRole('textbox')
+      await expect(linkField, 'publishing reveals the link').toBeVisible({ timeout: 20_000 })
+      await expect
+        .poll(async () => (await linkField.inputValue()) || '', {
+          timeout: 20_000,
+          message: 'the Share dialog renders the minted URL',
+        })
+        .toMatch(/\/form\/[0-9a-f]{64}$/)
+      publishedUrl = await linkField.inputValue()
 
-    // ── …and what the database actually did ─────────────────────────────────
-    const after = publicationOf(SUBJECT.id)
-    expect(after.isPublic, 'the tenant switch is on').toBe(true)
-    expect(after.token, 'the token is 64 lowercase hex characters, server-minted').toMatch(
-      /^[0-9a-f]{64}$/,
-    )
-    expect(
-      publishedUrl.endsWith(`/form/${after.token}`),
-      `the dialog shows the token the database minted (dialog: ${publishedUrl})`,
-    ).toBe(true)
-    expect(after.publishedAt, 'publication is stamped').not.toBeNull()
-    expect(
-      after.publishedBy,
-      'and attributed — the GUC-derived actor, which is what makes this auditable',
-    ).toBe(USERS.owner.id)
+      // ── …and what the database actually did ─────────────────────────────────
+      const after = publicationOf(SUBJECT.id)
+      expect(after.isPublic, 'the tenant switch is on').toBe(true)
+      expect(after.token, 'the token is 64 lowercase hex characters, server-minted').toMatch(
+        /^[0-9a-f]{64}$/,
+      )
+      expect(
+        publishedUrl.endsWith(`/form/${after.token}`),
+        `the dialog shows the token the database minted (dialog: ${publishedUrl})`,
+      ).toBe(true)
+      expect(after.publishedAt, 'publication is stamped').not.toBeNull()
+      expect(
+        after.publishedBy,
+        'and attributed — the GUC-derived actor, which is what makes this auditable',
+      ).toBe(USERS.owner.id)
 
-    // The link is not the row id. Stated explicitly because "it looks like a
-    // uuid with the dashes removed" is close enough to be worth ruling out.
-    expect(after.token).not.toContain(SUBJECT.id.replace(/-/g, ''))
+      // The link is not the row id. Stated explicitly because "it looks like a
+      // uuid with the dashes removed" is close enough to be worth ruling out.
+      expect(after.token).not.toContain(SUBJECT.id.replace(/-/g, ''))
 
-    await ctx.close()
-  })
+      await ctx.close()
+    },
+  )
 
   test('a stranger with the link fills and submits it, and the record lands in the right tenant', async ({
     browser,

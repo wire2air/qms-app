@@ -53,7 +53,7 @@ test.describe('PW-J5 · RCA cross-tenant isolation', () => {
     }
   })
 
-  test('REST answers 404 for an E2ELAB category from the E2EALT session', async ({ browser }) => {
+  test('REST answers 404 for an E2ELAB category from the E2EALT session', { tag: '@smoke' }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.altOwner, baseURL: ALT_BASE_URL })
     const page = await ctx.newPage()
     try {

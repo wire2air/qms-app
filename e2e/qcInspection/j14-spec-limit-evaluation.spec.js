@@ -92,7 +92,7 @@ test.describe('PW-J14 — spec-limit evaluation is the system\'s, not the inspec
   test.beforeAll(() => purgeJ14Lots())
   test.afterAll(() => purgeJ14Lots())
 
-  test('the LSL/USL boundary ladder is evaluated inclusively and without inspector judgement', async ({
+  test('the LSL/USL boundary ladder is evaluated inclusively and without inspector judgement', { tag: ['@validation', '@URS-QCI-05'] }, async ({
     page,
   }) => {
     // Arrange its own preconditions — a failure anywhere in this file fires the

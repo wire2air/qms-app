@@ -201,7 +201,7 @@ test.describe('EQ-J7 · the status lifecycle and its trail', () => {
 
   // ── 1 · The state machine, at the database ────────────────────────────────
 
-  test('the database refuses RETIRED → IN_SERVICE, on the superuser path as hard as on app_user', async ({
+  test('the database refuses RETIRED → IN_SERVICE, on the superuser path as hard as on app_user', { tag: ['@validation', '@URS-EQP-06'] }, async ({
     browser,
   }) => {
     // TC-11-04 step 4 / URS-EQP-04. The permitted edges are
@@ -347,7 +347,7 @@ test.describe('EQ-J7 · the status lifecycle and its trail', () => {
 
   // ── 2 · What the trail records ────────────────────────────────────────────
 
-  test('every status change is recorded as a semantic action with both values', async () => {
+  test('every status change is recorded as a semantic action with both values', { tag: ['@validation', '@URS-EQP-04'] }, async () => {
     // TC-11-04 step 5 and TC-11-06 steps 1–3 in one walk. `registry/modules/
     // equipment.js` maps statusId through an actionMap, so the trail reads
     // RETIRE / DEACTIVATE / ACTIVATE rather than three indistinguishable

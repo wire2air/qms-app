@@ -173,6 +173,59 @@ npm run test:e2e:ui           # Playwright UI mode (pick/replay/inspect)
 npm run test:e2e:report       # open the HTML report from the last run
 ```
 
+### Smoke tiers
+
+Tiers are Playwright tags (`test('…', { tag: ['@smoke', '@p0'] }, async …)`),
+so a test keeps its home file and joins a tier by tag, not by moving.
+
+| Tier | Selector | What belongs there | Run |
+| --- | --- | --- | --- |
+| **S0 gate** | `@gate`, project `smokeGate` | Is the stack up and can anyone sign in — seconds, no module logic | `npm run test:e2e:gate` |
+| **S1 core** | `@smoke` (`@p0` = must-not-break) | One fast, self-contained probe per module: a denial/isolation check, plus the P0 happy paths (document submit + e-signed approval, NC create refusal, complaint→NC guard, supplier upload, sign-in) and the mocked public-route renders in `smoke.spec.js` | `npm run test:e2e:smoke` (stops at 10 failures) · `npm run test:e2e:smoke:full` (no cap — use for triage) |
+| **S2 journeys** | `@journey` (`@p1`) | Multi-step lifecycles: e-signed closes, workflow approvals, conversions, exports. Minutes, not seconds; **not** in `@smoke` | `npm run test:e2e:journeys` |
+| **S3 deploy check** | `@deploy` | *Planned.* Read-only probes safe to run against a deployed environment | — |
+
+Rules:
+
+- **A tagged test must pass when selected alone** (`--grep`). No reliance on a
+  module-level `let` assigned by an earlier test, on `describe.serial` ordering,
+  or on data another spec's setup may purge. If it needs a prerequisite, the
+  prerequisite goes in `beforeAll` or the test arranges its own rows. Check with
+  `npx playwright test --list --grep @smoke` and then run the single test with
+  `--grep "<its title>"`.
+- Smoke tests should not need MailHog, the OTP limiter, or the worker unless
+  that is exactly what they probe.
+- **`@known-defect`**: a test whose expectation is right but whose product
+  behaviour is currently wrong. It keeps its tier tag and adds `@known-defect`;
+  it **must name a ticket id** in its title or in a comment directly above it.
+  Every smoke/journey script passes `--grep-invert @known-defect`, so these never
+  gate a run; run them on purpose with `npx playwright test --grep @known-defect`.
+  Remove the tag in the same change that fixes the defect. (This is a tag, and is
+  separate from the older `known-defect` *annotation* style described under
+  Expected failures, where the test asserts the broken behaviour and stays green.)
+- `--list` footers include the `setup`/`*Setup` projects; count real tests with
+  `grep -vi 'setup\]'`.
+
+### Validation evidence (`@validation`, `@URS-*`)
+
+Every test that [VAL-ARC-001](../content/validation/framework/automated-regression-coverage.md)
+(the customer-facing *Automated Regression Coverage* document at
+`/validation/framework/automated-regression-coverage`) cites as evidence for a
+baseline user requirement carries `@validation` plus one `@URS-XXX-NN` tag per
+requirement it evidences. The tags are **generated from the document**, not
+written by hand:
+
+| Command | What it does |
+| --- | --- |
+| `npm run test:e2e:validation` | Runs the whole evidence set (~155 tests). Trace and video stay on — this run *is* evidence. |
+| `npx playwright test --grep @URS-DOC-07` | Re-runs one requirement's evidence. |
+| `npm run validation:tags` | After editing the document: adds any missing tags to the specs. |
+| `npm run lint:validation-tags` | Fails if the document and the tags disagree (an unresolved citation, a cited test missing its tags, or a tagged test the document no longer cites). |
+
+A red test in this run is not automatically a failure of the requirement: rows
+marked *Product non-conformant* cite **deliberately red** tests. Read the
+document's "Two opposite test conventions" section before triaging.
+
 ### The `analytics` suite is shaped differently
 
 Two things separate it from every other project here, and both are premises

@@ -31,7 +31,7 @@ test.describe('PW-J1 · site create → edit → delete', () => {
 
   test.afterAll(() => purgeSiteByName(name))
 
-  test('create: code auto-suggests, duplicate checks fire, write goes over GraphQL', async ({ page }) => {
+  test('create: code auto-suggests, duplicate checks fire, write goes over GraphQL', { tag: '@smoke' }, async ({ page }) => {
     // Record every REST call the page makes while creating.
     const restCalls = []
     page.on('request', (req) => {

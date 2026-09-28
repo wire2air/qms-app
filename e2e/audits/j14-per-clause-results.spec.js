@@ -137,7 +137,7 @@ test.beforeAll(purge)
 test.afterAll(purge)
 
 test.describe('PW-J14 · per-clause results are recorded, attributed and reconcilable', () => {
-  test('every leaf clause carries its own verdict, attributed to the auditor with a timestamp', async ({
+  test('every leaf clause carries its own verdict, attributed to the auditor with a timestamp', { tag: ['@validation', '@URS-AUD-07'] }, async ({
     page,
   }) => {
     // TC-07-07 step 2 (requirement results exist on the record) and

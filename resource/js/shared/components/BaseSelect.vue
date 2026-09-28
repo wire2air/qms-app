@@ -408,6 +408,36 @@ function closePopover() {
   else desktopClose()
 }
 
+// Put keyboard focus INSIDE the desktop panel the moment it mounts — on the
+// search input when there is one, otherwise on the menu root itself.
+//
+// The input's `autofocus` attribute below cannot do this: browsers honour
+// autofocus on a dynamically inserted element only while nothing on the page
+// has been focused yet (the HTML "autofocus processed" flag), so on any real
+// form — where the user has already typed into a field — it is dead. BasePopover
+// then focused its own panel div, which has no key handler, so ArrowDown/Enter
+// after opening a select went nowhere: nothing was chosen and the panel never
+// closed. On required selects the auto-filled first option hid the missed
+// choice, and the still-open panel sat on top of the next field (BL-02, CAPA
+// create: Department's panel swallowed the click on CAPA Type).
+//
+// Desktop only: on the mobile bottom sheet, focusing the input would raise the
+// on-screen keyboard over the options.
+const vFocusMenu = {
+  mounted(el) {
+    const target = el.querySelector('input') ?? el
+    target.focus({ preventScroll: true })
+  },
+}
+
+// Keys pressed while focus is on the menu root rather than the search input (a
+// non-searchable select, or after clicking panel chrome) — the input handles
+// its own keydown, so skip events that come from it to avoid double handling.
+function onMenuKeydown(e) {
+  if (e.target instanceof HTMLInputElement) return
+  onKeydown(e)
+}
+
 function onTriggerKeydown(e) {
   if (props.disabled) return
   if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
@@ -658,6 +688,7 @@ defineExpose({
               :id="rowDomId(index)"
               type="button"
               role="option"
+              data-row-kind="null"
               :aria-selected="nullSelected"
               class="tw:flex tw:min-h-11 tw:sm:min-h-9 tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:px-3 tw:py-2 tw:text-start tw:text-sm tw:transition-colors"
               :class="[
@@ -740,6 +771,7 @@ defineExpose({
             :id="rowDomId(index)"
             type="button"
             role="option"
+            data-row-kind="null"
             :aria-selected="nullSelected"
             class="tw:flex tw:min-h-11 tw:sm:min-h-9 tw:w-full tw:items-center tw:justify-between tw:gap-2 tw:rounded-lg tw:px-3 tw:py-2 tw:text-start tw:text-sm tw:transition-colors"
             :class="[
@@ -833,8 +865,11 @@ defineExpose({
         <!-- Capture close() so keyboard/selection can dismiss the panel. -->
         <span class="tw:hidden">{{ ((desktopClose = close), '') }}</span>
         <div
-          class="tw:w-72 tw:max-w-[90vw] tw:overflow-hidden tw:rounded-xl tw:bg-card"
+          v-focus-menu
+          tabindex="-1"
+          class="tw:w-72 tw:max-w-[90vw] tw:overflow-hidden tw:rounded-xl tw:bg-card tw:focus:outline-none"
           :class="menuClass"
+          @keydown="onMenuKeydown"
         >
           <ReuseMenu />
         </div>

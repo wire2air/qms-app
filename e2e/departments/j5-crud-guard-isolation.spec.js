@@ -31,7 +31,7 @@ test.describe('DEPT-J5 · departments CRUD, guard and isolation', () => {
   test.beforeAll(purge)
   test.afterAll(purge)
 
-  test('create: the dialog persists over GraphQL, not REST', async ({ browser }) => {
+  test('create: the dialog persists over GraphQL, not REST', { tag: '@smoke' }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.deptAdmin })
     const page = await ctx.newPage()
 
@@ -90,7 +90,7 @@ test.describe('DEPT-J5 · departments CRUD, guard and isolation', () => {
     expect(sqlValue(`SELECT site_id FROM departments WHERE name = '${NAME}'`)).toBe(SITES.primary.id)
   })
 
-  test('a user without departments:read is redirected off /departments', async ({ browser }) => {
+  test('a user without departments:read is redirected off /departments', { tag: '@smoke' }, async ({ browser }) => {
     // departments is ADMIN-tier, so the guard covers the whole subtree.
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
     const page = await ctx.newPage()

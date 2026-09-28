@@ -103,7 +103,7 @@ test('ST-11 · REST PATCH refuses a settings value that is not an object, and th
   }
 })
 
-test('ST-12 · without company_settings:manage, PATCH /companies is 403 and nothing is written', async ({
+test('ST-12 · without company_settings:manage, PATCH /companies is 403 and nothing is written', { tag: '@smoke' }, async ({
   browser,
 }) => {
   const nameBefore = companyColumns().name

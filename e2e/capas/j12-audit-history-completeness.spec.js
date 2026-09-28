@@ -254,102 +254,104 @@ test.describe('PW-J12 · the record history dialog shows every writer', () => {
     })
   })
 
-  test('the dialog shows the REJECT entry that explains the revert to DRAFT', async ({
-    browser,
-  }) => {
-    // THE CORE ARM. A rejected CAPA's trail reads:
-    //     Capas CREATE · Capas SUBMIT_FOR_REVIEW · Capa REJECT · Capas DRAFT
-    // The dialog is handed 'Capas' only, so it shows the creation, the
-    // submission and the revert to DRAFT — but not the rejection that caused it.
-    test.setTimeout(300_000)
-    const capa = await capaRejectedByApprover(browser, 'J12-dialog')
+  test(
+    'the dialog shows the REJECT entry that explains the revert to DRAFT',
+    { tag: ['@validation', '@URS-CAP-10'] },
+    async ({ browser }) => {
+      // THE CORE ARM. A rejected CAPA's trail reads:
+      //     Capas CREATE · Capas SUBMIT_FOR_REVIEW · Capa REJECT · Capas DRAFT
+      // The dialog is handed 'Capas' only, so it shows the creation, the
+      // submission and the revert to DRAFT — but not the rejection that caused it.
+      test.setTimeout(300_000)
+      const capa = await capaRejectedByApprover(browser, 'J12-dialog')
 
-    await waitForSqlValue(
-      `SELECT count(*) FROM audit_logs WHERE entity_type = 'Capa' AND entity_id = '${capa.id}' AND action = 'REJECT'`,
-      { timeoutMs: 90_000, label: 'controller-written REJECT row' },
-    )
-    // Scoped to THIS CAPA's own rows only. The page also passes
-    // WorkflowInstances / WorkflowInstanceSteps / CapaEffectivenessChecks
-    // blocks, whose rows are legitimately in the dialog — counting the total
-    // and comparing it to the CAPA's own row count is what made the first
-    // version of this test fail with "Expected 4, Received 10" on a dialog that
-    // was behaving correctly for those other blocks.
-    const expected = triggerRows(capa.id) + controllerRows(capa.id)
+      await waitForSqlValue(
+        `SELECT count(*) FROM audit_logs WHERE entity_type = 'Capa' AND entity_id = '${capa.id}' AND action = 'REJECT'`,
+        { timeoutMs: 90_000, label: 'controller-written REJECT row' },
+      )
+      // Scoped to THIS CAPA's own rows only. The page also passes
+      // WorkflowInstances / WorkflowInstanceSteps / CapaEffectivenessChecks
+      // blocks, whose rows are legitimately in the dialog — counting the total
+      // and comparing it to the CAPA's own row count is what made the first
+      // version of this test fail with "Expected 4, Received 10" on a dialog that
+      // was behaving correctly for those other blocks.
+      const expected = triggerRows(capa.id) + controllerRows(capa.id)
 
-    // auditor holds audit_trail:read AND capa:read, and nothing that writes —
-    // so it can open the history without perturbing the record.
-    const readerCtx = await browser.newContext({ storageState: AUTH.auditor })
-    try {
-      const page = await readerCtx.newPage()
-      await page.goto(`/capas/${capa.id}`, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30_000,
-      })
-      await expect(page.getByText(capa.capaNumber).first(), 'the record renders').toBeVisible({
-        timeout: 60_000,
-      })
-
-      await revealRecordActions(page)
-      await expect(auditLogMenuItem(page), 'the History affordance is offered').toBeVisible({
-        timeout: 20_000,
-      })
-      await auditLogMenuItem(page).click()
-
-      // Do NOT assert getByRole('dialog') is visible — HeadlessUI puts the role
-      // on a zero-box positioning wrapper that always resolves hidden. Usable as
-      // a scope, useless as a visibility check. (Same note as ALD-A5.)
-      const dialog = page.getByRole('dialog')
-      await expect(
-        page.getByRole('heading', { name: new RegExp(`Audit Log — ${capa.capaNumber}`) }),
-        'the history dialog opened',
-      ).toBeVisible({ timeout: 20_000 })
-
-      await expect(auditRows(dialog).first(), 'the record has a history').toBeVisible({
-        timeout: TRAIL_SYNC_TIMEOUT,
-      })
-
-      // Wait for the trail to have synced into IndexedDB before counting —
-      // the dialog reads from IDB, and the plural rows land there first.
-      await expect
-        .poll(async () => auditRows(dialog).count(), { timeout: TRAIL_SYNC_TIMEOUT })
-        .toBeGreaterThan(0)
-
-      // THE ASSERTION. Filter to this CAPA's own rows by matching its UUID.
-      //
-      // The UUID, not the CAPA number, and this is not arbitrary:
-      // `ENTITY_LABEL_RESOLVERS` (src/utils/auditConstants.js) has NO `Capa`
-      // entry — it covers Document, Workflow, Record, Nonconformance,
-      // QualityEvent, CustomerComplaint and ~40 others, but not Capa or
-      // ChangeRequest. So `AuditLogsItem` singularises 'Capas' -> 'Capa', finds
-      // no resolver, and falls back to `label: entityId`. A CAPA's audit rows
-      // therefore display the raw UUID. (Worth reporting separately: on any
-      // audit view a CAPA reads as a uuid rather than CAPA-173, which is a
-      // readability gap against TC-16-08 — but it is NOT this defect.)
-      //
-      // It also makes the filter exact. The other blocks resolve to labels that
-      // cannot contain this uuid: `WorkflowInstance` -> the workflow's name,
-      // `WorkflowInstanceStep` -> "Step N". Filtering on the action word would
-      // NOT be safe — a rejected CAPA's workflow rows carry
-      // `WorkflowInstances REJECT` and `WorkflowInstanceSteps STEP_REJECTED`,
-      // so a `hasText: 'REJECT'` filter would match those and pass while the
-      // CAPA's own REJECT stayed hidden. That is the same mistake as the row
-      // count this file already made once.
-      const ownRows = dialog
-        .getByRole('button', { name: /^(Expand|Collapse) change details$/ })
-        .filter({ hasText: capa.id })
-
-      await expect
-        .poll(async () => ownRows.count(), {
-          timeout: TRAIL_SYNC_TIMEOUT,
-          message: `the dialog must show all ${expected} rows recorded against this CAPA (${triggerRows(
-            capa.id,
-          )} trigger-written + ${controllerRows(
-            capa.id,
-          )} controller-written). Fewer means a singular-spelled row was filtered out client-side — a duplicate of an action that IS otherwise visible via the workflow rows, so this is an undercount rather than a hidden action. See the severity note at the top of this file before reporting it.`,
+      // auditor holds audit_trail:read AND capa:read, and nothing that writes —
+      // so it can open the history without perturbing the record.
+      const readerCtx = await browser.newContext({ storageState: AUTH.auditor })
+      try {
+        const page = await readerCtx.newPage()
+        await page.goto(`/capas/${capa.id}`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 30_000,
         })
-        .toBe(expected)
-    } finally {
-      await readerCtx.close()
-    }
-  })
+        await expect(page.getByText(capa.capaNumber).first(), 'the record renders').toBeVisible({
+          timeout: 60_000,
+        })
+
+        await revealRecordActions(page)
+        await expect(auditLogMenuItem(page), 'the History affordance is offered').toBeVisible({
+          timeout: 20_000,
+        })
+        await auditLogMenuItem(page).click()
+
+        // Do NOT assert getByRole('dialog') is visible — HeadlessUI puts the role
+        // on a zero-box positioning wrapper that always resolves hidden. Usable as
+        // a scope, useless as a visibility check. (Same note as ALD-A5.)
+        const dialog = page.getByRole('dialog')
+        await expect(
+          page.getByRole('heading', { name: new RegExp(`Audit Log — ${capa.capaNumber}`) }),
+          'the history dialog opened',
+        ).toBeVisible({ timeout: 20_000 })
+
+        await expect(auditRows(dialog).first(), 'the record has a history').toBeVisible({
+          timeout: TRAIL_SYNC_TIMEOUT,
+        })
+
+        // Wait for the trail to have synced into IndexedDB before counting —
+        // the dialog reads from IDB, and the plural rows land there first.
+        await expect
+          .poll(async () => auditRows(dialog).count(), { timeout: TRAIL_SYNC_TIMEOUT })
+          .toBeGreaterThan(0)
+
+        // THE ASSERTION. Filter to this CAPA's own rows by matching its UUID.
+        //
+        // The UUID, not the CAPA number, and this is not arbitrary:
+        // `ENTITY_LABEL_RESOLVERS` (src/utils/auditConstants.js) has NO `Capa`
+        // entry — it covers Document, Workflow, Record, Nonconformance,
+        // QualityEvent, CustomerComplaint and ~40 others, but not Capa or
+        // ChangeRequest. So `AuditLogsItem` singularises 'Capas' -> 'Capa', finds
+        // no resolver, and falls back to `label: entityId`. A CAPA's audit rows
+        // therefore display the raw UUID. (Worth reporting separately: on any
+        // audit view a CAPA reads as a uuid rather than CAPA-173, which is a
+        // readability gap against TC-16-08 — but it is NOT this defect.)
+        //
+        // It also makes the filter exact. The other blocks resolve to labels that
+        // cannot contain this uuid: `WorkflowInstance` -> the workflow's name,
+        // `WorkflowInstanceStep` -> "Step N". Filtering on the action word would
+        // NOT be safe — a rejected CAPA's workflow rows carry
+        // `WorkflowInstances REJECT` and `WorkflowInstanceSteps STEP_REJECTED`,
+        // so a `hasText: 'REJECT'` filter would match those and pass while the
+        // CAPA's own REJECT stayed hidden. That is the same mistake as the row
+        // count this file already made once.
+        const ownRows = dialog
+          .getByRole('button', { name: /^(Expand|Collapse) change details$/ })
+          .filter({ hasText: capa.id })
+
+        await expect
+          .poll(async () => ownRows.count(), {
+            timeout: TRAIL_SYNC_TIMEOUT,
+            message: `the dialog must show all ${expected} rows recorded against this CAPA (${triggerRows(
+              capa.id,
+            )} trigger-written + ${controllerRows(
+              capa.id,
+            )} controller-written). Fewer means a singular-spelled row was filtered out client-side — a duplicate of an action that IS otherwise visible via the workflow rows, so this is an undercount rather than a hidden action. See the severity note at the top of this file before reporting it.`,
+          })
+          .toBe(expected)
+      } finally {
+        await readerCtx.close()
+      }
+    },
+  )
 })

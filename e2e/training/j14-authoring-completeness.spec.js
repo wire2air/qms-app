@@ -115,7 +115,7 @@ test.describe('TRN-J14 · authoring completeness — what is required, and what 
   test.use({ storageState: AUTH.trainingAdmin })
 
   // ── The POSITIVE half TC-02-01 actually asks for ─────────────────────────
-  test('TC-02-01 · content, material AND assessment are all authorable, and all survive to the published record', async ({
+  test('TC-02-01 · content, material AND assessment are all authorable, and all survive to the published record', { tag: ['@validation', '@URS-TRN-01'] }, async ({
     browser,
   }) => {
     // The requirement is a capability claim, so the first duty of this file is

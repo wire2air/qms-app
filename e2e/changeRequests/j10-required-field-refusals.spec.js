@@ -95,7 +95,7 @@ const REQUIRED_KEYS = [
 test.describe('PW-J10 · CR required-field refusals', () => {
   test.use({ storageState: AUTH.author })
 
-  test('control: the body every negative arm is derived from is accepted', async ({ browser }) => {
+  test('control: the body every negative arm is derived from is accepted', { tag: ['@validation', '@URS-CHG-01'] }, async ({ browser }) => {
     test.setTimeout(60_000)
     const ctx = await browser.newContext({ storageState: AUTH.author })
     const title = uniqueTitle('J10-control')

@@ -288,6 +288,14 @@ export async function completeReviewerStep(browser, capaId) {
   const page = await ctx.newPage()
   await page.goto(`/capas/${capaId}`, { waitUntil: 'domcontentloaded' })
   await clickWhenReady(page, page.getByRole('button', { name: 'Mark Complete' }))
+  // Same race fixtures/riskAssessment.js and fixtures/rca.js document: closing
+  // the context aborts the in-flight completion and strands the task ASSIGNED.
+  await waitForSqlValue(
+    `SELECT count(*) FROM task_instances
+      WHERE entity_type = 'Capa' AND entity_id = '${capaId}'
+        AND assigned_to = '${USERS.reviewer.id}' AND completed_at IS NOT NULL`,
+    { timeoutMs: 45_000, label: 'reviewer task completed' },
+  )
   await ctx.close()
 }
 

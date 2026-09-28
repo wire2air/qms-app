@@ -138,7 +138,7 @@ function entryForm() {
 }
 
 test.describe('IL-J9 — defining a log book, and freezing it', () => {
-  test('an owner authors a book with a four-type entry form, and it is born DRAFT at generation 1', async ({
+  test('an owner authors a book with a four-type entry form, and it is born DRAFT at generation 1', { tag: ['@validation', '@URS-LOG-01'] }, async ({
     browser,
   }) => {
     // TC-10-01 (URS-LOG-01) steps 1-4, plus the supervisor assignment in step 6.
@@ -221,7 +221,7 @@ test.describe('IL-J9 — defining a log book, and freezing it', () => {
     expect(book.schemaVersion, 'the first definition is schema version 1').toBe(1)
   })
 
-  test('a draft is still editable — the form can be reworked, and each rework bumps the schema version', async ({
+  test('a draft is still editable — the form can be reworked, and each rework bumps the schema version', { tag: ['@validation', '@URS-LOG-02'] }, async ({
     browser,
   }) => {
     // The other half of TC-10-02: the freeze only means something if the book

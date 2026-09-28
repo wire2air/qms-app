@@ -108,7 +108,7 @@ test.describe('ROLE-J1 · a visible control and its enforcing policy agree', () 
   test.beforeEach(() => restoreRolesFixtures())
   test.afterAll(() => restoreRolesFixtures())
 
-  test('PRECONDITION · the fixture unblocks the module, and one policy decides role assignment', () => {
+  test('PRECONDITION · the fixture unblocks the module, and one policy decides role assignment', { tag: '@smoke' }, () => {
     // The gap doc 20 names: eleven seeded roles, none able to write to a role.
     expect(
       Number(
@@ -157,7 +157,7 @@ test.describe('ROLE-J1 · a visible control and its enforcing policy agree', () 
     expect(assignmentCount(USERS.umCreator.id, ROLES.prize.id), 'prize unheld at rest').toBe(0)
   })
 
-  test('STRUCTURE · all four role-assignment controls gate on the same permission', () => {
+  test('STRUCTURE · all four role-assignment controls gate on the same permission', { tag: '@smoke' }, () => {
     // One row, one policy, therefore one gate. This is the assertion that would
     // have caught the original design drift on the day it was written: the four
     // controls do not need to agree with any particular constant, they need to
@@ -192,7 +192,7 @@ test.describe('ROLE-J1 · a visible control and its enforcing policy agree', () 
     ])
   })
 
-  test('🔍 AGREEMENT · every persona × every surface: what is offered is what is permitted', async ({
+  test('🔍 AGREEMENT · every persona × every surface: what is offered is what is permitted', { tag: ['@validation', '@URS-SEC-04'] }, async ({
     browser,
   }) => {
     // The core assertion. Built as a LEDGER rather than a loop of bare expects so

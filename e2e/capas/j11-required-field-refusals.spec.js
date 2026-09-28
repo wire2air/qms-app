@@ -127,7 +127,7 @@ test.describe('PW-J11 · CAPA required-field refusals', () => {
     })
   }
 
-  test('UI: submitting an empty create form tells the user what is missing', async ({ page }) => {
+  test('UI: submitting an empty create form tells the user what is missing', { tag: ['@validation', '@URS-CAP-01'] }, async ({ page }) => {
     test.setTimeout(120_000)
 
     await expectEmptyFormRefused(page, {

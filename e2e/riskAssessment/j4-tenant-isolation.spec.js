@@ -26,6 +26,10 @@ import { completeRiskReviewStep, waitForRiskAssessment, purgeRiskAssessment, HIG
 
 const REVIEWER_ID = 'e2e10000-0000-4000-8000-000000000003'
 
+// sqlAsAppUser's output also carries the DO / SET / set_config lines of its
+// GUC preamble, so a probe must select a sentinel and read only the last line.
+const lastLine = (out) => out.trim().split('\n').pop().trim()
+
 test.describe('RA-J4 · cross-tenant isolation (E2EALT vs E2ELAB)', () => {
   let capaId
   let raId
@@ -62,16 +66,17 @@ test.describe('RA-J4 · cross-tenant isolation (E2EALT vs E2ELAB)', () => {
   })
 
   test('the risk_assessments row is invisible to an E2EALT user under RLS — no cross-tenant leak through the borrowed capa permission', () => {
+    expect(raId, 'the arrange test created an E2ELAB risk_assessments row').toBeTruthy()
     // E2EALT's owner is isOwner=true in their own company, but this probe
     // deliberately runs as a NON-owner E2EALT persona would: RLS's tenancy
     // clause (company_id = current_setting('app.current_company_id')) is
     // what has to hold here, independent of any permission grant.
-    const res = sqlAsAppUser(`SELECT id FROM public.risk_assessments WHERE id = '${raId}';`, {
+    const res = sqlAsAppUser(`SELECT 'n=' || count(*) FROM public.risk_assessments WHERE id = '${raId}';`, {
       userId: ALT_USERS.owner.id,
       companyId: ALT_COMPANY_ID,
     })
     expect(res.ok).toBe(true)
-    expect(res.output.trim(), 'zero rows — the company_id clause holds regardless of scope').toBe('')
+    expect(lastLine(res.output), 'zero rows — the company_id clause holds regardless of scope').toBe('n=0')
   })
 
   test('an E2EALT session cannot rewrite the E2ELAB row either', () => {
@@ -86,15 +91,16 @@ test.describe('RA-J4 · cross-tenant isolation (E2EALT vs E2ELAB)', () => {
   })
 
   test('CONTROL · the E2ELAB reviewer, in their own tenant, still sees and can write it', () => {
-    const res = sqlAsAppUser(`SELECT id FROM public.risk_assessments WHERE id = '${raId}';`, {
+    expect(raId, 'the arrange test created an E2ELAB risk_assessments row').toBeTruthy()
+    const res = sqlAsAppUser(`SELECT 'n=' || count(*) FROM public.risk_assessments WHERE id = '${raId}';`, {
       userId: REVIEWER_ID,
       companyId: COMPANY_ID,
     })
     expect(res.ok).toBe(true)
-    expect(res.output.trim()).toBe(raId)
+    expect(lastLine(res.output)).toBe('n=1')
   })
 
-  test('risk_assessment_templates — an E2EALT admin session cannot see the E2ELAB seeded template', async ({
+  test('risk_assessment_templates — an E2EALT admin session cannot see the E2ELAB seeded template', { tag: '@smoke' }, async ({
     browser,
   }) => {
     const ctx = await browser.newContext({ storageState: AUTH.altOwner, baseURL: ALT_BASE_URL })

@@ -204,7 +204,7 @@ test.describe('PW-J6 · multi-approver ALL vs ANY', () => {
     )
   })
 
-  test('ANY records ONLY the approver who acted — the other assignee is not stamped APPROVED', async ({
+  test('ANY records ONLY the approver who acted — the other assignee is not stamped APPROVED', { tag: ['@validation', '@URS-WFL-07'] }, async ({
     page,
     browser,
   }) => {

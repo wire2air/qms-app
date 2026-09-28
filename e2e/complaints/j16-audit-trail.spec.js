@@ -175,7 +175,7 @@ test.describe('CMP-J16 · the complaint audit trail', () => {
     }
   })
 
-  test('TC-06-08 step 2 · an update entry shows OLD and NEW values, field by field', async ({
+  test('TC-06-08 step 2 · an update entry shows OLD and NEW values, field by field', { tag: ['@validation', '@URS-CMP-08'] }, async ({
     browser,
   }) => {
     test.setTimeout(150_000)

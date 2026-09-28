@@ -167,7 +167,7 @@ test.describe('CF-2 — one grant reaches one entity type', () => {
     }
   })
 
-  test('the isolation is per-verb too, not only per-module', () => {
+  test('the isolation is per-verb too, not only per-module', { tag: '@smoke' }, () => {
     // `capaSiteEditor` holds capa:approve/read/update. The interesting question
     // is not whether she reads CAPA answers — the test above settled that — but
     // whether her CAPA `update` leaks sideways into the NC rows, which is what a

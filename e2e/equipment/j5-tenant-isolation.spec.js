@@ -93,7 +93,7 @@ test.describe('EQ-J5 · cross-tenant isolation', () => {
     }
   })
 
-  test('REST answers 404, not 403, for an instrument in the other tenant', async ({ browser }) => {
+  test('REST answers 404, not 403, for an instrument in the other tenant', { tag: '@smoke' }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.altOwner, baseURL: ALT_BASE_URL })
     const page = await ctx.newPage()
     try {

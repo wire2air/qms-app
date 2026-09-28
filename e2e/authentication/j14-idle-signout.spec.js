@@ -102,7 +102,7 @@ test.describe('PW-J14 · idle sign-out', () => {
     await ctx.close()
   })
 
-  test('past the window it signs out, says why, and the session is really gone', async ({
+  test('past the window it signs out, says why, and the session is really gone', { tag: ['@validation', '@URS-SEC-14'] }, async ({
     browser,
   }) => {
     test.setTimeout(180_000)

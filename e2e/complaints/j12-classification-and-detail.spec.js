@@ -124,7 +124,7 @@ test.describe('CMP-J12 · classification, product and customer detail persist', 
     purgeLookups()
   })
 
-  test('TC-06-02 steps 2-5 · product, lot, quantity, order ref, customer detail, samples and the safety/recall flags all reach their own columns', async ({
+  test('TC-06-02 steps 2-5 · product, lot, quantity, order ref, customer detail, samples and the safety/recall flags all reach their own columns', { tag: ['@validation', '@URS-CMP-02'] }, async ({
     browser,
   }) => {
     test.setTimeout(90_000)

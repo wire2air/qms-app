@@ -252,7 +252,7 @@ test.describe('IL-J12 — the audit trail', () => {
     ).toBe('22.4')
   })
 
-  test('a correction shows both the original and the corrected value, with the reason', async ({
+  test('a correction shows both the original and the corrected value, with the reason', { tag: ['@validation', '@URS-LOG-09'] }, async ({
     browser,
   }) => {
     // TC-10-09 step 2 — "Inspect a correction entry: original and corrected

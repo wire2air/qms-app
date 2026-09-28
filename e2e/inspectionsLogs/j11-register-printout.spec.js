@@ -105,7 +105,7 @@ async function openRegister(browser, { from, to, cols } = {}) {
 const entriesTable = (page) => page.locator('.lb-print-entries')
 
 test.describe('IL-J11 — the log book register', () => {
-  test('the register prints every entry in the range with its number, time, operator and status', async ({
+  test('the register prints every entry in the range with its number, time, operator and status', { tag: ['@validation', '@URS-LOG-08'] }, async ({
     browser,
   }) => {
     // TC-10-08 steps 1 and 2.

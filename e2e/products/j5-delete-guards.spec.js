@@ -249,7 +249,7 @@ test.describe('PJ-J5 · delete, restore and the referential guard', () => {
     )
   })
 
-  test('delete then restore through the register, and the row count never drops', async ({
+  test('delete then restore through the register, and the row count never drops', { tag: ['@journey', '@p1'] }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, PRODUCTS.admin.auth)

@@ -81,7 +81,7 @@ test.beforeAll(() => {
 })
 
 test.describe('FORMS-F3 — a token from one tenant never yields another tenant’s form', () => {
-  test('each token serves its own tenant’s schema and only that', async () => {
+  test('each token serves its own tenant’s schema and only that', { tag: '@smoke' }, async () => {
     const ctx = await anonymousApi()
 
     const lab = await (await publicGet(ctx, labToken)).json()

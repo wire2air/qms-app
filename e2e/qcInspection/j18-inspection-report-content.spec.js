@@ -190,7 +190,7 @@ test.describe('PW-J18 — the inspection report is a complete record, not a head
   test.beforeAll(() => purgeJ18Lots())
   test.afterAll(() => purgeJ18Lots())
 
-  test('the report carries lot detail, the sampling plan, per-characteristic results and the OOS marking', async ({
+  test('the report carries lot detail, the sampling plan, per-characteristic results and the OOS marking', { tag: ['@validation', '@URS-QCI-09'] }, async ({
     browser,
   }) => {
     // OQ-09 TC-09-09 steps 1, 2 and 3 on a lot that has something to say: one

@@ -50,7 +50,7 @@ async function fileSealedEntry(browser, tag, reading = '30.0') {
 }
 
 test.describe('IL-J4 — amend and void', () => {
-  test('an amend-holder corrects a sealed entry under signature, and the original survives', async ({
+  test('an amend-holder corrects a sealed entry under signature, and the original survives', { tag: ['@validation', '@URS-LOG-07'] }, async ({
     browser,
   }) => {
     const tag = uniqueTag('J4A')

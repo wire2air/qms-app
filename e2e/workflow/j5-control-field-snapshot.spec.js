@@ -57,7 +57,7 @@ test.describe('PW-J5 · F-05 control-field snapshot', () => {
     }
   })
 
-  test('BLOCKS the F-05 bypass: flipping requireEsignature on the PUBLISHED template does not disarm a live approval', async ({
+  test('BLOCKS the F-05 bypass: flipping requireEsignature on the PUBLISHED template does not disarm a live approval', { tag: ['@validation', '@URS-WFL-05'] }, async ({
     page,
   }) => {
     test.setTimeout(180_000)

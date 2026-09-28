@@ -239,7 +239,7 @@ test.describe('EQ-J8 · the preventive-maintenance programme', () => {
 
   // ── 1 · The reminder exists, and reaches the responsible person ───────────
 
-  test('an upcoming PM reminds the custodian and the department supervisor — and nobody else', async () => {
+  test('an upcoming PM reminds the custodian and the department supervisor — and nobody else', { tag: ['@validation', '@URS-EQP-03'] }, async () => {
     // TC-11-03 step 5 / TC-11-05 step 3, the part EQ-J2 left open. `author`
     // is the custodian on the instrument; the seeded Quality department's
     // supervisor is `owner`. Seven days out is an UPCOMING window, so the

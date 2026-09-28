@@ -67,36 +67,38 @@ test.describe('SA-API-8 · the privilege-escalation guard', () => {
     await owned.cleanup(playwright)
   })
 
-  test('DOOR 1 · create with a role the caller does not hold → 403 naming each permission', async ({
-    request,
-  }) => {
-    const name = saName('a8-refused-author')
-    const { status, json } = await read(
-      await request.post(SA_ROOT, { data: { name, roleIds: [ROLE_AUTHOR] } }),
-    )
+  test(
+    'DOOR 1 · create with a role the caller does not hold → 403 naming each permission',
+    { tag: '@smoke' },
+    async ({ request }) => {
+      const name = saName('a8-refused-author')
+      const { status, json } = await read(
+        await request.post(SA_ROOT, { data: { name, roleIds: [ROLE_AUTHOR] } }),
+      )
 
-    expect(status, 'E2E Author grants far more than intAdmin holds').toBe(403)
-    const message = errorMessage(json)
-    expect(message).toContain('cannot be granted permissions you do not hold yourself')
-    // Naming EVERY offender, not just the first, is the contract — the caller
-    // fixes the role selection in one round trip instead of discovering them
-    // one at a time. Three from different modules, so a message that happened
-    // to mention one module would not satisfy this.
-    for (const perm of ['document_control:create', 'document_control:update', 'capa:create']) {
-      expect(message, `names ${perm}`).toContain(perm)
-    }
-    // …and does not claim intAdmin is missing the one thing it does hold.
-    expect(message, 'document_control:read is held, so it is not an offender').not.toMatch(
-      /document_control:read[,.]/,
-    )
+      expect(status, 'E2E Author grants far more than intAdmin holds').toBe(403)
+      const message = errorMessage(json)
+      expect(message).toContain('cannot be granted permissions you do not hold yourself')
+      // Naming EVERY offender, not just the first, is the contract — the caller
+      // fixes the role selection in one round trip instead of discovering them
+      // one at a time. Three from different modules, so a message that happened
+      // to mention one module would not satisfy this.
+      for (const perm of ['document_control:create', 'document_control:update', 'capa:create']) {
+        expect(message, `names ${perm}`).toContain(perm)
+      }
+      // …and does not claim intAdmin is missing the one thing it does hold.
+      expect(message, 'document_control:read is held, so it is not an offender').not.toMatch(
+        /document_control:read[,.]/,
+      )
 
-    expect(
-      sqlValue(
-        `SELECT count(*) FROM users WHERE company_id = '${COMPANY_ID}' AND first_name = '${name}'`,
-      ),
-      'nothing was created — the guard runs before the insert',
-    ).toBe('0')
-  })
+      expect(
+        sqlValue(
+          `SELECT count(*) FROM users WHERE company_id = '${COMPANY_ID}' AND first_name = '${name}'`,
+        ),
+        'nothing was created — the guard runs before the insert',
+      ).toBe('0')
+    },
+  )
 
   test('DOOR 1 CONTROL · create with exactly the caller’s own grants → 201', async ({
     request,

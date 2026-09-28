@@ -27,7 +27,7 @@ const created = []
 test.afterAll(() => cleanupAudits(created))
 
 test.describe('AE-J1 · the certification-audit register', () => {
-  test('/auditee lists EXTERNAL audits and nothing else', async ({ page }) => {
+  test('/auditee lists EXTERNAL audits and nothing else', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/auditee', { waitUntil: 'domcontentloaded' })
     await visibleWithResync(
       page,
@@ -64,7 +64,7 @@ test.describe('AE-J1 · the certification-audit register', () => {
     expect(numbers).not.toContain(internal)
   })
 
-  test('create a certification audit with no standard, then start it', async ({ page }) => {
+  test('create a certification audit with no standard, then start it', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(180_000)
     const scope = uniqueTag('J1 create')
     const firm = `E2E BSI ${Date.now()}`

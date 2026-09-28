@@ -34,7 +34,7 @@ test.describe('ANL-A10 · tenant isolation', () => {
     expect(lastLine(res.output), 'no cross-tenant rollup rows').toBe('0')
   })
 
-  test('the alt tenant cannot read E2ELAB dashboards, reports, alerts or runs', async () => {
+  test('the alt tenant cannot read E2ELAB dashboards, reports, alerts or runs', { tag: '@smoke' }, async () => {
     for (const table of [
       'analytics_dashboards',
       'analytics_widgets',

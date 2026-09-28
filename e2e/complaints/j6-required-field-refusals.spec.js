@@ -78,7 +78,7 @@ test.describe('CMP-J6 · Quality Complaints required-field refusals', () => {
     await ctx.close()
   })
 
-  test("REST: creating a complaint without 'subject' is refused 400 and writes nothing", async ({
+  test("REST: creating a complaint without 'subject' is refused 400 and writes nothing", { tag: ['@validation', '@URS-CMP-01'] }, async ({
     browser,
   }) => {
     test.setTimeout(60_000)

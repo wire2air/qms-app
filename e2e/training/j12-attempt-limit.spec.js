@@ -124,7 +124,7 @@ test.describe('TRN-J12 · the configured attempt limit is enforced at the ceilin
     ).toBe(TRAINING.passingScore)
   })
 
-  test('TC-02-06 steps 2-5 · attempts are counted, a retry is offered until the ceiling, and the attempt beyond it is REFUSED', async ({
+  test('TC-02-06 steps 2-5 · attempts are counted, a retry is offered until the ceiling, and the attempt beyond it is REFUSED', { tag: ['@validation', '@URS-TRN-06'] }, async ({
     browser,
   }) => {
     // The core arm, and it walks the whole of TC-02-06 in one place on purpose:

@@ -44,7 +44,7 @@ async function fileControlledEntry(browser, tag) {
 }
 
 test.describe('IL-J3 — the supervisor decides', () => {
-  test('the book supervisor approves under e-signature and the entry seals', async ({ browser }) => {
+  test('the book supervisor approves under e-signature and the entry seals', { tag: ['@validation', '@URS-LOG-06'] }, async ({ browser }) => {
     const tag = uniqueTag('J3A')
     const record = await fileControlledEntry(browser, tag)
 

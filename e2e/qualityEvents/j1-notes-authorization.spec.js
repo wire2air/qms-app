@@ -43,7 +43,7 @@ test.describe('QE-J1 — event notes / attachments authorization (F-01)', () => 
   test.beforeEach(() => resetStandingNotes())
   test.afterAll(() => resetStandingNotes())
 
-  test('CONTROL: the reporter reads both notes and the attachment', async () => {
+  test('CONTROL: the reporter reads both notes and the attachment', { tag: '@smoke' }, async () => {
     // The positive control for everything below. The reporter holds
     // quality_events create+read but is NOT the assignee — they reach the event
     // through the SELECT policy's reachability OR (reported_by_user_id). If this
@@ -56,17 +56,21 @@ test.describe('QE-J1 — event notes / attachments authorization (F-01)', () => 
     expect(readAttachmentsAs(REPORTER)).toBe(1)
   })
 
-  test('a zero-grant member cannot reach the event, its notes, or its attachments', async () => {
-    // THE FINDING. `noAccess` holds nothing on this module. Before the fix the
-    // notes policy was company-wide while the parent's was scope-enforced, so
-    // this persona could read every note in the tenant — including on events
-    // they could not SELECT.
-    expect(canSeeParentEventAs(USERS.noAccess)).toBe(0)
+  test(
+    'a zero-grant member cannot reach the event, its notes, or its attachments',
+    { tag: '@smoke' },
+    async () => {
+      // THE FINDING. `noAccess` holds nothing on this module. Before the fix the
+      // notes policy was company-wide while the parent's was scope-enforced, so
+      // this persona could read every note in the tenant — including on events
+      // they could not SELECT.
+      expect(canSeeParentEventAs(USERS.noAccess)).toBe(0)
 
-    const notes = readNotesAs(USERS.noAccess)
-    expect(notes.visibilities).toEqual([])
-    expect(readAttachmentsAs(USERS.noAccess)).toBe(0)
-  })
+      const notes = readNotesAs(USERS.noAccess)
+      expect(notes.visibilities).toEqual([])
+      expect(readAttachmentsAs(USERS.noAccess)).toBe(0)
+    },
+  )
 
   test('a zero-grant member cannot rewrite, reclassify, repoint or delete', async () => {
     const before = noteCount(STANDING.id)

@@ -32,7 +32,7 @@ const pool = createPersonaPool()
 test.afterAll(() => pool.close())
 
 test.describe('TASK-T1 — the inbox row, and where it goes', () => {
-  test('a CAPA workflow task reaches its assignee’s inbox and links to the CAPA', async ({
+  test('a CAPA workflow task reaches its assignee’s inbox and links to the CAPA', { tag: '@smoke' }, async ({
     browser,
   }) => {
     test.setTimeout(300_000)

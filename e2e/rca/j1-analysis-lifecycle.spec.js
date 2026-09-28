@@ -35,7 +35,7 @@ import {
 } from '../fixtures/rca.js'
 
 test.describe('PW-J1 · RCA analysis lifecycle (embedded widget → derived record)', () => {
-  test('reviewer performs the analysis, finalizes, marks complete — the row is derived on approval', async ({
+  test('reviewer performs the analysis, finalizes, marks complete — the row is derived on approval', { tag: '@smoke' }, async ({
     page,
     browser,
   }) => {
@@ -92,7 +92,9 @@ test.describe('PW-J1 · RCA analysis lifecycle (embedded widget → derived reco
     const ownerCtx = await browser.newContext({ storageState: AUTH.owner })
     const ownerPage = await ownerCtx.newPage()
     try {
-      await openCapa(ownerPage, capa.id)
+      // Navigate only — openCapa() also clicks Start CAPA, and this CAPA has
+      // been OPEN since the author started it above.
+      await ownerPage.goto(`/capas/${capa.id}`)
       await closeCapa(ownerPage, { comments: 'E2E close — root cause recorded (PW-J1).' })
       await expect
         .poll(() => findCapaByTitle(title)?.statusId, { timeout: 30_000 })

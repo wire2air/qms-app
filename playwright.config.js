@@ -44,8 +44,19 @@ export default defineConfig({
   },
   projects: [
     {
+      // Stack-health gate (e2e/smokeGate): api/worker/sync health, GraphQL mount,
+      // migrations + rls.sql currency, worker liveness. API/SQL only, no browser.
+      // `setup` depends on it, so a dead stack fails here in seconds instead of
+      // after the seed + every persona login. See e2e/fixtures/smoke.js.
+      name: 'smokeGate',
+      testMatch: /smokeGate\/.*\.spec\.js$/,
+      timeout: 30_000,
+      retries: 0,
+    },
+    {
       name: 'setup',
       testMatch: /fixtures\/auth\.setup\.js/,
+      dependencies: ['smokeGate'],
     },
     {
       // Purges the documents previous runs left behind. Same reason as qcSetup
@@ -679,6 +690,16 @@ export default defineConfig({
     {
       name: 'smoke',
       testMatch: /smoke\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Cross-module P0 smoke journeys (e2e/smokeCore): route crawl, live sync,
+      // tenant-isolation matrix, UI sign-out, inbox → complete. No retries — a
+      // smoke failure that passes on retry is a signal, not noise.
+      name: 'smokeCore',
+      testMatch: /smokeCore\/.*\.spec\.js$/,
+      dependencies: ['setup'],
+      retries: 0,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

@@ -87,7 +87,7 @@ const REQUIRED_KEYS = [
 test.describe('PW-J11 · NC required-field refusals', () => {
   test.use({ storageState: AUTH.author })
 
-  test('control: the body every negative arm is derived from is accepted', async ({ browser }) => {
+  test('control: the body every negative arm is derived from is accepted', { tag: ['@validation', '@URS-NCR-01'] }, async ({ browser }) => {
     test.setTimeout(60_000)
     const ctx = await browser.newContext({ storageState: AUTH.author })
     const title = uniqueTitle('J11-control')
@@ -105,7 +105,7 @@ test.describe('PW-J11 · NC required-field refusals', () => {
   })
 
   for (const key of REQUIRED_KEYS) {
-    test(`REST: raising an NC without '${key}' is refused 400 and writes nothing`, async ({
+    test(`REST: raising an NC without '${key}' is refused 400 and writes nothing`, { tag: key === 'title' ? ['@smoke', '@p0'] : [] }, async ({
       browser,
     }) => {
       test.setTimeout(60_000)

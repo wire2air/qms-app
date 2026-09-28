@@ -214,7 +214,7 @@ test.describe('CMP-J15 · closure, its gate and its signature', () => {
     clearEsignPinLockout(USERS.owner.id)
   })
 
-  test('TC-06-06 steps 3+5 · the correct credential closes the complaint and writes one signature bound to the approver’s task', async ({
+  test('TC-06-06 steps 3+5 · the correct credential closes the complaint and writes one signature bound to the approver’s task', { tag: ['@journey', '@p1', '@validation', '@URS-CMP-06'] }, async ({
     browser,
   }) => {
     test.setTimeout(150_000)

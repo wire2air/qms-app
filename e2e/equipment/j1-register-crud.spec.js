@@ -66,7 +66,7 @@ test.describe('EQ-J1 · the instrument register', () => {
     purgeEquipmentByCode(RETIRE_CODE)
   })
 
-  test('create: the dialog persists over REST, and the service validates it', async ({
+  test('create: the dialog persists over REST, and the service validates it', { tag: ['@smoke', '@validation', '@URS-EQP-01'] }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, EQUIPMENT.admin.auth)

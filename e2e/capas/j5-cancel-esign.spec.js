@@ -28,7 +28,7 @@ import { findCapaByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J5 · cancel an OPEN CAPA', () => {
-  test('owner cancels an OPEN CAPA — workflow aborted, e-signed', async ({ page }) => {
+  test('owner cancels an OPEN CAPA — workflow aborted, e-signed', { tag: ['@validation', '@URS-CAP-08'] }, async ({ page }) => {
     test.setTimeout(90_000)
     const title = uniqueTitle('J5')
     await createCapa(page, title)
