@@ -8,7 +8,23 @@ keywords: [automated testing, regression, supplier evidence, coverage, GAMP 5, t
 
 # Automated Regression Coverage
 
-**Document ID:** VAL-ARC-001 · **Version:** 1.5 · **System:** Qability QMS
+**Document ID:** VAL-ARC-001 · **Version:** 1.6 · **System:** Qability QMS
+
+> **Changes in 1.6 (2026-09-28).** Two requirements re-assessed after fixes and a new test.
+>
+> - **URS-CAP-10** moves from *Product non-conformant* to **Covered**: defect **D9** is
+>   fixed. The per-record history dialog now matches both spellings of a record type
+>   ('Capas' from the database trigger, 'Capa' from the application), so the REJECT,
+>   UPDATE and EFFECTIVENESS_VERIFIED entries appear. The same fix applies to
+>   Nonconformance and Change Request history.
+> - **URS-TRN-02** stays *Product non-conformant*, with its evidence corrected. The REST
+>   half of defect **D13** is fixed (a published training's content is refused with 409),
+>   but a raw GraphQL update still rewrites the assessment. A new red test asserts that
+>   path, and it is now the row's citation.
+> - The non-conformance table below lists the three requirements that are actually in
+>   that state. It still carried URS-CCM-02, which moved to *Gap pinned* in 1.4.
+>
+> Summary totals: Covered 96→97, Product non-conformant 4→3.
 
 > **Changes in 1.5 (2026-09-28).** **URS-DOC-07** moves from *Product non-conformant* to
 > **Covered**: defect **DOC-REL-01** is fixed. The trusted database path now refuses
@@ -184,11 +200,11 @@ Across the 163 baseline requirements in the Traceability Matrix:
 
 | Status                       | Requirements | Share |
 | ---------------------------- | ------------ | ----- |
-| Covered                      | 96           | 59%   |
+| Covered                      | 97           | 60%   |
 | Partial                      | 35           | 21%   |
 | Not automated                | 16           | 10%   |
 | N/A (not verifiable by test) | 7            | 4%    |
-| Product non-conformant       | 4            | 2%    |
+| Product non-conformant       | 3            | 2%    |
 | Gap pinned                   | 5            | 3%    |
 | **Total**                    | **163**      |       |
 
@@ -224,7 +240,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 8   | 5    | 3    | —   | —   | —   |
 | 5  | Training Management ([OQ-02](/validation/oq/training-management))              | 11   | 7   | 1    | 1    | —   | 2   | —   |
 | 6  | Nonconformance ([OQ-03](/validation/oq/nonconformance))                        | 10   | 5   | 3    | 2    | —   | —   | —   |
-| 7  | CAPA ([OQ-04](/validation/oq/capa))                                           | 10   | 5   | 3    | 1    | —   | 1   | —   |
+| 7  | CAPA ([OQ-04](/validation/oq/capa))                                           | 10   | 6   | 3    | 1    | —   | —   | —   |
 | 8  | Change Control ([OQ-05](/validation/oq/change-control))                        | 6    | 6   | —    | —    | —   | —   | —   |
 | 9  | Quality Complaints ([OQ-06](/validation/oq/complaints))                        | 8    | 4   | 2    | —    | 1   | —   | 1   |
 | 10 | Audit Management ([OQ-07](/validation/oq/audit-management))                     | 8    | 7   | —    | —    | —   | 1   | —   |
@@ -237,7 +253,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | 17 | Item Master ([OQ-14](/validation/oq/item-master))                              | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 18 | Retain Samples ([OQ-15](/validation/oq/retain-samples))                         | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 6   | —    | 1    | —   | —   | 1   |
-| **Total** |                                                                        | **163** | **96** | **35** | **16** | **7** | **4** | **5** |
+| **Total** |                                                                        | **163** | **97** | **35** | **16** | **7** | **3** | **5** |
 
 **Three things to take from this table.**
 
@@ -259,17 +275,15 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 
 ## Requirements where the product does not currently conform
 
-Five requirements have a test that asserts what the requirement demands, and the product
+Three requirements have a test that asserts what the requirement demands, and the product
 does not currently satisfy it. These are the rows to read before you plan your execution,
 because in each case the protocol's own note tells you what you will actually observe.
 
 | Req ID     | What the requirement demands                          | What the product does today                                                                             | Protocol note                                              |
 | ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| URS-TRN-02 | Publishing locks training content against edit        | The lock is in the interface only; the server applies the edit (defect D13)                             | [OQ-02](/validation/oq/training-management) TC-02-02       |
+| URS-TRN-02 | Publishing locks training content against edit        | The REST API refuses the edit, but a raw GraphQL update still rewrites a published training's assessment (defect D13) | [OQ-02](/validation/oq/training-management) TC-02-02       |
 | URS-TRN-04 | Trainees review all material before assessment        | Enforced in the browser only; a completion can be scored and signed without the material (defect D14)   | [OQ-02](/validation/oq/training-management) TC-02-04       |
-| URS-CAP-10 | The full CAPA history is available in the audit trail | The per-record dialog omits entries written under the other record-type spelling; the trail itself is complete (defect D9) | [OQ-04](/validation/oq/capa) TC-04-10                      |
 | URS-AUD-08 | Audit history is captured in the audit trail          | Writes made by the scheduled audit generator leave no trail entry                                       | [OQ-07](/validation/oq/audit-management)                   |
-| URS-CCM-02 | A customer complaint records its category, severity, product and lot reference | `customer_complaints` has **no such columns** — they belong to the internal Quality Complaint record. The API used to accept them and return 201 with the values silently discarded (defect CC-D1); it now refuses them outright | [OQ-17](/validation/oq/customer-complaints) TC-17-02 |
 
 :::warning Two of these bear directly on Part 11 signed records
 **URS-TRN-04** is the most consequential in this document. A read-and-understood training
@@ -278,7 +292,7 @@ the material requirement is not enforced where the record is created, that signa
 attests to something the system did not verify. **URS-TRN-02** compounds it: content can
 change after learners have signed against it.
 
-If any user or integration can reach the API directly, treat both as open gaps and control
+If any user or integration can reach the API directly (for URS-TRN-02, the GraphQL endpoint), treat both as open gaps and control
 them procedurally until the server enforces them. If your users reach the system only
 through the application, the interface controls plus the audit trail may be an acceptable
 control — but the justification must be written into your validation report, not assumed.
@@ -340,7 +354,7 @@ assessment and the wording to record.
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
 | URS-TRN-01 | Covered | `e2e/training/j14-authoring-completeness.spec.js` — "TC-02-01 · content, material AND assessment are all authorable, and all survive to the published record" | Authoring proven in full; the three optional-at-create fields are now asserted as the documented defaults they are, plus defect TRN-D18 (a question-less training publishes and grades every learner 100). |
-| URS-TRN-02 | Product non-conformant | `e2e/training/j10-authoring-lock.spec.js` — "the assessment of a published training cannot be rewritten over REST" | Defect D13: the authoring lock is interface-only and the server applies the edit. |
+| URS-TRN-02 | Product non-conformant | `e2e/training/j10-authoring-lock.spec.js` — "D13 · the assessment of a published training cannot be rewritten over raw GraphQL" | Defect D13, GraphQL half: a raw GraphQL update rewrites a published training's assessment. The REST half is fixed and proven in the same file (assessment, passing score and linked material are each refused with 409; metadata edits stay allowed). |
 | URS-TRN-03 | Covered | `e2e/training/j1-learner-completes.spec.js` — "ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed" | Learner assignment through scored, signed completion is proven. |
 | URS-TRN-04 | Product non-conformant | `e2e/training/j11-material-review-gate.spec.js` — "a submit with NO material opened is refused, and writes no signed record" | Defect D14: a completion can be signed without opening the material. |
 | URS-TRN-05 | Covered | `e2e/training/j1-learner-completes.spec.js` — "a failing score does not complete the training and leaves a retry" | A failing score withholds completion and leaves a retry. |
@@ -379,7 +393,7 @@ assessment and the wording to record.
 | URS-CAP-07 | Not automated | — | The not-effective outcome test is disabled behind a dormant feature flag. |
 | URS-CAP-08 | Covered | `e2e/capas/j5-cancel-esign.spec.js` — "owner cancels an OPEN CAPA — workflow aborted, e-signed" | Cancellation aborts the workflow and is electronically signed. |
 | URS-CAP-09 | Partial | `e2e/recordLinks/j1-related-records.spec.js` — "link, see it on the record, unlink" | Manual link proven; many-to-one linking and the raise-with-CAPA path are not. |
-| URS-CAP-10 | Product non-conformant | `e2e/capas/j12-audit-history-completeness.spec.js` — "the dialog shows the REJECT entry that explains the revert to DRAFT" | Defect D9: per-record dialog omits entries written under the other entity-type spelling. |
+| URS-CAP-10 | Covered | `e2e/capas/j12-audit-history-completeness.spec.js` — "the dialog shows the REJECT entry that explains the revert to DRAFT" | The per-record dialog shows every entry for the CAPA under both record-type spellings, including the controller-only REJECT (defect D9, fixed 2026-09-28). |
 
 ## 8. Change Control
 

@@ -1,8 +1,10 @@
 // TRN-J10 · The published-training authoring lock — OQ-02 TC-02-02
 // (URS-TRN-02, "Publishing locks training content against further edit").
 //
-// ⚠️  THESE TESTS ARE EXPECTED TO FAIL ON `develop` TODAY. READ THIS BEFORE
-// "FIXING" THEM.
+// STATUS 2026-09-28: the REST arms are GREEN (the controller refuses content
+// edits on a published training with 409 TRAINING_CONTENT_LOCKED). The raw
+// GraphQL arm is RED and is the URS-TRN-02 citation until a DB-level lock lands.
+// The original rationale below still applies to it — READ IT BEFORE "FIXING".
 //
 // They assert the behaviour the protocol requires, not the behaviour the product
 // currently has. That is a deliberate departure from this suite's usual
@@ -66,6 +68,7 @@ import { test, expect } from '@playwright/test'
 import { AUTH, USERS, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 import { purgeTrainings } from '../fixtures/training.js'
+import { graphql, expectMutationExists } from '../fixtures/sites.js'
 
 // trainingAdmin holds training:create/read/update/delete/manage at TENANT scope
 // (e2e-seed.sql §19). That is load-bearing for every arm here: the refusal under
@@ -226,7 +229,7 @@ test.describe('TRN-J10 · a published training is locked against content edits',
 
   test(
     'the assessment of a published training cannot be rewritten over REST',
-    { tag: ['@smoke', '@validation', '@URS-TRN-02'] },
+    { tag: ['@smoke'] },
     async ({ browser }) => {
       // THE CORE ARM. A learner who passed yesterday was graded against the
       // original questions; swapping them changes what that signed pass attests.
@@ -258,6 +261,50 @@ test.describe('TRN-J10 · a published training is locked against content edits',
           .catch(() => '')})`,
       ).toBeGreaterThanOrEqual(400)
       expect(storedAssessment(id), 'the stored assessment is unchanged').toBe(before)
+
+      cleanup(id)
+      await ctx.close()
+    },
+  )
+
+  test(
+    '🔴 D13 (FAILS TODAY) · the assessment of a published training cannot be rewritten over raw GraphQL',
+    { tag: ['@validation', '@URS-TRN-02'] },
+    async ({ browser }) => {
+      // The REST half of D13 is fixed (409 TRAINING_CONTENT_LOCKED). This is the
+      // other door: PostGraphile's generated update, which never reaches the
+      // controller's assertContentEditable. Green the day a DB-level lock lands.
+      test.setTimeout(90_000)
+      const ctx = await browser.newContext({ storageState: AS })
+      await expectMutationExists(ctx, 'updateTraining')
+      const { id } = await mintActiveTraining(ctx, 'gql-assessment')
+      const before = storedAssessment(id)
+
+      const { status, errors } = await graphql(
+        ctx,
+        `mutation($id: UUID!, $a: JSON) {
+           updateTraining(input: { id: $id, patch: { assessment: $a } }) { training { id } }
+         }`,
+        {
+          id,
+          a: [
+            {
+              id: 'g9',
+              text: 'Substituted over GraphQL after publication.',
+              type: 'SINGLE',
+              options: [
+                { id: 'g9a', text: 'Anything', isCorrect: true },
+                { id: 'g9b', text: 'Else', isCorrect: false },
+              ],
+            },
+          ],
+        },
+      )
+
+      expect(
+        storedAssessment(id),
+        `a published training's assessment must not be rewritable over GraphQL (HTTP ${status}, errors: ${JSON.stringify(errors)})`,
+      ).toBe(before)
 
       cleanup(id)
       await ctx.close()

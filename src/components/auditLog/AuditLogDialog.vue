@@ -1,5 +1,6 @@
 <script setup>
 import { h, defineAsyncComponent } from 'vue'
+import { singular } from 'pluralize'
 import { IconShield, IconDownload, IconRefresh } from '@tabler/icons-vue'
 import BaseSpinner from '@shared/components/BaseSpinner.vue'
 import { isAllowed } from '@/utils/currentSession.js'
@@ -53,17 +54,27 @@ const canRead = computed(() => isAllowed(['audit_trail:read']))
 // policy behind it) is what actually bounds what can leave.
 const canExport = computed(() => isAllowed(['audit_trail:export']))
 
+// A record's rows arrive under two spellings: the DB trigger stamps the table
+// name ('Capas'), the controllers write a singular literal ('Capa'). Matching
+// the exact string dropped every controller-only action — a CAPA's REJECT,
+// UPDATE and EFFECTIVENESS_VERIFIED never showed (D9). Key on the singular
+// form, the same normalisation AuditLogsItem uses for display.
+function entityTypeKey(entityType) {
+  return singular(entityType)
+}
+
 // Build a per-entityType id set so the in-memory filter is O(1) per log
 const entityIdSetByType = computed(() => {
   const map = new Map()
   if (props.entityId && props.entityType) {
-    map.set(props.entityType, new Set([props.entityId]))
+    map.set(entityTypeKey(props.entityType), new Set([props.entityId]))
   }
   for (const block of props.includeEntities ?? []) {
     if (!block?.entityType || !Array.isArray(block.entityIds)) continue
-    const existing = map.get(block.entityType) ?? new Set()
+    const key = entityTypeKey(block.entityType)
+    const existing = map.get(key) ?? new Set()
     for (const id of block.entityIds) if (id) existing.add(id)
-    map.set(block.entityType, existing)
+    map.set(key, existing)
   }
   return map
 })
@@ -85,7 +96,9 @@ const logs = useLiveQueryWithDeps(
     const all = await db.AuditLog.where().orderBy('createdAt', 'desc').limit(5000).exec()
     let filtered = all
     if (hasEntities) {
-      filtered = filtered.filter((log) => byType.get(log.entityType)?.has(log.entityId))
+      filtered = filtered.filter(
+        (log) => log.entityType && byType.get(entityTypeKey(log.entityType))?.has(log.entityId),
+      )
     } else if (performedBy) {
       filtered = filtered.filter((log) => log.performedBy === performedBy)
     }

@@ -404,15 +404,12 @@ test.describe('CMP-J10 · Customer Complaint assignment + cross-module permissio
     },
   )
 
-  // KNOWN DEFECT (ticket: GUARD-HYDRATION — not yet filed; same root cause as
-  // auditee/j4-access.spec.js): on a hard page load the permission guard lets
-  // /complaints render while the session is still hydrating, so a user without
-  // complaints:read is not redirected. Measured 2026-09-28: supportAgent holds
-  // only complaint_management:* yet stayed on /complaints for 15s. The REST
-  // refusals in this test hold; only the route redirect fails.
+  // Was KNOWN DEFECT GUARD-HYDRATION until 2026-09-28 (supportAgent stayed on
+  // /complaints for 15s while sync bootstrapped). permissionGuard.js now
+  // re-evaluates the route as soon as the session lands.
   test(
     'SPLIT (reverse): supportAgent (CUSTOMER complaint_management:* only) is refused on every INTERNAL route',
-    { tag: ['@smoke', '@known-defect', '@validation', '@URS-CCM-03', '@URS-CCM-04'] },
+    { tag: ['@smoke', '@validation', '@URS-CCM-03', '@URS-CCM-04'] },
     async ({ browser }) => {
       const page = await pool.page(browser, AUTH.supportAgent)
 

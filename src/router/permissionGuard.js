@@ -313,4 +313,19 @@ export function evaluateRoute(to) {
  */
 export function installPermissionGuard(router) {
   router.beforeEach((to) => evaluateRoute(to))
+
+  // GUARD-HYDRATION. `evaluateRoute` lets a navigation through while the
+  // session is still unknown, and on a hard load the first navigation always
+  // happens before `/v1/auth/session` answers. App.vue re-ran the guard only
+  // after bootApp() — i.e. after the whole syncEngine bootstrap — so a user
+  // without the grant sat on the page for as long as sync took (15s measured on
+  // /complaints, 2026-09-28; auditee j4, documents j9 the same). Re-evaluate
+  // the moment a tenant session first lands. Permissions arrive in the same
+  // assignment (fetchUserSession), so there is no half-hydrated state to trip on.
+  watch(currentSession, async (session, previous) => {
+    if (previous || !session?.companyId) return
+    await router.isReady()
+    const decision = evaluateRoute(router.currentRoute.value)
+    if (decision !== true) await router.replace(decision)
+  })
 }

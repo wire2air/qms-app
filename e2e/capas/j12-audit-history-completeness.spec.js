@@ -1,7 +1,9 @@
 // PW-J12 · A record's own audit history must be COMPLETE — OQ-04 TC-04-10
 // step 1, and OQ-16 TC-16-05 / TC-16-08 step 5 by the same mechanism.
 //
-// ⚠️  THE SECOND TEST IS EXPECTED TO FAIL ON `develop` TODAY (D9).
+// D9 FIXED 2026-09-28: AuditLogDialog now keys entity types on their singular
+// form, so the core arm below is green and is the permanent guard. The rest of
+// this header is the original diagnosis.
 //
 // Same deliberate departure as TRN-J10/J11: it asserts what the protocol
 // requires, not what the product does. This suite's usual convention
