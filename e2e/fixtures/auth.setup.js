@@ -8,7 +8,8 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { BASE_URL, ALT_BASE_URL, PASSWORD, USERS, ALT_USERS, AUTH, COMPANY_ID } from './cast.js'
+import { BASE_URL, PASSWORD, COMPANY_ID } from './cast.js'
+import { personas, loginToStateFile } from './authSession.js'
 import { sqlValue } from './db.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -54,39 +55,9 @@ setup('stack is up', async () => {
 setup('login all roles and save storage state', async () => {
   fs.mkdirSync('e2e/.auth', { recursive: true })
 
-  // Primary-tenant roles (E2ELAB).
-  for (const [role, user] of Object.entries(USERS)) {
-    await loginAndSave(BASE_URL, user, AUTH[role], role)
+  // Every E2ELAB role, plus the E2EALT owner for cross-tenant tests. The same
+  // login keeps these files fresh mid-run — see e2e/authKeepAlive.global.js.
+  for (const p of personas()) {
+    await loginToStateFile(p.baseURL, p.user, p.statePath, PASSWORD, p.role)
   }
-  // Second-tenant owner (E2EALT) for cross-tenant tests.
-  await loginAndSave(ALT_BASE_URL, ALT_USERS.owner, AUTH.altOwner, 'altOwner')
 })
-
-async function loginAndSave(baseURL, user, statePath, label) {
-  const ctx = await request.newContext({ baseURL })
-  // Login answers with a 302 to APP_URL's handoff endpoint. APP_URL's port can
-  // differ from the server under test (VITE_DEV_PORT moves vite off 5173 while
-  // the backend env still says 5173, where another app may live). Don't follow
-  // the redirect — take the one-time token and complete the handoff against
-  // OUR baseURL; the session cookie is port-agnostic (domain-scoped).
-  const login = await ctx.post('/api/v1/auth/login', {
-    data: { email: user.email, password: PASSWORD },
-    maxRedirects: 0,
-  })
-  expect(login.status(), `login ${label} (${user.email}) → ${login.status()}`).toBe(302)
-  const token = new URL(login.headers()['location']).searchParams.get('token')
-  expect(token, `handoff token for ${label}`).toBeTruthy()
-  const handoff = await ctx.get(`/api/v1/auth/handoff?token=${token}`, { maxRedirects: 0 })
-  expect(
-    [200, 302].includes(handoff.status()),
-    `handoff ${label} → ${handoff.status()}`,
-  ).toBeTruthy()
-
-  const session = await ctx.get('/api/v1/auth/session')
-  expect(session.ok(), `session ${label} → ${session.status()}`).toBeTruthy()
-  const body = await session.json()
-  expect(body?.session?.email).toBe(user.email)
-
-  await ctx.storageState({ path: statePath })
-  await ctx.dispose()
-}

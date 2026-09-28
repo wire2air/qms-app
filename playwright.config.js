@@ -18,6 +18,9 @@ import { BASE_URL } from './e2e/fixtures/cast.js'
 
 export default defineConfig({
   testDir: './e2e',
+  // Keeps every persona's storageState alive across a multi-hour run — the
+  // server idles sessions out after 15–30 min. See e2e/authKeepAlive.global.js.
+  globalSetup: './e2e/authKeepAlive.global.js',
   fullyParallel: false, // documents journeys share seeded fixtures; keep ordered per file
   workers: 1,
   timeout: 120_000, // journeys drive multi-step UI + wait on worker jobs
