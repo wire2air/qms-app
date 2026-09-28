@@ -27,6 +27,11 @@
 //
 // ── WHAT THIS FILE FOUND ─────────────────────────────────────────────────────
 //
+// FIXED 2026-09-28 (qms migration 20260928120000): the edge below now needs a
+// COMPLETED approval workflow for the version, so the 🔴 gate is green and its
+// PIN twin was deleted as the gate's comment asked. The rest of this header is
+// the original diagnosis, kept for the record.
+//
 // KNOWN DEFECT DOC-REL-01. `enforce_document_version_transition()`'s trusted
 // transition graph contains the edge **'IN_REVIEW->EFFECTIVE'**, alongside the
 // legitimate 'APPROVED->EFFECTIVE'. Read directly from the live function body
@@ -143,14 +148,6 @@ function seedInReviewVersion(tag) {
 /** Status of one version, straight from the database. */
 function statusOf(versionId) {
   return sqlValue(`SELECT status_id FROM document_versions WHERE id = '${versionId}'`)
-}
-
-/** The live transition-graph source, so assertions cite the product not a memory. */
-function transitionFunctionBody() {
-  return sqlValue(
-    `SELECT pg_get_functiondef(oid) FROM pg_proc
-      WHERE proname = 'enforce_document_version_transition'`,
-  )
 }
 
 /**
@@ -347,10 +344,10 @@ test.describe('PW-J20 · TC-01-07 · an IN_REVIEW (submitted, unapproved) versio
   // ─────────────────────────────────────────────────────────────────────────
 
   test(
-    '🔴 DOC-REL-01 (FAILS TODAY) · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused — an unapproved version must not be publishable on ANY path',
+    'DOC-REL-01 · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused — an unapproved version must not be publishable on ANY path',
     { tag: ['@validation', '@URS-DOC-07'] },
     () => {
-      // 🔴 THIS TEST IS EXPECTED TO FAIL against current code. It asserts what
+      // Was 🔴 FAILS TODAY until the 2026-09-28 fix; now the permanent guard. It asserts what
       // URS-DOC-07 / TC-01-07 DEMANDS, not what the product does, per the honesty
       // rule: the requirement is that no path can release an unapproved version,
       // and the protocol's own note is that the restriction is "enforced at the
@@ -372,34 +369,6 @@ test.describe('PW-J20 · TC-01-07 · an IN_REVIEW (submitted, unapproved) versio
       expect(r.error).toMatch(/Illegal document version status transition: IN_REVIEW -> EFFECTIVE/i)
     },
   )
-
-  test('PIN · the actual behaviour today: the trusted path ACCEPTS IN_REVIEW→EFFECTIVE, publishing an unapproved version', () => {
-    // The diagnostic twin of the gate above. Pinned rather than merely described
-    // so the finding survives in executable form: this is the measurement, and
-    // it is what turns RED when the fix lands (at which point this test is
-    // deleted and the 🔴 gate above becomes the permanent guard).
-    //
-    // Run inside BEGIN … ROLLBACK, so the fixture is untouched and no unapproved
-    // document is ever actually published by this suite.
-    const before = statusOf(versionId)
-    const out = sql(`
-      BEGIN;
-      UPDATE document_versions SET status_id = 'EFFECTIVE' WHERE id = '${versionId}';
-      SELECT status_id FROM document_versions WHERE id = '${versionId}';
-      ROLLBACK;`)
-    expect(
-      out.trim().split('\n').pop(),
-      'KNOWN DEFECT DOC-REL-01: the version reached EFFECTIVE with no approval, no signature, no completed step',
-    ).toBe('EFFECTIVE')
-    expect(statusOf(versionId), 'the rollback held — the fixture is unchanged').toBe(before)
-
-    // The source of the defect, cited from the live function rather than from a
-    // memory of it, so the diagnosis cannot go stale without failing.
-    expect(
-      transitionFunctionBody(),
-      "the trusted transition graph literally contains the 'IN_REVIEW->EFFECTIVE' edge",
-    ).toContain("'IN_REVIEW->EFFECTIVE'")
-  })
 
   test('CONTROL · the trigger is NOT generally inert — REJECTED→EFFECTIVE and CHANGES_REQUESTED→EFFECTIVE are both refused', () => {
     // THIS IS THE ARM THAT MAKES DOC-REL-01 CREDIBLE. A finding of the form

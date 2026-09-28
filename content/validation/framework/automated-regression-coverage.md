@@ -8,7 +8,18 @@ keywords: [automated testing, regression, supplier evidence, coverage, GAMP 5, t
 
 # Automated Regression Coverage
 
-**Document ID:** VAL-ARC-001 · **Version:** 1.4 · **System:** Qability QMS
+**Document ID:** VAL-ARC-001 · **Version:** 1.5 · **System:** Qability QMS
+
+> **Changes in 1.5 (2026-09-28).** **URS-DOC-07** moves from *Product non-conformant* to
+> **Covered**: defect **DOC-REL-01** is fixed. The trusted database path now refuses
+> `IN_REVIEW→EFFECTIVE` unless the version's approval workflow has completed, which is
+> exactly the state the auto-effective release path is in when it writes that edge, so
+> legitimate approvals are unchanged. The red test in
+> `e2e/documents/j20-unapproved-release-in-review.spec.js` is now green and permanent,
+> and its behaviour pin was deleted. A related edge stays open and is recorded here so it
+> is not lost: a trusted writer can still reach EFFECTIVE in two steps
+> (`IN_REVIEW→APPROVED→EFFECTIVE`) without a completed workflow (**DOC-REL-02**, not yet
+> automated). Summary totals: Covered 95→96, Product non-conformant 5→4.
 
 > **Changes in 1.4 (2026-09-24).** A correctness pass over this document, prompted by
 > the test-suite audit. No requirement changed because the product changed; three changed
@@ -137,8 +148,8 @@ than left in the source files.
 | Requirement-asserting | `🔴 … (FAILS TODAY)` | **RED** — expected to fail | turns **green** |
 | Behaviour-pinning | `KNOWN DEFECT …` | **GREEN** — expected to pass | turns **red** |
 
-Measured on the suite as it stands: **15 requirement-asserting tests across 11 files are
-deliberately red**, and **30 behaviour-pinning tests across 24 files are deliberately
+Measured on the suite as it stands: **14 requirement-asserting tests across 10 files are
+deliberately red**, and **29 behaviour-pinning tests across 23 files are deliberately
 green**.
 
 **Why both exist.** A requirement-asserting test says what the product *must* do, and
@@ -162,9 +173,9 @@ text before changing any test in this suite.
 
 **One defect, one witness.** Where a finding is asserted in red in one place, other files
 that touch it pin the measurement and defer, rather than asserting the same requirement a
-second time. `DOC-REL-01` is the worked example: the red assertion lives in
+second time. `DOC-REL-01` was the worked example until its fix: the red assertion lived in
 `e2e/documents/j20-unapproved-release-in-review.spec.js`, and the integration-level test
-of the same transition graph records what the database does and points at j20. Two files
+of the same transition graph recorded what the database did and pointed at j20. Two files
 going red for one defect is how a single finding becomes two in a validation report.
 
 ## Summary
@@ -173,11 +184,11 @@ Across the 163 baseline requirements in the Traceability Matrix:
 
 | Status                       | Requirements | Share |
 | ---------------------------- | ------------ | ----- |
-| Covered                      | 95           | 58%   |
+| Covered                      | 96           | 59%   |
 | Partial                      | 35           | 21%   |
 | Not automated                | 16           | 10%   |
 | N/A (not verifiable by test) | 7            | 4%    |
-| Product non-conformant       | 5            | 3%    |
+| Product non-conformant       | 4            | 2%    |
 | Gap pinned                   | 5            | 3%    |
 | **Total**                    | **163**      |       |
 
@@ -210,7 +221,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | §  | Module                                                                        | Reqs | Cov | Part | None | N/A | PNC | Gap |
 | -- | ----------------------------------------------------------------------------- | ---- | --- | ---- | ---- | --- | --- | --- |
 | 3  | Cross-cutting — electronic records and access ([OQ-16](/validation/oq/security-and-electronic-records)) | 23   | 10  | 8    | 1    | 4   | —   | —   |
-| 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 7   | 5    | 3    | —   | 1   | —   |
+| 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 8   | 5    | 3    | —   | —   | —   |
 | 5  | Training Management ([OQ-02](/validation/oq/training-management))              | 11   | 7   | 1    | 1    | —   | 2   | —   |
 | 6  | Nonconformance ([OQ-03](/validation/oq/nonconformance))                        | 10   | 5   | 3    | 2    | —   | —   | —   |
 | 7  | CAPA ([OQ-04](/validation/oq/capa))                                           | 10   | 5   | 3    | 1    | —   | 1   | —   |
@@ -226,7 +237,7 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | 17 | Item Master ([OQ-14](/validation/oq/item-master))                              | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 18 | Retain Samples ([OQ-15](/validation/oq/retain-samples))                         | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 6   | —    | 1    | —   | —   | 1   |
-| **Total** |                                                                        | **163** | **93** | **38** | **16** | **7** | **5** | **4** |
+| **Total** |                                                                        | **163** | **96** | **35** | **16** | **7** | **4** | **5** |
 
 **Three things to take from this table.**
 
@@ -313,7 +324,7 @@ assessment and the wording to record.
 | URS-DOC-04 | Covered | `e2e/documents/j1-author-create-submit.spec.js` — "fill sections → submit → IN_REVIEW with doc number, workflow and task" | Document number and review workflow are assigned on submit. |
 | URS-DOC-05 | Covered | `e2e/documents/j3-reject-and-cancel.spec.js` — "reviewer rejects → REJECTED → author resubmits → IN_REVIEW" | Rejection returns the document to the author for resubmission. |
 | URS-DOC-06 | Covered | `e2e/documents/j2-review-approve-esign.spec.js` — "full approval chain with e-signature and snapshot" | Approval chain completes with e-signature and snapshot. |
-| URS-DOC-07 | Product non-conformant | `e2e/documents/j20-unapproved-release-in-review.spec.js` — "🔴 DOC-REL-01 · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused" | Defect **DOC-REL-01**: the HTTP route and the raw-GraphQL path both refuse an unapproved release, but the trusted database path permits `IN_REVIEW→EFFECTIVE`, so the seal TC-01-07 describes does not hold on every path. `REJECTED→EFFECTIVE` and `CHANGES_REQUESTED→EFFECTIVE` are correctly refused — this is one open edge, not an absent guard. No shipped caller reaches it. |
+| URS-DOC-07 | Covered | `e2e/documents/j20-unapproved-release-in-review.spec.js` — "DOC-REL-01 · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused" | An unapproved version cannot be released on any path: the HTTP route, the raw-GraphQL path and the trusted database path all refuse it. The database admits `IN_REVIEW→EFFECTIVE` only with a completed approval workflow (defect DOC-REL-01, fixed 2026-09-28). Open, not automated: the two-step `IN_REVIEW→APPROVED→EFFECTIVE` on the trusted path (DOC-REL-02). |
 | URS-DOC-08 | Covered | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | Exactly one version stays effective after supersede. |
 | URS-DOC-09 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | A blank change reason is never refused. |
 | URS-DOC-10 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | The revision-history view is not tested. |
