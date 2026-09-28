@@ -2,7 +2,10 @@
 import { IconMail, IconPlus, IconCamera, IconCrown } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Ownership is
+// not a field on the user form: it is an authority change with its own audit.
+import { put } from '@/api'
 import { uploadFile } from '@/utils/uploadService.js'
 import { buildUserSections, buildUserActions } from './userDetailConfig.js'
 
@@ -71,6 +74,38 @@ const roleAssignments = useLiveQueryWithDeps(
 // folded back into an already-applied create migration, so it never ran on
 // pre-existing databases. Without the dedupe the select renders duplicate
 // entries and `toRemove` below repeats an id once per surviving row.
+/**
+ * Company ownership — appointing a peer, not transferring the company.
+ *
+ * Ownership is the unconditional bypass, so it is not a field on the user form:
+ * it is its own request, with its own audit entry, offered only to people who
+ * already hold it. A role cannot confer it, by design — a role that could grant
+ * ownership would be ownership.
+ *
+ * Transfer away from the last owner stays on the operator plane; the server
+ * refuses to remove the last one, so a tenant cannot lock itself out.
+ */
+const toast = useToast()
+const viewerIsOwner = computed(() => currentSession.value?.isOwner === true)
+const isSelf = computed(() => props.id === currentSession.value?.userId)
+const ownershipSaving = ref(false)
+const ownershipError = ref('')
+
+async function setOwnership(next) {
+  if (ownershipSaving.value) return
+  ownershipSaving.value = true
+  ownershipError.value = ''
+  try {
+    await put(`/v1/services/users/${props.id}/ownership`, { isOwner: next })
+    if (user.value) user.value.isOwner = next
+    toast.success(next ? 'Company owner added' : 'Company ownership removed')
+  } catch (e) {
+    ownershipError.value = e?.message || 'Could not change ownership'
+  } finally {
+    ownershipSaving.value = false
+  }
+}
+
 const assignedRoleIds = computed(() => [...new Set(roleAssignments.value.map((ra) => ra.roleId))])
 
 const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
@@ -598,6 +633,28 @@ const userDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- Role Assignments -->
+      <!-- Ownership sits above roles, so it reads above them. Only an owner
+           sees this card at all: it is not information a non-owner can act on,
+           and showing a disabled control would invite the question. -->
+      <BaseRailCard v-if="viewerIsOwner" title="Company Ownership">
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <BaseSwitch
+            :modelValue="!!user?.isOwner"
+            :disabled="ownershipSaving"
+            label="Company owner"
+            @update:modelValue="setOwnership"
+          />
+          <BaseCaption>
+            Full access to everything in this company, bypassing roles and permissions.
+            <template v-if="isSelf">
+              You cannot remove the last owner — appoint someone else first.
+            </template>
+            <template v-else>Takes effect the next time they sign in.</template>
+          </BaseCaption>
+          <BaseErrorText v-if="ownershipError">{{ ownershipError }}</BaseErrorText>
+        </div>
+      </BaseRailCard>
+
       <BaseRailCard title="Role Assignments">
         <div class="tw:flex tw:flex-col tw:gap-3">
           <div v-if="canAssignRoles" class="tw:flex tw:justify-end">
