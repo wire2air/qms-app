@@ -91,6 +91,24 @@ const quote = (s) => `'${String(s).replace(/'/g, "''")}'`
  * @param {boolean} isLocal - true inside an explicit BEGIN/COMMIT, false for a
  *   session-level script (`SET ROLE` without a transaction).
  */
+/**
+ * Wait until `userId`'s workflow task on the record has been completed.
+ *
+ * Every fixture that drives a workflow action (Mark Complete, Approve + Sign)
+ * in a throwaway browser context must call this BEFORE closing the context:
+ * the action is async ("Completing…"), and closing the context cancels the
+ * request still in flight, stranding the task ASSIGNED. The downstream wait
+ * then times out on something that reads like a broken workflow engine.
+ */
+export async function waitForTaskCompleted(entityType, entityId, userId, { timeoutMs = 45_000 } = {}) {
+  await waitForSqlValue(
+    `SELECT count(*) FROM task_instances
+      WHERE entity_type = '${entityType}' AND entity_id = '${entityId}'
+        AND assigned_to = '${userId}' AND completed_at IS NOT NULL`,
+    { timeoutMs, label: `${entityType} task of ${userId} completed` },
+  )
+}
+
 export function siteGucSql(userId, companyId, isLocal) {
   const local = isLocal ? 'true' : 'false'
   return `DO $do$ BEGIN

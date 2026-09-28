@@ -249,6 +249,11 @@ test.describe('PW-J10 · a reset link changes the password exactly once', () => 
     const knownMail = await mailIdsTo(SUBJECT)
     test.skip(knownMail === null, 'Mailhog is not reachable')
 
+    // Baseline taken HERE, not from `state.hashAfterReset`: this is the one
+    // @validation test in the file, so `--grep @validation` runs it without the
+    // sibling that fills `state` — and the assertion compared against null.
+    const hashBefore = passwordHashOf(SUBJECT)
+
     const forgot = await anonPost('/v1/auth/password/forgot', { email: SUBJECT })
     expect(forgot.status, 'a fresh reset was requested').toBe(200)
     const mail = await waitForResetToken(SUBJECT, knownMail)
@@ -309,8 +314,6 @@ test.describe('PW-J10 · a reset link changes the password exactly once', () => 
     ).toBeNull()
 
     // And the credential is untouched.
-    expect(passwordHashOf(SUBJECT), 'the stored password did not change').toBe(
-      state.hashAfterReset,
-    )
+    expect(passwordHashOf(SUBJECT), 'the stored password did not change').toBe(hashBefore)
   })
 })

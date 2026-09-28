@@ -149,7 +149,10 @@ export async function verifyAssignees(page, instanceId, assigneeIds, { retrainin
       practicalObservationCompleted: !retrainingRequired,
       retrainingRequired,
       notes,
-      signatureMethod: 'PIN',
+      // The verify route authenticates the signer since c8ec60cc (a bare
+      // `signatureMethod` string used to sign a Part 11 record unverified) —
+      // it wants the { method, token } pair verifyEsignIdentity speaks.
+      esign: { method: 'PIN', token: ESIGN_PIN },
     },
   })
 }

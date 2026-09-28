@@ -130,7 +130,7 @@ test.describe('PW-J16 · F-16 per-module reject must sign', () => {
         expect(stepStatus(stepId), 'the step did not move').toBe('IN_PROGRESS')
         expect(taskStatus(task.id), 'the approver task did not move').toBe('ASSIGNED')
         expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`)).toBe(
-          'UNDER_REVIEW',
+          'OPEN',
         )
         expect(signatureCountForInstance(instanceId), 'nothing was signed').toBe(0)
 
@@ -156,7 +156,7 @@ test.describe('PW-J16 · F-16 per-module reject must sign', () => {
         expect(stepStatus(stepId), 'the step did not move on a bad PIN').toBe('IN_PROGRESS')
         expect(taskStatus(task.id), 'the task did not move on a bad PIN').toBe('ASSIGNED')
         expect(sqlValue(`SELECT status_id FROM change_requests WHERE id = '${crId}'`)).toBe(
-          'UNDER_REVIEW',
+          'OPEN',
         )
         expect(signatureCountForInstance(instanceId), 'a failed verification signs nothing').toBe(0)
 

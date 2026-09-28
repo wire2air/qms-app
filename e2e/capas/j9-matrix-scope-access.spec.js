@@ -78,7 +78,7 @@ test.describe('PW-J9 · site-scoped matrix access', () => {
       //    already carries the create-time statement, so click INTO the rendered
       //    content (click-to-edit) rather than the empty-state label.
       const marker = `Edited by site-scoped editor ${Date.now()}`
-      await clickWhenReady(page, page.getByText('seeded problem statement').first())
+      await clickWhenReady(page, page.getByText('E2E problem statement').first())
       // The click swaps the read-only view for a fresh TipTap mount; typing
       // immediately races its focus. Wait for the editor node and click INTO it
       // so the caret exists before the keystrokes.

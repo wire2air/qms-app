@@ -3,7 +3,7 @@
 // are not document-specific, just the project's only home for them so far.
 import { expect } from '@playwright/test'
 import { FIXTURES, USERS, AUTH, ESIGN_PIN } from './cast.js'
-import { waitForSqlValue } from './db.js'
+import { waitForSqlValue, waitForTaskCompleted } from './db.js'
 import { selectOption, selectFirstOption, clickWhenReady } from './documents.js'
 
 /** Unique, greppable NC title for one test run. */
@@ -129,24 +129,34 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
   // page.getByRole('combobox') grabs the wrong control. Options carry the
   // user's role list on a second line, so `hasText` — not an exact name — is
   // what matches (same reason j4's pickReviewer does it).
-  const stepCombo = page
-    .getByText('Reviewer Check', { exact: true })
-    .first()
-    .locator('xpath=following::*[@role="combobox"][1]')
-  if (await stepCombo.count().catch(() => 0)) {
+  //
+  // The step name is a regex, not `exact: true`: the label now renders a
+  // required-marker span ("Reviewer Check *"), so an exact match found nothing,
+  // the count() below came back 0, the pick was skipped without a word, and
+  // step 1 fell to the raiser again (NC j2/j3, 2026-09-28).
+  //
+  // Step 2 (Final Approval) needs the same treatment: its auto-fill also lands
+  // on the raiser, which left the approver task on author@ (NC j2/j3,
+  // 2026-09-28, once step 1 was fixed).
+  for (const [stepName, user] of [
+    ['Reviewer Check', USERS.reviewer],
+    ['Final Approval', USERS.approver],
+  ]) {
+    const stepCombo = page
+      .getByText(new RegExp(`^\\s*${stepName}\\s*\\*?\\s*$`))
+      .first()
+      .locator('xpath=following::*[@role="combobox"][1]')
+    if (!(await stepCombo.count().catch(() => 0))) {
+      throw new Error(`raiseNc: "${stepName}" picker not found in the Assign Step Reviewers dialog`)
+    }
     const listboxId = await stepCombo.getAttribute('aria-controls')
     const listbox = listboxId ? page.locator(`[id="${listboxId}"]`) : page.getByRole('listbox')
-    const opened = await expect(async () => {
+    await expect(async () => {
       if (!(await listbox.isVisible().catch(() => false))) await stepCombo.click()
       await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
-    })
-      .toPass({ timeout: 30_000 })
-      .then(() => true)
-      .catch(() => false)
-    if (opened) {
-      await listbox.getByRole('option').filter({ hasText: USERS.reviewer.name }).first().click()
-      await expect(listbox).toBeHidden({ timeout: 5_000 }).catch(() => {})
-    }
+    }).toPass({ timeout: 30_000 })
+    await listbox.getByRole('option').filter({ hasText: user.name }).first().click()
+    await expect(listbox).toBeHidden({ timeout: 5_000 }).catch(() => {})
   }
 
   if (onReviewerDialog) await onReviewerDialog(page)
@@ -179,6 +189,7 @@ export async function completeReviewerStep(browser, ncId) {
   const page = await ctx.newPage()
   await page.goto(`/nonconformances/${ncId}`, { waitUntil: 'domcontentloaded' })
   await clickWhenReady(page, page.getByRole('button', { name: 'Mark Complete' }))
+  await waitForTaskCompleted('Nonconformance', ncId, USERS.reviewer.id)
   await ctx.close()
 }
 
@@ -206,6 +217,7 @@ export async function completeApproverStep(browser, ncId) {
   await expect(pin).toBeVisible({ timeout: 15_000 })
   await pin.fill(ESIGN_PIN)
   await page.getByRole('button', { name: 'Sign' }).click()
+  await waitForTaskCompleted('Nonconformance', ncId, USERS.approver.id)
   await ctx.close()
 }
 
@@ -217,7 +229,15 @@ export async function completeApproverStep(browser, ncId) {
 export async function fillDisposition(page, ncId, { disposition, notes, costOfNc, capaRequired } = {}) {
   const quote = (s) => `'${String(s).replace(/'/g, "''")}'`
   if (disposition) {
-    await selectOption(page, 'Disposition', disposition)
+    // Anchored on the section HEADING, not getByText('Disposition'): the detail
+    // page's section nav now carries a "Disposition" link above everything,
+    // `.first()` landed on it, and `following::combobox[1]` opened the PRODUCT
+    // select instead (NC j3, 2026-09-28).
+    const combo = page
+      .getByRole('heading', { name: 'Disposition', exact: true })
+      .locator('xpath=following::*[@role="combobox"][1]')
+    await combo.click()
+    await page.getByRole('listbox').getByRole('option', { name: disposition }).first().click()
     await waitForSqlValue(
       `SELECT count(*) FROM nonconformances nc JOIN nc_disposition_types t ON t.id = nc.disposition_type_id
         WHERE nc.id = '${ncId}' AND t.name = ${quote(disposition)}`,

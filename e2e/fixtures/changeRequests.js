@@ -282,6 +282,14 @@ export function actionBarButton(page, name) {
  * The page navigates back to the list on success.
  */
 export async function closeCr(page, { comments = '' } = {}) {
+  // The Close gate reads step statuses from the live IDB query, not the
+  // server. A spec that waited on the DB for the last step can reach this
+  // while sync is still delivering it — the button sits disabled on "1
+  // workflow step(s) must be completed" (CR j1, 2026-09-28, all 3 steps
+  // APPROVED server-side). Give sync room, and say so if it never lands.
+  await expect(actionBarButton(page, 'Close'), 'Close enables once the finished steps sync').toBeEnabled({
+    timeout: 60_000,
+  })
   await actionBarButton(page, 'Close').click()
   await expect(page.getByRole('heading', { name: 'Close Change Request' })).toBeVisible({
     timeout: 10_000,

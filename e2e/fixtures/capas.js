@@ -3,7 +3,7 @@
 // document-specific, just the project's only home for them so far.
 import { expect } from '@playwright/test'
 import { AUTH, USERS, ESIGN_PIN } from './cast.js'
-import { waitForSqlValue } from './db.js'
+import { waitForSqlValue, waitForTaskCompleted } from './db.js'
 import { selectFirstOption, selectOption, expectStatusEventually, clickWhenReady } from './documents.js'
 
 const CAPA_WORKFLOW_NAME = 'E2E CAPA Review & Approval'
@@ -321,6 +321,7 @@ export async function completeApproverStep(browser, capaId) {
   await expect(pin).toBeVisible({ timeout: 15_000 })
   await pin.fill(ESIGN_PIN)
   await page.getByRole('button', { name: 'Sign' }).click()
+  await waitForTaskCompleted('Capa', capaId, USERS.approver.id)
   await ctx.close()
 }
 
