@@ -224,43 +224,45 @@ test.describe('TRN-J10 · a published training is locked against content edits',
     await ctx.close()
   })
 
-  test('the assessment of a published training cannot be rewritten over REST', async ({
-    browser,
-  }) => {
-    // THE CORE ARM. A learner who passed yesterday was graded against the
-    // original questions; swapping them changes what that signed pass attests.
-    test.setTimeout(90_000)
-    const ctx = await browser.newContext({ storageState: AS })
-    const { id } = await mintActiveTraining(ctx, 'assessment')
-    const before = storedAssessment(id)
+  test(
+    'the assessment of a published training cannot be rewritten over REST',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      // THE CORE ARM. A learner who passed yesterday was graded against the
+      // original questions; swapping them changes what that signed pass attests.
+      test.setTimeout(90_000)
+      const ctx = await browser.newContext({ storageState: AS })
+      const { id } = await mintActiveTraining(ctx, 'assessment')
+      const before = storedAssessment(id)
 
-    const res = await ctx.request.put(`/api/v1/services/trainings/${id}`, {
-      data: {
-        assessment: [
-          {
-            id: 'z9',
-            text: 'Substituted after publication.',
-            type: 'SINGLE',
-            options: [
-              { id: 'z9a', text: 'Anything', isCorrect: true },
-              { id: 'z9b', text: 'Else', isCorrect: false },
-            ],
-          },
-        ],
-      },
-    })
+      const res = await ctx.request.put(`/api/v1/services/trainings/${id}`, {
+        data: {
+          assessment: [
+            {
+              id: 'z9',
+              text: 'Substituted after publication.',
+              type: 'SINGLE',
+              options: [
+                { id: 'z9a', text: 'Anything', isCorrect: true },
+                { id: 'z9b', text: 'Else', isCorrect: false },
+              ],
+            },
+          ],
+        },
+      })
 
-    expect(
-      res.status(),
-      `a published training's assessment must not be rewritable (got ${res.status()}: ${await res
-        .text()
-        .catch(() => '')})`,
-    ).toBeGreaterThanOrEqual(400)
-    expect(storedAssessment(id), 'the stored assessment is unchanged').toBe(before)
+      expect(
+        res.status(),
+        `a published training's assessment must not be rewritable (got ${res.status()}: ${await res
+          .text()
+          .catch(() => '')})`,
+      ).toBeGreaterThanOrEqual(400)
+      expect(storedAssessment(id), 'the stored assessment is unchanged').toBe(before)
 
-    cleanup(id)
-    await ctx.close()
-  })
+      cleanup(id)
+      await ctx.close()
+    },
+  )
 
   test('the passing score of a published training cannot be lowered over REST', async ({
     browser,

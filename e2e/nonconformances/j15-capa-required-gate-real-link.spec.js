@@ -164,7 +164,7 @@ async function clearWorkflowSteps(page, ncId) {
 test.describe('PW-J15 · URS-NCR-07 — the CAPA-required gate and a REAL linked CAPA', () => {
   test.use({ storageState: AUTH.author })
 
-  test('the gate refuses while capaRequired is Yes with nothing linked, and CREATING A LINKED CAPA clears it — the flag is never touched', async ({ page }) => {
+  test('the gate refuses while capaRequired is Yes with nothing linked, and CREATING A LINKED CAPA clears it — the flag is never touched', { tag: ['@journey', '@p1'] }, async ({ page }) => {
     test.setTimeout(300_000)
 
     // ── ARRANGE. A plain NC, no CAPA, flag off.

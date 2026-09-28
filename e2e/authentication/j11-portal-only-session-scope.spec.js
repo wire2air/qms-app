@@ -98,7 +98,7 @@ async function portalSignIn() {
 test.describe.configure({ mode: 'serial' })
 
 test.describe('PW-J11 · a PORTAL_ONLY session is confined to the portal', () => {
-  test('GATE · a PORTAL_ONLY session is refused on the main app surface', async () => {
+  test('GATE · a PORTAL_ONLY session is refused on the main app surface', { tag: '@smoke' }, async () => {
     expect(grantExists(), 'the temporary portal grant was created').toBe(true)
 
     const { ctx, res, sid } = await portalSignIn()

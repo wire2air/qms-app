@@ -29,7 +29,7 @@ import { sqlValue, waitForSqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J2 · ad-hoc audit, executed and closed with an e-signature', () => {
-  test('OPEN: Scheduled → In Progress → Review, then CLOSED — auto-finding raised and resolved', async ({
+  test('OPEN: Scheduled → In Progress → Review, then CLOSED — auto-finding raised and resolved', { tag: ['@journey', '@p1'] }, async ({
     page,
     browser,
   }) => {

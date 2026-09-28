@@ -24,7 +24,7 @@ import {
 } from '../fixtures/riskAssessment.js'
 
 test.describe('RA-J1 · workflow-embedded risk assessment lifecycle', () => {
-  test('reviewer scores the matrix, finalizes, marks complete — the row is derived on approval', async ({
+  test('reviewer scores the matrix, finalizes, marks complete — the row is derived on approval', { tag: '@smoke' }, async ({
     page,
     browser,
   }) => {

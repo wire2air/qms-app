@@ -31,7 +31,7 @@ function comboboxAfterLabel(page, fieldLabel) {
  * dismiss it). Wait for the listbox to actually have an option before
  * navigating, since options load async from IDB.
  */
-async function selectFirstByKeyboard(combo) {
+async function selectFirstByKeyboard(combo, fieldLabel = null) {
   const page = combo.page()
   // Scope to THIS select's own panel via aria-controls. A page-wide
   // getByRole('listbox') also matches the panel of the select filled a moment
@@ -59,7 +59,18 @@ async function selectFirstByKeyboard(combo) {
     }
     await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
   }).toPass({ timeout: 30_000 })
-  await page.keyboard.press('ArrowDown')
+  // Pick the first REAL option. On open the first focusable row is already
+  // active, so a bare ArrowDown would pick the SECOND one. Home pins the first
+  // row; a non-required select renders a "— All … —" null row there
+  // (data-row-kind="null"), which is skipped with one ArrowDown.
+  await page.keyboard.press('Home')
+  const activeIsNull = await page.evaluate(() => {
+    // Home makes the first row active, so it is enough to ask whether the
+    // open panel's first option is the null row.
+    const first = document.querySelector('[data-headlessui-state="open"] [role="option"]')
+    return first?.dataset.rowKind === 'null'
+  })
+  if (activeIsNull) await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
 
   // ── WAIT FOR THE PANEL TO CLOSE, not just for the selection to be made. ────
@@ -99,13 +110,35 @@ async function selectFirstByKeyboard(combo) {
   // version of this cost 10.8 MINUTES for a single test that used to take ~40s.
   // A settle is worth a second, never a minute.
   //
-  // Best-effort by design: a field with no popover (a plain inline select) must
-  // not fail here, because this is a settle, not an assertion.
-  await expect(
-    page.locator('[id^="headlessui-popover-panel-"][data-headlessui-state="open"]'),
-  )
+  // A field with no popover (a plain inline select) passes trivially — there is
+  // no open panel to count.
+  //
+  // ⚠ BL-02 (2026-09-28): the panel was NOT "still animating shut" — it never
+  // closed. BaseSelect left keyboard focus on the bare popover div, so
+  // ArrowDown/Enter reached no handler; the value only looked picked because a
+  // required select auto-fills its first option. Fixed in BaseSelect (focus
+  // moves into the panel on open). If a panel is still open after the settle,
+  // press Escape once; if it survives THAT, fail here and name the field,
+  // instead of letting the next field's click time out 25s later blaming a
+  // control that is fine.
+  const openPanel = page.locator('[id^="headlessui-popover-panel-"][data-headlessui-state="open"]')
+  const closed = await expect(openPanel)
     .toHaveCount(0, { timeout: 2_000 })
-    .catch(() => {})
+    .then(() => true)
+    .catch(() => false)
+  if (closed) return
+  await page.keyboard.press('Escape')
+  const closedAfterEscape = await expect(openPanel)
+    .toHaveCount(0, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false)
+  if (!closedAfterEscape) {
+    const name = fieldLabel ? `"${fieldLabel}"` : '(unlabelled select)'
+    throw new Error(
+      `selectFirstByKeyboard: the popover for ${name} is still open after Enter and Escape — ` +
+        'it would intercept the next click. Keyboard focus is probably not inside the panel.',
+    )
+  }
 }
 
 /** Open a labelled select and choose an option by its visible text. */
@@ -117,7 +150,7 @@ export async function selectOption(page, fieldLabel, optionText) {
 
 /** Open a labelled select and pick the first option (keyboard, stable). */
 export async function selectFirstOption(page, fieldLabel) {
-  await selectFirstByKeyboard(comboboxAfterLabel(page, fieldLabel))
+  await selectFirstByKeyboard(comboboxAfterLabel(page, fieldLabel), fieldLabel)
 }
 
 /**

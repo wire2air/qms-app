@@ -389,38 +389,46 @@ test.describe('CMP-J10 · Customer Complaint assignment + cross-module permissio
     ).toBe('0')
   })
 
-  test('SPLIT (reverse): supportAgent (CUSTOMER complaint_management:* only) is refused on every INTERNAL route', async ({
-    browser,
-  }) => {
-    const page = await pool.page(browser, AUTH.supportAgent)
+  // KNOWN DEFECT (ticket: GUARD-HYDRATION — not yet filed; same root cause as
+  // auditee/j4-access.spec.js): on a hard page load the permission guard lets
+  // /complaints render while the session is still hydrating, so a user without
+  // complaints:read is not redirected. Measured 2026-09-28: supportAgent holds
+  // only complaint_management:* yet stayed on /complaints for 15s. The REST
+  // refusals in this test hold; only the route redirect fails.
+  test(
+    'SPLIT (reverse): supportAgent (CUSTOMER complaint_management:* only) is refused on every INTERNAL route',
+    { tag: ['@smoke', '@known-defect'] },
+    async ({ browser }) => {
+      const page = await pool.page(browser, AUTH.supportAgent)
 
-    // The mirror image, and the half a one-directional test would miss: a
-    // `complaint_management` grant must not open the internal Quality Complaint
-    // record either. `/complaints` is the QA lens over the INTERNAL table
-    // despite the stale in-code comment on QaComplaintsIndex claiming otherwise
-    // (see fixtures/complaints.js's header).
-    const create = await restPost(page, '/complaints', {
-      subject: 'CMP-J10 should never be created (internal)',
-      description: 'x',
-    })
-    expect(
-      create.status(),
-      `a customer-support grant must not reach internal complaints:create: ${await create.text()}`,
-    ).toBe(403)
+      // The mirror image, and the half a one-directional test would miss: a
+      // `complaint_management` grant must not open the internal Quality Complaint
+      // record either. `/complaints` is the QA lens over the INTERNAL table
+      // despite the stale in-code comment on QaComplaintsIndex claiming otherwise
+      // (see fixtures/complaints.js's header).
+      const create = await restPost(page, '/complaints', {
+        subject: 'CMP-J10 should never be created (internal)',
+        description: 'x',
+      })
+      expect(
+        create.status(),
+        `a customer-support grant must not reach internal complaints:create: ${await create.text()}`,
+      ).toBe(403)
 
-    await page.goto('/complaints')
-    await expect(
-      page,
-      'permissionGuard gates /complaints on complaints:read, which supportAgent does not hold',
-    ).toHaveURL(/\/no-access/, { timeout: 15_000 })
+      await page.goto('/complaints')
+      await expect(
+        page,
+        'permissionGuard gates /complaints on complaints:read, which supportAgent does not hold',
+      ).toHaveURL(/\/no-access/, { timeout: 15_000 })
 
-    expect(
-      sqlValue(
-        `SELECT count(*) FROM complaints WHERE subject = 'CMP-J10 should never be created (internal)'`,
-      ),
-      'nothing landed in the internal complaints table',
-    ).toBe('0')
-  })
+      expect(
+        sqlValue(
+          `SELECT count(*) FROM complaints WHERE subject = 'CMP-J10 should never be created (internal)'`,
+        ),
+        'nothing landed in the internal complaints table',
+      ).toBe('0')
+    },
+  )
 
   // ── TC-17-04 — Working the complaint ──────────────────────────────────────
 

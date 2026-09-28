@@ -135,7 +135,7 @@ async function openSubmissions(page, { expectCreate = true } = {}) {
 }
 
 test.describe('REC-J1 — plain submission through the App Builder', () => {
-  test('fill and submit a form: the server mints the number and seals the schema', async ({
+  test('fill and submit a form: the server mints the number and seals the schema', { tag: '@smoke' }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, AUTH.author)

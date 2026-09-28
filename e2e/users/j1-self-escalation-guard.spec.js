@@ -79,7 +79,7 @@ test.describe('USER-J1 · a member cannot rewrite their own security columns', (
     ).toBe('1')
   })
 
-  test('🛡 cannot make themselves the company owner', async ({ browser }) => {
+  test('🛡 cannot make themselves the company owner', { tag: '@smoke' }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
     expect(await refused(ctx, self, { isOwner: true }), 'isOwner must be refused').toBe(true)
     expect(ownerFlag(self), 'and the column is untouched').toBe('f')

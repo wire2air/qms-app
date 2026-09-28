@@ -38,13 +38,17 @@ test.describe('PW-J6 · permission denials + cross-tenant isolation', () => {
     await readOnlyCtx.close()
   })
 
-  test('a user with no ncr permission is redirected to /no-access', async ({ browser }) => {
-    const ctx = await browser.newContext({ storageState: AUTH.noAccess })
-    const page = await ctx.newPage()
-    await page.goto('/nonconformances')
-    await expect(page).toHaveURL(/\/no-access/, { timeout: 20_000 })
-    await ctx.close()
-  })
+  test(
+    'a user with no ncr permission is redirected to /no-access',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      const ctx = await browser.newContext({ storageState: AUTH.noAccess })
+      const page = await ctx.newPage()
+      await page.goto('/nonconformances')
+      await expect(page).toHaveURL(/\/no-access/, { timeout: 20_000 })
+      await ctx.close()
+    },
+  )
 
   test('an unauthenticated API request is rejected with 401', async ({ playwright }) => {
     const request = await playwright.request.newContext({ baseURL: BASE_URL })

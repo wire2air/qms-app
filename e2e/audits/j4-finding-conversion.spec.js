@@ -31,7 +31,7 @@ async function expandFinding(page, findingNumber) {
 }
 
 test.describe('PW-J4 · a finding converts into corrective action', () => {
-  test('attach an existing CAPA, then raise a new one from the deep link', async ({ page }) => {
+  test('attach an existing CAPA, then raise a new one from the deep link', { tag: ['@journey', '@p1'] }, async ({ page }) => {
     test.setTimeout(300_000)
 
     // An existing CAPA to attach in the first half.

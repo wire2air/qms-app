@@ -228,7 +228,7 @@ test.describe('CF-1 — entity_field_values is gated on the HOST record’s modu
     }
   })
 
-  test('UPDATE — read is not write, proved at the rung that can see the row', () => {
+  test('UPDATE — read is not write, proved at the rung that can see the row', { tag: '@smoke' }, () => {
     const row = probe('Nonconformance')
 
     // The bottom rung. This zero is REAL but WEAK, and the comment is the point

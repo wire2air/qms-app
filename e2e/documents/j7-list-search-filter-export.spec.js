@@ -124,7 +124,7 @@ test.describe.serial('PW-J7 · list search, status filter, export', () => {
     await ctx.close()
   })
 
-  test('export downloads a CSV of the current filtered view', async ({ browser }) => {
+  test('export downloads a CSV of the current filtered view', { tag: ['@journey', '@p1'] }, async ({ browser }) => {
     test.setTimeout(120_000)
     const ctx = await browser.newContext({ storageState: AUTH.owner })
     const page = await ctx.newPage()

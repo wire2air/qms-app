@@ -16,56 +16,60 @@ import {
 } from '../fixtures/training.js'
 
 test.describe('PW-J1 · learner completes an assigned training', () => {
-  test('ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed', async ({ browser }) => {
-    test.setTimeout(90_000)
+  test(
+    'ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      test.setTimeout(90_000)
 
-    const adminCtx = await browser.newContext({ storageState: AUTH.trainingAdmin })
-    const adminPage = await adminCtx.newPage()
-    const instanceId = await launchTraining(adminPage)
-    await adminCtx.close()
+      const adminCtx = await browser.newContext({ storageState: AUTH.trainingAdmin })
+      const adminPage = await adminCtx.newPage()
+      const instanceId = await launchTraining(adminPage)
+      await adminCtx.close()
 
-    // Launch creates the assignee AND the TRAINING task that routes the learner here.
-    expect(findAssignee(instanceId).status).toBe('ASSIGNED')
-    const taskCount = sqlValue(
-      `SELECT count(*) FROM task_instances
+      // Launch creates the assignee AND the TRAINING task that routes the learner here.
+      expect(findAssignee(instanceId).status).toBe('ASSIGNED')
+      const taskCount = sqlValue(
+        `SELECT count(*) FROM task_instances
         WHERE entity_type = 'TrainingAssignee' AND entity_id = '${findAssignee(instanceId).id}'
           AND assigned_to = '${USERS.learner.id}' AND task_kind_id = 'TRAINING'`,
-    )
-    expect(Number(taskCount), 'a TRAINING task is routed to the learner').toBe(1)
+      )
+      expect(Number(taskCount), 'a TRAINING task is routed to the learner').toBe(1)
 
-    const learnerCtx = await browser.newContext({ storageState: AUTH.learner })
-    const learnerPage = await learnerCtx.newPage()
-    await completeTrainingViaUi(learnerPage, instanceId, TRAINING.correctAnswers)
+      const learnerCtx = await browser.newContext({ storageState: AUTH.learner })
+      const learnerPage = await learnerCtx.newPage()
+      await completeTrainingViaUi(learnerPage, instanceId, TRAINING.correctAnswers)
 
-    await waitForAssigneeStatus(instanceId, 'COMPLETED')
-    const done = findAssignee(instanceId)
-    expect(done.score, 'both answers correct → 100').toBe(100)
-    expect(done.signed, 'completion carries an inline e-signature stamp').toBe(true)
-    expect(done.signatureMethod).toBeTruthy()
-    expect(done.attemptCount).toBe(1)
+      await waitForAssigneeStatus(instanceId, 'COMPLETED')
+      const done = findAssignee(instanceId)
+      expect(done.score, 'both answers correct → 100').toBe(100)
+      expect(done.signed, 'completion carries an inline e-signature stamp').toBe(true)
+      expect(done.signatureMethod).toBeTruthy()
+      expect(done.attemptCount).toBe(1)
 
-    // The result screen confirms the pass to the learner.
-    await expect(learnerPage.getByText(/100/).first()).toBeVisible({ timeout: 15_000 })
-    await learnerCtx.close()
+      // The result screen confirms the pass to the learner.
+      await expect(learnerPage.getByText(/100/).first()).toBeVisible({ timeout: 15_000 })
+      await learnerCtx.close()
 
-    // requireManagerVerification=true on the seeded training, so finishing the
-    // last assignee moves the INSTANCE to PENDING_VERIFICATION rather than
-    // straight to COMPLETED — that is what queues the manager (PW-J2).
-    expect(instanceStatus(instanceId)).toBe('PENDING_VERIFICATION')
+      // requireManagerVerification=true on the seeded training, so finishing the
+      // last assignee moves the INSTANCE to PENDING_VERIFICATION rather than
+      // straight to COMPLETED — that is what queues the manager (PW-J2).
+      expect(instanceStatus(instanceId)).toBe('PENDING_VERIFICATION')
 
-    // KNOWN GAP (inventory §M / security review #3): training e-signatures are
-    // inline columns only — training has no subject column on the central
-    // Part-11 `signatures` ledger, unlike CAPA/NC/CR. Asserted so the day a
-    // training subject is added, this flips and the doc gets updated with it.
-    const ledgerRows = sqlValue(
-      `SELECT count(*) FROM information_schema.columns
+      // KNOWN GAP (inventory §M / security review #3): training e-signatures are
+      // inline columns only — training has no subject column on the central
+      // Part-11 `signatures` ledger, unlike CAPA/NC/CR. Asserted so the day a
+      // training subject is added, this flips and the doc gets updated with it.
+      const ledgerRows = sqlValue(
+        `SELECT count(*) FROM information_schema.columns
         WHERE table_name = 'signatures' AND column_name LIKE '%training%'`,
-    )
-    expect(
-      Number(ledgerRows),
-      'documents the Part-11 gap: no training subject on the signatures ledger',
-    ).toBe(0)
-  })
+      )
+      expect(
+        Number(ledgerRows),
+        'documents the Part-11 gap: no training subject on the signatures ledger',
+      ).toBe(0)
+    },
+  )
 
   test('a failing score does not complete the training and leaves a retry', async ({ browser }) => {
     test.setTimeout(90_000)

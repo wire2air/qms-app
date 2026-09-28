@@ -10,12 +10,12 @@ import { findDocumentByTitle, versionsOf, sqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · author creates an SOP and submits it for review', () => {
-  test('list renders for an authorized author', async ({ page }) => {
+  test('list renders for an authorized author', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/documents')
     await expect(page.getByRole('button', { name: 'Create Document' })).toBeVisible({ timeout: 20_000 })
   })
 
-  test('create from template → DRAFT 1.0 with no doc number', async ({ page }) => {
+  test('create from template → DRAFT 1.0 with no doc number', { tag: '@smoke' }, async ({ page }) => {
     const title = uniqueTitle('J1-create')
     await createSopDocument(page, title)
 
@@ -49,7 +49,7 @@ test.describe('PW-J1 · author creates an SOP and submits it for review', () => 
     expect(versionsOf(doc.id)[0].statusId).toBe('DRAFT')
   })
 
-  test('fill sections → submit → IN_REVIEW with doc number, workflow and task', async ({ page }) => {
+  test('fill sections → submit → IN_REVIEW with doc number, workflow and task', { tag: ['@smoke', '@p0'] }, async ({ page }) => {
     const title = uniqueTitle('J1-submit')
     await createSopDocument(page, title)
     const created = findDocumentByTitle(title)

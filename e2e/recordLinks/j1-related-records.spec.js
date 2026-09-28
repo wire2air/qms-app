@@ -80,7 +80,7 @@ test.describe('PW-J1 · related records', () => {
     await ctx.close()
   })
 
-  test('link, see it on the record, unlink', async ({ browser }) => {
+  test('link, see it on the record, unlink', { tag: '@smoke' }, async ({ browser }) => {
     test.setTimeout(180_000)
     const { nc, capa } = pickPair()
     expect(nc?.id, 'the tenant has an NC to link').toBeTruthy()
@@ -136,7 +136,7 @@ test.describe('PW-J1 · related records', () => {
     await ctx.close()
   })
 
-  test('a read-only user cannot link, and nobody can write the table directly', async ({
+  test('a read-only user cannot link, and nobody can write the table directly', { tag: '@smoke' }, async ({
     browser,
   }) => {
     const { nc, capa } = pickPair()

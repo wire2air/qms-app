@@ -32,7 +32,7 @@ async function mockBackend(page) {
 }
 
 for (const path of PUBLIC_ROUTES) {
-  test(`route ${path} renders without errors`, async ({ page }) => {
+  test(`route ${path} renders without errors`, { tag: '@smoke' }, async ({ page }) => {
     const pageErrors = []
     const consoleErrors = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
@@ -53,13 +53,17 @@ for (const path of PUBLIC_ROUTES) {
   })
 }
 
-test('app boot does not crash (unknown app route falls back to auth)', async ({ page }) => {
-  const pageErrors = []
-  page.on('pageerror', (err) => pageErrors.push(err.message))
-  await mockBackend(page)
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
-  // Without a tenant/session the app boots and lands on a sign-in form rather
-  // than white-screening.
-  await expect(page.locator('input, button').first()).toBeVisible({ timeout: 20_000 })
-  expect(pageErrors, `uncaught errors on boot:\n${pageErrors.join('\n')}`).toEqual([])
-})
+test(
+  'app boot does not crash (unknown app route falls back to auth)',
+  { tag: '@smoke' },
+  async ({ page }) => {
+    const pageErrors = []
+    page.on('pageerror', (err) => pageErrors.push(err.message))
+    await mockBackend(page)
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+    // Without a tenant/session the app boots and lands on a sign-in form rather
+    // than white-screening.
+    await expect(page.locator('input, button').first()).toBeVisible({ timeout: 20_000 })
+    expect(pageErrors, `uncaught errors on boot:\n${pageErrors.join('\n')}`).toEqual([])
+  },
+)

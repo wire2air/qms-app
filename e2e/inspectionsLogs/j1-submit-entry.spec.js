@@ -35,7 +35,7 @@ const pool = createPersonaPool()
 test.afterAll(() => pool.close())
 
 test.describe('IL-J1 — file a log entry', () => {
-  test('an operator files an operational entry and it lands SUBMITTED, inside its edit window', async ({
+  test('an operator files an operational entry and it lands SUBMITTED, inside its edit window', { tag: '@smoke' }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, AUTH.logOperator)

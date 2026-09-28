@@ -84,7 +84,7 @@ test.describe('SA-API-1 · a service-account key authenticates', () => {
     await owned.cleanup(playwright)
   })
 
-  test('x-api-key: sk_… reaches a gated read → 200', async ({ playwright }) => {
+  test('x-api-key: sk_… reaches a gated read → 200', { tag: '@smoke' }, async ({ playwright }) => {
     const ctx = await keyContext(playwright, secret)
     const { status, json } = await read(await ctx.get(GATED_READ))
     expect(status, `x-api-key ${redact(secret)} → ${status}: ${errorMessage(json)}`).toBe(200)

@@ -77,75 +77,77 @@ test.describe('PJ-J1 · the item lifecycle', () => {
   test.beforeAll(() => purgeProductBySku(SKU))
   test.afterAll(() => purgeProductBySku(SKU))
 
-  test('create: the dialog writes over GraphQL and issues no products REST call', async ({
-    browser,
-  }) => {
-    const page = await pool.page(browser, PRODUCTS.admin.auth)
-    await openRegister(page)
+  test(
+    'create: the dialog writes over GraphQL and issues no products REST call',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      const page = await pool.page(browser, PRODUCTS.admin.auth)
+      await openRegister(page)
 
-    // Record EVERY /v1/services request, not just ones mentioning products. The
-    // interesting failure mode is a request to a path nobody expected, and a
-    // recorder written around the expected path could never see it.
-    const restCalls = recordRestCalls(page)
-    const mutations = recordGraphqlMutations(page)
+      // Record EVERY /v1/services request, not just ones mentioning products. The
+      // interesting failure mode is a request to a path nobody expected, and a
+      // recorder written around the expected path could never see it.
+      const restCalls = recordRestCalls(page)
+      const mutations = recordGraphqlMutations(page)
 
-    await page.getByRole('button', { name: 'Add New Item' }).first().click()
-    const d = dialog(page)
-    await expect(d.getByText('Create New Item', { exact: true })).toBeVisible()
+      await page.getByRole('button', { name: 'Add New Item' }).first().click()
+      const d = dialog(page)
+      await expect(d.getByText('Create New Item', { exact: true })).toBeVisible()
 
-    await d.getByRole('textbox', { name: 'Item Name', exact: true }).fill(NAME)
-    await d.getByRole('textbox', { name: 'SKU', exact: true }).fill(SKU)
-    await d.getByRole('textbox', { name: 'Revision', exact: true }).fill('A')
+      await d.getByRole('textbox', { name: 'Item Name', exact: true }).fill(NAME)
+      await d.getByRole('textbox', { name: 'SKU', exact: true }).fill(SKU)
+      await d.getByRole('textbox', { name: 'Revision', exact: true }).fill('A')
 
-    // Item Type is `required`, and BaseSelect auto-fills the first option of a
-    // required select once the option list loads. All four product_types share
-    // display_order 1000, so "the first" is whatever order the query happened to
-    // return — pick explicitly, or this test asserts against an arbitrary value.
-    await selectByNearbyLabel(page, 'Item Type', 'Component')
-    // Item Group / Unit of Measure are NOT wrapped in BaseField's default slot
-    // (the dialog uses a bare <p> caption for them), so they never receive the
-    // generated id and getByLabel matches nothing — hence the
-    // label-then-next-combobox handle, scoped to the dialog.
-    await selectByNearbyLabel(page, 'Item Group', PRODUCTS.groups.a.name)
-    await selectByNearbyLabel(page, 'Unit of Measure', PRODUCTS.uoms.each.name)
+      // Item Type is `required`, and BaseSelect auto-fills the first option of a
+      // required select once the option list loads. All four product_types share
+      // display_order 1000, so "the first" is whatever order the query happened to
+      // return — pick explicitly, or this test asserts against an arbitrary value.
+      await selectByNearbyLabel(page, 'Item Type', 'Component')
+      // Item Group / Unit of Measure are NOT wrapped in BaseField's default slot
+      // (the dialog uses a bare <p> caption for them), so they never receive the
+      // generated id and getByLabel matches nothing — hence the
+      // label-then-next-combobox handle, scoped to the dialog.
+      await selectByNearbyLabel(page, 'Item Group', PRODUCTS.groups.a.name)
+      await selectByNearbyLabel(page, 'Unit of Measure', PRODUCTS.uoms.each.name)
 
-    await page.getByRole('button', { name: 'Create Item', exact: true }).click()
+      await page.getByRole('button', { name: 'Create Item', exact: true }).click()
 
-    // Assert against Postgres, never against the toast: the row is what QC,
-    // complaints, NCs, sampling plans and retain samples all FK into.
-    await expect
-      .poll(() => sqlValue(`SELECT count(*) FROM products WHERE sku = '${SKU}'`), {
-        timeout: 30_000,
-        message: 'the create landed in Postgres',
-      })
-      .toBe('1')
+      // Assert against Postgres, never against the toast: the row is what QC,
+      // complaints, NCs, sampling plans and retain samples all FK into.
+      await expect
+        .poll(() => sqlValue(`SELECT count(*) FROM products WHERE sku = '${SKU}'`), {
+          timeout: 30_000,
+          message: 'the create landed in Postgres',
+        })
+        .toBe('1')
 
-    const row = findProductBySku(SKU)
-    expect(row.name).toBe(NAME)
-    expect(row.productTypeId, 'the stored value is the enum id, not the label').toBe('COMPONENT')
-    expect(row.productFamilyId).toBe(PRODUCTS.groups.a.id)
-    expect(row.uomId).toBe(PRODUCTS.uoms.each.id)
-    expect(row.revision).toBe('A')
-    expect(row.statusId, 'statusId defaults to ACTIVE in EMPTY_FORM').toBe('ACTIVE')
-    expect(row.deletedAt).toBeNull()
+      const row = findProductBySku(SKU)
+      expect(row.name).toBe(NAME)
+      expect(row.productTypeId, 'the stored value is the enum id, not the label').toBe('COMPONENT')
+      expect(row.productFamilyId).toBe(PRODUCTS.groups.a.id)
+      expect(row.uomId).toBe(PRODUCTS.uoms.each.id)
+      expect(row.revision).toBe('A')
+      expect(row.statusId, 'statusId defaults to ACTIVE in EMPTY_FORM').toBe('ACTIVE')
+      expect(row.deletedAt).toBeNull()
 
-    // THE PATH ASSERTION. There is no products REST endpoint; if one ever
-    // appears, this fails and whoever added it has to say so out loud.
-    expect(
-      restCalls.filter((c) => /product/i.test(c)),
-      'products has no REST route — the write must be a GraphQL mutation',
-    ).toEqual([])
-    // …and the positive half, so "no REST" cannot be satisfied by a save that
-    // never happened.
-    expect(
-      mutations,
-      'the syncEngine issued the create mutation (GraphQLSchemaGenerator: createProduct)',
-    ).toContain('createProduct')
+      // THE PATH ASSERTION. There is no products REST endpoint; if one ever
+      // appears, this fails and whoever added it has to say so out loud.
+      expect(
+        restCalls.filter((c) => /product/i.test(c)),
+        'products has no REST route — the write must be a GraphQL mutation',
+      ).toEqual([])
+      // …and the positive half, so "no REST" cannot be satisfied by a save that
+      // never happened.
+      expect(
+        mutations,
+        'the syncEngine issued the create mutation (GraphQLSchemaGenerator: createProduct)',
+      ).toContain('createProduct')
 
-    // The row shows up in the register with no reload — the live query over
-    // IndexedDB, fed by the sync socket.
-    await expect(registerRow(page, NAME)).toBeVisible({ timeout: 30_000 })
-  })
+      // The row shows up in the register with no reload — the live query over
+      // IndexedDB, fed by the sync socket.
+      await expect(registerRow(page, NAME)).toBeVisible({ timeout: 30_000 })
+    },
+  )
 
   test('edit: the detail page saves the same way, and SKU stays immutable', async ({ browser }) => {
     const page = await pool.page(browser, PRODUCTS.admin.auth)

@@ -49,7 +49,7 @@ async function visibleNames(page) {
 }
 
 test.describe('PJ-J2 · list, filter, sort, paginate, pick', () => {
-  test('the register lists every seeded item, and search narrows it', async ({ browser }) => {
+  test('the register lists every seeded item, and search narrows it', { tag: ['@journey', '@p1'] }, async ({ browser }) => {
     const page = await pool.page(browser, PRODUCTS.admin.auth)
     await openRegister(page)
 
@@ -162,7 +162,7 @@ test.describe('PJ-J2 · list, filter, sort, paginate, pick', () => {
       .toEqual([...asc].reverse())
   })
 
-  test('pagination pages, and the range label follows', async ({ browser }) => {
+  test('pagination pages, and the range label follows', { tag: ['@journey', '@p1'] }, async ({ browser }) => {
     // The fixture set is deliberately SMALL (see e2e-seed.sql §37c: every row
     // here is bootstrapped into every browser context by the syncEngine, so a
     // 60-row pagination fixture would tax all 29 projects to serve one). The

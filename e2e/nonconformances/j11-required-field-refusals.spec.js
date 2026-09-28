@@ -105,7 +105,7 @@ test.describe('PW-J11 · NC required-field refusals', () => {
   })
 
   for (const key of REQUIRED_KEYS) {
-    test(`REST: raising an NC without '${key}' is refused 400 and writes nothing`, async ({
+    test(`REST: raising an NC without '${key}' is refused 400 and writes nothing`, { tag: key === 'title' ? ['@smoke', '@p0'] : [] }, async ({
       browser,
     }) => {
       test.setTimeout(60_000)

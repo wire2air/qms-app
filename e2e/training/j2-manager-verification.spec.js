@@ -29,7 +29,7 @@ async function instanceWithCompletedLearner(browser, answers = TRAINING.correctA
 }
 
 test.describe('PW-J2 · manager competency verification', () => {
-  test('manager verifies a passed learner → VERIFIED, instance COMPLETED, verification recorded', async ({
+  test('manager verifies a passed learner → VERIFIED, instance COMPLETED, verification recorded', { tag: ['@journey', '@p1'] }, async ({
     browser,
   }) => {
     test.setTimeout(120_000)

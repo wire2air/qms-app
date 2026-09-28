@@ -7,7 +7,7 @@ import { findCapaByTitle, sqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · owner creates a CAPA, it opens for review', () => {
-  test('create CAPA (DRAFT) → Start CAPA (OPEN), workflow instantiated', async ({ page }) => {
+  test('create CAPA (DRAFT) → Start CAPA (OPEN), workflow instantiated', { tag: '@smoke' }, async ({ page }) => {
     const title = uniqueTitle('J1')
     // ~~prefix = 'CAPA-HQ-QA'~~ — CAPA numbering went FLAT (capa/21). The number
     // is no longer scoped by site and department, so the counter row this

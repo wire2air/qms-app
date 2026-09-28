@@ -54,7 +54,7 @@ test.describe('SUP-J9 · an upload reaches object storage and comes back intact'
 
   test.afterAll(() => cleanup(created))
 
-  test('the file lands in MinIO and downloads back byte-for-byte', async ({ browser }) => {
+  test('the file lands in MinIO and downloads back byte-for-byte', { tag: ['@smoke', '@p0'] }, async ({ browser }) => {
     test.setTimeout(120_000)
 
     const req = seedAssetRequest({ title: 'E2E SUP-J9 Certificate of Analysis' })

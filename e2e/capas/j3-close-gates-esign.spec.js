@@ -21,7 +21,7 @@ import { findCapaByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J3 · Approve & Close — the open-steps gate, then e-signed close', () => {
-  test('the open-steps gate blocks in turn; completing steps unblocks close', async ({
+  test('the open-steps gate blocks in turn; completing steps unblocks close', { tag: ['@journey', '@p1'] }, async ({
     page,
     browser,
   }) => {

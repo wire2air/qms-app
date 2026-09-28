@@ -94,7 +94,7 @@ test.describe('ROLE-J4 · the role administrator happy path', () => {
 
   test.use({ storageState: AUTH.roleAdmin })
 
-  test('create a role, grant it in the matrix, assign a user, and the grant takes effect', async ({
+  test('create a role, grant it in the matrix, assign a user, and the grant takes effect', { tag: ['@journey', '@p1'] }, async ({
     page,
   }) => {
     // ── 0. the premise ────────────────────────────────────────────────────

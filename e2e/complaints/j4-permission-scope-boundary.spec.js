@@ -136,7 +136,7 @@ test.describe('CMP-J4 · permission and scope boundaries', () => {
     }
   })
 
-  test('REST: a zero-grant persona is refused create on both modules', async ({ browser }) => {
+  test('REST: a zero-grant persona is refused create on both modules', { tag: '@smoke' }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
     const page = await ctx.newPage()
     try {

@@ -157,7 +157,7 @@ test.describe('ROLE-J2 · user_management alone cannot grant a role', () => {
     }
   })
 
-  test('🛡 user_management:create cannot self-assign a role', async ({ browser }) => {
+  test('🛡 user_management:create cannot self-assign a role', { tag: '@smoke' }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.umCreator })
     try {
       expect(

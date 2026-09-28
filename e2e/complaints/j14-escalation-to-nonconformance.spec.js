@@ -145,7 +145,7 @@ test.describe('CMP-J14 · escalation to a nonconformance', () => {
   test.beforeAll(() => purgeJ14())
   test.afterAll(() => purgeJ14())
 
-  test('TC-06-05 steps 1-5 · converting one complaint creates the NC, links it both ways, and CLOSES the complaint', async ({
+  test('TC-06-05 steps 1-5 · converting one complaint creates the NC, links it both ways, and CLOSES the complaint', { tag: ['@journey', '@p1'] }, async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -257,7 +257,7 @@ test.describe('CMP-J14 · escalation to a nonconformance', () => {
     )
   })
 
-  test('the one-time conversion guard: an already-escalated complaint is refused, and the refusal names it', async ({
+  test('the one-time conversion guard: an already-escalated complaint is refused, and the refusal names it', { tag: ['@smoke', '@p0'] }, async ({
     browser,
   }) => {
     test.setTimeout(150_000)

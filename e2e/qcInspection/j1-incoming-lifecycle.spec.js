@@ -22,7 +22,7 @@ import {
 import { sqlValue, waitForSqlValue } from '../fixtures/db.js'
 
 test.describe('PW-J1 — incoming inspection lifecycle', () => {
-  test('inspect, complete, submit and disposition a lot', async ({ browser }) => {
+  test('inspect, complete, submit and disposition a lot', { tag: '@smoke' }, async ({ browser }) => {
     // ── Inspector: check in and record results ─────────────────────────────
     const inspectorCtx = await browser.newContext({ storageState: AUTH.qcInspector })
     const inspector = await inspectorCtx.newPage()

@@ -17,7 +17,7 @@ import { findCrByTitle, sqlValue, waitForSqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J1 · the full CR lifecycle', () => {
-  test('create CR (DRAFT) → Submit for Approval (OPEN), workflow instantiated', async ({
+  test('create CR (DRAFT) → Submit for Approval (OPEN), workflow instantiated', { tag: '@smoke' }, async ({
     page,
   }) => {
     test.setTimeout(90_000)
@@ -72,7 +72,7 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     )
   })
 
-  test('reviewer → approver → implementation completes the workflow, CR stays OPEN', async ({
+  test('reviewer → approver → implementation completes the workflow, CR stays OPEN', { tag: ['@journey', '@p1'] }, async ({
     page,
     browser,
   }) => {
@@ -120,7 +120,7 @@ test.describe('PW-J1 · the full CR lifecycle', () => {
     ).toBeGreaterThan(0)
   })
 
-  test('owner closes a finished OPEN CR with e-signature → CLOSED + Part-11 ledger row', async ({
+  test('owner closes a finished OPEN CR with e-signature → CLOSED + Part-11 ledger row', { tag: ['@journey', '@p1'] }, async ({
     page,
     browser,
   }) => {

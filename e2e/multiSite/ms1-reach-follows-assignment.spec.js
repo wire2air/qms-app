@@ -54,11 +54,11 @@ test.describe('MS · a site-scoped grant reaches every assigned site', () => {
     bumpEpoch(ROAMER)
   })
 
-  test('PRECONDITION · the roamer is site-scoped, at Primary, with no extra sites', () => {
+  test('PRECONDITION · the roamer is site-scoped, at Primary, with no extra sites', { tag: '@smoke' }, () => {
     expect(effectiveSiteIds(ROAMER), 'effective sites = primary only').toEqual([SITES.primary.id])
   })
 
-  test('MS-J1 · baseline — only the primary site is visible', async ({ browser }) => {
+  test('MS-J1 · baseline — only the primary site is visible', { tag: '@smoke' }, async ({ browser }) => {
     const ncs = await visibleNcsFresh(browser)
     expect(ncs.length, 'the roamer sees the seeded primary-site NCs').toBeGreaterThan(0)
     expect(
