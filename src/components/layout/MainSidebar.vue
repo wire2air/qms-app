@@ -70,6 +70,8 @@ import {
   IconSeeding,
   IconBook,
   IconStack2,
+  IconMail,
+  IconClockHour4,
 } from '@tabler/icons-vue'
 import { currentCompany } from '@/utils/currentCompany'
 import { isDark } from '@/utils/theme.js'
@@ -1043,6 +1045,9 @@ const navItems = computed(() => {
               { label: 'Approvals', icon: IconGavel, to: '/platform/approvals' },
               { label: 'Operators', icon: IconShield, to: '/platform/admins' },
               { label: 'Audit', icon: IconListDetails, to: '/platform/audit' },
+              { label: 'Email Log', icon: IconMail, to: '/platform/email-log' },
+              { label: 'Job Queue', icon: IconStack2, to: '/platform/queue' },
+              { label: 'Crons', icon: IconClockHour4, to: '/platform/crons' },
               // Internal Docs Center — engineering doc corpus (qms/docs/modules),
               // operator-only like the rest of this group (guard: /docs segment).
               { label: 'Internal Docs', icon: IconBook, to: getCompanyPath('/docs') },
