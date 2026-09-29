@@ -362,10 +362,20 @@ const isCompanyOwner = computed(() => currentSession.value?.isOwner === true)
 // superseded by a fresh version). Checking the LATEST version — not `every`
 // version — avoids the trap where prior versions auto-transition to SUPERSEDED
 // and would otherwise block new versions forever.
+//
+// ALSO owner/author only, matching the backend. The document_versions INSERT
+// policy is `(has_permission(update) OR has_permission(create)) AND
+// is_document_owner_or_author(document_id)`, and a new draft is written straight
+// through GraphQL, so that policy is the real gate. This gate omitted the
+// custodianship arm, so anyone holding document_control:create saw "Create New
+// Draft" on every document in the tenant and the save was then refused by RLS —
+// reported against a Quality Manager on someone else's document. Same shape as
+// canSubmitForReview and canDelete, which have always carried isOwnerOrAuthor.
 const canCreate = computed(() => {
   const latestApproved = ['APPROVED', 'EFFECTIVE'].includes(latestVersion.value?.statusId)
   return (
     isAllowed(['document_control:create']) &&
+    isOwnerOrAuthor.value &&
     document.value?.statusId !== 'ARCHIVED' &&
     latestApproved
   )
@@ -390,6 +400,23 @@ const ISSUED_VERSION_STATUSES = ['EFFECTIVE', 'SUPERSEDED', 'ARCHIVED']
 const everEffective = computed(() =>
   versions.value.some((v) => ISSUED_VERSION_STATUSES.includes(v.statusId)),
 )
+// ── Displayed status: the document's ARCHIVED state wins ─────────────────────
+// Obsoletion is a WHOLE-DOCUMENT event and deliberately leaves version statuses
+// alone — the version history is the record of what WAS effective, and both
+// permission arms of documents_sel require an EFFECTIVE version, so archiving
+// the versions would drop the document out of RLS (see
+// controllers/documents/archive.js).
+//
+// The consequence is that everywhere a version's status is SHOWN, the document's
+// state has to win, or an archived document reads "Effective" in the header, the
+// meta line and the version picker while the Archived banner sits right below
+// it. DocumentsTable already folded these together; the detail page did not.
+function displayStatusFor(version) {
+  if (!version) return null
+  return document.value?.statusId === 'ARCHIVED' ? 'ARCHIVED' : version.statusId
+}
+const displayStatusId = computed(() => displayStatusFor(selectedVersion.value))
+
 const canSubmitForReview = computed(
   () =>
     canEdit.value &&
@@ -764,12 +791,12 @@ const documentDetailConfig = computed(() =>
     </template>
 
     <template #status>
-      <DocumentVersionStatusBadgeById v-if="selectedVersion" :statusId="selectedVersion.statusId" />
+      <DocumentVersionStatusBadgeById v-if="selectedVersion" :statusId="displayStatusId" />
     </template>
 
     <template v-if="selectedVersion" #meta>
       <span class="">{{ document?.docNumber }}</span>
-      <span> · v{{ versionLabel }} ({{ selectedVersion.statusId }})</span>
+      <span> · v{{ versionLabel }} ({{ displayStatusId }})</span>
     </template>
 
     <template #actions>
@@ -812,7 +839,7 @@ const documentDetailConfig = computed(() =>
           <BasePopover placement="bottom-start">
             <template #button>
               <BaseButton variant="outline">
-                Version: {{ versionLabel }} ({{ selectedVersion?.statusId }})
+                Version: {{ versionLabel }} ({{ displayStatusId }})
                 <IconChevronDown :size="16" class="tw:ml-1" />
               </BaseButton>
             </template>
@@ -839,11 +866,19 @@ const documentDetailConfig = computed(() =>
                 >
                   Version
                   {{ version.versionLabel || `${version.versionMajor}.${version.versionMinor}` }}
+                  <!-- No version is "(Current)" once the document is
+                       withdrawn from use. -->
                   <span
-                    v-if="version.statusId === 'EFFECTIVE'"
+                    v-if="displayStatusFor(version) === 'EFFECTIVE'"
                     class="tw:text-primary tw:font-bold tw:ml-1"
                   >
                     (Current)
+                  </span>
+                  <span
+                    v-else-if="displayStatusFor(version) === 'ARCHIVED'"
+                    class="tw:text-secondary tw:ml-1"
+                  >
+                    (Archived)
                   </span>
                   <span v-else-if="version.statusId === 'DRAFT'" class="tw:text-secondary tw:ml-1">
                     (Draft)
