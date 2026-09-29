@@ -1,10 +1,10 @@
 <script setup>
-import { DateTime } from 'luxon'
 import { IconArchive, IconAlertTriangle } from '@tabler/icons-vue'
-import { currentSession } from '@/utils/currentSession.js'
+import { useDocuments } from '@/composables/useDocuments.js'
 
 /**
- * Confirms whole-document obsoletion + captures the required reason.
+ * Confirms whole-document obsoletion: captures the required reason, then the
+ * e-signature.
  *
  * Obsoleting (archiving) a controlled document is a regulated event under
  * ISO 9001 / 13485 — auditors need the reason recorded. Common reasons:
@@ -13,9 +13,23 @@ import { currentSession } from '@/utils/currentSession.js'
  *   - Process discontinued
  *   - Replaced by another internal SOP
  *
- * On confirm: stamps obsoletedAt / obsoletedBy / obsoletionReason on the
- * document, then soft-deletes it. The DB CHECK constraint rejects an
- * obsoletedAt without a reason — the textarea is required client-side too.
+ * WHAT THIS USED TO DO, AND WHY IT CHANGED. It stamped obsoletedAt /
+ * obsoletedBy / obsoletionReason on the document and then SOFT-DELETED it. The
+ * syncEngine excludes soft-deleted rows from where(), so an archived document
+ * left the register completely: the Archived view could never populate, and the
+ * `statusId !== 'ARCHIVED'` read-only gates written across the document UI never
+ * fired, because the delete was the only thing hiding the row.
+ *
+ * It is now a status transition performed server-side (POST .../archive), which
+ * is also what lets the e-signature be verified — a PIN cannot be checked in the
+ * browser. Versions are left untouched by design; see
+ * controllers/documents/archive.js for why (the short version: both permission
+ * arms of documents_sel require an EFFECTIVE version, so archiving the versions
+ * would re-hide the document through RLS instead).
+ *
+ * A document that has never been effective cannot reach this dialog — there is
+ * nothing to withdraw, so those are discarded instead. The server enforces that
+ * too, with a 409.
  */
 
 const props = defineProps({
@@ -28,16 +42,20 @@ const emit = defineEmits(['archived'])
 
 const show = defineModel({ type: Boolean, default: false })
 
+const { archiveDocument } = useDocuments()
+
 const reason = ref('')
 const saving = ref(false)
 const error = ref(null)
 const submitted = ref(false)
+const showEsign = ref(false)
 
 watch(show, (open) => {
   if (open) {
     reason.value = ''
     error.value = null
     submitted.value = false
+    showEsign.value = false
   }
 })
 
@@ -49,22 +67,31 @@ const reasonError = computed(() => {
   return null
 })
 
-async function confirm() {
+// Reason first, then the signature — the author sees exactly what they are
+// about to sign for before being asked for a PIN.
+function confirm() {
   submitted.value = true
   if (reasonError.value || !props.document) return
+  error.value = null
+  showEsign.value = true
+}
+
+async function onEsignVerified({ method, token }) {
+  if (saving.value || !props.document) return
   saving.value = true
   error.value = null
   try {
-    props.document.obsoletedAt = DateTime.now()
-    props.document.obsoletedBy = currentSession.value?.userId || null
-    props.document.obsoletionReason = reason.value.trim()
-    await props.document.save()
-    // Soft-delete after stamping so the audit-log row carries the
-    // obsoletion reason in the snapshot.
-    await props.document.delete()
+    await archiveDocument(props.document.id, {
+      method,
+      token,
+      reason: reason.value.trim(),
+    })
+    showEsign.value = false
     emit('archived')
     show.value = false
   } catch (e) {
+    // Keep the reason dialog open so the text isn't lost on a failed signature.
+    showEsign.value = false
     error.value = e?.message || 'Failed to archive document.'
   } finally {
     saving.value = false
@@ -103,9 +130,10 @@ function cancel() {
       >
         <IconAlertTriangle :size="16" class="tw:mt-0.5 tw:flex-none" />
         <div>
-          Archiving a controlled document is a regulated event. The reason below is recorded on the
-          audit trail and shown on every print copy. Existing versions remain readable but the
-          document can't be revised further.
+          Archiving a controlled document is a regulated event, so you'll be asked to sign next.
+          The reason below is recorded on the audit trail and shown on every print copy. The
+          document stays on the register and its versions remain readable — it becomes read-only
+          and can't be revised further.
         </div>
       </div>
 
@@ -129,7 +157,7 @@ function cancel() {
 
     <template #footer>
       <BaseDialogFooter
-        submitLabel="Archive Document"
+        submitLabel="Continue"
         submitVariant="danger"
         :loading="saving"
         @cancel="cancel"
@@ -137,4 +165,6 @@ function cancel() {
       />
     </template>
   </BaseDialog>
+
+  <WorkflowInstanceEsignAuthDialog v-model="showEsign" @verified="onEsignVerified" />
 </template>

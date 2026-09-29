@@ -7,6 +7,7 @@ defineProps({
 })
 
 import { humanizeFilter } from '@/composables/useListPrint.js'
+import { applyActiveFilter } from './documentListFilters.js'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { IconFileDescription, IconFileImport, IconPlus } from '@tabler/icons-vue'
@@ -93,22 +94,6 @@ const latestVersionStatusByDocId = useLiveQueryWithDeps(
   { models: ['DocumentVersion'], initial: {} },
 )
 
-// Quick views. A document's meaningful state lives on its VERSIONS, not the
-// document row — "effective" means it has an effective current version, "in
-// review" means its latest version is mid-approval. So each pill tests the
-// version-status maps above rather than d.statusId.
-function applyActiveFilter(rows, af, currentStatuses, latestStatuses) {
-  const userId = currentSession.value?.userId
-  if (af === 'effective') return rows.filter((d) => currentStatuses[d.id] === 'EFFECTIVE')
-  if (af === 'in_review')
-    return rows.filter((d) => ['IN_REVIEW', 'CHANGES_REQUESTED'].includes(latestStatuses[d.id]))
-  if (af === 'draft') return rows.filter((d) => latestStatuses[d.id] === 'DRAFT')
-  if (af === 'mine') return rows.filter((d) => d.authorId === userId || d.userId === userId)
-  if (af === 'archived')
-    return rows.filter((d) => ['ARCHIVED', 'SUPERSEDED'].includes(latestStatuses[d.id]))
-  return rows // 'all'
-}
-
 const documents = computed(() => {
   let rows = allDocuments.value ?? []
   const currentStatuses = currentVersionStatusByDocId.value ?? {}
@@ -122,7 +107,13 @@ const documents = computed(() => {
         statusIds.includes(latestStatuses[d.id]),
     )
   }
-  return applyActiveFilter(rows, list.filters.value.activeFilter, currentStatuses, latestStatuses)
+  return applyActiveFilter(
+    rows,
+    list.filters.value.activeFilter,
+    currentStatuses,
+    latestStatuses,
+    currentSession.value?.userId ?? null,
+  )
 })
 
 const allDocumentsForStats = useLiveQuery(async (db) => db.Document.where().exec(), {
