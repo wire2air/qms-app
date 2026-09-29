@@ -92,9 +92,9 @@ function onAssigned() {
  * DEPLOYMENT is a production build of the frontend — `import.meta.env.DEV`
  * would be false there and the control would vanish exactly where it is wanted.
  *
- * Cosmetic either way: /v1/auth/dev-impersonate returns 404 on a production
- * process before reading anything, and re-checks company ownership. Hiding the
- * button is a courtesy, not the control.
+ * Cosmetic either way: the endpoint returns 404 on a production process before
+ * reading anything, and re-checks company ownership. Hiding the button is a
+ * courtesy, not the control.
  */
 const canImpersonate = computed(
   () => currentSession.value?.devImpersonationEnabled === true && currentSession.value?.isOwner === true,
@@ -103,7 +103,15 @@ const canImpersonate = computed(
 function impersonate(row) {
   // A full page load, not a fetch: the response is a redirect to a handoff URL
   // that establishes the session on the target host.
-  window.location.href = `/v1/auth/dev-impersonate?id=${encodeURIComponent(row.id)}&returnUrl=${encodeURIComponent(window.location.pathname)}`
+  //
+  // The `/api` prefix is load-bearing and is NOT part of the route. It is the
+  // api client's baseURL and the only path Vite proxies to the backend
+  // (`'/api/'` → VITE_PROXY_API_TARGET, with `/api` rewritten off). Without it
+  // this navigates to the SPA's own origin, which has no such route, and the
+  // browser gets a 404 from Vite rather than ever reaching the API.
+  // ImpersonateStartDialog builds the platform-admin link the same way.
+  const params = new URLSearchParams({ id: row.id, returnUrl: window.location.pathname })
+  window.location.href = `/api/v1/auth/dev-impersonate?${params.toString()}`
 }
 
 const columns = computed(() => [
