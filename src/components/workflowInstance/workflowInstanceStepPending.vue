@@ -2,6 +2,17 @@
 const props = defineProps({
   instanceStepId: { type: String, required: true },
   displayNumber: { type: String, default: null },
+  /**
+   * This step is CANCELLED rather than waiting.
+   *
+   * The card shows the status badge only when a step has no tasks, on the
+   * reasonable assumption that a step with assignees is waiting on them. That
+   * breaks once a step is cancelled: the avatars kept showing and the step read
+   * as live, while a cancelled step that never had an assignee correctly said
+   * "Cancelled". The badge wins when this is set, and the assignees still
+   * appear in the list below so it stays clear who had been asked.
+   */
+  cancelled: { type: Boolean, default: false },
 })
 
 const instanceStep = useLiveQueryWithDeps(
@@ -69,8 +80,12 @@ const usersMap = useLiveQueryWithDeps(
         </p>
       </div>
 
-      <!-- Avatar stack -->
-      <div v-if="tasks.length" class="tw:flex tw:-space-x-3 tw:overflow-hidden tw:shrink-0">
+      <!-- Avatar stack — only while the step is genuinely waiting on these
+           people. Once cancelled, the badge takes the slot instead. -->
+      <div
+        v-if="tasks.length && !cancelled"
+        class="tw:flex tw:-space-x-3 tw:overflow-hidden tw:shrink-0"
+      >
         <UserAvatarById
           v-for="task in tasks"
           :key="task.id"

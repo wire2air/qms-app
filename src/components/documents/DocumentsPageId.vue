@@ -522,12 +522,44 @@ async function disableTrainingAndSubmit() {
   showPreviewDialog.value = true
 }
 
-async function handleCancelReview() {
-  const result = await cancelReview(props.id, selectedVersion.value.id)
-  if (result?.error) {
-    toast.error(result.error)
-  } else {
-    toast.success('Review cancelled successfully')
+/**
+ * Cancelling a review used to fire the moment the menu item was clicked — no
+ * confirmation, no reason, and the API took no body at all. That ends a review
+ * cycle on a controlled document: the workflow is cancelled, every step goes
+ * CANCELLED and every reviewer's task is cancelled with it.
+ *
+ * Deleting a draft that nobody is reviewing has always demanded a reason AND an
+ * e-sign PIN. Ending a review people are actively working on asked for neither.
+ *
+ * A reason, not a PIN: the content survives — the version returns to DRAFT —
+ * and the actor is the owner or author on their own document.
+ */
+const showCancelReviewDialog = ref(false)
+const cancelReviewReason = ref('')
+const cancellingReview = ref(false)
+
+function handleCancelReview() {
+  cancelReviewReason.value = ''
+  showCancelReviewDialog.value = true
+}
+
+async function confirmCancelReview() {
+  if (!cancelReviewReason.value.trim() || cancellingReview.value) return
+  cancellingReview.value = true
+  try {
+    const result = await cancelReview(
+      props.id,
+      selectedVersion.value.id,
+      cancelReviewReason.value.trim(),
+    )
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
+    showCancelReviewDialog.value = false
+    toast.success('Review cancelled')
+  } finally {
+    cancellingReview.value = false
   }
 }
 
@@ -1023,6 +1055,42 @@ const documentDetailConfig = computed(() =>
     :versionId="selectedVersion?.id"
     @apply="handleAiSectionsDraft"
   />
+
+  <!-- Cancel review — capture a reason. No e-sign: the content survives (the
+       version returns to DRAFT) and the actor is the owner or author on their
+       own document. The reason is what the audit trail was missing. -->
+  <BaseDialog v-model="showCancelReviewDialog" title="Cancel review" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+      >
+        <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+        <div class="tw:text-sm tw:text-amber-900">
+          This returns version {{ versionLabel }} to draft and
+          <strong>cancels every reviewer's task</strong>. Their work so far is kept in the audit
+          trail, and they will see your reason. The content is not deleted.
+        </div>
+      </div>
+      <BaseField label="Reason for cancelling" required>
+        <BaseTextarea
+          v-model="cancelReviewReason"
+          :rows="3"
+          placeholder="e.g. Superseded by a newer draft; reviewer list was wrong"
+        />
+      </BaseField>
+    </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Cancel review"
+        submitVariant="danger"
+        :loading="cancellingReview"
+        :disabled="!cancelReviewReason.trim()"
+        submitTitle="A reason is required"
+        @cancel="showCancelReviewDialog = false"
+        @submit="confirmCancelReview"
+      />
+    </template>
+  </BaseDialog>
 
   <!-- Draft deletion — capture a reason, then confirm with an e-sign PIN,
            then hard-delete (see deleteDraftVersion). -->
