@@ -37,6 +37,15 @@ const currentVersion = useLiveQueryWithDeps(
   { models: ['DocumentVersion'] },
 )
 
+// An archived document reads ARCHIVED regardless of what its versions say.
+// Obsoletion is a whole-document event and deliberately leaves version statuses
+// alone (see controllers/documents/archive.js), so the document state has to win
+// wherever a version status is displayed — otherwise this badge says "Effective"
+// under the Archived banner.
+const displayStatusId = computed(() =>
+  document.value?.statusId === 'ARCHIVED' ? 'ARCHIVED' : (currentVersion.value?.statusId ?? null),
+)
+
 // Editable only while the SELECTED version is a working draft (DRAFT/REJECTED).
 // Once submitted for review, approved, or effective, the title and everything
 // else is locked. `document.statusId` is only ACTIVE/ARCHIVED, so the version
@@ -76,7 +85,7 @@ const versionLabel = computed(() => {
           :class="dense ? 'tw:mb-2' : 'tw:mb-4'"
         >
           <div class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-            <DocumentVersionStatusBadgeById :statusId="currentVersion?.statusId" />
+            <DocumentVersionStatusBadgeById :statusId="displayStatusId" />
             <DocumentPeriodicReviewBadge :document="document" :canEdit="canEdit" />
           </div>
 
