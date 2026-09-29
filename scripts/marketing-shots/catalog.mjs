@@ -14,6 +14,7 @@
 //
 // Output is deterministic for a given set of inputs (no wall-clock timestamps),
 // so re-running without input changes rewrites identical bytes.
+import './env.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,7 +25,7 @@ import { SHOTS } from './shots.mjs'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const QMS_APP = path.resolve(HERE, '../..')
 const WORKSPACE = path.resolve(QMS_APP, '..')
-const ROOT = path.resolve(process.env.ASSETS_DIR || path.join(WORKSPACE, 'qms-marketing/marketing-assets'))
+const ROOT = path.resolve(process.env.ASSETS_DIR || path.join(WORKSPACE, process.env.THEME === 'dark' ? 'qms-marketing/marketing-assets-dark' : 'qms-marketing/marketing-assets'))
 const MARKETING = path.resolve(process.env.MARKETING_DIR || path.join(WORKSPACE, 'qms-marketing'))
 const MEDIA_TS = path.join(MARKETING, 'app/content/media.ts')
 const SHIPPED_DIR = path.join(MARKETING, 'app/public/media/screenshots')

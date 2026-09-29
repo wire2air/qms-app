@@ -32,8 +32,39 @@ Run every command from the `qms-app` directory.
 
 ## Generate everything
 
+One command runs all four stages with live progress in the terminal:
+
 ```bash
-node scripts/marketing-shots/capture.mjs    # ~15 min for all 96 shots
+node scripts/marketing-shots/run-all.mjs              # every shot (~20 min)
+node scripts/marketing-shots/run-all.mjs capa audits  # only matching ids
+```
+
+```
+══════ 1/4 Capture ═════════════════════════════════════════
+▶ Capturing screenshots — 96 items
+  … logging in as owner (astrid.lindqvist@qability.net) — 94 shot(s)
+  … warming up the sync (first load bootstraps IndexedDB)…
+[ 1/96 ░░░░░░░░░░░░░░░   1%] ✓ overview-dashboard  6s  · 18s elapsed · ETA 28m
+[ 2/96 ░░░░░░░░░░░░░░░   2%] ✓ overview-my-tasks  5s  · 23s elapsed · ETA 18m
+…
+■ Capturing screenshots done in 14m02s — 96/96 ok
+```
+
+**Night mode:** `THEME=dark node scripts/marketing-shots/run-all.mjs` captures the same
+shots in the app's dark theme into `../qms-marketing/marketing-assets-dark/` (same
+layout as below). The theme is switched through the app's own theme manager, so the
+logo, icons and charts are the real dark variants. Only localStorage changes; the
+user's saved `settings.theme` is never written.
+
+**Speed:** `WORKERS` (default 4) is how many tabs capture side by side. The full run
+takes ~5 minutes. More than 4 loads the local sync and dev server, and pages start
+coming out half-loaded.
+
+`✓` = done, `✗` = failed (reason shown), `–` = skipped/blocked. The stages can
+also be run one by one:
+
+```bash
+node scripts/marketing-shots/capture.mjs
 node scripts/marketing-shots/edit.mjs
 node scripts/marketing-shots/webp.mjs
 node scripts/marketing-shots/catalog.mjs
@@ -120,8 +151,15 @@ and records what it blocked under `blockedWrites` in `capture-log.json`.
 
 ## Environment variables
 
+Set them in the shell or in `qms-app/.env` (the scripts load it; the shell wins). The full
+commented list is at the bottom of `.env.example`.
+
 | Variable | Default | Used by |
 |---|---|---|
+| `THEME` | `light` (`dark` = night mode → `marketing-assets-dark`) | all |
+| `WORKERS` | `4` capture/edit, `6` webp | capture, edit, webp |
+| `SHOTS_OWNER_EMAIL` / `_PASSWORD` | `astrid.lindqvist@qability.net` / `12345678` | capture |
+| `SHOTS_SUPPLIER_EMAIL` / `_PASSWORD` | `mette.kristensen@qability.net` / `12345678` | capture |
 | `NORDIC_URL` | `http://nordic.localhost:5173` | capture |
 | `ASSETS_DIR` | `../qms-marketing/marketing-assets` | all |
 | `PG_CONTAINER` / `PG_DB` | `qms-postgres-1` / `app-db` | capture (`sql` lookups) |

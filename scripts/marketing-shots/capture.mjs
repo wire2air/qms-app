@@ -8,20 +8,30 @@
 // shot, the geometry the editor needs: where the sidebar ends, where the top bar
 // ends, and the bounding box of the focus card. Results go to
 // <OUT>/capture-log.json (merged, so a filtered re-run keeps the others).
+import './env.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { chromium } from '@playwright/test'
 import { loginToStateFile } from '../../e2e/fixtures/authSession.js'
 import { SHOTS } from './shots.mjs'
+import { createProgress, pool } from './progress.mjs'
 
 const BASE = process.env.NORDIC_URL || 'http://nordic.localhost:5173'
-const OUT = path.resolve(process.env.ASSETS_DIR || '../qms-marketing/marketing-assets')
+const OUT = path.resolve(process.env.ASSETS_DIR || (process.env.THEME === 'dark' ? '../qms-marketing/marketing-assets-dark' : '../qms-marketing/marketing-assets'))
 const PERSONAS = {
-  owner: { email: 'astrid.lindqvist@qability.net', password: '12345678' },
-  supplier: { email: 'mette.kristensen@aalborg-biologics.dk', password: '12345678' },
+  owner: {
+    email: process.env.SHOTS_OWNER_EMAIL || 'astrid.lindqvist@qability.net',
+    password: process.env.SHOTS_OWNER_PASSWORD || '12345678',
+  },
+  supplier: {
+    email: process.env.SHOTS_SUPPLIER_EMAIL || 'mette.kristensen@qability.net',
+    password: process.env.SHOTS_SUPPLIER_PASSWORD || '12345678',
+  },
 }
 const VIEWPORT = { width: 1440, height: 812 }
+// THEME=dark captures the app's night mode into marketing-assets-dark/.
+const THEME = process.env.THEME === 'dark' ? 'dark' : 'light'
 // `sql` shots resolve their route from live data (read-only SELECT, first
 // column of the first row). Defaults match the local docker Postgres.
 const PG_CONTAINER = process.env.PG_CONTAINER || 'qms-postgres-1'
@@ -37,6 +47,25 @@ function resolveSql(sql) {
   return out.split('\n').map((l) => l.trim()).filter((l) => l && !/^(BEGIN|COMMIT)$/.test(l))[0] ?? null
 }
 const DPR = 2
+const WORKERS = Number(process.env.WORKERS || 4)
+
+// The theme follows the user's saved preference (users.settings.theme), which
+// ThemeToggle re-adopts on every page load. Flip it through the app's own theme
+// manager (utils/theme.js via the vite dev server — same module instance), so
+// the logo, icons and charts render their real dark variants. localStorage
+// only; the user's saved setting is never written.
+async function pinTheme(page) {
+  if (THEME !== 'dark') return
+  const flipped = await page
+    .evaluate(async () => {
+      const m = await import('/src/utils/theme.js')
+      if (m.isDark.value) return false
+      m.setThemeMode('dark')
+      return true
+    })
+    .catch(() => false)
+  if (flipped) await page.waitForTimeout(400)
+}
 
 async function settle(page) {
   await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {})
@@ -46,6 +75,7 @@ async function settle(page) {
     .waitFor({ state: 'detached', timeout: 10_000 })
     .catch(() => {})
   await page.waitForTimeout(1_500)
+  await pinTheme(page)
 }
 
 async function runAction(page, a) {
@@ -170,6 +200,7 @@ async function main() {
   const logFile = path.join(OUT, 'capture-log.json')
   const log = fs.existsSync(logFile) ? JSON.parse(fs.readFileSync(logFile, 'utf8')) : {}
 
+  const prog = createProgress(shots.length, 'Capturing screenshots')
   const browser = await chromium.launch()
   const byPersona = {}
   for (const s of shots) (byPersona[s.persona || 'owner'] ??= []).push(s)
@@ -177,11 +208,14 @@ async function main() {
   for (const [persona, list] of Object.entries(byPersona)) {
     const cred = PERSONAS[persona]
     const state = path.join(OUT, `.state-${persona}.json`)
+    prog.note(`logging in as ${persona} (${cred.email}) — ${list.length} shot(s)`)
     try {
       await loginToStateFile(BASE, { email: cred.email }, state, cred.password, persona)
     } catch (e) {
-      for (const s of list) log[s.id] = { status: 'blocked', reason: `login failed for ${persona}: ${e.message}` }
-      console.error(`✗ ${persona}: ${e.message}`)
+      for (const s of list) {
+        log[s.id] = { status: 'blocked', reason: `login failed for ${persona}: ${e.message}` }
+        prog.tick(false, s.id, `login failed for ${persona}`)
+      }
       continue
     }
     const ctx = await browser.newContext({
@@ -189,44 +223,59 @@ async function main() {
       storageState: state,
       viewport: VIEWPORT,
       deviceScaleFactor: DPR,
-      colorScheme: 'light',
+      colorScheme: THEME,
       locale: 'en-GB',
     })
+    // Pages share the context's IndexedDB, so the sync bootstraps once on the
+    // first page; the others then open with warm data. WORKERS pages capture
+    // side by side (default 4) — each keeps its own write guard.
     const page = await ctx.newPage()
-    // Read-only guard. Several detail pages autosave on open (a DRAFT quality
-    // event fires UpdateQualityEvent just by loading; the document Training tab
-    // materialises a default training_config), and some buttons submit when a
-    // step does not require an e-signature. Capturing must never write, so
-    // every GraphQL mutation and every non-GET REST call (bar the auth
-    // session endpoints) is aborted and counted on the shot's log entry.
-    let blockedWrites = []
-    await page.route('**/*', (route) => {
-      const r = route.request()
-      if (r.method() === 'GET' || r.method() === 'HEAD' || r.method() === 'OPTIONS') return route.continue()
-      const url = r.url()
-      if (/\/graphql(\?|$)/.test(url)) {
-        let q = ''
-        try {
-          const body = JSON.parse(r.postData() || '{}')
-          q = (Array.isArray(body) ? body.map((b) => b.query).join(' ') : body.query) || ''
-        } catch {
-          q = r.postData() || ''
+    const guard = async (page) => {
+      page.blockedWrites = []
+      // Read-only guard. Several detail pages autosave on open (a DRAFT quality
+      // event fires UpdateQualityEvent just by loading; the document Training tab
+      // materialises a default training_config), and some buttons submit when a
+      // step does not require an e-signature. Capturing must never write, so
+      // every GraphQL mutation and every non-GET REST call (bar the auth
+      // session endpoints) is aborted and counted on the shot's log entry.
+      await page.route('**/*', (route) => {
+        const r = route.request()
+        if (r.method() === 'GET' || r.method() === 'HEAD' || r.method() === 'OPTIONS') return route.continue()
+        const url = r.url()
+        if (/\/graphql(\?|$)/.test(url)) {
+          let q = ''
+          try {
+            const body = JSON.parse(r.postData() || '{}')
+            q = (Array.isArray(body) ? body.map((b) => b.query).join(' ') : body.query) || ''
+          } catch {
+            q = r.postData() || ''
+          }
+          if (/(^|[\s}])mutation\b/.test(q.trim()) || q.trim().startsWith('mutation')) {
+            page.blockedWrites.push(`graphql ${(q.match(/mutation\s+(\w+)/) || [])[1] || 'mutation'}`)
+            return route.abort()
+          }
+          return route.continue()
         }
-        if (/(^|[\s}])mutation\b/.test(q.trim()) || q.trim().startsWith('mutation')) {
-          blockedWrites.push(`graphql ${(q.match(/mutation\s+(\w+)/) || [])[1] || 'mutation'}`)
-          return route.abort()
-        }
-        return route.continue()
-      }
-      if (/\/v1\/auth\/(session|handoff|refresh)/.test(url)) return route.continue()
-      blockedWrites.push(`${r.method()} ${url.replace(BASE, '')}`)
-      return route.abort()
-    })
+        if (/\/v1\/auth\/(session|handoff|refresh)/.test(url)) return route.continue()
+        page.blockedWrites.push(`${r.method()} ${url.replace(BASE, '')}`)
+        return route.abort()
+      })
+    }
+    await guard(page)
     await page.goto(persona === 'supplier' ? '/' : '/dashboard', { waitUntil: 'domcontentloaded' })
+    prog.note('warming up the sync (first load bootstraps IndexedDB)…')
     await page.waitForLoadState('networkidle', { timeout: 90_000 }).catch(() => {})
     await page.waitForTimeout(8_000)
 
-    for (const s of list) {
+    const pages = [page]
+    for (let i = 1; i < Math.min(WORKERS, list.length); i++) {
+      const p = await ctx.newPage()
+      await guard(p)
+      pages.push(p)
+    }
+
+    await pool(list, pages.length, async (s, w) => {
+      const page = pages[w]
       const file = path.join(OUT, 'product', s.module, 'originals', `${s.id}-original.png`)
       const entry = { status: 'captured', url: s.url, persona, capturedAt: new Date().toISOString() }
       // A `sql` shot captures as soon as the data exists; until then (no row)
@@ -244,11 +293,11 @@ async function main() {
       if ((s.sql && !url) || (!s.sql && s.blocked)) {
         const reason = s.blocked || (entry.sqlError ? `sql failed: ${entry.sqlError}` : 'sql returned no row')
         log[s.id] = { status: 'blocked', reason, url: url ?? s.url ?? null, persona }
-        console.info(`✗ ${s.id}  ${reason}`)
-        continue
+        prog.tick(null, s.id, `blocked: ${reason}`)
+        return
       }
       entry.url = url
-      blockedWrites = []
+      page.blockedWrites = []
       try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 })
         await settle(page)
@@ -262,27 +311,29 @@ async function main() {
           if (!entry.focus) entry.focusMissing = s.focus ?? s.focusSel
           await page.waitForTimeout(400)
         }
+        await pinTheme(page)
         entry.chrome = await chrome(page)
+        entry.theme = THEME
         fs.mkdirSync(path.dirname(file), { recursive: true })
         await page.screenshot({ path: file })
         entry.file = path.relative(OUT, file)
         entry.size = { width: VIEWPORT.width * DPR, height: VIEWPORT.height * DPR }
-        console.info(`✓ ${s.id}${entry.focusMissing ? `  (focus not found: ${entry.focusMissing})` : ''}`)
+        prog.tick(true, s.id, entry.focusMissing ? `(focus not found: ${entry.focusMissing})` : '')
       } catch (e) {
         entry.status = 'blocked'
         entry.reason = e.message.split('\n')[0]
-        console.info(`✗ ${s.id}  ${entry.reason}`)
+        prog.tick(false, s.id, entry.reason)
       }
-      if (blockedWrites.length) entry.blockedWrites = [...new Set(blockedWrites)]
+      if (page.blockedWrites.length) entry.blockedWrites = [...new Set(page.blockedWrites)]
       log[s.id] = entry
-    }
+    })
     await ctx.close()
   }
   await browser.close()
   fs.mkdirSync(OUT, { recursive: true })
   fs.writeFileSync(logFile, JSON.stringify(log, null, 2))
   const vals = shots.map((s) => log[s.id])
-  console.info(`\n${vals.filter((v) => v?.status === 'captured').length}/${shots.length} captured → ${OUT}`)
+  prog.finish(`${vals.filter((v) => v?.status === 'captured').length}/${shots.length} captured → ${OUT}`)
 }
 
 main().catch((e) => {

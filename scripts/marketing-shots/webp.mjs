@@ -10,11 +10,13 @@
 //      is the shape the marketing site's own slots use
 //      (app/public/media/screenshots/audit-trail/audit-log-feed.webp), so a file can be
 //      dropped into public/media/screenshots/<module>/ as-is.
+import './env.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
+import { createProgress, pool } from './progress.mjs'
 
-const OUT = path.resolve(process.env.ASSETS_DIR || '../qms-marketing/marketing-assets')
+const OUT = path.resolve(process.env.ASSETS_DIR || (process.env.THEME === 'dark' ? '../qms-marketing/marketing-assets-dark' : '../qms-marketing/marketing-assets'))
 const MAX_W = 1600
 const QUALITY = 82
 const only = process.argv.slice(2)
@@ -30,7 +32,8 @@ const pngs = walk(path.join(OUT, 'product')).filter(
 )
 
 const results = []
-for (const src of pngs) {
+const prog = createProgress(pngs.length, 'Exporting WebP', { every: 25 })
+await pool(pngs, Number(process.env.WORKERS || 6), async (src) => {
   const folder = path.basename(path.dirname(src))
   const base = path.basename(src, '.png')
   let dest
@@ -45,14 +48,16 @@ for (const src of pngs) {
     dest = path.join(path.dirname(src), `${base}.webp`)
     pipeline = pipeline.resize({ width: MAX_W, withoutEnlargement: true, kernel: 'lanczos3' })
   } else {
-    continue
+    prog.tick(null, path.basename(src), 'not an exported variant')
+    return
   }
   fs.mkdirSync(path.dirname(dest), { recursive: true })
   const info = await pipeline.flatten({ background: '#ffffff' }).webp({ quality: QUALITY, effort: 6 }).toFile(dest)
   results.push({ file: path.relative(OUT, dest), width: info.width, height: info.height, bytes: info.size })
-}
+  prog.tick(true, path.relative(OUT, dest))
+})
 
 const kb = (n) => `${Math.round(n / 1024)} KB`
 const total = results.reduce((a, r) => a + r.bytes, 0)
-console.info(`${results.length} webp files, ${kb(total)} total, avg ${kb(total / Math.max(results.length, 1))}`)
+prog.finish(`${results.length} webp files, ${kb(total)} total, avg ${kb(total / Math.max(results.length, 1))}`)
 fs.writeFileSync(path.join(OUT, 'webp-log.json'), JSON.stringify(results, null, 2))

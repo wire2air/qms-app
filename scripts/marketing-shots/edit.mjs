@@ -20,6 +20,7 @@
 // own pixel size, so the browser never resamples it. Everything added (frame,
 // window bar, shadow, background) sits outside the screenshot. Originals are
 // read-only.
+import './env.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -27,8 +28,9 @@ import { pathToFileURL } from 'node:url'
 import sharp from 'sharp'
 import { chromium } from '@playwright/test'
 import { SHOTS } from './shots.mjs'
+import { createProgress, pool } from './progress.mjs'
 
-const OUT = path.resolve(process.env.ASSETS_DIR || '../qms-marketing/marketing-assets')
+const OUT = path.resolve(process.env.ASSETS_DIR || (process.env.THEME === 'dark' ? '../qms-marketing/marketing-assets-dark' : '../qms-marketing/marketing-assets'))
 const CAPTURE_LOG = process.env.CAPTURE_LOG || path.join(OUT, 'capture-log.json')
 const DPR = 2 // capture deviceScaleFactor: CSS px × 2 = image px
 
@@ -345,14 +347,16 @@ async function main() {
   const editLogFile = path.join(OUT, 'edit-log.json')
   const editLog = fs.existsSync(editLogFile) ? JSON.parse(fs.readFileSync(editLogFile, 'utf8')) : {}
 
+  const prog = createProgress(shots.length, 'Editing variants')
   const browser = await chromium.launch()
   const counts = {}
   const failed = []
-  for (const shot of shots) {
+  await pool(shots, Number(process.env.WORKERS || 4), async (shot) => {
     const entry = log[shot.id]
     if (!entry || entry.status !== 'captured') {
       if (entry) failed.push({ id: shot.id, reason: `capture ${entry.status}: ${entry.reason ?? ''}` })
-      continue
+      prog.tick(null, shot.id, 'not captured — skipped')
+      return
     }
     const file = path.resolve(OUT, entry.file)
     try {
@@ -361,16 +365,16 @@ async function main() {
       editLog[shot.id] = { editedAt: new Date().toISOString(), original: entry.file, files: produced, ...(skipped.length && { skipped }) }
       for (const k of skipped) console.info(`  · ${shot.id} ${k.variant} skipped: ${k.reason}`)
       for (const p of produced) counts[p.variant] = (counts[p.variant] || 0) + 1
-      console.info(`✓ ${shot.id}  ${produced.map((p) => `${p.variant} ${p.width}×${p.height}`).join(', ')}`)
+      prog.tick(true, shot.id, produced.map((p) => p.variant).join('+'))
     } catch (e) {
       failed.push({ id: shot.id, reason: e.message.split('\n')[0] })
-      console.info(`✗ ${shot.id}  ${e.message.split('\n')[0]}`)
+      prog.tick(false, shot.id, e.message.split('\n')[0])
     }
-  }
+  })
   await browser.close()
   fs.writeFileSync(editLogFile, JSON.stringify(editLog, null, 2))
   fs.rmSync(TMP, { recursive: true, force: true })
-  console.info(`\n${JSON.stringify(counts)}  failed/skipped: ${failed.length}`)
+  prog.finish(`${JSON.stringify(counts)}  failed/skipped: ${failed.length}`)
   for (const f of failed) console.info(`  - ${f.id}: ${f.reason}`)
 }
 
