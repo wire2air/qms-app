@@ -55,7 +55,13 @@ const props = defineProps({
         v,
       ),
   },
+  // Force row-selection checkboxes on. Usually unnecessary: any table with
+  // `exportManager` gets them automatically, so selective export is available
+  // everywhere without opting in table by table. See `isSelectable`.
   selectable: { type: Boolean, default: false },
+  // Opt OUT of that automatic selection — for a table where picking rows means
+  // nothing, or one that owns its own selection UX.
+  noRowSelection: { type: Boolean, default: false },
   multiSort: { type: Boolean, default: false },
   stickyHeader: { type: Boolean, default: true },
   maxHeight: { type: String, default: null },
@@ -133,12 +139,22 @@ const pagination = defineModel('pagination', {
   default: () => ({ page: 1, pageSize: 50 }),
 })
 const selected = defineModel('selected', { type: Array, default: () => [] })
+
 const sort = defineModel('sort', { type: Array, default: () => [] })
 const density = defineModel('density', { type: String, default: 'comfortable' })
 const search = defineModel('search', { type: String, default: '' })
 const filters = defineModel('filters', { type: Object, default: null })
 // Selected search columns; empty array ⇒ search across all columns (see applySearch).
 const searchScope = defineModel('searchScope', { type: Array, default: () => [] })
+// Row selection is INHERITED, not opted into. Every table with the export
+// manager gets the checkboxes, because "export just these rows" is the reason
+// most people want to tick a row at all — and wiring `selectable` into 60
+// call sites by hand would guarantee it is missing from some of them.
+// `selectable` still forces it on for a table with no export; `noRowSelection`
+// turns it off for one where picking rows means nothing.
+const isSelectable = computed(
+  () => !props.noRowSelection && (props.selectable || props.exportManager),
+)
 
 // Append a synthetic, non-sortable, non-hideable actions column when rowActions is set.
 const ACTIONS_COL = {
@@ -207,7 +223,7 @@ const { table } = useDataTable({
   columns: () => effectiveColumns.value,
   rows: () => sourceRows.value,
   rowKey: () => props.rowKey,
-  selectable: () => props.selectable,
+  selectable: () => isSelectable.value,
   multiSort: () => props.multiSort,
   manualPagination: () => props.manualPagination,
   expandable: () => props.expandable,
@@ -411,7 +427,7 @@ const scrollStyle = computed(() =>
   effectiveMaxHeight.value ? { maxHeight: effectiveMaxHeight.value, overflowY: 'auto' } : null,
 )
 const emptyColspan = computed(
-  () => leafColumns.value.length + (props.selectable ? 1 : 0) + (props.expandable ? 1 : 0),
+  () => leafColumns.value.length + (isSelectable.value ? 1 : 0) + (props.expandable ? 1 : 0),
 )
 
 function toggleExpand(row, event) {
@@ -444,7 +460,7 @@ function ariaSort(column) {
 
 // --- column pinning (sticky left/right) --------------------------------------
 // Pinned columns render at a fixed width so the sticky offsets stay exact.
-const selColWidth = computed(() => (props.selectable ? 40 : 0))
+const selColWidth = computed(() => (isSelectable.value ? 40 : 0))
 const lastLeftPinnedId = computed(() => {
   const l = table.getLeftVisibleLeafColumns()
   return l.length ? l[l.length - 1].id : null
@@ -506,7 +522,7 @@ function hasBodyCellSlot(name) {
 
 // --- toolbar -----------------------------------------------------------------
 const selectedCount = computed(() => selected.value?.length ?? 0)
-const inBulkMode = computed(() => props.selectable && selectedCount.value > 0)
+const inBulkMode = computed(() => isSelectable.value && selectedCount.value > 0)
 const showToolbar = computed(
   () =>
     !!slots.toolbar ||
@@ -570,9 +586,23 @@ function handleExport() {
   const exportRows = allSortedRows.value.map((r) => r.original)
   downloadCsv(rowsToCsv(exportRows, cols), props.exportFilename)
 }
+// 'selected' resolves against the FULL row set, not the filtered view: the user
+// ticked those rows deliberately, and a filter changed afterwards should not
+// silently drop them from the file. Order follows props.rows so the export reads
+// the same way the table did.
+function selectedExportRows() {
+  const keys = new Set((selected.value || []).map((k) => String(k)))
+  return props.rows.filter((row) => keys.has(String(rawRowKey(row))))
+}
+
 function onExportConfirm({ format, fieldKeys, scope }) {
   const fields = exportFieldUniverse.value.filter((f) => fieldKeys.includes(f.key))
-  const rows = scope === 'all' ? props.rows.slice() : allSortedRows.value.map((r) => r.original)
+  const rows =
+    scope === 'selected'
+      ? selectedExportRows()
+      : scope === 'all'
+        ? props.rows.slice()
+        : allSortedRows.value.map((r) => r.original)
   if (hasExportListener.value) {
     emit('export', { format, fields, scope, rows, rowCount: rows.length })
     return
@@ -747,7 +777,7 @@ defineExpose({ table })
         v-if="isSkeleton"
         :columns="columns"
         :rows="skeletonRows"
-        :selectable="selectable"
+        :selectable="isSelectable"
         :density="density"
       />
 
@@ -781,7 +811,7 @@ defineExpose({ table })
           <slot name="mobile-card" :row="item.row.original" :index="item.index">
             <div class="tw:flex tw:items-start tw:gap-2.5">
               <input
-                v-if="selectable"
+                v-if="isSelectable"
                 type="checkbox"
                 aria-label="Select row"
                 class="tw:mt-0.5 tw:size-4 tw:cursor-pointer tw:rounded tw:border-divider tw:accent-primary"
@@ -882,7 +912,7 @@ defineExpose({ table })
               :aria-label="'Expand'"
             />
             <th
-              v-if="selectable"
+              v-if="isSelectable"
               :class="[
                 'tw:w-10 tw:border-b tw:border-divider tw:bg-main tw:px-4 tw:text-center',
                 pad.th,
@@ -1028,7 +1058,7 @@ defineExpose({ table })
               </td>
 
               <td
-                v-if="selectable"
+                v-if="isSelectable"
                 class="tw:w-10 tw:px-4 tw:text-center tw:align-middle"
                 :class="pad.td"
                 @click.stop
@@ -1122,6 +1152,7 @@ defineExpose({ table })
       :formats="exportFormats"
       :viewCount="filteredCount"
       :allCount="rows.length"
+      :selectedRowCount="selectedCount"
       @confirm="onExportConfirm"
     />
   </div>
