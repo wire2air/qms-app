@@ -1,7 +1,7 @@
 <script setup>
 import { IconUsersPlus, IconMapPinPlus } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
 
 defineProps({
   rows: {
@@ -80,11 +80,40 @@ function onAssigned() {
 // Search / status / role filtering is owned by UsersFilterToolbar + quick-filter
 // pills on the page, so the table's own search/filter chrome is disabled — it
 // just provides sortable columns + export over the already-filtered rows.
+/**
+ * "Sign in as" — a testing aid, never present in production.
+ *
+ * Seeing what a Quality Manager or an approver actually sees means being them,
+ * and juggling passwords across local and dev is the friction that stops people
+ * from checking at all.
+ *
+ * The flag comes from the server (`session.devImpersonationEnabled`, false when
+ * NODE_ENV=production) rather than from a build-time constant, because the dev
+ * DEPLOYMENT is a production build of the frontend — `import.meta.env.DEV`
+ * would be false there and the control would vanish exactly where it is wanted.
+ *
+ * Cosmetic either way: /v1/auth/dev-impersonate returns 404 on a production
+ * process before reading anything, and re-checks company ownership. Hiding the
+ * button is a courtesy, not the control.
+ */
+const canImpersonate = computed(
+  () => currentSession.value?.devImpersonationEnabled === true && currentSession.value?.isOwner === true,
+)
+
+function impersonate(row) {
+  // A full page load, not a fetch: the response is a redirect to a handoff URL
+  // that establishes the session on the target host.
+  window.location.href = `/v1/auth/dev-impersonate?id=${encodeURIComponent(row.id)}&returnUrl=${encodeURIComponent(window.location.pathname)}`
+}
+
 const columns = computed(() => [
   { name: 'name', label: 'NAME', field: 'firstName', align: 'left', sortable: true },
   { name: 'email', label: 'EMAIL', field: 'email', align: 'left', sortable: true },
   { name: 'roles', label: 'ROLES', field: 'roles', align: 'left' },
   { name: 'userStatusId', label: 'STATUS', field: 'userStatusId', align: 'left', sortable: true },
+  ...(canImpersonate.value
+    ? [{ name: 'impersonate', label: '', field: 'id', align: 'right' }]
+    : []),
 ])
 
 // ROLES has no real `roles` field on the row — it's a join through
@@ -169,6 +198,19 @@ function openUser(row) {
 
     <template #body-cell-email="{ row }">
       <span class="tw:text-sm tw:text-secondary">{{ row.email }}</span>
+    </template>
+
+    <!-- Testing aid, non-production only — see canImpersonate. @click.stop so
+         it does not also open the user, which is what the row click does. -->
+    <template #body-cell-impersonate="{ row }">
+      <BaseButton
+        variant="outline"
+        size="sm"
+        :title="`Sign in as ${row.firstName} ${row.lastName}`"
+        @click.stop="impersonate(row)"
+      >
+        Sign in as
+      </BaseButton>
     </template>
 
     <template #body-cell-roles="{ row }">
