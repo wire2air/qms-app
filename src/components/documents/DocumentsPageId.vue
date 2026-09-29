@@ -381,6 +381,15 @@ const canDelete = computed(() => isAllowed(['document_control:delete']) && isOwn
 // backend never applies), so a delete-permitted Document Controller could archive
 // from the list but not the detail. isAllowed() folds in the company-owner bypass.
 const canArchive = computed(() => isAllowed(['document_control:delete']))
+
+// Has this document ever been issued? A version that reached EFFECTIVE stays on
+// the record as EFFECTIVE, SUPERSEDED or ARCHIVED, so those three are the trace
+// of issuance. It decides Archive vs Discard Draft — obsoletion withdraws a
+// document from use, and a never-issued one has nothing to withdraw.
+const ISSUED_VERSION_STATUSES = ['EFFECTIVE', 'SUPERSEDED', 'ARCHIVED']
+const everEffective = computed(() =>
+  versions.value.some((v) => ISSUED_VERSION_STATUSES.includes(v.statusId)),
+)
 const canSubmitForReview = computed(
   () =>
     canEdit.value &&
@@ -694,6 +703,8 @@ const documentActions = computed(() =>
         selectedVersion.value?.statusId === 'IN_REVIEW' &&
         !!selectedVersion.value?.workflowInstanceId,
       canViewAuditTrail: isAllowed(['audit_trail:read']),
+      everEffective: everEffective.value,
+      isOnlyVersion: versions.value.length === 1,
     },
     {
       createDraft: openNewVersionDialog,

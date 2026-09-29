@@ -37,10 +37,29 @@ export function useDocuments() {
     return { version: data.version }
   }
 
-  // Hard-delete a DRAFT/REJECTED version. Requires an e-sign PIN
-  // ({ method:'PIN', token }) and a free-text reason, both recorded in the
-  // audit log. When it's the document's only version, the whole (draft)
+  // Archive (obsolete) a whole document. A status transition server-side, NOT a
+  // delete: the document stays on the register as ARCHIVED and becomes
+  // read-only. Requires an e-sign PIN and a reason, both audited. Rejects with
+  // 409 if the document has never had an effective version — discard those via
+  // deleteDraftVersion instead, since there is nothing to withdraw.
+  async function archiveDocument(documentId, { method, token, reason }) {
+    const data = await post(`/v1/services/documents/${documentId}/archive`, {
+      method,
+      token,
+      reason,
+    })
+    return { document: data.document }
+  }
+
+  // Hard-delete a DRAFT/REJECTED version. A free-text reason is always required
+  // and always audited. When it's the document's only version, the whole (draft)
   // document is deleted — `deletedDocument` says which happened.
+  //
+  // The e-sign PIN ({ method:'PIN', token }) is required only when the document
+  // is UNDER CONTROL, i.e. NOT the whole-document case: deleting one draft
+  // revision of a document that has an effective version in the field touches a
+  // live controlled record, whereas discarding a never-submitted draft withdraws
+  // nothing. Pass them anyway when you have them; the server decides.
   async function deleteDraftVersion(documentId, versionId, { method, token, reason }) {
     const data = await post(`/v1/services/documents/${documentId}/versions/${versionId}/delete`, {
       method,
@@ -50,5 +69,5 @@ export function useDocuments() {
     return { deletedDocument: !!data.deletedDocument }
   }
 
-  return { setEffective, submitForReview, cancelReview, deleteDraftVersion }
+  return { setEffective, submitForReview, cancelReview, archiveDocument, deleteDraftVersion }
 }
