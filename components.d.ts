@@ -602,6 +602,8 @@ declare module 'vue' {
     DocumentImportCreateDialog: typeof import('./src/components/documentImports/DocumentImportCreateDialog.vue')['default']
     DocumentImportPdfDialog: typeof import('./src/components/documents/DocumentImportPdfDialog.vue')['default']
     DocumentImportsHome: typeof import('./src/components/documentImports/DocumentImportsHome.vue')['default']
+    DocumentListFilters: typeof import('./src/components/documents/documentListFilters.js')['default']
+    'DocumentListFilters.spec': typeof import('./src/components/documents/documentListFilters.spec.js')['default']
     DocumentMention: typeof import('./src/components/editor/extensions/documentMention/documentMention.js')['default']
     DocumentMentionList: typeof import('./src/components/editor/extensions/documentMention/DocumentMentionList.vue')['default']
     DocumentObsoletionDialog: typeof import('./src/components/documents/DocumentObsoletionDialog.vue')['default']

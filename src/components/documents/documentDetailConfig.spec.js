@@ -170,3 +170,44 @@ describe('buildDocumentActions', () => {
     Object.values(handlers).forEach((fn) => expect(fn).toHaveBeenCalled())
   })
 })
+
+// The archived banner is the one place a reader lands on a withdrawn document,
+// and the obsoletion reason is routinely where the author points them at the
+// replacement ("Superseded by SOP-104"). It used to say only "This document is
+// archived and read-only", so that pointer — captured, required, and stored on
+// the row — was visible nowhere in the UI.
+describe('buildDocumentBanners — archived', () => {
+  const archived = (extra = {}) => buildDocumentBanners({ statusId: 'ARCHIVED', ...extra })[0]
+
+  it('carries the obsoletion reason', () => {
+    expect(archived({ obsoletionReason: 'Superseded by SOP-104.' }).message).toContain(
+      'Superseded by SOP-104.',
+    )
+  })
+
+  it('includes the date when there is one', () => {
+    const banner = archived({
+      obsoletionReason: 'Process discontinued.',
+      obsoletedAt: { formatDate: () => '29 Sep 2026' },
+    })
+    expect(banner.message).toContain('29 Sep 2026')
+    expect(banner.message).toContain('Process discontinued.')
+  })
+
+  it('still reads correctly with no reason or date on the row', () => {
+    // Documents obsoleted before the reason was captured, and any row where the
+    // fields did not come through.
+    const banner = archived()
+    expect(banner.message).toBe('This document is archived and read-only.')
+    expect(banner.message).not.toMatch(/undefined|null|Reason:/)
+  })
+
+  it('ignores a whitespace-only reason', () => {
+    expect(archived({ obsoletionReason: '   ' }).message).not.toContain('Reason:')
+  })
+
+  it('shows no banner while the document is active', () => {
+    expect(buildDocumentBanners({ statusId: 'ACTIVE' })).toEqual([])
+    expect(buildDocumentBanners(null)).toEqual([])
+  })
+})

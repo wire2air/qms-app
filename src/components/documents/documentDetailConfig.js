@@ -24,16 +24,28 @@ import {
  * reverted wave-1 attempt got wrong).
  */
 
-/** Contextual banners. ARCHIVED is the only terminal/read-only state. */
+/**
+ * Contextual banners. ARCHIVED is the only terminal/read-only state.
+ *
+ * The obsoletion reason belongs IN the banner, not just in the audit log. It is
+ * the one place a reader lands on a withdrawn document, and the reason is
+ * routinely where the author points them at the replacement ("Superseded by
+ * SOP-104"). A bare "this document is archived and read-only" makes them go
+ * hunting for a document that was named right there when it was obsoleted.
+ */
 export function buildDocumentBanners(document) {
   if (!document) return []
   const banners = []
   if (document.statusId === 'ARCHIVED') {
+    const reason = document.obsoletionReason?.trim()
+    const on = document.obsoletedAt?.formatDate?.('date')
+    const parts = [`This document is archived and read-only${on ? ` (archived ${on})` : ''}.`]
+    if (reason) parts.push(`Reason: ${reason}`)
     banners.push({
       id: 'archived',
       tone: 'neutral',
       title: 'Archived',
-      message: 'This document is archived and read-only.',
+      message: parts.join(' '),
     })
   }
   return banners
