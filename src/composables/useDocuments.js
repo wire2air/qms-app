@@ -26,10 +26,13 @@ export function useDocuments() {
     return { version: data.version }
   }
 
-  async function cancelReview(documentId, versionId) {
+  // A reason is required: this ends a review cycle on a controlled document and
+  // cancels every reviewer's task. It is recorded on the audit row and on the
+  // cancelled tasks, so a reviewer who loses one can see why.
+  async function cancelReview(documentId, versionId, reason) {
     const data = await post(
       `/v1/services/documents/${documentId}/versions/${versionId}/cancelReview`,
-      {},
+      { reason },
     )
     return { version: data.version }
   }

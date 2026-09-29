@@ -6,6 +6,7 @@ import {
   IconPencil,
   IconLock,
   IconBinaryTree,
+  IconBan,
 } from '@tabler/icons-vue'
 
 const props = defineProps({
@@ -65,12 +66,31 @@ const stepEntries = useLiveQueryWithDeps(
 
 const loading = computed(() => stepEntries.value === undefined)
 
+/**
+ * CANCELLED had no case here, so it fell through to 'pending'.
+ *
+ * That rendered a cancelled step through the PENDING card, which shows the
+ * status badge only when the step has NO tasks:
+ *
+ *     v-if="tasks.length"  → avatar stack
+ *     v-else               → status badge
+ *
+ * So after a review was cancelled, a step that HAD a reviewer showed their
+ * avatar and looked like it was still waiting on them, while a step that never
+ * got one correctly read "Cancelled". Same status in the database, two
+ * appearances, and the one that looked live was the one someone had actually
+ * been assigned to (reported 2026-09-29).
+ *
+ * This timeline is shared — documents, the workflow-instance detail page and
+ * the document approval strip all render it — so every module had it.
+ */
 function stepState(step) {
   const statusName = step.statusId
   if (statusName === 'APPROVED') return 'completed'
   if (statusName === 'IN_PROGRESS') return 'active'
   if (statusName === 'REJECTED') return 'rejected'
   if (statusName === 'CHANGES_REQUESTED') return 'changesRequested'
+  if (statusName === 'CANCELLED') return 'cancelled'
   return 'pending'
 }
 </script>
@@ -136,6 +156,15 @@ function stepState(step) {
           <IconPencil :size="14" />
         </div>
 
+        <!-- Cancelled step icon — struck through, not locked: this step will
+             never run, as opposed to waiting its turn. -->
+        <div
+          v-else-if="stepState(entry.instanceStep) === 'cancelled'"
+          class="tw:absolute tw:left-0 tw:top-6 tw:size-6 tw:rounded-full tw:bg-gray-400 tw:flex tw:items-center tw:justify-center tw:text-white tw:z-raised"
+        >
+          <IconBan :size="14" />
+        </div>
+
         <!-- Pending step icon -->
         <div
           v-else
@@ -169,6 +198,7 @@ function stepState(step) {
           v-else
           :instanceStepId="entry.instanceStep.id"
           :displayNumber="entry.displayNumber"
+          :cancelled="stepState(entry.instanceStep) === 'cancelled'"
         />
       </div>
     </template>
