@@ -71,7 +71,15 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
     selectedStatus,
     inReview,
     canViewAuditTrail,
+    // Has any version of this document ever been issued (EFFECTIVE, and so
+    // later SUPERSEDED or ARCHIVED)? It decides which of the two terminal
+    // actions is the right one — see the archive/deleteVersion entries below.
+    everEffective,
+    // Is the selected version the document's only one? Then deleting it takes
+    // the whole document with it, which is why the label changes.
+    isOnlyVersion,
   } = gates
+  const discardingWholeDocument = !everEffective && !!isOnlyVersion
   return [
     {
       id: 'createDraft',
@@ -170,7 +178,10 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
     },
     {
       id: 'deleteVersion',
-      label: 'Delete Version',
+      // "Discard Draft" when this is the whole document — a never-issued
+      // document has nothing to keep, and "Delete Version" understates what the
+      // click does when there is only one version.
+      label: discardingWholeDocument ? 'Discard Draft' : 'Delete Version',
       icon: IconTrash,
       variant: 'danger',
       priority: 15,
@@ -182,15 +193,22 @@ export function buildDocumentActions(gates = {}, handlers = {}) {
       label: 'Archive Document',
       icon: IconArchive,
       variant: 'danger',
-      // DC-OB-01 (reconciled): archiving obsoletes + soft-deletes the whole
-      // document. It is gated on the delete permission only (canArchive) — the
-      // SAME check the list view uses and what the documents UPDATE/DELETE RLS
-      // enforces (permission + scope tier + company-owner bypass, NOT owner/
-      // author). Previously this used canDelete, which added an owner/author
-      // restriction the backend never applies, so a delete-permitted controller
-      // could archive from the list but not here. (Scope-tier precision in the UI
-      // + a DB-level obsoletion guard remain separate follow-ups.)
-      visible: !!canArchive && statusId !== 'ARCHIVED',
+      // DC-OB-01 (reconciled): it is gated on the delete permission only
+      // (canArchive) — the SAME check the list view uses and what the documents
+      // UPDATE/DELETE RLS enforces (permission + scope tier + company-owner
+      // bypass, NOT owner/author). Previously this used canDelete, which added an
+      // owner/author restriction the backend never applies, so a delete-permitted
+      // controller could archive from the list but not here. (Scope-tier
+      // precision in the UI + a DB-level obsoletion guard remain separate
+      // follow-ups.)
+      //
+      // Hidden until the document has actually been issued. Obsoletion WITHDRAWS
+      // a document from use; one that was never effective has nothing to
+      // withdraw, and parking it on the register as ARCHIVED-but-never-issued
+      // just makes the register lie. Those are discarded instead — hence
+      // "Discard Draft" above, which is the visible action in that state. The
+      // server rejects the other path with a 409 regardless.
+      visible: !!canArchive && statusId !== 'ARCHIVED' && !!everEffective,
       onSelect: handlers.archive,
     },
   ]

@@ -102,11 +102,43 @@ describe('buildDocumentActions', () => {
     // DC-OB-01 (reconciled): the gate is `canArchive` — the delete permission
     // the list view and the documents RLS both use — NOT `canDelete`, which
     // added an owner/author restriction the backend never applies.
-    expect(visibleIds({ canArchive: true, statusId: 'EFFECTIVE' })).toContain('archive')
-    expect(visibleIds({ canArchive: true, statusId: 'ARCHIVED' })).not.toContain('archive')
+    expect(visibleIds({ canArchive: true, everEffective: true })).toContain('archive')
+    expect(visibleIds({ canArchive: true, everEffective: true, statusId: 'ARCHIVED' })).not.toContain(
+      'archive',
+    )
     // DC-OB-01: edit access alone (no delete perm / not owner-author) must NOT
     // expose the destructive Archive action.
-    expect(visibleIds({ canEdit: true, statusId: 'EFFECTIVE' })).not.toContain('archive')
+    expect(visibleIds({ canEdit: true, everEffective: true })).not.toContain('archive')
+  })
+
+  // Archive vs discard. Obsoletion WITHDRAWS a document from use, so it only
+  // applies to one that was actually issued. A document whose versions never
+  // reached EFFECTIVE has nothing to withdraw — offering Archive there parks a
+  // never-issued document on the register as ARCHIVED, and the server rejects
+  // it with a 409 anyway.
+  it('Archive is hidden until the document has been issued', () => {
+    expect(visibleIds({ canArchive: true, everEffective: false })).not.toContain('archive')
+    expect(visibleIds({ canArchive: true })).not.toContain('archive')
+  })
+
+  it('Delete Version reads "Discard Draft" when it IS the whole document', () => {
+    const label = (gates) =>
+      buildDocumentActions(gates, {}).find((a) => a.id === 'deleteVersion').label
+
+    // Never issued + the only version: the click discards the document itself.
+    expect(
+      label({ canDelete: true, selectedStatus: 'DRAFT', everEffective: false, isOnlyVersion: true }),
+    ).toBe('Discard Draft')
+
+    // A draft revision of an issued document — the document survives.
+    expect(
+      label({ canDelete: true, selectedStatus: 'DRAFT', everEffective: true, isOnlyVersion: false }),
+    ).toBe('Delete Version')
+
+    // Not the only version, so the document survives even if never issued.
+    expect(
+      label({ canDelete: true, selectedStatus: 'DRAFT', everEffective: false, isOnlyVersion: false }),
+    ).toBe('Delete Version')
   })
 
   it('the status-driven actions all carry the top priority (one primary at a time)', () => {
