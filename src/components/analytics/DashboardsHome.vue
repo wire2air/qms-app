@@ -31,7 +31,6 @@ import {
   IconPlus,
   IconLock,
   IconTrash,
-  IconCompass,
   IconChartBar,
   IconStar,
   IconStarFilled,
@@ -127,10 +126,6 @@ async function remove(d) {
         >
           <IconChartBar :size="14" aria-hidden="true" />
           Browse all metrics
-        </BaseButton>
-        <BaseButton size="sm" variant="outline" @click="router.push('/analytics/explore')">
-          <IconCompass :size="14" aria-hidden="true" />
-          Data Explorer
         </BaseButton>
       </template>
     </PageHeader>

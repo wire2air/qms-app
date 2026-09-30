@@ -24,7 +24,6 @@ import {
   IconUsersGroup,
   IconRobot,
   IconChartBar,
-  IconCompass,
   IconMathFunction,
   IconLayoutDashboard,
   IconFileAnalytics,
@@ -426,12 +425,6 @@ const navItems = computed(() => {
           permissions: ['analytics_reports:read'],
           icon: IconFileAnalytics,
           to: getCompanyPath('/analytics/reports'),
-        },
-        {
-          label: 'Data Explorer',
-          permissions: ['analytics_explore:read'],
-          icon: IconCompass,
-          to: getCompanyPath('/analytics/explore'),
         },
         {
           // `read` like its siblings. Naming somebody OTHER than yourself as a

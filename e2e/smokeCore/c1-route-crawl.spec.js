@@ -27,7 +27,6 @@ const SIDEBAR_ROUTES = [
   '/task-instances',
   '/analytics/dashboards',
   '/analytics/reports',
-  '/analytics/explore',
   '/analytics/alerts',
   '/analytics/metrics',
   '/documents',
