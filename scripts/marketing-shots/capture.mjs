@@ -226,6 +226,21 @@ async function main() {
       colorScheme: THEME,
       locale: 'en-GB',
     })
+    // Every shot starts with an empty record trail. Detail pages append
+    // themselves to a per-tab navigation trail (useRecordTrail, kept in
+    // sessionStorage) and show it as a breadcrumb once it holds two records.
+    // A worker tab is reused for many shots, so without this the breadcrumb
+    // on a record listed whichever records that tab happened to capture
+    // before it — different on every run, and different between the light and
+    // dark runs of the same shot. Cleared before the app's scripts load, so
+    // each record is captured as a user opening it directly sees it.
+    await ctx.addInitScript(() => {
+      try {
+        sessionStorage.removeItem('qms.recordTrail')
+      } catch {
+        /* about:blank has no storage */
+      }
+    })
     // Pages share the context's IndexedDB, so the sync bootstraps once on the
     // first page; the others then open with warm data. WORKERS pages capture
     // side by side (default 4) — each keeps its own write guard.

@@ -176,4 +176,5 @@ commented list is at the bottom of `.env.example`.
 | Half-empty or skeleton screenshot | The sync bootstrap hadn't finished. Re-run capture for that id; the first shot after login is the most exposed. |
 | No `-detail` variant | `focus` text not found, or the card is smaller than 200×80 CSS px. Use a heading inside the card, or `focusSel`. |
 | `COVERAGE.md` lists "sparse content" | The screen is probably an empty state. Pick a richer record or seed data. |
+| A breadcrumb of other records above a record (`NC NC-1217 › CMP-001 › …`) | That is the app's per-tab record trail (navigation history, not lineage). `capture.mjs` clears it before every shot, so a record is always captured as opened directly. If it reappears, the `qms.recordTrail` sessionStorage key was renamed. |
 | EMAIL-TEST / E2E rows in lists | `pnpm test:emails` and the E2E runs write into this tenant. Detail shots skip them; list pages still show them. |
