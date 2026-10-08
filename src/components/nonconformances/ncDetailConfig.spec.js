@@ -31,8 +31,12 @@ describe('buildNcSections', () => {
     expect(s.map((x) => x.id)).toEqual(['details', 'workflow', 'disposition', 'capas'])
     expect(s.find((x) => x.id === 'capas').visible).toBe(false)
   })
-  it('marks capas visible only when capaRequired', () => {
+  it('marks capas visible when capaRequired', () => {
     expect(buildNcSections({ capaRequired: true }).find((x) => x.id === 'capas').visible).toBe(true)
+  })
+  it('marks capas visible when a CAPA is linked even if the flag is not Yes', () => {
+    const s = buildNcSections({ capaRequired: null }, { linkedCapaCount: 1 })
+    expect(s.find((x) => x.id === 'capas').visible).toBe(true)
   })
 })
 

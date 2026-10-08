@@ -16,13 +16,17 @@ export function buildNcBanners(nc, { isEditable } = {}) {
   return banners
 }
 
-/** Anchor-nav sections for the NC body (SP-6). `capas` only when CAPA is required. */
-export function buildNcSections(nc) {
+/**
+ * Anchor-nav sections for the NC body (SP-6). `capas` when CAPA is required OR
+ * a CAPA is already linked: a CAPA raised from the CAPA side (or before the
+ * flag was set) must stay visible — it is what locks "CAPA required" to Yes.
+ */
+export function buildNcSections(nc, { linkedCapaCount = 0 } = {}) {
   return [
     { id: 'details', label: 'Details' },
     { id: 'workflow', label: 'Workflow' },
     { id: 'disposition', label: 'Disposition' },
-    { id: 'capas', label: 'CAPAs', visible: nc?.capaRequired === true },
+    { id: 'capas', label: 'CAPAs', visible: nc?.capaRequired === true || linkedCapaCount > 0 },
   ]
 }
 
