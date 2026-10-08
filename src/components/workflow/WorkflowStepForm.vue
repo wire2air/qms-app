@@ -206,6 +206,7 @@ const isEditable = computed(() =>
 const formData = ref({})
 const saving = ref(false)
 const missingFieldsError = ref('')
+const missingFieldsErrorEl = ref(null)
 let formSeeded = false
 
 // Auto-finalize registry. Field widgets that have a "Finalize" step
@@ -470,6 +471,13 @@ async function submitForm(esign, extraAction = null) {
   const missing = getMissingRequiredFields()
   if (missing.length > 0) {
     missingFieldsError.value = `Please fill in the required field${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`
+    // Inline AND toast: on a long step (RCA + risk assessment) the user hits
+    // Mark Complete in the header and the inline line above the form is off
+    // screen, so nothing visibly happens (user report 2026-10-08). The toast
+    // is the notification; the scroll lands them on the message itself.
+    toast.error(missingFieldsError.value)
+    await nextTick()
+    missingFieldsErrorEl.value?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     return
   }
   missingFieldsError.value = ''
@@ -523,9 +531,9 @@ defineExpose({ submit: submitForm, saveDraft, canSaveDraft, saving })
       <!-- Above the form, not below: Mark Complete lives in the step header,
            so a bottom-of-form message sits under the fold and is never seen
            (user report 2026-08-10). -->
-      <BaseErrorText v-if="missingFieldsError" class="tw:mb-3">{{
-        missingFieldsError
-      }}</BaseErrorText>
+      <div v-if="missingFieldsError" ref="missingFieldsErrorEl" class="tw:mb-3">
+        <BaseErrorText>{{ missingFieldsError }}</BaseErrorText>
+      </div>
       <DynamicForm
         v-model="formData"
         :fields="formSchema"
