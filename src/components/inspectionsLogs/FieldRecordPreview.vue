@@ -134,8 +134,12 @@ const canEdit = computed(() => isOwnRecord.value && !isLockedForEdit.value)
 const canAmendNow = computed(
   () => canAmend.value && record.value?.statusId !== 'VOIDED' && isLockedForEdit.value,
 )
-// Void available unless already voided.
-const canVoidNow = computed(() => canVoid.value && record.value?.statusId !== 'VOIDED')
+// Void available unless already voided or APPROVED — approval is final; a
+// signed-off entry is corrected by amendment, never struck (server refuses
+// it too, 2026-10-12).
+const canVoidNow = computed(
+  () => canVoid.value && !['VOIDED', 'APPROVED'].includes(record.value?.statusId),
+)
 
 const record = useLiveQueryWithDeps(
   [() => props.recordId],
