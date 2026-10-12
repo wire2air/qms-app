@@ -342,10 +342,15 @@ function getChecklistRowValue(field, rowIndex) {
 }
 
 // Display text for one checklist cell. Handles both storage shapes:
-//  - legacy flat rows (array of picked column values → ✓ under that column)
-//  - nested-object rows ({ colValue: cellValue }) used by optionGroup /
-//    select / text / number columns — shows the stored value (arrays joined,
-//    booleans as ✓).
+//  - nested-object rows ({ colValue: cellValue }) — the per-cell shape every
+//    non-radio column uses (useChecklistModel) — shows the stored value
+//    (arrays joined, booleans as ✓).
+//  - flat rows (one value per row). For a radio column that value is the
+//    picked column → ✓ under it. For any other column type the row's one
+//    value is the content itself: entries saved before 2026-10-12 collapsed
+//    all-text columns to a single value per row, and showing it (rather
+//    than nothing — "approved entry shows no values", LOG-PROD-0002) is the
+//    only honest rendering of what was captured.
 function checklistCellDisplay(field, rowIndex, col) {
   const raw = getFieldValue(field)
   const entry = Array.isArray(raw) ? raw[rowIndex] : null
@@ -357,8 +362,14 @@ function checklistCellDisplay(field, rowIndex, col) {
     if (Array.isArray(v)) return v.length ? v.join(', ') : null
     return String(v)
   }
-  const picked = getChecklistRowValue(field, rowIndex) || []
-  return picked.includes(col.value) ? '✓' : null
+  if ((col.inputType || 'radio') === 'radio') {
+    const picked = getChecklistRowValue(field, rowIndex) || []
+    return picked.includes(col.value) ? '✓' : null
+  }
+  if (entry == null || entry === '') return null
+  if (entry === true) return '✓'
+  if (entry === false) return null
+  return Array.isArray(entry) ? (entry.length ? entry.join(', ') : null) : String(entry)
 }
 
 function getChecklistRowLabel(row) {
