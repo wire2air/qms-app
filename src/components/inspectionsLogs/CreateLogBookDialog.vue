@@ -46,18 +46,16 @@ const saveError = ref('')
 // Form state -----------------------------------------------------------
 const title = ref('')
 // Code prefix template. The literal `LOG` is the convention default; the
-// {DEPTCODE} / {TYPECODE} placeholders are resolved server-side from the
-// selected Department + LogBookType so the final code matches what the
-// FE preview shows. Users can flatten this to a literal string if they
-// don't want the templating.
-const codePrefix = ref('{TYPECODE}-LOG-{DEPTCODE}')
+// {DEPTCODE} placeholder is resolved server-side from the selected
+// Department so the final code matches what the FE preview shows. Users
+// can flatten this to a literal string if they don't want the templating.
+const codePrefix = ref('LOG-{DEPTCODE}')
 const description = ref('')
 // UI decision 2026-08-05: a log book belongs to ONE site (the pivot table
 // stays — only the UI narrowed; existing multi-site rows are untouched).
 const selectedSiteId = ref(null)
 
-// Taxonomy + routing (Round 0 additions)
-const logBookTypeId = ref(null)
+// Routing (Round 0 additions)
 const supervisorUserId = ref(null)
 const equipmentId = ref(null)
 const departmentId = ref(null)
@@ -117,18 +115,6 @@ const startingBlockId = ref(null)
 // only change this deliberately.
 const workflowVersionId = ref(null)
 
-// Catalog for the Log Book Type dropdown — globals + tenant additions.
-// SyncEngine model includes both because the RLS SELECT policy allows
-// company_id NULL rows for everyone.
-const logBookTypes = useLiveQuery(
-  async (db) => {
-    const rows = await db.LogBookType.where().exec()
-    return rows.sort((a, b) => (a.sequence ?? 100) - (b.sequence ?? 100))
-  },
-
-  { models: ['LogBookType'], initial: [] },
-)
-
 // Equipment dropdown — uses EquipmentSelectMenu (added with the
 // Equipment module follow-up). Hides RETIRED equipment by default.
 
@@ -140,11 +126,10 @@ const presetTrigger = ref(null)
 watch(open, (isOpen) => {
   if (!isOpen) return
   title.value = ''
-  codePrefix.value = '{TYPECODE}-LOG-{DEPTCODE}'
+  codePrefix.value = 'LOG-{DEPTCODE}'
   description.value = ''
   selectedSiteId.value = null
   startingBlockId.value = null
-  logBookTypeId.value = null
   supervisorUserId.value = null
   equipmentId.value = null
   departmentId.value = null
@@ -203,9 +188,8 @@ const policySummary = computed(() => {
 })
 
 // Code prefix preview -----------------------------------------------
-// Resolve {DEPTCODE} + {TYPECODE} on the FE against the currently
-// selected Department / LogBookType so the author sees the final code
-// without round-tripping. Unresolvable placeholders stay literal
+// Resolve {DEPTCODE} on the FE against the currently selected Department
+// so the author sees the final code without round-tripping. Unresolvable placeholders stay literal
 // (the server resolves the canonical value at save and rejects if
 // the dependency is missing).
 const departments = useLiveQuery(async (db) => db.Department.where().exec(), {
@@ -213,26 +197,16 @@ const departments = useLiveQuery(async (db) => db.Department.where().exec(), {
   initial: [],
 })
 const departmentById = computed(() => new Map(departments.value.map((d) => [d.id, d])))
-const logBookTypeById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t])))
 
 const resolvedCodePreview = computed(() => {
   const template = (codePrefix.value || '').trim()
   if (!template) return ''
   const deptCode = departmentById.value.get(departmentId.value)?.code
-  // The type's admin-set prefix wins (Lookups → Log Book Types); empty
-  // falls back to the type code — mirrors the server's resolveCodePrefix.
-  // Placeholder aliases match the server EXACTLY ({DEPTCODE}/{DEPARTMENT_CODE},
-  // {TYPECODE}/{TYPE_CODE}) — anything else previews unresolved, as the
-  // server would reject it.
-  const type = logBookTypeById.value.get(logBookTypeId.value)
-  const typeCode = type ? type.prefix || type.code : null
-  return template
-    .replace(/\{(DEPTCODE|DEPARTMENT_CODE)\}/gi, () =>
-      deptCode ? deptCode.toUpperCase() : '{DEPTCODE}',
-    )
-    .replace(/\{(TYPECODE|TYPE_CODE)\}/gi, () =>
-      typeCode ? typeCode.toUpperCase() : '{TYPECODE}',
-    )
+  // Placeholder aliases match the server EXACTLY ({DEPTCODE}/{DEPARTMENT_CODE})
+  // — anything else previews unresolved, as the server would reject it.
+  return template.replace(/\{(DEPTCODE|DEPARTMENT_CODE)\}/gi, () =>
+    deptCode ? deptCode.toUpperCase() : '{DEPTCODE}',
+  )
 })
 
 // Record numbers are stamped uppercased server-side (fieldRecordService) —
@@ -245,12 +219,11 @@ const isFormValid = computed(
   () =>
     title.value.trim().length > 0 &&
     codePrefix.value.trim().length >= 2 &&
-    // Required: type categorises in the catalog; supervisor drives
-    // digest + flag routing (no routing target == alerts vanish);
-    // sites anchor the log book to at least one site operationally.
-    // (Note: the planned user↔site data-level visibility filter is a
-    // separate concern — see architecture_security_tiers memory.)
-    !!logBookTypeId.value &&
+    // Required: supervisor drives digest + flag routing (no routing
+    // target == alerts vanish); sites anchor the log book to at least
+    // one site operationally. (Note: the planned user↔site data-level
+    // visibility filter is a separate concern — see
+    // architecture_security_tiers memory.)
     !!supervisorUserId.value &&
     !!selectedSiteId.value,
 )
@@ -277,7 +250,6 @@ async function save() {
       title: title.value.trim(),
       codePrefix: codePrefix.value.trim(),
       description: description.value?.trim() || null,
-      logBookTypeId: logBookTypeId.value || null,
       supervisorUserId: supervisorUserId.value || null,
       equipmentId: equipmentId.value || null,
       departmentId: departmentId.value || null,
@@ -347,30 +319,6 @@ async function save() {
     subtitle="Define what gets logged. You'll build the form fields next."
   >
     <BaseForm ref="formRef" hideFooter @submit="save">
-      <!-- Log Book Type FIRST: picking it drives the {TYPECODE} prefix the
-           Record Id Prefix preview shows right below. -->
-      <BaseField label="Log Book Type" required :value="logBookTypeId" :rules="[required()]">
-        <template #default="field">
-          <select
-            v-bind="field"
-            v-model="logBookTypeId"
-            class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-          >
-            <option :value="null" disabled>— Pick a log book type —</option>
-            <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
-              {{ t.name }}{{ t.prefix ? ` (${t.prefix})` : '' }}
-            </option>
-          </select>
-          <div
-            v-if="logBookTypes.length === 0"
-            class="tw:text-caption tw:text-amber-700 tw:italic tw:mt-1"
-          >
-            No log book types yet — they're seeded per company (Lookups → Log Book Types). If this
-            persists, hard-refresh the page to re-bootstrap IndexedDB.
-          </div>
-        </template>
-      </BaseField>
-
       <!-- Title -->
       <BaseField label="Log Book Name" required :value="title" :rules="[required()]">
         <template #default="field">
@@ -382,25 +330,21 @@ async function save() {
         </template>
       </BaseField>
 
-      <!-- Code prefix template — supports {DEPTCODE} / {TYPECODE}
-           placeholders, resolved server-side from the selected
-           Department + LogBookType. Defaults to {TYPECODE}-LOG-{DEPTCODE}
-           so the type's prefix leads the record ID. -->
+      <!-- Code prefix template — supports the {DEPTCODE} placeholder,
+           resolved server-side from the selected Department. Defaults to
+           LOG-{DEPTCODE}. -->
       <BaseField label="Record Id Prefix" required :value="codePrefix" :rules="[required()]">
         <template #default="field">
           <BaseTextInput
             v-bind="field"
             v-model="codePrefix"
-            placeholder="{TYPECODE}-LOG-{DEPTCODE}"
+            placeholder="LOG-{DEPTCODE}"
           />
           <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
             <div>
               Use
               <span class="tw:text-on-main">{DEPTCODE}</span>
-              and
-              <span class="tw:text-on-main">{TYPECODE}</span>
-              to insert the Department code + the Log Book Type's prefix (set under Lookups →
-              Log Book Types). Leave plain text for a literal code.
+              to insert the Department code. Leave plain text for a literal code.
             </div>
             <div>
               Resolved:
@@ -446,7 +390,7 @@ async function save() {
       </BaseField>
 
       <!-- Supervisor (always visible — the load-bearing routing field for
-           the digest / approval flow; Log Book Type moved to the top). -->
+           the digest / approval flow). -->
       <div class="tw:grid tw:grid-cols-1 tw:gap-3">
         <BaseField
           label="Supervisor"

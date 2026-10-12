@@ -329,6 +329,15 @@ const auditInstanceMap = useLiveQueryWithDeps(
   { models: ['AuditInstance', 'AuditStandard'], initial: {} },
 )
 
+// Log books carry no separate type catalog — the Type column shows the
+// book's record classification (Operational Log / Controlled Record).
+function logBookKindLabel(logBook) {
+  if (!logBook) return null
+  return logBook.recordClassification === 'CONTROLLED_RECORD'
+    ? 'Controlled Record'
+    : 'Operational Log'
+}
+
 const logBookMap = useLiveQueryWithDeps(
   [() => taskInstances.value],
   async (db, [tasks]) => {
@@ -338,16 +347,11 @@ const logBookMap = useLiveQueryWithDeps(
     for (const id of ids) {
       const logBook = await db.LogBook.findByPk(id)
       if (!logBook) continue
-      let typeLabel = null
-      if (logBook.logBookTypeId) {
-        const lbType = await db.LogBookType.findByPk(logBook.logBookTypeId)
-        typeLabel = lbType?.name ?? logBook.logBookTypeId
-      }
-      out[id] = { logBook, typeLabel }
+      out[id] = { logBook, typeLabel: logBookKindLabel(logBook) }
     }
     return out
   },
-  { models: ['LogBook', 'LogBookType'], initial: {} },
+  { models: ['LogBook'], initial: {} },
 )
 
 // Scheduled inspections / log collections (My Queue → unified inbox).
@@ -369,17 +373,12 @@ const assignmentInstanceMap = useLiveQueryWithDeps(
         ? await db.FormAssignment.findByPk(inst.formAssignmentId)
         : null
       const logBook = plan?.logBookId ? await db.LogBook.findByPk(plan.logBookId) : null
-      let typeLabel = null
-      if (logBook?.logBookTypeId) {
-        const lbType = await db.LogBookType.findByPk(logBook.logBookTypeId)
-        typeLabel = lbType?.name ?? logBook.logBookTypeId
-      }
-      out[inst.id] = { instance: inst, logBook, typeLabel }
+      out[inst.id] = { instance: inst, logBook, typeLabel: logBookKindLabel(logBook) }
     }
     return out
   },
 
-  { models: ['AssignmentInstance', 'FormAssignment', 'LogBook', 'LogBookType'], initial: {} },
+  { models: ['AssignmentInstance', 'FormAssignment', 'LogBook'], initial: {} },
 )
 
 // QA Disposition tasks — entityId is the InspectionLot id.
@@ -437,17 +436,12 @@ const fieldRecordMap = useLiveQueryWithDeps(
     const out = {}
     for (const rec of records.filter(Boolean)) {
       const logBook = rec.logBookId ? await db.LogBook.findByPk(rec.logBookId) : null
-      let typeLabel = null
-      if (logBook?.logBookTypeId) {
-        const lbType = await db.LogBookType.findByPk(logBook.logBookTypeId)
-        typeLabel = lbType?.name ?? logBook.logBookTypeId
-      }
-      out[rec.id] = { record: rec, logBook, typeLabel }
+      out[rec.id] = { record: rec, logBook, typeLabel: logBookKindLabel(logBook) }
     }
     return out
   },
 
-  { models: ['FieldRecord', 'LogBook', 'LogBookType'], initial: {} },
+  { models: ['FieldRecord', 'LogBook'], initial: {} },
 )
 
 // Admin-defined module tasks carry a dynamic entityType (the module's

@@ -645,7 +645,6 @@ export const INSPECTIONS_LOGS = {
       temperature: { name: 'temperature', label: 'Temperature' },
     },
   },
-  logBookTypeId: 'e2e5a000-0000-4000-8000-000000000002',
 }
 
 // Seeded fixtures the journeys rely on (E2ELAB).

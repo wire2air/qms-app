@@ -864,7 +864,6 @@ declare module 'vue' {
     LogBookSummary: typeof import('./src/components/inspectionsLogs/logBookSummary.js')['default']
     'LogBookSummary.spec': typeof import('./src/components/inspectionsLogs/logBookSummary.spec.js')['default']
     LogBookSummaryDialog: typeof import('./src/components/inspectionsLogs/LogBookSummaryDialog.vue')['default']
-    LogBookTypesCard: typeof import('./src/components/company/LogBookTypesCard.vue')['default']
     LogFormsHome: typeof import('./src/components/inspectionsLogs/LogFormsHome.vue')['default']
     LoggingDashboard: typeof import('./src/components/inspectionsLogs/LoggingDashboard.vue')['default']
     LoginForm: typeof import('./src/components/auth/LoginForm.vue')['default']

@@ -26,11 +26,9 @@ describe('describeLogBook', () => {
     expect(describeLogBook(null)).toBeNull()
   })
 
-  it('names the classification and category in the headline', () => {
-    const s = describeLogBook(book({ recordClassification: 'CONTROLLED_RECORD' }), {
-      typeName: 'Calibration',
-    })
-    expect(s.headline).toBe('Controlled record · Calibration')
+  it('names the classification in the headline', () => {
+    const s = describeLogBook(book({ recordClassification: 'CONTROLLED_RECORD' }))
+    expect(s.headline).toBe('Controlled record')
   })
 
   it('spells out each edit-window mode in entry terms, not setting terms', () => {

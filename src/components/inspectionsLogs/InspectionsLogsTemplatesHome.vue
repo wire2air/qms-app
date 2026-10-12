@@ -131,26 +131,11 @@ const pendingClassification = ref('OPERATIONAL_LOG')
 // Filters + resolved content state (URL-synced). Declared before the live query
 // because `total`/`empty` are lazy getters that read `templates`.
 const list = useListLayout({
-  filters: { search: '', classification: 'all', type: 'all', status: 'all' },
+  filters: { search: '', classification: 'all', status: 'all' },
   total: () => templates.value.length,
   empty: () => templates.value.length === 0,
   syncUrl: true,
 })
-
-// Catalog for the type chip + filter dropdown. Globals + tenant
-// additions; the SyncEngine SELECT policy includes both.
-const logBookTypes = useLiveQuery(
-  async (db) => {
-    const rows = await db.LogBookType.where().exec()
-    return rows.sort((a, b) => (a.sequence ?? 100) - (b.sequence ?? 100))
-  },
-
-  { models: ['LogBookType'], initial: [] },
-)
-const typeById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t])))
-function typeName(id) {
-  return typeById.value.get(id)?.name ?? '—'
-}
 
 // Round 0 refactor (2026-05-26) — log books are a first-class entity
 // now. No more filtering form_templates by config.recordClassification;
@@ -160,15 +145,13 @@ const templates = useLiveQueryWithDeps(
   [
     () => list.filters.value.search,
     () => list.filters.value.classification,
-    () => list.filters.value.type,
     () => list.filters.value.status,
   ],
-  async (db, [q, cls, type, status]) => {
+  async (db, [q, cls, status]) => {
     // Visibility is RLS-scoped (site permissions + involvement) — the list
     // shows whatever synced. Editing is owner-gated on the detail page.
     let rows = await db.LogBook.where().exec()
     if (cls !== 'all') rows = rows.filter((t) => t.recordClassification === cls)
-    if (type !== 'all') rows = rows.filter((t) => t.logBookTypeId === type)
     if (status !== 'all') rows = rows.filter((t) => (t.statusId ?? 'DRAFT') === status)
     if (q) {
       const needle = q.toLowerCase()
@@ -220,7 +203,6 @@ function editWindowSummary(t) {
 const columns = computed(() => [
   { name: 'title', label: 'Log Book', field: 'title', align: 'left', sortable: true },
   { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: true },
-  { name: 'category', label: 'Category', field: 'logBookTypeId', align: 'left' },
   { name: 'type', label: 'Type', field: 'recordClassification', align: 'left', sortable: true },
   { name: 'supervisor', label: 'Supervisor', field: 'supervisorUserId', align: 'left' },
   { name: 'editWindow', label: 'Edit window', field: 'editWindowMode', align: 'left' },
@@ -232,9 +214,8 @@ const columns = computed(() => [
     : []),
 ])
 
-// Category resolves via logBookTypes/typeName above; Supervisor only ever
-// displays via UserBadgeById — DataTable's fallback export reads the raw
-// `logBookTypeId`/`supervisorUserId` UUIDs, so hand it an explicit
+// Supervisor only ever displays via UserBadgeById — DataTable's fallback
+// export reads the raw `supervisorUserId` UUID, so hand it an explicit
 // exportColumns list instead.
 const users = useLiveQuery((db) => db.User.where().exec(), { models: ['User'], initial: [] })
 function supervisorLabel(id) {
@@ -246,7 +227,6 @@ function supervisorLabel(id) {
 const exportColumns = computed(() => [
   { key: 'title', label: 'Log Book', value: (row) => row.title ?? '' },
   { key: 'status', label: 'Status', value: (row) => row.statusId ?? '' },
-  { key: 'category', label: 'Category', value: (row) => typeName(row.logBookTypeId) },
   {
     key: 'type',
     label: 'Type',
@@ -293,16 +273,6 @@ const exportColumns = computed(() => [
               <option value="all">All</option>
               <option value="OPERATIONAL_LOG">Operational</option>
               <option value="CONTROLLED_RECORD">Controlled</option>
-            </select>
-          </div>
-          <div class="tw:flex tw:items-center tw:gap-2">
-            <span class="tw:text-xs tw:text-secondary">Category</span>
-            <select
-              v-model="list.filters.value.type"
-              class="tw:rounded tw:border tw:border-divider tw:bg-card tw:px-2 tw:py-1 tw:text-sm tw:max-w-xs"
-            >
-              <option value="all">All categories</option>
-              <option v-for="t in logBookTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
           </div>
           <div class="tw:flex tw:items-center tw:gap-2">
@@ -400,16 +370,6 @@ const exportColumns = computed(() => [
 
       <template #body-cell-status="{ row }">
         <LogBookStatusBadge :statusId="row.statusId" />
-      </template>
-
-      <template #body-cell-category="{ row }">
-        <span
-          v-if="row.logBookTypeId"
-          class="tw:inline-block tw:bg-main tw:border tw:border-divider tw:rounded tw:px-2 tw:py-0.5 tw:text-xs"
-        >
-          {{ typeName(row.logBookTypeId) }}
-        </span>
-        <span v-else class="tw:text-secondary">—</span>
       </template>
 
       <template #body-cell-type="{ row }">

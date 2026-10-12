@@ -14,7 +14,7 @@ import { DateTime } from 'luxon'
 @ClientModel('logBooks', {
   primaryKey: 'id',
   syncField: 'updatedAt',
-  customIndex: 'companyId, logBookTypeId, supervisorUserId, statusId',
+  customIndex: 'companyId, supervisorUserId, statusId',
 })
 export class LogBook extends BaseModel {
   static paranoid = true
@@ -29,12 +29,11 @@ export class LogBook extends BaseModel {
   @Property({ type: String, required: true }) companyId = ''
 
   @Property({ type: String, required: true }) code = ''
-  @Property({ type: String }) codePrefix = 'LOG-{DEPTCODE}-{TYPECODE}'
+  @Property({ type: String }) codePrefix = 'LOG-{DEPTCODE}'
   @Property({ type: String, required: true }) title = ''
   @Property({ type: String }) description = ''
 
-  // Taxonomy + routing
-  @Property({ type: String }) logBookTypeId = ''
+  // Routing
   // Owner drives the approval flow (submit / discard / new version).
   @Property({ type: String }) ownerUserId = ''
   @Property({ type: String }) supervisorUserId = ''
