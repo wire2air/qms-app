@@ -17,7 +17,6 @@ const props = defineProps({
   book: { type: Object, default: null },
   equipmentName: { type: String, default: '' },
   departmentName: { type: String, default: '' },
-  typeName: { type: String, default: '' },
   cronText: { type: String, default: '' },
   siteCount: { type: Number, default: 0 },
   documentCount: { type: Number, default: 0 },
@@ -31,7 +30,6 @@ const summary = computed(() =>
   describeLogBook(props.book, {
     equipmentName: props.equipmentName,
     departmentName: props.departmentName,
-    typeName: props.typeName,
     cronText: props.cronText,
     siteCount: props.siteCount,
     documentCount: props.documentCount,

@@ -23,7 +23,6 @@ const tabs = [
     label: 'Supplier Certificates',
     group: 'Products & Suppliers',
   },
-  { value: 'log-book-types', label: 'Log Book Types', group: 'Inspections & Logs' },
   { value: 'production-lines', label: 'Production Lines', group: 'QC Inspection' },
   { value: 'storage-locations', label: 'Storage Locations', group: 'QC Inspection' },
   { value: 'shifts', label: 'Shifts', group: 'QC Inspection' },
@@ -92,8 +91,7 @@ watch(activeTab, (v) => {
         />
       </div>
 
-      <LogBookTypesCard v-if="activeTab === 'log-book-types'" />
-      <ProductionLinesCard v-else-if="activeTab === 'production-lines'" />
+      <ProductionLinesCard v-if="activeTab === 'production-lines'" />
       <StorageLocationsCard v-else-if="activeTab === 'storage-locations'" />
       <ShiftsCard v-else-if="activeTab === 'shifts'" />
       <NcDispositionTypesCard v-else-if="activeTab === 'nc-dispositions'" />

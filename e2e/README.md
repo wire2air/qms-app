@@ -53,8 +53,8 @@ Later sections of the seed extend the same tenant for the other suites:
 - **Inspections & Log Books (§34)** — three personas (`logOperator` =
   `field_records` create/read_own/edit_own_in_window and nothing else,
   `logSupervisor` = the two books' `supervisor_user_id` plus review/read_all,
-  `logAdmin` = amend/void/assign/log-book authoring), a log book type, and the
-  two ACTIVE books every journey files against: **E2E Operations Log**
+  `logAdmin` = amend/void/assign/log-book authoring) and the two ACTIVE books
+  every journey files against: **E2E Operations Log**
   (`E2E-ILOP`, OPERATIONAL_LOG, TIME_WINDOW 120 min, no signature, no review) and
   **E2E Controlled Log** (`E2E-ILCR`, CONTROLLED_RECORD, e-signature at submit,
   review required, UNTIL_REVIEW), each with an active ad-hoc form assignment.

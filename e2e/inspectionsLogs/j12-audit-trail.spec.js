@@ -545,7 +545,6 @@ test.describe('IL-J12 — the audit trail', () => {
           code,
           title: 'E2E J12 Audited Definition',
           recordClassification: 'OPERATIONAL_LOG',
-          logBookTypeId: INSPECTIONS_LOGS.logBookTypeId,
           editWindowMode: 'TIME_WINDOW',
           editWindowMinutes: 60,
           schema: [{ name: 'reading', type: 'number', label: 'Reading', required: true }],

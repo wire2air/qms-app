@@ -198,7 +198,6 @@ import { FieldRecordRevision } from './fieldRecordRevision'
 import { FieldRecordStatus } from './fieldRecordStatus'
 import { FormAssignment } from './formAssignment'
 import { LogBook } from './logBook'
-import { LogBookType } from './logBookType'
 import { SiteOnLogBook } from './siteOnLogBook'
 import { DocumentSite } from './documentSite'
 import { LogBookDocumentLink } from './logBookDocumentLink'
@@ -448,7 +447,6 @@ export const db = {
   FieldRecordStatus,
   FormAssignment,
   LogBook,
-  LogBookType,
   SiteOnLogBook,
   DocumentSite,
   LogBookDocumentLink,

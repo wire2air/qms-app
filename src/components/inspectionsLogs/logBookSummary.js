@@ -177,7 +177,6 @@ function findGaps(book, { equipmentName, assignmentCount, hasWorkflow }) {
  * @param {object} [context]                  resolved display values
  * @param {string} [context.equipmentName]
  * @param {string} [context.departmentName]
- * @param {string} [context.typeName]         log book category
  * @param {string} [context.cronText]         humanized recurrence
  * @param {number} [context.siteCount]
  * @param {number} [context.documentCount]
@@ -190,7 +189,6 @@ export function describeLogBook(book, context = {}) {
   const {
     equipmentName = '',
     departmentName = '',
-    typeName = '',
     cronText = '',
     siteCount = 0,
     documentCount = 0,
@@ -199,7 +197,7 @@ export function describeLogBook(book, context = {}) {
   } = context
 
   const kind = CLASSIFICATION_TEXT[book.recordClassification] ?? 'Log book'
-  const headline = typeName ? `${kind} · ${typeName}` : kind
+  const headline = kind
 
   const sections = [
     {

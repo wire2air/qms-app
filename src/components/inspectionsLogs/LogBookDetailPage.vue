@@ -67,15 +67,6 @@ const logBook = useLiveQueryWithDeps(
   { models: ['LogBook'] },
 )
 
-const logBookTypes = useLiveQuery(
-  async (db) => {
-    const rows = await db.LogBookType.where().exec()
-    return rows.sort((a, b) => (a.sequence ?? 100) - (b.sequence ?? 100))
-  },
-
-  { models: ['LogBookType'], initial: [] },
-)
-
 const siteLinks = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -122,10 +113,9 @@ watch(
         id: lb.id,
         title: lb.title ?? '',
         description: lb.description ?? '',
-        logBookTypeId: lb.logBookTypeId || null,
         ownerUserId: lb.ownerUserId || null,
         supervisorUserId: lb.supervisorUserId || null,
-        codePrefix: lb.codePrefix ?? '{TYPECODE}-LOG-{DEPTCODE}',
+        codePrefix: lb.codePrefix ?? 'LOG-{DEPTCODE}',
         equipmentId: lb.equipmentId || null,
         requireIndependentReview: !!lb.requireIndependentReview,
         syncsEquipmentCalibration: !!lb.syncsEquipmentCalibration,
@@ -237,7 +227,6 @@ const debouncedSave = useDebounceFn(async () => {
     await patch(`/v1/services/logBooks/${draft.value.id}`, {
       title: draft.value.title?.trim() || undefined,
       description: draft.value.description?.trim() || null,
-      logBookTypeId: draft.value.logBookTypeId,
       ownerUserId: draft.value.ownerUserId,
       supervisorUserId: draft.value.supervisorUserId,
       codePrefix: draft.value.codePrefix?.trim() || undefined,
@@ -703,10 +692,6 @@ const summaryDepartment = useLiveQueryWithDeps(
   { models: ['Department'] },
 )
 
-const summaryTypeName = computed(
-  () => logBookTypes.value.find((t) => t.id === logBook.value?.logBookTypeId)?.name ?? '',
-)
-
 // Summarise the SAVED book, not the unsaved draft — the question is what this
 // book does, and an autosave-in-flight draft would describe a state that is
 // not yet true of it.
@@ -962,19 +947,6 @@ const logBookDetailConfig = computed(() =>
                   />
                 </BaseField>
                 <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-3">
-                  <BaseField v-slot="{ id: fieldId }" label="Log Book Type">
-                    <select
-                      :id="fieldId"
-                      v-model="draft.logBookTypeId"
-                      :disabled="!canEditFrozen"
-                      class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:px-3 tw:py-1.5 tw:text-sm"
-                    >
-                      <option :value="null">— Uncategorised —</option>
-                      <option v-for="t in logBookTypes" :key="t.id" :value="t.id">
-                        {{ t.name }}{{ t.prefix ? ` (${t.prefix})` : '' }}
-                      </option>
-                    </select>
-                  </BaseField>
                   <BaseField
                     label="Owner"
                     hint="Owns the approval flow — submits the book for approval and manages replacements."
@@ -985,13 +957,11 @@ const logBookDetailConfig = computed(() =>
                     <template v-if="canEditPrefix">
                       <BaseTextInput
                         v-model="draft.codePrefix"
-                        placeholder="{TYPECODE}-LOG-{DEPTCODE}"
+                        placeholder="LOG-{DEPTCODE}"
                       />
                       <p class="tw:text-caption tw:text-secondary tw:italic tw:mt-1">
-                        Tokens <span class="tw:text-on-main">{DEPTCODE}</span> /
-                        <span class="tw:text-on-main">{TYPECODE}</span> resolve from the Department
-                        code + the Log book type's prefix (Lookups → Log Book Types) on save.
-                        Current:
+                        The <span class="tw:text-on-main">{DEPTCODE}</span> token resolves from the
+                        Department code on save. Current:
                         <span class="tw:text-on-main">{{ logBook.code }}</span>
                       </p>
                     </template>
@@ -1777,7 +1747,6 @@ const logBookDetailConfig = computed(() =>
     :book="logBook"
     :equipmentName="selectedEquipment?.name ?? ''"
     :departmentName="summaryDepartment?.name ?? ''"
-    :typeName="summaryTypeName"
     :cronText="summaryCronText"
     :siteCount="siteLinks.length"
     :documentCount="documentLinks.length"
