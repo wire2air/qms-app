@@ -16,7 +16,7 @@ import {
 import FormSchemaReadonlyView from '@/components/form/FormSchemaReadonlyView.vue'
 import DynamicForm from '@/components/form/DynamicForm.js'
 import { fieldRecordStatusLabel } from '@/utils/logBookSchemaUtils.js'
-import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { isAllowed, isAllowedOnRecord, currentSession } from '@/utils/currentSession.js'
 import {
   useLogBookReviewAuth,
   resolveAuthorizedReviewerUserIds,
@@ -50,7 +50,43 @@ const toast = useToast()
 // set (owner OR supervisor OR additional reviewer, site-gated) — `template` is
 // the record's log book (loaded below).
 const { canReviewBook } = useLogBookReviewAuth()
-const canReview = computed(() => (template.value ? canReviewBook(template.value) : false))
+// Roster review: the book's supervisor or an additional reviewer.
+const canReviewAsRoster = computed(() => (template.value ? canReviewBook(template.value) : false))
+// Review on behalf of an absent roster (2026-10-12): field_records:review held
+// at a department / site scope covering the book — the same matrix rule every
+// other approval follows. Mirrors public.can_review_log_book_in_scope (the
+// own tier is excluded: ownerField names nothing on the book on purpose).
+const bookSites = useLiveQueryWithDeps(
+  [() => template.value?.id],
+  async (db, [bookId]) => (bookId ? db.SiteOnLogBook.where('logBookId', bookId).exec() : []),
+  { models: ['SiteOnLogBook'], initial: [] },
+)
+const canReviewInScope = computed(() => {
+  const book = template.value
+  if (!book) return false
+  const siteIds = bookSites.value.map((s) => s.siteId)
+  const probe = (siteId) =>
+    isAllowedOnRecord(
+      'field_records:review',
+      { departmentId: book.departmentId ?? null, siteId: siteId ?? null },
+      { ownerField: '__noOwnTier' },
+    )
+  return siteIds.length ? siteIds.some(probe) || probe(null) : probe(null)
+})
+const canReview = computed(() => canReviewAsRoster.value || canReviewInScope.value)
+const supervisor = useLiveQueryWithDeps(
+  [() => template.value?.supervisorUserId],
+  async (db, [uid]) => (uid ? db.User.findByPk(uid) : null),
+  { models: ['User'] },
+)
+const supervisorName = computed(() => {
+  const u = supervisor.value
+  return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : ''
+})
+// A takeover must LOOK different from ordinary review (see
+// workflow/stepTakeover.js): the buttons name the supervisor so nobody signs
+// off someone else's queue by accident. Server notifies the supervisor.
+const reviewOnBehalf = computed(() => canReview.value && !canReviewAsRoster.value)
 const canAmend = computed(() => isAllowed(['field_records:amend']))
 // Over-the-shoulder: the operator isn't a reviewer, but this entry's log book
 // allows OTS — an authorized reviewer can sign off here with their PIN.
@@ -814,6 +850,14 @@ function close() {
                   class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-primary tw:font-medium"
                 >
                   <IconUserShield :size="14" /> Supervisor sign-off
+                </span>
+                <span
+                  v-else-if="reviewOnBehalf"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-xs tw:text-amber-700 tw:font-medium"
+                  :title="`You are not on this log book's reviewer list. Reviewing on behalf of ${supervisorName || 'its supervisor'} — they will be notified.`"
+                >
+                  <IconUserShield :size="14" />
+                  On behalf of {{ supervisorName || 'the supervisor' }}
                 </span>
                 <button
                   type="button"
