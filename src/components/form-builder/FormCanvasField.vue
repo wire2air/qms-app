@@ -199,12 +199,16 @@ const previewFields = computed(() => [{ ...props.field, width: 'full', hidden: f
 // The shared question header (label + type picker + description). Rendered
 // for every card that represents a QUESTION — including Multiple Choice /
 // Checkboxes, which draw their own options card and so used to miss the type
-// picker entirely (bug 2026-08-15). Excluded: layout containers, the
-// display-only blocks, and the widgets that own a full custom card with its
-// own title (Checklist, Input Table).
-const HEADER_EXCLUDED_TYPES = new Set(['header', 'instructions', 'separator', 'checklist'])
+// picker entirely (bug 2026-08-15), and Checklist / Input Table, whose cards
+// used to print the label read-only so renaming meant opening the properties
+// panel (user request 2026-10-12). Those two have no type picker (kindId is
+// null — their structure converts to nothing) but get the same click-to-edit
+// label and description as everything else. Excluded: layout containers and
+// the display-only blocks.
+const HEADER_EXCLUDED_TYPES = new Set(['header', 'instructions', 'separator'])
 const showFieldHeader = computed(
-  () => !isLayoutField.value && !isInputTable.value && !HEADER_EXCLUDED_TYPES.has(props.field.type),
+  () =>
+    (!isLayoutField.value || isInputTable.value) && !HEADER_EXCLUDED_TYPES.has(props.field.type),
 )
 
 // Required applies to things a respondent answers — not to layout containers
@@ -446,8 +450,9 @@ function beginEdit(which) {
 
     <!-- Layout containers keep a slim, editable title (it renders on the live
          form for sections) — no big icon box or type chrome. Leaf fields have
-         no header at all; they render WYSIWYG below. Input Tables render their
-         own label via the preview, so they skip this header. -->
+         no header at all; they render WYSIWYG below. Input Tables are
+         repeaters but behave as questions: they take the question header
+         below, not this one. -->
     <div v-if="isLayoutField && !isInputTable" class="tw:flex tw:items-center tw:gap-2">
       <BaseTextInput
         v-if="editingLabel"

@@ -43,7 +43,11 @@ const columnTypeItems = INPUT_TABLE_COLUMN_TYPES.map((o) => ({ id: o.type, name:
 const typeLabel = (t) => fieldTypeLabel(t)
 
 const previewData = ref({})
-const previewFields = computed(() => [{ ...props.field, width: 'full', hidden: false }])
+// label:'' — the canvas card's question header above renders the label as a
+// click-to-edit field (2026-10-12); the preview would otherwise print it twice.
+const previewFields = computed(() => [
+  { ...props.field, width: 'full', hidden: false, label: '' },
+])
 
 // The row wrapper that holds the columns. Created on demand so a hand-built
 // template (or one an edit left empty) still works.

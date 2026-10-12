@@ -55,6 +55,41 @@ describe('useChecklistModel — mixed shape (array of objects)', () => {
   })
 })
 
+// Same inputType on every column is NOT uniform unless that type is radio.
+// Four text columns (1st Hr … 4th Hr) used to collapse to one value per row,
+// so typing in any hour filled every hour (2026-10-12, Hourly Torque Values).
+describe('useChecklistModel — same non-radio type on every column is per-cell', () => {
+  const HOURS = ['1stHr', '2ndHr', '3rdHr', '4thHr'].map((value) => ({
+    value,
+    label: value,
+    inputType: 'text',
+  }))
+
+  it('all-text columns are not uniform', () => {
+    expect(useChecklistModel(ref([]), () => HOURS).hasUniformInputType.value).toBe(false)
+  })
+
+  it('each column keeps its own value within a row', () => {
+    const model = ref([])
+    const m = useChecklistModel(model, () => HOURS)
+    m.handleValueChange(0, '1stHr', '12.1')
+    m.handleValueChange(0, '2ndHr', '12.4')
+    expect(m.getValue(0, '1stHr', '')).toBe('12.1')
+    expect(m.getValue(0, '2ndHr', '')).toBe('12.4')
+    expect(m.getValue(0, '3rdHr', '')).toBe('')
+    expect(model.value).toEqual([{ '1stHr': '12.1', '2ndHr': '12.4' }])
+  })
+
+  it('all-checkbox columns are per-cell too', () => {
+    const cols = [{ value: 'a', inputType: 'checkbox' }, { value: 'b', inputType: 'checkbox' }]
+    const model = ref([])
+    const m = useChecklistModel(model, () => cols)
+    m.handleValueChange(0, 'a', true)
+    expect(m.getValue(0, 'a', false)).toBe(true)
+    expect(m.getValue(0, 'b', false)).toBe(false)
+  })
+})
+
 describe('useChecklistModel — interactive guard', () => {
   it('blocks writes when interactive() is false', () => {
     const model = ref([])

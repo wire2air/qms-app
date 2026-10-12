@@ -200,12 +200,9 @@ function applyAiChecklist(result) {
 </script>
 
 <template>
+  <!-- No label here: the canvas card's question header above renders it as a
+       click-to-edit field (2026-10-12), the same as every other question. -->
   <div class="tw:mt-2" @click.stop @mousedown.stop>
-    <!-- Field label, like BaseChecklist renders it on the live form. -->
-    <div v-if="field.label" class="tw:text-sm tw:font-medium tw:text-secondary tw:mb-1">
-      {{ field.label }}
-    </div>
-
     <div class="tw:overflow-x-auto">
       <table :class="cx('tw:w-full tw:border-collapse tw:text-sm', ts.tableClass)">
         <thead>
