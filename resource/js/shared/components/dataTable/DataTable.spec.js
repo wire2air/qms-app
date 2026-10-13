@@ -569,3 +569,111 @@ describe('DataTable — keyboard-operable rows', () => {
     expect(calls[0][1]).toBe(0)
   })
 })
+
+// Row selection is INHERITED rather than opted into. 88 tables use DataTable and
+// 60 have the export manager; wiring `selectable` into each by hand would
+// guarantee it ends up missing from some of them, and "export just these rows"
+// is the reason most people tick a row at all.
+describe('DataTable — selection is inherited from exportManager', () => {
+  const headerCheckbox = (w) => w.find('thead input[type="checkbox"]')
+  const rowCheckboxes = (w) => w.findAll('tbody input[type="checkbox"]')
+
+  it('turns checkboxes on for any table with the export manager', () => {
+    const w = mount(DataTable, { props: { columns, rows, exportManager: true, hidePagination: true } })
+    expect(headerCheckbox(w).exists()).toBe(true)
+    expect(rowCheckboxes(w)).toHaveLength(rows.length)
+  })
+
+  it('leaves a plain table alone', () => {
+    const w = mount(DataTable, { props: { columns, rows, hidePagination: true } })
+    expect(headerCheckbox(w).exists()).toBe(false)
+  })
+
+  it('still honours explicit selectable with no export', () => {
+    const w = mount(DataTable, { props: { columns, rows, selectable: true, hidePagination: true } })
+    expect(headerCheckbox(w).exists()).toBe(true)
+  })
+
+  it('noRowSelection opts a table out', () => {
+    const w = mount(DataTable, {
+      props: { columns, rows, exportManager: true, noRowSelection: true, hidePagination: true },
+    })
+    expect(headerCheckbox(w).exists()).toBe(false)
+  })
+
+  it('the header checkbox selects every row on the page', async () => {
+    const w = mount(DataTable, {
+      props: { columns, rows, exportManager: true, hidePagination: true, selected: [] },
+    })
+    await headerCheckbox(w).setValue(true)
+    expect(w.emitted('update:selected').at(-1)[0].sort()).toEqual([1, 2, 3])
+  })
+
+  it('the header checkbox is indeterminate on a partial selection', async () => {
+    const w = mount(DataTable, {
+      props: { columns, rows, exportManager: true, hidePagination: true, selected: [2] },
+    })
+    await w.vm.$nextTick()
+    expect(headerCheckbox(w).element.indeterminate).toBe(true)
+    expect(headerCheckbox(w).element.checked).toBe(false)
+  })
+})
+
+describe('DataTable — exporting the selected rows', () => {
+  it('exports exactly the ticked rows', async () => {
+    const w = mount(DataTable, {
+      props: {
+        columns,
+        rows,
+        exportManager: true,
+        hidePagination: true,
+        selected: [1, 3],
+        onExport: () => {},
+      },
+    })
+    await w.vm.$nextTick()
+    w.findComponent(TableExportDialog).vm.$emit('confirm', {
+      format: 'csv',
+      fieldKeys: ['name'],
+      scope: 'selected',
+    })
+    await w.vm.$nextTick()
+    const payload = w.emitted('export')[0][0]
+    expect(payload.rows.map((r) => r.id)).toEqual([1, 3])
+    expect(payload.rowCount).toBe(2)
+  })
+
+  it('keeps ticked rows that the current filter has since hidden', async () => {
+    // The user ticked those rows deliberately. A filter changed afterwards must
+    // not silently drop them from the file, which is why 'selected' resolves
+    // against the full row set rather than the filtered view.
+    const w = mount(DataTable, {
+      props: {
+        columns,
+        rows,
+        exportManager: true,
+        searchable: true,
+        hidePagination: true,
+        selected: [1, 3],
+        search: 'Alpha', // matches row 2 only
+        onExport: () => {},
+      },
+    })
+    await w.vm.$nextTick()
+    w.findComponent(TableExportDialog).vm.$emit('confirm', {
+      format: 'csv',
+      fieldKeys: ['name'],
+      scope: 'selected',
+    })
+    await w.vm.$nextTick()
+    expect(w.emitted('export')[0][0].rows.map((r) => r.id)).toEqual([1, 3])
+  })
+
+  it('passes the selected count to the dialog so it can offer the scope', async () => {
+    const w = mount(DataTable, {
+      props: { columns, rows, exportManager: true, hidePagination: true, selected: [2] },
+    })
+    await w.vm.$nextTick()
+    expect(w.findComponent(TableExportDialog).props('selectedRowCount')).toBe(1)
+  })
+})

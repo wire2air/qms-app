@@ -89,7 +89,21 @@ export async function selectMatrixCell(page, { likelihood, severity }) {
   // table itself, not just for the page to settle.
   const table = page.locator('table').filter({ has: page.getByText('Likelihood', { exact: false }) })
   await expect(table.first()).toBeVisible({ timeout: 30_000 })
-  const row = page.locator('tbody tr', { has: page.getByText(likelihood, { exact: false }) })
+  // Anchor on the row's FIRST cell (the likelihood label), not on any text in
+  // the row. Every matrix cell renders its risk-BAND label, and the band
+  // vocabulary is the same Low/Medium/High as the likelihood axis, so a
+  // non-exact whole-row match can resolve a row by its cell contents instead
+  // of its label. It happens to pick correctly for the cells in use today
+  // (rows render in config order, so the wanted row is the first match), but
+  // it is one template edit away from silently selecting the wrong cell.
+  // `has:` re-resolves its argument inside each row, so `td:first-child` is
+  // the row's OWN label cell. (A `page.locator('td').first()` here would not
+  // work: it resolves globally to the first cell in the table, matching no
+  // row at all.) `hasText` with a string is substring-only, so the exact
+  // match goes through a regex anchored on the label plus its score suffix.
+  const row = page.locator('tbody tr').filter({
+    has: page.locator('td:first-child').filter({ hasText: new RegExp(`^\\s*${likelihood}\\b`) }),
+  })
   await expect(row.first()).toBeVisible({ timeout: 15_000 })
   // The column index is the position of `severity` among the header cells —
   // resolve it once so the click lands in the right <td>, not just any cell.
@@ -183,5 +197,18 @@ export async function completeRiskReviewStep(browser, capaId, { cell = HIGH_CELL
     await page.keyboard.insertText(justification)
   }
   await clickWhenReady(page, page.getByRole('button', { name: 'Mark Complete' }))
+  // Closing the context here used to abort the in-flight COMPLETE_AND_ADVANCE:
+  // the click fires the mutation, but `ctx.close()` tears the page down before
+  // the request lands, so the step stays ASSIGNED with its payload saved and
+  // the derivation never runs. Measured under load: 57 tasks stranded in
+  // ASSIGNED across one suite run, surfacing downstream as the misleading
+  // `waitForSqlValue timed out: risk_assessments row derived — last value "0"`.
+  // Wait for the server to actually record the completion before closing.
+  await waitForSqlValue(
+    `SELECT count(*) FROM task_instances
+      WHERE entity_type = 'Capa' AND entity_id = ${quote(capaId)}
+        AND assigned_to = ${quote(USERS.reviewer.id)} AND status_id = 'APPROVED'`,
+    { timeoutMs: 45_000, label: 'reviewer task completed' },
+  )
   await ctx.close()
 }

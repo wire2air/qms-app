@@ -134,7 +134,7 @@ test.beforeAll(() => clearMfa(EMAIL))
 test.afterAll(() => clearMfa(EMAIL))
 
 test.describe('PW-J8 · TOTP enrolment, challenge, and recovery codes', () => {
-  test('enrol a factor, then login demands and accepts the challenge', async () => {
+  test('enrol a factor, then login demands and accepts the challenge', { tag: ['@validation', '@URS-SEC-15'] }, async () => {
     clearMfa(EMAIL)
     expect(activeMfaFactorCount(EMAIL), 'baseline: no factor in force').toBe(0)
 

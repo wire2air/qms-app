@@ -35,7 +35,7 @@ test.describe('PW-J7 · permission denials + cross-tenant isolation', () => {
     await auditorCtx.close()
   })
 
-  test('a user with no capa permission is redirected to /no-access', async ({ browser }) => {
+  test('a user with no capa permission is redirected to /no-access', { tag: '@smoke' }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
     const page = await ctx.newPage()
     await page.goto('/capas')

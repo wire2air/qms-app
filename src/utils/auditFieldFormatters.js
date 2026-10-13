@@ -358,10 +358,22 @@ export const AUDIT_FIELD_FORMATTERS = {
   TaskInstance: {
     title: { label: 'Title', type: 'text' },
     statusId: { label: 'Status', type: 'status', statusModel: 'TaskInstanceStatus' },
-    assigneeId: { label: 'Assigned To', type: 'fk', refModel: 'User' },
+    // The column is `assigned_to` (there is no assigneeId). Stamped onto every
+    // terminal action by the worker's handlers/tasks.js so the row says who the
+    // task was routed to even though the field itself did not change.
+    assignedTo: { label: 'Assigned To', type: 'fk', refModel: 'User' },
+    // Present only when the performer is not the assignee (takeover).
+    onBehalfOf: { label: 'Completed on behalf of', type: 'fk', refModel: 'User' },
+    reassignedToUserId: { label: 'Reassigned To', type: 'fk', refModel: 'User' },
+    completedAt: { label: 'Completed At', type: 'datetime' },
     dueDate: { label: 'Due Date', type: 'date' },
-    priority: { label: 'Priority', type: 'text' },
-    description: { label: 'Description', type: 'text' },
+    priorityId: { label: 'Priority', type: 'text' },
+    comment: { label: 'Comment', type: 'text' },
+    // Readable siblings written by label enrichment — the fk rows above
+    // already resolve the name live, so these would be duplicates.
+    assignedToLabel: { label: 'Assigned To', type: 'text', hidden: true },
+    onBehalfOfLabel: { label: 'On behalf of', type: 'text', hidden: true },
+    reassignedToUserIdLabel: { label: 'Reassigned To', type: 'text', hidden: true },
   },
 
   Signature: {

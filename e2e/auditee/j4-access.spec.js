@@ -35,7 +35,11 @@ const OPEN = AUDITEE.open
 const CLOSED = AUDITEE.closed
 
 test.describe('AE-J4 · access to certification audits', () => {
-  test('an EXTERNAL_SUPPLIER is sent to /no-access from the list and the detail route', async ({
+  // Was KNOWN DEFECT GUARD-HYDRATION until 2026-09-28: on a hard load the guard
+  // let the detail route render while the session hydrated. permissionGuard.js
+  // now re-evaluates the route (after router.isReady()) the moment the session
+  // lands, so this is back in the smoke gate.
+  test('an EXTERNAL_SUPPLIER is sent to /no-access from the list and the detail route', { tag: ['@smoke'] }, async ({
     browser,
   }) => {
     const ctx = await freshContext(browser, SUPPLIER_USER)

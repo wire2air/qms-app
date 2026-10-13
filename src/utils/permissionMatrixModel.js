@@ -82,11 +82,23 @@ export function buildDesiredPermissions(modules, state, readActionId, scopeRank)
 
     if (!supportsRead(m, readActionId)) continue // read isn't grantable here
 
-    // Store read explicitly only when it reaches wider than the writes; with no
-    // capability at all, the read row IS the grant.
-    if (!caps.length || rank(scopeRank, s.readScope) > rank(scopeRank, writeScope)) {
-      out.push({ module: m.id, action: readActionId, scope: s.readScope })
-    }
+    // ALWAYS store read. It used to be omitted whenever the module had
+    // capabilities at the same scope, on the premise that any grant implied
+    // read — true until RA-1 (2026-09-07) made `read` a real action:
+    // authz.has_permission now matches `rmp.action_id = p_action` exactly, so
+    // a role holding create/update/approve and no read row cannot read.
+    //
+    // The omission therefore stopped being an optimisation and became a
+    // silent revocation: SAVING a role stripped read from every module where
+    // it held capabilities. Nothing errored — the save succeeded and the
+    // checkbox still showed read as granted, because the matrix infers the
+    // read level from the row it had just declined to write.
+    //
+    // Found via a Quality Manager who could approve and close CAPAs, NCs and
+    // documents but whose Training Verification menu had vanished: 28 modules
+    // granted without read (2026-09-27). Any role saved through this screen
+    // since RA-1 is in that state.
+    out.push({ module: m.id, action: readActionId, scope: s.readScope })
   }
   return out
 }

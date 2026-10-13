@@ -21,7 +21,7 @@
 // finding — findings ride the parent audit's update permission). Worth knowing
 // if you go looking for a route-level gate and find none.
 import { test, expect } from '@playwright/test'
-import { AUTH, USERS, SITES, DEPARTMENTS, AUDIT_STANDARD } from '../fixtures/cast.js'
+import { AUTH, USERS, SITES, DEPARTMENTS, AUDIT_STANDARD, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 import { dateInDays } from '../fixtures/audits.js'
 import {
@@ -34,11 +34,33 @@ function uniqueScope(tag) {
   return `E2E ${tag} ${Date.now()}`
 }
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function auditCount() {
-  return Number(sqlValue(`SELECT count(*) FROM audit_instances`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM audit_instances WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function findingCount() {
-  return Number(sqlValue(`SELECT count(*) FROM audit_findings`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM audit_findings WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 function findAuditByScope(scope) {
   return sqlValue(`SELECT id FROM audit_instances WHERE scope = '${scope}' LIMIT 1`)

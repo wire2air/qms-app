@@ -114,6 +114,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/analytics/metrics/[id]': RouteRecordInfo<
+      '/analytics/metrics/[id]',
+      '/analytics/metrics/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/analytics/metrics/new': RouteRecordInfo<
+      '/analytics/metrics/new',
+      '/analytics/metrics/new',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/analytics/reports/': RouteRecordInfo<
       '/analytics/reports/',
       '/analytics/reports',
@@ -555,9 +569,30 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/platform/crons': RouteRecordInfo<
+      '/platform/crons',
+      '/platform/crons',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/email-log': RouteRecordInfo<
+      '/platform/email-log',
+      '/platform/email-log',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/platform/plans': RouteRecordInfo<
       '/platform/plans',
       '/platform/plans',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/platform/queue': RouteRecordInfo<
+      '/platform/queue',
+      '/platform/queue',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -947,6 +982,18 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/analytics/metrics/[id].vue': {
+      routes:
+        | '/analytics/metrics/[id]'
+      views:
+        | never
+    }
+    'src/pages/analytics/metrics/new.vue': {
+      routes:
+        | '/analytics/metrics/new'
+      views:
+        | never
+    }
     'src/pages/analytics/reports/index.vue': {
       routes:
         | '/analytics/reports/'
@@ -1325,9 +1372,27 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/platform/crons.vue': {
+      routes:
+        | '/platform/crons'
+      views:
+        | never
+    }
+    'src/pages/platform/email-log.vue': {
+      routes:
+        | '/platform/email-log'
+      views:
+        | never
+    }
     'src/pages/platform/plans.vue': {
       routes:
         | '/platform/plans'
+      views:
+        | never
+    }
+    'src/pages/platform/queue.vue': {
+      routes:
+        | '/platform/queue'
       views:
         | never
     }

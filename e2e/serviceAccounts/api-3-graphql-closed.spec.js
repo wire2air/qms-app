@@ -41,6 +41,21 @@ const owned = accountTracker()
 // is the credential that was refused and nothing else.
 const PROBE = { query: '{ __typename }' }
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// This file arranges a service account + key ONCE in `beforeAll` and purges it
+// in `afterAll`. Playwright discards a worker after a failing test and RUNS the
+// file's pending `afterAll` before continuing in a fresh one — but the
+// `beforeAll` of an already-entered describe does NOT re-run. Without serial
+// mode the purge would therefore delete the account out from under every later
+// test in the file, and each would report the 401/404 it was written to catch:
+// one real failure printed as N false authentication findings.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it, so
+// one failure stays one failure. See complaints/j11 for the alternative fix
+// (arrange per describe), which suits files whose tests can afford their own
+// fixtures; minting a real API key per test would not be cheap here.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('SA-API-3 · GraphQL refuses API-key credentials', () => {
   let account
   let secret

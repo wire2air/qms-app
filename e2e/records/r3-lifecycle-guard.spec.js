@@ -308,7 +308,7 @@ test.describe('REC-J3 — the QMSMR lifecycle guard', () => {
     expect(findRecord(id).statusId).toBe('APPROVED')
   })
 
-  test('module_key is immutable — the arm selector cannot be swapped underneath the guard', () => {
+  test('module_key is immutable — the arm selector cannot be swapped underneath the guard', { tag: '@smoke' }, () => {
     // F-17 from the other direction. module_key is the arm selector AND this
     // table's permission namespace, so a writable module_key defeats both at
     // once: null it and the strict module arm is replaced by the permissive

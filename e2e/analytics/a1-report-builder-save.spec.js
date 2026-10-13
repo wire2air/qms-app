@@ -30,7 +30,7 @@ test.describe('ANL-A1 · the New-report dialog saves what it shows', () => {
     await ensureRollup()
   })
 
-  test('fill the dialog → the report exists, normalised, owned by the author', async ({ page }) => {
+  test('fill the dialog → the report exists, normalised, owned by the author', { tag: '@smoke' }, async ({ page }) => {
     const name = uniqueName('ANL-A1 report')
     await gotoReports(page)
 

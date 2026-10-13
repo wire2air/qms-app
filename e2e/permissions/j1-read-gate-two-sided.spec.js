@@ -63,26 +63,34 @@ test.beforeAll(() => {
 })
 
 test.describe('PERM-J1 — the read gate admits the holder and refuses everyone else', () => {
-  test('the fixture personas still have the shape every case below depends on', () => {
-    // If this fails, every other assertion in this file is meaningless rather
-    // than wrong — the personas drifted and the suite is probing nothing. It is
-    // deliberately the first test in the file.
-    expect(effectivePermissions(noaccess.id), 'noaccess holds a TRUE zero').toEqual([])
+  test(
+    'the fixture personas still have the shape every case below depends on',
+    { tag: '@smoke' },
+    () => {
+      // If this fails, every other assertion in this file is meaningless rather
+      // than wrong — the personas drifted and the suite is probing nothing. It is
+      // deliberately the first test in the file.
+      expect(effectivePermissions(noaccess.id), 'noaccess holds a TRUE zero').toEqual([])
 
-    expect(holdsPermission(reviewer.id, 'capa:read'), 'reviewer holds capa:read').toBe(true)
-    expect(holdsPermission(reviewer.id, 'ncr:read'), 'reviewer holds ncr:read').toBe(true)
-  })
+      expect(holdsPermission(reviewer.id, 'capa:read'), 'reviewer holds capa:read').toBe(true)
+      expect(holdsPermission(reviewer.id, 'ncr:read'), 'reviewer holds ncr:read').toBe(true)
+    },
+  )
 
   // One case per module rather than a loop, so a failure names the module in
   // the test title instead of an index.
-  test('capas — a known CAPA is visible to the reader and invisible to the zero-grant user', () => {
-    const capa = sqlValue(
-      `SELECT id FROM capas WHERE company_id = '${COMPANY_ID}' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`,
-    )
-    expect(capa, 'the seed leaves at least one CAPA in the tenant').toBeTruthy()
+  test(
+    'capas — a known CAPA is visible to the reader and invisible to the zero-grant user',
+    { tag: '@smoke' },
+    () => {
+      const capa = sqlValue(
+        `SELECT id FROM capas WHERE company_id = '${COMPANY_ID}' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`,
+      )
+      expect(capa, 'the seed leaves at least one CAPA in the tenant').toBeTruthy()
 
-    expectRowVisibility('capas', capa, { granted: reviewer, denied: noaccess, label: 'capas' })
-  })
+      expectRowVisibility('capas', capa, { granted: reviewer, denied: noaccess, label: 'capas' })
+    },
+  )
 
   test('nonconformances — same row, same two sides', () => {
     const nc = sqlValue(

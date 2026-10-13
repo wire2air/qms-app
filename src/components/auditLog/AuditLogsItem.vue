@@ -25,6 +25,26 @@ const performerName = computed(() => {
   return `${performer.value.firstName} ${performer.value.lastName}`.trim()
 })
 
+// A task ended by someone other than its assignee (takeover): the worker stamps
+// `onBehalfOf` on the row, with the name as it was at the time in
+// `onBehalfOfLabel`. Shown on the row itself — the collapsed line is what an
+// auditor reads, and "by Sam" alone misattributes whose duty it was.
+const onBehalfOf = useLiveQueryWithDeps(
+  [() => props.log.newValueJson?.onBehalfOf],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: 'User' },
+)
+const onBehalfOfName = computed(() => {
+  const id = props.log.newValueJson?.onBehalfOf
+  if (!id) return null
+  const u = onBehalfOf.value
+  return (
+    (u && `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()) ||
+    props.log.newValueJson?.onBehalfOfLabel ||
+    'another user'
+  )
+})
+
 // Resolve entity display label live from IDB.
 // Child entity resolvers (e.g. WorkflowStep) chain to their parent via `this`.
 // isChild=true when the entity resolved to a different (parent) type.
@@ -79,6 +99,9 @@ const displayAction = computed(() => (resolvedEntity.value?.isChild ? 'UPDATE' :
         </div>
         <div class="tw:text-xs tw:text-secondary tw:mt-0.5">
           by {{ performerName }}
+          <span v-if="onBehalfOfName" class="tw:text-amber-700">
+            on behalf of {{ onBehalfOfName }}</span
+          >
           <span class="tw:mx-1">&middot;</span>
           {{ log.createdAt?.formatDate('datetime') }}
         </div>

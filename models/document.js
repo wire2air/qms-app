@@ -46,7 +46,22 @@ export class Document extends BaseModel {
   @Property({ type: String, required: true }) userId = ''
   // Owner = userId (accountable); author = originator (creator, reassignable).
   @Property({ type: String }) authorId = /** @type {String|null} */ (null)
-  @Property({ type: String, required: true }) siteId = ''
+  // The OWNING/managing site, and it is genuinely optional — the column is
+  // nullable and DocumentsCreate.deriveAnchorSiteId() returns null by design
+  // when a company-wide document is created by a user who has no site of their
+  // own. This was `required: true`, so that combination -- tick "All sites
+  // (company-wide)", which hides the site picker -- passed the form's own
+  // validation and then failed on save with "siteId is required".
+  //
+  // Nothing downstream needs the anchor. Read visibility for a company-wide
+  // document comes from the applies_all_sites / document_sites arm of
+  // documents_sel, not from site_id; doc numbering only demands a site when
+  // the prefix contains {SITE_CODE}, and says so. A null anchor does narrow
+  // WRITES -- scope_allowed() fails closed on a NULL site -- so an unanchored
+  // document is revisable by its owner, its department, or a tenant-scope
+  // holder, but not by a site-scoped one. That is the right reading of a
+  // document no single site owns.
+  @Property({ type: String }) siteId = /** @type {String|null} */ (null)
   @Property({ type: String }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) companyId = ''
   @Property({ type: String, required: true }) workflowVersionId = ''

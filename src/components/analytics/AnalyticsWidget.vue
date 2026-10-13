@@ -98,7 +98,7 @@ const emit = defineEmits(['retry'])
 // Downloading a metric is a separate grant from reading one (the module carries
 // read / export / manage), so the affordance follows the permission.
 const canExport = computed(
-  () => isAllowed(['reports_dashboards:export']) && props.exportRows.length > 0,
+  () => isAllowed(['analytics_reports:export']) && props.exportRows.length > 0,
 )
 
 const marker = computed(() => significanceMarker(props.isSignificant))

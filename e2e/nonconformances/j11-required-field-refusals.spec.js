@@ -21,7 +21,7 @@
 // database). Asserting refusals against the draft route would contradict a
 // deliberate design decision.
 import { test, expect } from '@playwright/test'
-import { AUTH, USERS, SITES, DEPARTMENTS, FIXTURES } from '../fixtures/cast.js'
+import { AUTH, USERS, SITES, DEPARTMENTS, FIXTURES, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue, findNcByTitle } from '../fixtures/db.js'
 import { uniqueTitle } from '../fixtures/nonconformances.js'
 import {
@@ -41,8 +41,19 @@ function publishedNcWorkflowVersion() {
      LIMIT 1`)
 }
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function ncCount() {
-  return Number(sqlValue(`SELECT count(*) FROM nonconformances`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM nonconformances WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 
 /** Mirrors the body PW-J10 proves the raise endpoint accepts. */
@@ -76,7 +87,7 @@ const REQUIRED_KEYS = [
 test.describe('PW-J11 · NC required-field refusals', () => {
   test.use({ storageState: AUTH.author })
 
-  test('control: the body every negative arm is derived from is accepted', async ({ browser }) => {
+  test('control: the body every negative arm is derived from is accepted', { tag: ['@validation', '@URS-NCR-01'] }, async ({ browser }) => {
     test.setTimeout(60_000)
     const ctx = await browser.newContext({ storageState: AUTH.author })
     const title = uniqueTitle('J11-control')
@@ -94,7 +105,7 @@ test.describe('PW-J11 · NC required-field refusals', () => {
   })
 
   for (const key of REQUIRED_KEYS) {
-    test(`REST: raising an NC without '${key}' is refused 400 and writes nothing`, async ({
+    test(`REST: raising an NC without '${key}' is refused 400 and writes nothing`, { tag: key === 'title' ? ['@smoke', '@p0'] : [] }, async ({
       browser,
     }) => {
       test.setTimeout(60_000)

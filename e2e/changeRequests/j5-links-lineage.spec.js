@@ -13,48 +13,52 @@ import { raiseNc, uniqueTitle as uniqueNcTitle } from '../fixtures/nonconformanc
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J5 · change-request links', () => {
-  test('owner adds a link, lists it, then removes it', async ({ page }) => {
-    test.setTimeout(120_000)
-    const title = uniqueTitle('J5-link')
-    await createCr(page, title)
-    const cr = findCrByTitle(title)
+  test(
+    'owner adds a link, lists it, then removes it',
+    { tag: ['@validation', '@URS-CHG-04'] },
+    async ({ page }) => {
+      test.setTimeout(120_000)
+      const title = uniqueTitle('J5-link')
+      await createCr(page, title)
+      const cr = findCrByTitle(title)
 
-    // Link a document (target rows are free-form type+id pointers).
-    const targetId = '11111111-2222-4333-8444-555555555555'
-    const addRes = await page.request.post(`/api/v1/services/changeRequests/${cr.id}/links`, {
-      data: {
-        targetType: 'Document',
-        targetId,
-        linkRole: 'AFFECTED',
-        notes: 'E2E — SOP affected by this change.',
-      },
-    })
-    expect(addRes.ok(), await addRes.text()).toBeTruthy()
-    const linkId = (await addRes.json()).link.id
+      // Link a document (target rows are free-form type+id pointers).
+      const targetId = '11111111-2222-4333-8444-555555555555'
+      const addRes = await page.request.post(`/api/v1/services/changeRequests/${cr.id}/links`, {
+        data: {
+          targetType: 'Document',
+          targetId,
+          linkRole: 'AFFECTED',
+          notes: 'E2E — SOP affected by this change.',
+        },
+      })
+      expect(addRes.ok(), await addRes.text()).toBeTruthy()
+      const linkId = (await addRes.json()).link.id
 
-    const row = sqlRow(
-      `SELECT target_type, target_id, link_role, created_by FROM change_request_links WHERE id = '${linkId}'`,
-    )
-    expect(row[0]).toBe('Document')
-    expect(row[1]).toBe(targetId)
-    expect(row[2]).toBe('AFFECTED')
-    expect(row[3], 'link is attributed to its creator').toBe(USERS.author.id)
+      const row = sqlRow(
+        `SELECT target_type, target_id, link_role, created_by FROM change_request_links WHERE id = '${linkId}'`,
+      )
+      expect(row[0]).toBe('Document')
+      expect(row[1]).toBe(targetId)
+      expect(row[2]).toBe('AFFECTED')
+      expect(row[3], 'link is attributed to its creator').toBe(USERS.author.id)
 
-    // GET returns it.
-    const listRes = await page.request.get(`/api/v1/services/changeRequests/${cr.id}/links`)
-    expect(listRes.ok()).toBeTruthy()
-    const links = (await listRes.json()).links
-    expect(links.map((l) => l.id)).toContain(linkId)
+      // GET returns it.
+      const listRes = await page.request.get(`/api/v1/services/changeRequests/${cr.id}/links`)
+      expect(listRes.ok()).toBeTruthy()
+      const links = (await listRes.json()).links
+      expect(links.map((l) => l.id)).toContain(linkId)
 
-    // DELETE removes it (paranoid — assert it leaves the live set).
-    const delRes = await page.request.delete(
-      `/api/v1/services/changeRequests/${cr.id}/links/${linkId}`,
-    )
-    expect(delRes.ok()).toBeTruthy()
+      // DELETE removes it (paranoid — assert it leaves the live set).
+      const delRes = await page.request.delete(
+        `/api/v1/services/changeRequests/${cr.id}/links/${linkId}`,
+      )
+      expect(delRes.ok()).toBeTruthy()
 
-    const afterRes = await page.request.get(`/api/v1/services/changeRequests/${cr.id}/links`)
-    expect((await afterRes.json()).links.map((l) => l.id)).not.toContain(linkId)
-  })
+      const afterRes = await page.request.get(`/api/v1/services/changeRequests/${cr.id}/links`)
+      expect((await afterRes.json()).links.map((l) => l.id)).not.toContain(linkId)
+    },
+  )
 
   test('negative: removing an unknown link id is rejected 400', async ({ page }) => {
     test.setTimeout(90_000)

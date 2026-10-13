@@ -31,8 +31,23 @@ describe('toDateTime', () => {
   })
 
   it('parses ISO strings and Date objects', () => {
-    expect(toDateTime('2026-09-07T00:00:00Z').toISODate()).toBe('2026-09-07')
-    expect(toDateTime(new Date('2026-09-07T00:00:00Z')).isValid).toBe(true)
+    // Asserted in UTC, deliberately. toDateTime resolves into the RUNNING
+    // ZONE, so comparing a local calendar date here tests the machine's
+    // timezone rather than the parse: the original fixture
+    // (2026-09-07T00:00:00Z, compared with .toISODate()) passed in CI and in
+    // Asia/Kolkata and failed in America/New_York, where midnight UTC is 8pm
+    // on the 6th.
+    //
+    // Pinning the fixture to noon UTC — what toExpiryIso actually writes —
+    // fixes the west but not the far east: at UTC+14 noon UTC is already the
+    // 8th. There is no wall-clock instant that reads as one calendar date
+    // everywhere, so the parse is asserted on the INSTANT and the zone
+    // conversion is left to the tests that are actually about it.
+    expect(toDateTime('2026-09-07T12:00:00Z').toUTC().toISO()).toBe('2026-09-07T12:00:00.000Z')
+    expect(toDateTime(new Date('2026-09-07T12:00:00Z')).toMillis()).toBe(
+      Date.UTC(2026, 8, 7, 12, 0, 0),
+    )
+    expect(toDateTime(new Date('2026-09-07T12:00:00Z')).isValid).toBe(true)
   })
 
   it('returns null for garbage rather than an invalid DateTime', () => {

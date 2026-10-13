@@ -119,7 +119,11 @@ defineExpose({ validate })
 </script>
 
 <template>
-  <div class="tw:flex tw:flex-col tw:gap-1">
+  <!-- `<id>-field` on the wrapper: BaseForm.focusField falls back to it when the
+       slotted control did not spread the payload (an editor inside a plain
+       <div>, a composite picker…), so a summary click still lands on the field
+       instead of silently doing nothing (NC "Immediate containment", 2026-10-08). -->
+  <div :id="`${fieldId}-field`" class="tw:flex tw:flex-col tw:gap-1">
     <BaseLabel
       v-if="label || $slots.label"
       :for="fieldId"

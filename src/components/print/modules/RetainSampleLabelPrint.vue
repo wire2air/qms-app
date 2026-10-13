@@ -5,6 +5,14 @@
  *   ?size=4x2           — one 4in × 2in thermal label per page
  * Skips PrintLayout on purpose: labels want no A4 report chrome; the module
  * owns its own @page. Auto-fires window.print() once the data is loaded.
+ *
+ * ── IT MUST TELEPORT ──────────────────────────────────────────────────────
+ * index.html marks `#app` as `tw:print:hidden` and provides a sibling
+ * `#print-portal`. Content left inside the app tree therefore sits under the
+ * sidebar on screen AND is hidden when the browser prints — the dialog shows a
+ * blank document. PrintLayout escapes both by teleporting; a module that skips
+ * PrintLayout has to do it itself. This one did not, so labels printed blank
+ * (found 2026-09-19 via the log book QR labels, which copied this file).
  */
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
@@ -40,7 +48,9 @@ const retainedBy = useLiveQueryWithDeps(
   { models: ['User'] },
 )
 const retainedByName = computed(() =>
-  retainedBy.value ? [retainedBy.value.firstName, retainedBy.value.lastName].filter(Boolean).join(' ') : '—',
+  retainedBy.value
+    ? [retainedBy.value.firstName, retainedBy.value.lastName].filter(Boolean).join(' ')
+    : '—',
 )
 
 const isThermal = computed(() => String(props.size).toLowerCase() === '4x2')
@@ -79,44 +89,104 @@ watch(sample, (s) => {
 </script>
 
 <template>
-  <div v-if="!sample" class="tw:p-8 tw:text-sm tw:text-secondary">Loading label…</div>
-  <div v-else :class="isThermal ? 'label-thermal-page' : 'label-sheet'">
-    <div
-      v-for="n in copyCount"
-      :key="n"
-      class="label"
-      :class="isThermal ? 'label--thermal' : 'label--sheet'"
-    >
-      <div class="label__banner">DO NOT USE — RETAIN SAMPLE</div>
-      <div class="label__body">
-        <div class="label__text">
-          <div class="label__rs">{{ sample.rsNumber }}</div>
-          <table class="label__meta">
-            <tbody>
-              <tr class="label__strong"><td>Product</td><td>{{ product?.name || '—' }}</td></tr>
-              <tr><td>Lot #</td><td>{{ sample.lotNumber || '—' }}</td></tr>
-              <tr v-if="sample.batchNumber"><td>Batch</td><td>{{ sample.batchNumber }}</td></tr>
-              <tr><td>Mfg</td><td>{{ dateStr(sample.manufacturingDate) }}</td></tr>
-              <tr><td>Expiry</td><td>{{ dateStr(sample.expiryDate) }}</td></tr>
-              <tr class="label__strong"><td>Retain until</td><td>{{ dateStr(sample.retainUntil) }}</td></tr>
-              <tr><td>Qty</td><td>{{ sample.quantity != null ? `${sample.quantity} ${uom?.code || ''}` : '—' }}</td></tr>
-              <tr v-if="sample.storageConditions"><td>Store</td><td>{{ sample.storageConditions }}</td></tr>
-              <tr v-if="location"><td>Location</td><td>{{ [location.name, sample.position].filter(Boolean).join(' / ') }}</td></tr>
-              <tr><td>Type</td><td>{{ sample.sampleType }}</td></tr>
-              <tr><td>Retained</td><td>{{ dateStr(sample.retainedAt) }}</td></tr>
-              <tr><td>Created by</td><td>{{ retainedByName }}</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="label__qr">
-          <BaseQrCode :value="qrValue" :size="isThermal ? 110 : 88" />
+  <Teleport to="#print-portal">
+    <div class="rs-label-root">
+      <div v-if="!sample" class="tw:p-8 tw:text-sm tw:text-secondary">Loading label…</div>
+      <div v-else :class="isThermal ? 'label-thermal-page' : 'label-sheet'">
+        <div
+          v-for="n in copyCount"
+          :key="n"
+          class="label"
+          :class="isThermal ? 'label--thermal' : 'label--sheet'"
+        >
+          <div class="label__banner">DO NOT USE — RETAIN SAMPLE</div>
+          <div class="label__body">
+            <div class="label__text">
+              <div class="label__rs">{{ sample.rsNumber }}</div>
+              <table class="label__meta">
+                <tbody>
+                  <tr class="label__strong">
+                    <td>Product</td>
+                    <td>{{ product?.name || '—' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Lot #</td>
+                    <td>{{ sample.lotNumber || '—' }}</td>
+                  </tr>
+                  <tr v-if="sample.batchNumber">
+                    <td>Batch</td>
+                    <td>{{ sample.batchNumber }}</td>
+                  </tr>
+                  <tr>
+                    <td>Mfg</td>
+                    <td>{{ dateStr(sample.manufacturingDate) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Expiry</td>
+                    <td>{{ dateStr(sample.expiryDate) }}</td>
+                  </tr>
+                  <tr class="label__strong">
+                    <td>Retain until</td>
+                    <td>{{ dateStr(sample.retainUntil) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Qty</td>
+                    <td>
+                      {{ sample.quantity != null ? `${sample.quantity} ${uom?.code || ''}` : '—' }}
+                    </td>
+                  </tr>
+                  <tr v-if="sample.storageConditions">
+                    <td>Store</td>
+                    <td>{{ sample.storageConditions }}</td>
+                  </tr>
+                  <tr v-if="location">
+                    <td>Location</td>
+                    <td>{{ [location.name, sample.position].filter(Boolean).join(' / ') }}</td>
+                  </tr>
+                  <tr>
+                    <td>Type</td>
+                    <td>{{ sample.sampleType }}</td>
+                  </tr>
+                  <tr>
+                    <td>Retained</td>
+                    <td>{{ dateStr(sample.retainedAt) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Created by</td>
+                    <td>{{ retainedByName }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="label__qr">
+              <BaseQrCode :value="qrValue" :size="isThermal ? 110 : 88" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
+/* Covers the app shell on screen; ordinary flow when printing. */
+.rs-label-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #f3f4f6;
+  overflow: auto;
+  padding: 16px;
+}
+@media print {
+  .rs-label-root {
+    position: static;
+    padding: 0;
+    background: white;
+    overflow: visible;
+  }
+}
+
 /* Shared label chrome */
 .label {
   border: 1.5px solid #000;
@@ -144,13 +214,36 @@ watch(sample, (s) => {
   align-items: flex-start;
   flex: 1;
 }
-.label__text { flex: 1; min-width: 0; }
-.label__rs { font-size: 16px; font-weight: 800; font-family: monospace; }
-.label__meta { font-size: 9px; border-collapse: collapse; width: 100%; }
-.label__meta td { padding: 0.5px 0; vertical-align: top; }
-.label__meta td:first-child { color: #333; padding-right: 6px; white-space: nowrap; width: 1%; }
-.label__strong td { font-weight: 700; }
-.label__qr { flex-shrink: 0; }
+.label__text {
+  flex: 1;
+  min-width: 0;
+}
+.label__rs {
+  font-size: 16px;
+  font-weight: 800;
+  font-family: monospace;
+}
+.label__meta {
+  font-size: 9px;
+  border-collapse: collapse;
+  width: 100%;
+}
+.label__meta td {
+  padding: 0.5px 0;
+  vertical-align: top;
+}
+.label__meta td:first-child {
+  color: #333;
+  padding-right: 6px;
+  white-space: nowrap;
+  width: 1%;
+}
+.label__strong td {
+  font-weight: 700;
+}
+.label__qr {
+  flex-shrink: 0;
+}
 
 /* A4 sheet — grid of identical labels */
 .label-sheet {
@@ -161,13 +254,39 @@ watch(sample, (s) => {
   max-width: 210mm;
   margin: 0 auto;
 }
-.label--sheet { min-height: 52mm; }
+.label--sheet {
+  min-height: 52mm;
+}
 
 /* Thermal 4×2in — one label per page, edge to edge */
-.label-thermal-page { display: flex; flex-direction: column; }
-.label--thermal { width: 4in; height: 2in; }
+.label-thermal-page {
+  display: flex;
+  flex-direction: column;
+}
+.label--thermal {
+  width: 4in;
+  height: 2in;
+}
 
 @media print {
-  .label-sheet { padding: 0; gap: 5mm; }
+  .label-sheet {
+    padding: 0;
+    gap: 5mm;
+  }
+}
+</style>
+
+<style>
+/* Unscoped: `body` carries `tw:overflow-hidden` from index.html, which would
+   otherwise clip the printout to a single viewport. Mirrors PrintLayout. */
+@media print {
+  html,
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+    height: auto !important;
+    overflow: visible !important;
+  }
 }
 </style>

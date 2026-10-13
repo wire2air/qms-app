@@ -2,7 +2,10 @@
 import { IconMail, IconPlus, IconCamera, IconCrown } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
+// Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Ownership is
+// not a field on the user form: it is an authority change with its own audit.
+import { put } from '@/api'
 import { uploadFile } from '@/utils/uploadService.js'
 import { buildUserSections, buildUserActions } from './userDetailConfig.js'
 
@@ -71,9 +74,39 @@ const roleAssignments = useLiveQueryWithDeps(
 // folded back into an already-applied create migration, so it never ran on
 // pre-existing databases. Without the dedupe the select renders duplicate
 // entries and `toRemove` below repeats an id once per surviving row.
-const assignedRoleIds = computed(() => [
-  ...new Set(roleAssignments.value.map((ra) => ra.roleId)),
-])
+/**
+ * Company ownership — appointing a peer, not transferring the company.
+ *
+ * Ownership is the unconditional bypass, so it is not a field on the user form:
+ * it is its own request, with its own audit entry, offered only to people who
+ * already hold it. A role cannot confer it, by design — a role that could grant
+ * ownership would be ownership.
+ *
+ * Transfer away from the last owner stays on the operator plane; the server
+ * refuses to remove the last one, so a tenant cannot lock itself out.
+ */
+const toast = useToast()
+const viewerIsOwner = computed(() => currentSession.value?.isOwner === true)
+const isSelf = computed(() => props.id === currentSession.value?.userId)
+const ownershipSaving = ref(false)
+const ownershipError = ref('')
+
+async function setOwnership(next) {
+  if (ownershipSaving.value) return
+  ownershipSaving.value = true
+  ownershipError.value = ''
+  try {
+    await put(`/v1/services/users/${props.id}/ownership`, { isOwner: next })
+    if (user.value) user.value.isOwner = next
+    toast.success(next ? 'Company owner added' : 'Company ownership removed')
+  } catch (e) {
+    ownershipError.value = e?.message || 'Could not change ownership'
+  } finally {
+    ownershipSaving.value = false
+  }
+}
+
+const assignedRoleIds = computed(() => [...new Set(roleAssignments.value.map((ra) => ra.roleId))])
 
 const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
   const assignment = db.RoleOnUser.create({ userId, roleId })
@@ -363,7 +396,10 @@ const userDetailConfig = computed(() =>
 
     <template #actions>
       <div class="tw:flex tw:items-center tw:gap-2">
-        <div v-if="isSaving" class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary">
+        <div
+          v-if="isSaving"
+          class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
+        >
           <BaseSpinner size="xs" />
           Saving...
         </div>
@@ -500,11 +536,19 @@ const userDetailConfig = computed(() =>
             </div>
           </div>
 
-          <!-- Additional Sites — the multi-site assignment.
+          <!-- Site access — primary + additional, grouped.
+               The two were separated (primary sits in the grid above, this
+               block further down) and the picker's label was rendering empty,
+               so the control read as an unexplained dropdown: reported as
+               "unable to select the site under User" (2026-09-27). The group
+               heading names the relationship, and the tooltip on it carries
+               the purpose so it does not have to be inferred from position.
+
                The primary site is always effective and is deliberately NOT
                rendered here as a removable chip; the effective line below is
                what answers "what will this person actually see?". -->
           <div class="tw:pt-4 tw:border-t tw:border-divider">
+            <BaseLabel dataKey="user.siteAccess" class="tw:mb-2" />
             <div class="tw:flex tw:items-center tw:justify-between tw:mb-2">
               <BaseLabel dataKey="user.additionalSites" color="secondary" />
               <span class="tw:text-xs tw:text-secondary">
@@ -544,7 +588,9 @@ const userDetailConfig = computed(() =>
                 :style="{ backgroundColor: user?.color || '#2563eb' }"
               ></div>
               <div>
-                <p class="tw:text-sm tw:font-bold tw:text-on-main">{{ user?.color || '#2563eb' }}</p>
+                <p class="tw:text-sm tw:font-bold tw:text-on-main">
+                  {{ user?.color || '#2563eb' }}
+                </p>
                 <p class="tw:text-xs tw:text-secondary">Used for avatar and identification</p>
               </div>
             </div>
@@ -587,6 +633,28 @@ const userDetailConfig = computed(() =>
       </BaseRailCard>
 
       <!-- Role Assignments -->
+      <!-- Ownership sits above roles, so it reads above them. Only an owner
+           sees this card at all: it is not information a non-owner can act on,
+           and showing a disabled control would invite the question. -->
+      <BaseRailCard v-if="viewerIsOwner" title="Company Ownership">
+        <div class="tw:flex tw:flex-col tw:gap-2">
+          <BaseSwitch
+            :modelValue="!!user?.isOwner"
+            :disabled="ownershipSaving"
+            label="Company owner"
+            @update:modelValue="setOwnership"
+          />
+          <BaseCaption>
+            Full access to everything in this company, bypassing roles and permissions.
+            <template v-if="isSelf">
+              You cannot remove the last owner — appoint someone else first.
+            </template>
+            <template v-else>Takes effect the next time they sign in.</template>
+          </BaseCaption>
+          <BaseErrorText v-if="ownershipError">{{ ownershipError }}</BaseErrorText>
+        </div>
+      </BaseRailCard>
+
       <BaseRailCard title="Role Assignments">
         <div class="tw:flex tw:flex-col tw:gap-3">
           <div v-if="canAssignRoles" class="tw:flex tw:justify-end">

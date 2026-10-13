@@ -52,6 +52,17 @@ test.describe.serial('PW-J7 · list search, status filter, export', () => {
       { timeoutMs: 30_000, label: 'doc C IN_REVIEW' },
     )
     await c.ctx.close()
+    // Guard the arrangement, against the DATABASE rather than against the local
+    // strings. The risk here is a FALSE GREEN: every assertion below searches
+    // and filters a list, so a hook that created no documents leaves the list
+    // legitimately empty — and "the search returned nothing" is indistinguishable
+    // from "the filter works". Asserting `titleA` is truthy would prove only
+    // that a template literal ran; asserting the ROW exists is what proves the
+    // fixtures are really there to be found.
+    expect(findDocumentByTitle(titleA), 'fixture document A exists').toBeTruthy()
+    expect(findDocumentByTitle(titleB), 'fixture document B exists').toBeTruthy()
+    expect(findDocumentByTitle(titleC), 'fixture document C exists').toBeTruthy()
+
   })
 
   test('free-text search narrows the list to the matching title', async ({ browser }) => {
@@ -113,7 +124,7 @@ test.describe.serial('PW-J7 · list search, status filter, export', () => {
     await ctx.close()
   })
 
-  test('export downloads a CSV of the current filtered view', async ({ browser }) => {
+  test('export downloads a CSV of the current filtered view', { tag: ['@journey', '@p1'] }, async ({ browser }) => {
     test.setTimeout(120_000)
     const ctx = await browser.newContext({ storageState: AUTH.owner })
     const page = await ctx.newPage()

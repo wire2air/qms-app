@@ -191,6 +191,60 @@ describe('companyDefaultsCard — autosave', () => {
     expect(company.settings.defaultSla).toBe(7)
   })
 
+  // BL-03: opening the Defaults tab sent two updateCompany mutations. Nothing
+  // the user did — the writes came from the engine and the page shell.
+  it('looking writes nothing: a foreign-key backfill and an engine re-hydration are not edits', async () => {
+    vi.useFakeTimers()
+    const company = makeCompany({ defaultSla: 5 })
+    await mountWith(company)
+    // companySettingsHome's live query backfills this on every re-run.
+    company.settings.printSettings = {}
+    await nextTick()
+    // hydrate() replaces the whole object when the server row differs — here
+    // the server has no printSettings, and a different ladder.
+    company.settings = { defaultSla: 5, overdueReminders: { reminderDays: [1, 2] } }
+    await nextTick()
+    company.settings.printSettings = {}
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(company.save).not.toHaveBeenCalled()
+  })
+
+  it('an edit after a re-hydration still saves (the new object becomes the baseline)', async () => {
+    vi.useFakeTimers()
+    const company = makeCompany({ defaultSla: 5 })
+    const w = await mountWith(company)
+    company.settings = { defaultSla: 6 }
+    await nextTick()
+    await inputByLabel(w, 'Default SLA (days)').setValue('8')
+    await vi.advanceTimersByTimeAsync(600)
+    expect(company.save).toHaveBeenCalledTimes(1)
+    expect(company.settings.defaultSla).toBe(8)
+  })
+
+  it('a row already loaded at mount: the FIRST edit saves (no skipped trigger)', async () => {
+    vi.useFakeTimers()
+    const company = makeCompany({})
+    h.company.value = company
+    const w = mount(CompanyDefaultsCard, { attachTo: document.body })
+    mounted.push(w)
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(600)
+    expect(company.save).not.toHaveBeenCalled()
+    await inputByLabel(w, 'Default SLA (days)').setValue('3')
+    await vi.advanceTimersByTimeAsync(600)
+    expect(company.save).toHaveBeenCalledTimes(1)
+  })
+
+  it('switching the chase off autosaves', async () => {
+    vi.useFakeTimers()
+    const company = makeCompany({})
+    const w = await mountWith(company)
+    await switchByName(w, 'Chase overdue tasks').trigger('click')
+    await vi.advanceTimersByTimeAsync(600)
+    expect(company.save).toHaveBeenCalledTimes(1)
+  })
+
   it('surfaces a failed save in the card header, with the reason', async () => {
     vi.useFakeTimers()
     const company = makeCompany({}, vi.fn(async () => Promise.reject(new Error('Network request failed'))))

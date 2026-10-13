@@ -53,23 +53,68 @@ const pendingAssignees = useLiveQueryWithDeps(
 
 const isManager = computed(() => training.value?.managerId === currentSession.value?.userId)
 
+/**
+ * Who is accountable for verifying this training.
+ *
+ * The panel knew the manager all along — isManager above gates the whole
+ * surface on it — but never said who it was. Someone looking at a pending
+ * verification could not tell whose sign-off it was waiting on without
+ * opening the training itself (reported 2026-09-27). It matters most to the
+ * people who CANNOT act: the refusal below tells them only that they are not
+ * the manager, not who is.
+ */
+const manager = useLiveQueryWithDeps(
+  [() => training.value?.managerId],
+  async (db, [id]) => (id ? db.User.findByPk(id) : null),
+  { models: ['User'] },
+)
+const managerName = computed(() => {
+  const m = manager.value
+  if (!m) return ''
+  return `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email
+})
+
 // Selection — default to all pending whenever the instance changes
+/**
+ * Segregation of duties, mirrored from the server.
+ *
+ * Competency verification is a second person attesting that the learner can do
+ * the job, so verifying yourself is not a control. The API refuses it outright
+ * (controllers/trainingInstances.js — "You cannot verify your own training"),
+ * but this panel offered the row anyway: `manager_id` may legitimately name
+ * someone who is also in the cohort, and for them the checkbox was ticked BY
+ * DEFAULT, the buttons were live, and Approve failed at the server.
+ *
+ * Reported 2026-09-27: "i can see approve, reject button and select checkboxes
+ * and when press approve server rejects it, ideally it should be disabled."
+ *
+ * The rule is per ROW, not per panel — a manager who is one of several
+ * trainees still verifies everybody else in the same action.
+ */
+const isSelf = (a) => a.userId === currentSession.value?.userId
+
 const selectedAssigneeIds = ref([])
 watch(
   () => pendingAssignees.value,
   (list) => {
-    selectedAssigneeIds.value = list.map((a) => a.id)
+    // Never pre-select yourself; the server would refuse the whole batch.
+    selectedAssigneeIds.value = list.filter((a) => !isSelf(a)).map((a) => a.id)
   },
   { immediate: true },
 )
 
 function toggleAssignee(id) {
+  const row = pendingAssignees.value.find((a) => a.id === id)
+  if (row && isSelf(row)) return
   if (selectedAssigneeIds.value.includes(id)) {
     selectedAssigneeIds.value = selectedAssigneeIds.value.filter((x) => x !== id)
   } else {
     selectedAssigneeIds.value = [...selectedAssigneeIds.value, id]
   }
 }
+
+/** Rows this person may actually act on — everyone but themselves. */
+const verifiableAssignees = computed(() => pendingAssignees.value.filter((a) => !isSelf(a)))
 
 // Per-assignee answer review — manager can expand a row to see what the
 // trainee picked vs. the correct answers. Uses the instance snapshot's
@@ -99,10 +144,10 @@ const allSelectedPassed = computed(
 const effectiveReject = computed(() => form.value.retrainingRequired || !allSelectedPassed.value)
 
 function toggleAll() {
-  if (selectedAssigneeIds.value.length === pendingAssignees.value.length) {
+  if (selectedAssigneeIds.value.length === verifiableAssignees.value.length) {
     selectedAssigneeIds.value = []
   } else {
-    selectedAssigneeIds.value = pendingAssignees.value.map((a) => a.id)
+    selectedAssigneeIds.value = verifiableAssignees.value.map((a) => a.id)
   }
 }
 
@@ -208,6 +253,7 @@ async function onEsignVerified(esign) {
   </div>
   <div v-else-if="!isManager" class="tw:p-8 tw:text-center tw:text-secondary">
     Only the training manager can verify assignees for this training.
+    <template v-if="managerName">That is {{ managerName }}.</template>
   </div>
   <BaseCard v-else class="tw:flex tw:flex-col tw:gap-5">
     <!-- Header -->
@@ -219,6 +265,7 @@ async function onEsignVerified(esign) {
         <p class="tw:text-sm tw:text-secondary">
           Launched {{ instance.createdAt?.formatDate('date') }} · Passing score
           {{ instance.snapshot?.passingScore ?? 70 }}%
+          <template v-if="managerName"> · Verified by {{ managerName }}</template>
         </p>
       </div>
       <TrainingInstanceStatusBadgeById :statusId="instance.status" />
@@ -248,13 +295,18 @@ async function onEsignVerified(esign) {
             <input
               type="checkbox"
               :checked="selectedAssigneeIds.includes(a.id)"
-              class="tw:cursor-pointer"
+              :disabled="isSelf(a)"
+              :title="isSelf(a) ? 'You cannot verify your own training' : undefined"
+              :class="isSelf(a) ? 'tw:cursor-not-allowed' : 'tw:cursor-pointer'"
               @change="toggleAssignee(a.id)"
             />
             <UserBadgeById :userId="a.userId" />
+            <BaseChip v-if="isSelf(a)" size="sm"> You — someone else must verify </BaseChip>
             <span
               class="tw:text-xs tw:font-semibold tw:px-1.5 tw:py-0.5 tw:rounded"
-              :class="isPassed(a) ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'"
+              :class="
+                isPassed(a) ? 'tw:bg-green-100 tw:text-green-700' : 'tw:bg-red-100 tw:text-red-700'
+              "
             >
               {{ isPassed(a) ? 'Passed' : 'Failed' }}
             </span>
@@ -297,6 +349,19 @@ async function onEsignVerified(esign) {
 
     <p v-if="assigneeError" class="tw:text-sm tw:text-red-600">{{ assigneeError }}</p>
 
+    <!-- Nothing this person may act on — every pending row is their own.
+         Without this the buttons are simply dead: correct, but unexplained,
+         which is how the previous version's server-side refusal felt. -->
+    <div
+      v-if="pendingAssignees.length && !verifiableAssignees.length"
+      class="tw:border tw:border-amber-200 tw:bg-amber-50/60 tw:rounded-lg tw:p-3 tw:text-sm tw:text-amber-800"
+    >
+      This training is assigned to you, and competency verification has to be done by someone other
+      than the trainee. Someone else with access to Training Verification must sign this
+      off<template v-if="managerName"> — normally {{ managerName }}</template
+      >.
+    </div>
+
     <!-- Mixed/failed selection: approval is not available -->
     <div
       v-if="selectedAssigneeIds.length && !allSelectedPassed"
@@ -310,6 +375,9 @@ async function onEsignVerified(esign) {
     <div v-if="allSelectedPassed" class="tw:border tw:border-divider tw:rounded-lg tw:p-4">
       <BaseText as="h3" class="tw:text-sm tw:font-semibold tw:text-on-sidebar tw:mb-3">
         Manager Competency Verification
+        <span v-if="managerName" class="tw:font-normal tw:text-secondary">
+          — {{ managerName }}
+        </span>
       </BaseText>
       <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
         <label class="tw:flex tw:items-start tw:gap-2 tw:cursor-pointer">

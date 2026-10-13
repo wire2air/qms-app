@@ -41,6 +41,21 @@ test.use({ storageState: AUTH.intAdmin })
 
 const owned = accountTracker()
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// This file arranges a service account + key ONCE in `beforeAll` and purges it
+// in `afterAll`. Playwright discards a worker after a failing test and RUNS the
+// file's pending `afterAll` before continuing in a fresh one — but the
+// `beforeAll` of an already-entered describe does NOT re-run. Without serial
+// mode the purge would therefore delete the account out from under every later
+// test in the file, and each would report the 401/404 it was written to catch:
+// one real failure printed as N false authentication findings.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it, so
+// one failure stays one failure. See complaints/j11 for the alternative fix
+// (arrange per describe), which suits files whose tests can afford their own
+// fixtures; minting a real API key per test would not be cheap here.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('SA-API-4 · the management surface refuses keys', () => {
   let account
   let keyId
@@ -65,6 +80,17 @@ test.describe('SA-API-4 · the management surface refuses keys', () => {
     keyId = issued.key.id
     secret = issued.secret
     await session.dispose()
+
+    // Guard the arrangement, because the danger here is a FALSE GREEN, not a
+    // crash. Every assertion in this file is a refusal — a 401, a 403, a 404 or
+    // an absent secret. A `beforeAll` that quietly built nothing leaves these
+    // bindings `undefined`, and a request made with an undefined key gets
+    // exactly the refusal the tests below are looking for. The file would pass,
+    // and would be reporting that the gate held when nothing had been offered
+    // to it. One line per binding is the cheapest possible insurance.
+    expect(account, 'the fixture account was created').toBeTruthy()
+    expect(keyId, 'the fixture key was issued').toBeTruthy()
+    expect(secret, 'the issuance returned a usable secret').toMatch(/^sk_/)
   })
 
   test.afterAll(async ({ playwright }) => {

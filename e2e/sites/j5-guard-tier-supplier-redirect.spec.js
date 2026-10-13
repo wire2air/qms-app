@@ -17,7 +17,7 @@ import { freshContext } from '../fixtures/sites.js'
 test.describe('PW-J5 · sites is ADMIN-tier: subtree guard + supplier redirect', () => {
   test.use({ storageState: AUTH.noAccess })
 
-  test('a user without sites:read is redirected off /sites', async ({ page }) => {
+  test('a user without sites:read is redirected off /sites', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/sites', { waitUntil: 'domcontentloaded' })
     await expect(page).toHaveURL(/\/no-access/, { timeout: 20_000 })
   })

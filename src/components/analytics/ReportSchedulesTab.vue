@@ -72,7 +72,7 @@ const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
   // isAllowed already returns true for a company owner, which is the owner
   // branch of the SQL — no separate test needed.
-  canManage: isAllowed(['reports_dashboards:manage']),
+  canManage: isAllowed(['analytics_reports:manage']),
 }))
 
 /**
@@ -80,7 +80,7 @@ const viewer = computed(() => ({
  * A courtesy only: RLS re-checks it on every write and refuses regardless of
  * what this draws.
  */
-const canExport = computed(() => isAllowed(['reports_dashboards:export']))
+const canExport = computed(() => isAllowed(['analytics_reports:export']))
 
 // ── create / edit ───────────────────────────────────────────────────────────
 const dialogOpen = ref(false)

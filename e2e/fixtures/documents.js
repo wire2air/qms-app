@@ -31,7 +31,7 @@ function comboboxAfterLabel(page, fieldLabel) {
  * dismiss it). Wait for the listbox to actually have an option before
  * navigating, since options load async from IDB.
  */
-async function selectFirstByKeyboard(combo) {
+async function selectFirstByKeyboard(combo, fieldLabel = null) {
   const page = combo.page()
   // Scope to THIS select's own panel via aria-controls. A page-wide
   // getByRole('listbox') also matches the panel of the select filled a moment
@@ -59,8 +59,86 @@ async function selectFirstByKeyboard(combo) {
     }
     await expect(listbox.getByRole('option').first()).toBeVisible({ timeout: 5_000 })
   }).toPass({ timeout: 30_000 })
-  await page.keyboard.press('ArrowDown')
+  // Pick the first REAL option. On open the first focusable row is already
+  // active, so a bare ArrowDown would pick the SECOND one. Home pins the first
+  // row; a non-required select renders a "— All … —" null row there
+  // (data-row-kind="null"), which is skipped with one ArrowDown.
+  await page.keyboard.press('Home')
+  const activeIsNull = await page.evaluate(() => {
+    // Home makes the first row active, so it is enough to ask whether the
+    // open panel's first option is the null row.
+    const first = document.querySelector('[data-headlessui-state="open"] [role="option"]')
+    return first?.dataset.rowKind === 'null'
+  })
+  if (activeIsNull) await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
+
+  // ── WAIT FOR THE PANEL TO CLOSE, not just for the selection to be made. ────
+  //
+  // Enter commits the value, but the panel's close is ANIMATED and this helper
+  // used to return the instant the keystroke was sent. The next field's click
+  // then landed while the previous panel was still on top of it, and Playwright
+  // reported it against the WRONG control:
+  //
+  //   waiting for getByText('CAPA Type')… locator resolved to <div role=combobox>
+  //   … <div data-headlessui-state="open" id="headlessui-popover-panel-v-55">
+  //     subtree intercepts pointer events
+  //
+  // It reads as "CAPA Type is broken". It is not — `Department`, filled one line
+  // earlier, had not finished closing. Confirmed from the captured
+  // error-context of tasks/t1: the intercepting panel carries a "Search…" input,
+  // which CAPA Type does not have and Department does.
+  //
+  // This cost six failures in `tasks` and three in `rca` — two different
+  // projects, one shared helper, and a symptom that named neither.
+  //
+  // ⚠ WAIT ON THE POPOVER PANEL, NOT THE LISTBOX. They are different elements
+  // and only one of them blocks the next click:
+  //
+  //   <div id="headlessui-popover-panel-v-55" data-headlessui-state="open">  ← intercepts
+  //     <input role="combobox" aria-controls="v-14-listbox" placeholder="Search…">
+  //     <ul id="v-14-listbox">                                               ← the listbox
+  //
+  // `aria-controls` on the trigger points at the LISTBOX. A first version of
+  // this wait watched that, saw it go hidden, returned — and the enclosing
+  // POPOVER was still animating shut, still swallowing pointer events. The run
+  // failed identically, which is how this comment came to be written twice.
+  //
+  // ⏱ ONE bounded wait, not a retry loop. `toHaveCount(0)` already polls
+  // internally until the deadline, so wrapping it in `toPass` nested two
+  // pollers and multiplied the budget by every field on the form: the first
+  // version of this cost 10.8 MINUTES for a single test that used to take ~40s.
+  // A settle is worth a second, never a minute.
+  //
+  // A field with no popover (a plain inline select) passes trivially — there is
+  // no open panel to count.
+  //
+  // ⚠ BL-02 (2026-09-28): the panel was NOT "still animating shut" — it never
+  // closed. BaseSelect left keyboard focus on the bare popover div, so
+  // ArrowDown/Enter reached no handler; the value only looked picked because a
+  // required select auto-fills its first option. Fixed in BaseSelect (focus
+  // moves into the panel on open). If a panel is still open after the settle,
+  // press Escape once; if it survives THAT, fail here and name the field,
+  // instead of letting the next field's click time out 25s later blaming a
+  // control that is fine.
+  const openPanel = page.locator('[id^="headlessui-popover-panel-"][data-headlessui-state="open"]')
+  const closed = await expect(openPanel)
+    .toHaveCount(0, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false)
+  if (closed) return
+  await page.keyboard.press('Escape')
+  const closedAfterEscape = await expect(openPanel)
+    .toHaveCount(0, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false)
+  if (!closedAfterEscape) {
+    const name = fieldLabel ? `"${fieldLabel}"` : '(unlabelled select)'
+    throw new Error(
+      `selectFirstByKeyboard: the popover for ${name} is still open after Enter and Escape — ` +
+        'it would intercept the next click. Keyboard focus is probably not inside the panel.',
+    )
+  }
 }
 
 /** Open a labelled select and choose an option by its visible text. */
@@ -72,7 +150,7 @@ export async function selectOption(page, fieldLabel, optionText) {
 
 /** Open a labelled select and pick the first option (keyboard, stable). */
 export async function selectFirstOption(page, fieldLabel) {
-  await selectFirstByKeyboard(comboboxAfterLabel(page, fieldLabel))
+  await selectFirstByKeyboard(comboboxAfterLabel(page, fieldLabel), fieldLabel)
 }
 
 /**
@@ -369,9 +447,22 @@ export async function submitForReview(page, opts = {}) {
     // stayed disabled with "Pick at least one reviewer for <steps>". The
     // single-selects on the create form (Department) do commit on Enter, which is
     // why selectFirstByKeyboard is still correct for them.
-    const option = wanted
-      ? listbox.getByRole('option', { name: wanted }).first()
-      : listbox.getByRole('option').first()
+    // Step 1 defaults to the cast's canonical reviewer, NOT "whatever is first".
+    // The picker lists every eligible candidate, so its order is a property of
+    // the tenant's user set: adding `reviewer2@e2e.test` to the seed silently
+    // moved the first option off `reviewer@e2e.test`, while driveToEffective
+    // still waited on USERS.reviewer.id. The barrier could then never clear and
+    // j2/j3/j5 all died 45s later in `reviewer task assigned — last value "0"`,
+    // which reads like a broken workflow engine and is really a picker default.
+    // Falling back to the first option keeps every other caller unchanged.
+    const preferred = wanted ?? (i === 0 ? USERS.reviewer.name : null)
+    const preferredOption = preferred
+      ? listbox.getByRole('option', { name: preferred }).first()
+      : null
+    const option =
+      preferredOption && (await preferredOption.count().catch(() => 0))
+        ? preferredOption
+        : listbox.getByRole('option').first()
     await option.click()
 
     // A multi-select panel does NOT auto-close after a pick, and an open panel

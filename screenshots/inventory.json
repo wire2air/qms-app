@@ -1,0 +1,628 @@
+{
+ "/analytics/dashboards/daa00001-1111-4000-8000-0000000000aa": {
+  "h": [
+   "Audit findings by department",
+   "104",
+   "Audit findings by process area",
+   "Audit findings by type",
+   "Finding closure time",
+   "60.8 d",
+   "Supplier audit findings",
+   "31",
+   "Audit completion time",
+   "16.9 d",
+   "Audits by programme type",
+   "50",
+   "Audits by site",
+   "Report release lag",
+   "5.1 d",
+   "CAPA closure time",
+   "84.5 d",
+   "CAPAs by department",
+   "167",
+   "CAPAs by priority",
+   "CAPAs by root cause",
+   "CAPAs by source",
+   "Effectiveness verification lag",
+   "103.3 d",
+   "Open CAPAs by owner"
+  ],
+  "tabs": [],
+  "btn": [
+   "Reorder Audit finding closure rate. Use ",
+   "Make Audit finding closure rate narrower",
+   "Make Audit finding closure rate wider. C",
+   "Edit widget",
+   "Remove widget",
+   "Audit finding closure rate — open the re",
+   "How this is calculated",
+   "Reorder Audit findings by department. Us",
+   "Make Audit findings by department narrow",
+   "Make Audit findings by department wider.",
+   "Export Audit findings by department",
+   "Reorder Audit findings by process area. ",
+   "Make Audit findings by process area narr",
+   "Make Audit findings by process area wide",
+   "Export Audit findings by process area",
+   "Reorder Audit findings by type. Use arro",
+   "Make Audit findings by type narrower. Cu",
+   "Make Audit findings by type wider. Curre",
+   "Export Audit findings by type",
+   "Reorder Audit findings closed. Use arrow",
+   "Make Audit findings closed narrower. Cur",
+   "Make Audit findings closed wider. Curren",
+   "Audit findings closed — open the records",
+   "Reorder Finding closure time. Use arrow ",
+   "Make Finding closure time narrower. Curr",
+   "Make Finding closure time wider. Current",
+   "Export Finding closure time",
+   "Reorder Findings that raised a CAPA. Use",
+   "Make Findings that raised a CAPA narrowe",
+   "Make Findings that raised a CAPA wider. ",
+   "Findings that raised a CAPA — open the r",
+   "Reorder Findings that raised a non-confo",
+   "Make Findings that raised a non-conforma",
+   "Findings that raised a non-conformance —",
+   "Reorder Findings with no due date. Use a",
+   "Make Findings with no due date narrower.",
+   "Make Findings with no due date wider. Cu",
+   "Reorder Open audit findings. Use arrow k",
+   "Make Open audit findings narrower. Curre",
+   "Make Open audit findings wider. Currentl",
+   "Open audit findings — open the records b",
+   "Reorder Open findings by month raised. U",
+   "Make Open findings by month raised narro",
+   "Make Open findings by month raised wider",
+   "Reorder Supplier audit findings. Use arr"
+  ]
+ },
+ "/analytics/reports/dab70001-1111-4000-8000-000000000011": {
+  "h": [
+   "Intake across the quality system",
+   "Nonconformances by severity",
+   "234",
+   "Closure performance",
+   "Cycle time"
+  ],
+  "tabs": [
+   "Report",
+   "Schedules"
+  ],
+  "btn": [
+   "Report",
+   "Schedules",
+   "Nonconformances by severity — open the r",
+   "How this is calculated",
+   "CAPAs by priority — open the records beh",
+   "Change requests by type — open the recor",
+   "Quality events by severity — open the re",
+   "Export Nonconformances by severity",
+   "Nonconformance closure rate — open the r",
+   "CAPA closure rate — open the records beh",
+   "Audit finding closure rate — open the re",
+   "Quality event closure rate — open the re",
+   "NCR closure time — open the records behi",
+   "CAPA closure time — open the records beh",
+   "Change approval time — open the records "
+  ]
+ },
+ "/documents/da100001-1111-4000-8000-000000000002": {
+  "h": [
+   "1. 1. Purpose",
+   "2. 2. Scope",
+   "3. 3. Responsibilities",
+   "4. 4. Definitions",
+   "5. 5. Procedure",
+   "6. 6. Records and Retention",
+   "7. 7. References"
+  ],
+  "tabs": [
+   "Content",
+   "Change Control",
+   "Training"
+  ],
+  "btn": [
+   "Content",
+   "Change Control",
+   "Training",
+   "Add Section",
+   "Hide side panel"
+  ]
+ },
+ "/nonconformances/db100001-1111-4000-8000-000000000220": {
+  "h": [
+   "Product impact",
+   "NC Details",
+   "Disposition"
+  ],
+  "tabs": [],
+  "btn": [
+   "Link records",
+   "Clear selection",
+   "Attach file",
+   "Link document",
+   "Yes",
+   "No",
+   "Hide side panel",
+   "Dismiss notification"
+  ]
+ },
+ "/qualityEvents/da920001-1111-4000-8000-000000000006": {
+  "h": [],
+  "tabs": [
+   "Overview",
+   "Review",
+   "Escalations"
+  ],
+  "btn": [
+   "Overview",
+   "Review",
+   "Escalations",
+   "Attach file",
+   "Link document",
+   "Hide side panel"
+  ]
+ },
+ "/complaints/daf20001-1111-4000-8000-000000000009": {
+  "h": [],
+  "tabs": [
+   "QA Review",
+   "Escalations"
+  ],
+  "btn": [
+   "Attach file",
+   "Link document",
+   "QA Review",
+   "Escalations",
+   "QA ASSESSMENT",
+   "Hide side panel"
+  ]
+ },
+ "/capas/db200001-1111-4000-8000-000000000160": {
+  "h": [
+   "CAPA Details",
+   "Additional information"
+  ],
+  "tabs": [],
+  "btn": [
+   "Link records",
+   "Add the problem statement…",
+   "Select…",
+   "Hide side panel"
+  ]
+ },
+ "/change-requests/da500001-1111-4000-8000-000000000008": {
+  "h": [
+   "Change Request Details",
+   "Additional information",
+   "Reason & Justification"
+  ],
+  "tabs": [],
+  "btn": [
+   "Add a description…",
+   "Select…",
+   "Link records",
+   "Hide side panel"
+  ]
+ },
+ "/audits/instances/14ea1667-ea2d-4435-a602-67486338751a": {
+  "h": [
+   "Audit Details",
+   "Additional information"
+  ],
+  "tabs": [
+   "Information",
+   "Requirements 0",
+   "Findings 0",
+   "OFI 0",
+   "Reports 0"
+  ],
+  "btn": [
+   "Information",
+   "Requirements 0",
+   "Findings 0",
+   "OFI 0",
+   "Reports 0",
+   "Clear selection",
+   "Select…",
+   "Add",
+   "Upload",
+   "Generate & Send to Auditee",
+   "Hide side panel"
+  ]
+ },
+ "/audits/standards/da610001-1111-4000-8000-000000000003": {
+  "h": [
+   "Standard Details",
+   "Requirements"
+  ],
+  "tabs": [],
+  "btn": [
+   "Edit standard description",
+   "Hide side panel"
+  ]
+ },
+ "/audits/programs/da620001-1111-4000-8000-000000000004": {
+  "h": [
+   "Program Details",
+   "Schedule",
+   "Auditor Pool"
+  ],
+  "tabs": [],
+  "btn": [
+   "Edit program description",
+   "Clear selection",
+   "Add",
+   "Hide side panel"
+  ]
+ },
+ "/auditee/14ea1667-ea2d-4435-a602-67486338751a": {
+  "h": [
+   "Details",
+   "Agenda"
+  ],
+  "tabs": [
+   "Information",
+   "Readiness",
+   "Share",
+   "Reports",
+   "Summary",
+   "Findings",
+   "OFI",
+   "Certificate"
+  ],
+  "btn": [
+   "Information",
+   "Readiness",
+   "Share",
+   "Reports",
+   "Summary",
+   "Findings",
+   "OFI",
+   "Certificate",
+   "Upload agenda",
+   "Hide side panel"
+  ]
+ },
+ "/qc-inspection/lots/da430001-1111-4000-8000-000000000015": {
+  "h": [
+   "Results"
+  ],
+  "tabs": [],
+  "btn": [
+   "Single result",
+   "Per sample",
+   "Hide side panel"
+  ]
+ },
+ "/trainings/da200001-1111-4000-8000-000000000007": {
+  "h": [],
+  "tabs": [
+   "Details",
+   "Material",
+   "Assessment",
+   "Curriculum",
+   "Instances"
+  ],
+  "btn": [
+   "Details",
+   "Material",
+   "Assessment",
+   "Curriculum",
+   "Instances",
+   "Toggle setting"
+  ]
+ },
+ "/training-instances/dbd10001-1111-4000-8000-000000000047": {
+  "h": [
+   "Assignee Progress"
+  ],
+  "tabs": [],
+  "btn": []
+ },
+ "/customer-complaints/d7000001-1111-4000-8000-000000000001": {
+  "h": [
+   "Ticket information",
+   "QA Investigation"
+  ],
+  "tabs": [],
+  "btn": [
+   "Add",
+   "Public reply",
+   "Internal note",
+   "Send Reply",
+   "Add note",
+   "Add files",
+   "Hide side panel"
+  ]
+ },
+ "/suppliers/d6000001-1111-4000-8000-000000000001": {
+  "h": [
+   "Basic Information",
+   "Risk Profile",
+   "Audit Findings",
+   "Primary Contact",
+   "Associated Sites"
+  ],
+  "tabs": [
+   "Overview",
+   "Company Profile",
+   "Locations & Contacts",
+   "Quality Records",
+   "Users",
+   "Documents",
+   "Asset Requests",
+   "Evaluations"
+  ],
+  "btn": [
+   "Overview",
+   "Company Profile",
+   "Locations & Contacts",
+   "Quality Records",
+   "Users",
+   "Documents",
+   "Asset Requests",
+   "Evaluations",
+   "FND-2026-0008 Change notification to cus",
+   "FND-2026-0009 Withdrawn at the closing m",
+   "FND-2026-0006 Supplier requalification o",
+   "FND-2026-0007 Certificates of analysis f",
+   "FND-2026-0071 Temperature mapping report",
+   "+ Add Site"
+  ]
+ },
+ "/products/d8000001-1111-4000-8000-000000000011": {
+  "h": [],
+  "tabs": [
+   "Overview",
+   "Specifications"
+  ],
+  "btn": [
+   "Overview",
+   "Specifications"
+  ]
+ },
+ "/users/d2000001-1111-4000-8000-000000000001": {
+  "h": [
+   "Personal Information"
+  ],
+  "tabs": [],
+  "btn": [
+   "Select…",
+   "Which locations this person reaches. The",
+   "Sites this person is responsible for bey",
+   "Hide side panel"
+  ]
+ },
+ "/roles/dcd45b49-d46e-492f-a796-5cdd702b7b95": {
+  "h": [
+   "Permissions"
+  ],
+  "tabs": [],
+  "btn": [
+   "Help: Roles & Permissions",
+   "All 71",
+   "Granted 0",
+   "Modified 0",
+   "Make Admin",
+   "Clear all",
+   "Expand",
+   "Collapse",
+   "Quality Records 0 / 9",
+   "Customize Document Control",
+   "Customize CAPA",
+   "Customize Non-Conformance / NCR",
+   "Customize Change Control",
+   "Customize Deviation / Quality Events",
+   "Customize Complaint Management",
+   "Customize Quality Complaints",
+   "Customize App Builder",
+   "Customize Field Records",
+   "Audits & Reviews 0 / 6",
+   "Customize Audit Management",
+   "Customize Management Review",
+   "Customize Audit Standards",
+   "Customize Audit Programs",
+   "Customize Audit Findings",
+   "Customize Audit Evidence",
+   "Risk 0 / 1",
+   "Customize Risk Management",
+   "Master Data 0 / 10",
+   "Customize Supplier Management",
+   "Customize Calibration / Equipment",
+   "Customize Item Master",
+   "Customize NC Disposition Types",
+   "Customize Root Cause Categories",
+   "Customize Hazard Categories",
+   "Customize Supplier Certificate Types",
+   "Customize Audit Finding Categories",
+   "Customize Audit Standard Types",
+   "Customize Related Standards",
+   "Operations 0 / 10",
+   "Customize Inspection / QC",
+   "Customize Retain Samples",
+   "Customize Inspection Specifications",
+   "Customize Sampling Plans",
+   "Customize Inspection Plans",
+   "Customize Test Library"
+  ]
+ },
+ "/audit-logs": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "Select…",
+   "Expand change details"
+  ]
+ },
+ "/workflow-templates": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "TEMPLATE",
+   "TYPE",
+   "STATUS",
+   "UPDATED",
+   "Open Nonconformance Investigation & Clos",
+   "More actions",
+   "Open CAPA Plan, Implementation & Effecti",
+   "Open Change Control Assessment & Approva",
+   "Open Quality Complaint Handling",
+   "Open Customer Complaint Intake & Respons",
+   "Open Standard Operating Procedure",
+   "Open Work Instruction",
+   "Open Validation Protocol",
+   "Open Quality Manual",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/approval-flows": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "List View",
+   "Table View",
+   "WORKFLOW NAME",
+   "TYPE",
+   "CREATED",
+   "Edit workflow Internal Audit Report Appr",
+   "More actions",
+   "Edit workflow Log Book Entry Verificatio",
+   "Edit workflow QC Inspection Release Appr",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/automation-rules": {
+  "h": [
+   "Quick notification"
+  ],
+  "tabs": [],
+  "btn": [
+   "People outside the company — a customer,",
+   "Create rule",
+   "Rule",
+   "Toggle setting",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/training-curriculum": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "Remove",
+   "Clear selection"
+  ]
+ },
+ "/equipment": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "Filter 1",
+   "Remove In service filter",
+   "Clear all",
+   "Name",
+   "Category",
+   "Site",
+   "Status",
+   "Next calibration",
+   "Next PM",
+   "Record calibration",
+   "Delete equipment",
+   "Record PM",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/suppliers": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "Filter",
+   "SUPPLIER NAME",
+   "CODE",
+   "CATEGORY",
+   "RISK LEVEL",
+   "STATUS",
+   "LAST EVALUATION",
+   "CREATED",
+   "More actions",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/roles": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "ROLE NAME",
+   "USERS",
+   "STATUS",
+   "LAST MODIFIED",
+   "More actions",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/qc-inspection?tab=lots": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "All",
+   "Inspection queue",
+   "In progress",
+   "Awaiting disposition",
+   "On hold",
+   "Closed",
+   "Print",
+   "Import CSV",
+   "New Inspection",
+   "QC #",
+   "CREATED",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/form-blocks": {
+  "h": [],
+  "tabs": [],
+  "btn": [
+   "Help: Task Forms & Form Blocks",
+   "Create Form Block",
+   "FORM BLOCK",
+   "VERSION",
+   "STATUS",
+   "UPDATED",
+   "More actions",
+   "Previous page",
+   "Next page"
+  ]
+ },
+ "/records": {
+  "h": [],
+  "tabs": [
+   "Submissions",
+   "Forms",
+   "Option Sets"
+  ],
+  "btn": [
+   "Submissions",
+   "Forms",
+   "Option Sets",
+   "Print",
+   "Add Submission",
+   "All",
+   "Open",
+   "Draft",
+   "Mine",
+   "Closed",
+   "RECORD #",
+   "DOCUMENT TYPE",
+   "STATUS",
+   "CREATED",
+   "More actions"
+  ]
+ }
+}

@@ -46,7 +46,7 @@ test.beforeAll(async () => {
   listedId = linkFor(SHARE.nc.id, LISTED).id
 })
 
-test('MTC-S07 · ncr:update without ncr:manage_access — the card shows who has access but offers no controls, and the API refuses mint AND revoke', async ({ browser }) => {
+test('MTC-S07 · ncr:update without ncr:manage_access — the card shows who has access but offers no controls, and the API refuses mint AND revoke', { tag: '@smoke' }, async ({ browser }) => {
   const ctx = await browser.newContext({ storageState: AUTH.reviewer })
   const page = await ctx.newPage()
   try {

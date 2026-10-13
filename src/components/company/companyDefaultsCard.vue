@@ -1,4 +1,5 @@
 <script setup>
+import { toRaw } from 'vue'
 import { currentCompany } from '@/utils/currentCompany.js'
 
 const company = useLiveQueryWithDeps(
@@ -12,7 +13,6 @@ const company = useLiveQueryWithDeps(
 
 const isSaving = ref(false)
 const saveError = ref(null)
-const isFirstChange = ref(true)
 
 const debouncedSave = useDebounceFn(async () => {
   if (!company.value) return
@@ -27,16 +27,61 @@ const debouncedSave = useDebounceFn(async () => {
   }
 }, 500)
 
+// ── Autosave: only on an edit made IN THIS CARD ─────────────────────────────
+// The settings blob is shared with other writers, none of them a user edit
+// here, and a deep watcher with a "skip the first trigger" flag counted every
+// one of them as an edit (BL-03 — merely opening the Defaults tab sent two
+// updateCompany mutations):
+//   - companySettingsHome backfills `settings.printSettings = {}` inside its
+//     live query, on every re-run;
+//   - the syncEngine re-hydrates the pooled Company whenever the server row
+//     differs from memory (bootstrap finishing, a socket event, a save's own
+//     round-trip), which REPLACES the whole `settings` object;
+//   - ComplaintSettingsCard, beside this one, replaces `settings` and saves
+//     it itself.
+// So: watch only the keys this card owns, and treat a replaced `settings`
+// object as a (re)load — take it as the new baseline, don't save it. Edits
+// here always mutate inside the existing object (v-model on
+// `company.settings.x`, patchOverdue), so they keep the identity and differ
+// from the baseline. `immediate` baselines a row that is already loaded at
+// mount, so the first real edit is never the one that gets skipped.
+const OWNED_KEYS = [
+  'defaultSla',
+  'defaultWorkflowApprovalRule',
+  'defaultWorkflowRequireSignature',
+  'defaultWorkflowRequireComment',
+  'defaultDocumentTemplatePeriodicReviewMonths',
+  'defaultDocumentTemplateReviewLimitDays',
+  'defaultDocumentTemplateApprovalLimitDays',
+  'defaultDocumentTemplateTrainingAvailable',
+  'defaultDocumentTemplateRetrainingOnVersion',
+  'defaultDocumentTemplateAutoEffectiveOnApproval',
+  'defaultAssetRequestDueDays',
+  'defaultQualityEventReviewSlaDays',
+  'overdueReminders',
+]
+function ownedSnapshot(settings) {
+  if (!settings) return null
+  return JSON.stringify(OWNED_KEYS.map((k) => settings[k] ?? null))
+}
+
+let baselineSettings = null
+let baselineSnapshot = null
+
 watch(
-  () => company.value?.settings,
-  () => {
-    if (isFirstChange.value) {
-      isFirstChange.value = false
+  [() => toRaw(company.value?.settings) ?? null, () => ownedSnapshot(company.value?.settings)],
+  ([settings, snapshot]) => {
+    if (!settings) return
+    if (settings !== baselineSettings) {
+      baselineSettings = settings
+      baselineSnapshot = snapshot
       return
     }
+    if (snapshot === baselineSnapshot) return
+    baselineSnapshot = snapshot
     debouncedSave()
   },
-  { deep: true },
+  { immediate: true },
 )
 
 // ── Overdue reminders ───────────────────────────────────────────────────────

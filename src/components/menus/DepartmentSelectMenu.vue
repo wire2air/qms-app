@@ -21,6 +21,13 @@ const props = defineProps({
     type: [Array, null],
     default: null,
   },
+  // Explicit id whitelist (null = no whitelist). Applied AFTER the site
+  // filters, for callers whose candidate set is computed rather than
+  // site-shaped — e.g. the departments a supervisor is accountable for.
+  departmentIds: {
+    type: [Array, null],
+    default: null,
+  },
   allowCreate: {
     type: Boolean,
     default: true,
@@ -44,14 +51,20 @@ const modelValue = defineModel({
 // guard below must not treat a loading list as an empty one (it would wipe a
 // legitimate preset value before the first query resolves).
 const departments = useLiveQueryWithDeps(
-  [() => props.siteId, () => (props.siteIds ? [...props.siteIds] : null)],
-  async (db, [siteId, siteIds]) => {
+  [
+    () => props.siteId,
+    () => (props.siteIds ? [...props.siteIds] : null),
+    () => (props.departmentIds ? [...props.departmentIds] : null),
+  ],
+  async (db, [siteId, siteIds, departmentIds]) => {
     const all = await db.Department.where().exec()
+    const whitelist = departmentIds ? new Set(departmentIds) : null
+    const scoped = whitelist ? all.filter((d) => whitelist.has(d.id)) : all
     // Site filters keep company-wide departments (no site) — they belong to
     // every site, mirroring the RLS baseline (site's departments + site-less).
-    if (siteIds?.length) return all.filter((d) => !d.siteId || siteIds.includes(d.siteId))
-    if (siteId) return all.filter((d) => d.siteId === siteId || !d.siteId)
-    return all
+    if (siteIds?.length) return scoped.filter((d) => !d.siteId || siteIds.includes(d.siteId))
+    if (siteId) return scoped.filter((d) => d.siteId === siteId || !d.siteId)
+    return scoped
   },
   { models: ['Department'] },
 )

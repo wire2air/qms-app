@@ -66,26 +66,28 @@ test.describe('AR-J3 — F-01 regression (FIXED — this is a green lock)', () =
     }
   })
 
-  test('the same browser session CANNOT list a different supplier’s requests', async ({
-    browser,
-  }) => {
-    const foreign = seedForeignRequest()
-    created.push(foreign.id)
+  test(
+    'the same browser session CANNOT list a different supplier’s requests',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      const foreign = seedForeignRequest()
+      created.push(foreign.id)
 
-    const ctx = await freshContext(browser, SUPPLIER_USER)
-    try {
-      const res = await ctx.request.get(
-        `/api/v1/services/suppliers/${SUPPLIER_IDS.noPortal}/assetRequests`,
-      )
-      expect([403, 404]).toContain(res.status())
-      if (res.status() === 200) {
-        const body = await res.json()
-        expect(body.assetRequests ?? []).toHaveLength(0)
+      const ctx = await freshContext(browser, SUPPLIER_USER)
+      try {
+        const res = await ctx.request.get(
+          `/api/v1/services/suppliers/${SUPPLIER_IDS.noPortal}/assetRequests`,
+        )
+        expect([403, 404]).toContain(res.status())
+        if (res.status() === 200) {
+          const body = await res.json()
+          expect(body.assetRequests ?? []).toHaveLength(0)
+        }
+      } finally {
+        await ctx.close()
       }
-    } finally {
-      await ctx.close()
-    }
-  })
+    },
+  )
 
   test('the same browser session CANNOT fetch the foreign request by id, and no evidence leaks in the refusal', async ({
     browser,

@@ -9,6 +9,8 @@ declare global {
   const EFFECTIVENESS_FILTER_OPTIONS: typeof import('./src/composables/useEffectivenessRollup.js').EFFECTIVENESS_FILTER_OPTIONS
   const EFFECTIVENESS_STATE_LABELS: typeof import('./src/composables/useEffectivenessRollup.js').EFFECTIVENESS_STATE_LABELS
   const EffectScope: typeof import('vue').EffectScope
+  const PREVIEW_DEBOUNCE_MS: typeof import('./src/composables/useAnalytics.js').PREVIEW_DEBOUNCE_MS
+  const PREVIEW_ERROR: typeof import('./src/composables/useAnalytics.js').PREVIEW_ERROR
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
   const STEP_GROUPING_ENABLED: typeof import('./src/composables/useWorkflowStepGrouping.js').STEP_GROUPING_ENABLED
@@ -57,6 +59,7 @@ declare global {
   const extendRef: typeof import('@vueuse/core').extendRef
   const extractHeaderFields: typeof import('./src/composables/usePdfImport.js').extractHeaderFields
   const extractPdfHeader: typeof import('./src/composables/usePdfImport.js').extractPdfHeader
+  const fetchStepReviewerPool: typeof import('./src/composables/useStepReviewerPool.js').fetchStepReviewerPool
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
   const filtersToQuery: typeof import('./resource/js/shared/composables/listLayoutHelpers.js').filtersToQuery
@@ -78,12 +81,14 @@ declare global {
   const injectLocal: typeof import('@vueuse/core').injectLocal
   const injectMultipleProps: typeof import('./resource/js/shared/composables/object.js').injectMultipleProps
   const injectProp: typeof import('./resource/js/shared/composables/object.js').injectProp
+  const invalidateStepReviewerPool: typeof import('./src/composables/useStepReviewerPool.js').invalidateStepReviewerPool
   const isAsync: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isAsync
   const isChecked: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isChecked
   const isDateNode: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').isDateNode
   const isDefined: typeof import('@vueuse/core').isDefined
   const isEffectivenessOverdue: typeof import('./src/composables/useEffectivenessRollup.js').isEffectivenessOverdue
   const isGroupableStep: typeof import('./src/composables/useWorkflowStepGrouping.js').isGroupableStep
+  const isPreviewTerminalError: typeof import('./src/composables/useAnalytics.js').isPreviewTerminalError
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
@@ -199,6 +204,7 @@ declare global {
   const useActiveWorkflowEntries: typeof import('./src/composables/useActiveWorkflowEntries.js').useActiveWorkflowEntries
   const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage
   const useAnalyticsEntitlement: typeof import('./src/composables/useAnalytics.js').useAnalyticsEntitlement
+  const useAnalyticsModuleFields: typeof import('./src/composables/useAnalyticsModuleFields.js').useAnalyticsModuleFields
   const useAnimate: typeof import('@vueuse/core').useAnimate
   const useArrayDifference: typeof import('@vueuse/core').useArrayDifference
   const useArrayEvery: typeof import('@vueuse/core').useArrayEvery
@@ -247,6 +253,7 @@ declare global {
   const useCssVar: typeof import('@vueuse/core').useCssVar
   const useCssVars: typeof import('vue').useCssVars
   const useCurrentElement: typeof import('@vueuse/core').useCurrentElement
+  const useCustomMetricRefreshState: typeof import('./src/composables/useAnalytics.js').useCustomMetricRefreshState
   const useCycleList: typeof import('@vueuse/core').useCycleList
   const useDark: typeof import('@vueuse/core').useDark
   const useDateField: typeof import('./src/composables/useDateField.js').useDateField
@@ -383,6 +390,7 @@ declare global {
   const useSorted: typeof import('@vueuse/core').useSorted
   const useSpeechRecognition: typeof import('@vueuse/core').useSpeechRecognition
   const useSpeechSynthesis: typeof import('@vueuse/core').useSpeechSynthesis
+  const useStarredDashboards: typeof import('./src/composables/useStarredDashboards.js').useStarredDashboards
   const useStepUp: typeof import('./src/composables/useStepUp.js').useStepUp
   const useStepper: typeof import('@vueuse/core').useStepper
   const useStorage: typeof import('@vueuse/core').useStorage

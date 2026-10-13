@@ -72,6 +72,7 @@ import {
   severityRank,
 } from '@/utils/analyticsAlerts.js'
 import { dimensionOptionsFor, segmentLabel } from '@/utils/analyticsViz.js'
+import { MIN_CELL_FLOOR } from '@/utils/analyticsFormat.js'
 import { useMetricBreakdown } from '@/composables/useAnalytics.js'
 import { currentSession, isAllowed } from '@/utils/currentSession'
 import { IconAlertTriangle, IconPlus, IconTrash, IconUsers } from '@tabler/icons-vue'
@@ -102,7 +103,7 @@ const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
   // isAllowed() already short-circuits for a company owner, which is the
   // `current_user_is_owner` branch of the policy.
-  canManage: isAllowed(['reports_dashboards:manage']),
+  canManage: isAllowed(['analytics_alerts:manage']),
 }))
 
 const canNameOthers = computed(() => canNameOtherRecipients(viewer.value))
@@ -243,7 +244,7 @@ const { rows: sliceRows, loading: slicesLoading } = useMetricBreakdown(
     metricKey: () => form.value.metricKey,
     dimension: () => form.value.dimension,
     limit: 200,
-    minCell: 5,
+    minCell: MIN_CELL_FLOOR,
     rankBy: 'contribution',
   },
   { enabled: () => !!(form.value.metricKey && form.value.dimension && open.value) },

@@ -102,11 +102,43 @@ describe('buildDocumentActions', () => {
     // DC-OB-01 (reconciled): the gate is `canArchive` — the delete permission
     // the list view and the documents RLS both use — NOT `canDelete`, which
     // added an owner/author restriction the backend never applies.
-    expect(visibleIds({ canArchive: true, statusId: 'EFFECTIVE' })).toContain('archive')
-    expect(visibleIds({ canArchive: true, statusId: 'ARCHIVED' })).not.toContain('archive')
+    expect(visibleIds({ canArchive: true, everEffective: true })).toContain('archive')
+    expect(visibleIds({ canArchive: true, everEffective: true, statusId: 'ARCHIVED' })).not.toContain(
+      'archive',
+    )
     // DC-OB-01: edit access alone (no delete perm / not owner-author) must NOT
     // expose the destructive Archive action.
-    expect(visibleIds({ canEdit: true, statusId: 'EFFECTIVE' })).not.toContain('archive')
+    expect(visibleIds({ canEdit: true, everEffective: true })).not.toContain('archive')
+  })
+
+  // Archive vs discard. Obsoletion WITHDRAWS a document from use, so it only
+  // applies to one that was actually issued. A document whose versions never
+  // reached EFFECTIVE has nothing to withdraw — offering Archive there parks a
+  // never-issued document on the register as ARCHIVED, and the server rejects
+  // it with a 409 anyway.
+  it('Archive is hidden until the document has been issued', () => {
+    expect(visibleIds({ canArchive: true, everEffective: false })).not.toContain('archive')
+    expect(visibleIds({ canArchive: true })).not.toContain('archive')
+  })
+
+  it('Delete Version reads "Discard Draft" when it IS the whole document', () => {
+    const label = (gates) =>
+      buildDocumentActions(gates, {}).find((a) => a.id === 'deleteVersion').label
+
+    // Never issued + the only version: the click discards the document itself.
+    expect(
+      label({ canDelete: true, selectedStatus: 'DRAFT', everEffective: false, isOnlyVersion: true }),
+    ).toBe('Discard Draft')
+
+    // A draft revision of an issued document — the document survives.
+    expect(
+      label({ canDelete: true, selectedStatus: 'DRAFT', everEffective: true, isOnlyVersion: false }),
+    ).toBe('Delete Version')
+
+    // Not the only version, so the document survives even if never issued.
+    expect(
+      label({ canDelete: true, selectedStatus: 'DRAFT', everEffective: false, isOnlyVersion: false }),
+    ).toBe('Delete Version')
   })
 
   it('the status-driven actions all carry the top priority (one primary at a time)', () => {
@@ -136,5 +168,46 @@ describe('buildDocumentActions', () => {
     const a = buildDocumentActions({}, handlers)
     a.forEach((d) => d.onSelect && d.onSelect())
     Object.values(handlers).forEach((fn) => expect(fn).toHaveBeenCalled())
+  })
+})
+
+// The archived banner is the one place a reader lands on a withdrawn document,
+// and the obsoletion reason is routinely where the author points them at the
+// replacement ("Superseded by SOP-104"). It used to say only "This document is
+// archived and read-only", so that pointer — captured, required, and stored on
+// the row — was visible nowhere in the UI.
+describe('buildDocumentBanners — archived', () => {
+  const archived = (extra = {}) => buildDocumentBanners({ statusId: 'ARCHIVED', ...extra })[0]
+
+  it('carries the obsoletion reason', () => {
+    expect(archived({ obsoletionReason: 'Superseded by SOP-104.' }).message).toContain(
+      'Superseded by SOP-104.',
+    )
+  })
+
+  it('includes the date when there is one', () => {
+    const banner = archived({
+      obsoletionReason: 'Process discontinued.',
+      obsoletedAt: { formatDate: () => '29 Sep 2026' },
+    })
+    expect(banner.message).toContain('29 Sep 2026')
+    expect(banner.message).toContain('Process discontinued.')
+  })
+
+  it('still reads correctly with no reason or date on the row', () => {
+    // Documents obsoleted before the reason was captured, and any row where the
+    // fields did not come through.
+    const banner = archived()
+    expect(banner.message).toBe('This document is archived and read-only.')
+    expect(banner.message).not.toMatch(/undefined|null|Reason:/)
+  })
+
+  it('ignores a whitespace-only reason', () => {
+    expect(archived({ obsoletionReason: '   ' }).message).not.toContain('Reason:')
+  })
+
+  it('shows no banner while the document is active', () => {
+    expect(buildDocumentBanners({ statusId: 'ACTIVE' })).toEqual([])
+    expect(buildDocumentBanners(null)).toEqual([])
   })
 })

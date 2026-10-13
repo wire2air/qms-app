@@ -3,6 +3,7 @@ import {
   IconDotsVertical,
   IconEye,
   IconArchive,
+  IconTrash,
   IconFileText,
   IconBuilding,
   IconCircleDot,
@@ -67,6 +68,26 @@ const currentVersionMapById = useLiveQueryWithDeps(
   },
 
   { models: ['DocumentVersion'], initial: {} },
+)
+
+// Which documents have ever been ISSUED. A version that reached EFFECTIVE stays
+// on the record as EFFECTIVE, SUPERSEDED or ARCHIVED, so those three are the
+// trace of issuance. It decides Archive vs Discard Draft in the row menu:
+// obsoletion withdraws a document from use, and one that was never effective has
+// nothing to withdraw (the server rejects that with a 409).
+const ISSUED_VERSION_STATUSES = ['EFFECTIVE', 'SUPERSEDED', 'ARCHIVED']
+const everIssuedDocIds = useLiveQueryWithDeps(
+  [() => props.rows.map((row) => row.id)],
+  async (db, [ids]) => {
+    if (ids.length === 0) return new Set()
+    const versions = await db.DocumentVersion.where(
+      '[documentId+statusId]',
+      ids.flatMap((id) => ISSUED_VERSION_STATUSES.map((statusId) => [id, statusId])),
+    ).exec()
+    return new Set(versions.map((v) => v.documentId))
+  },
+
+  { models: ['DocumentVersion'], initial: new Set() },
 )
 
 const latestVersionMapById = useLiveQueryWithDeps(
@@ -408,12 +429,23 @@ function onObsoleted() {
                 View
               </button>
               <button
-                v-if="canArchive && row.statusId !== 'ARCHIVED'"
+                v-if="canArchive && row.statusId !== 'ARCHIVED' && everIssuedDocIds.has(row.id)"
                 class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-bad tw:hover:bg-sidebar-hover tw:transition-colors"
                 @click="(onArchiveDocument(row), close())"
               >
                 <IconArchive :size="16" />
                 Archive
+              </button>
+              <!-- Never issued: there is nothing to obsolete, so the terminal
+                   action is a discard. It lives on the detail page, where the
+                   reason + the version being discarded are both in view. -->
+              <button
+                v-else-if="canArchive && row.statusId !== 'ARCHIVED'"
+                class="tw:flex tw:items-center tw:gap-2 tw:px-3 tw:py-2 tw:text-sm tw:text-bad tw:hover:bg-sidebar-hover tw:transition-colors"
+                @click="(emit('view', row), close())"
+              >
+                <IconTrash :size="16" />
+                Discard Draft…
               </button>
             </div>
           </template>

@@ -59,57 +59,59 @@ test.describe('ALD-A2 — the trail page', () => {
     expect(trailRowsInTable(`entity_id = '${DEPT.id}'`), 'the probe row exists').toBeGreaterThan(0)
   })
 
-  test('a granted persona reads the page; a denied persona never reaches it', async ({
-    browser,
-  }) => {
-    test.setTimeout(TRAIL_SYNC_TIMEOUT + 60_000)
+  test(
+    'a granted persona reads the page; a denied persona never reaches it',
+    { tag: ['@smoke', '@validation', '@URS-SEC-05'] },
+    async ({ browser }) => {
+      test.setTimeout(TRAIL_SYNC_TIMEOUT + 60_000)
 
-    // ── The positive half. Ava holds `audit_trail:read` and nothing that would
-    // let her reach the trail by accident.
-    const granted = await browser.newContext({ storageState: AUTH.auditor })
-    try {
-      const page = await granted.newPage()
-      await gotoAuditLogs(page)
+      // ── The positive half. Ava holds `audit_trail:read` and nothing that would
+      // let her reach the trail by accident.
+      const granted = await browser.newContext({ storageState: AUTH.auditor })
+      try {
+        const page = await granted.newPage()
+        await gotoAuditLogs(page)
 
-      expect(page.url(), 'the guard lets an audit_trail holder through').toContain('/audit-logs')
-      // The filter bar, not the subtitle: `BaseListLayout` takes a `subtitle`
-      // prop and does not render it anywhere (the title alone is teleported to
-      // the top bar), so an assertion on that string tests the layout's prop
-      // list rather than the page. The filter bar is chrome that is genuinely on
-      // screen whether the list is full or empty, which is what "the page
-      // rendered, not a shell" has to mean here.
-      await expect(
-        page.getByText('Filters', { exact: true }),
-        'the page itself rendered, not a shell',
-      ).toBeVisible({ timeout: 30_000 })
+        expect(page.url(), 'the guard lets an audit_trail holder through').toContain('/audit-logs')
+        // The filter bar, not the subtitle: `BaseListLayout` takes a `subtitle`
+        // prop and does not render it anywhere (the title alone is teleported to
+        // the top bar), so an assertion on that string tests the layout's prop
+        // list rather than the page. The filter bar is chrome that is genuinely on
+        // screen whether the list is full or empty, which is what "the page
+        // rendered, not a shell" has to mean here.
+        await expect(
+          page.getByText('Filters', { exact: true }),
+          'the page itself rendered, not a shell',
+        ).toBeVisible({ timeout: 30_000 })
 
-      // The rows. This is the assertion the whole file is built around: a
-      // number greater than zero, produced by RLS admitting them.
-      await expect(auditRows(page).first(), 'the trail renders entries').toBeVisible({
-        timeout: TRAIL_SYNC_TIMEOUT,
-      })
-      expect(await auditRows(page).count()).toBeGreaterThan(0)
-    } finally {
-      await granted.close()
-    }
+        // The rows. This is the assertion the whole file is built around: a
+        // number greater than zero, produced by RLS admitting them.
+        await expect(auditRows(page).first(), 'the trail renders entries').toBeVisible({
+          timeout: TRAIL_SYNC_TIMEOUT,
+        })
+        expect(await auditRows(page).count()).toBeGreaterThan(0)
+      } finally {
+        await granted.close()
+      }
 
-    // ── The negative half. Carla holds the FULL Document Control CRUD set —
-    // the permission that used to carry this page — and is bounced at the
-    // router before a single row is fetched.
-    const denied = await browser.newContext({ storageState: AUTH.controller })
-    try {
-      const page = await denied.newPage()
-      await gotoAuditLogs(page)
-      await page.waitForURL(/\/no-access/, { timeout: 30_000 })
-      await expect(page.getByRole('heading', { name: 'Access denied' })).toBeVisible()
-      expect(
-        await auditRows(page).count(),
-        'and no audit row is rendered anywhere on the way',
-      ).toBe(0)
-    } finally {
-      await denied.close()
-    }
-  })
+      // ── The negative half. Carla holds the FULL Document Control CRUD set —
+      // the permission that used to carry this page — and is bounced at the
+      // router before a single row is fetched.
+      const denied = await browser.newContext({ storageState: AUTH.controller })
+      try {
+        const page = await denied.newPage()
+        await gotoAuditLogs(page)
+        await page.waitForURL(/\/no-access/, { timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: 'Access denied' })).toBeVisible()
+        expect(
+          await auditRows(page).count(),
+          'and no audit row is rendered anywhere on the way',
+        ).toBe(0)
+      } finally {
+        await denied.close()
+      }
+    },
+  )
 
   test('the floor: a user with no role at all is bounced too', async ({ browser }) => {
     // Noah holds no role. He is not an interesting probe on his own — he is the

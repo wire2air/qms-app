@@ -47,7 +47,7 @@ function purgeMembership(teamId, userId) {
 test.describe('GRP-J1 · REST cannot grant roles through team membership', () => {
   test.afterEach(() => purgeMembership(TEAMS.roleCarrying.id, USERS.teamJoiner.id))
 
-  test('PRECONDITION · the target team really carries a role', () => {
+  test('PRECONDITION · the target team really carries a role', { tag: '@smoke' }, () => {
     // Without this, the whole journey degrades into "a plain team accepted a
     // member", which is allowed and proves nothing.
     expect(
@@ -105,22 +105,26 @@ test.describe('GRP-J1 · REST cannot grant roles through team membership', () =>
     expect(Number(carried), 'no role may reach the caller through this route').toBe(0)
   })
 
-  test('CONTROL · the same caller CAN edit a team that carries no roles', async ({ browser }) => {
-    // Decisive. Same persona, same endpoint, same payload shape — only the
-    // target team differs. Without this, a gate that refused every membership
-    // write would pass the two tests above and quietly break the feature.
-    const ctx = await browser.newContext({ storageState: AUTH.teamJoiner })
-    try {
-      const res = await ctx.request.put(`${TEAM}/${TEAMS.plain.id}`, {
-        data: { userIds: [USERS.teamJoiner.id] },
-      })
-      expect([200, 201], 'a role-less team stays editable with teams:update').toContain(
-        res.status(),
-      )
-      expect(memberCount(TEAMS.plain.id, USERS.teamJoiner.id)).toBe(1)
-    } finally {
-      await ctx.close()
-      purgeMembership(TEAMS.plain.id, USERS.teamJoiner.id)
-    }
-  })
+  test(
+    'CONTROL · the same caller CAN edit a team that carries no roles',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      // Decisive. Same persona, same endpoint, same payload shape — only the
+      // target team differs. Without this, a gate that refused every membership
+      // write would pass the two tests above and quietly break the feature.
+      const ctx = await browser.newContext({ storageState: AUTH.teamJoiner })
+      try {
+        const res = await ctx.request.put(`${TEAM}/${TEAMS.plain.id}`, {
+          data: { userIds: [USERS.teamJoiner.id] },
+        })
+        expect([200, 201], 'a role-less team stays editable with teams:update').toContain(
+          res.status(),
+        )
+        expect(memberCount(TEAMS.plain.id, USERS.teamJoiner.id)).toBe(1)
+      } finally {
+        await ctx.close()
+        purgeMembership(TEAMS.plain.id, USERS.teamJoiner.id)
+      }
+    },
+  )
 })

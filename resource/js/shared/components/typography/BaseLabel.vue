@@ -27,6 +27,17 @@ const props = defineProps({
   // Help text shown via an info icon (BaseTooltip on hover/focus). A #help slot
   // can supply richer content.
   help: { type: String, default: '' },
+  // Label text, for callers with nothing to put in the default slot. The slot
+  // still wins where both are given.
+  //
+  // This prop did not exist until 2026-09-27, and two call sites were already
+  // written as though it did — one passing `label="…"` (which fell through to
+  // $attrs and landed as a stray attribute on the <label> element) and one
+  // relying on the registry fallback the comment below promised. Both rendered
+  // an EMPTY label beside a help icon: a lone "?" over a control with no name.
+  // Reported on the user profile's additional-sites picker, where the result
+  // read as "unable to select the site" — the field gave no clue what it was.
+  label: { type: String, default: '' },
   // Resolve `help` (and, when the label slot is empty, the label text) from the
   // central tooltip registry by key — e.g. dataKey="document.collaboration".
   // An explicit `help` prop always wins.
@@ -40,6 +51,13 @@ const props = defineProps({
 const { getFromTooltipData } = useTooltipData(props)
 // Explicit prop wins; otherwise fall back to the registry entry for dataKey.
 const resolvedHelp = computed(() => props.help || getFromTooltipData(props.dataKey, 'tooltip'))
+
+// Slot, then explicit prop, then the registry entry for dataKey — the
+// behaviour the comment above has always described.
+const slots = useSlots()
+const resolvedLabel = computed(
+  () => props.label || getFromTooltipData(props.dataKey, 'label') || '',
+)
 
 const colorClass = computed(() => {
   if (props.disabled) return TEXT_COLOR.disabled
@@ -64,7 +82,10 @@ const colorClass = computed(() => {
       class="tw:inline-flex tw:items-center tw:gap-1 tw:align-middle"
       :class="truncate && 'tw:max-w-full tw:min-w-0'"
     >
-      <span :class="truncate && 'tw:truncate'"><slot /></span>
+      <span :class="truncate && 'tw:truncate'">
+        <slot v-if="slots.default">{{ resolvedLabel }}</slot>
+        <template v-else>{{ resolvedLabel }}</template>
+      </span>
       <!-- Asterisk is decorative; the accessible required state comes from the
            control's own `required` / `aria-required`. -->
       <span v-if="required" class="tw:text-bad" aria-hidden="true">*</span>
@@ -74,7 +95,11 @@ const colorClass = computed(() => {
       <!-- Help icon → BaseTooltip (hover + keyboard focus). The trigger is a
            real <button> so keyboard users can reach it; @click.stop.prevent
            keeps clicking it from activating the label's associated control. -->
-      <BaseTooltip v-if="resolvedHelp || $slots.help" :content="resolvedHelp" class="tw:align-middle">
+      <BaseTooltip
+        v-if="resolvedHelp || $slots.help"
+        :content="resolvedHelp"
+        class="tw:align-middle"
+      >
         <button
           type="button"
           class="tw:inline-flex tw:cursor-help tw:rounded-full tw:text-secondary tw:focus-visible:outline-none tw:focus-visible:ring-2 tw:focus-visible:ring-primary/40"

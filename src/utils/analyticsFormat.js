@@ -33,6 +33,28 @@ export const SUPPRESSED_LABEL = 'Withheld'
 export const SUPPRESSED_HELP =
   'Withheld to protect small groups: too few records to show without identifying them. This is not zero.'
 
+/**
+ * The smallest group a breakdown or dimensioned series will name.
+ *
+ * ⚠ A MIRROR OF SERVER POLICY, NOT THE POLICY. The control is
+ * `GREATEST(COALESCE(p_min_cell, 5), 5)` inside metric_breakdown and
+ * metric_series (migration 20260923250000). Nothing here can widen or narrow
+ * what the server returns — a request carrying a smaller value is raised back
+ * to the floor before any row is read.
+ *
+ * It exists so the UI can NAME the threshold it is subject to. The suppressed
+ * state used to say only "fell below the reporting threshold", which states a
+ * rule without its remedy: a reader could not tell whether one more record
+ * would help or nothing ever would.
+ *
+ * ⚠ IF THE SERVER CLAMP CHANGES, THIS BECOMES A LIE. It is a second copy of a
+ * number that lives in SQL, and the UI has no way to detect the drift. The
+ * durable fix is for metric_catalog to return the threshold alongside
+ * dimension_capacity, so the figure shown is the figure enforced; until then
+ * the two are kept in step by hand.
+ */
+export const MIN_CELL_FLOOR = 5
+
 /** `effective_scope` — the rows the SERVER counted for this viewer. */
 export const SCOPE_LABEL = {
   own: 'My records',

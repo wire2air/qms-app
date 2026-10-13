@@ -38,16 +38,8 @@ const logBooks = useLiveQuery(
   { models: ['LogBook'], initial: [] },
 )
 
-const logBookTypes = useLiveQuery((db) => db.LogBookType.where().exec(), {
-  models: ['LogBookType'],
-  initial: [],
-})
-const typeNameById = computed(() => new Map(logBookTypes.value.map((t) => [t.id, t.name])))
 function typeLabel(lb) {
-  return (
-    typeNameById.value.get(lb.logBookTypeId) ||
-    (lb.recordClassification === 'CONTROLLED_RECORD' ? 'Controlled Record' : 'Operational Log')
-  )
+  return lb.recordClassification === 'CONTROLLED_RECORD' ? 'Controlled Record' : 'Operational Log'
 }
 
 // The card shows which revision of the book entries file against, and

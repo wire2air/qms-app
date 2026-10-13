@@ -153,6 +153,8 @@ import { RiskAssessment } from './riskAssessment'
 // Audit Management (Phase A foundation)
 import { AuditStandardType } from './auditStandardType'
 import { AuditFindingCategory } from './auditFindingCategory'
+import { AuditFindingStatus } from './auditFindingStatus'
+import { AuditFindingType } from './auditFindingType'
 import { AuditStandard } from './auditStandard'
 import { AuditStandardVersion } from './auditStandardVersion'
 import { AuditRequirement } from './auditRequirement'
@@ -196,7 +198,6 @@ import { FieldRecordRevision } from './fieldRecordRevision'
 import { FieldRecordStatus } from './fieldRecordStatus'
 import { FormAssignment } from './formAssignment'
 import { LogBook } from './logBook'
-import { LogBookType } from './logBookType'
 import { SiteOnLogBook } from './siteOnLogBook'
 import { DocumentSite } from './documentSite'
 import { LogBookDocumentLink } from './logBookDocumentLink'
@@ -401,6 +402,8 @@ export const db = {
   // Audit Management (Phase A foundation)
   AuditStandardType,
   AuditFindingCategory,
+  AuditFindingStatus,
+  AuditFindingType,
   AuditStandard,
   AuditStandardVersion,
   AuditRequirement,
@@ -444,7 +447,6 @@ export const db = {
   FieldRecordStatus,
   FormAssignment,
   LogBook,
-  LogBookType,
   SiteOnLogBook,
   DocumentSite,
   LogBookDocumentLink,

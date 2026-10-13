@@ -89,7 +89,7 @@ test.beforeEach(() => {
 })
 
 test.describe('PW-J5 · the per-account lockout is real, bounded, and clearable', () => {
-  test(`GATE · ${MAX} failures lock the account, and the lock refuses the CORRECT password (G3)`, async () => {
+  test(`GATE · ${MAX} failures lock the account, and the lock refuses the CORRECT password (G3)`, { tag: ['@validation', '@URS-SEC-03'] }, async () => {
     const lockedBefore = loginEventCount(TARGET, 'ACCOUNT_LOCKED')
 
     const statuses = await failLogins(TARGET, MAX, { source: SRC_LOCK })
@@ -183,7 +183,7 @@ test.describe('PW-J5 · the per-account lockout is real, bounded, and clearable'
     ).toBeLessThanOrEqual(LOCK_SECONDS)
   })
 
-  test('CONTROL · a successful login resets the counter, so ordinary typos never accumulate', async () => {
+  test('CONTROL · a successful login resets the counter, so ordinary typos never accumulate', { tag: '@smoke' }, async () => {
     // Without clearFailedAttempts, failures would pile up across days until a
     // legitimate user locked themselves out of an account they log into fine.
     // Proving it by re-running the SAME number of failures is what makes this

@@ -43,6 +43,21 @@ test.use({ storageState: AUTH.intAdmin })
 
 const owned = accountTracker()
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// This file arranges a service account + key ONCE in `beforeAll` and purges it
+// in `afterAll`. Playwright discards a worker after a failing test and RUNS the
+// file's pending `afterAll` before continuing in a fresh one — but the
+// `beforeAll` of an already-entered describe does NOT re-run. Without serial
+// mode the purge would therefore delete the account out from under every later
+// test in the file, and each would report the 401/404 it was written to catch:
+// one real failure printed as N false authentication findings.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it, so
+// one failure stays one failure. See complaints/j11 for the alternative fix
+// (arrange per describe), which suits files whose tests can afford their own
+// fixtures; minting a real API key per test would not be cheap here.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('SA-API-1 · a service-account key authenticates', () => {
   let account
   let secret
@@ -69,7 +84,7 @@ test.describe('SA-API-1 · a service-account key authenticates', () => {
     await owned.cleanup(playwright)
   })
 
-  test('x-api-key: sk_… reaches a gated read → 200', async ({ playwright }) => {
+  test('x-api-key: sk_… reaches a gated read → 200', { tag: '@smoke' }, async ({ playwright }) => {
     const ctx = await keyContext(playwright, secret)
     const { status, json } = await read(await ctx.get(GATED_READ))
     expect(status, `x-api-key ${redact(secret)} → ${status}: ${errorMessage(json)}`).toBe(200)

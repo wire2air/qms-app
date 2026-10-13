@@ -6,6 +6,7 @@
 import { IconPlus, IconTrash } from '@tabler/icons-vue'
 import { post } from '@/api' // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { required, requiredWhen } from '@shared/components/form/validators.js'
+import { limitErrors } from '@/utils/specificationLimits.js'
 
 const props = defineProps({
   // When set, the spec is pre-scoped to this product: the scope/target
@@ -90,8 +91,22 @@ function removeCharacteristic(i) {
   form.value.characteristics.splice(i, 1)
 }
 
+/**
+ * Per-row limit problems, keyed by index. Live rather than on-submit: the
+ * numbers are right there, and telling someone their target is below the
+ * minimum only after they press Create is the slower half of the same message.
+ */
+const characteristicLimitErrors = computed(() => limitErrors(form.value.characteristics))
+const hasLimitErrors = computed(() => Object.keys(characteristicLimitErrors.value).length > 0)
+
 async function onSubmit() {
   if (isSubmitting.value) return
+  // The server refuses these too (numericLimitsCoherent). Stopping here keeps
+  // the message next to the field that is wrong instead of in the footer.
+  if (hasLimitErrors.value) {
+    saveError.value = 'Fix the highlighted limits before creating this specification.'
+    return
+  }
   isSubmitting.value = true
   saveError.value = null
   try {
@@ -184,7 +199,13 @@ async function onSubmit() {
           ]"
         >
           <template #label>
-            {{ form.scope === 'product' ? 'Item' : form.scope === 'family' ? 'Item group' : 'Item type' }}
+            {{
+              form.scope === 'product'
+                ? 'Item'
+                : form.scope === 'family'
+                  ? 'Item group'
+                  : 'Item type'
+            }}
           </template>
           <template #default="field">
             <ProductSelectMenu
@@ -298,6 +319,9 @@ async function onSubmit() {
                 <UomSelectMenu v-model="c.uom" bindValue="code" />
               </BaseField>
             </div>
+            <BaseErrorText v-if="characteristicLimitErrors[i]" class="tw:mt-1">
+              {{ characteristicLimitErrors[i] }}
+            </BaseErrorText>
             <BaseField
               v-if="c.requiresInstrument"
               label="Preferred instrument"

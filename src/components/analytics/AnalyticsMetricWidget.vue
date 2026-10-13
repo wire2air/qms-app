@@ -25,7 +25,12 @@ import { IconRefresh } from '@tabler/icons-vue'
 import { DateTime } from 'luxon'
 import { moduleIcon } from '@/utils/moduleIcons.js'
 import { useMetricValue, useMetricSeries, useMetricBreakdown } from '@/composables/useAnalytics.js'
-import { drillLocation, formatMetricValue, METRIC_PRECISION } from '@/utils/analyticsFormat.js'
+import {
+  drillLocation,
+  formatMetricValue,
+  METRIC_PRECISION,
+  MIN_CELL_FLOOR,
+} from '@/utils/analyticsFormat.js'
 
 const props = defineProps({
   // A metric_catalog node: { metricKey, name, description, moduleId, unit,
@@ -35,7 +40,7 @@ const props = defineProps({
   periodEnd: { type: String, default: null },
   compare: { type: String, default: 'previous_period' },
   // Small-cell threshold; the server default is 5.
-  minCell: { type: Number, default: 5 },
+  minCell: { type: Number, default: MIN_CELL_FLOOR },
   chartType: { type: String, default: 'area' },
   height: { type: Number, default: 260 },
   enabled: { type: Boolean, default: true },

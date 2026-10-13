@@ -33,7 +33,7 @@
 //     `supplierId` with no status check and there is no DB constraint, so the
 //     pin below records that rather than claiming enforcement.
 import { test, expect } from '@playwright/test'
-import { AUTH, SUPPLIER_IDS } from '../fixtures/cast.js'
+import { AUTH, SUPPLIER_IDS, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlRow, sqlValue } from '../fixtures/db.js'
 
 function uniqueSuffix() {
@@ -64,8 +64,19 @@ function findSupplierByCode(code) {
   return sqlValue(`SELECT id FROM suppliers WHERE code = '${code}' LIMIT 1`)
 }
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function supplierCount() {
-  return Number(sqlValue(`SELECT count(*) FROM suppliers`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM suppliers WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 
 /** `name`, `code` and `category` are the schema's only required keys. */
@@ -85,7 +96,7 @@ test.describe('PW-J15 · supplier registration', () => {
     for (const id of created) sql(`DELETE FROM suppliers WHERE id = '${id}'`)
   })
 
-  test('TC-12-01: a supplier is registered with name, code and category', async ({ browser }) => {
+  test('TC-12-01: a supplier is registered with name, code and category', { tag: ['@validation', '@URS-SUP-01'] }, async ({ browser }) => {
     test.setTimeout(60_000)
     const ctx = await browser.newContext({ storageState: AUTH.owner })
     const suffix = uniqueSuffix()
@@ -210,7 +221,7 @@ test.describe('PW-J15 · supplier status control', () => {
     return id
   }
 
-  test('TC-12-04: a pending supplier is approved, and the change is attributed', async ({
+  test('TC-12-04: a pending supplier is approved, and the change is attributed', { tag: ['@validation', '@URS-SUP-04'] }, async ({
     browser,
   }) => {
     test.setTimeout(60_000)
@@ -266,7 +277,7 @@ test.describe('PW-J15 · supplier status control', () => {
   // requirement: they pin behaviour the protocol records as procedural, and
   // tagging them would trace a requirement to a test asserting the opposite.
 
-  test('known-gap: there is no status transition graph — any status follows any other', async ({
+  test('known-gap: there is no status transition graph — any status follows any other', { tag: ['@validation', '@URS-SUP-06'] }, async ({
     browser,
   }) => {
     // The Zod enum constrains the VOCABULARY only; its own comment says so

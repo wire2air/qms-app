@@ -3,7 +3,7 @@
 // document-specific, just the project's only home for them so far.
 import { expect } from '@playwright/test'
 import { AUTH, USERS, ESIGN_PIN } from './cast.js'
-import { waitForSqlValue } from './db.js'
+import { waitForSqlValue, waitForTaskCompleted } from './db.js'
 import { selectFirstOption, selectOption, expectStatusEventually, clickWhenReady } from './documents.js'
 
 const CAPA_WORKFLOW_NAME = 'E2E CAPA Review & Approval'
@@ -288,6 +288,14 @@ export async function completeReviewerStep(browser, capaId) {
   const page = await ctx.newPage()
   await page.goto(`/capas/${capaId}`, { waitUntil: 'domcontentloaded' })
   await clickWhenReady(page, page.getByRole('button', { name: 'Mark Complete' }))
+  // Same race fixtures/riskAssessment.js and fixtures/rca.js document: closing
+  // the context aborts the in-flight completion and strands the task ASSIGNED.
+  await waitForSqlValue(
+    `SELECT count(*) FROM task_instances
+      WHERE entity_type = 'Capa' AND entity_id = '${capaId}'
+        AND assigned_to = '${USERS.reviewer.id}' AND completed_at IS NOT NULL`,
+    { timeoutMs: 45_000, label: 'reviewer task completed' },
+  )
   await ctx.close()
 }
 
@@ -313,6 +321,7 @@ export async function completeApproverStep(browser, capaId) {
   await expect(pin).toBeVisible({ timeout: 15_000 })
   await pin.fill(ESIGN_PIN)
   await page.getByRole('button', { name: 'Sign' }).click()
+  await waitForTaskCompleted('Capa', capaId, USERS.approver.id)
   await ctx.close()
 }
 

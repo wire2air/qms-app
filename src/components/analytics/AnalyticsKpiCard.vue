@@ -11,13 +11,25 @@
  *    metric — so NO marker renders, not a "not significant" one.
  *  - scope + freshness + tier are on every tile, because the same key computed
  *    under a different scope is a different number.
+ *
+ * ── PREVIEW MODE (`previewDefinition`) ──────────────────────────────────────
+ * On the metric builder the metric does not exist yet, so there is no key to
+ * ask for. Given a `previewDefinition` (utils/analyticsMetricPreview.js), the
+ * same useMetricValue call goes to the preview endpoint instead — still this
+ * component's OWN request, so "nothing is passed down as fetched data" holds.
+ * What changes is what the footer can truthfully claim: there is no tier and
+ * no stored freshness, so it says "Preview — computed live from current
+ * records, not saved" with the shadow run's time; the compiler's refusal,
+ * a timeout or a missing grant is shown as the sentence itself; and there is
+ * nothing to drill into, because the records' metric was rolled back.
  */
-import { IconAlertTriangle, IconRefresh } from '@tabler/icons-vue'
+import { IconAlertTriangle, IconRefresh, IconLayoutDashboard } from '@tabler/icons-vue'
+import { DateTime } from 'luxon'
 // Explicit import: a dynamic `<component :is>` cannot resolve an auto-imported
 // component from a string name.
 import BaseClickableRow from '@shared/components/BaseClickableRow.vue'
 import { moduleIcon } from '@/utils/moduleIcons.js'
-import { useMetricValue } from '@/composables/useAnalytics.js'
+import { useMetricValue, isPreviewTerminalError } from '@/composables/useAnalytics.js'
 import {
   formatMetricValue,
   formatDelta,
@@ -45,35 +57,59 @@ const props = defineProps({
   periodEnd: { type: String, default: null },
   compare: { type: String, default: 'previous_period' },
   iconColor: { type: String, default: 'primary' },
+  /**
+   * Show the "Add to dashboard" action. Opt-in rather than always-on: this card
+   * also renders inside a dashboard tile and inside the metric-builder preview,
+   * where offering to add the thing you are already looking at is nonsense.
+   */
+  addable: { type: Boolean, default: false },
   // Gate so a tile does not fire before entitlement is known.
   enabled: { type: Boolean, default: true },
+  // An UNSAVED metric to preview (previewPayload() from
+  // utils/analyticsMetricPreview.js). When set, the value is computed live
+  // through the preview endpoint and `metricKey` is only a placeholder.
+  previewDefinition: { type: Object, default: null },
 })
+
+const emit = defineEmits(['add'])
+
+const isPreview = computed(() => !!props.previewDefinition)
 
 const {
   metric,
   loading,
   error,
   retry: retryMetric,
+  previewMeta,
 } = useMetricValue(
   {
     metricKey: () => props.metricKey,
     periodStart: () => props.periodStart,
     periodEnd: () => props.periodEnd,
     compare: () => props.compare,
+    preview: () => props.previewDefinition,
   },
   { enabled: () => props.enabled },
 )
 
 const icon = computed(() => moduleIcon(props.moduleId))
 
-const displayValue = computed(() => formatMetricValue(metric.value?.value, props.unit))
+/**
+ * The row the card displays. A failed PREVIEW keeps the handle's last good
+ * data, which was computed for an earlier draft — showing it beside the new
+ * draft's error would read as that draft's figure. Dashboards keep the old
+ * behaviour: their question did not change, only the request failed.
+ */
+const shown = computed(() => (isPreview.value && error.value ? null : metric.value))
+
+const displayValue = computed(() => formatMetricValue(shown.value?.value, props.unit))
 
 // The catalog's direction is authoritative; the value row repeats it, so fall
 // back to whichever is present rather than assuming.
-const effectiveDirection = computed(() => props.direction ?? metric.value?.direction ?? null)
+const effectiveDirection = computed(() => props.direction ?? shown.value?.direction ?? null)
 
 const trend = computed(() => {
-  const row = metric.value
+  const row = shown.value
   if (!row) return null
   const raw = row.unit === 'percent' ? row.deltaAbs : row.deltaPct
   const arrow = deltaDirection(raw)
@@ -84,11 +120,27 @@ const trend = computed(() => {
 })
 
 // Only an explicit true/false earns a marker — null means "no valid test".
-const marker = computed(() => significanceMarker(metric.value?.isSignificant))
+const marker = computed(() => significanceMarker(shown.value?.isSignificant))
 
 const drillTo = computed(() => {
-  if (!props.drill?.route) return null
+  // A previewed metric is rolled back with its request — there is no list
+  // behind it to open.
+  if (isPreview.value || !props.drill?.route) return null
   return drillLocation({ drillRoute: props.drill.route, drillFilters: props.drill.filters })
+})
+
+// In preview the error IS the message: the compiler's own sentence, or the
+// timeout / permission wording useAnalytics maps them to.
+const errorText = computed(() => (isPreview.value ? error.value?.message : null) || "Couldn't load")
+// Preview only — see AnalyticsQuestionTile's canRetryBody for why a dashboard's
+// FORBIDDEN must keep its Retry.
+const canRetry = computed(() => !(isPreview.value && isPreviewTerminalError(error.value)))
+
+const previewComputedAt = computed(() => {
+  const raw = previewMeta.value?.computedAt
+  if (!raw) return null
+  const dt = DateTime.fromISO(String(raw))
+  return dt.isValid ? dt.formatDate('datetime') : null
 })
 
 const noData = computed(
@@ -110,6 +162,7 @@ function openDrill() {
   <component
     :is="drillTo ? BaseClickableRow : 'div'"
     :aria-label="drillTo ? `${name} — open the records behind this number` : undefined"
+    data-testid="analytics-kpi-card"
     class="tw:block"
     @click="openDrill"
   >
@@ -130,16 +183,16 @@ function openDrill() {
               class="tw:inline-flex tw:items-center tw:gap-1"
             >
               <IconAlertTriangle :size="13" aria-hidden="true" />
-              Couldn't load
+              {{ errorText }}
             </BaseText>
-            <BaseButton size="sm" variant="text" @click.stop.prevent="retryMetric">
+            <BaseButton v-if="canRetry" size="sm" variant="text" @click.stop.prevent="retryMetric">
               <IconRefresh :size="13" aria-hidden="true" />
               Retry
             </BaseButton>
           </div>
 
           <BaseText v-else-if="noData" variant="caption" color="secondary">
-            No data for this period
+            {{ isPreview ? 'Nothing matches right now' : 'No data for this period' }}
           </BaseText>
 
           <BaseTooltip v-if="marker" :content="marker.help">
@@ -148,13 +201,46 @@ function openDrill() {
 
           <!-- The note comes from the catalog, so it can still be explained
                when the VALUE call failed and there is no provenance to state. -->
+          <template v-if="isPreview">
+            <BaseText
+              v-if="previewMeta?.driftWarning"
+              variant="caption"
+              color="inherit"
+              class="tw:inline-flex tw:items-start tw:gap-1 tw:text-warn"
+            >
+              <IconAlertTriangle :size="13" class="tw:mt-0.5 tw:shrink-0" aria-hidden="true" />
+              {{ previewMeta.driftWarning }}
+            </BaseText>
+            <BaseText variant="caption" color="secondary">
+              Preview — computed live from current records, not saved<template
+                v-if="previewComputedAt"
+              >
+                · {{ previewComputedAt }}</template
+              >
+            </BaseText>
+          </template>
+
           <AnalyticsMetaLine
-            v-if="metric || calculationNote"
+            v-else-if="metric || calculationNote"
             :scope="metric?.effectiveScope"
             :tier="metric?.tier"
             :computedAt="metric?.computedAt"
             :calculationNote="calculationNote"
           />
+
+          <!--
+            Outside the v-if/v-else-if chain above: that chain picks ONE status
+            line, while this action is orthogonal to whichever was chosen.
+            @click.stop, because the card itself is a drill-through target —
+            without it, adding a tile would also navigate away to the records
+            behind the number. Same reason Retry stops propagation.
+          -->
+          <div v-if="addable" class="tw:flex">
+            <BaseButton size="sm" variant="text" @click.stop.prevent="emit('add')">
+              <IconLayoutDashboard :size="13" aria-hidden="true" />
+              Add to dashboard
+            </BaseButton>
+          </div>
         </div>
       </template>
     </BaseStatCard>

@@ -27,7 +27,7 @@ import { findNcByTitle, sqlValue, sqlRow, waitForSqlValue } from '../fixtures/db
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J3 · Approve & Close — all 5 gates, then e-signed close', () => {
-  test('every gate blocks in turn with its specific reason; satisfying all closes the NC', async ({
+  test('every gate blocks in turn with its specific reason; satisfying all closes the NC', { tag: ['@validation', '@URS-NCR-06', '@URS-NCR-07', '@URS-NCR-08'] }, async ({
     page,
     browser,
   }) => {

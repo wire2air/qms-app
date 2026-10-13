@@ -7,6 +7,16 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Applies only where the pointer can actually hover.
+ *
+ * `opacity-0` + `group-hover:opacity-100` is the usual reveal-on-hover recipe,
+ * and on a touch screen it strands the controls: hover never fires, so they
+ * stay at opacity 0 — yet opacity does not remove an element from the hit-test
+ * tree, so they remain tappable. Invisible-but-tappable is the worst of both,
+ * especially for a destructive action. Pair the hidden state with this variant
+ * (`tw:hover-hover:opacity-0`) so touch devices simply show the controls. */
+@custom-variant hover-hover (@media (hover: hover));
+
 @theme {
   /* ==============================================
    * Font family — the ONE app typeface. No exceptions on screen.

@@ -117,7 +117,7 @@ test.describe('USER-J8 · onboarding end to end', () => {
   test.beforeAll(() => purge())
   test.afterAll(() => purge())
 
-  test('create with an invite, accept the emailed link, and land ACTIVE', async ({ page }) => {
+  test('create with an invite, accept the emailed link, and land ACTIVE', { tag: '@smoke' }, async ({ page }) => {
     // ── 1. create, through the real dialog ────────────────────────────────
     await page.goto('/users', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Users' }).first()).toBeVisible({

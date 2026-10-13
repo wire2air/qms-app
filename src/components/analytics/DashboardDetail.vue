@@ -20,7 +20,7 @@
  * produces an error — not because hiding it protects anything.
  */
 import { canEditDashboard, reindexPositions } from '@/utils/analyticsDashboardAccess.js'
-import { currentSession } from '@/utils/currentSession'
+import { currentSession, isAllowed } from '@/utils/currentSession'
 import {
   IconChartBar,
   IconChevronLeft,
@@ -30,6 +30,8 @@ import {
   IconPencil,
   IconTrash,
   IconUsers,
+  IconStar,
+  IconStarFilled,
 } from '@tabler/icons-vue'
 
 const route = useRoute()
@@ -84,10 +86,12 @@ function widgetLabel(w) {
   return w?.title?.trim() || metricsByKey.value[w?.metricKey]?.name || 'Widget'
 }
 
+const { isStarred, toggleStar } = useStarredDashboards()
+
 const viewer = computed(() => ({
   userId: currentSession.value?.id ?? null,
   // The server is authoritative; this only decides which buttons to draw.
-  canManage: !!currentSession.value?.permissions?.includes?.('reports_dashboards:manage'),
+  canManage: isAllowed(['analytics_dashboards:manage']),
 }))
 
 const canEdit = computed(() => canEditDashboard(dashboard.value, viewer.value))
@@ -114,14 +118,19 @@ function editWidget(w) {
 const nextPosition = computed(() => (widgets.value?.length ?? 0))
 
 // ── delete ──────────────────────────────────────────────────────────────────
+// Returns a truthy marker so the caller can tell success from useLiveMutation's
+// swallowed failure, which resolves as `undefined` rather than throwing
+// (useLiveQuery.js:161-176). Without it a refused delete still toasted
+// "Widget removed" over a tile that was still on the board.
 const removeWidget = useLiveMutation(async (db, id) => {
   const w = await db.AnalyticsWidget.findByPk(id)
   if (w) await w.delete()
+  return true
 })
 
 async function confirmRemove(w) {
   try {
-    await removeWidget(w.id)
+    if (!(await removeWidget(w.id))) return
     toast.success('Widget removed')
   } catch (err) {
     toast.error(err?.message || 'Could not remove the widget')
@@ -233,6 +242,28 @@ function questionOf(w) {
       <template #actions>
         <DashboardVisibilityBadgeById v-if="dashboard" :visibilityId="dashboard.visibility" />
         <!--
+          Star is available to ANY reader, not gated on canEdit: pinning a board
+          to your own home page is a preference about your own screen, not a
+          change to the board. A read-only viewer of a shared dashboard is
+          exactly the person most likely to want it pinned.
+        -->
+        <BaseButton
+          v-if="dashboard"
+          size="sm"
+          variant="outline"
+          :aria-pressed="isStarred(dashboard.id)"
+          @click="toggleStar(dashboard.id)"
+        >
+          <IconStarFilled
+            v-if="isStarred(dashboard.id)"
+            :size="14"
+            class="tw:text-amber-500"
+            aria-hidden="true"
+          />
+          <IconStar v-else :size="14" aria-hidden="true" />
+          {{ isStarred(dashboard.id) ? 'Starred' : 'Star' }}
+        </BaseButton>
+        <!--
           The badge STAYS alongside this button rather than becoming the button.
           A badge that is sometimes clickable and sometimes not is the worse
           affordance: readers who cannot edit still need to see the state at a
@@ -307,11 +338,21 @@ function questionOf(w) {
           class="tw:relative tw:group"
           :style="{ gridColumn: `span ${spanOf(w)} / span ${spanOf(w)}` }"
         >
+          <!--
+            Hidden-until-hover ONLY where hover exists. `tw:opacity-0` on its own
+            is a hover-device assumption: a touch screen never fires hover, so
+            the whole toolbar stayed invisible — while remaining in the hit-test
+            tree, because opacity does not remove an element from it. That left
+            five invisible-but-tappable controls, one of them Remove, which
+            deletes with no confirm step. `tw:hover-hover:` scopes the hiding to
+            `@media (hover: hover)`, so pointer devices keep the clean tile and
+            touch devices get a permanently visible toolbar.
+          -->
           <div
             v-if="canEdit"
             class="tw:absolute tw:right-2 tw:top-2 tw:z-10 tw:flex tw:items-center tw:gap-1
-                   tw:opacity-0 tw:group-hover:opacity-100 tw:focus-within:opacity-100
-                   tw:transition-opacity"
+                   tw:hover-hover:opacity-0 tw:group-hover:opacity-100 tw:focus-within:opacity-100
+                   tw:transition-opacity tw:motion-reduce:transition-none"
           >
             <button
               data-drag-handle

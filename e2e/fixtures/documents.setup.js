@@ -45,8 +45,9 @@ setup('purge documents from previous runs', async () => {
   //                      users_on_documents / *_document_links   CASCADE
   //   documents        → document_reviews                        NO ACTION  ← explicit
   //   document_versions→ document_links / _sections / supplier_documents CASCADE
-  //   task_instances   → signatures                              RESTRICT   ← explicit, first
-  //   task_instances   → document_reviews                        NO ACTION  ← explicit, first
+  //   task_instances   → signatures                              RESTRICT   ← explicit
+  //   task_instances   → document_reviews                        NO ACTION  ← explicit
+  //   signatures       → document_reviews.signature_id           NO ACTION  ← explicit, FIRST
   //
   // task_instances carry no FK to documents at all — the link is polymorphic
   // (entity_type + entity_id), so nothing cascades and they must be matched by
@@ -60,13 +61,31 @@ setup('purge documents from previous runs', async () => {
             AND ti.entity_id IN (SELECT dv.id FROM document_versions dv
                                   WHERE dv.document_id IN (SELECT id FROM documents WHERE ${MINE})))`
 
-  // Signatures first and explicitly. `signatures_task_instance_id_fkey` is
-  // ON DELETE RESTRICT by design — a Part 11 signature must not disappear
-  // because someone deleted what it signed. That guarantee is worth more than
-  // this cleanup, so the purge works WITH it rather than around it.
-  sql(`DELETE FROM signatures WHERE task_instance_id IN (${taskIds});`)
+  // `document_reviews` FIRST, and this ordering is load-bearing in BOTH
+  // directions, which is why the original (signatures first) deadlocked the
+  // whole project on 2026-09-23 with
+  //   "update or delete on table "signatures" violates foreign key constraint
+  //    document_reviews_signature_id_fkey on table document_reviews".
+  //
+  // A review points at a signature (`document_reviews.signature_id →
+  // signatures.id`) AND at the task (`document_reviews.task_instance_id →
+  // task_instances.id`); the header above listed only the second. So a review
+  // row has to go before its signature, and both have to go before the task.
+  // Verified against pg_constraint, not inferred:
+  //   document_reviews_signature_id_fkey      → signatures(id)
+  //   document_reviews_task_instance_id_fkey  → task_instances(id)
+  //   signatures_task_instance_id_fkey        → task_instances(id) RESTRICT
+  //
+  // `signatures_task_instance_id_fkey` remains ON DELETE RESTRICT by design — a
+  // Part 11 signature must not disappear because someone deleted what it
+  // signed. That guarantee is worth more than this cleanup, so the purge still
+  // works WITH it: it deletes the signature rows explicitly, it does not
+  // cascade them away.
   sql(`DELETE FROM document_reviews WHERE task_instance_id IN (${taskIds});`)
   sql(`DELETE FROM document_reviews WHERE document_id IN (SELECT id FROM documents WHERE ${MINE});`)
+  // Any review still holding one of these signatures is now gone, so the
+  // signature rows are free. Scoped the same way as the reviews above.
+  sql(`DELETE FROM signatures WHERE task_instance_id IN (${taskIds});`)
   sql(`DELETE FROM task_instances WHERE id IN (${taskIds});`)
 
   // Hard delete, not soft: leaving soft-deleted rows behind would defeat the

@@ -142,7 +142,13 @@ function initAutoUpdate() {
 watch(popoverPanelRef, (panel) => {
   const el = panel?.$el ?? panel
   if (el) {
-    nextTick(() => el.focus?.())
+    // Don't steal focus from content that already placed it inside the panel
+    // (BaseSelect focuses its search input on mount) — pulling it back onto
+    // the bare panel div leaves the keyboard talking to nothing.
+    nextTick(() => {
+      if (el.contains?.(document.activeElement)) return
+      el.focus?.()
+    })
   }
   if (panel) {
     nextTick(() => {

@@ -1,22 +1,55 @@
 <script setup>
-import { IconCirclePlus, IconTrash, IconAlertCircle } from '@tabler/icons-vue'
+import { defaultTrainingConfig } from './documentTrainingConfig.js'
+import {
+  IconCirclePlus,
+  IconTrash,
+  IconAlertCircle,
+  IconExternalLink,
+  IconHelpCircle,
+} from '@tabler/icons-vue'
+import { useTooltipData } from '@shared/composables/useTooltipData.js'
+import { getCompanyPath } from '@/utils/routeHelpers'
+import { isAllowed } from '@/utils/currentSession.js'
 import { commonSupervisorId } from '@/utils/trainingManager'
 
+/**
+ * Show the configuration without letting it be changed.
+ *
+ * Training config lives on the VERSION, and this editor used to be the only
+ * thing that rendered it — gated on the version still being editable. So the
+ * moment a document was submitted for approval the quiz disappeared, and the
+ * training tab fell through to "No training has been configured for this
+ * document yet." for everyone, author included (reported 2026-09-27).
+ *
+ * The approver is precisely the person who needs to read the questions before
+ * approving them, so the answer is a read-only rendering rather than a
+ * summary: what they review is then literally what was authored, with no
+ * second presentation to drift.
+ */
+defineProps({
+  readonly: { type: Boolean, default: false },
+})
+
+// The third copy of this shape, now the same one. A `default` on a model that
+// every caller passes is a fallback, not a policy — enabled:false so an
+// unbound instance never reads as opted in.
 const config = defineModel({
   type: Object,
-  default: () => ({
-    enabled: false,
-    autoLaunch: true,
-    managerId: null,
-    requireManagerVerification: true,
-    completionDueDays: 7,
-    passingScore: 80,
-    maxAttempts: 1,
-    curriculumIds: [],
-    userIds: [],
-    assessment: [],
-  }),
+  default: () => defaultTrainingConfig(false),
 })
+
+// Training cannot run without someone accountable for it, so an enabled
+// config with no manager is an error state rather than a hint.
+const managerMissing = computed(() => config.value.enabled && !config.value.managerId)
+
+// Section headings are not form labels, so this reads the registry directly
+// rather than through BaseLabel — same copy, BaseRailCard's presentation.
+const { getFromTooltipData } = useTooltipData({})
+const assessmentHelp = computed(() => getFromTooltipData('training.assessment', 'tooltip'))
+
+// Same gate the /training-curriculum route uses — offering a link the router
+// will bounce them off is worse than offering nothing.
+const canManageCurricula = computed(() => isAllowed(['training:read']))
 
 // The training audience: users mapped to the selected curricula (via roles) plus
 // any directly-added users.
@@ -116,19 +149,31 @@ const hasAssessment = computed({
 
 <template>
   <div class="tw:flex tw:flex-col tw:gap-5">
-    <!-- The enable toggle now lives on the Properties tab. When training is off,
-         point the author there; otherwise show the audience + assessment setup. -->
-    <div
-      v-if="!config.enabled"
-      class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5"
-    >
-      <div class="tw:flex tw:items-start tw:gap-3">
-        <IconAlertCircle :size="18" class="tw:text-secondary tw:shrink-0 tw:mt-0.5" />
-        <p class="tw:text-sm tw:text-secondary">
-          Training is disabled. Turn on
-          <span class="tw:font-medium tw:text-on-sidebar">Enable training for this document</span>
-          on the Properties tab to set the audience and assessment.
-        </p>
+    <!-- The toggle lives HERE, not only on Properties.
+         It used to say "turn it on from the Properties tab", which is a
+         dead-end on the document DETAIL page: there is no Properties tab
+         there, only a Properties rail, and until 2026-09-20 no toggle at all.
+         An author who turned training off at the submit-for-review prompt was
+         then looking at a screen telling them to use a tab that does not
+         exist. A control is a better answer than a pointer to one. -->
+    <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5">
+      <div class="tw:flex tw:items-center tw:gap-3">
+        <IconAlertCircle v-if="!config.enabled" :size="18" class="tw:text-secondary tw:shrink-0" />
+        <div class="tw:flex-1 tw:min-w-0">
+          <p class="tw:text-sm tw:font-medium tw:text-on-sidebar">Training for this version</p>
+          <p class="tw:text-xs tw:text-secondary">
+            {{
+              config.enabled
+                ? 'Readers are assigned training when the document becomes effective.'
+                : 'Turn on to choose who must be trained and add assessment questions.'
+            }}
+          </p>
+        </div>
+        <BaseSwitch
+          v-model="config.enabled"
+          label="Enable training for this version"
+          :disabled="readonly"
+        />
       </div>
     </div>
 
@@ -141,15 +186,36 @@ const hasAssessment = computed({
             <BaseText as="h4" weight="bold" class="tw:mb-3">Who needs this training</BaseText>
             <div class="tw:space-y-4">
               <div>
-                <p
-                  class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+                <!-- "Curriculum" means nothing to someone meeting it here for
+                     the first time, and the sentence that used to sit under
+                     the picker explained the EFFECT without explaining the
+                     THING. The article does that properly, opened inline so
+                     the author does not lose a half-filled form; the manage
+                     link is for when the answer is "there isn't one yet".
+                     Inline prose stays out of it — see the tooltip/help
+                     preference, 2026-09-20. -->
+                <div class="tw:flex tw:items-center tw:gap-1.5 tw:mb-1">
+                  <p
+                    class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary"
+                  >
+                    Curriculum
+                  </p>
+                  <HelpButton slug="KB/training/training-curriculum" :size="14" />
+                </div>
+                <CurriculumSelectMenu
+                  v-model="config.curriculumIds"
+                  :multiple="true"
+                  :disabled="readonly"
+                />
+                <RouterLink
+                  v-if="canManageCurricula"
+                  :to="getCompanyPath('/training-curriculum')"
+                  target="_blank"
+                  class="tw:inline-flex tw:items-center tw:gap-1 tw:text-caption tw:text-primary tw:hover:underline tw:mt-1"
                 >
-                  Curriculum
-                </p>
-                <CurriculumSelectMenu v-model="config.curriculumIds" :multiple="true" />
-                <p class="tw:text-caption tw:text-secondary tw:mt-1">
-                  Everyone whose role is mapped to the selected curriculum(s) gets this training.
-                </p>
+                  Manage curricula
+                  <IconExternalLink :size="12" />
+                </RouterLink>
               </div>
               <div>
                 <p
@@ -157,7 +223,7 @@ const hasAssessment = computed({
                 >
                   Specific Users
                 </p>
-                <UserSelectMenu v-model="config.userIds" :multiple="true" />
+                <UserSelectMenu v-model="config.userIds" :multiple="true" :disabled="readonly" />
               </div>
             </div>
           </div>
@@ -165,14 +231,21 @@ const hasAssessment = computed({
           <!-- Assessment -->
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5">
             <div class="tw:flex tw:items-start tw:justify-between tw:gap-4 tw:mb-4">
-              <div>
+              <div class="tw:flex tw:items-center tw:gap-1.5">
                 <BaseText as="h4" weight="bold">Assessment</BaseText>
-                <p class="tw:text-xs tw:text-secondary tw:mt-1">
-                  Quiz the trainee on the document content. Leave disabled for read-and-acknowledge
-                  only.
-                </p>
+                <BaseTooltip :content="assessmentHelp">
+                  <span
+                    class="tw:inline-flex tw:cursor-help tw:text-secondary tw:hover:text-on-main"
+                  >
+                    <IconHelpCircle :size="14" aria-hidden="true" />
+                  </span>
+                </BaseTooltip>
               </div>
-              <BaseSwitch v-model="hasAssessment" />
+              <BaseSwitch
+                v-model="hasAssessment"
+                label="Add an assessment the trainee must pass"
+                :disabled="readonly"
+              />
             </div>
 
             <div v-if="hasAssessment" class="tw:flex tw:flex-col tw:gap-3">
@@ -189,8 +262,14 @@ const hasAssessment = computed({
                     class="tw:w-6 tw:h-6 tw:rounded-full tw:bg-gray-100 tw:text-gray-600 tw:text-xs tw:font-bold tw:flex tw:items-center tw:justify-center tw:shrink-0 tw:mt-1"
                     >{{ qIdx + 1 }}</span
                   >
-                  <BaseTextInput v-model="q.text" placeholder="Question text" class="tw:flex-1" />
+                  <BaseTextInput
+                    v-model="q.text"
+                    placeholder="Question text"
+                    class="tw:flex-1"
+                    :disabled="readonly"
+                  />
                   <button
+                    v-if="!readonly"
                     class="tw:p-1 tw:text-secondary tw:hover:text-red-600"
                     @click="removeQuestion(qIdx)"
                   >
@@ -212,6 +291,7 @@ const hasAssessment = computed({
                         ? 'tw:bg-primary tw:text-white'
                         : 'tw:bg-gray-100 tw:text-secondary'
                     "
+                    :disabled="readonly"
                     @click="q.type = 'single'"
                   >
                     Single Choice
@@ -223,6 +303,7 @@ const hasAssessment = computed({
                         ? 'tw:bg-primary tw:text-white'
                         : 'tw:bg-gray-100 tw:text-secondary'
                     "
+                    :disabled="readonly"
                     @click="q.type = 'multiple'"
                   >
                     Multiple Choice
@@ -244,11 +325,17 @@ const hasAssessment = computed({
                     <input
                       :type="q.type === 'single' ? 'radio' : 'checkbox'"
                       :checked="opt.isCorrect"
+                      :disabled="readonly"
                       @change="setCorrect(q, opt.id)"
                     />
-                    <BaseTextInput v-model="opt.text" placeholder="Option text" class="tw:flex-1" />
+                    <BaseTextInput
+                      v-model="opt.text"
+                      placeholder="Option text"
+                      class="tw:flex-1"
+                      :disabled="readonly"
+                    />
                     <button
-                      v-if="q.options.length > 2"
+                      v-if="!readonly && q.options.length > 2"
                       class="tw:p-1 tw:text-secondary tw:hover:text-red-600"
                       @click="removeOption(q, opt.id)"
                     >
@@ -256,6 +343,7 @@ const hasAssessment = computed({
                     </button>
                   </div>
                   <button
+                    v-if="!readonly"
                     class="tw:text-xs tw:text-primary tw:hover:underline tw:self-start"
                     @click="addOption(q)"
                   >
@@ -265,6 +353,7 @@ const hasAssessment = computed({
               </div>
 
               <button
+                v-if="!readonly"
                 class="tw:w-full tw:py-3 tw:border-2 tw:border-dashed tw:border-divider tw:rounded-lg tw:text-secondary tw:hover:text-primary tw:hover:border-primary tw:transition-all tw:flex tw:items-center tw:justify-center tw:gap-2 tw:font-medium tw:text-sm"
                 @click="addQuestion"
               >
@@ -279,28 +368,23 @@ const hasAssessment = computed({
         <aside class="tw:flex tw:flex-col tw:gap-5">
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
             <div>
-              <p
-                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
-              >
-                Training Manager
-                <span class="tw:text-red-600 tw:font-normal">*</span>
-              </p>
-              <UserSelectMenu v-model="config.managerId" nullLabel="Select a manager" />
-              <p
-                class="tw:text-caption tw:mt-1"
-                :class="
-                  config.enabled && !config.managerId
-                    ? 'tw:text-red-600 tw:font-medium'
-                    : 'tw:text-secondary'
-                "
-              >
-                <template v-if="config.enabled && !config.managerId">
-                  Required — receives completion notifications and verifies competency.
-                </template>
-                <template v-else>
-                  Receives completion notifications and verifies competency.
-                </template>
-              </p>
+              <!-- The caption here did two jobs: it explained the role AND it
+                   was the validation message, turning red when training is on
+                   with no manager picked. Only the explanation belongs behind
+                   the `?` — an unmet requirement has to stay visible, so it
+                   moves to BaseErrorText (role="alert", announced) and renders
+                   only in the error state. -->
+              <BaseLabel dataKey="training.manager" required class="tw:mb-1">
+                Training manager
+              </BaseLabel>
+              <UserSelectMenu
+                v-model="config.managerId"
+                nullLabel="Select a manager"
+                :disabled="readonly"
+              />
+              <BaseErrorText v-if="managerMissing" class="tw:mt-1">
+                Required before this training can run.
+              </BaseErrorText>
             </div>
             <div>
               <p
@@ -308,7 +392,12 @@ const hasAssessment = computed({
               >
                 Due (days after effective)
               </p>
-              <BaseTextInput v-model.number="config.completionDueDays" type="number" min="1" />
+              <BaseTextInput
+                v-model.number="config.completionDueDays"
+                type="number"
+                min="1"
+                :disabled="readonly"
+              />
             </div>
             <div v-if="hasAssessment">
               <p
@@ -316,7 +405,13 @@ const hasAssessment = computed({
               >
                 Passing Score (%)
               </p>
-              <BaseTextInput v-model.number="config.passingScore" type="number" min="0" max="100" />
+              <BaseTextInput
+                v-model.number="config.passingScore"
+                type="number"
+                min="0"
+                max="100"
+                :disabled="readonly"
+              />
             </div>
             <div v-if="hasAssessment">
               <p
@@ -324,33 +419,41 @@ const hasAssessment = computed({
               >
                 Max Attempts
               </p>
-              <BaseTextInput v-model.number="config.maxAttempts" type="number" min="1" max="10" />
+              <BaseTextInput
+                v-model.number="config.maxAttempts"
+                type="number"
+                min="1"
+                max="10"
+                :disabled="readonly"
+              />
             </div>
           </div>
 
           <div class="tw:bg-sidebar tw:rounded-xl tw:border tw:border-divider tw:p-5 tw:space-y-4">
-            <div class="tw:flex tw:items-start tw:justify-between">
-              <div>
-                <label class="tw:text-sm tw:font-medium tw:text-on-sidebar">
-                  Manager Verification Required
-                  <span class="tw:text-xs tw:font-normal tw:text-secondary">(For compliance)</span>
-                </label>
-                <p class="tw:text-caption tw:text-secondary">
-                  If off, the training closes automatically on completion.
-                </p>
-              </div>
-              <BaseSwitch v-model="config.requireManagerVerification" />
+            <!-- Explanations live behind the `?`, not under the label: two
+                 settings with a sentence each turned this panel into prose.
+                 BaseLabel resolves the copy from the tooltip registry and
+                 renders the icon as a focusable button, so it is reachable by
+                 keyboard rather than hover-only.
+
+                 Each BaseSwitch also gets a real `label`: the prop defaults to
+                 "Toggle setting", so both switches announced identically to a
+                 screen reader and the text leaked into copied page text. -->
+            <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
+              <BaseLabel dataKey="training.managerVerification">
+                Manager verification required
+              </BaseLabel>
+              <BaseSwitch
+                v-model="config.requireManagerVerification"
+                label="Require manager verification before the training counts as complete"
+              />
             </div>
-            <div class="tw:flex tw:items-start tw:justify-between">
-              <div>
-                <label class="tw:text-sm tw:font-medium tw:text-on-sidebar"
-                  >Auto-launch on Effective</label
-                >
-                <p class="tw:text-caption tw:text-secondary">
-                  Launch the training when this document becomes effective.
-                </p>
-              </div>
-              <BaseSwitch v-model="config.autoLaunch" />
+            <div class="tw:flex tw:items-center tw:justify-between tw:gap-3">
+              <BaseLabel dataKey="training.autoLaunch">Auto-launch on effective</BaseLabel>
+              <BaseSwitch
+                v-model="config.autoLaunch"
+                label="Launch the training automatically when this document becomes effective"
+              />
             </div>
           </div>
 

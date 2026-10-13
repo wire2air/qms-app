@@ -29,7 +29,7 @@ import { waitForSqlValue } from '../fixtures/db.js'
 test.use({ storageState: AUTH.qcInspector })
 
 test.describe('PW-J11 — retain registry', () => {
-  test('create a retain sample from a lot, then move it', async ({ page }) => {
+  test('create a retain sample from a lot, then move it', { tag: ['@validation', '@URS-RET-01', '@URS-RET-03', '@URS-RET-05'] }, async ({ page }) => {
     const lot = await createLotViaRest(page, {})
 
     // ── Create ──────────────────────────────────────────────────────────────

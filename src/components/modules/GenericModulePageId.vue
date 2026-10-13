@@ -58,7 +58,23 @@ const blockingStepCount = useLiveQueryWithDeps(
 const workflowDone = computed(
   () => !!record.value?.workflowInstanceId && blockingStepCount.value === 0,
 )
-const readyToClose = computed(() => status.value === 'OPEN' && workflowDone.value)
+/**
+ * A module with NO routed sections closes straight from DRAFT.
+ *
+ * It has no workflow to run, so Start refuses to build one and the record
+ * could never leave DRAFT: both Start (isDraft && hasRoutedSections) and Close
+ * (status OPEN) were gated on a workflow that cannot exist, so the page
+ * offered no action at all and the record was a dead end. The backend takes
+ * DRAFT->OPEN->CLOSED in one transaction for this case.
+ *
+ * That is the shape a simple module wants — a training record or a visitor log
+ * filled by one person needs an owner and a seal, not an approval chain.
+ */
+const closesWithoutWorkflow = computed(() => isDraft.value && !hasRoutedSections.value)
+
+const readyToClose = computed(
+  () => closesWithoutWorkflow.value || (status.value === 'OPEN' && workflowDone.value),
+)
 
 const currentUserId = computed(() => currentSession.value?.userId)
 const isOwner = computed(() =>
@@ -276,7 +292,7 @@ async function closeRecord() {
           :loading="closing"
           @click="closeRecord"
         >
-          Close
+          {{ closesWithoutWorkflow ? 'Complete' : 'Close' }}
         </BaseButton>
       </template>
     </PageHeader>

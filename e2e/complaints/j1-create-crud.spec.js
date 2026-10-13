@@ -43,7 +43,7 @@ test.describe('CMP-J1 · internal Quality Complaint CRUD', () => {
     purgeComplaintBySubject(SUBJECT)
   })
 
-  test('create: the form persists to the `complaints` table over REST, lands OPEN, and auto-starts the QA workflow', async ({
+  test('create: the form persists to the `complaints` table over REST, lands OPEN, and auto-starts the QA workflow', { tag: '@smoke' }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, AUTH.complaintOwner)
@@ -127,7 +127,7 @@ test.describe('CMP-J1 · internal Quality Complaint CRUD', () => {
     await expect(page).toHaveURL(/\/complaints\/[0-9a-f-]{36}$/)
   })
 
-  test('read: the new complaint appears in the list without a reload — the live query', async ({
+  test('read: the new complaint appears in the list without a reload — the live query', { tag: '@smoke' }, async ({
     browser,
   }) => {
     const page = await pool.page(browser, AUTH.complaintOwner)

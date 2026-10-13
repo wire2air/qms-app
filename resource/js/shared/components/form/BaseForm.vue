@@ -4,7 +4,8 @@
  * validate() function" instead of 500 bespoke lines of toast-validation and
  * hand-rolled chrome. It owns:
  *   • the submit pipeline: validate → on failure show + focus ValidationSummary
- *     and jump to the first field; on success emit `submit`
+ *     THEN scroll to + focus the first invalid field (the user must land on
+ *     the problem, never on an unchanged screen); on success emit `submit`
  *   • a sticky footer (StickyFormFooter) with dirty / loading / server-error state
  *   • ⌘↵ / Ctrl↵ to submit
  *   • an unsaved-changes beforeunload guard while `dirty`
@@ -111,7 +112,12 @@ const isAutosave = computed(() => props.mode === 'autosave')
 const submitHint = computed(() => (props.submitHotkey && !isAutosave.value ? '⌘↵' : ''))
 
 async function focusField(id) {
-  const el = typeof document !== 'undefined' ? document.getElementById(id) : null
+  if (typeof document === 'undefined') return
+  // The control itself when it spread BaseField's slot payload; otherwise the
+  // BaseField wrapper (`<id>-field`) — a control inside a plain <div> or a
+  // composite widget never carries the id, and returning here left a summary
+  // click doing nothing (NC "Immediate containment", 2026-10-08).
+  const el = document.getElementById(id) || document.getElementById(`${id}-field`)
   if (!el) return
   // Expand any collapsed section that contains the target so the error and its
   // control are visible before we scroll/focus (C1). Opening an open section is
@@ -123,10 +129,16 @@ async function focusField(id) {
   await nextTick()
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   // The id may resolve to a non-focusable container (e.g. a SegmentedControl's
-  // radiogroup <div>). Fall through to its first focusable descendant.
-  const FOCUSABLE =
-    'input,select,textarea,button,a[href],[role="radio"][tabindex="0"],[role="radio"],[tabindex]'
-  const target = el.matches(FOCUSABLE) ? el : el.querySelector(FOCUSABLE)
+  // radiogroup <div>, or the BaseField wrapper). Fall through to its first
+  // focusable descendant — contenteditable covers rich-text editors.
+  // Input surfaces first, so an editor's toolbar <button>s (which precede its
+  // contenteditable in the DOM) or a label's help icon don't win over the
+  // control the user has to fill.
+  const INPUTS = 'input,select,textarea,[contenteditable="true"],[contenteditable=""]'
+  const FOCUSABLE = `${INPUTS},button,a[href],[role="radio"][tabindex="0"],[role="radio"],[tabindex]`
+  const target = el.matches(FOCUSABLE)
+    ? el
+    : el.querySelector(INPUTS) || el.querySelector(FOCUSABLE)
   ;(target || el).focus?.({ preventScroll: true })
 }
 
@@ -140,7 +152,15 @@ async function submit() {
   if (shownErrors.value.length) {
     emit('invalid', shownErrors.value)
     await nextTick()
+    // A failed submit must land the user ON the problem, never leave them
+    // staring at an unchanged screen. The summary is announced (role="alert")
+    // and focused for a11y, then we jump to the first offending field so its
+    // inline error is in view and its control has focus — on a long form
+    // (NC create: Immediate containment sits under the fold) the summary at
+    // the top is otherwise the only thing that moves (user report
+    // 2026-10-08). Field order = mount order, so first = topmost.
     summaryRef.value?.focus()
+    await focusField(shownErrors.value[0].id)
     return
   }
   emit('submit')

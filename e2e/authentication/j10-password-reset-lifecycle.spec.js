@@ -97,6 +97,20 @@ test.afterAll(async () => {
   expect(passwordHashOf(SUBJECT), 'the seeded hash was restored').toBe(seededHash)
 })
 
+// ── Worker-discard guard ────────────────────────────────────────────────────
+// Playwright discards a worker after a failing test and RUNS the file's pending
+// `afterAll` before continuing in a fresh one, but the `beforeAll` of an
+// already-entered describe does NOT re-run. Here teardown RESTORES the subject's seeded password hash, so a mid-file
+// discard would leave every later test authenticating against a credential the
+// file had already put back — and this file also carries `state.token` between
+// tests, which only a serial run makes meaningful.
+//
+// Serial mode makes Playwright SKIP the remainder instead of replaying it
+// against torn-down state, so one real failure stays one failure instead of
+// printing as several. See complaints/j11 for the alternative fix (arrange per
+// describe), which suits files whose tests can cheaply own their fixtures.
+test.describe.configure({ mode: 'serial' })
+
 test.describe('PW-J10 · a reset link changes the password exactly once', () => {
   test('GATE · the two public pages complete a real password reset', async ({ page }) => {
     clearResendCooldown('pwreset', SUBJECT)
@@ -229,11 +243,16 @@ test.describe('PW-J10 · a reset link changes the password exactly once', () => 
     clearLockout(SUBJECT)
   })
 
-  test('GATE · a weak password is refused by the SERVER, not just by the page', async ({ page }) => {
+  test('GATE · a weak password is refused by the SERVER, not just by the page', { tag: ['@validation', '@URS-SEC-02'] }, async ({ page }) => {
     // Mint a fresh token: the previous one is spent.
     clearResendCooldown('pwreset', SUBJECT)
     const knownMail = await mailIdsTo(SUBJECT)
     test.skip(knownMail === null, 'Mailhog is not reachable')
+
+    // Baseline taken HERE, not from `state.hashAfterReset`: this is the one
+    // @validation test in the file, so `--grep @validation` runs it without the
+    // sibling that fills `state` — and the assertion compared against null.
+    const hashBefore = passwordHashOf(SUBJECT)
 
     const forgot = await anonPost('/v1/auth/password/forgot', { email: SUBJECT })
     expect(forgot.status, 'a fresh reset was requested').toBe(200)
@@ -295,8 +314,6 @@ test.describe('PW-J10 · a reset link changes the password exactly once', () => 
     ).toBeNull()
 
     // And the credential is untouched.
-    expect(passwordHashOf(SUBJECT), 'the stored password did not change').toBe(
-      state.hashAfterReset,
-    )
+    expect(passwordHashOf(SUBJECT), 'the stored password did not change').toBe(hashBefore)
   })
 })

@@ -1,7 +1,8 @@
 <script setup>
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { IconSettings, IconHierarchy } from '@tabler/icons-vue'
+import { setTrainingEnabled, isTrainingEnabled } from './documentTrainingConfig.js'
 
 const props = defineProps({
   documentId: {
@@ -52,6 +53,37 @@ const canEdit = computed(
     document.value?.statusId !== 'ARCHIVED' &&
     !props.reviewMode &&
     ['DRAFT', 'REJECTED'].includes(currentVersion.value?.statusId),
+)
+
+/**
+ * Custodianship — who may hand the document to someone else, and who may
+ * decide who works on it.
+ *
+ * Separate from `canEdit` on purpose. canEdit is about the VERSION being a
+ * working draft: once a version is in review or effective, its content is
+ * locked and you make a new draft to change it. That is right for content and
+ * wrong for custodianship — an effective document is exactly the one most
+ * likely to outlive its owner, and gating the Owner field on version status
+ * meant that for an EFFECTIVE document nobody could change the owner at all,
+ * company owner included. The database always allowed it; the interface never
+ * offered it (reported 2026-09-28).
+ *
+ * Product decision: the owner may hand the document on at any time, and so may
+ * a company owner. Collaborators are the owner's call for the same reason —
+ * deciding who works on a document is custodianship, not content.
+ */
+const isDocOwner = computed(
+  () =>
+    !!document.value &&
+    (document.value.userId === currentSession.value?.userId ||
+      document.value.authorId === currentSession.value?.userId),
+)
+const isCompanyOwner = computed(() => currentSession.value?.isOwner === true)
+const canManageCustody = computed(
+  () =>
+    (isDocOwner.value || isCompanyOwner.value) &&
+    document.value?.statusId !== 'ARCHIVED' &&
+    !props.reviewMode,
 )
 
 /**
@@ -173,6 +205,32 @@ const debounceSaveVersion = useDebounceFn(() => {
   }
 }, 500)
 
+/**
+ * Turn training on or off for THIS version.
+ *
+ * Previously only settable when the document was created. The submit-for-review
+ * reminder offers "disable training and continue", which writes enabled:false
+ * and saves — so an author who then cancelled the submit was stuck with
+ * training off and nowhere to turn it back on (reported 2026-09-20).
+ *
+ * Written through setTrainingEnabled so everything already configured — the
+ * audience, pass mark, assessment — survives the round trip, and so a version
+ * whose trainingConfig is null (how a document created with training off is
+ * stored) gets a real config rather than a mutated null.
+ *
+ * No explicit save: the deep watcher on currentVersion below persists it, the
+ * same way every other field in this card does.
+ */
+const trainingEnabled = computed(() => isTrainingEnabled(currentVersion.value?.trainingConfig))
+
+function onTrainingEnabledChange(enabled) {
+  if (!currentVersion.value || !canEdit.value) return
+  currentVersion.value.trainingConfig = setTrainingEnabled(
+    currentVersion.value.trainingConfig,
+    enabled,
+  )
+}
+
 watch(
   document,
   () => {
@@ -215,18 +273,14 @@ watch(
              review, effectiveness, default step assignee); Author is the
              originator. Both reassignable inline when editable. -->
         <BaseDetailField label="Owner">
-          <UserSelectMenu v-if="canEdit" v-model="document.userId" :required="true" />
+          <UserSelectMenu v-if="canManageCustody" v-model="document.userId" :required="true" />
           <UserBadgeById v-else :userId="document.userId" />
         </BaseDetailField>
 
         <BaseDetailField label="Author">
-          <UserSelectMenu v-if="canEdit" v-model="document.authorId" :required="true" />
+          <UserSelectMenu v-if="canManageCustody" v-model="document.authorId" :required="true" />
           <UserBadgeById v-else-if="document.authorId" :userId="document.authorId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </BaseDetailField>
-
-        <BaseDetailField label="Status">
-          <DocumentVersionStatusBadgeById :statusId="currentVersion.statusId" />
         </BaseDetailField>
 
         <BaseDetailField label="Department">
@@ -354,12 +408,31 @@ watch(
             </p>
           </div>
         </BaseDetailField>
+
+        <!-- Training. Only settable at create time until now, which made the
+             submit-for-review reminder's "disable training and continue" a
+             one-way door: it saves immediately, so cancelling the submit left
+             the author with training off and nowhere to turn it back on.
+             BaseSwitch, not a checkbox: the field label IS the label here, so
+             the control needs no visible text of its own — which is what kept
+             the checkbox's copy from matching the rest of the rail. -->
+        <BaseDetailField label="Training" dataKey="document.trainingEnabled" layout="inline">
+          <BaseSwitch
+            v-if="canEdit"
+            :modelValue="trainingEnabled"
+            label="Require training on this version"
+            @update:modelValue="onTrainingEnabledChange"
+          />
+          <BaseText v-else variant="body" weight="medium" class="tw:text-on-main">
+            {{ trainingEnabled ? 'Required' : 'Not required' }}
+          </BaseText>
+        </BaseDetailField>
       </div>
     </BaseRailCard>
 
     <!-- Collaborators + Chat — one section right below Properties. The chat only
          appears once collaborators exist. -->
-    <DocumentsCollaborationCard :documentId="document.id" :canEdit="canEdit" />
+    <DocumentsCollaborationCard :documentId="document.id" :canEdit="canManageCustody" />
 
     <!-- Admin-defined custom fields, right after Properties. Self-hides when
          none configured. -->

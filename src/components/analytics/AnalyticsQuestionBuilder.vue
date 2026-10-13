@@ -6,6 +6,13 @@
  * Explorer is precisely this builder with the save step removed, so duplicating
  * the picker logic would guarantee the two drifted.
  *
+ * The metric builder's live preview is the third user, with `lockMetric`: the
+ * metric is the one being defined, so the picker is hidden and `metrics` holds
+ * exactly one row — a DRAFT catalog row from utils/analyticsMetricPreview.js
+ * (draftCatalogRow). Everything else is unchanged, which is the point: the
+ * preview offers the same visualisations and splits a dashboard widget will,
+ * because the same rules below decide them from a row of the same shape.
+ *
  * ── THE CATALOG IS THE CONTRACT, IN BOTH DIRECTIONS ─────────────────────────
  * The metric list is `metricCatalog` and nothing else: it is already filtered
  * server-side by permission, commercial entitlement, and whether the rollup
@@ -21,6 +28,16 @@
  * while `metric_series` accepts the declared keys ONLY. So a bar chart may be
  * split by Site and a stacked bar may not, and the control order reflects the
  * dependency rather than hiding it. `src/utils/analyticsViz.js` owns that rule.
+ *
+ * ── WHY THE METRIC PICKER OPTS OUT OF autoFill ──────────────────────────────
+ * BaseSelect auto-selects the first option when `required` is set, which is
+ * right for a field with a defensible default and wrong here: the catalog is
+ * ordered `module_id, id`, so the "default" is whichever metric sorts first
+ * alphabetically by module — on a 140-metric tenant, "Audit findings by
+ * department". That is not a suggestion, it is an accident of sort order, and
+ * it arrives with a live preview that makes it look like a decision already
+ * taken. Opting out restores the placeholder ("Choose what to measure") and
+ * the dialog's own "Pick a metric" empty state, which assumes a null metric.
  *
  * ── WHY THE PERIOD IS A SELECT AND NOT A DATE PICKER ────────────────────────
  * `period_token` must stay RELATIVE so a saved dashboard keeps meaning "the last
@@ -48,6 +65,9 @@ const props = defineProps({
   // Hide the title field where a title makes no sense (the Explorer is not
   // saving anything to name).
   showTitle: { type: Boolean, default: true },
+  // Fix the question to the single entry in `metrics` and hide the picker —
+  // for the metric builder's preview, where there is nothing else to choose.
+  lockMetric: { type: Boolean, default: false },
 })
 
 /**
@@ -63,6 +83,20 @@ function patch(next) {
 
 const metric = computed(
   () => props.metrics.find((m) => m.metricKey === question.value?.metricKey) ?? null,
+)
+
+/**
+ * With the picker hidden nothing else can choose the metric, so adopt the one
+ * offered. Runs through onMetricChange so the viz/dimension are clamped against
+ * it in the same tick — a draft row's dimensions change as the author edits the
+ * group-by, and the watch further down re-clamps from there.
+ */
+watch(
+  () => (props.lockMetric ? (props.metrics[0]?.metricKey ?? null) : null),
+  (lockedKey) => {
+    if (lockedKey && question.value?.metricKey !== lockedKey) onMetricChange(lockedKey)
+  },
+  { immediate: true },
 )
 
 // Grouped by module so a 22-metric list reads as five short ones.
@@ -201,14 +235,17 @@ function onMetricChange(metricKey) {
 <template>
   <div class="tw:flex tw:flex-col tw:gap-4">
     <BaseSelect
+      v-if="!lockMetric"
       :modelValue="question.metricKey"
       :options="metricOptions"
       optionGroup="group"
       optionDescription="description"
+      searchDescription
       label="Metric"
       :hint="metric?.description || ''"
       :loading="loading"
       :required="true"
+      :autoFill="false"
       placeholder="Choose what to measure"
       @update:modelValue="onMetricChange"
     />

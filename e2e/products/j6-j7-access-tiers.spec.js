@@ -47,7 +47,7 @@ test.afterAll(() => pool.close())
 const anchor = PRODUCTS.items.anchor
 
 test.describe('PJ-J6 · the ADMIN-tier subtree guard (green-expected)', () => {
-  test('a zero-permission user is refused the register', async ({ browser }) => {
+  test('a zero-permission user is refused the register', { tag: '@smoke' }, async ({ browser }) => {
     const page = await pool.page(browser, PRODUCTS.noAccess.auth)
     await page.goto('/products')
     await expect(page).toHaveURL(/\/no-access/, { timeout: 30_000 })

@@ -116,6 +116,16 @@ export async function completeRcaReviewStep(
   await pickMethod(page, method)
   await fillPrimaryDescription(page, description)
   await clickWhenReady(page, page.getByRole('button', { name: 'Mark Complete' }))
+  // Closing the context cancels any request still in flight, and "Mark
+  // Complete" is async ("Completing…"). Closing straight after the click left
+  // the task ASSIGNED on 2026-09-28 — the completion never reached the server.
+  // Wait for the server to record it before tearing the browser down.
+  await waitForSqlValue(
+    `SELECT count(*) FROM task_instances
+      WHERE entity_type = 'Capa' AND entity_id = ${quote(capaId)}
+        AND assigned_to = ${quote(USERS.reviewer.id)} AND completed_at IS NOT NULL`,
+    { timeoutMs: 45_000, label: 'reviewer task completed' },
+  )
   await ctx.close()
 }
 

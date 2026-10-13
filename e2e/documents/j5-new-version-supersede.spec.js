@@ -15,7 +15,7 @@ import {
 import { findDocumentByTitle, versionsOf, waitForSqlValue } from '../fixtures/db.js'
 
 test.describe('PW-J5 · new version + supersede', () => {
-  test('effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE', async ({ browser }) => {
+  test('effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE', { tag: ['@validation', '@URS-DOC-08', '@URS-DOC-09', '@URS-DOC-10'] }, async ({ browser }) => {
     test.setTimeout(600_000) // two full approval cycles + a revision; each
     // APPROVED→EFFECTIVE leg is worker-gated and can lag under full-suite load.
     const ctx = await browser.newContext({ storageState: AUTH.author })

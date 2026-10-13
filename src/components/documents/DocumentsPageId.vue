@@ -1,5 +1,6 @@
 <script setup>
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { hydrateAll } from '@syncEngine/sync/hydrateSubtree.js'
 import { isAllowed, currentSession, canUseAi } from '@/utils/currentSession.js'
 import { useDocuments } from '@/composables/useDocuments.js'
 // Bespoke header controls still need these; the toolbar buttons are now
@@ -30,6 +31,38 @@ const document = useLiveQueryWithDeps(
   },
   { models: ['Document'] },
 )
+/**
+ * Pull this document's own rows on open, regardless of the sync watermark.
+ *
+ * Delta sync fetches rows NEWER than a per-model watermark. Gaining access to
+ * a record does not touch its rows, so a reviewer added to a document already
+ * holds a watermark past every section the author wrote — and those sections
+ * are never requested again. Submitting for approval touches the document and
+ * its version (the status changes) and mints the task, so those three arrive
+ * and the document opens; the sections do not, and every one renders empty
+ * (reported 2026-09-27).
+ *
+ * Cheap: three filtered queries scoped to one document, on a page the user
+ * just chose to open. It fixes nothing that is already correct — bulkPut over
+ * identical rows is a no-op to the reader — and repairs the case the client
+ * cannot detect on its own.
+ *
+ * Not awaited: IDB already has whatever it has, the live queries below render
+ * from it immediately, and syncBus re-runs them when the rows land.
+ */
+watch(
+  () => props.id,
+  (id) => {
+    if (!id) return
+    hydrateAll([
+      ['DocumentVersion', { documentId: { equalTo: id } }],
+      ['DocumentSection', { documentId: { equalTo: id } }],
+      ['UserOnDocument', { documentId: { equalTo: id } }],
+    ])
+  },
+  { immediate: true },
+)
+
 const versions = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) => {
@@ -329,10 +362,20 @@ const isCompanyOwner = computed(() => currentSession.value?.isOwner === true)
 // superseded by a fresh version). Checking the LATEST version — not `every`
 // version — avoids the trap where prior versions auto-transition to SUPERSEDED
 // and would otherwise block new versions forever.
+//
+// ALSO owner/author only, matching the backend. The document_versions INSERT
+// policy is `(has_permission(update) OR has_permission(create)) AND
+// is_document_owner_or_author(document_id)`, and a new draft is written straight
+// through GraphQL, so that policy is the real gate. This gate omitted the
+// custodianship arm, so anyone holding document_control:create saw "Create New
+// Draft" on every document in the tenant and the save was then refused by RLS —
+// reported against a Quality Manager on someone else's document. Same shape as
+// canSubmitForReview and canDelete, which have always carried isOwnerOrAuthor.
 const canCreate = computed(() => {
   const latestApproved = ['APPROVED', 'EFFECTIVE'].includes(latestVersion.value?.statusId)
   return (
     isAllowed(['document_control:create']) &&
+    isOwnerOrAuthor.value &&
     document.value?.statusId !== 'ARCHIVED' &&
     latestApproved
   )
@@ -348,6 +391,32 @@ const canDelete = computed(() => isAllowed(['document_control:delete']) && isOwn
 // backend never applies), so a delete-permitted Document Controller could archive
 // from the list but not the detail. isAllowed() folds in the company-owner bypass.
 const canArchive = computed(() => isAllowed(['document_control:delete']))
+
+// Has this document ever been issued? A version that reached EFFECTIVE stays on
+// the record as EFFECTIVE, SUPERSEDED or ARCHIVED, so those three are the trace
+// of issuance. It decides Archive vs Discard Draft — obsoletion withdraws a
+// document from use, and a never-issued one has nothing to withdraw.
+const ISSUED_VERSION_STATUSES = ['EFFECTIVE', 'SUPERSEDED', 'ARCHIVED']
+const everEffective = computed(() =>
+  versions.value.some((v) => ISSUED_VERSION_STATUSES.includes(v.statusId)),
+)
+// ── Displayed status: the document's ARCHIVED state wins ─────────────────────
+// Obsoletion is a WHOLE-DOCUMENT event and deliberately leaves version statuses
+// alone — the version history is the record of what WAS effective, and both
+// permission arms of documents_sel require an EFFECTIVE version, so archiving
+// the versions would drop the document out of RLS (see
+// controllers/documents/archive.js).
+//
+// The consequence is that everywhere a version's status is SHOWN, the document's
+// state has to win, or an archived document reads "Effective" in the header, the
+// meta line and the version picker while the Archived banner sits right below
+// it. DocumentsTable already folded these together; the detail page did not.
+function displayStatusFor(version) {
+  if (!version) return null
+  return document.value?.statusId === 'ARCHIVED' ? 'ARCHIVED' : version.statusId
+}
+const displayStatusId = computed(() => displayStatusFor(selectedVersion.value))
+
 const canSubmitForReview = computed(
   () =>
     canEdit.value &&
@@ -489,12 +558,44 @@ async function disableTrainingAndSubmit() {
   showPreviewDialog.value = true
 }
 
-async function handleCancelReview() {
-  const result = await cancelReview(props.id, selectedVersion.value.id)
-  if (result?.error) {
-    toast.error(result.error)
-  } else {
-    toast.success('Review cancelled successfully')
+/**
+ * Cancelling a review used to fire the moment the menu item was clicked — no
+ * confirmation, no reason, and the API took no body at all. That ends a review
+ * cycle on a controlled document: the workflow is cancelled, every step goes
+ * CANCELLED and every reviewer's task is cancelled with it.
+ *
+ * Deleting a draft that nobody is reviewing has always demanded a reason AND an
+ * e-sign PIN. Ending a review people are actively working on asked for neither.
+ *
+ * A reason, not a PIN: the content survives — the version returns to DRAFT —
+ * and the actor is the owner or author on their own document.
+ */
+const showCancelReviewDialog = ref(false)
+const cancelReviewReason = ref('')
+const cancellingReview = ref(false)
+
+function handleCancelReview() {
+  cancelReviewReason.value = ''
+  showCancelReviewDialog.value = true
+}
+
+async function confirmCancelReview() {
+  if (!cancelReviewReason.value.trim() || cancellingReview.value) return
+  cancellingReview.value = true
+  try {
+    const result = await cancelReview(
+      props.id,
+      selectedVersion.value.id,
+      cancelReviewReason.value.trim(),
+    )
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
+    showCancelReviewDialog.value = false
+    toast.success('Review cancelled')
+  } finally {
+    cancellingReview.value = false
   }
 }
 
@@ -629,6 +730,8 @@ const documentActions = computed(() =>
         selectedVersion.value?.statusId === 'IN_REVIEW' &&
         !!selectedVersion.value?.workflowInstanceId,
       canViewAuditTrail: isAllowed(['audit_trail:read']),
+      everEffective: everEffective.value,
+      isOnlyVersion: versions.value.length === 1,
     },
     {
       createDraft: openNewVersionDialog,
@@ -688,12 +791,12 @@ const documentDetailConfig = computed(() =>
     </template>
 
     <template #status>
-      <DocumentVersionStatusBadgeById v-if="selectedVersion" :statusId="selectedVersion.statusId" />
+      <DocumentVersionStatusBadgeById v-if="selectedVersion" :statusId="displayStatusId" />
     </template>
 
     <template v-if="selectedVersion" #meta>
       <span class="">{{ document?.docNumber }}</span>
-      <span> · v{{ versionLabel }} ({{ selectedVersion.statusId }})</span>
+      <span> · v{{ versionLabel }} ({{ displayStatusId }})</span>
     </template>
 
     <template #actions>
@@ -736,7 +839,7 @@ const documentDetailConfig = computed(() =>
           <BasePopover placement="bottom-start">
             <template #button>
               <BaseButton variant="outline">
-                Version: {{ versionLabel }} ({{ selectedVersion?.statusId }})
+                Version: {{ versionLabel }} ({{ displayStatusId }})
                 <IconChevronDown :size="16" class="tw:ml-1" />
               </BaseButton>
             </template>
@@ -763,11 +866,19 @@ const documentDetailConfig = computed(() =>
                 >
                   Version
                   {{ version.versionLabel || `${version.versionMajor}.${version.versionMinor}` }}
+                  <!-- No version is "(Current)" once the document is
+                       withdrawn from use. -->
                   <span
-                    v-if="version.statusId === 'EFFECTIVE'"
+                    v-if="displayStatusFor(version) === 'EFFECTIVE'"
                     class="tw:text-primary tw:font-bold tw:ml-1"
                   >
                     (Current)
+                  </span>
+                  <span
+                    v-else-if="displayStatusFor(version) === 'ARCHIVED'"
+                    class="tw:text-secondary tw:ml-1"
+                  >
+                    (Archived)
                   </span>
                   <span v-else-if="version.statusId === 'DRAFT'" class="tw:text-secondary tw:ml-1">
                     (Draft)
@@ -990,6 +1101,42 @@ const documentDetailConfig = computed(() =>
     :versionId="selectedVersion?.id"
     @apply="handleAiSectionsDraft"
   />
+
+  <!-- Cancel review — capture a reason. No e-sign: the content survives (the
+       version returns to DRAFT) and the actor is the owner or author on their
+       own document. The reason is what the audit trail was missing. -->
+  <BaseDialog v-model="showCancelReviewDialog" title="Cancel review" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <div
+        class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:rounded-lg tw:bg-amber-50 tw:border tw:border-amber-200"
+      >
+        <IconAlertTriangle :size="20" class="tw:text-amber-600 tw:shrink-0 tw:mt-0.5" />
+        <div class="tw:text-sm tw:text-amber-900">
+          This returns version {{ versionLabel }} to draft and
+          <strong>cancels every reviewer's task</strong>. Their work so far is kept in the audit
+          trail, and they will see your reason. The content is not deleted.
+        </div>
+      </div>
+      <BaseField label="Reason for cancelling" required>
+        <BaseTextarea
+          v-model="cancelReviewReason"
+          :rows="3"
+          placeholder="e.g. Superseded by a newer draft; reviewer list was wrong"
+        />
+      </BaseField>
+    </div>
+    <template #footer>
+      <BaseDialogFooter
+        submitLabel="Cancel review"
+        submitVariant="danger"
+        :loading="cancellingReview"
+        :disabled="!cancelReviewReason.trim()"
+        submitTitle="A reason is required"
+        @cancel="showCancelReviewDialog = false"
+        @submit="confirmCancelReview"
+      />
+    </template>
+  </BaseDialog>
 
   <!-- Draft deletion — capture a reason, then confirm with an e-sign PIN,
            then hard-delete (see deleteDraftVersion). -->

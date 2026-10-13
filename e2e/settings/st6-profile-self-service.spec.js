@@ -125,7 +125,7 @@ test('ST-52 · a policy-violating new password is refused (422 PASSWORD_POLICY) 
   expect(passwordHash(ME.id)).toBe(hash)
 })
 
-test('ST-53 · a strong password is accepted: hash rotated, PASSWORD_CHANGED recorded, every OTHER session revoked', async ({
+test('ST-53 · a strong password is accepted: hash rotated, PASSWORD_CHANGED recorded, every OTHER session revoked', { tag: ['@journey', '@p1'] }, async ({
   browser,
 }) => {
   const since = dbNow()

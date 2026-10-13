@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "connect.sid",
+      "value": "s%3AEhQ-qr1fcs81QhdyvKfQYuxqESfFXGcu.SdrmugdN1cbRf7fwz56zjKwYdQc6zlKt1eZkkzPUm7s",
+      "domain": "nordic.localhost",
+      "path": "/",
+      "expires": 1790768291,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

@@ -11,7 +11,7 @@ const API_BASE = 'http://e2elab.localhost:4000'
 const AUTHED_ENDPOINT = '/v1/services/documentTemplates/checkPrefix/ZZTEST'
 
 test.describe('PW-J9 · permission denials & isolation', () => {
-  test('a user with no document permission is redirected to /no-access', async ({ browser }) => {
+  test('a user with no document permission is redirected to /no-access', { tag: ['@validation', '@URS-DOC-15'] }, async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: AUTH.noAccess })
     const page = await ctx.newPage()
     await page.goto('/documents')

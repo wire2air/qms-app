@@ -20,7 +20,7 @@
 // protocol-vs-product gap to record in the execution summary, not a gap to
 // paper over with a test the schema contradicts.
 import { test, expect } from '@playwright/test'
-import { AUTH } from '../fixtures/cast.js'
+import { AUTH, COMPANY_ID } from '../fixtures/cast.js'
 import { sql, sqlValue } from '../fixtures/db.js'
 import {
   expectEmptyFormRefused,
@@ -32,8 +32,19 @@ function uniqueTitle(tag) {
   return `E2E ${tag} ${Date.now()}`
 }
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function trainingCount() {
-  return Number(sqlValue(`SELECT count(*) FROM trainings`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM trainings WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 
 function findTrainingByTitle(title) {

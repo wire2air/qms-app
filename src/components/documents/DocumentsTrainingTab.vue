@@ -1,4 +1,5 @@
 <script setup>
+import { defaultTrainingConfig } from './documentTrainingConfig.js'
 import { IconSchool, IconCalendar, IconUsers, IconClock, IconSparkles } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { DateTime } from 'luxon'
@@ -168,19 +169,11 @@ watch(
 // Ensure the version has a trainingConfig object to bind against when editing
 function ensureConfig() {
   if (!selectedVersion.value) return
+  // enabled:false — materialising a config for an existing version must not
+  // silently switch training ON for it. Only the author does that, from the
+  // Properties rail or the toggle below.
   if (!selectedVersion.value.trainingConfig) {
-    selectedVersion.value.trainingConfig = {
-      enabled: false,
-      autoLaunch: true,
-      managerId: null,
-      requireManagerVerification: true,
-      completionDueDays: 7,
-      passingScore: 80,
-      maxAttempts: 1,
-      curriculumIds: [],
-      userIds: [],
-      assessment: [],
-    }
+    selectedVersion.value.trainingConfig = defaultTrainingConfig(false)
   }
 }
 watch(selectedVersion, ensureConfig, { immediate: true })
@@ -387,6 +380,28 @@ function libraryAssigneeStats(instanceId) {
       :documentTitle="document?.title ?? ''"
       @apply="handleQuestionsApply"
     />
+
+    <!-- Configured on this version, but the version is past editing.
+         Until 2026-09-27 nothing rendered here: the config block above was the
+         only thing that showed a version's training, and it is gated on the
+         version being DRAFT-ish. Submitting for approval therefore hid the
+         quiz from everyone — including the approver being asked to approve it,
+         and the author who wrote it — and the tab fell through to the "no
+         training configured" card below, which was not merely unhelpful but
+         untrue. -->
+    <div v-else-if="selectedVersion?.trainingConfig?.enabled" class="tw:flex tw:flex-col tw:gap-3">
+      <div class="tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap">
+        <BaseText variant="overline">
+          Training config for this version
+          <span class="tw:font-normal tw:text-on-sidebar tw:ml-1">
+            (v{{ selectedVersion.versionMajor }}.{{ selectedVersion.versionMinor }} ·
+            {{ selectedVersion.statusId }})
+          </span>
+        </BaseText>
+        <BaseCaption>Read-only — this version is no longer editable.</BaseCaption>
+      </div>
+      <DocumentsCreateTraining :modelValue="selectedVersion.trainingConfig" readonly />
+    </div>
 
     <!-- No training configured AND not on an editable version → empty state -->
     <BaseCard v-else-if="!training" class="tw:text-center" padding="lg">

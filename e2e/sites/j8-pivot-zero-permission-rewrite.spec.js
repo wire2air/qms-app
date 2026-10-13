@@ -1,6 +1,6 @@
 // PW-J8 — Zero-permission rewrite of the site↔log-book pivot.
 //
-// ✅ RESOLVED — `sites_on_log_books_update_rls` now carries the same
+// ✅ RESOLVED (both findings) — `sites_on_log_books_update_rls` now carries the same
 // `log_books:update` check as its INSERT and DELETE siblings, in BOTH the USING
 // and the WITH CHECK halves. The 🔴 assertions below now pass and are kept as
 // the standing regression guard: the finding is closed only for as long as they
@@ -183,17 +183,25 @@ test.describe('PW-J8 · the pivot UPDATE policy is gated on log_books:update', (
     expect(updated.trim(), 'log_books:update must still permit the legitimate edit').toBe('1')
   })
 
-  test('🔴 a repoint leaves an audit trail at all (FAILS TODAY)', async ({ browser }) => {
-    // The audit *trigger* is attached to sites_on_log_books — that much is
-    // fine. What is missing is downstream: the table has no entry in the
-    // worker's audit registry, so it falls through to DEFAULT_CONFIG, whose
-    // trackFields are ['statusId','stateId','name','title','code']. The pivot
-    // has none of those columns, hasRelevantChanges() returns false, and the
-    // handler drops the event. No row is written, and nothing logs an error.
+  test('a repoint leaves an audit trail at all (regression guard)', async ({ browser }) => {
+    // ✅ RESOLVED 2026-08-11 by commit ae766ed9 — the same change that gated
+    // the sites REST reads (PW-J11).
     //
-    // So the change of record — which site a log book is filed under — is
-    // untraceable even when performed legitimately, which is why this is
-    // asserted against the LEGITIMATE path rather than the exploit.
+    // The audit *trigger* was always attached to sites_on_log_books. What was
+    // missing was downstream: the table had no entry in the worker's audit
+    // registry, so it fell through to DEFAULT_CONFIG, whose trackFields are
+    // ['statusId','stateId','name','title','code']. The pivot has none of those
+    // columns, hasRelevantChanges() returned false, and the handler dropped the
+    // event. No row was written, and nothing logged an error.
+    //
+    // registry/modules/departmentSites.js now registers all three site pivots
+    // with trackFields ['logBookId','siteId','deletedAt'] — both FKs, because a
+    // repoint is the interesting mutation, plus deletedAt, because these tables
+    // are paranoid and an UNLINK is an UPDATE of deleted_at alone.
+    //
+    // Asserted against the LEGITIMATE path rather than the exploit: the change
+    // of record — which site a log book is filed under — must be traceable even
+    // when it is performed by someone entitled to make it.
     const before = Number(sqlValue(`SELECT count(*) FROM audit_logs WHERE entity_id = '${PIVOT}'`))
 
     const ctx = await browser.newContext({ storageState: AUTH.siteAdmin })

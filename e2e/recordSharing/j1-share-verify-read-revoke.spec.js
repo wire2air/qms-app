@@ -88,7 +88,7 @@ test.afterAll(async () => {
   await external?.ctx.close()
 })
 
-test('RS-J1a · the sharer shares the NC from its rail card — one SHARE row, owned by the sharer, 30 days', async ({ page }) => {
+test('RS-J1a · the sharer shares the NC from its rail card — one SHARE row, owned by the sharer, 30 days', { tag: '@smoke' }, async ({ page }) => {
   const card = await openNcShareCard(page)
   const input = card.getByPlaceholder(SHARE_INPUT_PLACEHOLDER)
   await input.fill(RECIPIENT)

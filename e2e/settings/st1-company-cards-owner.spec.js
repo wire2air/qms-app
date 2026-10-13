@@ -66,7 +66,7 @@ function nextNumber(current, a, b) {
   return Number(current) === a ? b : a
 }
 
-test('ST-01 · an unconfigured tenant sees the ladder that actually runs, and looking writes nothing', async ({
+test('ST-01 · an unconfigured tenant sees the ladder that actually runs, and looking writes nothing', { tag: '@smoke' }, async ({
   page,
 }) => {
   sql(`UPDATE companies SET settings = settings - 'overdueReminders' WHERE id = '${COMPANY_ID}' AND settings IS NOT NULL`)

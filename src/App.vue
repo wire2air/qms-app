@@ -186,6 +186,11 @@ onMounted(async () => {
     // loading (currentSession undefined). Now that boot has resolved it, re-run
     // the guard against the landing route so a hard reload / deep link to a
     // route the user lacks permission for is redirected to /no-access.
+    // isReady(): until the first navigation (and its lazy route chunk) has
+    // resolved, currentRoute is still START_LOCATION and this would check '/'.
+    // permissionGuard.js now re-runs on session hydration too; this stays as the
+    // post-boot backstop.
+    await router.isReady()
     const decision = evaluateRoute(router.currentRoute.value)
     if (decision !== true) await router.replace(decision)
   } catch (err) {

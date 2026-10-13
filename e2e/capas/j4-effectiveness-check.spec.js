@@ -28,7 +28,7 @@ const DELAY_TEMPLATE_STEP = 'e2ef5003-0000-4000-8000-000000000002'
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J4 · effectiveness as a deferred DELAY step', () => {
-  test('the check parks SCHEDULED, survives close, fires, and records the verdict', async ({
+  test('the check parks SCHEDULED, survives close, fires, and records the verdict', { tag: ['@validation', '@URS-CAP-06'] }, async ({
     page,
     browser,
   }) => {

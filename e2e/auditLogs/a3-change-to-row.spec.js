@@ -85,7 +85,7 @@ function auditRow(entityId, action, since) {
 }
 
 test.describe('ALD-A3 — a real change becomes a readable audit row', () => {
-  test('trigger → worker → audit_logs, with the diff the registry says it should carry', async () => {
+  test('trigger → worker → audit_logs, with the diff the registry says it should carry', { tag: ['@smoke', '@validation', '@URS-SEC-07'] }, async () => {
     const since = dbNow()
 
     // ── Hop 1+2, the CREATE. The INSERT is itself the auditable act.
@@ -152,7 +152,7 @@ test.describe('ALD-A3 — a real change becomes a readable audit row', () => {
     ).toBe(1)
   })
 
-  test('the row reaches the page, names its subject, and opens to the diff', async ({ browser }) => {
+  test('the row reaches the page, names its subject, and opens to the diff', { tag: '@smoke' }, async ({ browser }) => {
     test.setTimeout(TRAIL_SYNC_TIMEOUT + 90_000)
 
     // Written immediately before the page opens, so it is at the top of the

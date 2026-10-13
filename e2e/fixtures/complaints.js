@@ -207,7 +207,9 @@ export function purgeComplaintsById(ids) {
   if (!ids.length) return
   const list = ids.map(quote).join(', ')
   sql(`DELETE FROM complaint_records WHERE complaint_id IN (${list})`)
-  sql(`DELETE FROM workflow_instances WHERE resource_type = 'Complaint' AND resource_id IN (${list})`)
+  sql(
+    `DELETE FROM workflow_instances WHERE resource_type = 'Complaint' AND resource_id IN (${list})`,
+  )
   sql(`DELETE FROM complaints WHERE id IN (${list})`)
 }
 
@@ -241,8 +243,23 @@ export function purgeCustomerComplaintBySubject(subject) {
   sql(`DELETE FROM customer_complaints WHERE subject = ${quote(subject)}`)
 }
 
+/**
+ * Remove customer complaints MINTED by a journey (subject `E2E J…`).
+ *
+ * ⚠ J11 IS EXCLUDED, AND IT HAS TO BE.
+ * This is called from four specs' `beforeAll` (j3, j8, j9, j10). J11 seeds its
+ * fixtures ONCE in its own `beforeAll` and then reads them across ~20 tests,
+ * and its subjects also begin `E2E J11 …` — so whichever of those four ran
+ * after J11 had seeded deleted J11's rows out from under it, and six J11 tests
+ * failed with "Customer complaint not found" despite passing in isolation.
+ * That is exactly the failure mode a broad LIKE purge produces: invisible when
+ * a file runs alone, and blamed on the wrong spec when the suite runs whole.
+ *
+ * The exclusion is narrow on purpose — J11's fixtures are explicitly seeded
+ * and explicitly purged by its own `purgeJ11()`, so nothing here is leaked.
+ */
 export function purgeMintedCustomerComplaints() {
-  sql(`DELETE FROM customer_complaints WHERE subject LIKE 'E2E J%'`)
+  sql(`DELETE FROM customer_complaints WHERE subject LIKE 'E2E J%' AND subject NOT LIKE 'E2E J11 %'`)
 }
 
 /**
@@ -252,7 +269,9 @@ export function purgeMintedCustomerComplaints() {
  * its own afterAll — this helper is the one place that restore logic lives.
  */
 export function resetCustomerComplaintAssignment(id) {
-  sql(`UPDATE customer_complaints SET assigned_to = NULL, status_id = 'NEW', updated_at = NOW() WHERE id = ${quote(id)}`)
+  sql(
+    `UPDATE customer_complaints SET assigned_to = NULL, status_id = 'NEW', updated_at = NOW() WHERE id = ${quote(id)}`,
+  )
 }
 
 // ── REST ────────────────────────────────────────────────────────────────────
@@ -281,7 +300,10 @@ export async function errorMessage(res) {
  * its header and empty state before the syncEngine has put a single Complaint
  * row in IndexedDB.
  */
-export async function openComplaints(page, { anchorText = 'CMP-E2E-001', firstWaitMs = 60_000, retryWaitMs = 45_000 } = {}) {
+export async function openComplaints(
+  page,
+  { anchorText = 'CMP-E2E-001', firstWaitMs = 60_000, retryWaitMs = 45_000 } = {},
+) {
   const anchor = page.getByText(anchorText, { exact: false }).first()
   for (const budget of [firstWaitMs, retryWaitMs]) {
     await page.goto('/complaints')
@@ -300,4 +322,153 @@ export async function openComplaints(page, { anchorText = 'CMP-E2E-001', firstWa
 /** The list row for one complaint, located by subject or CMP number text. */
 export function complaintRow(page, text) {
   return page.locator('tbody tr, [role="row"]').filter({ hasText: text }).first()
+}
+
+// ── Closure approval (OQ-17 TC-17-05) ───────────────────────────────────────
+// `requireClosureApproval` is NOT a column — it lives inside the
+// `complaintSettings` object on the `companies.settings` JSONB blob
+// (api/services/customerComplaintService.js `getComplaintSettings`, which
+// reads `company.settings.complaintSettings` and is NOT cached, so a direct
+// SQL write below takes effect on the very next request). The settings suite's
+// restoreSettingsKeys() idiom applies here too: never write the whole
+// `settings` column back, only the one key, or a concurrent suite's change to
+// a different key is silently reverted.
+
+/** The whole `complaintSettings` object, or null when the tenant has none. */
+export function complaintSettings(companyId = COMPANY_ID) {
+  const raw = sqlValue(
+    `SELECT coalesce((settings -> 'complaintSettings')::text, 'null') FROM companies WHERE id = ${quote(companyId)}`,
+  )
+  return JSON.parse(raw ?? 'null')
+}
+
+/**
+ * Turn the company-wide closure-approval requirement on or off, merging into
+ * whatever `complaintSettings` already holds rather than replacing it.
+ * Returns nothing — snapshot with complaintSettings() first and hand that back
+ * to restoreComplaintSettings() in afterAll.
+ */
+export function setRequireClosureApproval(on, companyId = COMPANY_ID) {
+  sql(
+    `UPDATE companies
+        SET settings = jsonb_set(
+              coalesce(settings, '{}'::jsonb),
+              '{complaintSettings}',
+              coalesce(settings -> 'complaintSettings', '{}'::jsonb)
+                || jsonb_build_object('requireClosureApproval', ${on ? 'true' : 'false'}),
+              true)
+      WHERE id = ${quote(companyId)}`,
+  )
+}
+
+/**
+ * Put `complaintSettings` back exactly as `snapshot` found it — removing the
+ * key entirely when the tenant never had one (the E2ELAB default: the seed
+ * writes no complaintSettings at all, so leaving `{"requireClosureApproval":
+ * false}` behind would be a state change this suite made and never undid).
+ */
+export function restoreComplaintSettings(snapshot, companyId = COMPANY_ID) {
+  if (snapshot === null || snapshot === undefined) {
+    sql(
+      `UPDATE companies SET settings = settings - 'complaintSettings'
+        WHERE id = ${quote(companyId)} AND settings IS NOT NULL`,
+    )
+    return
+  }
+  sql(
+    `UPDATE companies SET settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{complaintSettings}',
+       ${quote(JSON.stringify(snapshot))}::jsonb, true) WHERE id = ${quote(companyId)}`,
+  )
+}
+
+/**
+ * One customer complaint's audit trail, newest first.
+ *
+ * NOTE WHICH WRITER THIS READS. `audit_logs` rows for CustomerComplaint are
+ * written by the CONTROLLERS (`db.AuditLog.create` in close / approveClosure /
+ * reopen) inside the same transaction as the status change — synchronous, so a
+ * REST call that returned 200 has already left its row. The table's
+ * `customer_complaints_audit_trigger` is a different thing: it enqueues a
+ * graphile_worker `audit_event` job for the sync broadcast, so trail entries
+ * for a RAW (SyncEngine / app_user) write are asynchronous and worker-
+ * dependent. Never assert on those without a waitForSqlValue barrier.
+ */
+export function complaintAuditTrail(complaintId) {
+  const out = sql(
+    `SELECT action, performed_by, coalesce(new_value_json::text, '')
+       FROM audit_logs
+      WHERE entity_type = 'CustomerComplaint' AND entity_id = ${quote(complaintId)}
+      ORDER BY performed_at DESC`,
+  )
+  if (!out) return []
+  return out.split('\n').map((line) => {
+    const [action, performedBy, newValueJson] = line.split('|')
+    return { action, performedBy, newValueJson }
+  })
+}
+
+/**
+ * Rows in the SYSTEM-WIDE signature register that name this complaint.
+ *
+ * Always zero, structurally: `signatures` carries one subject FK per regulated
+ * record type (capa_id, nc_id, change_request_id, quality_event_id, record_id,
+ * …) constrained by `signatures_subject_exactly_one_chk`, and NONE of them is
+ * a customer complaint — verified against the live column list. So the e-signed
+ * closure approval CANNOT write a ledger row even though it genuinely verifies
+ * the approver's PIN. OQ-17 TC-17-05 5b steps 5–6 call this out explicitly: the
+ * audit trail IS the signature evidence and an empty register is the EXPECTED
+ * observation. This helper exists so the spec can assert that emptiness on
+ * purpose rather than by omission.
+ */
+export function signatureRegisterRowsFor(complaintId) {
+  return Number(
+    sqlValue(
+      `SELECT count(*) FROM signatures WHERE record_id = ${quote(complaintId)}
+          OR capa_id = ${quote(complaintId)} OR nc_id = ${quote(complaintId)}
+          OR change_request_id = ${quote(complaintId)} OR quality_event_id = ${quote(complaintId)}`,
+    ),
+  )
+}
+
+/**
+ * Force one customer complaint into a given status on the TRUSTED path
+ * (a bare `sql()` runs as the Postgres superuser, which the QMSCM guard's
+ * `current_user <> 'app_user'` test treats as trusted). Used only to ARRANGE a
+ * precondition the REST surface cannot reach cheaply. Returns {ok, error} the
+ * same way fixtures/complaints.js's internal-complaint probes do, so a
+ * trigger-refused arrange reads as data rather than throwing.
+ */
+export function customerComplaintStatusTrusted(complaintId, statusId) {
+  try {
+    sql(
+      `UPDATE customer_complaints SET status_id = ${quote(statusId)} WHERE id = ${quote(complaintId)}`,
+    )
+    return { ok: true, error: '' }
+  } catch (err) {
+    return { ok: false, error: `${err.stderr ?? err.message ?? ''}` }
+  }
+}
+
+/** Attempt one status write as `app_user` — the untrusted (SyncEngine) path. */
+export function customerComplaintStatusAsAppUser(userId, complaintId, statusId) {
+  return sqlAsAppUser(
+    `UPDATE customer_complaints SET status_id = ${quote(statusId)} WHERE id = ${quote(complaintId)};`,
+    { userId, companyId: COMPANY_ID },
+  )
+}
+
+/**
+ * Edit one DESCRIPTIVE (non-status) field as `app_user` — the SyncEngine path
+ * an update-holder actually writes through, since `customer_complaints` has no
+ * REST update route at all (every mutation is an ACTION endpoint:
+ * accept/assign/reply/resolve/close/reopen). This is the probe behind OQ-17
+ * TC-17-05 5a step 3's warning: a closed complaint is NOT sealed, the
+ * `customer_complaints_upd` policy carries no status condition, and only the
+ * STATUS is refused by the QMSCM trigger.
+ */
+export function editCustomerComplaintDescriptionAsAppUser(userId, complaintId, description) {
+  return sqlAsAppUser(
+    `UPDATE customer_complaints SET description = ${quote(description)} WHERE id = ${quote(complaintId)} RETURNING id;`,
+    { userId, companyId: COMPANY_ID },
+  )
 }

@@ -121,7 +121,9 @@ Each is an Add/Edit dialog. For a couple of them, confirm:
       comment): leaving the required selection/comment empty shows an **inline** error
       (not a toast).
 - [ ] **Workflow Step Form**: submitting with required dynamic fields empty shows the
-      "fill in the required field(s)" message **inline** (not a toast).
+      "fill in the required field(s)" message **inline AND as an error toast**, and
+      scrolls the inline message into view (Mark Complete sits in the step header,
+      so on a long step the inline line alone is off screen — 2026-10-08).
 - [ ] **Display panels** (Audit Insights dashboard, Complaint Reports, workflow draft
       previews for CAPA/CR/NC, attachments/conversation/form panels, Suppliers tabs,
       Documents Training tab, Form Assignment editor): open each, confirm cards render

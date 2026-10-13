@@ -22,7 +22,7 @@ test.describe('AR-J2 — supplier portal review + upload', () => {
   test.beforeAll(() => resetFixedRequest())
   test.afterAll(() => resetFixedRequest())
 
-  test('the portal user sees their own request and uploads against it', async ({ browser }) => {
+  test('the portal user sees their own request and uploads against it', { tag: ['@validation', '@URS-SUP-05'] }, async ({ browser }) => {
     const ctx = await freshContext(browser, SUPPLIER_USER)
     const page = await ctx.newPage()
     try {

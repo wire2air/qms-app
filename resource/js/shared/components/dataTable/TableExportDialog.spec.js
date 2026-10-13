@@ -95,3 +95,65 @@ describe('TableExportDialog', () => {
     expect(w.findAll('button').some((b) => b.text() === 'Excel')).toBe(false)
   })
 })
+
+// Selective export: tick rows in the table, then export just those. The scope
+// only appears when rows are actually ticked — an empty scope is never a useful
+// thing to offer — and it becomes the DEFAULT when they are, because ticking
+// rows and then opening Export is an unambiguous statement of intent.
+describe('TableExportDialog — selected-rows scope', () => {
+  function scopeRadio(w, value) {
+    return w.find(`input[type="radio"][value="${value}"]`)
+  }
+
+  it('offers the Selected scope only when rows are ticked', async () => {
+    const none = mountOpen({ selectedRowCount: 0 })
+    await open(none)
+    expect(scopeRadio(none, 'selected').exists()).toBe(false)
+
+    const some = mountOpen({ selectedRowCount: 3 })
+    await open(some)
+    expect(scopeRadio(some, 'selected').exists()).toBe(true)
+    expect(some.text()).toContain('Selected rows (3)')
+  })
+
+  it('defaults to Selected when there is a selection', async () => {
+    const w = mountOpen({ selectedRowCount: 3 })
+    await open(w)
+    expect(scopeRadio(w, 'selected').element.checked).toBe(true)
+
+    // Defaulting to "current view" here would quietly export rows the user had
+    // just finished narrowing away from.
+    await exportBtn(w).trigger('click')
+    expect(w.emitted('confirm')[0][0].scope).toBe('selected')
+  })
+
+  it('defaults to Current view with no selection', async () => {
+    const w = mountOpen({ selectedRowCount: 0 })
+    await open(w)
+    await exportBtn(w).trigger('click')
+    expect(w.emitted('confirm')[0][0].scope).toBe('view')
+  })
+
+  it('counts the selected rows in the footer', async () => {
+    const w = mountOpen({ selectedRowCount: 3, viewCount: 5, allCount: 9 })
+    await open(w)
+    expect(w.text()).toContain('3 rows')
+
+    await scopeRadio(w, 'all').setValue()
+    expect(w.text()).toContain('9 rows')
+  })
+
+  it('re-seeds the default each time it opens', async () => {
+    // The dialog outlives any one selection — reopening after clearing must not
+    // leave a stale 'selected' scope pointing at nothing.
+    const w = mountOpen({ selectedRowCount: 2 })
+    await open(w)
+    expect(scopeRadio(w, 'selected').element.checked).toBe(true)
+
+    await w.setProps({ modelValue: false, selectedRowCount: 0 })
+    await open(w)
+    expect(scopeRadio(w, 'selected').exists()).toBe(false)
+    await exportBtn(w).trigger('click')
+    expect(w.emitted('confirm').at(-1)[0].scope).toBe('view')
+  })
+})

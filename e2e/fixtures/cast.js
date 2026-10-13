@@ -354,6 +354,54 @@ export const USERS = {
     email: 'rcaadmin@e2e.test',
     name: 'Rhoda RcaAdmin',
   },
+  // §47 (OQ Partial→Covered closure) — the ONLY holder of `ncr:delete` or
+  // `capa:delete` anywhere in this tenant. Measured before it was added: not
+  // one delete grant existed on either module, so URS-NCR-04's permanence
+  // requirement had no persona that could even attempt the refusal it asks
+  // for. Holds read on both too, because a soft delete is an UPDATE and an
+  // RLS-filtered UPDATE that matches nothing SUCCEEDS silently — without the
+  // SELECT grant "the delete touched nothing" would be indistinguishable from
+  // "the record was sealed". Deliberately NO `update`, so the DELETE arm also
+  // shows which policy actually governs a paranoid delete. No e-sign PIN.
+  recordDeleter: {
+    id: 'e2e10000-0000-4000-8000-0000000009a0',
+    email: 'recorddeleter@e2e.test',
+    name: 'Dana RecordDeleter',
+  },
+  // §49 (OQ Partial→Covered closure, cross-cutting security) — the ONLY holder
+  // of `audit_trail:export` anywhere in this tenant. Measured before it was
+  // added: the whole tenant held exactly two audit_trail rows, both `read`
+  // (E2E Auditor, E2E Role Admin), so the export affordance was reachable only
+  // through `owner`'s isOwner short-circuit — which proves the button exists
+  // and nothing about the grant.
+  //
+  // She holds `read` AS WELL, and that is not redundancy.
+  // `authz.effective_permission_strings` emits one string per granted row and
+  // adds no implied read, so an export-only session carries
+  // `audit_trail:export` without `audit_trail:read` — `canRead` in
+  // AuditLogDialog.vue would be false, the dialog would render its DENIAL
+  // state, and the Export button (inside that `v-else`) would never mount at
+  // all. The persona would fail the journey it exists for, for a reason that
+  // reads like a product defect.
+  //
+  // Deliberately a SECOND persona rather than widening `auditor`: ALD-A5
+  // asserts that Ava, who holds read, is offered NO Export CSV button —
+  // read-is-not-export is a property this suite holds on purpose, and §49 must
+  // not buy URS-SEC-09 by breaking it.
+  //
+  // She also holds `ncr:read`, and ONLY `ncr:read`, for a structural reason:
+  // `AuditLogDialog` is embedded on ten DETAIL pages and on no standalone
+  // route, so an export journey must stand on a record the persona can open.
+  // `nonconformances_sel` would otherwise return nothing for her and the run
+  // would fail on a page that never rendered, reading as "the export button is
+  // missing". It costs nothing: the denial leg of ALD-A7 is `auditor`, who
+  // holds `ncr:read` too, so the pair still isolates `audit_trail:export`. No
+  // e-sign PIN — this persona never signs anything.
+  trailExporter: {
+    id: 'e2e10000-0000-4000-8000-0000000009b0',
+    email: 'trailexporter@e2e.test',
+    name: 'Tess TrailExporter',
+  },
 }
 
 // The E2ELAB roles (e2e-seed.sql §4 and later sections), by the name the UI
@@ -377,6 +425,8 @@ export const ROLES = {
   prize: { id: 'e2e30000-0000-4000-8000-000000000059', name: 'E2E Prize Role' },
   locked: { id: 'e2e30000-0000-4000-8000-000000000058', name: 'E2E Locked Role' },
   roleAdmin: { id: 'e2e30000-0000-4000-8000-000000000050', name: 'E2E Role Admin' },
+  // §49 — audit_trail read + export, nothing else. See `trailExporter` above.
+  trailExporter: { id: 'e2e30000-0000-4000-8000-0000000009b0', name: 'E2E Trail Exporter' },
 }
 
 // The capability the prize role carries, as the pair every probe checks. Kept
@@ -443,6 +493,8 @@ export const AUTH = {
   complaintSiteUser: 'e2e/.auth/complaintSiteUser.json',
   supportAgent: 'e2e/.auth/supportAgent.json',
   rcaAdmin: 'e2e/.auth/rcaAdmin.json',
+  recordDeleter: 'e2e/.auth/recordDeleter.json',
+  trailExporter: 'e2e/.auth/trailExporter.json',
 }
 
 // Quality Events fixtures seeded by e2e-seed.sql §28.
@@ -593,7 +645,6 @@ export const INSPECTIONS_LOGS = {
       temperature: { name: 'temperature', label: 'Temperature' },
     },
   },
-  logBookTypeId: 'e2e5a000-0000-4000-8000-000000000002',
 }
 
 // Seeded fixtures the journeys rely on (E2ELAB).
@@ -805,14 +856,41 @@ export const QC = {
 // against the live stack on 2026-08-18 via metric_value() under app_user.
 export const ANALYTICS = {
   FACT_MONTH: { start: '2026-02-01', end: '2026-02-28' },
-  METRIC: 'ncr.raised',
+  // ⚠ A TENANT-OWNED metric, seeded by e2e-seed.sql §31c-i — not a shipped one.
+  // The shipped catalog (database/analytics/metrics/*.json) was removed on
+  // 2026-09-25, so there is no global metric for a fixture to borrow. The seed
+  // defines an equivalent one: count of nonconformances on created_at, split by
+  // severity, which is what keeps every figure below unchanged.
+  //
+  // The key is `custom.` + the seeded uuid with its dashes stripped, which is
+  // how analytics_compile_custom_metric derives it. It is a literal in both
+  // places on purpose: deriving it would turn a compile failure into a missing
+  // row rather than a loud one.
+  METRIC: 'custom.e2ea0500000040008000000000000001',
   // What every picker in the module actually displays. The key is never shown.
-  METRIC_LABEL: 'NCs Raised',
+  // Must match the seeded `name` EXACTLY — the picker matches on visible text.
+  METRIC_LABEL: 'NCs raised',
   DIMENSION_LABEL: 'Severity',
   TENANT_VALUE: 6, // author / auditor  — ncr:read at tenant
   SITE_VALUE: 4, // siteRoamer        — ncr:read at site (Primary)
-  // The severity mix, so a breakdown assertion does not have to re-derive it.
+  // The severity mix of the six facts, for a test that needs to know the shape
+  // of the data rather than what the API returns for it.
+  //
+  // ⚠ metric_breakdown WILL NOT SHOW THESE, AND THAT IS CORRECT.
+  // Each cell is 2, and the small-cell floor is 5 (MIN_CELL_FLOOR; enforced
+  // server-side by GREATEST(COALESCE(p_min_cell,5),5) in metric_breakdown and
+  // metric_series). A severity split of the fact month therefore returns ONE
+  // suppressed residual row — "Other (3, 3 below threshold)" — not three named
+  // cells. Asserting these numbers against a breakdown would fail, and making
+  // it pass would mean lowering a privacy control to suit a fixture.
+  //
+  // Kept because it documents the fact set, which §31b of e2e-seed.sql relies
+  // on: the mix is deliberately even so a breakdown has more than one cell and
+  // so the suppression path itself has something to suppress.
   SEVERITY_BREAKDOWN: { MINOR: 2, MAJOR: 2, CRITICAL: 2 },
+  // What a severity breakdown of the fact month ACTUALLY returns, for any test
+  // that asserts on the API rather than on the data behind it.
+  SEVERITY_BREAKDOWN_SUPPRESSED: { cells: 0, residualBelowThreshold: 3 },
   sharedDashboard: {
     id: 'e2ea2000-0000-4000-8000-000000000001',
     name: 'E2E Shared NC Board',

@@ -111,7 +111,7 @@ async function pickOptions(page, combo, names, { multiple = false } = {}) {
 }
 
 test.describe('PW-J1 · authoring a workflow template through the guided wizard', () => {
-  test('the 4-step wizard writes a mixed ACTION/APPROVAL/DELAY design graph — entirely over SyncEngine', async ({
+  test('the 4-step wizard writes a mixed ACTION/APPROVAL/DELAY design graph — entirely over SyncEngine', { tag: ['@smoke', '@validation', '@URS-WFL-04'] }, async ({
     page,
   }) => {
     test.setTimeout(180_000)

@@ -1,20 +1,5 @@
 <script setup>
-import {
-  IconBold,
-  IconItalic,
-  IconStrikethrough,
-  IconList,
-  IconListNumbers,
-  IconBlockquote,
-  IconCode,
-  IconLink,
-  IconPhoto,
-  IconCamera,
-  IconTable,
-  IconHighlight,
-  IconH3,
-  IconH4,
-} from '@tabler/icons-vue'
+import { TOOLBAR_ITEMS, visibleToolbarItems } from './editorToolbarItems.js'
 
 const props = defineProps({
   editor: {
@@ -25,34 +10,33 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  /**
+   * 'auto'      — full toolbar, narrowed to the essentials on a phone
+   * 'full'      — never narrow (a desk-bound authoring surface on a small window)
+   * 'essential' — always narrow
+   */
+  density: {
+    type: String,
+    default: 'auto',
+    validator: (v) => ['auto', 'full', 'essential'].includes(v),
+  },
 })
 
 const emit = defineEmits(['toggleLink', 'uploadImage', 'takePhoto'])
 
-const toolbarItems = [
-  { icon: IconBold, action: 'bold', label: 'Bold' },
-  { icon: IconItalic, action: 'italic', label: 'Italic' },
-  { icon: IconStrikethrough, action: 'strike', label: 'Strikethrough' },
-  { divider: true },
-  // Heading 3 / 4 — render as "N.1" / "N.1.1" under the parent section
-  // number. Used for QMS sub-sections (the most common structure rule).
-  { icon: IconH3, action: 'heading', level: 3, label: 'Sub-section (N.1)', custom: true },
-  { icon: IconH4, action: 'heading', level: 4, label: 'Sub-sub-section (N.1.1)', custom: true },
-  { divider: true },
-  { icon: IconList, action: 'bulletList', label: 'Bullet List' },
-  { icon: IconListNumbers, action: 'orderedList', label: 'Numbered List' },
-  { divider: true },
-  { icon: IconBlockquote, action: 'blockquote', label: 'Blockquote' },
-  { icon: IconCode, action: 'code', label: 'Code' },
-  { icon: IconLink, action: 'link', label: 'Link', custom: true },
-  { divider: true },
-  { icon: IconPhoto, action: 'image', label: 'Insert Image', custom: true },
-  { icon: IconCamera, action: 'camera', label: 'Take Photo', custom: true },
-  { divider: true },
-  { icon: IconTable, action: 'table', label: 'Insert Table', custom: true },
-  { divider: true },
-  { icon: IconHighlight, action: 'highlight', label: 'Highlight' },
-]
+// 640px, not the app's usual 1280px desktop breakpoint: this splits PHONE from
+// tablet, and an iPad in portrait (768px) has room for the full toolbar. The
+// sidebar's 1280px line answers a different question — whether the nav can sit
+// inline — and reusing it here would strip tools from every iPad.
+const isPhoneWidth = useMediaQuery('(max-width: 639px)')
+
+const compact = computed(() => {
+  if (props.density === 'essential') return true
+  if (props.density === 'full') return false
+  return isPhoneWidth.value
+})
+
+const toolbarItems = computed(() => visibleToolbarItems(compact.value, TOOLBAR_ITEMS))
 
 function executeCommand(item) {
   if (!props.editor) return
@@ -120,10 +104,25 @@ function isActive(item) {
 </script>
 
 <template>
+  <!-- px only, no py: the buttons already carry min-h-8, so vertical padding
+       only made the band taller without making it more legible — and a taller
+       band is what made the toolbar out-weigh the writing area. Horizontal
+       padding stays so the first button is not flush against the wrapper's
+       rounded border.
+
+       The bottom border is the ONLY separation here, deliberately: the
+       toolbar's tw:bg-sidebar is the same colour the wrapper already paints,
+       so it contributes nothing and the rule does all the work. -->
   <div
-    class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:p-1 tw:bg-sidebar tw:border-b tw:border-divider tw:rounded-t"
+    class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:px-1 tw:bg-sidebar tw:border-b tw:border-divider tw:rounded-t"
   >
-    <template v-for="(item, index) in toolbarItems" :key="index">
+    <!-- Keyed on identity, not index: the list changes when the viewport
+         crosses the phone breakpoint, and index keys would let Vue reuse a
+         button for a different tool across that swap. -->
+    <template
+      v-for="(item, index) in toolbarItems"
+      :key="item.divider ? `divider-${index}` : `${item.action}-${item.level ?? ''}`"
+    >
       <div v-if="item.divider" class="tw:w-px tw:h-5 tw:bg-divider tw:mx-0.5" />
       <button
         v-else

@@ -21,7 +21,7 @@
 //    `Delete` are not.
 import { expect } from '@playwright/test'
 import { AUTH, USERS, ESIGN_PIN, FIXTURES, AUDIT_STANDARD, COMPANY_ID } from './cast.js'
-import { sql, sqlRow, waitForSqlValue } from './db.js'
+import { sql, sqlRow, waitForSqlValue, waitForTaskCompleted } from './db.js'
 import { expectStatusEventually, clickWhenReady } from './documents.js'
 
 /** Unique, greppable audit scope string for one test run. */
@@ -467,6 +467,7 @@ export async function completeCloseOutReview(browser, auditId) {
   const page = await ctx.newPage()
   await page.goto(`/audits/instances/${auditId}`, { waitUntil: 'domcontentloaded' })
   await clickWhenReady(page, page.getByRole('button', { name: 'Mark Complete' }))
+  await waitForTaskCompleted('AuditInstance', auditId, USERS.reviewer.id)
   await ctx.close()
 }
 
@@ -493,6 +494,7 @@ export async function completeCloseOutSignOff(browser, auditId) {
     await expect(signBtn).toBeEnabled({ timeout: 3_000 })
   }).toPass({ timeout: 15_000 })
   await signBtn.click()
+  await waitForTaskCompleted('AuditInstance', auditId, USERS.approver.id)
   await ctx.close()
 }
 

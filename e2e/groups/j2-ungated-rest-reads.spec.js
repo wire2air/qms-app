@@ -43,7 +43,7 @@ test.describe('GRP-J2 · REST team reads require a grant', () => {
     }
   })
 
-  test('the refused list discloses no roster at all', async ({ browser }) => {
+  test('the refused list discloses no roster at all', { tag: '@smoke' }, async ({ browser }) => {
     // Asserted on the BODY as well as the status. A 403 whose body still
     // carried the payload would satisfy the two tests above and leak anyway —
     // an unlikely failure, but the cheap assertion is the one worth having

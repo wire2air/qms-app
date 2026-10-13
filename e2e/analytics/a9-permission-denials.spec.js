@@ -47,11 +47,18 @@ test.describe('ANL-A9 · denials', () => {
       //
       // ⚠️ EACH PROBE IS RUN ON THE ROUTE THAT WOULD ACTUALLY RENDER IT, which
       // it was not until 2026-08-28. Both assertions used to be made against
-      // /analytics alone — and AnalyticsHome has no "New report" button at any
-      // permission level (it lives on ReportsHome, and always has), so that half
-      // matched nothing whether the guard worked or not. A locator that cannot
-      // match is a green assertion guarding nothing; the fix is to ask it where
-      // the button exists.
+      // /analytics alone — and the command centre had no "New report" button at
+      // any permission level (it lives on ReportsHome, and always has), so that
+      // half matched nothing whether the guard worked or not. A locator that
+      // cannot match is a green assertion guarding nothing; the fix is to ask it
+      // where the button exists.
+      //
+      // The filter-bar probe below is now weaker than it reads: /analytics
+      // redirects to Dashboards, which carries no filter bar, so this asserts
+      // absence on a page that never had one. It is kept because the redirect
+      // itself is gated and a denied user must not land anywhere — but if the
+      // landing page ever gains a filter bar, re-point this at that surface
+      // rather than trusting the zero.
       await gotoAnalytics(page)
       await expect(
         page.getByRole('button', { name: /change the reporting period/i }),

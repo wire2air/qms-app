@@ -67,20 +67,22 @@ test.describe('PW-J11 · who can reach the audits module', () => {
     await ctx.close()
   })
 
-  test('creating an audit without audit_management:create is refused with 403', async ({
-    browser,
-  }) => {
-    const ctx = await browser.newContext({ storageState: AUTH.auditor })
-    const res = await ctx.request.post('/api/v1/services/auditInstances', {
-      data: {
-        auditStandardId: AUDIT_STANDARD.id,
-        programTypeId: 'INTERNAL',
-        scheduledDate: dateInDays(3),
-      },
-    })
-    expect(res.status(), 'auditInstances self-gates in-controller via assertPermission').toBe(403)
-    await ctx.close()
-  })
+  test(
+    'creating an audit without audit_management:create is refused with 403',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      const ctx = await browser.newContext({ storageState: AUTH.auditor })
+      const res = await ctx.request.post('/api/v1/services/auditInstances', {
+        data: {
+          auditStandardId: AUDIT_STANDARD.id,
+          programTypeId: 'INTERNAL',
+          scheduledDate: dateInDays(3),
+        },
+      })
+      expect(res.status(), 'auditInstances self-gates in-controller via assertPermission').toBe(403)
+      await ctx.close()
+    },
+  )
 
   test('an unauthenticated API call is rejected with 401', async ({ playwright }) => {
     const request = await playwright.request.newContext()

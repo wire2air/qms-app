@@ -134,6 +134,15 @@ export const LOG_BOOK_APPROVAL_MODULE = {
   key: 'LOG_BOOK_APPROVAL',
   displayName: 'log book',
   resourceType: 'LogBook',
+  // Takeover: an approval stranded on an unavailable assignee can be actioned
+  // by anyone the matrix covers, shown as "Approve on behalf of <assignee>".
+  // Omitted until 2026-09-19 because the log_books module had no `approve`
+  // verb, so mayActOnStepType could only ever answer false — see
+  // 20260919120000-log-books-approval-verbs and the server half in
+  // utils/workflowStepAccess.js (SCOPED_RESOURCE_TYPES.LogBook).
+  authzModule: 'log_books',
+  // log_books names its custodian owner_user_id, not the NC family's owner_id.
+  scopeOwnerField: 'ownerUserId',
   apiPath: 'logBooks',
   workflowVersionModuleId: 'LOG_BOOK',
 }

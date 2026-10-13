@@ -71,12 +71,13 @@ function openReassignDialog(instanceStepId) {
             displayNumber: parentNum,
           }"
         >
-          <ChangeRequestWorkflowChildSteps
+          <WorkflowChildSteps
             v-if="parentStep && parentDef?.allowChildSteps && parentStep.workflowInstanceId"
             :parentInstanceStepId="parentStep.id"
             :parentStepNumber="parentNum"
             :workflowInstanceId="parentStep.workflowInstanceId"
-            :crId="crId"
+            :module="CR_MODULE"
+            :resourceId="crId"
             :isOwner="isOwner"
             :allowChildSteps="!!parentDef?.allowChildSteps"
             class="tw:mt-4 tw:mb-4"

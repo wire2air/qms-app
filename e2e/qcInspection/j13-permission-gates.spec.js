@@ -26,17 +26,21 @@ import { sqlAsAppUser, sqlValue } from '../fixtures/db.js'
 import { createLotViaRest, createRetainSample, findRetainSample } from '../fixtures/qcInspection.js'
 
 test.describe('PW-J13 — retain-samples permission + RLS gates', () => {
-  test('MTC-24 — a zero-permission member cannot INSERT a storage location (finding #13 regression guard)', async () => {
-    // noAccess holds nothing on any QC module. Before the 2026-07-29 fix this
-    // INSERT succeeded: the policy gated USING but not WITH CHECK.
-    const res = sqlAsAppUser(
-      `INSERT INTO storage_locations (company_id, code, name)
+  test(
+    'MTC-24 — a zero-permission member cannot INSERT a storage location (finding #13 regression guard)',
+    { tag: '@smoke' },
+    async () => {
+      // noAccess holds nothing on any QC module. Before the 2026-07-29 fix this
+      // INSERT succeeded: the policy gated USING but not WITH CHECK.
+      const res = sqlAsAppUser(
+        `INSERT INTO storage_locations (company_id, code, name)
        VALUES ('${COMPANY_ID}', 'HACK-${Date.now()}', 'Should be refused');`,
-      { userId: USERS.noAccess.id, companyId: COMPANY_ID },
-    )
-    expect(res.ok, 'zero-permission INSERT must be refused by RLS').toBeFalsy()
-    expect(res.error, 'refused by the row-level security policy').toMatch(/row-level security/i)
-  })
+        { userId: USERS.noAccess.id, companyId: COMPANY_ID },
+      )
+      expect(res.ok, 'zero-permission INSERT must be refused by RLS').toBeFalsy()
+      expect(res.error, 'refused by the row-level security policy').toMatch(/row-level security/i)
+    },
+  )
 
   test('MTC-25 — finding #14 CLOSED: an update-holder cannot dispose over raw SQL, skipping the e-sign', async ({
     browser,

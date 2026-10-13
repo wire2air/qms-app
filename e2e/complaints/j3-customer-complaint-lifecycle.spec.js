@@ -42,49 +42,55 @@ test.describe('CMP-J3 · Customer Complaint (support) lifecycle', () => {
     purgeCustomerComplaintBySubject(SUBJECT)
   })
 
-  test('create: lands in `customer_complaints`, not `complaints`, gated on complaint_management:create', async ({
-    browser,
-  }) => {
-    const page = await pool.page(browser, AUTH.supportAgent)
+  test(
+    'create: lands in `customer_complaints`, not `complaints`, gated on complaint_management:create',
+    { tag: ['@validation', '@URS-CCM-01'] },
+    async ({ browser }) => {
+      const page = await pool.page(browser, AUTH.supportAgent)
 
-    const restCalls = []
-    page.on('request', (req) => {
-      if (req.url().includes('/v1/services/customerComplaints')) {
-        restCalls.push(`${req.method()} ${new URL(req.url()).pathname}`)
-      }
-    })
+      const restCalls = []
+      page.on('request', (req) => {
+        if (req.url().includes('/v1/services/customerComplaints')) {
+          restCalls.push(`${req.method()} ${new URL(req.url()).pathname}`)
+        }
+      })
 
-    const res = await restPost(page, '/customerComplaints', {
-      subject: SUBJECT,
-      description: 'Seeded by CMP-J3.',
-      customerName: 'Erin E2E Customer',
-      customerEmail: 'erin.customer.j3@e2e.test',
-    })
-    expect(res.status(), `create failed: ${await res.text()}`).toBe(201)
-    const body = await res.json()
-    expect(body.customerComplaint?.subject).toBe(SUBJECT)
+      const res = await restPost(page, '/customerComplaints', {
+        subject: SUBJECT,
+        description: 'Seeded by CMP-J3.',
+        customerName: 'Erin E2E Customer',
+        customerEmail: 'erin.customer.j3@e2e.test',
+      })
+      expect(res.status(), `create failed: ${await res.text()}`).toBe(201)
+      const body = await res.json()
+      expect(body.customerComplaint?.subject).toBe(SUBJECT)
 
-    const row = findCustomerComplaintBySubject(SUBJECT)
-    expect(row, 'the row landed in customer_complaints').not.toBeNull()
-    expect(row.complaintNumber, 'a CC- number was minted').toMatch(/^CC-/)
-    expect(
-      sqlValue(`SELECT count(*) FROM complaints WHERE subject = '${SUBJECT}'`),
-      'nothing was ALSO written to the internal complaints table',
-    ).toBe('0')
-  })
+      const row = findCustomerComplaintBySubject(SUBJECT)
+      expect(row, 'the row landed in customer_complaints').not.toBeNull()
+      expect(row.complaintNumber, 'a CC- number was minted').toMatch(/^CC-/)
+      expect(
+        sqlValue(`SELECT count(*) FROM complaints WHERE subject = '${SUBJECT}'`),
+        'nothing was ALSO written to the internal complaints table',
+      ).toBe('0')
+    },
+  )
 
-  test('accept: the agent becomes the assignee and status moves off NEW', async ({ browser }) => {
-    const page = await pool.page(browser, AUTH.supportAgent)
-    const row = findCustomerComplaintBySubject(SUBJECT)
-    expect(row, 'the create test left a row behind').not.toBeNull()
+  test(
+    'accept: the agent becomes the assignee and status moves off NEW',
+    { tag: ['@validation', '@URS-CCM-03'] },
+    async ({ browser }) => {
+      const page = await pool.page(browser, AUTH.supportAgent)
+      const row = findCustomerComplaintBySubject(SUBJECT)
+      expect(row, 'the create test left a row behind').not.toBeNull()
 
-    const res = await restPost(page, `/customerComplaints/${row.id}/accept`, {})
-    expect(res.status(), `accept failed: ${await res.text()}`).toBe(200)
+      const res = await restPost(page, `/customerComplaints/${row.id}/accept`, {})
+      expect(res.status(), `accept failed: ${await res.text()}`).toBe(200)
 
-    const after = findCustomerComplaintBySubject(SUBJECT)
-    expect(after.assignedTo, 'the accepter became the assignee').toBe(USERS.supportAgent.id)
-    expect(['IN_PROGRESS', 'ASSIGNED'], 'status moved off NEW').toContain(after.statusId)
-  })
+      const after = findCustomerComplaintBySubject(SUBJECT)
+      expect(after.assignedTo, 'the accepter became the assignee').toBe(USERS.supportAgent.id)
+      expect(['IN_PROGRESS', 'ASSIGNED'], 'status moved off NEW').toContain(after.statusId)
+    },
+  )
 
   test('assign: a second agent can be assigned, moving assignedTo without an owner grant on the new assignee', async ({
     browser,

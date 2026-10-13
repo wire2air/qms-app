@@ -67,17 +67,32 @@ function openReassignDialog(instanceStepId) {
             displayNumber: parentNum,
           }"
         >
-          <CapaWorkflowChildSteps
+          <!-- The list and its Add dialog are the shared ones; CAPA's card is
+               richer than the default (inline effectiveness wiring, verification
+               state) so it goes through the #child slot rather than forking the
+               list the way it used to. -->
+          <WorkflowChildSteps
             v-if="parentStep && (parentDef?.allowChildSteps || parentStep.workflowInstanceId)"
             :parentInstanceStepId="parentStep.id"
             :parentStepNumber="parentNum"
             :workflowInstanceId="parentStep.workflowInstanceId"
-            :capaId="capaId"
+            :module="CAPA_MODULE"
+            :resourceId="capaId"
             :isOwner="isOwner"
             :allowChildSteps="!!parentDef?.allowChildSteps && parentStep.statusId !== 'APPROVED'"
             class="tw:mt-4 tw:mb-4"
             @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
-          />
+          >
+            <template #child="{ instanceStepId, displayNumber }">
+              <CapaWorkflowChildStep
+                :instanceStepId="instanceStepId"
+                :capaId="capaId"
+                :isOwner="isOwner"
+                :displayNumber="displayNumber"
+                @reassign="(childInstanceStepId) => openReassignDialog(childInstanceStepId)"
+              />
+            </template>
+          </WorkflowChildSteps>
         </template>
       </WorkflowStepRun>
     </template>

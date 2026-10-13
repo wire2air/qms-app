@@ -50,12 +50,16 @@ test.describe('C1 · REST document read requires document_control:read', () => {
     await ctx.close()
   })
 
-  test('a user without document_control:read is rejected 403', async ({ browser }) => {
-    const ctx = await browser.newContext({ storageState: AUTH.noAccess })
-    expect((await ctx.request.get(LIST)).status()).toBe(403)
-    expect((await ctx.request.get(`${API}/v1/services/documents/${docId}`)).status()).toBe(403)
-    await ctx.close()
-  })
+  test(
+    'a user without document_control:read is rejected 403',
+    { tag: '@smoke' },
+    async ({ browser }) => {
+      const ctx = await browser.newContext({ storageState: AUTH.noAccess })
+      expect((await ctx.request.get(LIST)).status()).toBe(403)
+      expect((await ctx.request.get(`${API}/v1/services/documents/${docId}`)).status()).toBe(403)
+      await ctx.close()
+    },
+  )
 
   test('a user WITH the read grant is admitted (list + detail)', async ({ browser }) => {
     // Ava (auditor) holds document_control:read → passes the gate.

@@ -8,7 +8,88 @@ keywords: [automated testing, regression, supplier evidence, coverage, GAMP 5, t
 
 # Automated Regression Coverage
 
-**Document ID:** VAL-ARC-001 · **Version:** 1.0 · **System:** Qability QMS
+**Document ID:** VAL-ARC-001 · **Version:** 1.6 · **System:** Qability QMS
+
+> **Changes in 1.6 (2026-09-28).** Two requirements re-assessed after fixes and a new test.
+>
+> - **URS-CAP-10** moves from *Product non-conformant* to **Covered**: defect **D9** is
+>   fixed. The per-record history dialog now matches both spellings of a record type
+>   ('Capas' from the database trigger, 'Capa' from the application), so the REJECT,
+>   UPDATE and EFFECTIVENESS_VERIFIED entries appear. The same fix applies to
+>   Nonconformance and Change Request history.
+> - **URS-TRN-02** stays *Product non-conformant*, with its evidence corrected. The REST
+>   half of defect **D13** is fixed (a published training's content is refused with 409),
+>   but a raw GraphQL update still rewrites the assessment. A new red test asserts that
+>   path, and it is now the row's citation.
+> - The non-conformance table below lists the three requirements that are actually in
+>   that state. It still carried URS-CCM-02, which moved to *Gap pinned* in 1.4.
+>
+> Summary totals: Covered 96→97, Product non-conformant 4→3.
+
+> **Changes in 1.5 (2026-09-28).** **URS-DOC-07** moves from *Product non-conformant* to
+> **Covered**: defect **DOC-REL-01** is fixed. The trusted database path now refuses
+> `IN_REVIEW→EFFECTIVE` unless the version's approval workflow has completed, which is
+> exactly the state the auto-effective release path is in when it writes that edge, so
+> legitimate approvals are unchanged. The red test in
+> `e2e/documents/j20-unapproved-release-in-review.spec.js` is now green and permanent,
+> and its behaviour pin was deleted. A related edge stays open and is recorded here so it
+> is not lost: a trusted writer can still reach EFFECTIVE in two steps
+> (`IN_REVIEW→APPROVED→EFFECTIVE`) without a completed workflow (**DOC-REL-02**, not yet
+> automated). Summary totals: Covered 95→96, Product non-conformant 5→4.
+
+> **Changes in 1.4 (2026-09-24).** A correctness pass over this document, prompted by
+> the test-suite audit. No requirement changed because the product changed; three changed
+> because the document did not match the evidence.
+>
+> - **URS-DOC-07** moves from *Partial* to **Product non-conformant** (defect
+>   **DOC-REL-01**). Its note said "releasing an unapproved draft is never attempted" —
+>   that ceased to be true when `e2e/documents/j20-unapproved-release-in-review.spec.js`
+>   landed. The attempt is now made at three layers: the HTTP route and the raw-GraphQL
+>   path both refuse it, and the trusted database path permits `IN_REVIEW→EFFECTIVE`.
+>   One open edge, no shipped caller, and `REJECTED→EFFECTIVE` /
+>   `CHANGES_REQUESTED→EFFECTIVE` are both correctly refused.
+> - **URS-CCM-02** moves from *Product non-conformant* to **Gap pinned**. This document
+>   defines *Product non-conformant* as "a test asserts the behaviour the requirement
+>   demands, and the product does not meet it" — a RED test. The cited tests are green
+>   and assert only the fields that DO persist; nothing asserts the missing category,
+>   severity, product and lot columns. The finding (defect CC-D1) is unchanged and just
+>   as real; only its classification was wrong.
+> - A new section, **"Two opposite test conventions"**, is added ahead of the Summary.
+>   The suite contains 15 deliberately-RED requirement-asserting tests and 30
+>   deliberately-GREEN behaviour-pinning tests, and confusing the two destroys evidence.
+>   The rule was previously only implicit in the test sources.
+>
+> Summary totals are restated: Partial 36→35, Product non-conformant 4→5 net of both
+> moves, Gap pinned 4→5. Covered is unchanged at 95. All three tables reconcile to 163.
+
+> **Changes in 1.3 (2026-09-23).** Training Management (§5) re-assessed after three new
+> E2E suites. **URS-TRN-01** and **URS-TRN-06** move from *Partial* to **Covered**
+> (Covered rises from 93 to 95; Partial falls from 38 to 36). **URS-TRN-10 remains
+> Partial**: the version pin itself is now proven end to end, but defect **TRN-D17** —
+> the learner holds no grant that admits them to the pinned document version, so they
+> cannot read it at all — means OQ-02 TC-02-09 step 3 is **not executable as written**.
+> Defect **TRN-D18** is also recorded against URS-TRN-01: a training with no questions
+> and no material publishes, launches, and mints a signed, score-100, VERIFIED
+> competency record for a learner who answered nothing. Both defects are pinned by test.
+> Suite size is unchanged in this revision and is restated at the next full assessment.
+>
+> **Changes in 1.2 (2026-09-22).** Seven modules re-assessed after 26 new E2E suites were
+> added across them: Change Control (§8), Quality Complaints (§9), Audit Management (§10),
+> Risk Management (§11), QC Inspection (§12), Log Books (§13) and Equipment & Calibration
+> (§14). **Covered rises from 66 to 93 of 163 requirements**, and *Not automated* falls
+> from 30 to 16. Quality Complaints and Risk Management, which previously had no Covered
+> requirement at all, now carry four each. Three requirements tested for the first time
+> are recorded as **Gap pinned** rather than Covered, because the new test shows the
+> product does not meet them: URS-CMP-03, URS-RSK-05 and URS-QCI-04. Summary totals and
+> the by-module table are restated accordingly, and the suite size is refreshed to the
+> current 362 files / 1,456 tests.
+>
+> **Changes in 1.1 (2026-09-22).** Customer Complaint Management (§19) re-assessed after
+> five new E2E suites were added to that module: URS-CCM-03, -04, -05, -06 and -08 move
+> from *Not automated* / *Partial* to **Covered**, and URS-CCM-02 is reclassified as
+> **Product non-conformant** (defect CC-D1 — the fields it demands are not columns on the
+> customer complaint record). Summary totals and the by-module table are restated
+> accordingly.
 
 | Role             | Name | Title | Signature | Date |
 | ---------------- | ---- | ----- | --------- | ---- |
@@ -72,31 +153,79 @@ Three points that a reader will otherwise get wrong:
   protocol say so. Publication locks and material review in
   [OQ-02](/validation/oq/training-management) are the two that matter most.
 
+## Two opposite test conventions — read this before triaging a red build
+
+The suite contains two kinds of test that deal with an open defect, and they behave in
+**opposite** ways. Confusing them destroys evidence, so the rule is stated here rather
+than left in the source files.
+
+| Convention | Marker in the test name | Status **today** | Status **when the defect is fixed** |
+| --- | --- | --- | --- |
+| Requirement-asserting | `🔴 … (FAILS TODAY)` | **RED** — expected to fail | turns **green** |
+| Behaviour-pinning | `KNOWN DEFECT …` | **GREEN** — expected to pass | turns **red** |
+
+Measured on the suite as it stands: **14 requirement-asserting tests across 10 files are
+deliberately red**, and **29 behaviour-pinning tests across 23 files are deliberately
+green**.
+
+**Why both exist.** A requirement-asserting test says what the product *must* do, and
+fails until it does — so the requirement cannot be quietly forgotten, and the row in this
+document reads *Product non-conformant*. A behaviour-pinning test records what the product
+*currently* does, so that a later change is noticed — the row reads *Gap pinned*, and the
+test is explicitly **not** evidence the requirement is met.
+
+**The trap, and it runs both ways.**
+
+- A red `FAILS TODAY` test is **not a broken test**. "Fixing" it to pass means deleting
+  the assertion that the requirement exists. The defect then has no automated witness.
+- A `KNOWN DEFECT` test going red is **good news, not a regression**. It means the
+  defect was fixed and the pin is now obsolete. Delete the pin and replace it with the
+  positive assertion — do not restore it.
+
+Every test of either kind carries the instruction in its own message. A `KNOWN DEFECT`
+pin that fires says, in the failure output, what to do — for example *"SIG-IMMUT-01 is
+FIXED — delete this pin and replace it with the positive assertion"*. Read the failure
+text before changing any test in this suite.
+
+**One defect, one witness.** Where a finding is asserted in red in one place, other files
+that touch it pin the measurement and defer, rather than asserting the same requirement a
+second time. `DOC-REL-01` was the worked example until its fix: the red assertion lived in
+`e2e/documents/j20-unapproved-release-in-review.spec.js`, and the integration-level test
+of the same transition graph recorded what the database did and pointed at j20. Two files
+going red for one defect is how a single finding becomes two in a validation report.
+
 ## Summary
 
 Across the 163 baseline requirements in the Traceability Matrix:
 
 | Status                       | Requirements | Share |
 | ---------------------------- | ------------ | ----- |
-| Covered                      | 62           | 38%   |
-| Partial                      | 55           | 34%   |
-| Not automated                | 34           | 21%   |
+| Covered                      | 97           | 60%   |
+| Partial                      | 35           | 21%   |
+| Not automated                | 16           | 10%   |
 | N/A (not verifiable by test) | 7            | 4%    |
-| Product non-conformant       | 4            | 2%    |
-| Gap pinned                   | 1            | 1%    |
+| Product non-conformant       | 3            | 2%    |
+| Gap pinned                   | 5            | 3%    |
 | **Total**                    | **163**      |       |
 
-The suite behind these figures is **322 test files containing 1,231 tests**, organised as
-36 module suites driven against a running instance of the full application stack — the
+The suite behind these figures is **362 test files containing 1,456 tests**, organised as
+40 module suites driven against a running instance of the full application stack — the
 database, the API, the background worker, the data-sync layer and the web client — on a
 dedicated, isolated test tenant. Tests assert against the database as well as the screen,
 so a control that exists only in the interface is recorded as such rather than passing
 silently.
 
-**Read the two middle rows together.** Covered and Partial account for 72% of
+**Read the two middle rows together.** Covered and Partial account for 80% of
 requirements, but *Partial means your testing still carries the remainder*. The Note on
 every Partial row names the untested part. There is no row where a gap has been left
 unstated.
+
+**A note on the four *Gap pinned* rows.** Three of them are new, and they are new because
+the requirement was tested for the first time and the product did not meet it. A test now
+records the current behaviour so that a future change is noticed, but the row is **not**
+evidence the requirement is met: URS-CMP-03 (no justification is required to decline an
+investigation), URS-RSK-05 (a send-back plus re-score leaves two live assessments) and
+URS-QCI-04 (amending a result destroys the original). Test these three yourself.
 
 ### Where the coverage sits, by module
 
@@ -108,52 +237,52 @@ all seventeen. **Cov** = Covered, **Part** = Partial, **None** = Not automated,
 | §  | Module                                                                        | Reqs | Cov | Part | None | N/A | PNC | Gap |
 | -- | ----------------------------------------------------------------------------- | ---- | --- | ---- | ---- | --- | --- | --- |
 | 3  | Cross-cutting — electronic records and access ([OQ-16](/validation/oq/security-and-electronic-records)) | 23   | 10  | 8    | 1    | 4   | —   | —   |
-| 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 7   | 6    | 3    | —   | —   | —   |
-| 5  | Training Management ([OQ-02](/validation/oq/training-management))              | 11   | 5   | 3    | 1    | —   | 2   | —   |
+| 4  | Document Control ([OQ-01](/validation/oq/document-control))                    | 16   | 8   | 5    | 3    | —   | —   | —   |
+| 5  | Training Management ([OQ-02](/validation/oq/training-management))              | 11   | 7   | 1    | 1    | —   | 2   | —   |
 | 6  | Nonconformance ([OQ-03](/validation/oq/nonconformance))                        | 10   | 5   | 3    | 2    | —   | —   | —   |
-| 7  | CAPA ([OQ-04](/validation/oq/capa))                                           | 10   | 5   | 3    | 1    | —   | 1   | —   |
-| 8  | Change Control ([OQ-05](/validation/oq/change-control))                        | 6    | 4   | 1    | 1    | —   | —   | —   |
-| 9  | Quality Complaints ([OQ-06](/validation/oq/complaints))                        | 8    | **0** | 2  | 5    | 1   | —   | —   |
-| 10 | Audit Management ([OQ-07](/validation/oq/audit-management))                     | 8    | 5   | 2    | —    | —   | 1   | —   |
-| 11 | Risk Management ([OQ-08](/validation/oq/risk-management))                       | 6    | **0** | 4  | 1    | 1   | —   | —   |
-| 12 | QC Inspection ([OQ-09](/validation/oq/qc-inspection))                          | 12   | 3   | 8    | 1    | —   | —   | —   |
-| 13 | Log Books ([OQ-10](/validation/oq/log-books))                                  | 9    | 3   | 1    | 5    | —   | —   | —   |
-| 14 | Equipment & Calibration ([OQ-11](/validation/oq/equipment-calibration))         | 6    | 3   | 2    | 1    | —   | —   | —   |
+| 7  | CAPA ([OQ-04](/validation/oq/capa))                                           | 10   | 6   | 3    | 1    | —   | —   | —   |
+| 8  | Change Control ([OQ-05](/validation/oq/change-control))                        | 6    | 6   | —    | —    | —   | —   | —   |
+| 9  | Quality Complaints ([OQ-06](/validation/oq/complaints))                        | 8    | 4   | 2    | —    | 1   | —   | 1   |
+| 10 | Audit Management ([OQ-07](/validation/oq/audit-management))                     | 8    | 7   | —    | —    | —   | 1   | —   |
+| 11 | Risk Management ([OQ-08](/validation/oq/risk-management))                       | 6    | 4   | —    | —    | 1   | —   | 1   |
+| 12 | QC Inspection ([OQ-09](/validation/oq/qc-inspection))                          | 12   | 10  | 1    | —    | —   | —   | 1   |
+| 13 | Log Books ([OQ-10](/validation/oq/log-books))                                  | 9    | 8   | 1    | —    | —   | —   | —   |
+| 14 | Equipment & Calibration ([OQ-11](/validation/oq/equipment-calibration))         | 6    | 6   | —    | —    | —   | —   | —   |
 | 15 | Supplier Management ([OQ-12](/validation/oq/supplier-management))               | 7    | 1   | 2    | 2    | 1   | —   | 1   |
 | 16 | Forms & Workflows ([OQ-13](/validation/oq/forms-and-workflows))                 | 11   | 5   | 3    | 3    | —   | —   | —   |
 | 17 | Item Master ([OQ-14](/validation/oq/item-master))                              | 6    | 2   | 3    | 1    | —   | —   | —   |
 | 18 | Retain Samples ([OQ-15](/validation/oq/retain-samples))                         | 6    | 2   | 3    | 1    | —   | —   | —   |
-| 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 2   | 1    | 5    | —   | —   | —   |
-| **Total** |                                                                        | **163** | **62** | **55** | **34** | **7** | **4** | **1** |
+| 19 | Customer Complaint Management ([OQ-17](/validation/oq/customer-complaints))      | 8    | 6   | —    | 1    | —   | —   | 1   |
+| **Total** |                                                                        | **163** | **97** | **35** | **16** | **7** | **3** | **5** |
 
 **Three things to take from this table.**
 
-- **Two modules have no Covered requirement at all: Quality Complaints (§9) and Risk
-  Management (§11).** They are not equally weak. Quality Complaints has five *Not
-  automated* requirements — no automated evidence whatsoever — while Risk Management's
-  four are *Partial*, meaning something is asserted and the Note says what is missing. If
-  you operate either module, your own testing carries almost the entire weight, and
-  Quality Complaints carries more of it.
-- **Complaint handling is the thinnest area of the product's evidence.** Ten of the 33
-  *Not automated* requirements — nearly a third — fall in the two complaint modules (§9
-  and §19). If complaint handling is a regulatory obligation for your organisation, plan
-  for that asymmetry rather than assuming coverage is uniform.
+- **Every module now has automated evidence, and seven were rebuilt in this revision.**
+  Quality Complaints (§9) and Risk Management (§11) previously had *no* Covered
+  requirement at all; both now carry four. Change Control (§8), Equipment & Calibration
+  (§14), QC Inspection (§12), Log Books (§13) and Audit Management (§10) were raised in
+  the same pass. Where a newly written test found the product wanting, the row is marked
+  *Gap pinned* rather than Covered — see the note above the module table.
+- **The remaining thin areas are Supplier Management (§15), Item Master (§17) and Retain
+  Samples (§18).** Together they hold 5 Covered of 19 requirements and 4 of the 16 *Not
+  automated* rows. Forms & Workflows (§16) and Document Control (§4) carry three *Not
+  automated* rows each. If you rely on any of these, your own testing still carries most
+  of the weight.
 - **The cross-cutting section (§3) is the strongest, and that is deliberate.** Electronic
-  records, signatures, access control and audit-trail integrity carry 11 Covered of 23 —
+  records, signatures, access control and audit-trail integrity carry 10 Covered of 23 —
   the controls an inspector reaches for first. Its four *N/A* rows are procedural
   obligations that no test can discharge for you.
 
 ## Requirements where the product does not currently conform
 
-Four requirements have a test that asserts what the requirement demands, and the product
+Three requirements have a test that asserts what the requirement demands, and the product
 does not currently satisfy it. These are the rows to read before you plan your execution,
 because in each case the protocol's own note tells you what you will actually observe.
 
 | Req ID     | What the requirement demands                          | What the product does today                                                                             | Protocol note                                              |
 | ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| URS-TRN-02 | Publishing locks training content against edit        | The lock is in the interface only; the server applies the edit (defect D13)                             | [OQ-02](/validation/oq/training-management) TC-02-02       |
+| URS-TRN-02 | Publishing locks training content against edit        | The REST API refuses the edit, but a raw GraphQL update still rewrites a published training's assessment (defect D13) | [OQ-02](/validation/oq/training-management) TC-02-02       |
 | URS-TRN-04 | Trainees review all material before assessment        | Enforced in the browser only; a completion can be scored and signed without the material (defect D14)   | [OQ-02](/validation/oq/training-management) TC-02-04       |
-| URS-CAP-10 | The full CAPA history is available in the audit trail | The per-record dialog omits entries written under the other record-type spelling; the trail itself is complete (defect D9) | [OQ-04](/validation/oq/capa) TC-04-10                      |
 | URS-AUD-08 | Audit history is captured in the audit trail          | Writes made by the scheduled audit generator leave no trail entry                                       | [OQ-07](/validation/oq/audit-management)                   |
 
 :::warning Two of these bear directly on Part 11 signed records
@@ -163,7 +292,7 @@ the material requirement is not enforced where the record is created, that signa
 attests to something the system did not verify. **URS-TRN-02** compounds it: content can
 change after learners have signed against it.
 
-If any user or integration can reach the API directly, treat both as open gaps and control
+If any user or integration can reach the API directly (for URS-TRN-02, the GraphQL endpoint), treat both as open gaps and control
 them procedurally until the server enforces them. If your users reach the system only
 through the application, the interface controls plus the audit trail may be an acceptable
 control — but the justification must be written into your validation report, not assumed.
@@ -209,7 +338,7 @@ assessment and the wording to record.
 | URS-DOC-04 | Covered | `e2e/documents/j1-author-create-submit.spec.js` — "fill sections → submit → IN_REVIEW with doc number, workflow and task" | Document number and review workflow are assigned on submit. |
 | URS-DOC-05 | Covered | `e2e/documents/j3-reject-and-cancel.spec.js` — "reviewer rejects → REJECTED → author resubmits → IN_REVIEW" | Rejection returns the document to the author for resubmission. |
 | URS-DOC-06 | Covered | `e2e/documents/j2-review-approve-esign.spec.js` — "full approval chain with e-signature and snapshot" | Approval chain completes with e-signature and snapshot. |
-| URS-DOC-07 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | Releasing an unapproved draft is never attempted. |
+| URS-DOC-07 | Covered | `e2e/documents/j20-unapproved-release-in-review.spec.js` — "DOC-REL-01 · DATABASE (trusted) · IN_REVIEW→EFFECTIVE must be refused" | An unapproved version cannot be released on any path: the HTTP route, the raw-GraphQL path and the trusted database path all refuse it. The database admits `IN_REVIEW→EFFECTIVE` only with a completed approval workflow (defect DOC-REL-01, fixed 2026-09-28). Open, not automated: the two-step `IN_REVIEW→APPROVED→EFFECTIVE` on the trusted path (DOC-REL-02). |
 | URS-DOC-08 | Covered | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | Exactly one version stays effective after supersede. |
 | URS-DOC-09 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | A blank change reason is never refused. |
 | URS-DOC-10 | Partial | `e2e/documents/j5-new-version-supersede.spec.js` — "effective → new revision (auto-demote) → approve → supersede, one EFFECTIVE" | The revision-history view is not tested. |
@@ -224,16 +353,16 @@ assessment and the wording to record.
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
-| URS-TRN-01 | Partial | `e2e/training/j9-required-field-refusals.spec.js` — "control: the body the negative arm is derived from is accepted" | Passing score, material and assessment are not required at create. |
-| URS-TRN-02 | Product non-conformant | `e2e/training/j10-authoring-lock.spec.js` — "the assessment of a published training cannot be rewritten over REST" | Defect D13: the authoring lock is interface-only and the server applies the edit. |
+| URS-TRN-01 | Covered | `e2e/training/j14-authoring-completeness.spec.js` — "TC-02-01 · content, material AND assessment are all authorable, and all survive to the published record" | Authoring proven in full; the three optional-at-create fields are now asserted as the documented defaults they are, plus defect TRN-D18 (a question-less training publishes and grades every learner 100). |
+| URS-TRN-02 | Product non-conformant | `e2e/training/j10-authoring-lock.spec.js` — "D13 · the assessment of a published training cannot be rewritten over raw GraphQL" | Defect D13, GraphQL half: a raw GraphQL update rewrites a published training's assessment. The REST half is fixed and proven in the same file (assessment, passing score and linked material are each refused with 409; metadata edits stay allowed). |
 | URS-TRN-03 | Covered | `e2e/training/j1-learner-completes.spec.js` — "ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed" | Learner assignment through scored, signed completion is proven. |
 | URS-TRN-04 | Product non-conformant | `e2e/training/j11-material-review-gate.spec.js` — "a submit with NO material opened is refused, and writes no signed record" | Defect D14: a completion can be signed without opening the material. |
 | URS-TRN-05 | Covered | `e2e/training/j1-learner-completes.spec.js` — "a failing score does not complete the training and leaves a retry" | A failing score withholds completion and leaves a retry. |
-| URS-TRN-06 | Partial | `e2e/training/j1-learner-completes.spec.js` — "a failing score does not complete the training and leaves a retry" | Exhausting the maximum attempts and being refused is not tested. |
+| URS-TRN-06 | Covered | `e2e/training/j12-attempt-limit.spec.js` — "TC-02-06 steps 2-5 · attempts are counted, a retry is offered until the ceiling, and the attempt beyond it is REFUSED" | The ceiling is walked to exhaustion and the next attempt refused 400 at both `/submit` and `/start`, with nothing written; the UI lock-out and a fresh-cohort control are asserted alongside. |
 | URS-TRN-07 | Covered | `e2e/training/j1-learner-completes.spec.js` — "ASSIGNED → IN_PROGRESS → COMPLETED, scored and e-signed" | Completion is scored and captured with an e-signature. |
 | URS-TRN-08 | Covered | `e2e/training/j2-manager-verification.spec.js` — "manager verifies a passed learner → VERIFIED, instance COMPLETED, verification recorded" | Manager verification is recorded against the completion. |
 | URS-TRN-09 | Covered | `e2e/training/j2-manager-verification.spec.js` — "rejecting for retraining → RETRAIN_REQUIRED plus a fresh retraining instance" | Rejection raises a fresh retraining instance. |
-| URS-TRN-10 | Partial | `e2e/training/j11-material-review-gate.spec.js` — "control: the same submit SUCCEEDS once the material has been viewed" | Serving the pinned version after a new release is not tested. |
+| URS-TRN-10 | Partial | `e2e/training/j13-material-version-pinning.spec.js` — "TC-02-09 steps 1-2 · launch pins v1.0, and releasing v2.0 does not move the pin" | The pin itself is proven end to end (launch freezes the effective version; a later release does not move it; a later launch pins the new one). Defect TRN-D17: the learner cannot READ the pinned version at all — no `document_control:read`, no task on the version, no share — so TC-02-09 step 3 is not executable. |
 | URS-TRN-11 | Not automated | — | No test produces a training record or matrix report per person or training. |
 
 ## 6. Nonconformance
@@ -264,55 +393,55 @@ assessment and the wording to record.
 | URS-CAP-07 | Not automated | — | The not-effective outcome test is disabled behind a dormant feature flag. |
 | URS-CAP-08 | Covered | `e2e/capas/j5-cancel-esign.spec.js` — "owner cancels an OPEN CAPA — workflow aborted, e-signed" | Cancellation aborts the workflow and is electronically signed. |
 | URS-CAP-09 | Partial | `e2e/recordLinks/j1-related-records.spec.js` — "link, see it on the record, unlink" | Manual link proven; many-to-one linking and the raise-with-CAPA path are not. |
-| URS-CAP-10 | Product non-conformant | `e2e/capas/j12-audit-history-completeness.spec.js` — "the dialog shows the REJECT entry that explains the revert to DRAFT" | Defect D9: per-record dialog omits entries written under the other entity-type spelling. |
+| URS-CAP-10 | Covered | `e2e/capas/j12-audit-history-completeness.spec.js` — "the dialog shows the REJECT entry that explains the revert to DRAFT" | The per-record dialog shows every entry for the CAPA under both record-type spellings, including the controller-only REJECT (defect D9, fixed 2026-09-28). |
 
 ## 8. Change Control
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
 | URS-CHG-01 | Covered | `e2e/changeRequests/j10-required-field-refusals.spec.js` — "control: the body every negative arm is derived from is accepted" | Seven per-field server refusals proven. |
-| URS-CHG-02 | Not automated | — | Impact and risk assessment content, and its visibility to the approver, have no test. |
+| URS-CHG-02 | Covered | `e2e/changeRequests/j11-impact-assessment.spec.js` — "TC-05-02 steps 1–3 · the assessment an executor types is saved and reads back" | Assessment content persists, a risk record can be linked, and the approver holding the live task can read the whole assessment. |
 | URS-CHG-03 | Covered | `e2e/changeRequests/j1-create-submit-approve-close.spec.js` — "reviewer → approver → implementation completes the workflow, CR stays OPEN" | Full review, approval and implementation sequence proven. |
 | URS-CHG-04 | Covered | `e2e/changeRequests/j5-links-lineage.spec.js` — "owner adds a link, lists it, then removes it" | Linking related records and removing the link are proven. |
 | URS-CHG-05 | Covered | `e2e/changeRequests/j1-create-submit-approve-close.spec.js` — "owner closes a finished OPEN CR with e-signature → CLOSED + Part-11 ledger row" | Closure requires a signature and writes a Part-11 ledger row. |
-| URS-CHG-06 | Partial | `e2e/changeRequests/j2-cancel-esign.spec.js` — "owner cancels — workflow aborted, e-signed, reason recorded" | Individual entries asserted; the record's history view is never opened for completeness. |
+| URS-CHG-06 | Covered | `e2e/changeRequests/j12-audit-history-view.spec.js` — "TC-05-06 step 1 · a closed change request's history view holds creation, submission, approval and closure" | The history view is opened on the record; entries carry timestamps and old/new values, and no entry can be edited or deleted. Pinned: nothing writes a REJECT row under the plural entity type the view queries. |
 
 ## 9. Quality Complaints
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
 | URS-CMP-01 | Partial | `e2e/complaints/j6-required-field-refusals.spec.js` — "REST: creating a complaint without 'subject' is refused 400 and writes nothing" | Only subject is mandatory; protocol expects description, product and lot refused too. |
-| URS-CMP-02 | Not automated | — | No test asserts classification, product, lot, customer detail or attachments persist. |
-| URS-CMP-03 | Not automated | — | The QA review decision and its mandatory justification have no test. |
+| URS-CMP-02 | Covered | `e2e/complaints/j12-classification-and-detail.spec.js` — "TC-06-02 steps 2-5 · product, lot, quantity, order ref, customer detail, samples and the safety/recall flags all reach their own columns" | Classification and detail persist to their own columns, FK-sealed to the tenant. Note: `complaint_number` carries no uniqueness constraint (asserted, TC-06-01 step 7). |
+| URS-CMP-03 | Gap pinned | `e2e/complaints/j13-qa-review-investigation.spec.js` — "KNOWN DEFECT · declining an investigation with NO justification is accepted, at every layer" | The QA-review chain and its permission gate are proven, but TC-06-03 step 2's mandatory justification is **not enforced at any layer**, and the investigation decision has no input surface in the application. |
 | URS-CMP-04 | N/A | — | Reportability has no input surface in the product; marked not applicable in the protocol. |
-| URS-CMP-05 | Not automated | — | Escalating an internal complaint to a nonconformance has no test. |
-| URS-CMP-06 | Partial | `e2e/complaints/j2-status-transitions.spec.js` — "UI: markComplete refuses to close a complaint with an open workflow step" | Closure is controlled; resolution content and a closure signature are untested. |
-| URS-CMP-07 | Not automated | — | Printing a complaint record in full has no test. |
-| URS-CMP-08 | Not automated | — | The internal complaint's audit history has no test. |
+| URS-CMP-05 | Covered | `e2e/complaints/j14-escalation-to-nonconformance.spec.js` — "TC-06-05 steps 1-5 · converting one complaint creates the NC, links it both ways, and CLOSES the complaint" | Single and many-to-one escalation, the one-time conversion guard, the permission gate and the audit entry are all asserted. |
+| URS-CMP-06 | Partial | `e2e/complaints/j15-closure-esignature.spec.js` — "TC-06-06 steps 3+5 · the correct credential closes the complaint and writes one signature bound to the approver's task" | Proven: closure is refused while review is incomplete, refused without or with a wrong credential, and writes one bound signature. Not met: TC-06-06 step 6 — closure seals the **status only**, and the regulated fields stay writable on a closed record. |
+| URS-CMP-07 | Covered | `e2e/complaints/j17-printed-record.spec.js` — "TC-06-07 steps 1+2 · the printout carries the narrative, classification, product and lot, customer detail and the QA assessment" | Print content, status and provenance are asserted; an undecided reportability prints empty rather than as a decision. |
+| URS-CMP-08 | Covered | `e2e/complaints/j16-audit-trail.spec.js` — "TC-06-08 step 2 · an update entry shows OLD and NEW values, field by field" | Intake, update diffs, review, escalation and closure are all traceable and attributed; entries are immutable at the trigger and the privilege layer. |
 
 ## 10. Audit Management
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
 | URS-AUD-01 | Covered | `e2e/audits/j6-standard-authoring-approval.spec.js` — "v1.0 DRAFT → UNDER_REVIEW → EFFECTIVE, then v1.1 supersedes it" | Standard authoring, approval and supersession are exercised end to end. |
-| URS-AUD-02 | Partial | `e2e/audits/j1-program-generator.spec.js` — "EVERY_X_DAYS program → generator mints an OPEN (Scheduled-phase) instance with the frozen clause list" | Not covered: schedule advance on an open programme page, which reverts. |
+| URS-AUD-02 | Covered | `e2e/audits/j13-program-schedule-trail.spec.js` — "a recurring programme is projected onto the annual calendar before any instance exists" | Programme scheduling and its calendar projection are asserted. **Pinned (AUD-D1):** changing a planned date writes no audit-trail entry, so TC-07-02 step 4 is unmet. |
 | URS-AUD-03 | Covered | `e2e/audits/j2-adhoc-lifecycle-esign.spec.js` — "OPEN: Scheduled → In Progress → Review, then CLOSED — auto-finding raised and resolved" | Full ad-hoc audit lifecycle transitions are asserted. |
 | URS-AUD-04 | Covered | `e2e/audits/j2-adhoc-lifecycle-esign.spec.js` — "OPEN: Scheduled → In Progress → Review, then CLOSED — auto-finding raised and resolved" | Finding creation during execution is asserted. |
 | URS-AUD-05 | Covered | `e2e/audits/j2-adhoc-lifecycle-esign.spec.js` — "OPEN: Scheduled → In Progress → Review, then CLOSED — auto-finding raised and resolved" | Finding resolution before closure is asserted. |
 | URS-AUD-06 | Covered | `e2e/audits/j4-finding-conversion.spec.js` — "attach an existing CAPA, then raise a new one from the deep link" | Both attaching and raising a CAPA from a finding are exercised. |
-| URS-AUD-07 | Partial | `e2e/audits/j8-print-report.spec.js` — "renders number, scope, conformance and findings — and no per-clause detail" | Not covered: per-clause results, omitted by design, so the protocol step is unmet. |
+| URS-AUD-07 | Covered | `e2e/audits/j14-per-clause-results.spec.js` — "every leaf clause carries its own verdict, attributed to the auditor with a timestamp" | Per-clause verdicts are attributed and timestamped, the published conformance figure reconciles with them, and a changed verdict replaces rather than duplicates. The printed report still omits per-clause detail. |
 | URS-AUD-08 | Product non-conformant | `e2e/audits/j1-program-generator.spec.js` — "generator-created rows leave no audit trail (finding #4)" | Writes made by the scheduled generator are not recorded in the audit trail. |
 
 ## 11. Risk Management
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
-| URS-RSK-01 | Partial | `e2e/riskAssessment/j5-template-crud.spec.js` — "the seeded E2E Risk Matrix template is visible and is the one the workflow field is bound to" | Not covered: scoring dimensions and risk bands against an approved method. |
-| URS-RSK-02 | Partial | `e2e/riskAssessment/j1-workflow-lifecycle.spec.js` — "reviewer scores the matrix, finalizes, marks complete — the row is derived on approval" | Not covered: standalone assessment or a multi-hazard list; only one cell per step. |
-| URS-RSK-03 | Partial | `e2e/riskAssessment/j1-workflow-lifecycle.spec.js` — "reviewer scores the matrix, finalizes, marks complete — the row is derived on approval" | Not covered: boundary values and reconciliation against hand calculation. |
-| URS-RSK-04 | N/A | — | Marked normally not applicable in the protocol; residual re-scoring has no surface. |
-| URS-RSK-05 | Partial | `e2e/riskAssessment/j2-state-machine.spec.js` — "FINALIZED -> COMMITTED requires the parent task to reach APPROVED — finalizing alone writes nothing" | Not covered: approval by a non-approver, and edits after approval. |
-| URS-RSK-06 | Not automated | — | No audit-trail assertion exists for this module. |
+| URS-RSK-01 | Covered | `e2e/riskAssessment/j9-template-and-scoring-controls.spec.js` — "step 5 — a user without risk_assessment_templates:update cannot alter the template, proven AT THE POLICY (an inspection is not evidence)" | Dimensions, every level's score and all nine band mappings are reconciled against the declared method; the edit refusal is proven at the policy with an admitting control. |
+| URS-RSK-02 | Covered | `e2e/riskAssessment/j9-template-and-scoring-controls.spec.js` — "TC-08-02 steps 2 and 6 — the matrix offers ONLY the template's levels" | Completeness gate and scale-only selection asserted; steps 3–5 are N/A by the protocol and their justifications are now schema-pinned. |
+| URS-RSK-03 | Covered | `e2e/riskAssessment/j6-scoring-derivation.spec.js` — "every cell in the hand-calculation table derives the expected RPN *and* the expected band" | Six-cell hand calculation, both derivations, the boundary cells that prove the band is a lookup, recalculation on change, and no hand-entry path. |
+| URS-RSK-04 | N/A | — | No surface; `j9` pins that the data model *does* support it, so the N/A is an interface gap and correctly justified. |
+| URS-RSK-05 | Gap pinned | `e2e/riskAssessment/j7-approval-esignature.spec.js` — "step 5 — the in-place upsert is scoped to ONE instance step: a send-back re-score leaves a SECOND live assessment (KNOWN DEFECT RA-D1)" | Non-approver refusal, signature evidence and post-approval read-only are all proven. **Not met:** TC-08-05 step 5 — a send-back plus re-score leaves two live assessments on one record, neither superseded nor marked. |
+| URS-RSK-06 | Covered | `e2e/riskAssessment/j8-audit-trail.spec.js` — "step 2 — a score change records BOTH the previous and the new value" | Capture with scores (not a bare `{id}`), before/after values, timestamp and performer, and immutability at the database. |
 
 ## 12. QC Inspection
 
@@ -321,29 +450,29 @@ assessment and the wording to record.
 | URS-QCI-01 | Covered | `e2e/qcInspection/j4-j7-authoring-and-aql.spec.js` — "create a spec with characteristics and approve it to EFFECTIVE" | Specification authoring and approval to effective are exercised. |
 | URS-QCI-02 | Covered | `e2e/qcInspection/j4-j7-authoring-and-aql.spec.js` — "create, preview and approve a sampling plan" | Sampling plan creation, preview and approval are exercised. |
 | URS-QCI-03 | Covered | `e2e/qcInspection/j1-incoming-lifecycle.spec.js` — "the seeded template, spec and sampling plan are snapshotted onto the lot" | Controlled inputs are snapshotted onto the inspection lot. |
-| URS-QCI-04 | Partial | `e2e/qcInspection/j3-execution-gates.spec.js` — "completing with unscored characteristics is refused by the server" | Not covered: per-sample capture, and amending a result while retaining the original. |
-| URS-QCI-05 | Partial | `e2e/qcInspection/j1-incoming-lifecycle.spec.js` — "inspect, complete, submit and disposition a lot" | Not covered: at-limit and just-inside boundary values; only one out-of-spec case. |
-| URS-QCI-06 | Partial | `e2e/qcInspection/j1-incoming-lifecycle.spec.js` — "inspect, complete, submit and disposition a lot" | Not covered: reconciling defect counts against the sampling plan's criteria. |
-| URS-QCI-07 | Partial | `e2e/qcInspection/j8-lot-lifecycle-lock.spec.js` — "the DISPOSITION — what finding #1 now actually means — is locked" | Not covered: raising a nonconformance from a rejected lot. |
-| URS-QCI-08 | Partial | `e2e/qcInspection/j1-incoming-lifecycle.spec.js` — "inspect, complete, submit and disposition a lot" | Not covered: the e-signed approval, and the result lock after approval. |
-| URS-QCI-09 | Partial | `e2e/qcInspection/j7-j10-reopen-and-print.spec.js` — "the report renders live lot data" | Proven: the report renders live data rather than placeholders. Not covered: its content inventory — per-characteristic results, defects, disposition and out-of-specification marking are not asserted, and the report carries no defects section. |
-| URS-QCI-10 | Partial | `e2e/qcInspection/j7-j10-reopen-and-print.spec.js` — "reopen is permission-gated and audited" | Not covered: a lot audit history showing old and new result values. |
-| URS-QCI-11 | Not automated | — | Line-clearance gate ships disabled; no test enables or probes it. |
+| URS-QCI-04 | Gap pinned | `e2e/qcInspection/j15-per-sample-and-aql-reconciliation.spec.js` — "KNOWN DEFECT — amending a result overwrites it; the superseded value is not recoverable anywhere" | Per-sample capture, per-unit attribution and the completeness gate are proven. **Not met:** amending a result destroys the original, so the protocol's "retain the original" step is unsatisfied. |
+| URS-QCI-05 | Covered | `e2e/qcInspection/j14-spec-limit-evaluation.spec.js` — "the LSL/USL boundary ladder is evaluated inclusively and without inspector judgement" | At-limit and just-inside boundary values evaluated inclusively; attribute failures flagged. Pinned: a non-numeric value on a numeric test is recorded rather than refused. |
+| URS-QCI-06 | Covered | `e2e/qcInspection/j15-per-sample-and-aql-reconciliation.spec.js` — "the lot reconciles defect counts against the sampling plan: below, at, and on the reject number" | Defect counts reconciled against the plan's accept/reject criteria at all three boundaries. |
+| URS-QCI-07 | Covered | `e2e/qcInspection/j16-disposition-esign-nc-and-audit.spec.js` — "a rejected lot raises a pre-linked nonconformance, visible from both sides; a released lot cannot" | Raising a nonconformance from a rejected lot is proven, with the link visible from both records. **See QCI-D1 below — the route carries no QC permission gate.** |
+| URS-QCI-08 | Covered | `e2e/qcInspection/j16-disposition-esign-nc-and-audit.spec.js` — "the disposition is refused without an e-signature, and accepted with one — recording name, meaning and time" | E-signed approval and the result lock after approval are both asserted. |
+| URS-QCI-09 | Covered | `e2e/qcInspection/j18-inspection-report-content.spec.js` — "the report carries lot detail, the sampling plan, per-characteristic results and the OOS marking" | Content inventory asserted. Pinned: logged defects appear nowhere on the report. |
+| URS-QCI-10 | Covered | `e2e/qcInspection/j16-disposition-esign-nc-and-audit.spec.js` — "results are locked once the lot is under review, and stay locked after approval" | Lot history carries old and new result values with attribution. |
+| URS-QCI-11 | Covered | `e2e/qcInspection/j17-line-clearance-and-checkin-cadence.spec.js` — "with clearance REQUIRED the gate blocks, a Hold does not lift it, and a Release does" | The gate is exercised in both settings: off by default and permitting collection, on and blocking until released. |
 | URS-QCI-12 | Partial | `e2e/qcInspection/j3-execution-gates.spec.js` — "results cannot be recorded until an inspector checks in" | Not covered: takeover attribution. The sampling cadence is **not implemented** rather than untested — the plan's interval is advisory and nothing displays or enforces a next-collection due time. |
 
 ## 13. Log Books
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
-| URS-LOG-01 | Not automated | — | Both log books are pre-seeded, so authoring a book and its entry form is untested. |
-| URS-LOG-02 | Not automated | — | The cited evidence for this row proved that an entry pins a frozen schema snapshot, which is a different control. No test attempts to edit a field on an active book; that protection is a database trigger and is unexercised. |
+| URS-LOG-01 | Covered | `e2e/inspectionsLogs/j9-book-authoring-freeze.spec.js` — "an owner authors a book with a four-type entry form, and it is born DRAFT at generation 1" | Authoring a book and its entry form, and the draft rework path, are exercised. |
+| URS-LOG-02 | Covered | `e2e/inspectionsLogs/j9-book-authoring-freeze.spec.js` — "a draft is still editable — the form can be reworked, and each rework bumps the schema version" | The active-book field guard is now exercised directly at the trigger. Two pinned defects: the no-op guard on the version bump is dead code, and two fields are not covered by the guard. |
 | URS-LOG-03 | Partial | `e2e/inspectionsLogs/j6-assignment-instance.spec.js` — "filling the entry discharges the instance and links the two both ways" | Not covered: schedule configuration and an occurrence falling due. |
 | URS-LOG-04 | Covered | `e2e/inspectionsLogs/j1-submit-entry.spec.js` — "an operator files an operational entry and it lands SUBMITTED, inside its edit window" | Entry submission and its edit window are asserted. |
-| URS-LOG-05 | Not automated | — | Server-side training block exists but seeded books bind no training, so nothing arms it. |
+| URS-LOG-05 | Covered | `e2e/inspectionsLogs/j10-training-gate.spec.js` — "an untrained operator is refused, and the refusal names the document they owe" | The training block is armed and proven, including that manager verification — not merely passing — opens the gate. |
 | URS-LOG-06 | Covered | `e2e/inspectionsLogs/j3-review.spec.js` — "the book supervisor approves under e-signature and the entry seals" | Supervisor review under e-signature and entry sealing are asserted. |
 | URS-LOG-07 | Covered | `e2e/inspectionsLogs/j4-amend-void.spec.js` — "an amend-holder corrects a sealed entry under signature, and the original survives" | Amendment under signature with retention of the original is asserted. |
-| URS-LOG-08 | Not automated | — | Printing a log book register for a date range has no test. |
-| URS-LOG-09 | Not automated | — | No log book audit-history assertion; integrity is proven only at revision level. |
+| URS-LOG-08 | Covered | `e2e/inspectionsLogs/j11-register-printout.spec.js` — "the register prints every entry in the range with its number, time, operator and status" | Register printing over a date range is asserted, including that the range is a real filter. |
+| URS-LOG-09 | Covered | `e2e/inspectionsLogs/j12-audit-trail.spec.js` — "a correction shows both the original and the corrected value, with the reason" | Filing, correction, review, flag and void all reach the trail with their own semantics. Pinned: the flag's audit row carries `{id}` and nothing more. |
 
 ## 14. Equipment & Calibration
 
@@ -351,10 +480,10 @@ assessment and the wording to record.
 | ------ | ------ | ------------------ | ---- |
 | URS-EQP-01 | Covered | `e2e/equipment/j1-register-crud.spec.js` — "create: the dialog persists over REST, and the service validates it" | Equipment registration persists and is validated server-side. |
 | URS-EQP-02 | Covered | `e2e/equipment/j2-calibration-programme.spec.js` — "recording a calibration is e-signed and evidenced, and the schedule rolls forward" | Calibration recording is e-signed, evidenced, and reschedules the next due date. |
-| URS-EQP-03 | Partial | `e2e/equipment/j2-calibration-programme.spec.js` — "PM is a separate schedule: neither programme moves the other" | Maintenance schedule is independent; raising a task to the responsible person is not covered. |
-| URS-EQP-04 | Partial | `e2e/equipment/j1-register-crud.spec.js` — "edit: a row click opens the same dialog, and the save goes over the syncEngine" | Status changes persist; reason capture and audit-trail tracing are not covered. |
+| URS-EQP-03 | Covered | `e2e/equipment/j8-pm-programme-reminders.spec.js` — "an upcoming PM reminds the custodian and the department supervisor — and nobody else" | Preventive-maintenance reminders reach the right people and escalate when no supervisor is set. Recorded as a weaker control than the protocol implies: PM raises a **notification, never a task**. |
+| URS-EQP-04 | Covered | `e2e/equipment/j7-status-lifecycle-and-trail.spec.js` — "every status change is recorded as a semantic action with both values" | Status changes are audited with both values and refused in the illegal direction at the database. Recorded: there is **no reason field** for a status change anywhere in the write path, so the protocol's reason-capture step cannot be met. |
 | URS-EQP-05 | Covered | `e2e/equipment/j2-calibration-programme.spec.js` — "the register paints the calibration schedule — overdue red, due-soon amber, clear neutral" | Register signals overdue, due-soon and clear calibration states. |
-| URS-EQP-06 | Not automated | — | No equipment audit-trail test exists. |
+| URS-EQP-06 | Covered | `e2e/equipment/j7-status-lifecycle-and-trail.spec.js` — "the database refuses RETIRED → IN_SERVICE, on the superuser path as hard as on app_user" | The equipment audit trail is asserted, with retirement and reinstatement recorded as semantic actions. |
 
 ## 15. Supplier Management
 
@@ -410,14 +539,21 @@ assessment and the wording to record.
 
 | Req ID | Status | Automated evidence | Note |
 | ------ | ------ | ------------------ | ---- |
-| URS-CCM-01 | Covered | `e2e/complaints/j3-customer-complaint-lifecycle.spec.js` — "create: lands in customer_complaints, not complaints, gated on complaint_management:create" | Creation writes the customer table and is permission-gated. |
-| URS-CCM-02 | Not automated | — | Category, priority, product, order reference and attachments have no test. |
-| URS-CCM-03 | Covered | `e2e/complaints/j3-customer-complaint-lifecycle.spec.js` — "accept: the agent becomes the assignee and status moves off NEW" | Acceptance assigns the agent and advances status. |
-| URS-CCM-04 | Not automated | — | Correspondence with the customer and the recorded resolution have no test. |
-| URS-CCM-05 | Partial | `e2e/complaints/j3-customer-complaint-lifecycle.spec.js` — "close: a workflow-free ticket closes directly (no requireClosureApproval by default)" | Direct close proven; the closure-approval branch with signature is untested. |
-| URS-CCM-06 | Not automated | — | Conversion to a nonconformance, and its finality, have no test. |
-| URS-CCM-07 | Not automated | — | Printing a customer complaint in full has no test. |
-| URS-CCM-08 | Not automated | — | This module's audit history has no test. |
+| URS-CCM-01 | Covered | `j3-customer-complaint-lifecycle.spec.js` — "create: lands in customer_complaints, not complaints…"; `j9-intake-audit-trail.spec.js` — intake steps 3–8 | Creation is permission-gated, mints a per-company CC number, opens in New, records the recorder and the date raised, and never reaches the internal register. |
+| URS-CCM-02 | Gap pinned | `j9-intake-audit-trail.spec.js` — "priority, source and customer reference persist and read back"; `j10-assignment-permissions.spec.js` — "an attachment persists against the ticket" | Priority, source, customer reference and attachments are proven and do persist. **Category, severity, product and lot reference cannot be recorded at all** — they are not columns on `customer_complaints` (defect CC-D1). See the non-conformance table above before executing TC-17-02. |
+| URS-CCM-03 | Covered | `j10-assignment-permissions.spec.js` — accept / reassign / no-access probes; `j3` — "accept: the agent becomes the assignee…" | Acceptance sets the assignee and advances status; reassignment works with no named-owner gate; a no-access account is refused every action at the API, not just in the interface. |
+| URS-CCM-04 | Covered | `j10-assignment-permissions.spec.js` — public reply, internal/QA notes, attachment | Correspondence persists and is attributed to the actor; a public reply sets Waiting on Customer; internal and QA notes never move the status. |
+| URS-CCM-05 | Covered | `j7-closure-approval.spec.js` — 10 tests across 5a and 5b | Both branches proven: direct close and second-close refusal; approval-on routes to PENDING_APPROVAL; a non-approver is refused; a wrong PIN is refused; the correct PIN closes it and the signature evidence lands in the audit trail; reopen returns to Open and clears the assignee. The empty system-wide signature register is asserted deliberately — see the note below. |
+| URS-CCM-06 | Covered | `j8-nc-escalation.spec.js` — 9 tests | Conversion mints a linked NC; the link resolves in both directions; and finality is proven at the **database** on both the trusted and untrusted paths, not merely by a missing button. |
+| URS-CCM-07 | Not automated | — | Printing a customer complaint in full has no test. Unchanged. |
+| URS-CCM-08 | Covered | `j9-intake-audit-trail.spec.js` — "intake and each subsequent change leave an audit entry…", "the audit trail is append-only" | Entries carry actor, timestamp and the changed values; UPDATE and DELETE against `audit_logs` are refused by the `audit_logs_immutable` trigger. |
+
+**Beyond the requirement baseline.** `j11-public-portal-autoclose.spec.js` (20 tests) covers
+two surfaces OQ-17 §5 lists as untested: the public HMAC status page (token scope, tamper
+and non-disclosure, internal-field leakage, customer attribution, the reopen window) and
+the auto-close worker (threshold honoured per tenant, opt-in, already-closed and escalated
+tickets untouched, SYSTEM attribution). These carry no URS row because the baseline does
+not describe them; they are recorded here so the coverage is not invisible.
 
 ## Observations on the requirement baseline
 

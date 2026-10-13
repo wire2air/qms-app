@@ -12,6 +12,7 @@ import { post, patch } from '@/api' // Action RPC (not entity CRUD) — see CLAU
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
+import { limitErrors } from '@/utils/specificationLimits.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -201,6 +202,18 @@ watch(
   },
   { immediate: true },
 )
+/**
+ * Per-row limit problems, keyed by index.
+ *
+ * Shown but NOT blocking: a draft autosaves on every keystroke, and raising
+ * the lower limit to 16 before fixing a target of 15 is a normal way to get to
+ * a correct spec. Refusing to save that would drop the user's work mid-edit.
+ * The hard stop is approval — approveSpec refuses to make an incoherent
+ * specification effective — so this is the warning that makes that refusal
+ * predictable rather than a surprise at the signature dialog.
+ */
+const characteristicLimitErrors = computed(() => limitErrors(editedChars.value))
+
 function markCharsDirty() {
   charsDirty.value = true
 }
@@ -322,7 +335,7 @@ async function saveDraft({ auto = false } = {}) {
         targetValue: c.testType === 'NUMERIC' ? (c.targetValue ?? null) : null,
         lsl: c.testType === 'NUMERIC' ? (c.lsl ?? null) : null,
         usl: c.testType === 'NUMERIC' ? (c.usl ?? null) : null,
-        uom: c.testType === 'NUMERIC' ? (c.uom || null) : null,
+        uom: c.testType === 'NUMERIC' ? c.uom || null : null,
         defectClass: c.defectClass || 'MAJOR',
         isCritical: c.defectClass === 'CRITICAL',
         requiresInstrument: c.requiresInstrument ?? false,
@@ -410,7 +423,9 @@ async function newVersion() {
     </template>
 
     <template #meta>
-      <span v-if="spec">v{{ spec.version }}<span v-if="spec.code"> · {{ spec.code }}</span></span>
+      <span v-if="spec"
+        >v{{ spec.version }}<span v-if="spec.code"> · {{ spec.code }}</span></span
+      >
     </template>
 
     <template v-if="canManage" #actions>
@@ -453,15 +468,16 @@ async function newVersion() {
         v-if="isDraft"
         class="tw:bg-amber-50 tw:border tw:border-amber-200 tw:rounded-lg tw:px-4 tw:py-2 tw:text-sm tw:text-amber-800"
       >
-        This specification is a draft — all fields below are editable. Submit for approval when ready.
+        This specification is a draft — all fields below are editable. Submit for approval when
+        ready.
       </div>
       <div
         v-else-if="spec?.statusId === 'PENDING_APPROVAL'"
         class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-lg tw:px-4 tw:py-3 tw:flex tw:items-center tw:justify-between tw:gap-3 tw:flex-wrap"
       >
         <span class="tw:text-sm tw:text-blue-800">
-          Pending approval — assigned to a reviewer. It becomes effective once approved; a
-          rejection / send-back returns it to draft.
+          Pending approval — assigned to a reviewer. It becomes effective once approved; a rejection
+          / send-back returns it to draft.
         </span>
         <TaskActionBar entityType="Specification" :entityId="props.id" />
       </div>
@@ -490,9 +506,13 @@ async function newVersion() {
             v-for="(c, idx) in editedChars"
             :key="c.id || c._key"
             class="tw:p-3 tw:border-t tw:transition-colors"
-            :class="c.id == null
-              ? 'tw:bg-red-50 tw:border-red-200'
-              : (idx % 2 === 1 ? 'tw:bg-main-hover tw:border-divider' : 'tw:border-divider')"
+            :class="
+              c.id == null
+                ? 'tw:bg-red-50 tw:border-red-200'
+                : idx % 2 === 1
+                  ? 'tw:bg-main-hover tw:border-divider'
+                  : 'tw:border-divider'
+            "
           >
             <div
               v-if="c.id == null"
@@ -521,10 +541,17 @@ async function newVersion() {
                 />
               </BaseField>
               <BaseField label="Defect class" class="tw:w-32">
-                <DefectSeveritySelectMenu v-model="c.defectClass" :required="true" @update:modelValue="markCharsDirty" />
+                <DefectSeveritySelectMenu
+                  v-model="c.defectClass"
+                  :required="true"
+                  @update:modelValue="markCharsDirty"
+                />
               </BaseField>
-              <label class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap">
-                <BaseCheckbox v-model="c.requiresInstrument" @update:modelValue="markCharsDirty" /> Instrument
+              <label
+                class="tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary tw:pb-2 tw:whitespace-nowrap"
+              >
+                <BaseCheckbox v-model="c.requiresInstrument" @update:modelValue="markCharsDirty" />
+                Instrument
               </label>
               <button
                 type="button"
@@ -563,10 +590,22 @@ async function newVersion() {
                 />
               </BaseField>
               <BaseField label="UOM" class="tw:w-36">
-                <UomSelectMenu v-model="c.uom" bindValue="code" @update:modelValue="markCharsDirty" />
+                <UomSelectMenu
+                  v-model="c.uom"
+                  bindValue="code"
+                  @update:modelValue="markCharsDirty"
+                />
               </BaseField>
             </div>
-            <BaseField v-if="c.requiresInstrument" label="Preferred instrument" class="tw:mt-2 tw:w-full tw:sm:w-72">
+            <BaseErrorText v-if="characteristicLimitErrors[idx]" class="tw:mt-1">
+              {{ characteristicLimitErrors[idx] }} This must be fixed before the specification can
+              be approved.
+            </BaseErrorText>
+            <BaseField
+              v-if="c.requiresInstrument"
+              label="Preferred instrument"
+              class="tw:mt-2 tw:w-full tw:sm:w-72"
+            >
               <EquipmentSelectMenu
                 v-model="c.preferredEquipmentId"
                 nullLabel="— None (pick at capture) —"
@@ -603,7 +642,10 @@ async function newVersion() {
             <template #body-cell-test="{ row }">
               <div class="tw:font-medium tw:text-on-main">
                 {{ row.name }}
-                <DefectSeverityBadgeById :severityId="row.defectClass || (row.isCritical ? 'CRITICAL' : 'MAJOR')" class="tw:ml-1 tw:text-micro" />
+                <DefectSeverityBadgeById
+                  :severityId="row.defectClass || (row.isCritical ? 'CRITICAL' : 'MAJOR')"
+                  class="tw:ml-1 tw:text-micro"
+                />
                 <div v-if="row.testMethod" class="tw:mt-1">
                   <RichTextAttachments :modelValue="row.testMethod" :readonly="true" />
                 </div>
@@ -616,8 +658,13 @@ async function newVersion() {
               <span class="tw:text-secondary">{{ limitText(row) }}</span>
             </template>
             <template #body-cell-instrument="{ row }">
-              <EquipmentBadgeById v-if="row.preferredEquipmentId" :equipmentId="row.preferredEquipmentId" />
-              <span v-else class="tw:text-secondary">{{ row.requiresInstrument ? 'Required' : '—' }}</span>
+              <EquipmentBadgeById
+                v-if="row.preferredEquipmentId"
+                :equipmentId="row.preferredEquipmentId"
+              />
+              <span v-else class="tw:text-secondary">{{
+                row.requiresInstrument ? 'Required' : '—'
+              }}</span>
             </template>
           </DataTable>
         </template>
@@ -654,10 +701,14 @@ async function newVersion() {
             <SpecificationStatusBadgeById :statusId="row.statusId" />
           </template>
           <template #body-cell-effective="{ row }">
-            <span class="tw:text-secondary">{{ row.effectiveFrom?.formatDate('date') || '—' }}</span>
+            <span class="tw:text-secondary">{{
+              row.effectiveFrom?.formatDate('date') || '—'
+            }}</span>
           </template>
           <template #body-cell-superseded="{ row }">
-            <span class="tw:text-secondary">{{ row.effectiveUntil?.formatDate('date') || '—' }}</span>
+            <span class="tw:text-secondary">{{
+              row.effectiveUntil?.formatDate('date') || '—'
+            }}</span>
           </template>
         </DataTable>
       </div>
@@ -671,112 +722,152 @@ async function newVersion() {
          renders the rail; content is guarded inside instead. -->
     <template #rail>
       <template v-if="spec && header">
-      <BaseRailCard title="General">
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <div>
-            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Status</p>
-            <SpecificationStatusBadgeById :statusId="spec.statusId" />
+        <BaseRailCard title="General">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div>
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Status
+              </p>
+              <SpecificationStatusBadgeById :statusId="spec.statusId" />
+            </div>
+            <div>
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Version
+              </p>
+              <BaseText variant="body" weight="medium">v{{ spec.version }}</BaseText>
+            </div>
+            <div>
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Code
+              </p>
+              <BaseTextInput
+                v-if="canEditDraft"
+                v-model="header.code"
+                size="sm"
+                placeholder="e.g. SPEC-001"
+                @update:modelValue="markHeaderDirty"
+              />
+              <BaseText v-else variant="body" weight="medium">{{ spec.code || '—' }}</BaseText>
+            </div>
           </div>
-          <div>
-            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Version</p>
-            <BaseText variant="body" weight="medium">v{{ spec.version }}</BaseText>
-          </div>
-          <div>
-            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Code</p>
-            <BaseTextInput
-              v-if="canEditDraft"
-              v-model="header.code"
-              size="sm"
-              placeholder="e.g. SPEC-001"
+        </BaseRailCard>
+
+        <BaseRailCard title="Scope">
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Applies to
+          </p>
+          <template v-if="canEditDraft">
+            <SegmentedControl
+              v-model="header.scope"
+              :options="[
+                { label: 'Item', value: 'product' },
+                { label: 'Item group', value: 'family' },
+                { label: 'Item type', value: 'productType' },
+              ]"
+              class="tw:mb-2"
               @update:modelValue="markHeaderDirty"
             />
-            <BaseText v-else variant="body" weight="medium">{{ spec.code || '—' }}</BaseText>
-          </div>
-        </div>
-      </BaseRailCard>
+            <ProductSelectMenu
+              v-if="header.scope === 'product'"
+              v-model="header.productId"
+              class="tw:w-full"
+              @update:modelValue="markHeaderDirty"
+            />
+            <ProductFamilySelectMenu
+              v-else-if="header.scope === 'family'"
+              v-model="header.productFamilyId"
+              class="tw:w-full"
+              @update:modelValue="markHeaderDirty"
+            />
+            <ProductTypeSelectMenu
+              v-else
+              v-model="header.productTypeId"
+              class="tw:w-full"
+              @update:modelValue="markHeaderDirty"
+            />
+          </template>
+          <template v-else>
+            <BaseText v-if="product" variant="body">
+              {{ product.name }}
+              <span v-if="product.sku" class="tw:text-xs tw:text-secondary"
+                >· {{ product.sku }}</span
+              >
+              <span v-if="product.deletedAt" class="tw:text-xs tw:text-bad tw:ml-1">(deleted)</span>
+            </BaseText>
+            <BaseText v-else-if="productFamily" variant="body">
+              {{ productFamily.name }}
+              <span class="tw:text-xs tw:text-secondary">(item group)</span>
+            </BaseText>
+            <BaseText v-else-if="productType" variant="body">
+              {{ productType.name }}
+              <span class="tw:text-xs tw:text-secondary">(item type)</span>
+            </BaseText>
+            <BaseText v-else color="secondary">—</BaseText>
+          </template>
+        </BaseRailCard>
 
-      <BaseRailCard title="Scope">
-        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Applies to</p>
-        <template v-if="canEditDraft">
-          <SegmentedControl
-            v-model="header.scope"
-            :options="[
-              { label: 'Item', value: 'product' },
-              { label: 'Item group', value: 'family' },
-              { label: 'Item type', value: 'productType' },
-            ]"
-            class="tw:mb-2"
+        <BaseRailCard title="Lifecycle">
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div>
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Created
+              </p>
+              <BaseText variant="body"
+                >{{ spec.createdAt?.formatDate('date') || '—' }} · {{ userName(creator) }}</BaseText
+              >
+            </div>
+            <div v-if="spec.approvedAt">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Approved
+              </p>
+              <BaseText variant="body"
+                >{{ spec.approvedAt?.formatDate('date') }} · {{ userName(approver) }}</BaseText
+              >
+            </div>
+            <div v-if="spec.effectiveFrom">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Effective from
+              </p>
+              <BaseText variant="body">{{ spec.effectiveFrom?.formatDate('date') }}</BaseText>
+            </div>
+            <div v-if="spec.effectiveUntil">
+              <p
+                class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+              >
+                Effective until
+              </p>
+              <BaseText variant="body">{{ spec.effectiveUntil?.formatDate('date') }}</BaseText>
+            </div>
+          </div>
+        </BaseRailCard>
+
+        <BaseRailCard title="Notes">
+          <BaseTextarea
+            v-if="canEditDraft"
+            v-model="header.notes"
+            :rows="3"
+            placeholder="Optional notes"
             @update:modelValue="markHeaderDirty"
           />
-          <ProductSelectMenu
-            v-if="header.scope === 'product'"
-            v-model="header.productId"
-            class="tw:w-full"
-            @update:modelValue="markHeaderDirty"
-          />
-          <ProductFamilySelectMenu
-            v-else-if="header.scope === 'family'"
-            v-model="header.productFamilyId"
-            class="tw:w-full"
-            @update:modelValue="markHeaderDirty"
-          />
-          <ProductTypeSelectMenu
-            v-else
-            v-model="header.productTypeId"
-            class="tw:w-full"
-            @update:modelValue="markHeaderDirty"
-          />
-        </template>
-        <template v-else>
-          <BaseText v-if="product" variant="body">
-            {{ product.name }}
-            <span v-if="product.sku" class="tw:text-xs tw:text-secondary">· {{ product.sku }}</span>
-            <span v-if="product.deletedAt" class="tw:text-xs tw:text-bad tw:ml-1">(deleted)</span>
-          </BaseText>
-          <BaseText v-else-if="productFamily" variant="body">
-            {{ productFamily.name }}
-            <span class="tw:text-xs tw:text-secondary">(item group)</span>
-          </BaseText>
-          <BaseText v-else-if="productType" variant="body">
-            {{ productType.name }}
-            <span class="tw:text-xs tw:text-secondary">(item type)</span>
-          </BaseText>
+          <BaseText v-else-if="spec.notes" variant="body" class="tw:whitespace-pre-wrap">{{
+            spec.notes
+          }}</BaseText>
           <BaseText v-else color="secondary">—</BaseText>
-        </template>
-      </BaseRailCard>
-
-      <BaseRailCard title="Lifecycle">
-        <div class="tw:flex tw:flex-col tw:gap-3">
-          <div>
-            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Created</p>
-            <BaseText variant="body">{{ spec.createdAt?.formatDate('date') || '—' }} · {{ userName(creator) }}</BaseText>
-          </div>
-          <div v-if="spec.approvedAt">
-            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Approved</p>
-            <BaseText variant="body">{{ spec.approvedAt?.formatDate('date') }} · {{ userName(approver) }}</BaseText>
-          </div>
-          <div v-if="spec.effectiveFrom">
-            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Effective from</p>
-            <BaseText variant="body">{{ spec.effectiveFrom?.formatDate('date') }}</BaseText>
-          </div>
-          <div v-if="spec.effectiveUntil">
-            <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Effective until</p>
-            <BaseText variant="body">{{ spec.effectiveUntil?.formatDate('date') }}</BaseText>
-          </div>
-        </div>
-      </BaseRailCard>
-
-      <BaseRailCard title="Notes">
-        <BaseTextarea
-          v-if="canEditDraft"
-          v-model="header.notes"
-          :rows="3"
-          placeholder="Optional notes"
-          @update:modelValue="markHeaderDirty"
-        />
-        <BaseText v-else-if="spec.notes" variant="body" class="tw:whitespace-pre-wrap">{{ spec.notes }}</BaseText>
-        <BaseText v-else color="secondary">—</BaseText>
-      </BaseRailCard>
+        </BaseRailCard>
       </template>
     </template>
   </BaseDetailLayout>

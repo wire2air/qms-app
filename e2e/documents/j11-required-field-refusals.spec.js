@@ -22,18 +22,29 @@
 // writes a GraphQL-level probe — record that in the execution summary rather
 // than claiming it.
 import { test } from '@playwright/test'
-import { AUTH } from '../fixtures/cast.js'
+import { AUTH, COMPANY_ID } from '../fixtures/cast.js'
 import { sqlValue } from '../fixtures/db.js'
 import { expectEmptyFormRefused } from '../fixtures/negativeArms.js'
 
+/**
+ * Scoped to the tenant on purpose. This count is the evidence that a refused
+ * create wrote NOTHING, so it is compared before and after the refusal — and an
+ * unscoped `count(*)` makes any concurrent insert anywhere in the database
+ * (a graphile_worker job, another tenant's fixture, a leaked row from an
+ * earlier spec) look like the refused create having written a row. That is a
+ * SECURITY-SHAPED false positive: it reports "a rejected request created a
+ * record", which is the most alarming thing this suite can say.
+ */
 function documentCount() {
-  return Number(sqlValue(`SELECT count(*) FROM documents`))
+  return Number(
+    sqlValue(`SELECT count(*) FROM documents WHERE company_id = '${COMPANY_ID}'`),
+  )
 }
 
 test.describe('PW-J11 · Documents required-field refusal', () => {
   test.use({ storageState: AUTH.author })
 
-  test('UI: submitting an empty create form tells the user what is missing', async ({ page }) => {
+  test('UI: submitting an empty create form tells the user what is missing', { tag: ['@validation', '@URS-DOC-01'] }, async ({ page }) => {
     test.setTimeout(120_000)
 
     // No wizard and no workflow picker: /documents/create is one tabbed

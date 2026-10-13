@@ -2,7 +2,8 @@
 /**
  * Advanced export manager for the DataTable. Lets the user pick which columns to
  * export (all / a subset, grouped into system + custom fields), the file format,
- * and the row scope (current filtered view vs. all rows). Pure UI — it resolves a
+ * and the row scope (the rows ticked in the table, the current filtered view, or
+ * all rows). Pure UI — it resolves a
  * selection and emits `confirm({ format, fieldKeys, scope })`; DataTable turns that
  * into the actual export (or hands it to the consumer via `@export`).
  *
@@ -15,9 +16,12 @@ const props = defineProps({
   fields: { type: Array, default: () => [] },
   // Formats offered. Single-entry arrays hide the format toggle.
   formats: { type: Array, default: () => ['csv'] },
-  // Row counts for the two scope options (for the footer/labels).
+  // Row counts for the scope options (for the footer/labels).
   viewCount: { type: Number, default: 0 },
   allCount: { type: Number, default: 0 },
+  // Rows the user has ticked in the table. 0 hides the Selected option
+  // entirely — an empty scope is never a useful thing to offer.
+  selectedRowCount: { type: Number, default: 0 },
 })
 
 const emit = defineEmits(['confirm'])
@@ -32,13 +36,20 @@ const selected = ref(new Set())
 const systemFields = computed(() => props.fields.filter((f) => f.group !== 'custom'))
 const customFields = computed(() => props.fields.filter((f) => f.group === 'custom'))
 const selectedCount = computed(() => selected.value.size)
-const scopeCount = computed(() => (scope.value === 'all' ? props.allCount : props.viewCount))
+const hasSelection = computed(() => props.selectedRowCount > 0)
+const scopeCount = computed(() => {
+  if (scope.value === 'selected') return props.selectedRowCount
+  return scope.value === 'all' ? props.allCount : props.viewCount
+})
 
 // Re-seed the selection from each field's `defaultSelected` every time the dialog
 // opens, so it always reflects the current column set (custom fields can change).
 function initSelection() {
   format.value = props.formats[0] || 'csv'
-  scope.value = 'view'
+  // Ticking rows and then opening Export is an unambiguous statement of intent,
+  // so that becomes the default. Defaulting to "current view" there would
+  // quietly export rows the user had just finished narrowing away from.
+  scope.value = props.selectedRowCount > 0 ? 'selected' : 'view'
   selected.value = new Set(
     props.fields.filter((f) => f.defaultSelected !== false).map((f) => f.key),
   )
@@ -111,6 +122,15 @@ function confirm() {
           Rows
         </p>
         <div class="tw:flex tw:flex-col tw:gap-1.5">
+          <!-- Only when rows are actually ticked; an empty scope is never a
+               useful thing to offer. -->
+          <label
+            v-if="hasSelection"
+            class="tw:flex tw:cursor-pointer tw:items-center tw:gap-2 tw:text-sm tw:text-on-main"
+          >
+            <input v-model="scope" type="radio" value="selected" class="tw:accent-primary" />
+            Selected rows ({{ selectedRowCount }})
+          </label>
           <label class="tw:flex tw:cursor-pointer tw:items-center tw:gap-2 tw:text-sm tw:text-on-main">
             <input v-model="scope" type="radio" value="view" class="tw:accent-primary" />
             Current view ({{ viewCount }})

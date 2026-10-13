@@ -12,7 +12,13 @@
 const props = defineProps({
   required: { type: Boolean, default: false },
   multiple: { type: Boolean, default: false },
-  nullLabel: { type: String, default: '— All equipment —' },
+  // "— All equipment —" is FILTER copy: it means "no filter, show everything".
+  // Every call site is a form field (log book, specification, inspection lot,
+  // production line, defect catalog, and the form-builder lookup), where the
+  // null value means this record is linked to NO equipment. Reading "All
+  // equipment" on an unlinked log book made it look like the picker had failed
+  // to show the linked instrument. Reported 2026-09-19.
+  nullLabel: { type: String, default: '— No equipment —' },
   includeRetired: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
   // Cascading filters (null = no filter).

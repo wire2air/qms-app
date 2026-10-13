@@ -45,8 +45,10 @@ const RULES = [
     re: /<label\b/g,
     // 134 → 173 (2026-08-27): the matrix-driven-record-access merge brought in
     // months of pre-ratchet work (suppliers cards, log books, training dialogs).
+    // 173 → 171 (2026-09-20): the document training panel's two toggle labels
+    // became BaseLabel when their inline help moved behind a `?`.
     // Tracked debt — sweep down, never up.
-    baseline: 173,
+    baseline: 171,
     hint: 'raw <label> — route the field through BaseField / BaseLabel (id + for + ARIA)',
   },
   {

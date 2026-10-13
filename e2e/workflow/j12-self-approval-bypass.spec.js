@@ -26,7 +26,7 @@ import { createLiveWorkflowInstance, anyAssignmentOn } from '../fixtures/workflo
 test.use({ storageState: AUTH.author })
 
 test.describe('PW-J12 · F-02 self-approval bypass', () => {
-  test('an assignee cannot write their OWN approval-ledger row to APPROVED', async ({ page }) => {
+  test('an assignee cannot write their OWN approval-ledger row to APPROVED', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(180_000)
 
     const { instanceId } = await createLiveWorkflowInstance(page, 'J12-selfapprove')

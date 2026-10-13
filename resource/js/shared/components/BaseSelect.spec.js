@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import BaseSelect from './BaseSelect.vue'
@@ -75,6 +75,57 @@ describe('BaseSelect', () => {
     expect(wrapper.emitted()['update:modelValue'].at(-1)).toEqual([['a']])
     // panel still open
     expect(options().length).toBe(3)
+  })
+
+  describe('keyboard (BL-02)', () => {
+    function searchInput() {
+      return document.body.querySelector('input[placeholder="Search…"]')
+    }
+    function key(el, k) {
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }))
+    }
+
+    it('focuses the search input when the panel opens, even after another field had focus', async () => {
+      // A focused field elsewhere is exactly what makes the `autofocus`
+      // attribute a no-op in real browsers — the panel must place focus itself.
+      const other = document.createElement('input')
+      document.body.appendChild(other)
+      other.focus()
+      await open()
+      await nextTick()
+      expect(document.activeElement).toBe(searchInput())
+    })
+
+    it('Enter on a single select commits the active option and closes the panel', async () => {
+      await open()
+      await nextTick()
+      key(document.activeElement, 'ArrowDown')
+      key(document.activeElement, 'Enter')
+      await nextTick()
+      expect(wrapper.emitted()['update:modelValue'].at(-1)).toEqual(['b'])
+      await vi.waitFor(() => expect(options()).toHaveLength(0))
+      expect(wrapper.get('[aria-haspopup="listbox"]').attributes('aria-expanded')).toBe('false')
+    })
+
+    it('Enter on a multiple select toggles the option and keeps the panel open', async () => {
+      await open({ multiple: true, modelValue: [] })
+      await nextTick()
+      key(document.activeElement, 'Enter')
+      await nextTick()
+      expect(wrapper.emitted()['update:modelValue'].at(-1)).toEqual([['a']])
+      expect(options()).toHaveLength(3)
+    })
+
+    it('handles keys on a non-searchable select (focus lands on the menu root)', async () => {
+      await open({ searchable: false })
+      await nextTick()
+      expect(searchInput()).toBeNull()
+      expect(document.activeElement?.getAttribute('tabindex')).toBe('-1')
+      key(document.activeElement, 'Enter')
+      await nextTick()
+      expect(wrapper.emitted()['update:modelValue'].at(-1)).toEqual(['a'])
+      await vi.waitFor(() => expect(options()).toHaveLength(0))
+    })
   })
 
   it('respects maxValues in multiple mode', async () => {

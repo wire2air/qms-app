@@ -38,120 +38,127 @@ function programRow(programId) {
 }
 
 test.describe('PW-J1 · a recurring program mints its own audit', () => {
-  test('EVERY_X_DAYS program → generator mints an OPEN (Scheduled-phase) instance with the frozen clause list', async ({
-    page,
-  }) => {
-    test.setTimeout(180_000)
-    const name = `E2E Program J1 ${Date.now()}`
+  test(
+    'EVERY_X_DAYS program → generator mints an OPEN (Scheduled-phase) instance with the frozen clause list',
+    { tag: '@smoke' },
+    async ({ page }) => {
+      test.setTimeout(180_000)
+      const name = `E2E Program J1 ${Date.now()}`
 
-    await page.goto('/audits?tab=programs')
-    await page.getByRole('button', { name: 'New Program' }).click()
-    await expect(page.getByRole('heading', { name: 'New Audit Program' })).toBeVisible({
-      timeout: 20_000,
-    })
-    await page.getByPlaceholder('e.g. Annual Internal Quality Audit').fill(name)
-    await selectInDialog(page, 'Frequency', 'Every X Days')
-    // Days Interval only renders once the frequency gate opens.
-    await page.getByLabel('Days Interval').fill('30')
-    await selectInDialog(page, 'Standard', AUDIT_STANDARD.name)
-    await selectInDialog(page, 'Manager', USERS.author.name)
-    await page.getByLabel('Next Due').fill(dateInDays(30))
-    await page.getByRole('button', { name: 'Create & open' }).click()
-    await expect(page).toHaveURL(/\/audits\/programs\/[0-9a-f-]{36}/, { timeout: 45_000 })
+      await page.goto('/audits?tab=programs')
+      await page.getByRole('button', { name: 'New Program' }).click()
+      await expect(page.getByRole('heading', { name: 'New Audit Program' })).toBeVisible({
+        timeout: 20_000,
+      })
+      await page.getByPlaceholder('e.g. Annual Internal Quality Audit').fill(name)
+      await selectInDialog(page, 'Frequency', 'Every X Days')
+      // Days Interval only renders once the frequency gate opens.
+      await page.getByLabel('Days Interval').fill('30')
+      await selectInDialog(page, 'Standard', AUDIT_STANDARD.name)
+      await selectInDialog(page, 'Manager', USERS.author.name)
+      await page.getByLabel('Next Due').fill(dateInDays(30))
+      await page.getByRole('button', { name: 'Create & open' }).click()
+      await expect(page).toHaveURL(/\/audits\/programs\/[0-9a-f-]{36}/, { timeout: 45_000 })
 
-    const programId = sqlValue(
-      `SELECT id FROM audit_programs WHERE company_id = '${COMPANY_ID}' AND name = '${name}'`,
-    )
-    expect(programId, 'program row exists').toBeTruthy()
-    const before = programRow(programId)
-    expect(before.frequencyId).toBe('EVERY_X_DAYS')
-    expect(before.daysInterval).toBe(30)
+      const programId = sqlValue(
+        `SELECT id FROM audit_programs WHERE company_id = '${COMPANY_ID}' AND name = '${name}'`,
+      )
+      expect(programId, 'program row exists').toBeTruthy()
+      const before = programRow(programId)
+      expect(before.frequencyId).toBe('EVERY_X_DAYS')
+      expect(before.daysInterval).toBe(30)
 
-    // Give the program an auditor pool. The generator copies the pool 1:1 onto
-    // each minted audit and picks the LEAD from the pool's LEAD members
-    // (pickNextLeadAuditor) — the program's `managerUserId` plays no part in
-    // that, so without a pool member a generated audit has no team at all.
-    const addAuditor = await page.request.post(
-      `/api/v1/services/auditPrograms/${programId}/auditors`,
-      { data: { userId: USERS.author.id, roleOnAudit: 'LEAD' } },
-    )
-    expect(addAuditor.ok(), `add program auditor → ${addAuditor.status()}`).toBeTruthy()
+      // Give the program an auditor pool. The generator copies the pool 1:1 onto
+      // each minted audit and picks the LEAD from the pool's LEAD members
+      // (pickNextLeadAuditor) — the program's `managerUserId` plays no part in
+      // that, so without a pool member a generated audit has no team at all.
+      const addAuditor = await page.request.post(
+        `/api/v1/services/auditPrograms/${programId}/auditors`,
+        { data: { userId: USERS.author.id, roleOnAudit: 'LEAD' } },
+      )
+      expect(addAuditor.ok(), `add program auditor → ${addAuditor.status()}`).toBeTruthy()
 
-    // Leave the program's detail page before the generator runs. Sitting on it
-    // corrupts the result: the page's inline auto-save writes its stale
-    // nextDueDate back over the worker's advance (pinned by the 🔴 test below),
-    // and this test is about the generator, not that race.
-    await page.goto('/audits?tab=programs')
+      // Leave the program's detail page before the generator runs. Sitting on it
+      // corrupts the result: the page's inline auto-save writes its stale
+      // nextDueDate back over the worker's advance (pinned by the 🔴 test below),
+      // and this test is about the generator, not that race.
+      await page.goto('/audits?tab=programs')
 
-    // Nothing is due yet — prove the generator is selective before making it due.
-    enqueueGenerator()
-    expect(
-      Number(
-        sqlValue(`SELECT count(*) FROM audit_instances WHERE audit_program_id = '${programId}'`),
-      ),
-      'a not-yet-due program mints nothing',
-    ).toBe(0)
+      // Nothing is due yet — prove the generator is selective before making it due.
+      enqueueGenerator()
+      expect(
+        Number(
+          sqlValue(`SELECT count(*) FROM audit_instances WHERE audit_program_id = '${programId}'`),
+        ),
+        'a not-yet-due program mints nothing',
+      ).toBe(0)
 
-    makeProgramDue(programId)
-    enqueueGenerator()
+      makeProgramDue(programId)
+      enqueueGenerator()
 
-    const instanceId = await waitForSqlValue(
-      `SELECT id FROM audit_instances WHERE audit_program_id = '${programId}' ORDER BY created_at DESC LIMIT 1`,
-      { timeoutMs: 90_000, label: 'generator minted an instance' },
-    )
+      const instanceId = await waitForSqlValue(
+        `SELECT id FROM audit_instances WHERE audit_program_id = '${programId}' ORDER BY created_at DESC LIMIT 1`,
+        { timeoutMs: 90_000, label: 'generator minted an instance' },
+      )
 
-    const instance = sqlRow(
-      `SELECT status_id || '/' || execution_phase, audit_number, scheduled_date::text, audit_standard_version_id,
+      const instance = sqlRow(
+        `SELECT status_id || '/' || execution_phase, audit_number, scheduled_date::text, audit_standard_version_id,
               jsonb_array_length(requirement_schema), program_type_id
          FROM audit_instances WHERE id = '${instanceId}'`,
-    )
-    expect(instance[0], 'generated audits land OPEN in the Scheduled phase').toBe('OPEN/SCHEDULED')
-    expect(instance[1], 'audit number minted').toMatch(/^AUD-\d{4}$/)
-    expect(instance[2], 'scheduled for the date the program was due').toBe(
-      sqlValue(`SELECT (CURRENT_DATE - 1)::text`),
-    )
-    expect(instance[3], 'snapshots the standard EFFECTIVE version').toBe(
-      AUDIT_STANDARD.effectiveVersionId,
-    )
-    expect(Number(instance[4]), 'clause list frozen onto the instance').toBe(3)
-    expect(instance[5]).toBe('INTERNAL')
+      )
+      expect(instance[0], 'generated audits land OPEN in the Scheduled phase').toBe(
+        'OPEN/SCHEDULED',
+      )
+      expect(instance[1], 'audit number minted').toMatch(/^AUD-\d{4}$/)
+      expect(instance[2], 'scheduled for the date the program was due').toBe(
+        sqlValue(`SELECT (CURRENT_DATE - 1)::text`),
+      )
+      expect(instance[3], 'snapshots the standard EFFECTIVE version').toBe(
+        AUDIT_STANDARD.effectiveVersionId,
+      )
+      expect(Number(instance[4]), 'clause list frozen onto the instance').toBe(3)
+      expect(instance[5]).toBe('INTERNAL')
 
-    // The auditor pool is copied onto the audit, and the rotation's pick lands
-    // both on lead_auditor_user_id and as the LEAD team row (the team row is
-    // what audit_instances_select_rls's membership branch reads).
-    const lead = sqlValue(
-      `SELECT user_id FROM audit_team_members
+      // The auditor pool is copied onto the audit, and the rotation's pick lands
+      // both on lead_auditor_user_id and as the LEAD team row (the team row is
+      // what audit_instances_select_rls's membership branch reads).
+      const lead = sqlValue(
+        `SELECT user_id FROM audit_team_members
         WHERE audit_instance_id = '${instanceId}' AND role_on_audit = 'LEAD' AND deleted_at IS NULL`,
-    )
-    expect(lead, 'the pool LEAD is seeded onto the audit team').toBe(USERS.author.id)
-    expect(
-      sqlValue(`SELECT lead_auditor_user_id FROM audit_instances WHERE id = '${instanceId}'`),
-      'and is stamped as the audit lead',
-    ).toBe(USERS.author.id)
+      )
+      expect(lead, 'the pool LEAD is seeded onto the audit team').toBe(USERS.author.id)
+      expect(
+        sqlValue(`SELECT lead_auditor_user_id FROM audit_instances WHERE id = '${instanceId}'`),
+        'and is stamped as the audit lead',
+      ).toBe(USERS.author.id)
 
-    // The window advanced by exactly one interval, which is also what makes the
-    // task idempotent — a same-day re-run sees the bumped date and skips.
-    const after = programRow(programId)
-    expect(after.nextDueDate).toBe(sqlValue(`SELECT (CURRENT_DATE - 1 + 30)::text`))
-    enqueueGenerator()
-    await new Promise((r) => setTimeout(r, 8_000))
-    expect(
-      Number(
-        sqlValue(`SELECT count(*) FROM audit_instances WHERE audit_program_id = '${programId}'`),
-      ),
-      're-running the generator the same day mints nothing more',
-    ).toBe(1)
+      // The window advanced by exactly one interval, which is also what makes the
+      // task idempotent — a same-day re-run sees the bumped date and skips.
+      const after = programRow(programId)
+      expect(after.nextDueDate).toBe(sqlValue(`SELECT (CURRENT_DATE - 1 + 30)::text`))
+      enqueueGenerator()
+      await new Promise((r) => setTimeout(r, 8_000))
+      expect(
+        Number(
+          sqlValue(`SELECT count(*) FROM audit_instances WHERE audit_program_id = '${programId}'`),
+        ),
+        're-running the generator the same day mints nothing more',
+      ).toBe(1)
 
-    // The instance is visible in the UI, not just the DB.
-    await page.goto('/audits?tab=instances')
-    await expect(page.getByText(instance[1]).first()).toBeVisible({ timeout: 30_000 })
-  })
+      // The instance is visible in the UI, not just the DB.
+      await page.goto('/audits?tab=instances')
+      await expect(page.getByText(instance[1]).first()).toBeVisible({ timeout: 30_000 })
+    },
+  )
 
-  test('🔴 generator-created rows leave no audit trail (finding #4) (FAILS TODAY)', async () => {
-    test.setTimeout(120_000)
-    // Self-contained: insert the program with SQL (no UI, no shared state) so a
-    // failure here can never rewind another test's setup.
-    const programId = sqlValue(`
+  test(
+    '🔴 generator-created rows leave no audit trail (finding #4) (FAILS TODAY)',
+    { tag: ['@validation', '@URS-AUD-08'] },
+    async () => {
+      test.setTimeout(120_000)
+      // Self-contained: insert the program with SQL (no UI, no shared state) so a
+      // failure here can never rewind another test's setup.
+      const programId = sqlValue(`
       INSERT INTO audit_programs
         (company_id, name, program_type_id, audit_standard_id, frequency_id, days_interval,
          next_due_date, manager_user_id, active, created_by)
@@ -161,29 +168,31 @@ test.describe('PW-J1 · a recurring program mints its own audit', () => {
          '${USERS.author.id}', true, '${USERS.author.id}')
       RETURNING id`)
 
-    enqueueGenerator()
-    const instanceId = await waitForSqlValue(
-      `SELECT id FROM audit_instances WHERE audit_program_id = '${programId}' ORDER BY created_at DESC LIMIT 1`,
-      { timeoutMs: 90_000, label: 'generator minted an instance' },
-    )
-
-    // audit_event.js drops the row entirely when payload.user_id is falsy, and
-    // JOB-02 never sets app.current_user_id — so the INSERT is absent from the
-    // trail rather than recorded with a null actor. Poll, so a slow pipeline
-    // can't be mistaken for the defect.
-    let rows = 0
-    for (let i = 0; i < 10 && rows === 0; i++) {
-      rows = Number(
-        sqlValue(
-          `SELECT count(*) FROM audit_logs WHERE entity_type = 'AuditInstances' AND entity_id = '${instanceId}'`,
-        ),
+      enqueueGenerator()
+      const instanceId = await waitForSqlValue(
+        `SELECT id FROM audit_instances WHERE audit_program_id = '${programId}' ORDER BY created_at DESC LIMIT 1`,
+        { timeoutMs: 90_000, label: 'generator minted an instance' },
       )
-      if (rows === 0) await new Promise((r) => setTimeout(r, 2_000))
-    }
-    expect(rows, 'a cron-generated audit must still be attributable in audit_logs').toBeGreaterThan(
-      0,
-    )
-  })
+
+      // audit_event.js drops the row entirely when payload.user_id is falsy, and
+      // JOB-02 never sets app.current_user_id — so the INSERT is absent from the
+      // trail rather than recorded with a null actor. Poll, so a slow pipeline
+      // can't be mistaken for the defect.
+      let rows = 0
+      for (let i = 0; i < 10 && rows === 0; i++) {
+        rows = Number(
+          sqlValue(
+            `SELECT count(*) FROM audit_logs WHERE entity_type = 'AuditInstances' AND entity_id = '${instanceId}'`,
+          ),
+        )
+        if (rows === 0) await new Promise((r) => setTimeout(r, 2_000))
+      }
+      expect(
+        rows,
+        'a cron-generated audit must still be attributable in audit_logs',
+      ).toBeGreaterThan(0)
+    },
+  )
 
   test('🔴 an open program page reverts the generator’s schedule advance (FAILS TODAY)', async ({
     page,
