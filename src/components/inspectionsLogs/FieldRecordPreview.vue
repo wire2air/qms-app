@@ -131,15 +131,17 @@ const isLockedForEdit = computed(() => {
 const canEdit = computed(() => isOwnRecord.value && !isLockedForEdit.value)
 // Post-lock amendment (esign + comment required server-side). Permission
 // gate matches `fieldRecords:amend`. Voided records can't be amended.
+// Once an entry has gone to its reviewer it is a FINAL record (2026-10-14):
+// in review, approved or rejected, it can be neither amended nor voided — the
+// reviewer's outcome is the last word; a correction is a NEW entry. Amend and
+// Void remain for an entry still in the submitter's hands: SUBMITTED, or
+// LOCKED on a book with no review. Server mirrors this (assertNotFinal).
+const FINAL_STATUSES = ['UNDER_REVIEW', 'APPROVED', 'REJECTED', 'VOIDED']
+const isFinalRecord = computed(() => FINAL_STATUSES.includes(record.value?.statusId))
 const canAmendNow = computed(
-  () => canAmend.value && record.value?.statusId !== 'VOIDED' && isLockedForEdit.value,
+  () => canAmend.value && !isFinalRecord.value && isLockedForEdit.value,
 )
-// Void available unless already voided or APPROVED — approval is final; a
-// signed-off entry is corrected by amendment, never struck (server refuses
-// it too, 2026-10-12).
-const canVoidNow = computed(
-  () => canVoid.value && !['VOIDED', 'APPROVED'].includes(record.value?.statusId),
-)
+const canVoidNow = computed(() => canVoid.value && !isFinalRecord.value)
 
 const record = useLiveQueryWithDeps(
   [() => props.recordId],
@@ -450,8 +452,16 @@ function startReview(outcome) {
   showCommentDialog.value = true
 }
 
+// A rejection is the last word on a final record — the submitter cannot
+// amend or void it — so the reason is required and travels with the
+// notification (server refuses a blank one too, 2026-10-14).
+const reviewReasonRequired = computed(() => pendingOutcome.value === 'REJECTED')
+const reviewCommentMissing = computed(
+  () => reviewReasonRequired.value && !reviewComment.value.trim(),
+)
+
 async function confirmComment() {
-  if (!pendingOutcome.value) return
+  if (!pendingOutcome.value || reviewCommentMissing.value) return
   showCommentDialog.value = false
   pendingReview.value = { outcome: pendingOutcome.value, comment: reviewComment.value || null }
   // Over-the-shoulder: the operator (not a reviewer) collects an authorized
@@ -1178,13 +1188,19 @@ function close() {
             {{ pendingOutcome === 'APPROVED' ? 'Approve record' : 'Reject record' }}
           </h3>
           <p class="tw:text-xs tw:text-secondary tw:mb-3">
-            Comment is optional. E-signature confirmation follows.
+            <template v-if="reviewReasonRequired">
+              A reason is required — the entry becomes a final record with this reason on it, and the
+              submitter is notified. E-signature confirmation follows.
+            </template>
+            <template v-else>Comment is optional. E-signature confirmation follows.</template>
           </p>
           <textarea
             v-model="reviewComment"
             rows="4"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-            placeholder="Optional comment for the audit trail"
+            :placeholder="
+              reviewReasonRequired ? 'Why is this entry rejected?' : 'Optional comment for the audit trail'
+            "
           ></textarea>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
@@ -1196,7 +1212,9 @@ function close() {
             </button>
             <button
               type="button"
-              class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-primary tw:text-white tw:font-medium tw:hover:bg-primary/90 tw:transition tw:border-0"
+              class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-primary tw:text-white tw:font-medium tw:hover:bg-primary/90 tw:transition tw:border-0 tw:disabled:opacity-50 tw:disabled:cursor-not-allowed"
+              :disabled="reviewCommentMissing"
+              :title="reviewCommentMissing ? 'Enter the reason for rejection first.' : undefined"
               @click="confirmComment"
             >
               Continue to sign

@@ -86,8 +86,8 @@ test.describe('IL-J4 — amend and void', () => {
     expect(after.currentRevisionId).not.toBe(record.currentRevisionId)
     // An amend on a LOCKED entry is a tracked post-lock correction — it is NOT a
     // resubmission, so it neither reopens the review cycle nor unseals the
-    // record. (Only an amend on a REJECTED entry moves the status, back to
-    // UNDER_REVIEW, and that is the fix-and-resubmit path.)
+    // record. (An entry that went to a reviewer — UNDER_REVIEW, APPROVED or
+    // REJECTED — is a final record and cannot be amended at all, 2026-10-14.)
     expect(after.statusId, 'an amendment leaves a sealed entry sealed').toBe('LOCKED')
   })
 

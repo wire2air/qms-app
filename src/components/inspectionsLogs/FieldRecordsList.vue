@@ -259,8 +259,14 @@ function startBulk(outcome) {
   showBulkCommentDialog.value = true
 }
 
+// Rejecting makes every entry in the batch a final record with this reason on
+// it (the submitter can neither amend nor void it), so the reason is required;
+// the server refuses a blank one per row (2026-10-14).
+const bulkReasonRequired = computed(() => bulkOutcome.value === 'REJECTED')
+const bulkCommentMissing = computed(() => bulkReasonRequired.value && !bulkComment.value.trim())
+
 function confirmBulkComment() {
-  if (!bulkOutcome.value) return
+  if (!bulkOutcome.value || bulkCommentMissing.value) return
   showBulkCommentDialog.value = false
   // APPROVED + REJECTED both require an e-signature. When the operator (not a
   // reviewer) is signing off over-the-shoulder, collect the SUPERVISOR's PIN;
@@ -968,13 +974,21 @@ function printList() {
             }}
           </h3>
           <p class="tw:text-xs tw:text-secondary tw:mb-3">
-            Comment is optional. One e-signature confirms the whole batch.
+            <template v-if="bulkReasonRequired">
+              A reason is required — each entry becomes a final record with this reason on it, and
+              its submitter is notified. One e-signature confirms the whole batch.
+            </template>
+            <template v-else>Comment is optional. One e-signature confirms the whole batch.</template>
           </p>
           <textarea
             v-model="bulkComment"
             rows="4"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-            placeholder="Comment applied to every record in this batch"
+            :placeholder="
+              bulkReasonRequired
+                ? 'Why are these entries rejected? (applied to every record in the batch)'
+                : 'Comment applied to every record in this batch'
+            "
           ></textarea>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">
             <button
@@ -986,7 +1000,9 @@ function printList() {
             </button>
             <button
               type="button"
-              class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-primary tw:text-white tw:font-medium tw:hover:bg-primary/90 tw:transition tw:border-0"
+              class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-primary tw:text-white tw:font-medium tw:hover:bg-primary/90 tw:transition tw:border-0 tw:disabled:opacity-50 tw:disabled:cursor-not-allowed"
+              :disabled="bulkCommentMissing"
+              :title="bulkCommentMissing ? 'Enter the reason for rejection first.' : undefined"
               @click="confirmBulkComment"
             >
               Continue to sign
