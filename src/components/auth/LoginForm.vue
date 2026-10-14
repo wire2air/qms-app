@@ -161,10 +161,16 @@ const isFormValid = computed(() => {
 // pass the current tenant as `redirectToCompany` — the backend threads it
 // through OAuth state and, after the callback, hands off back to THIS tenant
 // rather than the user's first company.
+//
+// The flow must also START on that apex host. passport keeps the OAuth `state`
+// in the session, and the session cookie is host-only — started on
+// acme.app.<domain>, the state cookie never reaches the app.<domain> callback,
+// state verification fails, and passport's failureRedirect lands the user on
+// /signup with no error (found on the GCP .com prod 2026-10-14).
 function federatedLoginUrl(strategy) {
   const sub = currentSubdomain()
   const query = sub ? `?redirectToCompany=${encodeURIComponent(sub)}` : ''
-  return `/api/v1/auth/login/federated/${strategy}${query}`
+  return `${apexOrigin()}/api/v1/auth/login/federated/${strategy}${query}`
 }
 
 function loginWithGoogle() {
