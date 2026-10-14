@@ -270,7 +270,7 @@ export const USERS = {
   },
   // ── Inspections & Log Books (§34) ─────────────────────────────────────────
   // The floor user. field_records create / read_own / edit_own_in_window and
-  // NOTHING else — no amend, no void, no review, and deliberately no log_books
+  // NOTHING else — no void, no review, and deliberately no log_books
   // grant of any kind. They reach the two seeded books through the FormAssignment
   // arm of `log_books_select_rls`, which is how a real operator reaches them.
   logOperator: {
@@ -286,7 +286,7 @@ export const USERS = {
     email: 'logsupervisor@e2e.test',
     name: 'Sonia Supervisor',
   },
-  // amend + void + inspections:assign. NOT a reviewer of either book — which is
+  // void + inspections:assign. NOT a reviewer of either book — which is
   // what lets IL-J7 separate "holds the review permission" from "may review this
   // book" without a second supervisor persona.
   logAdmin: {

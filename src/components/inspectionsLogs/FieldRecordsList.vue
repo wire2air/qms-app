@@ -260,7 +260,7 @@ function startBulk(outcome) {
 }
 
 // Rejecting makes every entry in the batch a final record with this reason on
-// it (the submitter can neither amend nor void it), so the reason is required;
+// it (the submitter can neither edit nor void it), so the reason is required;
 // the server refuses a blank one per row (2026-10-14).
 const bulkReasonRequired = computed(() => bulkOutcome.value === 'REJECTED')
 const bulkCommentMissing = computed(() => bulkReasonRequired.value && !bulkComment.value.trim())

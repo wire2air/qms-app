@@ -55,9 +55,7 @@ import { test, expect } from '@playwright/test'
 import { AUTH, COMPANY_ID, INSPECTIONS_LOGS, USERS } from '../fixtures/cast.js'
 import { sql, sqlAsAppUser, sqlValue } from '../fixtures/db.js'
 import {
-  amendEntry,
   createPersonaPool,
-  findRecord,
   flagsOf,
   raiseFlag,
   reviewEntry,
@@ -251,131 +249,7 @@ test.describe('IL-J12 — the audit trail', () => {
     ).toBe('22.4')
   })
 
-  test('a correction shows both the original and the corrected value, with the reason', { tag: ['@validation', '@URS-LOG-09'] }, async ({
-    browser,
-  }) => {
-    // TC-10-09 step 2 — "Inspect a correction entry: original and corrected
-    // values both shown, with the reason." This is the step the whole test case
-    // turns on, and it is answered from two different places, because the trail
-    // answers it differently from the ledger.
-    const opPage = await pool.page(browser, AUTH.logOperator)
-    const tag = uniqueTag('J12C')
-    const record = await submitEntry(opPage, {
-      book: OPS,
-      values: { Operator: tag, Reading: '45.0', Note: 'As first recorded' },
-      submitterId: USERS.logOperator.id,
-    })
-    // Amended while the window is still open — a sealed entry cannot be
-    // amended (2026-10-14); the trail of the amendment is what this test reads.
-
-    const adminPage = await pool.page(browser, AUTH.logAdmin)
-    await amendEntry(adminPage, record.id, {
-      values: { Reading: '46.5' },
-      comment: 'Re-read against the calibrated reference; original was low.',
-    })
-
-    // ── Reading 1: the record row's trail ────────────────────────────────
-    // An amendment repoints `current_revision_id`, which is a TRACKED field on
-    // `field_records`, so the UPDATE survives the registry filter and the trail
-    // records that the authoritative content of this entry moved.
-    //
-    // `after.currentRevisionId` is read from the live row rather than compared
-    // against a captured `oldValue`: the pointer is set in a SECOND write just
-    // after the INSERT (the record is created, then pointed at its first
-    // revision), so several UPDATE rows touch this column and matching on the
-    // new value is what identifies the amendment's one unambiguously.
-    const after = findRecord(record.id)
-    await waitForAudit('FieldRecords', record.id, 2, 'amend audited')
-    await expect
-      .poll(
-        () =>
-          auditRows('FieldRecords', record.id).some(
-            (r) =>
-              r.action === 'UPDATE' &&
-              auditValues(r.id).newValue?.currentRevisionId === after.currentRevisionId,
-          ),
-        {
-          message: 'the pointer move reached the trail',
-          timeout: 45_000,
-          intervals: [500, 1_000, 2_000],
-        },
-      )
-      .toBe(true)
-
-    const update = auditRows('FieldRecords', record.id)
-      .map((r) => ({ row: r, ...auditValues(r.id) }))
-      .find((r) => r.newValue?.currentRevisionId === after.currentRevisionId)
-    expect(
-      update.oldValue.currentRevisionId,
-      'the trail shows which revision WAS authoritative before the correction',
-    ).toBe(record.currentRevisionId)
-    expect(
-      update.row.performedBy,
-      'and attributes the pointer move to the amender, not to the original operator',
-    ).toBe(USERS.logAdmin.id)
-
-    // ── Reading 2: the revision the amendment minted ─────────────────────
-    // This is where step 2's three facts actually are, all on one row.
-    const amendCreate = await waitForAuditAction(
-      'FieldRecordRevisions',
-      after.currentRevisionId,
-      'CREATE',
-      'amendment revision audited',
-    )
-    const amendValues = auditValues(amendCreate.id).newValue
-    expect(amendValues.revisionType).toBe('ADMIN_AMENDMENT')
-    expect(amendValues.payload[OPS.fields.reading.name], 'the corrected value').toBe('46.5')
-    expect(
-      amendValues.comment,
-      'and WHY — the reason is mandatory at the endpoint and survives into the trail',
-    ).toMatch(/calibrated reference/)
-    expect(amendValues.authorUserId, 'and who made the correction').toBe(USERS.logAdmin.id)
-
-    // The signature is a SECOND audited event, not a field on the first. The
-    // revision is inserted unsigned, the signature row is minted, and the two
-    // are bound by a follow-up UPDATE — so the CREATE above legitimately reads
-    // `signatureId: null` and the binding has its own row. Both are asserted:
-    // the null on the create (so a future refactor that folded them into one
-    // write shows up here rather than silently), and the binding itself.
-    expect(
-      amendValues.signatureId,
-      'the create row is written before the signature exists',
-    ).toBeNull()
-
-    const binding = await waitForSignatureBinding(
-      after.currentRevisionId,
-      'the amendment is signed',
-    )
-    expect(
-      binding.newValue.signatureId,
-      'and the trail records the moment the correction became a signed Part-11 act',
-    ).toBeTruthy()
-    expect(
-      sqlValue(
-        `SELECT s.meaning || '' FROM signatures s WHERE s.id = '${binding.newValue.signatureId}'`,
-      ),
-      'bound to a signature whose meaning is the amendment',
-    ).toBe('AMENDED')
-    expect(binding.row.performedBy, 'signed by the amender').toBe(USERS.logAdmin.id)
-
-    // The ORIGINAL value. It is not on the amendment's audit row — an amendment
-    // APPENDS a revision rather than editing one, so there is no old/new diff
-    // to carry it. It is on the first revision's own CREATE row, which is
-    // append-only and can never be rewritten. That is the trail's answer to
-    // "the original remains visible": not a diff, a second immutable row.
-    const originalRow = await waitForAuditAction(
-      'FieldRecordRevisions',
-      record.currentRevisionId,
-      'CREATE',
-      'original revision audited',
-    )
-    expect(
-      auditValues(originalRow.id).newValue.payload[OPS.fields.reading.name],
-      'the original value is preserved in its own audit row, untouched by the correction',
-    ).toBe('45.0')
-  })
-
-  test('review, flag and void all reach the trail, each with its own semantics', async ({
+  test('review, flag and void all reach the trail, each with its own semantics', { tag: ['@validation', '@URS-LOG-09'] }, async ({
     browser,
   }) => {
     // TC-10-09 step 1's remaining clauses — "sign-offs", and the exception and
@@ -415,7 +289,7 @@ test.describe('IL-J12 — the audit trail', () => {
       'with the reviewer’s own words — a sign-off with no rationale is a rubber stamp',
     ).toMatch(/Checked against the SOP/)
 
-    // Same two-step shape as the amendment: the outcome is written, then bound
+    // Two-step shape: the outcome is written, then bound
     // to its signature by a follow-up UPDATE. Both events are in the trail.
     const reviewBinding = await waitForSignatureBinding(reviewRevisionId, 'the review is signed')
     expect(

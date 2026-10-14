@@ -14,8 +14,8 @@
 //    straight back to /logging without showing the "Record Created" screen, so
 //    a submit is confirmed against Postgres, never against the UI.
 //
-// 3. EVERY WRITE IS REST, EVERY READ IS SYNCENGINE. Submit / edit / amend /
-//    void / review / flag all POST to /v1/services/…; the panel then reads the
+// 3. EVERY WRITE IS REST, EVERY READ IS SYNCENGINE. Submit / edit / void /
+//    review / flag all POST to /v1/services/…; the panel then reads the
 //    result back out of IndexedDB after `refetchSyncRecord`. So: assert hard
 //    facts in SQL, and let the UI assertions retry.
 //
@@ -306,7 +306,7 @@ export function createPersonaPool() {
 export async function openEntry(page, recordId, { firstWaitMs = 60_000, retryWaitMs = 45_000 } = {}) {
   // Anchor on the entry's own number, never on the panel's chrome.
   //
-  // The panel renders its shell — 'Record content', and the Amend/Void buttons —
+  // The panel renders its shell — 'Record content', and the Flag/Void buttons —
   // BEFORE the record arrives from IndexedDB, because every gate it reads is
   // written to fail open on a null record (`isLockedForEdit` returns true when
   // there is no status; `statusId !== 'VOIDED'` is true of `undefined`). So an
@@ -454,25 +454,6 @@ export async function reviewEntry(page, recordId, outcome, { comment = '' } = {}
   await waitForSqlValue(
     `SELECT status_id = ${quote(outcome)} FROM field_records WHERE id = ${quote(recordId)}`,
     { timeoutMs: 30_000, label: `entry ${outcome}` },
-  )
-}
-
-/** Post-lock amendment: new values + a mandatory reason + a signature. */
-export async function amendEntry(page, recordId, { values = {}, comment }) {
-  await openEntry(page, recordId)
-  await clickWhenReady(page, page.getByRole('button', { name: 'Amend', exact: true }), {
-    until: page.getByRole('heading', { name: 'Amend entry' }),
-  })
-  for (const [label, value] of Object.entries(values)) {
-    await page.getByLabel(label).first().fill(String(value))
-  }
-  await page.getByPlaceholder('Why is this entry being changed? (audit trail)').fill(comment)
-  await page.getByRole('button', { name: 'Continue to sign' }).click()
-  await signWithPin(page)
-  await waitForSqlValue(
-    `SELECT count(*) FROM field_record_revisions
-      WHERE field_record_id = ${quote(recordId)} AND revision_type = 'ADMIN_AMENDMENT'`,
-    { timeoutMs: 30_000, label: 'ADMIN_AMENDMENT revision written' },
   )
 }
 

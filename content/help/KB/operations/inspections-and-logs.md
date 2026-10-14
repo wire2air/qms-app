@@ -119,12 +119,12 @@ In short: **Log Book Approval controls the template; Entry review controls the d
 
 Inspections & Logs separates **setting up** log books from **filling them in**, so day-to-day staff can record entries without changing the controlled templates.
 
-| Role                            | Typical activities                                                                                                                                                                                   | Permissions                                                                                                                                                 |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **QA Manager / owner** (setup)  | Create and edit log books, define the schema (fields), set the edit-window / signature / review policy, submit books for **approval**, schedule assignments, and **review, amend, or void** entries. | `log_books:create`, `log_books:update`, `field_records:review`, `field_records:amend`, `field_records:void`, `field_records:read_all`, `inspections:assign` |
-| **Day-to-day user** (execution) | Fill in and submit logs from their task inbox, and edit their own entry **while its edit window is still open**.                                                                                     | `field_records:create`                                                                                                                                      |
+| Role                            | Typical activities                                                                                                                                                                           | Permissions                                                                                                                          |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **QA Manager / owner** (setup)  | Create and edit log books, define the schema (fields), set the edit-window / signature / review policy, submit books for **approval**, schedule assignments, and **review or void** entries. | `log_books:create`, `log_books:update`, `field_records:review`, `field_records:void`, `field_records:read_all`, `inspections:assign` |
+| **Day-to-day user** (execution) | Fill in and submit logs from their task inbox, and edit their own entry **while its edit window is still open**.                                                                             | `field_records:create`                                                                                                               |
 
-A day-to-day user can only edit **their own** entry, and only **before** the edit window closes or a reviewer locks it. After that, corrections must go through a QA Manager as an **amendment** or **void** (both keep the original for the audit trail).
+A day-to-day user can only edit **their own** entry, and only **while its edit window is open**. Once the window closes the entry is sealed: its content is never rewritten. A sealed entry can still be **voided** by a QA Manager (with a reason and an e-signature — the original stays in the audit trail), and the correct values go in as a **new entry**. Once an entry has gone to review (under review, approved, or rejected) or has been voided, it is final — nothing can change it.
 
 ## Log books and equipment
 
@@ -265,7 +265,8 @@ When a log book has **Require reviewer approval** on, each submitted entry is he
    Both outcomes require your e-signature and let you add a comment in one step.
 
 :::warning
-Logs are immutable once their edit window closes. To correct a locked entry you amend or void
-it (with a reason) rather than overwriting it, so the original is preserved for the audit
-trail.
+Logs are sealed once their edit window closes — there is no amend. To correct a sealed entry,
+**void** it (with a reason and your e-signature) and submit a **new entry** with the right values;
+the voided original is preserved for the audit trail. An entry that has been reviewed (approved
+or rejected) or voided is final and cannot be changed.
 :::

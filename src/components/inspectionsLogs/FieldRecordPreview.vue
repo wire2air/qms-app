@@ -7,7 +7,6 @@ import {
   IconCircleCheck,
   IconCircleX,
   IconPencil,
-  IconEdit,
   IconTrash,
   IconPrinter,
   IconFlag,
@@ -37,8 +36,9 @@ import { required } from '@shared/components/form/validators.js'
  * Approve / Reject / Return-for-info actions that route through the
  * existing e-sig dialog.
  *
- * Edit / amend / void affordances are not in this commit. They'll
- * land as separate buttons gated by the matching permissions.
+ * Edit (submitter, in-window) and Void (permissioned, reason + e-sig)
+ * are the only ways an entry changes after submit; see the status table
+ * next to `isFinalRecord` below.
  */
 const props = defineProps({
   recordId: { type: String, default: null },
@@ -87,7 +87,6 @@ const supervisorName = computed(() => {
 // workflow/stepTakeover.js): the buttons name the supervisor so nobody signs
 // off someone else's queue by accident. Server notifies the supervisor.
 const reviewOnBehalf = computed(() => canReview.value && !canReviewAsRoster.value)
-const canAmend = computed(() => isAllowed(['field_records:amend']))
 // Over-the-shoulder: the operator isn't a reviewer, but this entry's log book
 // allows OTS — an authorized reviewer can sign off here with their PIN.
 const otsAvailable = computed(
@@ -129,22 +128,14 @@ const isLockedForEdit = computed(() => {
 // submitter check, but we mirror it so the button only shows for the
 // person it'll work for.
 const canEdit = computed(() => isOwnRecord.value && !isLockedForEdit.value)
-// Post-lock amendment (esign + comment required server-side). Permission
-// gate matches `fieldRecords:amend`. Voided records can't be amended.
-// What an entry can still become (2026-10-14; server: assertNotFinal /
-// assertAmendable):
-//   SUBMITTED, window open  edit (submitter) · Amend (signed, reason) · Void
+// What an entry can still become (2026-10-14; server: assertNotFinal):
+//   SUBMITTED, window open  edit (submitter) · Void (signed, reason)
 //   LOCKED                  Void only — sealed content is never rewritten; a
 //                           correction is a NEW entry
 //   UNDER_REVIEW / APPROVED / REJECTED / VOIDED
 //                           nothing — a final record
 const FINAL_STATUSES = ['UNDER_REVIEW', 'APPROVED', 'REJECTED', 'VOIDED']
 const isFinalRecord = computed(() => FINAL_STATUSES.includes(record.value?.statusId))
-// Amend: an amend-holder's signed correction while the window is still open
-// (the submitter has the cheap edit; this is for everyone else).
-const canAmendNow = computed(
-  () => canAmend.value && !isFinalRecord.value && !isLockedForEdit.value,
-)
 const canVoidNow = computed(() => canVoid.value && !isFinalRecord.value)
 
 const record = useLiveQueryWithDeps(
@@ -170,7 +161,7 @@ const currentRevision = useLiveQueryWithDeps(
 /**
  * Full revision history for the audit-trail section. Ordered oldest
  * → newest so the reader can follow the entry from initial submit
- * through any edits / amendments / review outcomes / voids. The
+ * through any edits / historical amendments / review outcomes / voids. The
  * append-only RLS policy on field_record_revisions means this list
  * is guaranteed not to be tampered with after the fact.
  */
@@ -457,7 +448,7 @@ function startReview(outcome) {
 }
 
 // A rejection is the last word on a final record — the submitter cannot
-// amend or void it — so the reason is required and travels with the
+// edit or void it — so the reason is required and travels with the
 // notification (server refuses a blank one too, 2026-10-14).
 const reviewReasonRequired = computed(() => pendingOutcome.value === 'REJECTED')
 const reviewCommentMissing = computed(
@@ -494,14 +485,10 @@ async function onEsignVerified(verified) {
   showEsignDialog.value = false
   const esign = buildEsignFromVerified(verified)
   // Route by which action staged itself before opening the dialog.
-  // pendingEsignAction is set in startReview/confirmComment, confirmAmend,
-  // and confirmVoid; cleared after the submit returns.
+  // pendingEsignAction is set in startReview/confirmComment and
+  // confirmVoid; cleared after the submit returns.
   const action = pendingEsignAction.value
   pendingEsignAction.value = null
-  if (action === 'AMEND') {
-    await submitAmend(esign)
-    return
-  }
   if (action === 'VOID') {
     await submitVoid(esign)
     return
@@ -542,11 +529,11 @@ async function submitReview({ comment, esign, overTheShoulder = false, reviewerU
   }
 }
 
-// ─── Edit / Amend / Void state ─────────────────────────────────────
-// Three modes, three endpoints. Edit is inline (no dialog) because the
-// in-window edit is intentionally low-friction. Amend + Void each
-// require comment/reason + esign, so they get their own dialogs that
-// reuse the same WorkflowInstanceEsignAuthDialog the review flow uses.
+// ─── Edit / Void state ─────────────────────────────────────────────
+// Two modes, two endpoints. Edit is inline (no dialog) because the
+// in-window edit is intentionally low-friction. Void requires a reason
+// + esign, so it gets its own dialog that reuses the same
+// WorkflowInstanceEsignAuthDialog the review flow uses.
 
 const isEditing = ref(false)
 const editDraft = ref({})
@@ -584,57 +571,6 @@ async function saveEdit() {
     toast.error(e?.message ?? 'Failed to save changes')
   } finally {
     isSavingEdit.value = false
-  }
-}
-
-// Amend dialog state. Re-uses the form schema; collects comment +
-// captures e-sig before POSTing to /amend.
-const showAmendDialog = ref(false)
-const amendFormRef = ref(null)
-const amendDraft = ref({})
-const amendComment = ref('')
-const isSavingAmend = ref(false)
-const pendingAmend = ref(null) // { payload, comment } waiting on esign
-
-function startAmend() {
-  amendDraft.value = JSON.parse(JSON.stringify(payload.value ?? {}))
-  amendComment.value = ''
-  showAmendDialog.value = true
-}
-
-function confirmAmend() {
-  if (!amendComment.value.trim()) return
-  pendingAmend.value = {
-    payload: amendDraft.value,
-    comment: amendComment.value.trim(),
-  }
-  showAmendDialog.value = false
-  showEsignDialog.value = true
-  // Flag so the shared esign handler routes the result to amend, not review.
-  pendingEsignAction.value = 'AMEND'
-}
-
-async function submitAmend(esign) {
-  if (!record.value?.id || !pendingAmend.value) return
-  isSavingAmend.value = true
-  try {
-    // Re-freeze labels for the amended payload (the OptionSet may have
-    // drifted since the original submit — the amendment should carry
-    // labels as they read *now*).
-    const frozen = await freezeOptionLabels(db, schemaFields.value, pendingAmend.value.payload)
-    await post(`/v1/services/fieldRecords/${record.value.id}/amend`, {
-      ...pendingAmend.value,
-      payload: frozen,
-      esign,
-    })
-    await refetchSyncRecord('FieldRecord', record.value.id)
-    toast.success('Entry amended')
-    pendingAmend.value = null
-    emit('changed')
-  } catch (e) {
-    toast.error(e?.message ?? 'Amendment failed')
-  } finally {
-    isSavingAmend.value = false
   }
 }
 
@@ -677,9 +613,9 @@ async function submitVoid(esign) {
   }
 }
 
-// The esign dialog is now shared by Review, Amend, and Void. This flag
-// tells `onEsignVerified` which submit path to route to.
-const pendingEsignAction = ref(null) // 'REVIEW' | 'AMEND' | 'VOID'
+// The esign dialog is shared by Review and Void. This flag tells
+// `onEsignVerified` which submit path to route to.
+const pendingEsignAction = ref(null) // 'REVIEW' | 'VOID'
 
 // ─── Print ──────────────────────────────────────────────────────────
 // Routes to the centralised print shell so the entry inherits the
@@ -822,9 +758,9 @@ function close() {
             </div>
             <!-- All record actions live on the card header so they sit
                  together next to the content they act on. Edit = in-window
-                 (cheap, no esign); Amend = post-lock (esign + reason); Flag
-                 = any user; Void = permissioned; Reject/Approve = reviewer
-                 while UNDER_REVIEW. -->
+                 (submitter, cheap, no esign); Flag = any user; Void =
+                 permissioned (esign + reason), open or sealed; Reject/Approve
+                 = reviewer while UNDER_REVIEW. -->
             <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap tw:justify-end">
               <button
                 v-if="record && record.statusId !== 'VOIDED'"
@@ -843,15 +779,6 @@ function close() {
               >
                 <IconPencil :size="14" />
                 Edit
-              </button>
-              <button
-                v-if="canAmendNow"
-                type="button"
-                class="tw:px-3 tw:py-1.5 tw:text-xs tw:font-bold tw:text-purple-800 tw:bg-purple-100 tw:border tw:border-purple-200 tw:rounded tw:cursor-pointer tw:hover:bg-purple-200 tw:flex tw:items-center tw:gap-1.5"
-                @click="startAmend"
-              >
-                <IconEdit :size="14" />
-                Amend
               </button>
               <button
                 v-if="canVoidNow"
@@ -991,8 +918,8 @@ function close() {
         <!-- Revision history.
              Every state transition is captured here — INITIAL_SUBMIT,
              USER_EDIT (within window, no esign), ADMIN_AMENDMENT
-             (post-lock, esign + reason required), REVIEW_OUTCOME, and
-             VOID. The append-only RLS on field_record_revisions means
+             (historical — the amend action was retired 2026-10-14; old
+             revisions still render), REVIEW_OUTCOME, and VOID. The append-only RLS on field_record_revisions means
              this is the auditor-grade trail; nothing here can be
              rewritten after the fact. -->
         <div
@@ -1228,75 +1155,6 @@ function close() {
       </div>
     </Teleport>
 
-    <!-- Amend dialog. Reuses the form schema (same fields the original
-         submitter saw), captures a comment, then hands off to the e-sig
-         dialog. The amend endpoint enforces comment + esign server-side. -->
-    <Teleport to="body">
-      <div
-        v-if="showAmendDialog"
-        class="tw:fixed tw:inset-0 tw:z-popover tw:flex tw:items-center tw:justify-center tw:bg-black/40"
-      >
-        <div
-          class="tw:bg-white tw:rounded-lg tw:max-w-2xl tw:w-full tw:p-5 tw:m-3 tw:max-h-[90vh] tw:flex tw:flex-col"
-        >
-          <h3 class="tw:text-base tw:font-bold tw:text-on-main tw:mb-1">Amend entry</h3>
-          <p class="tw:text-xs tw:text-secondary tw:mb-3">
-            The original revision stays in the history. A new ADMIN_AMENDMENT revision is appended
-            with your reason and e-signature.
-          </p>
-
-          <BaseForm
-            ref="amendFormRef"
-            hideFooter
-            class="tw:flex-1 tw:overflow-y-auto tw:mb-3"
-            @submit="confirmAmend"
-          >
-            <DynamicForm
-              v-if="schemaFields.length > 0"
-              v-model="amendDraft"
-              :fields="schemaFields"
-              :loading="isSavingAmend"
-            />
-            <BaseField
-              v-slot="{ id: reasonId }"
-              label="Reason for change"
-              required
-              :value="amendComment"
-              :rules="[required()]"
-              class="tw:mt-4"
-            >
-              <textarea
-                :id="reasonId"
-                v-model="amendComment"
-                rows="3"
-                class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
-                placeholder="Why is this entry being changed? (audit trail)"
-              ></textarea>
-            </BaseField>
-          </BaseForm>
-
-          <div class="tw:flex tw:justify-end tw:gap-2">
-            <button
-              type="button"
-              class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-transparent tw:text-secondary tw:hover:bg-main-hover tw:transition tw:border-0"
-              :disabled="isSavingAmend"
-              @click="showAmendDialog = false"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="tw:px-3 tw:py-1.5 tw:text-sm tw:rounded tw:bg-primary tw:text-white tw:font-medium tw:hover:bg-primary/90 tw:transition tw:border-0 tw:disabled:opacity-50"
-              :disabled="isSavingAmend || !amendComment.trim()"
-              @click="amendFormRef?.submit()"
-            >
-              Continue to sign
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
     <!-- Void dialog. Reason + esign required. -->
     <Teleport to="body">
       <div
@@ -1468,7 +1326,7 @@ function close() {
       </div>
     </Teleport>
 
-    <!-- E-sig prompt — shared by Review, Amend, and Void. The
+    <!-- E-sig prompt — shared by Review and Void. The
          pendingEsignAction ref tells onEsignVerified which submit path
          to call. -->
     <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onEsignVerified" />
