@@ -39,7 +39,6 @@ import { sqlValue } from '../fixtures/db.js'
 import {
   amendEntry,
   createPersonaPool,
-  expireEditWindow,
   findRecord,
   reviewEntry,
   signaturesOf,
@@ -317,7 +316,7 @@ test.describe('IL-J11 — the log book register', () => {
       values: { Operator: tag, Reading: '33.0', Note: 'As read at 06:00' },
       submitterId: USERS.logOperator.id,
     })
-    expireEditWindow(record.id)
+    // Amended in-window: a sealed entry cannot be amended (2026-10-14).
 
     const adminPage = await pool.page(browser, AUTH.logAdmin)
     await amendEntry(adminPage, record.id, {

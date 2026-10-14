@@ -1,18 +1,23 @@
-// IL-J4 — Amend and Void: the two ways a sealed entry can still change.
+// IL-J4 — Amend and Void.
 //
 // Both are Part-11 events and the service treats them as such — each demands a
 // free-text reason AND an e-signature before it will write anything, and each
-// appends rather than overwrites. What separates them is what survives:
+// appends rather than overwrites. What separates them is WHEN they are allowed
+// and what survives (rule of 2026-10-14):
 //
-//   AMEND — a new ADMIN_AMENDMENT revision becomes current. The original
-//     content revision stays in the history with its original values, so the
-//     entry reads as "this was corrected, here is what it said before".
-//   VOID  — the status moves to VOIDED and a VOID revision records the reason,
-//     but `current_revision_id` deliberately does NOT move to it. A void
-//     revision carries no payload; advancing to it would blank the record on
-//     screen, so a voided entry still shows the data it is retracting.
+//   AMEND — only while the entry's edit window is still open: an amend-holder's
+//     signed correction of someone else's entry (the submitter has the cheap
+//     edit). A new ADMIN_AMENDMENT revision becomes current; the original
+//     content revision stays in the history with its original values. Once the
+//     window closes the content is SEALED: amend is refused, a correction is a
+//     new entry.
+//   VOID  — allowed while open AND once sealed. The status moves to VOIDED and
+//     a VOID revision records the reason, but `current_revision_id`
+//     deliberately does NOT move to it. A void revision carries no payload;
+//     advancing to it would blank the record on screen, so a voided entry
+//     still shows the data it is retracting.
 //
-// The second is the subtler guarantee and the easier one to regress, which is
+// The last is the subtler guarantee and the easier one to regress, which is
 // why it is asserted directly rather than inferred from the status.
 import { test, expect } from '@playwright/test'
 import { AUTH, INSPECTIONS_LOGS, USERS } from '../fixtures/cast.js'
@@ -37,24 +42,29 @@ const OPS = INSPECTIONS_LOGS.operations
 const pool = createPersonaPool()
 test.afterAll(() => pool.close())
 
-/** File an operational entry as the operator and close its edit window. */
-async function fileSealedEntry(browser, tag, reading = '30.0') {
+/** File an operational entry as the operator; its edit window is open. */
+async function fileOpenEntry(browser, tag, reading = '30.0') {
   const page = await pool.page(browser, AUTH.logOperator)
-  const record = await submitEntry(page, {
+  return submitEntry(page, {
     book: OPS,
     values: { Operator: tag, Reading: reading, Note: 'Original entry' },
     submitterId: USERS.logOperator.id,
   })
+}
+
+/** File an operational entry as the operator and close its edit window. */
+async function fileSealedEntry(browser, tag, reading = '30.0') {
+  const record = await fileOpenEntry(browser, tag, reading)
   expireEditWindow(record.id)
   return record
 }
 
 test.describe('IL-J4 — amend and void', () => {
-  test('an amend-holder corrects a sealed entry under signature, and the original survives', { tag: ['@validation', '@URS-LOG-07'] }, async ({
+  test('an amend-holder corrects an open entry under signature, and the original survives', { tag: ['@validation', '@URS-LOG-07'] }, async ({
     browser,
   }) => {
     const tag = uniqueTag('J4A')
-    const record = await fileSealedEntry(browser, tag, '30.0')
+    const record = await fileOpenEntry(browser, tag, '30.0')
 
     const page = await pool.page(browser, AUTH.logAdmin)
     await amendEntry(page, record.id, {
@@ -84,11 +94,37 @@ test.describe('IL-J4 — amend and void', () => {
 
     const after = findRecord(record.id)
     expect(after.currentRevisionId).not.toBe(record.currentRevisionId)
-    // An amend on a LOCKED entry is a tracked post-lock correction — it is NOT a
-    // resubmission, so it neither reopens the review cycle nor unseals the
-    // record. (An entry that went to a reviewer — UNDER_REVIEW, APPROVED or
-    // REJECTED — is a final record and cannot be amended at all, 2026-10-14.)
-    expect(after.statusId, 'an amendment leaves a sealed entry sealed').toBe('LOCKED')
+    // An in-window amendment is a correction, not a resubmission: it neither
+    // reopens a review cycle nor touches the window.
+    expect(after.statusId, 'an amendment leaves the entry where it was').toBe('SUBMITTED')
+  })
+
+  test('a sealed entry cannot be amended — its content is final; void is the only way out', async ({
+    browser,
+  }) => {
+    const tag = uniqueTag('J4S')
+    const record = await fileSealedEntry(browser, tag, '30.0')
+
+    const page = await pool.page(browser, AUTH.logAdmin)
+    await openEntry(page, record.id)
+    await expect(
+      page.getByRole('button', { name: 'Amend', exact: true }),
+      'Amend is withdrawn once the window closes',
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole('button', { name: 'Void', exact: true }),
+      'Void stays available for a sealed entry',
+    ).toBeVisible()
+
+    const res = await restPost(page, `/fieldRecords/${record.id}/amend`, {
+      payload: { [OPS.fields.reading.name]: '30.8' },
+      comment: 'Should not land',
+      esign: { strategy: 'pin', token: '12345678' },
+    })
+    expect(res.status(), 'and the server refuses it regardless of the UI').toBe(400)
+    expect(await errorMessage(res)).toMatch(/sealed/i)
+    expect(revisionsOf(record.id), 'nothing was appended').toHaveLength(1)
+    expect(currentPayload(record.id)[OPS.fields.reading.name]).toBe('30.0')
   })
 
   test('a void retracts the entry, under signature, without erasing what it said', async ({

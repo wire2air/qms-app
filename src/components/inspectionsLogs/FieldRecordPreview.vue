@@ -131,15 +131,19 @@ const isLockedForEdit = computed(() => {
 const canEdit = computed(() => isOwnRecord.value && !isLockedForEdit.value)
 // Post-lock amendment (esign + comment required server-side). Permission
 // gate matches `fieldRecords:amend`. Voided records can't be amended.
-// Once an entry has gone to its reviewer it is a FINAL record (2026-10-14):
-// in review, approved or rejected, it can be neither amended nor voided — the
-// reviewer's outcome is the last word; a correction is a NEW entry. Amend and
-// Void remain for an entry still in the submitter's hands: SUBMITTED, or
-// LOCKED on a book with no review. Server mirrors this (assertNotFinal).
+// What an entry can still become (2026-10-14; server: assertNotFinal /
+// assertAmendable):
+//   SUBMITTED, window open  edit (submitter) · Amend (signed, reason) · Void
+//   LOCKED                  Void only — sealed content is never rewritten; a
+//                           correction is a NEW entry
+//   UNDER_REVIEW / APPROVED / REJECTED / VOIDED
+//                           nothing — a final record
 const FINAL_STATUSES = ['UNDER_REVIEW', 'APPROVED', 'REJECTED', 'VOIDED']
 const isFinalRecord = computed(() => FINAL_STATUSES.includes(record.value?.statusId))
+// Amend: an amend-holder's signed correction while the window is still open
+// (the submitter has the cheap edit; this is for everyone else).
 const canAmendNow = computed(
-  () => canAmend.value && !isFinalRecord.value && isLockedForEdit.value,
+  () => canAmend.value && !isFinalRecord.value && !isLockedForEdit.value,
 )
 const canVoidNow = computed(() => canVoid.value && !isFinalRecord.value)
 

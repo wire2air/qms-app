@@ -57,7 +57,6 @@ import { sql, sqlAsAppUser, sqlValue } from '../fixtures/db.js'
 import {
   amendEntry,
   createPersonaPool,
-  expireEditWindow,
   findRecord,
   flagsOf,
   raiseFlag,
@@ -266,7 +265,8 @@ test.describe('IL-J12 — the audit trail', () => {
       values: { Operator: tag, Reading: '45.0', Note: 'As first recorded' },
       submitterId: USERS.logOperator.id,
     })
-    expireEditWindow(record.id)
+    // Amended while the window is still open — a sealed entry cannot be
+    // amended (2026-10-14); the trail of the amendment is what this test reads.
 
     const adminPage = await pool.page(browser, AUTH.logAdmin)
     await amendEntry(adminPage, record.id, {
