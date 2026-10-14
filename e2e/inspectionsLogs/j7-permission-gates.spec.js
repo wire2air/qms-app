@@ -5,8 +5,8 @@
 // evidence at all — the question each of these asks is whether the API or the
 // database refuses the request the hidden button would have sent.
 //
-// The three write verbs are gated in two different places and it matters which:
-//   amend / void  — inside the CONTROLLER (`ensurePermission`), so the refusal
+// The write verbs are gated in two different places and it matters which:
+//   void          — inside the CONTROLLER (`ensurePermission`), so the refusal
 //     names the missing permission string.
 //   flag resolve / assignment authoring — at the ROUTE
 //     (`enforcePermission(...)`), so the refusal never reaches the controller.
@@ -33,7 +33,7 @@ const pool = createPersonaPool()
 test.afterAll(() => pool.close())
 
 test.describe('IL-J7 — who may do what', () => {
-  test('the operator is offered no amend or void, and the endpoints refuse them by name', async ({
+  test('the operator is offered no void, and the endpoint refuses it by name', async ({
     browser,
   }) => {
     const page = await pool.page(browser, AUTH.logOperator)
@@ -45,7 +45,6 @@ test.describe('IL-J7 — who may do what', () => {
     })
 
     await openEntry(page, record.id)
-    await expect(page.getByRole('button', { name: 'Amend', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Void', exact: true })).toHaveCount(0)
     // Flag, by contrast, IS offered — raising an exception is open to everyone
     // in the tenant by design. The contrast is the assertion.
@@ -53,14 +52,6 @@ test.describe('IL-J7 — who may do what', () => {
       page.getByRole('button', { name: 'Flag', exact: true }),
       'raising a flag is deliberately ungated',
     ).toBeVisible()
-
-    const amend = await restPost(page, `/fieldRecords/${record.id}/amend`, {
-      payload: { [OPS.fields.reading.name]: '0' },
-      comment: 'Should not land',
-      esign: { strategy: 'pin', token: '12345678' },
-    })
-    expect(amend.status()).toBe(403)
-    expect(await errorMessage(amend)).toMatch(/missing permission: field_records:amend/i)
 
     const voided = await restPost(page, `/fieldRecords/${record.id}/void`, {
       reason: 'Should not land',

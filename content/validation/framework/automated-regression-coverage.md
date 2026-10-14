@@ -470,9 +470,9 @@ assessment and the wording to record.
 | URS-LOG-04 | Covered | `e2e/inspectionsLogs/j1-submit-entry.spec.js` — "an operator files an operational entry and it lands SUBMITTED, inside its edit window" | Entry submission and its edit window are asserted. |
 | URS-LOG-05 | Covered | `e2e/inspectionsLogs/j10-training-gate.spec.js` — "an untrained operator is refused, and the refusal names the document they owe" | The training block is armed and proven, including that manager verification — not merely passing — opens the gate. |
 | URS-LOG-06 | Covered | `e2e/inspectionsLogs/j3-review.spec.js` — "the book supervisor approves under e-signature and the entry seals" | Supervisor review under e-signature and entry sealing are asserted. |
-| URS-LOG-07 | Covered | `e2e/inspectionsLogs/j4-amend-void.spec.js` — "an amend-holder corrects a sealed entry under signature, and the original survives" | Amendment under signature with retention of the original is asserted. |
+| URS-LOG-07 | Covered | `e2e/inspectionsLogs/j4-void.spec.js` — "a void retracts the entry, under signature, without erasing what it said" | Sealed content is never rewritten (there is no amend): the controlled correction path is a signed void with a mandatory reason, and the voided entry keeps its original values on file. |
 | URS-LOG-08 | Covered | `e2e/inspectionsLogs/j11-register-printout.spec.js` — "the register prints every entry in the range with its number, time, operator and status" | Register printing over a date range is asserted, including that the range is a real filter. |
-| URS-LOG-09 | Covered | `e2e/inspectionsLogs/j12-audit-trail.spec.js` — "a correction shows both the original and the corrected value, with the reason" | Filing, correction, review, flag and void all reach the trail with their own semantics. Pinned: the flag's audit row carries `{id}` and nothing more. |
+| URS-LOG-09 | Covered | `e2e/inspectionsLogs/j12-audit-trail.spec.js` — "review, flag and void all reach the trail, each with its own semantics" | Filing, review, flag and void all reach the trail with their own semantics (a correction is a void plus a new entry since 2026-10-14 — there is no amend). Pinned: the flag's audit row carries `{id}` and nothing more. |
 
 ## 14. Equipment & Calibration
 

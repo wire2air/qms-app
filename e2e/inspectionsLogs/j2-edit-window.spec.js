@@ -3,7 +3,8 @@
 // A log entry is immutable evidence, but a floor user typing on a tablet needs
 // a moment to fix a transposed digit. The compromise is a window: the
 // submitter, and only the submitter, may rewrite their own entry until it
-// closes — after which the only route is a signed amendment (IL-J4).
+// closes — after which the content is sealed: a correction is a signed void
+// plus a new entry (IL-J4).
 //
 // Both halves are tested against the SERVER, not the button. The Edit control
 // disappearing is a UX courtesy; the claim that matters is that the same edit
@@ -118,7 +119,7 @@ test.describe('IL-J2 — the edit window opens, then closes', () => {
     expect(findRecord(record.id).statusId, 'the entry has sealed itself').toBe('LOCKED')
   })
 
-  test('the in-window edit belongs to the submitter alone — even an amend-holder is refused', async ({
+  test('the in-window edit belongs to the submitter alone — even a void-holder is refused', async ({
     browser,
   }) => {
     const opPage = await pool.page(browser, AUTH.logOperator)
@@ -129,10 +130,10 @@ test.describe('IL-J2 — the edit window opens, then closes', () => {
       submitterId: USERS.logOperator.id,
     })
 
-    // logAdmin holds field_records:amend, void and read_all — strictly more
-    // than the operator — and still cannot use the cheap path. The separation
-    // is deliberate: an administrator's change to someone else's record must
-    // carry a reason and a signature, which is exactly what amend is.
+    // logAdmin holds field_records:void and read_all — strictly more than the
+    // operator — and still cannot use the cheap path. The separation is
+    // deliberate: an administrator never rewrites someone else's record; the
+    // only thing they can do to it is void it under reason and signature.
     const adminPage = await pool.page(browser, AUTH.logAdmin)
     const res = await restPatchRecord(adminPage, record.id, {
       payload: { [OPS.fields.reading.name]: '0.1' },

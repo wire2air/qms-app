@@ -63,16 +63,15 @@ test.describe('IL-J8 — integrity guards (security-review #1/#2/#3)', () => {
     const revisionId = record.currentRevisionId
     expect(signaturesOf(record.id), 'the probe needs a genuinely signed revision').toHaveLength(1)
 
-    // Layer 1 — the UPDATE policy. The operator holds none of amend/void/review,
+    // Layer 1 — the UPDATE policy. The operator holds neither void nor review,
     // so the row is not even reachable. Silent: zero rows, no error.
     const operator = sqlAsAppUser(
       `UPDATE field_record_revisions SET comment = 'rewritten' WHERE id = '${revisionId}' RETURNING id;`,
       { userId: USERS.logOperator.id, companyId: COMPANY_ID },
     )
-    expect(
-      affectedRows(operator),
-      'a member without amend/void/review cannot reach the row at all',
-    ).toBe(0)
+    expect(affectedRows(operator), 'a member without void/review cannot reach the row at all').toBe(
+      0,
+    )
 
     // Layer 2 — the trigger. The supervisor DOES hold `field_records:review`, so
     // the policy admits them and the append-only guard has to do the work. This
