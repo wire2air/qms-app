@@ -8,7 +8,7 @@
 // "who sees it in the queue" and "who may sign it off" cannot drift apart.
 //
 // That is why the third test matters as much as the first two: logAdmin holds
-// amend, void AND read_all across the whole module and is still refused,
+// void AND read_all across the whole module and is still refused,
 // because they are not a reviewer of THIS book.
 import { test, expect } from '@playwright/test'
 import { AUTH, INSPECTIONS_LOGS, USERS } from '../fixtures/cast.js'
@@ -92,8 +92,8 @@ test.describe('IL-J3 — the supervisor decides', () => {
 
     const after = findRecord(record.id)
     expect(after.statusId).toBe('REJECTED')
-    // Rejection does NOT re-open the cheap edit window — the fix-and-resubmit
-    // route is a signed amendment, which is where the window restarts.
+    // Rejection does NOT re-open the cheap edit window — a rejected entry is
+    // final; the fix is a NEW entry.
     expect(after.lockReason, 'a rejection does not restart the typo window').toBeNull()
 
     const revisions = revisionsOf(record.id)
@@ -138,7 +138,7 @@ test.describe('IL-J3 — the supervisor decides', () => {
     })
     const adminStatus = adminRes.status()
     const adminMessage = await errorMessage(adminRes)
-    expect(adminStatus, 'amend + void + read_all still buys no review').toBe(403)
+    expect(adminStatus, 'void + read_all still buys no review').toBe(403)
     expect(adminMessage).toMatch(/not an authorized reviewer/i)
 
     expect(findRecord(record.id).statusId, 'the entry is still awaiting a real reviewer').toBe(

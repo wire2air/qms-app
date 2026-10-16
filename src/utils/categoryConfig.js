@@ -150,7 +150,7 @@ export const CATEGORY_METADATA = {
   fieldRecords: {
     label: 'Log Entries',
     icon: IconClipboardList,
-    description: 'Submit, read, edit, review, amend, void, and classify log entries.',
+    description: 'Submit, read, edit, review, void, and classify log entries.',
   },
   inspections: {
     label: 'Inspection Assignments',

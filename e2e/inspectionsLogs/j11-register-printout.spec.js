@@ -13,9 +13,13 @@
 //            → "NOT identifiable — the register prints the corrected value
 //               with no marker."
 //
-// Both are asserted here as observed, not as wished for. Neither is a loss of
-// the underlying record — the signature and the full correction history live
-// on the entry and in its audit trail (IL-J3, IL-J4, IL-J12) — but a procedure
+// Step 3 is asserted here as observed, not as wished for. Step 4 no longer
+// has a journey: since 2026-10-14 sealed content is never rewritten (there is
+// no amend — a correction is a void plus a NEW entry, IL-J4), so the register
+// has no "corrected value" to print; the voided original prints under its own
+// status. Neither omission is a loss of the underlying record — the signature
+// and the full history live on the entry and in its audit trail (IL-J3,
+// IL-J4, IL-J12) — but a procedure
 // that treats this printout as the inspection-facing log is relying on
 // something it does not contain, and that is exactly the kind of thing a
 // regression must not quietly change in either direction.
@@ -35,12 +39,8 @@
 // stub audits/PW-J8 and documents/S2 use.
 import { test, expect } from '@playwright/test'
 import { AUTH, INSPECTIONS_LOGS, USERS } from '../fixtures/cast.js'
-import { sqlValue } from '../fixtures/db.js'
 import {
-  amendEntry,
   createPersonaPool,
-  expireEditWindow,
-  findRecord,
   reviewEntry,
   signaturesOf,
   submitEntry,
@@ -294,76 +294,6 @@ test.describe('IL-J11 — the log book register', () => {
         body.getByText(/e-?signature|signed by/i),
         'and there is no signature block of any kind',
       ).toHaveCount(0)
-    } finally {
-      await ctx.close()
-    }
-  })
-
-  test('an amended entry prints its corrected value with no marker that it was corrected', async ({
-    browser,
-  }) => {
-    // TC-10-08 step 4 — the most consequential of the register's omissions, and
-    // the reason the protocol tells the executor to evidence corrections from
-    // the entry records instead if this printout is their inspection-facing log.
-    //
-    // The whole point of TC-10-07 (and IL-J4) is that an amendment never erases
-    // the original: revision 1 keeps '33.0' forever. The register, however,
-    // renders `payloadFor(record)` — the CURRENT revision — so the printed page
-    // shows only '34.2', with nothing to tell a reader the number ever moved.
-    const opPage = await pool.page(browser, AUTH.logOperator)
-    const tag = uniqueTag('J11C')
-    const record = await submitEntry(opPage, {
-      book: OPS,
-      values: { Operator: tag, Reading: '33.0', Note: 'As read at 06:00' },
-      submitterId: USERS.logOperator.id,
-    })
-    expireEditWindow(record.id)
-
-    const adminPage = await pool.page(browser, AUTH.logAdmin)
-    await amendEntry(adminPage, record.id, {
-      values: { Reading: '34.2' },
-      comment: 'Transcription error — instrument log reads 34.2.',
-    })
-
-    // Ground truth: the original survives in the ledger, which is what makes
-    // its absence from the register an omission rather than a data loss.
-    expect(
-      sqlValue(
-        `SELECT payload ->> '${OPS.fields.reading.name}' FROM field_record_revisions
-          WHERE field_record_id = '${record.id}' AND revision_number = 1`,
-      ),
-      'the original reading is still on file in revision 1',
-    ).toBe('33.0')
-    expect(findRecord(record.id).statusId, 'and the entry is a sealed, amended one').toBe('LOCKED')
-
-    const { ctx, page } = await openRegister(browser, { from: today(), to: today() })
-    try {
-      const row = entriesTable(page).locator('tr', { hasText: record.recordNumber })
-      await expect(row).toHaveCount(1, { timeout: 45_000 })
-
-      await expect(row.getByText('34.2'), 'the corrected value is what prints').toBeVisible()
-
-      // The two omissions, in order of how much they matter.
-      await expect(
-        row.getByText('33.0'),
-        'the superseded value is not on the register',
-      ).toHaveCount(0)
-      await expect(
-        row.getByText(/amend|correct|revis/i),
-        'TC-10-08 step 4 as documented — nothing marks the row as having been corrected',
-      ).toHaveCount(0)
-      await expect(
-        entriesTable(page).getByText(/Transcription error/),
-        'and the reason for the correction is not printed either',
-      ).toHaveCount(0)
-
-      // The status column is the only trace, and it is not a correction marker:
-      // an amended entry prints "Completed" — the label for LOCKED — exactly as
-      // an untouched sealed entry does. That is the finding, stated positively.
-      await expect(
-        row.getByText('Completed', { exact: true }),
-        'an amended entry is indistinguishable from an unamended sealed one',
-      ).toBeVisible()
     } finally {
       await ctx.close()
     }
