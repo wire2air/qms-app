@@ -1,16 +1,16 @@
 ---
 id: inspections-and-logs
-title: Inspections & Logs
+title: Log Books
 sidebar_position: 1
 description: Build log books, schedule who fills them, complete entries from your task inbox, and review the records they produce.
 keywords: [inspections, log books, field records, assignments, scheduling, review]
 ---
 
-# Inspections & Logs
+# Log Books
 
 ## Overview
 
-Inspections & Logs is where your team captures routine field entries: daily temperature
+Log Books is where your team captures routine field entries: daily temperature
 checks, gemba rounds, shift handovers, cleaning logs, calibrations, and batch-release
 records. You build a **log book** to define what each entry looks like, optionally schedule
 **who** fills it and **when**, and every completed entry is saved as a permanent **log**
@@ -26,8 +26,8 @@ My Tasks, and Logs.
 | Menu                   | What it holds                                         |
 | ---------------------- | ----------------------------------------------------- |
 | **Log Forms**          | The reusable field layouts a log book captures.       |
-| **Log Books**          | The books themselves — a form, a policy, a lifecycle. |
-| **Inspections & Logs** | The entries people have filed.                        |
+| **Books**              | The books themselves — a form, a policy, a lifecycle. |
+| **Entries**            | The entries people have filed.                        |
 | **Assignments**        | Who fills which book, and on what schedule.           |
 
 Build them in that order:
@@ -117,7 +117,7 @@ In short: **Log Book Approval controls the template; Entry review controls the d
 
 ## Roles — who does what
 
-Inspections & Logs separates **setting up** log books from **filling them in**, so day-to-day staff can record entries without changing the controlled templates.
+Log Books separates **setting up** log books from **filling them in**, so day-to-day staff can record entries without changing the controlled templates.
 
 | Role                            | Typical activities                                                                                                                                                                           | Permissions                                                                                                                          |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -134,7 +134,7 @@ For a **calibration** log, you can go one step further: on the log book's **Deta
 
 ## How to create a log book
 
-1. Open **Inspections & Logs** and select the **Log Books** card.
+1. Open **Log Books** and select the **Books** tab.
 2. Click **New Log Book** (or pick the Operational or Controlled quick-create card).
 3. In the dialog, give it a title, code, and category (for example Daily, Calibration,
    Cleaning, Safety), then confirm the classification.
@@ -257,7 +257,7 @@ live in one inbox.
 
 When a log book has **Require reviewer approval** on, each submitted entry is held **Under review** for the log book's **Supervisor** — that's the designated reviewer, and entries land in their queue. (Any user with the review permission can also action them, but the Supervisor is who it's routed to.)
 
-1. Open the **Logs** card to see every entry submitted across your log books. Filter by log
+1. Open the **Entries** tab to see every entry submitted across your log books. Filter by log
    book or by status to narrow the list.
 2. To review entries waiting on you, use the **Awaiting your review** tile on the landing
    page, or filter Logs to **Under review**.

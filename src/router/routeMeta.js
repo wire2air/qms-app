@@ -176,7 +176,7 @@ export const ROUTE_META = {
   // ── Operations ───────────────────────────────────────────────────
   '/equipment': { title: 'Equipment', icon: IconTool },
   '/inspections-logs': {
-    title: 'Inspections & Logs',
+    title: 'Log Books',
     icon: IconClipboardList,
   },
   '/qc-inspection': {

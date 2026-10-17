@@ -28,8 +28,8 @@ const route = useRoute()
 // to its matrix module: Log Books → log_books, Assignments → Log Book
 // Assignments (`inspections`), Logs → field_records. Any grant implies :read.
 const ALL_TABS = [
-  { value: 'logs', label: 'Logs', permission: 'field_records:read' },
-  { value: 'log-books', label: 'Log Books', permission: 'log_books:read' },
+  { value: 'logs', label: 'Entries', permission: 'field_records:read' },
+  { value: 'log-books', label: 'Books', permission: 'log_books:read' },
   { value: 'assignments', label: 'Assignments', permission: 'inspections:read' },
 ]
 const tabs = computed(() => ALL_TABS.filter((t) => isAllowed([t.permission])))
@@ -127,7 +127,7 @@ const showMobilePortal = ref(false)
     >
       <template #title>
         <span class="tw:inline-flex tw:items-center tw:gap-1.5">
-          Inspections &amp; Logs
+          Log Books
           <span v-if="activeLabel" class="tw:text-secondary tw:font-normal">
             · {{ activeLabel }}
           </span>

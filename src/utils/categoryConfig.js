@@ -347,7 +347,7 @@ export const PERMISSION_SECTIONS = [
     // the seeded permission rows: `fieldRecords:create`,
     // `logBooks:update`, `equipment:create`, etc. Without this section
     // the rows exist in PG but the Roles UI hides them.
-    name: 'Inspections & Logs',
+    name: 'Log Books',
     categories: ['fieldRecords', 'logBooks', 'inspections', 'equipment'],
   },
   {

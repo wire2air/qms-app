@@ -557,17 +557,20 @@ const navItems = computed(() => {
       // Submenu like QC Inspection (user request 2026-08-05): ?tab= children,
       // each gated on its tab's module; the group header auto-hides when every
       // child is filtered away, which subsumes the old anyPermissions gate.
-      label: 'Inspections & Logs',
-      icon: IconClipboardList,
+      // Renamed from "Inspections & Logs" (user 2026-10-17): the group IS the
+      // log book module, and the old name collided with QC Inspection and with
+      // a since-removed workflow module of the same name.
+      label: 'Log Books',
+      icon: IconBook,
       children: [
         {
-          label: 'Logs',
+          label: 'Entries',
           permissions: ['field_records:read'],
           icon: IconClipboardText,
           to: getCompanyPath('/inspections-logs?tab=logs'),
         },
         {
-          label: 'Log Books',
+          label: 'Books',
           permissions: ['log_books:read'],
           icon: IconBook,
           to: getCompanyPath('/inspections-logs?tab=log-books'),

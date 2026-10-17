@@ -6,6 +6,7 @@ import { IconChevronDown, IconChevronUp } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { required } from '@shared/components/form/validators.js'
 import WorkflowVersionSelect from '@/components/documents/WorkflowVersionSelect.vue'
+import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 /**
  * Dedicated wizard for creating a Log Book (an Inspections & Logs
@@ -114,6 +115,27 @@ const startingBlockId = ref(null)
 // module's default — the seeded "Default Log Book Approval" — so authors
 // only change this deliberately.
 const workflowVersionId = ref(null)
+
+// A book cannot exist without an approval route: every book is born DRAFT
+// and only accepts entries once approved, so with no ACTIVE + PUBLISHED Log
+// Book workflow there is nothing to submit it to. Block creation and say so
+// (the Workflows screen is where one gets made) rather than minting a draft
+// that can never leave DRAFT. Same ACTIVE/PUBLISHED test the picker applies.
+const logBookWorkflowCount = useLiveQuery(
+  async (db) => {
+    const workflows = (await db.Workflow.where('moduleId', 'LOG_BOOK').exec()).filter(
+      (w) => w.statusId === 'ACTIVE',
+    )
+    if (!workflows.length) return 0
+    const versions = await db.WorkflowVersion.where().exec()
+    return workflows.filter((w) =>
+      versions.some((v) => v.workflowId === w.id && v.statusId === 'PUBLISHED'),
+    ).length
+  },
+  { models: ['Workflow', 'WorkflowVersion'], initial: null },
+)
+const noApprovalWorkflow = computed(() => logBookWorkflowCount.value === 0)
+const workflowsPath = computed(() => getCompanyPath('/workflow-templates'))
 
 // Equipment dropdown — uses EquipmentSelectMenu (added with the
 // Equipment module follow-up). Hides RETIRED equipment by default.
@@ -240,6 +262,10 @@ const createSiteOnLogBook = useLiveMutation(async (db, { logBookId, siteId }) =>
 
 async function save() {
   if (!isFormValid.value || isSubmitting.value) return
+  if (noApprovalWorkflow.value) {
+    saveError.value = 'There is no approval workflow for log books. Create one first.'
+    return
+  }
   isSubmitting.value = true
   saveError.value = ''
   try {
@@ -335,11 +361,7 @@ async function save() {
            LOG-{DEPTCODE}. -->
       <BaseField label="Record Id Prefix" required :value="codePrefix" :rules="[required()]">
         <template #default="field">
-          <BaseTextInput
-            v-bind="field"
-            v-model="codePrefix"
-            placeholder="LOG-{DEPTCODE}"
-          />
+          <BaseTextInput v-bind="field" v-model="codePrefix" placeholder="LOG-{DEPTCODE}" />
           <div class="tw:text-xs tw:text-secondary tw:mt-1 tw:flex tw:flex-col tw:gap-0.5">
             <div>
               Use
@@ -546,7 +568,8 @@ async function save() {
             <span>
               Allow over-the-shoulder review
               <span class="tw:block tw:text-caption tw:text-secondary">
-                The supervisor can sign off at the operator's workstation with their PIN — no logout.
+                The supervisor can sign off at the operator's workstation with their PIN — no
+                logout.
               </span>
             </span>
           </label>
@@ -570,7 +593,19 @@ async function save() {
           The log book is created as a <strong>Draft</strong>. Build the log template, then submit
           it through this workflow — it starts accepting entries once approved.
         </p>
-        <WorkflowVersionSelect v-model="workflowVersionId" moduleId="LOG_BOOK" dense />
+        <div
+          v-if="noApprovalWorkflow"
+          role="alert"
+          class="tw:rounded-md tw:border tw:border-amber-300 tw:bg-amber-50 tw:px-3 tw:py-2 tw:text-sm tw:text-amber-900"
+        >
+          <strong>There is no approval workflow for log books.</strong>
+          Create an approval workflow for the <em>Log Book</em> module first, then come back to
+          create the log book.
+          <RouterLink :to="workflowsPath" class="tw:ml-1 tw:font-medium tw:underline">
+            Go to Workflows
+          </RouterLink>
+        </div>
+        <WorkflowVersionSelect v-else v-model="workflowVersionId" moduleId="LOG_BOOK" dense />
       </div>
     </BaseForm>
 
@@ -579,6 +614,10 @@ async function save() {
       <BaseDialogFooter
         submitLabel="Create Draft & Build Form"
         :loading="isSubmitting"
+        :disabled="noApprovalWorkflow"
+        :submitTitle="
+          noApprovalWorkflow ? 'Create an approval workflow for log books first' : undefined
+        "
         :error="saveError"
         @cancel="close"
         @submit="formRef?.submit()"
