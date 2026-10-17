@@ -194,27 +194,43 @@ const selectedWorkflowLabel = computed(() => {
 const isDirty = ref(false)
 watch(form, () => (isDirty.value = true), { deep: true })
 
-// Picking an item fills Unit of measure from the item master (products.uomId
-// → uoms.code). Only when the user has not typed/picked one already, and
-// cleared again when the item that supplied it is deselected.
+// Picking an item fills in what the item master knows: Unit of measure
+// (products.uomId → uoms.code) and Supplier (Item ↔ Supplier M2M — only when
+// the item has exactly ONE supplier; with several we do not guess). Each only
+// when the user has not picked one already, and cleared again when the item
+// that supplied it is deselected. Supplier-facing is left alone: that is a
+// decision, not data.
 let uomFromProduct = null
+let supplierFromProduct = null
 watch(
   () => form.value.productId,
   async (productId) => {
     if (!productId) {
-      if (uomFromProduct && form.value.unitOfMeasure === uomFromProduct)
+      if (uomFromProduct && form.value.unitOfMeasure === uomFromProduct) {
         form.value.unitOfMeasure = ''
+      }
+      if (supplierFromProduct && form.value.supplierId === supplierFromProduct) {
+        form.value.supplierId = null
+      }
       uomFromProduct = null
+      supplierFromProduct = null
       return
     }
     const product = await db.Product.findByPk(productId)
-    const uom = product?.uomId ? await db.Uom.findByPk(product.uomId) : null
+    const [uom, links] = await Promise.all([
+      product?.uomId ? db.Uom.findByPk(product.uomId) : null,
+      db.ProductSupplier.where('productId', productId).exec(),
+    ])
     const code = uom?.code || null
-    if (!code) return
-    if (!form.value.unitOfMeasure || form.value.unitOfMeasure === uomFromProduct) {
+    if (code && (!form.value.unitOfMeasure || form.value.unitOfMeasure === uomFromProduct)) {
       form.value.unitOfMeasure = code
     }
     uomFromProduct = code
+    const supplierId = links.length === 1 ? links[0].supplierId : null
+    if (supplierId && (!form.value.supplierId || form.value.supplierId === supplierFromProduct)) {
+      form.value.supplierId = supplierId
+    }
+    supplierFromProduct = supplierId
   },
 )
 

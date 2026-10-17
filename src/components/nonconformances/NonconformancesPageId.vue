@@ -98,15 +98,23 @@ const initialInvestigationAttachments = computed({
 const saving = ref(false)
 const saveError = ref(null)
 
-// Picking an item fills Unit of measure from the item master (products.uomId
-// → uoms.code) when the NC has none yet; the change rides the same autosave.
+// Picking an item fills in what the item master knows, where the NC has
+// nothing yet: Unit of measure (products.uomId → uoms.code) and Supplier (only
+// when the item has exactly ONE supplier). Rides the same autosave.
 watch(
   () => nc.value?.productId,
   async (productId, prev) => {
-    if (!productId || prev === undefined || !isEditable.value || nc.value?.unitOfMeasure) return
+    if (!productId || prev === undefined || !isEditable.value) return
     const product = await db.Product.findByPk(productId)
-    const uom = product?.uomId ? await db.Uom.findByPk(product.uomId) : null
-    if (uom?.code && nc.value && !nc.value.unitOfMeasure) nc.value.unitOfMeasure = uom.code
+    const [uom, links] = await Promise.all([
+      product?.uomId ? db.Uom.findByPk(product.uomId) : null,
+      db.ProductSupplier.where('productId', productId).exec(),
+    ])
+    if (!nc.value) return
+    if (uom?.code && !nc.value.unitOfMeasure) nc.value.unitOfMeasure = uom.code
+    if (links.length === 1 && !nc.value.supplierId && nc.value.statusId === 'DRAFT') {
+      nc.value.supplierId = links[0].supplierId
+    }
   },
 )
 
