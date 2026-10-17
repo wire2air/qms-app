@@ -1,4 +1,5 @@
 <script setup>
+import { db } from '@models/index'
 import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
@@ -96,6 +97,18 @@ const initialInvestigationAttachments = computed({
 
 const saving = ref(false)
 const saveError = ref(null)
+
+// Picking an item fills Unit of measure from the item master (products.uomId
+// → uoms.code) when the NC has none yet; the change rides the same autosave.
+watch(
+  () => nc.value?.productId,
+  async (productId, prev) => {
+    if (!productId || prev === undefined || !isEditable.value || nc.value?.unitOfMeasure) return
+    const product = await db.Product.findByPk(productId)
+    const uom = product?.uomId ? await db.Uom.findByPk(product.uomId) : null
+    if (uom?.code && nc.value && !nc.value.unitOfMeasure) nc.value.unitOfMeasure = uom.code
+  },
+)
 
 // ─── NC-level Approve and Close (the single terminal action) ────────────────
 // Reviewer per-step Mark Complete advances the workflow; THIS button is

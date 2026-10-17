@@ -1,4 +1,5 @@
 <script setup>
+import { db } from '@models/index'
 import { DateTime } from 'luxon'
 import {
   IconInfoCircle,
@@ -192,6 +193,30 @@ const selectedWorkflowLabel = computed(() => {
 // Unsaved-changes marker for the footer + BaseForm's beforeunload guard.
 const isDirty = ref(false)
 watch(form, () => (isDirty.value = true), { deep: true })
+
+// Picking an item fills Unit of measure from the item master (products.uomId
+// → uoms.code). Only when the user has not typed/picked one already, and
+// cleared again when the item that supplied it is deselected.
+let uomFromProduct = null
+watch(
+  () => form.value.productId,
+  async (productId) => {
+    if (!productId) {
+      if (uomFromProduct && form.value.unitOfMeasure === uomFromProduct)
+        form.value.unitOfMeasure = ''
+      uomFromProduct = null
+      return
+    }
+    const product = await db.Product.findByPk(productId)
+    const uom = product?.uomId ? await db.Uom.findByPk(product.uomId) : null
+    const code = uom?.code || null
+    if (!code) return
+    if (!form.value.unitOfMeasure || form.value.unitOfMeasure === uomFromProduct) {
+      form.value.unitOfMeasure = code
+    }
+    uomFromProduct = code
+  },
+)
 
 // Confirm before abandoning a half-filled NC via in-app navigation (Cancel,
 // back, sidebar). allowLeave() is called before the post-save redirect so a
