@@ -610,6 +610,20 @@ const links = useLiveQueryWithDeps(
   },
   { models: ['RecordLink'], initial: [] },
 )
+// Escalations that were undone: the draft was discarded and the DB trigger
+// (retire_record_links_with_row) retired the link with it. Not an escalation
+// any more — the gates above ignore these — but the Escalations tab and the
+// audit trail keep them as history.
+const discardedLinks = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [id]) => {
+    const rows = await db.RecordLink.where('[fromType+fromId]', ['QualityEvent', id], {
+      force: true,
+    }).exec()
+    return rows.filter((l) => l.relation === 'ESCALATED' && l.deletedAt)
+  },
+  { models: ['RecordLink'], initial: [] },
+)
 
 // Escalation is a link, not a status (2026-08-18): the event stays open after
 // escalating and is still closed the normal way. These drive the "Escalated to"
@@ -679,6 +693,12 @@ function openPrintView() {
 
 const auditIncludeEntities = computed(() => [
   { entityType: 'QualityEvents', entityIds: props.id ? [props.id] : [] },
+  // The escalation links, live and discarded — so "escalated to NC" and
+  // "escalation discarded" both read on the event's own trail.
+  {
+    entityType: 'RecordLinks',
+    entityIds: [...links.value, ...discardedLinks.value].map((l) => l.id),
+  },
 ])
 
 function onEscalated(target) {
@@ -1002,7 +1022,10 @@ const qualityEventDetailConfig = computed(() =>
           <!-- Escalations -->
           <BaseTabPanel value="escalations">
             <div class="tw:flex tw:flex-col tw:gap-3">
-              <div v-if="!escalationLinks.length" class="tw:text-sm tw:text-secondary tw:italic">
+              <div
+                v-if="!escalationLinks.length && !discardedLinks.length"
+                class="tw:text-sm tw:text-secondary tw:italic"
+              >
                 This event has not been escalated. Use the <strong>Escalate</strong> button to spawn
                 a formal record.
               </div>
@@ -1050,6 +1073,25 @@ const qualityEventDetailConfig = computed(() =>
                   />
                 </span>
               </component>
+
+              <!-- Discarded: the draft was deleted, so the escalation was
+                   undone (DB trigger). History only — no link, no status. -->
+              <template v-if="discardedLinks.length">
+                <BaseText variant="overline" class="tw:block tw:mt-2">Discarded</BaseText>
+                <div
+                  v-for="link in discardedLinks"
+                  :key="link.id"
+                  class="tw:flex tw:items-center tw:gap-2 tw:border tw:border-dashed tw:border-divider tw:rounded-lg tw:px-3 tw:py-2 tw:text-secondary"
+                >
+                  <IconArrowUpRight :size="16" class="tw:shrink-0" />
+                  <span class="tw:text-sm">
+                    Draft {{ TARGET_LABELS[link.toType] ?? link.toType }} discarded
+                  </span>
+                  <span class="tw:ml-auto tw:text-xs">
+                    {{ link.deletedAt?.formatDate?.('datetime') }}
+                  </span>
+                </div>
+              </template>
             </div>
           </BaseTabPanel>
         </BaseTabs>
