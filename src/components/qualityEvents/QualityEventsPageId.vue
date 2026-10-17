@@ -240,8 +240,22 @@ const isSaving = ref(false)
 const saveError = ref(null)
 const isFirstLoad = ref(true)
 
+// Title and Issue are required (quality_events.title is NOT NULL; Issue is
+// required at create). Inline edit lets a user clear them, so the autosave
+// refuses while either is blank and the field says why — the record keeps
+// its last saved value until the user types something back.
+const requiredErrors = computed(() => {
+  const e = event.value
+  if (!e) return {}
+  const errs = {}
+  if (!String(e.title ?? '').trim()) errs.title = 'Title is required'
+  if (!hasRichTextContent(e.description)) errs.description = 'Issue is required'
+  return errs
+})
+
 const debouncedSave = useDebounceFn(async () => {
   if (!event.value) return
+  if (Object.keys(requiredErrors.value).length) return
   isSaving.value = true
   saveError.value = null
   try {
@@ -785,10 +799,21 @@ const qualityEventDetailConfig = computed(() =>
                 </div>
               </div>
 
-              <BaseField v-slot="{ id: fid }" label="Title" class="tw:md:col-span-2">
+              <BaseField
+                v-slot="{ id: fid }"
+                label="Title"
+                required
+                :error="requiredErrors.title"
+                class="tw:md:col-span-2"
+              >
                 <BaseTextInput :id="fid" v-model="event.title" :disabled="!canUpdate" />
               </BaseField>
-              <BaseField label="Issue" class="tw:md:col-span-2">
+              <BaseField
+                label="Issue"
+                required
+                :error="requiredErrors.description"
+                class="tw:md:col-span-2"
+              >
                 <RichTextAttachments
                   v-model="event.description"
                   :readonly="!canUpdate"
