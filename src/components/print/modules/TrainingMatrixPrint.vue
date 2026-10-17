@@ -44,9 +44,7 @@ onMounted(() => {
       <h1 class="tw:text-xl tw:font-bold">Training Matrix Report</h1>
       <p class="tw:text-sm tw:text-secondary tw:mt-1">
         {{ rows.length }} record{{ rows.length === 1 ? '' : 's' }}
-        <template v-if="from || to">
-          · Completed {{ from || '…' }} → {{ to || '…' }}
-        </template>
+        <template v-if="from || to"> · Completed {{ from || '…' }} → {{ to || '…' }} </template>
         <template v-if="status"> · Status: {{ status }}</template>
       </p>
     </template>

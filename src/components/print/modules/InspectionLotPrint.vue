@@ -54,12 +54,17 @@ const results = useLiveQueryWithDeps(
 const batches = useLiveQueryWithDeps(
   [() => props.id],
   async (db, [id]) =>
-    id ? (await db.InspectionBatch.where('inspectionLotId', id).exec()).sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0)) : [],
+    id
+      ? (await db.InspectionBatch.where('inspectionLotId', id).exec()).sort(
+          (a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0),
+        )
+      : [],
   { models: ['InspectionBatch'], initial: [] },
 )
 const samples = useLiveQueryWithDeps(
   [() => props.id],
-  async (db, [id]) => (id ? db.InspectionSample.where('inspectionLotId', id).orderBy('sampleNo', 'asc').exec() : []),
+  async (db, [id]) =>
+    id ? db.InspectionSample.where('inspectionLotId', id).orderBy('sampleNo', 'asc').exec() : [],
   { models: ['InspectionSample'], initial: [] },
 )
 const users = useLiveQuery(async (db) => db.User.where().exec(), { models: ['User'], initial: [] })
@@ -73,7 +78,12 @@ const sampling = computed(() => lot.value?.samplingSnapshot || null)
 const characteristics = computed(() => lot.value?.specSnapshot?.characteristics ?? [])
 
 function humanize(v) {
-  return v ? String(v).toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '—'
+  return v
+    ? String(v)
+        .toLowerCase()
+        .replace(/_/g, ' ')
+        .replace(/^\w/, (c) => c.toUpperCase())
+    : '—'
 }
 function fmtDate(d) {
   return d?.formatDate ? d.formatDate('date') : '—'
@@ -139,7 +149,9 @@ function cellFor(charId, collection) {
   let pass = 0
   let fail = 0
   for (const s of collection.samples) {
-    const r = results.value.find((x) => (x.sampleIndex ?? 1) === s.sampleNo && x.characteristicId === charId)
+    const r = results.value.find(
+      (x) => (x.sampleIndex ?? 1) === s.sampleNo && x.characteristicId === charId,
+    )
     if (r?.outcome === 'PASS') pass += 1
     else if (r?.outcome === 'FAIL') fail += 1
   }
@@ -153,7 +165,9 @@ function fmtTime(d) {
 }
 
 const identifier = computed(() => lot.value?.lotNumber ?? '')
-const auditEntities = computed(() => (props.id ? [{ entityType: 'InspectionLot', entityId: props.id }] : []))
+const auditEntities = computed(() =>
+  props.id ? [{ entityType: 'InspectionLot', entityId: props.id }] : [],
+)
 
 const ready = computed(() => !!lot.value)
 onMounted(() => {
@@ -189,15 +203,26 @@ onMounted(() => {
           </tr>
           <tr>
             <th>Item</th>
-            <td>{{ product?.name || '—' }}<span v-if="product?.sku"> · {{ product.sku }}</span></td>
+            <td>
+              {{ product?.name || '—' }}<span v-if="product?.sku"> · {{ product.sku }}</span>
+            </td>
             <th>Supplier</th>
             <td>{{ supplier?.name || '—' }}</td>
           </tr>
           <tr>
             <th>Quantity</th>
-            <td>{{ lot?.quantity != null ? [lot.quantity, lotUom?.name].filter(Boolean).join(' ') : '—' }}</td>
+            <td>
+              {{
+                lot?.quantity != null ? [lot.quantity, lotUom?.name].filter(Boolean).join(' ') : '—'
+              }}
+            </td>
             <th>Sample size</th>
-            <td>{{ lot?.sampleSize ?? '—' }}<template v-if="isFormulaLot && lot?.containerCount"> of {{ lot.containerCount }} containers</template></td>
+            <td>
+              {{ lot?.sampleSize ?? '—'
+              }}<template v-if="isFormulaLot && lot?.containerCount">
+                of {{ lot.containerCount }} containers</template
+              >
+            </td>
           </tr>
           <tr>
             <th>Batch / Lot ref</th>
@@ -230,7 +255,12 @@ onMounted(() => {
             <th>Plan</th>
             <td>{{ sampling.name || '—' }}</td>
             <th>Standard · Level</th>
-            <td>{{ sampling.standardCode || '—' }}<span v-if="sampling.inspectionLevel"> · {{ String(sampling.inspectionLevel).replace(/^S_/, 'S-') }}</span></td>
+            <td>
+              {{ sampling.standardCode || '—'
+              }}<span v-if="sampling.inspectionLevel">
+                · {{ String(sampling.inspectionLevel).replace(/^S_/, 'S-') }}</span
+              >
+            </td>
           </tr>
           <tr>
             <th>Code letter</th>
@@ -242,12 +272,20 @@ onMounted(() => {
       </table>
       <table v-if="sampling.perSeverity?.length" class="qc-print-table qc-print-table--grid">
         <thead>
-          <tr><th>Severity</th><th>AQL %</th><th>Accept ≤</th><th>Reject ≥</th></tr>
+          <tr>
+            <th>Severity</th>
+            <th>AQL %</th>
+            <th>Accept ≤</th>
+            <th>Reject ≥</th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="p in sampling.perSeverity" :key="p.severity">
             <!-- Custom-table rows have no AQL (fixed Ac/Re). -->
-            <td>{{ p.severity }}</td><td>{{ p.aql ?? '—' }}</td><td>{{ p.accept }}</td><td>{{ p.reject }}</td>
+            <td>{{ p.severity }}</td>
+            <td>{{ p.aql ?? '—' }}</td>
+            <td>{{ p.accept }}</td>
+            <td>{{ p.reject }}</td>
           </tr>
         </tbody>
       </table>
@@ -258,12 +296,25 @@ onMounted(() => {
       <h2>Production Lots &amp; Line Clearance</h2>
       <table class="qc-print-table qc-print-table--grid">
         <thead>
-          <tr><th>Lot #</th><th>Line clearance</th><th>Cleared by</th><th>At</th></tr>
+          <tr>
+            <th>Lot #</th>
+            <th>Line clearance</th>
+            <th>Cleared by</th>
+            <th>At</th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="b in batches" :key="b.id">
             <td>{{ b.lotNumber || '—' }}<span v-if="b.closedAt"> (closed)</span></td>
-            <td>{{ b.lineClearanceStatus === 'PASSED' ? 'Released' : b.lineClearanceStatus === 'FAILED' ? 'Held' : '—' }}</td>
+            <td>
+              {{
+                b.lineClearanceStatus === 'PASSED'
+                  ? 'Released'
+                  : b.lineClearanceStatus === 'FAILED'
+                    ? 'Held'
+                    : '—'
+              }}
+            </td>
             <td>{{ b.lineClearanceBy ? userName(b.lineClearanceBy) : '—' }}</td>
             <td>{{ fmtDateTime(b.lineClearanceAt) }}</td>
           </tr>
@@ -276,17 +327,37 @@ onMounted(() => {
       <h2>Results</h2>
       <table v-if="charRows.length" class="qc-print-table qc-print-table--grid">
         <thead>
-          <tr><th>Characteristic</th><th>Specification</th><th>Result</th><th>Outcome</th></tr>
+          <tr>
+            <th>Characteristic</th>
+            <th>Specification</th>
+            <th>Result</th>
+            <th>Outcome</th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="row in charRows" :key="row.c.id">
-            <td>{{ row.c.name }}<span v-if="row.c.code" class="qc-print-muted"> · {{ row.c.code }}</span></td>
+            <td>
+              {{ row.c.name
+              }}<span v-if="row.c.code" class="qc-print-muted"> · {{ row.c.code }}</span>
+            </td>
             <td>{{ specText(row.c) }}</td>
             <td>
-              <template v-if="row.count > 1">{{ row.pass }} pass / {{ row.fail }} fail of {{ row.count }}</template>
+              <template v-if="row.count > 1"
+                >{{ row.pass }} pass / {{ row.fail }} fail of {{ row.count }}</template
+              >
               <template v-else>{{ row.value === '' ? '—' : row.value }}</template>
             </td>
-            <td :class="row.outcome === 'FAIL' ? 'qc-print-bad' : row.outcome === 'PASS' ? 'qc-print-good' : ''">{{ row.outcome }}</td>
+            <td
+              :class="
+                row.outcome === 'FAIL'
+                  ? 'qc-print-bad'
+                  : row.outcome === 'PASS'
+                    ? 'qc-print-good'
+                    : ''
+              "
+            >
+              {{ row.outcome }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -336,23 +407,98 @@ onMounted(() => {
 </template>
 
 <style>
-.qc-print-num { font-size: 11pt; font-weight: 700; color: #444; letter-spacing: 0.02em; }
-.qc-print-title { font-size: 18pt; font-weight: 700; margin: 2px 0 10px; }
-.qc-print-meta { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 6px; }
-.qc-print-meta th { text-align: left; font-weight: 600; color: #555; width: 16%; padding: 3px 8px 3px 0; vertical-align: top; white-space: nowrap; }
-.qc-print-meta td { padding: 3px 16px 3px 0; vertical-align: top; }
-.qc-print-section { margin-top: 16px; break-inside: avoid; }
-.qc-print-section > h2 { font-size: 12pt; font-weight: 700; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-bottom: 8px; }
-.qc-print-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 8px; }
-.qc-print-table th { text-align: left; font-weight: 600; color: #555; padding: 3px 8px 3px 0; vertical-align: top; }
-.qc-print-table td { padding: 3px 8px 3px 0; vertical-align: top; }
-.qc-print-table--grid th, .qc-print-table--grid td { border: 1px solid #ddd; padding: 4px 8px; }
-.qc-print-table--grid thead th { background: #f3f4f6; }
-.qc-print-table--compact { font-size: 8.5pt; }
-.qc-print-table--compact th, .qc-print-table--compact td { padding: 2px 5px; }
-.qc-print-rowhead { text-align: left; white-space: nowrap; background: #f9fafb; font-weight: 600; }
-.qc-print-colsub { font-weight: 400; font-size: 7.5pt; }
-.qc-print-muted { color: #888; }
-.qc-print-good { color: #067647; font-weight: 600; }
-.qc-print-bad { color: #b42318; font-weight: 600; }
+.qc-print-num {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #444;
+  letter-spacing: 0.02em;
+}
+.qc-print-title {
+  font-size: 18pt;
+  font-weight: 700;
+  margin: 2px 0 10px;
+}
+.qc-print-meta {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+  margin-bottom: 6px;
+}
+.qc-print-meta th {
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+  width: 16%;
+  padding: 3px 8px 3px 0;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.qc-print-meta td {
+  padding: 3px 16px 3px 0;
+  vertical-align: top;
+}
+.qc-print-section {
+  margin-top: 16px;
+  break-inside: avoid;
+}
+.qc-print-section > h2 {
+  font-size: 12pt;
+  font-weight: 700;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 3px;
+  margin-bottom: 8px;
+}
+.qc-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+  margin-bottom: 8px;
+}
+.qc-print-table th {
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+  padding: 3px 8px 3px 0;
+  vertical-align: top;
+}
+.qc-print-table td {
+  padding: 3px 8px 3px 0;
+  vertical-align: top;
+}
+.qc-print-table--grid th,
+.qc-print-table--grid td {
+  border: 1px solid #ddd;
+  padding: 4px 8px;
+}
+.qc-print-table--grid thead th {
+  background: #f3f4f6;
+}
+.qc-print-table--compact {
+  font-size: 8.5pt;
+}
+.qc-print-table--compact th,
+.qc-print-table--compact td {
+  padding: 2px 5px;
+}
+.qc-print-rowhead {
+  text-align: left;
+  white-space: nowrap;
+  background: #f9fafb;
+  font-weight: 600;
+}
+.qc-print-colsub {
+  font-weight: 400;
+  font-size: 7.5pt;
+}
+.qc-print-muted {
+  color: #888;
+}
+.qc-print-good {
+  color: #067647;
+  font-weight: 600;
+}
+.qc-print-bad {
+  color: #b42318;
+  font-weight: 600;
+}
 </style>

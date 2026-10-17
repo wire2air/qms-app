@@ -206,7 +206,7 @@ const ncDisposition = useLiveQueryWithDeps(
   { models: ['NcDispositionType'] },
 )
 
-const identifier = computed(() => nc.value?.ncNumber ?? '')
+const identifier = computed(() => nc.value?.ncNumber || 'Draft')
 
 // Commercial references only earn a row when at least one is set — most NCs
 // carry none and an all-dashes row is noise on a printed page.
@@ -258,7 +258,7 @@ onMounted(() => {
 <template>
   <PrintLayout :status="nc?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="qp-num">{{ nc?.ncNumber }}</div>
+      <div class="qp-num">{{ nc?.ncNumber || 'Draft' }}</div>
       <h1 class="qp-title">{{ nc?.title }}</h1>
       <table class="qp-meta">
         <tbody>

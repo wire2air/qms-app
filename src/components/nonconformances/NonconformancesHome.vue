@@ -88,6 +88,7 @@ function applyActiveFilter(results, af) {
   if (af === 'major')
     return results.filter((r) => r.severityId === 'MAJOR' && OPEN_STATUSES.includes(r.statusId))
   if (af === 'closed') return results.filter((r) => r.statusId === 'CLOSED')
+  if (af === 'deleted') return results // already narrowed at the query
   return results
 }
 
@@ -112,7 +113,14 @@ const ncs = useLiveQueryWithDeps(
     () => effectivenessIndex.value,
   ],
   async (db, [statusIds, severityIds, typeIds, af, supplierIds, createdAt, effectiveness]) => {
-    let results = await db.Nonconformance.where().exec()
+    // 'deleted' is the one view that reads soft-deleted rows (paranoid hides
+    // them from every other query) and shows ONLY those.
+    let results =
+      af === 'deleted'
+        ? (await db.Nonconformance.where(undefined, undefined, { force: true }).exec()).filter(
+            (r) => !!r.deletedAt,
+          )
+        : await db.Nonconformance.where().exec()
     results = applyFilters(results, statusIds, severityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))

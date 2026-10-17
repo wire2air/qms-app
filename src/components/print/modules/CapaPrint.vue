@@ -205,7 +205,7 @@ const effectivenessChecks = useLiveQueryWithDeps(
   { models: ['CapaEffectivenessCheck'], initial: [] },
 )
 
-const identifier = computed(() => capa.value?.capaNumber ?? '')
+const identifier = computed(() => capa.value?.capaNumber || 'Draft')
 
 const auditEntities = computed(() => {
   const out = []
@@ -248,7 +248,7 @@ onMounted(() => {
 <template>
   <PrintLayout :status="capa?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="qp-num">{{ capa?.capaNumber }}</div>
+      <div class="qp-num">{{ capa?.capaNumber || 'Draft' }}</div>
       <h1 class="qp-title">{{ capa?.title }}</h1>
       <table class="qp-meta">
         <tbody>

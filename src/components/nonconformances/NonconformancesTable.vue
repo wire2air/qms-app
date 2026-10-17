@@ -40,6 +40,11 @@ const filterPills = [
   { value: 'critical', label: 'Critical' },
   { value: 'major', label: 'Major' },
   { value: 'closed', label: 'Closed' },
+  // Soft-deleted drafts (deletedAt set). They are kept, not purged — the
+  // register must be able to show that a record existed and was removed
+  // (ISO 9001 §7.5.3 / ISO 13485 §4.2.5 control of records; 21 CFR 11.10(e)
+  // audit trail). Read-only here: the row's page is the audit log.
+  { value: 'deleted', label: 'Deleted' },
 ]
 
 // The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
@@ -154,6 +159,8 @@ const density = ref('compact')
 
 function rowMenuItems(row) {
   const items = []
+  // A deleted draft is history: nothing to edit or delete again.
+  if (row.deletedAt) return items
   if (props.canUpdate) {
     items.push({ name: 'Edit', icon: IconEdit, click: () => emit('edit', row) })
   }
@@ -193,17 +200,32 @@ function rowMenuItems(row) {
       <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
     </template>
 
+    <!-- A deleted row has no page (findByPk hides soft-deleted rows), so the
+         number and title render as text with a Deleted chip. -->
     <template #body-cell-ncNumber="{ row }">
+      <span v-if="row.deletedAt" class="tw:text-xs tw:text-secondary tw:line-through">
+        {{ row.ncNumber || 'Draft' }}
+      </span>
       <RouterLink
+        v-else
         :to="getCompanyPath(`/nonconformances/${row.id}`)"
         class="tw:text-xs tw:text-secondary tw:hover:text-primary"
       >
-        {{ row.ncNumber || '—' }}
+        {{ row.ncNumber || 'Draft' }}
       </RouterLink>
     </template>
 
     <template #body-cell-title="{ row }">
+      <div v-if="row.deletedAt" class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
+        <span class="tw:font-medium">{{ row.title }}</span>
+        <span
+          class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200"
+        >
+          Deleted {{ row.deletedAt?.formatDate?.('date') }}
+        </span>
+      </div>
       <RouterLink
+        v-else
         :to="getCompanyPath(`/nonconformances/${row.id}`)"
         class="tw:flex tw:items-center tw:gap-2 tw:text-on-main tw:hover:text-primary"
       >

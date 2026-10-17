@@ -641,15 +641,27 @@ const escalatedRecords = useLiveQueryWithDeps(
     const out = []
     for (const link of escalationLinks.value) {
       const target = ESCALATION_TARGETS[link.toType]
-      const row = target && db[target.model] ? await db[target.model].findByPk(link.toId) : null
+      // `force` so a soft-deleted draft still resolves — the Escalations tab
+      // then says "deleted" instead of showing a dead link.
+      const row =
+        target && db[target.model]
+          ? await db[target.model].findByPk(link.toId, { force: true })
+          : null
+      const deleted = !!row?.deletedAt
       out.push({
         link,
+        toType: link.toType,
         kind: TARGET_LABELS[link.toType] ?? link.toType,
-        label: row?.[target?.number] || row?.title || link.toId,
+        // Numbers are minted at OPEN (2026-10-17), so a draft has none yet.
+        label:
+          row?.[target?.number] ||
+          (row ? `Draft ${TARGET_LABELS[link.toType] ?? ''}`.trim() : link.toId),
+        title: row?.title || '',
         statusId: row?.statusId ?? null,
+        deleted,
         // Unknown status (record not synced / not visible) counts as open: the
-        // warning errs towards asking.
-        isOpen: !['CLOSED', 'CANCELLED'].includes(row?.statusId),
+        // warning errs towards asking. A deleted draft is not open work.
+        isOpen: !deleted && !['CLOSED', 'CANCELLED'].includes(row?.statusId),
       })
     }
     return out
@@ -990,21 +1002,54 @@ const qualityEventDetailConfig = computed(() =>
           <!-- Escalations -->
           <BaseTabPanel value="escalations">
             <div class="tw:flex tw:flex-col tw:gap-3">
-              <div v-if="!links.length" class="tw:text-sm tw:text-secondary tw:italic">
+              <div v-if="!escalationLinks.length" class="tw:text-sm tw:text-secondary tw:italic">
                 This event has not been escalated. Use the <strong>Escalate</strong> button to spawn
                 a formal record.
               </div>
-              <RouterLink
-                v-for="link in links"
-                :key="link.id"
-                :to="targetRoute(link) || '#'"
-                class="tw:flex tw:items-center tw:gap-2 tw:border tw:border-divider tw:rounded-lg tw:px-3 tw:py-2 tw:hover:border-primary"
+              <!-- One row per escalated record: kind + number (or "Draft NC"
+                   until it opens), its title, and its live status. A deleted
+                   draft stays listed — the escalation happened — but is not a
+                   link, since its page would 404 on the soft-deleted row. -->
+              <component
+                :is="rec.deleted ? 'div' : 'RouterLink'"
+                v-for="rec in escalatedRecords"
+                :key="rec.link.id"
+                :to="rec.deleted ? undefined : targetRoute(rec.link) || '#'"
+                class="tw:flex tw:items-center tw:gap-2 tw:border tw:border-divider tw:rounded-lg tw:px-3 tw:py-2"
+                :class="rec.deleted ? 'tw:opacity-70' : 'tw:hover:border-primary'"
               >
-                <IconArrowUpRight :size="16" class="tw:text-orange-600" />
-                <span class="tw:text-sm tw:font-medium tw:text-on-main">{{ link.toType }}</span>
-                <span class="tw:text-xs tw:text-secondary">{{ link.toId }}</span>
-                <span class="tw:ml-auto tw:text-xs tw:text-secondary">{{ link.relation }}</span>
-              </RouterLink>
+                <IconArrowUpRight :size="16" class="tw:text-orange-600 tw:shrink-0" />
+                <span class="tw:text-sm tw:font-medium tw:text-on-main tw:shrink-0">
+                  {{ rec.kind }} {{ rec.label }}
+                </span>
+                <span v-if="rec.title" class="tw:text-sm tw:text-secondary tw:truncate">
+                  {{ rec.title }}
+                </span>
+                <span class="tw:ml-auto tw:shrink-0 tw:flex tw:items-center tw:gap-2">
+                  <span
+                    v-if="rec.deleted"
+                    class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200"
+                  >
+                    Deleted
+                  </span>
+                  <NcStatusBadgeById
+                    v-else-if="rec.toType === 'Nonconformance' && rec.statusId"
+                    :statusId="rec.statusId"
+                  />
+                  <CapaStatusBadgeById
+                    v-else-if="rec.toType === 'Capa' && rec.statusId"
+                    :statusId="rec.statusId"
+                  />
+                  <ChangeRequestStatusBadgeById
+                    v-else-if="rec.toType === 'ChangeRequest' && rec.statusId"
+                    :statusId="rec.statusId"
+                  />
+                  <CustomerComplaintStatusBadgeById
+                    v-else-if="rec.toType === 'CustomerComplaint' && rec.statusId"
+                    :statusId="rec.statusId"
+                  />
+                </span>
+              </component>
             </div>
           </BaseTabPanel>
         </BaseTabs>

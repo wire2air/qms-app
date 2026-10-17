@@ -325,7 +325,7 @@ function rowMenuItems(row) {
         :to="getCompanyPath(`/capas/${row.id}`)"
         class="tw:text-xs tw:text-secondary tw:hover:text-primary"
       >
-        {{ row.capaNumber || '—' }}
+        {{ row.capaNumber || 'Draft' }}
       </RouterLink>
     </template>
 
