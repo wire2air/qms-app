@@ -58,5 +58,5 @@ Read the **QMS Overview** for the big picture.
 ## Next steps
 
 Pick the area you'll use most from the sidebar — for example **Nonconformances**,
-**CAPAs**, **Document Control**, **Inspections & Logs**, or **Training** — and
+**CAPAs**, **Document Control**, **Log Books**, or **Training** — and
 follow the "How to…" sections in that article.
