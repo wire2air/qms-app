@@ -170,7 +170,14 @@ async function handleSave(close) {
         <BaseField label="Site / Location" required :error="fieldErrors.siteId">
           <SiteSelectMenu v-model="form.siteId" :required="true" nullLabel="— Select site —" />
         </BaseField>
-        <BaseField label="Department" :error="fieldErrors.departmentId">
+        <!-- Required for every source but QC_INSPECTION (validateForm) — the
+             asterisk follows the same rule. `:required="false"` on the menu
+             keeps the "— Select department —" placeholder (no auto-pick). -->
+        <BaseField
+          label="Department"
+          :required="(form.sourceType || 'MANUAL') !== 'QC_INSPECTION'"
+          :error="fieldErrors.departmentId"
+        >
           <DepartmentSelectMenu
             v-model="form.departmentId"
             :siteId="form.siteId"

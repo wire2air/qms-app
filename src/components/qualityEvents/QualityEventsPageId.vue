@@ -57,6 +57,43 @@ const cancelBlockedReason = computed(() => {
   if (!event.value?.assignedToUserId) return ''
   return 'Only the assigned reviewer can cancel this event.'
 })
+
+// The review work the SERVER requires before it will close (closeQualityEvent →
+// hasRichTextContent on each of these, else 400). Checked client-side on the
+// Close click so the user is sent to the empty field instead of being asked for
+// a PIN and then refused. Same tag/attachment-marker stripping as the server.
+const REVIEW_REQUIRED_FIELDS = [
+  { id: 'reviewSummary', label: 'Review Summary' },
+  { id: 'recommendedAction', label: 'Recommended Action' },
+  { id: 'decision', label: 'Decision' },
+]
+function hasRichTextContent(value) {
+  const raw = (value || '').split('\n[qms-attachments]::')[0]
+  const text = raw
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 0
+}
+const missingReviewFields = computed(() =>
+  event.value ? REVIEW_REQUIRED_FIELDS.filter((f) => !hasRichTextContent(event.value[f.id])) : [],
+)
+// Inline errors under the Review tab fields — set only by a refused Close, and
+// cleared per field as soon as the user types into it.
+const reviewErrors = ref({})
+watch(
+  () => REVIEW_REQUIRED_FIELDS.map((f) => event.value?.[f.id]),
+  () => {
+    if (!Object.keys(reviewErrors.value).length) return
+    const next = {}
+    for (const f of missingReviewFields.value) {
+      if (reviewErrors.value[f.id]) next[f.id] = reviewErrors.value[f.id]
+    }
+    reviewErrors.value = next
+  },
+)
 const canEscalate = computed(() => canUpdate.value)
 const closing = ref(false)
 const notifying = ref(false)
@@ -380,6 +417,20 @@ function handleCloseClick() {
     toast.warning(closeBlockedReason.value || 'You cannot close this event.')
     return
   }
+  // Review not finished: the server would 400 after the PIN. Send the user to
+  // the empty field instead (validation-scroll standard — inline error on each
+  // missing field, one toast naming them, scroll to the first).
+  const missing = missingReviewFields.value
+  if (missing.length) {
+    reviewErrors.value = Object.fromEntries(missing.map((f) => [f.id, `${f.label} is required`]))
+    activeTab.value = 'review'
+    toast.error(`Complete ${missing.map((f) => f.label).join(', ')} before closing the event.`)
+    nextTick(() => {
+      const el = document.getElementById(`${missing[0].id}-field`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return
+  }
   showCloseEsign.value = true
 }
 async function onCloseEsignVerified({ method, provider, token }) {
@@ -643,7 +694,9 @@ const qualityEventDetailConfig = computed(() =>
       <template #actions>
         <div class="tw:flex tw:items-center tw:gap-2">
           <span v-if="isSaving" class="tw:text-sm tw:text-secondary">Saving…</span>
-          <DetailActionBar :actions="qualityEventActions" />
+          <!-- 4 slots: Close, Cancel and Escalate stay in the bar; print/audit
+               go to the ⋯ menu. Escalate landed in the menu at the default 3. -->
+          <DetailActionBar :actions="qualityEventActions" :maxVisible="4" />
         </div>
       </template>
 
@@ -698,21 +751,34 @@ const qualityEventDetailConfig = computed(() =>
           <!-- Review -->
           <BaseTabPanel value="review">
             <div class="tw:flex tw:flex-col tw:gap-4">
-              <BaseField label="Review Summary">
+              <!-- All three are required to close (closeQualityEvent refuses
+                   without them); ids match REVIEW_REQUIRED_FIELDS so a refused
+                   Close can scroll to the `<id>-field` wrapper. -->
+              <BaseField
+                id="reviewSummary"
+                label="Review Summary"
+                required
+                :error="reviewErrors.reviewSummary"
+              >
                 <RichTextAttachments
                   v-model="event.reviewSummary"
                   :readonly="!canUpdate"
                   placeholder="Summarize review observations"
                 />
               </BaseField>
-              <BaseField label="Recommended Action">
+              <BaseField
+                id="recommendedAction"
+                label="Recommended Action"
+                required
+                :error="reviewErrors.recommendedAction"
+              >
                 <RichTextAttachments
                   v-model="event.recommendedAction"
                   :readonly="!canUpdate"
                   placeholder="Document recommended action"
                 />
               </BaseField>
-              <BaseField label="Decision">
+              <BaseField id="decision" label="Decision" required :error="reviewErrors.decision">
                 <RichTextAttachments
                   v-model="event.decision"
                   :readonly="!canUpdate"
@@ -924,14 +990,14 @@ const qualityEventDetailConfig = computed(() =>
         </BaseRailCard>
 
         <BaseRailCard title="Schedule">
-          <!-- Reported date is the intake timestamp (read-only) — shown first.
-             Uses the :value prop so it renders in the canonical rail value
-             style (text-body / medium / on-main), consistent with other fields. -->
+          <!-- Reported date is the intake DATE (read-only; the server stores a
+             calendar day, so 'datetime' used to print a spurious 12:00 AM) —
+             shown first. Uses the :value prop so it renders in the canonical
+             rail value style (text-body / medium / on-main), consistent with
+             other fields. -->
           <BaseDetailField
             label="Reported Date"
-            :value="
-              event.reportedDate ? toDateTime(event.reportedDate)?.formatDate('datetime') : null
-            "
+            :value="event.reportedDate ? toDateTime(event.reportedDate)?.formatDate('date') : null"
           />
           <BaseDetailField label="Occurrence Date">
             <BaseDateField v-if="canUpdate" v-model="event.occurrenceDate" mode="date" />
