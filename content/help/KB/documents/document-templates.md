@@ -89,6 +89,13 @@ Every template needs at least one section, and each section must have a title be
 save.
 :::
 
+:::info
+The sections you define here **are** the document's structure. A document created from a
+template cannot have extra sections added by its author — if a document type needs another
+section, add it to the template (a new document version picks it up). Documents created
+without a template can still add their own sections.
+:::
+
 ## How to publish a template
 
 A template must be published before anyone can use it to start a document.
