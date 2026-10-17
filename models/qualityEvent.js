@@ -57,6 +57,10 @@ export class QualityEvent extends BaseModel {
   @Property({ type: String }) reviewSummary = ''
   @Property({ type: String }) recommendedAction = ''
   @Property({ type: String }) decision = ''
+  // Written only by POST /cancel (signed). Code from
+  // src/constants/qualityEventCancelReasons.js; free-text specifics alongside.
+  @Property({ type: String }) cancelReasonCode = /** @type {String} */ (null)
+  @Property({ type: String }) cancelReason = /** @type {String} */ (null)
   @Property({ type: String }) createdBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })

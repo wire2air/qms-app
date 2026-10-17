@@ -54,6 +54,8 @@ export async function formatAuditValue(value, fieldMeta, db) {
 
   if (type === 'enum' && fieldMeta?.enumMap) return fieldMeta.enumMap[value] ?? String(value)
 
+  if (type === 'richtext' || looksLikeHtml(value)) return richTextToPlain(value)
+
   if (type === 'json') {
     if (typeof value === 'object' && value !== null) {
       const count = Array.isArray(value) ? value.length : Object.keys(value).length
@@ -64,6 +66,45 @@ export async function formatAuditValue(value, fieldMeta, db) {
   }
 
   return String(value)
+}
+
+/**
+ * Rich-text columns (RichTextAttachments) hold editor HTML plus an optional
+ * `\n[qms-attachments]::<json>` tail. The audit trail is read by people, so
+ * render the words: tags out, block boundaries kept as line breaks, the
+ * attachment marker summarised. Also applied to any 'text' value that looks
+ * like markup, so a field nobody registered as richtext still reads.
+ */
+export function looksLikeHtml(value) {
+  return typeof value === 'string' && /<\/?[a-z][^>]*>/i.test(value)
+}
+export function richTextToPlain(value) {
+  const [raw = '', marker] = String(value ?? '').split('\n[qms-attachments]::')
+  let text = raw
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr)>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  if (marker) {
+    let n = 0
+    try {
+      const parsed = JSON.parse(marker)
+      n = Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length
+    } catch {
+      n = 0
+    }
+    if (n) text = `${text}${text ? '\n' : ''}(${n} attachment${n === 1 ? '' : 's'})`
+  }
+  return text || '—'
 }
 
 /**

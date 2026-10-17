@@ -3,6 +3,10 @@ import { IconArrowUpRight } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import {
+  QUALITY_EVENT_CANCEL_REASONS,
+  qualityEventCancelReasonLabel,
+} from '@/constants/qualityEventCancelReasons.js'
 import { useDebounceFn } from '@vueuse/core'
 import { DateTime } from 'luxon'
 import {
@@ -14,7 +18,8 @@ import {
 const props = defineProps({ id: { type: String, required: true } })
 
 const toast = useToast()
-const canUpdate = computed(() => isAllowed(['quality_events:update']))
+const { confirm } = useConfirm()
+const hasUpdatePermission = computed(() => isAllowed(['quality_events:update']))
 const currentUserId = computed(
   () => currentSession.value?.userId ?? currentSession.value?.id ?? null,
 )
@@ -26,6 +31,10 @@ const event = useLiveQueryWithDeps(
   { models: ['QualityEvent'] },
 )
 const loading = computed(() => event.value === undefined)
+// A CLOSED or CANCELLED event is a record, not a work item: every inline
+// control (and the autosave behind it) goes read-only regardless of grant.
+const isEditableStatus = computed(() => ['DRAFT', 'OPEN'].includes(event.value?.statusId))
+const canUpdate = computed(() => hasUpdatePermission.value && isEditableStatus.value)
 const isAssignedReviewer = computed(
   () => !!event.value?.assignedToUserId && event.value.assignedToUserId === currentUserId.value,
 )
@@ -57,6 +66,43 @@ const cancelBlockedReason = computed(() => {
   if (!event.value?.assignedToUserId) return ''
   return 'Only the assigned reviewer can cancel this event.'
 })
+
+// The review work the SERVER requires before it will close (closeQualityEvent →
+// hasRichTextContent on each of these, else 400). Checked client-side on the
+// Close click so the user is sent to the empty field instead of being asked for
+// a PIN and then refused. Same tag/attachment-marker stripping as the server.
+const REVIEW_REQUIRED_FIELDS = [
+  { id: 'reviewSummary', label: 'Review Summary' },
+  { id: 'recommendedAction', label: 'Recommended Action' },
+  { id: 'decision', label: 'Decision' },
+]
+function hasRichTextContent(value) {
+  const raw = (value || '').split('\n[qms-attachments]::')[0]
+  const text = raw
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 0
+}
+const missingReviewFields = computed(() =>
+  event.value ? REVIEW_REQUIRED_FIELDS.filter((f) => !hasRichTextContent(event.value[f.id])) : [],
+)
+// Inline errors under the Review tab fields — set only by a refused Close, and
+// cleared per field as soon as the user types into it.
+const reviewErrors = ref({})
+watch(
+  () => REVIEW_REQUIRED_FIELDS.map((f) => event.value?.[f.id]),
+  () => {
+    if (!Object.keys(reviewErrors.value).length) return
+    const next = {}
+    for (const f of missingReviewFields.value) {
+      if (reviewErrors.value[f.id]) next[f.id] = reviewErrors.value[f.id]
+    }
+    reviewErrors.value = next
+  },
+)
 const canEscalate = computed(() => canUpdate.value)
 const closing = ref(false)
 const notifying = ref(false)
@@ -198,8 +244,22 @@ const isSaving = ref(false)
 const saveError = ref(null)
 const isFirstLoad = ref(true)
 
+// Title and Issue are required (quality_events.title is NOT NULL; Issue is
+// required at create). Inline edit lets a user clear them, so the autosave
+// refuses while either is blank and the field says why — the record keeps
+// its last saved value until the user types something back.
+const requiredErrors = computed(() => {
+  const e = event.value
+  if (!e) return {}
+  const errs = {}
+  if (!String(e.title ?? '').trim()) errs.title = 'Title is required'
+  if (!hasRichTextContent(e.description)) errs.description = 'Issue is required'
+  return errs
+})
+
 const debouncedSave = useDebounceFn(async () => {
   if (!event.value) return
+  if (Object.keys(requiredErrors.value).length) return
   isSaving.value = true
   saveError.value = null
   try {
@@ -371,7 +431,7 @@ async function handleAssigneeChange(userId) {
 // writes a `signatures` row against signatures.quality_event_id, and only then
 // flips OPEN → CLOSED.
 const showCloseEsign = ref(false)
-function handleCloseClick() {
+async function handleCloseClick() {
   if (!event.value) return
   // The button is disabled in this case; this is the belt-and-braces path for
   // a keyboard/programmatic trigger. Says the same thing as the tooltip rather
@@ -379,6 +439,32 @@ function handleCloseClick() {
   if (!canClose.value || closeBlockedReason.value) {
     toast.warning(closeBlockedReason.value || 'You cannot close this event.')
     return
+  }
+  // Review not finished: the server would 400 after the PIN. Send the user to
+  // the empty field instead (validation-scroll standard — inline error on each
+  // missing field, one toast naming them, scroll to the first).
+  const missing = missingReviewFields.value
+  if (missing.length) {
+    reviewErrors.value = Object.fromEntries(missing.map((f) => [f.id, `${f.label} is required`]))
+    activeTab.value = 'review'
+    toast.error(`Complete ${missing.map((f) => f.label).join(', ')} before closing the event.`)
+    nextTick(() => {
+      const el = document.getElementById(`${missing[0].id}-field`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return
+  }
+  // Escalated records still open: closing the event does not close them, so
+  // the closer confirms before the PIN prompt.
+  const stillOpen = openEscalatedRecords.value
+  if (stillOpen.length) {
+    const list = stillOpen.map((r) => `${r.kind} ${r.label}`).join(', ')
+    const ok = await confirm({
+      title: 'Escalated records are still open',
+      message: `This event was escalated to ${list}, which ${stillOpen.length === 1 ? 'is' : 'are'} not closed yet. Closing the event will not close ${stillOpen.length === 1 ? 'it' : 'them'}. Are you sure you want to close this event?`,
+      okLabel: 'Close event',
+    })
+    if (!ok) return
   }
   showCloseEsign.value = true
 }
@@ -418,23 +504,54 @@ async function onCloseEsignVerified({ method, provider, token }) {
 const showCancelDialog = ref(false)
 const showCancelEsign = ref(false)
 const cancelling = ref(false)
+// Reason = a code from the fixed list + free-text specifics. The specifics are
+// required for OTHER (the list said nothing) and optional otherwise — but the
+// server still needs a non-empty `reason`, so the label stands in when the
+// user adds nothing.
+const cancelReasonOptions = QUALITY_EVENT_CANCEL_REASONS.map((r) => ({
+  value: r.code,
+  label: r.label,
+}))
+const cancelReasonCode = ref(null)
+const cancelReasonCodeError = ref('')
 const cancelReason = ref('')
 const cancelReasonError = ref('')
+const cancelCommentsRequired = computed(() => cancelReasonCode.value === 'OTHER')
+const cancelCommentsPlaceholder = computed(() => {
+  switch (cancelReasonCode.value) {
+    case 'DUPLICATE':
+      return 'Which record does this duplicate? (e.g. EV-000123)'
+    case 'OUT_OF_SCOPE':
+      return 'Why is this outside the quality system’s scope?'
+    case 'WITHDRAWN':
+      return 'Who withdrew it, and why no investigation is needed'
+    case 'OTHER':
+      return 'Explain why this event is being cancelled'
+    default:
+      return 'Anything an auditor should know (optional)'
+  }
+})
+const canSubmitCancel = computed(
+  () => !!cancelReasonCode.value && (!cancelCommentsRequired.value || !!cancelReason.value.trim()),
+)
 function openCancelDialog() {
   if (!canClose.value || cancelBlockedReason.value) {
     toast.warning(cancelBlockedReason.value || 'You cannot cancel this event.')
     return
   }
+  cancelReasonCode.value = null
+  cancelReasonCodeError.value = ''
   cancelReason.value = ''
   cancelReasonError.value = ''
   showCancelDialog.value = true
 }
 function handleCancelClick() {
-  if (!cancelReason.value.trim()) {
-    cancelReasonError.value = 'A cancel reason is required'
-    return
-  }
-  cancelReasonError.value = ''
+  cancelReasonCodeError.value = cancelReasonCode.value ? '' : 'Pick a cancellation reason'
+  cancelReasonError.value =
+    cancelCommentsRequired.value && !cancelReason.value.trim()
+      ? 'Comments are required for “Other”'
+      : ''
+  if (cancelReasonCodeError.value || cancelReasonError.value) return
   showCancelDialog.value = false
   showCancelEsign.value = true
 }
@@ -447,7 +564,8 @@ async function onCancelEsignVerified({ method, provider, token }) {
       method,
       provider: provider || null,
       token,
-      reason: cancelReason.value.trim(),
+      reasonCode: cancelReasonCode.value,
+      reason: cancelReason.value.trim() || qualityEventCancelReasonLabel(cancelReasonCode.value),
     })
     if (res?.qualityEvent) {
       event.value.statusId = res.qualityEvent.statusId
@@ -508,6 +626,38 @@ const escalatedTo = computed(() => {
   return kinds.length ? kinds.join(', ') : null
 })
 
+// The escalated records themselves (NC / CAPA / CR / Complaint), live from IDB,
+// so Close can warn about the ones still open and Cancel can step aside once
+// any exist. Unified statuses: anything but CLOSED / CANCELLED is still open.
+const ESCALATION_TARGETS = {
+  Nonconformance: { model: 'Nonconformance', number: 'ncNumber' },
+  Capa: { model: 'Capa', number: 'capaNumber' },
+  ChangeRequest: { model: 'ChangeRequest', number: 'crNumber' },
+  CustomerComplaint: { model: 'CustomerComplaint', number: 'complaintNumber' },
+}
+const escalatedRecords = useLiveQueryWithDeps(
+  [() => escalationLinks.value.map((l) => `${l.toType}:${l.toId}`).join('|')],
+  async (db) => {
+    const out = []
+    for (const link of escalationLinks.value) {
+      const target = ESCALATION_TARGETS[link.toType]
+      const row = target && db[target.model] ? await db[target.model].findByPk(link.toId) : null
+      out.push({
+        link,
+        kind: TARGET_LABELS[link.toType] ?? link.toType,
+        label: row?.[target?.number] || row?.title || link.toId,
+        statusId: row?.statusId ?? null,
+        // Unknown status (record not synced / not visible) counts as open: the
+        // warning errs towards asking.
+        isOpen: !['CLOSED', 'CANCELLED'].includes(row?.statusId),
+      })
+    }
+    return out
+  },
+  { models: ['Nonconformance', 'Capa', 'ChangeRequest', 'CustomerComplaint'], initial: [] },
+)
+const openEscalatedRecords = computed(() => escalatedRecords.value.filter((r) => r.isOpen))
+
 function openPrintView() {
   if (!event.value?.id) return
   // Centralised print: /<companyCode>/print?module=QualityEvent&id=...
@@ -544,7 +694,9 @@ const breadcrumbs = computed(() => [
   { label: 'Events', to: getCompanyPath('/qualityEvents') },
   {
     label:
-      event.value?.title || event.value?.eventNumber || (event.value === null ? 'Not found' : 'Loading…'),
+      event.value?.title ||
+      event.value?.eventNumber ||
+      (event.value === null ? 'Not found' : 'Loading…'),
   },
 ])
 const qualityEventBanners = computed(() => buildQualityEventBanners(event.value))
@@ -561,6 +713,7 @@ const qualityEventActions = computed(() =>
       cancelling: cancelling.value,
       submitting: submitting.value,
       escalatedTo: escalatedTo.value,
+      hasEscalations: escalationLinks.value.length > 0,
       canViewAuditTrail: canReadAuditTrail.value,
     },
     {
@@ -643,7 +796,9 @@ const qualityEventDetailConfig = computed(() =>
       <template #actions>
         <div class="tw:flex tw:items-center tw:gap-2">
           <span v-if="isSaving" class="tw:text-sm tw:text-secondary">Saving…</span>
-          <DetailActionBar :actions="qualityEventActions" />
+          <!-- 4 slots: Close, Cancel and Escalate stay in the bar; print/audit
+               go to the ⋯ menu. Escalate landed in the menu at the default 3. -->
+          <DetailActionBar :actions="qualityEventActions" :maxVisible="4" />
         </div>
       </template>
 
@@ -682,10 +837,21 @@ const qualityEventDetailConfig = computed(() =>
                 </div>
               </div>
 
-              <BaseField v-slot="{ id: fid }" label="Title" class="tw:md:col-span-2">
+              <BaseField
+                v-slot="{ id: fid }"
+                label="Title"
+                required
+                :error="requiredErrors.title"
+                class="tw:md:col-span-2"
+              >
                 <BaseTextInput :id="fid" v-model="event.title" :disabled="!canUpdate" />
               </BaseField>
-              <BaseField label="Issue" class="tw:md:col-span-2">
+              <BaseField
+                label="Issue"
+                required
+                :error="requiredErrors.description"
+                class="tw:md:col-span-2"
+              >
                 <RichTextAttachments
                   v-model="event.description"
                   :readonly="!canUpdate"
@@ -698,21 +864,34 @@ const qualityEventDetailConfig = computed(() =>
           <!-- Review -->
           <BaseTabPanel value="review">
             <div class="tw:flex tw:flex-col tw:gap-4">
-              <BaseField label="Review Summary">
+              <!-- All three are required to close (closeQualityEvent refuses
+                   without them); ids match REVIEW_REQUIRED_FIELDS so a refused
+                   Close can scroll to the `<id>-field` wrapper. -->
+              <BaseField
+                id="reviewSummary"
+                label="Review Summary"
+                required
+                :error="reviewErrors.reviewSummary"
+              >
                 <RichTextAttachments
                   v-model="event.reviewSummary"
                   :readonly="!canUpdate"
                   placeholder="Summarize review observations"
                 />
               </BaseField>
-              <BaseField label="Recommended Action">
+              <BaseField
+                id="recommendedAction"
+                label="Recommended Action"
+                required
+                :error="reviewErrors.recommendedAction"
+              >
                 <RichTextAttachments
                   v-model="event.recommendedAction"
                   :readonly="!canUpdate"
                   placeholder="Document recommended action"
                 />
               </BaseField>
-              <BaseField label="Decision">
+              <BaseField id="decision" label="Decision" required :error="reviewErrors.decision">
                 <RichTextAttachments
                   v-model="event.decision"
                   :readonly="!canUpdate"
@@ -924,14 +1103,14 @@ const qualityEventDetailConfig = computed(() =>
         </BaseRailCard>
 
         <BaseRailCard title="Schedule">
-          <!-- Reported date is the intake timestamp (read-only) — shown first.
-             Uses the :value prop so it renders in the canonical rail value
-             style (text-body / medium / on-main), consistent with other fields. -->
+          <!-- Reported date is the intake DATE (read-only; the server stores a
+             calendar day, so 'datetime' used to print a spurious 12:00 AM) —
+             shown first. Uses the :value prop so it renders in the canonical
+             rail value style (text-body / medium / on-main), consistent with
+             other fields. -->
           <BaseDetailField
             label="Reported Date"
-            :value="
-              event.reportedDate ? toDateTime(event.reportedDate)?.formatDate('datetime') : null
-            "
+            :value="event.reportedDate ? toDateTime(event.reportedDate)?.formatDate('date') : null"
           />
           <BaseDetailField label="Occurrence Date">
             <BaseDateField v-if="canUpdate" v-model="event.occurrenceDate" mode="date" />
@@ -968,12 +1147,26 @@ const qualityEventDetailConfig = computed(() =>
           Cancelling permanently terminates this event. The record stays in the audit log; you
           cannot re-open it.
         </p>
-        <BaseField v-slot="{ id: fieldId }" label="Reason" required :error="cancelReasonError">
+        <BaseField label="Reason" required :error="cancelReasonCodeError">
+          <BaseSelect
+            v-model="cancelReasonCode"
+            :options="cancelReasonOptions"
+            nullLabel="— Select a reason —"
+            :clearable="false"
+            @update:modelValue="cancelReasonCodeError = ''"
+          />
+        </BaseField>
+        <BaseField
+          v-slot="{ id: fieldId }"
+          label="Comments"
+          :required="cancelCommentsRequired"
+          :error="cancelReasonError"
+        >
           <BaseTextarea
             :id="fieldId"
             v-model="cancelReason"
             :rows="3"
-            placeholder="Why is this event being cancelled?"
+            :placeholder="cancelCommentsPlaceholder"
             @input="cancelReasonError = ''"
           />
         </BaseField>
@@ -984,7 +1177,7 @@ const qualityEventDetailConfig = computed(() =>
           submitLabel="Sign & Cancel"
           submitVariant="danger"
           :loading="cancelling"
-          :disabled="!cancelReason.trim()"
+          :disabled="!canSubmitCancel"
           @cancel="close"
           @submit="handleCancelClick"
         />
