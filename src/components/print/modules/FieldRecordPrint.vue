@@ -122,7 +122,7 @@ function fmtDateTime(d) {
   return new Date(d).toLocaleString()
 }
 
-const identifier = computed(() => record.value?.recordNumber ?? record.value?.id ?? '')
+const identifier = computed(() => record.value?.recordNumber || '')
 
 const auditEntities = computed(() => {
   const out = []
@@ -174,7 +174,7 @@ onMounted(() => {
     :auditEntities="auditEntities"
   >
     <template #title>
-      <div class="fr-print-num">{{ record?.recordNumber || record?.id }}</div>
+      <div class="fr-print-num">{{ record?.recordNumber || '—' }}</div>
       <h1 class="fr-print-title">{{ template?.title || 'Log Entry' }}</h1>
       <table class="fr-print-meta">
         <tbody>
@@ -186,8 +186,8 @@ onMounted(() => {
             </td>
           </tr>
           <tr>
-            <th>Entry ID</th>
-            <td>{{ record?.recordNumber || record?.id || '—' }}</td>
+            <th>Entry #</th>
+            <td>{{ record?.recordNumber || '—' }}</td>
             <th>Classification</th>
             <td>{{ record?.recordClassification?.replace('_', ' ') || '—' }}</td>
           </tr>

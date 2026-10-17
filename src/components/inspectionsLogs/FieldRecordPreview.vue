@@ -646,11 +646,13 @@ function close() {
         <IconX :size="20" />
       </button>
       <div class="tw:flex-1 tw:min-w-0">
+        <!-- Entry # leads (the identifier people quote); the book under it.
+             Never the row GUID (user 2026-10-18). -->
         <div class="tw:text-base tw:font-bold tw:text-on-main tw:truncate">
-          {{ template?.title ?? 'Field Record' }}
+          {{ record?.recordNumber || 'Log entry' }}
         </div>
         <div class="tw:text-xs tw:text-secondary tw:truncate">
-          {{ record?.recordNumber || record?.id }}
+          {{ template?.title ?? '' }}
         </div>
       </div>
       <button
@@ -958,10 +960,7 @@ function close() {
                     <IconShieldCheck :size="10" />
                     E-signed
                   </span>
-                  <span
-                    v-if="rev.reviewOutcome"
-                    class="tw:text-micro tw:text-secondary"
-                  >
+                  <span v-if="rev.reviewOutcome" class="tw:text-micro tw:text-secondary">
                     {{ rev.reviewOutcome }}
                   </span>
                 </div>
@@ -1095,8 +1094,8 @@ function close() {
       class="tw:flex tw:items-center tw:gap-2 tw:px-5 tw:py-2 tw:border-t tw:border-divider tw:bg-amber-50 tw:text-amber-900 tw:text-xs"
     >
       <IconShieldCheck :size="14" />
-      This record is awaiting review. Only the log book's supervisor or an added
-      reviewer can approve or reject it.
+      This record is awaiting review. Only the log book's supervisor or an added reviewer can
+      approve or reject it.
     </div>
 
     <!-- Over-the-shoulder sign-off (operator called a reviewer over). -->
@@ -1120,8 +1119,8 @@ function close() {
           </h3>
           <p class="tw:text-xs tw:text-secondary tw:mb-3">
             <template v-if="reviewReasonRequired">
-              A reason is required — the entry becomes a final record with this reason on it, and the
-              submitter is notified. E-signature confirmation follows.
+              A reason is required — the entry becomes a final record with this reason on it, and
+              the submitter is notified. E-signature confirmation follows.
             </template>
             <template v-else>Comment is optional. E-signature confirmation follows.</template>
           </p>
@@ -1130,7 +1129,9 @@ function close() {
             rows="4"
             class="tw:w-full tw:rounded tw:border tw:border-divider tw:bg-card tw:text-on-main tw:px-3 tw:py-2 tw:text-sm"
             :placeholder="
-              reviewReasonRequired ? 'Why is this entry rejected?' : 'Optional comment for the audit trail'
+              reviewReasonRequired
+                ? 'Why is this entry rejected?'
+                : 'Optional comment for the audit trail'
             "
           ></textarea>
           <div class="tw:flex tw:justify-end tw:gap-2 tw:mt-3">

@@ -588,7 +588,7 @@ function goBack() {
           <BaseButton variant="secondary" :disabled="saving" @click="goBack"> Cancel </BaseButton>
           <BaseButton :disabled="saving" @click="saveSupplier">
             <BaseSpinner v-if="saving" size="sm" color="white" />
-            <span>{{ saving ? 'Saving...' : 'Submit for Onboarding' }}</span>
+            <span>{{ saving ? 'Saving...' : 'Create Supplier Profile' }}</span>
           </BaseButton>
         </div>
       </div>
