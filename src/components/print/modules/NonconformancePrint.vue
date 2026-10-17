@@ -153,11 +153,6 @@ function userName(id) {
 }
 
 // Label lookups — each a cheap findByPk against its own store.
-const ncType = useLiveQueryWithDeps(
-  [() => nc.value?.typeId],
-  async (db, [id]) => (id ? db.NcType.findByPk(id) : null),
-  { models: ['NcType'] },
-)
 const ncSource = useLiveQueryWithDeps(
   [() => nc.value?.sourceId],
   async (db, [id]) => (id ? db.NcSource.findByPk(id) : null),
@@ -269,16 +264,16 @@ onMounted(() => {
             <td>{{ ncStatus?.name || nc?.statusId || '—' }}</td>
           </tr>
           <tr>
-            <th>Type</th>
-            <td>{{ ncType?.name || nc?.typeId || '—' }}</td>
+            <th>Category</th>
+            <td>{{ ncCategory?.name || '—' }}</td>
             <th>Severity</th>
             <td>{{ ncSeverity?.name || nc?.severityId || '—' }}</td>
           </tr>
           <tr>
-            <th>Category</th>
-            <td>{{ ncCategory?.name || '—' }}</td>
             <th>Detection Source</th>
             <td>{{ ncSource?.name || nc?.sourceId || '—' }}</td>
+            <th></th>
+            <td></td>
           </tr>
           <tr>
             <th>Site</th>

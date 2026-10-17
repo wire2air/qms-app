@@ -47,11 +47,11 @@ const DEPT = {
 function seedNc(id, siteId, suffix) {
   sql(`
     INSERT INTO nonconformances
-      (id, company_id, nc_number, title, status_id, severity_id, type_id, source_id,
+      (id, company_id, nc_number, title, status_id, severity_id, source_id,
        site_id, department_id, owner_id, detected_at, created_by, updated_by, created_at, updated_at)
     VALUES
       ('${id}', '${COMPANY_ID}', 'E2E-J7-${suffix}', 'E2E J7 probe ${suffix}', 'DRAFT', 'MINOR',
-       'PROCESS', 'IN_PROCESS',
+       'IN_PROCESS',
        '${siteId}', '${DEPT[siteId]}', '${USERS.owner.id}',
        NOW(), '${USERS.owner.id}', '${USERS.owner.id}', NOW(), NOW())
     ON CONFLICT (id) DO UPDATE SET

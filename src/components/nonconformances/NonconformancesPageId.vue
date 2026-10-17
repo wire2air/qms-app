@@ -23,7 +23,8 @@ const nc = useLiveQueryWithDeps(
 watch(
   nc,
   (n) => {
-    if (n?.id) visitTrail({ type: 'NC', id: n.id, label: n.ncNumber || 'Draft NC', path: route.path })
+    if (n?.id)
+      visitTrail({ type: 'NC', id: n.id, label: n.ncNumber || 'Draft NC', path: route.path })
   },
   { immediate: true },
 )
@@ -538,7 +539,6 @@ const ncDetailConfig = computed(() =>
 
     <template v-if="nc" #meta>
       <span class="">{{ nc.ncNumber || 'Draft' }}</span>
-      <template v-if="nc.typeId"> · <NcTypeBadgeById :typeId="nc.typeId" /></template>
       <template v-if="nc.detectedAt"> · Detected {{ nc.detectedAt.formatDate('date') }}</template>
     </template>
 
@@ -1019,10 +1019,6 @@ const ncDetailConfig = computed(() =>
             >
               <NcSeverityBadgeById :severityId="nc.severityId" />
             </BaseClickableRow>
-          </BaseDetailField>
-          <BaseDetailField label="Type">
-            <NcTypeBadgeById v-if="nc.typeId" :typeId="nc.typeId" />
-            <BaseText v-else color="secondary">—</BaseText>
           </BaseDetailField>
           <BaseDetailField label="Source">
             <NcSourceBadgeById v-if="nc.sourceId" :sourceId="nc.sourceId" />

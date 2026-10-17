@@ -219,9 +219,8 @@ function shareRow(entityType, entityId, userId) {
  * assignment / task / share rows without ever having exercised the code that
  * writes them — and those rows are precisely what this file asserts on.
  *
- * `typeId` / `sourceId` / `severityId` are global lookups with stable string
- * ids (`SELECT id FROM nc_types` → AUDIT_FINDING, …, SUPPLIER), not per-tenant
- * uuids, so naming them here cannot drift away from the tenant.
+ * `sourceId` / `severityId` are global lookups with stable string ids, not
+ * per-tenant uuids, so naming them here cannot drift away from the tenant.
  */
 async function raiseSupplierFacingNc(ctx, { title, supplierId }) {
   const create = await ctx.request.post('/api/v1/services/nonconformances', {
@@ -230,7 +229,6 @@ async function raiseSupplierFacingNc(ctx, { title, supplierId }) {
       description: 'AR-J6 — supplier acts on an assigned quality-record step.',
       siteId: SITES.primary.id,
       departmentId: DEPARTMENTS.quality.id,
-      typeId: 'SUPPLIER',
       sourceId: 'INCOMING_INSPECTION',
       severityId: 'MAJOR',
       detectedAt: new Date().toISOString(),
@@ -717,7 +715,6 @@ test.describe('AR-J6 · supplier on an assigned quality-record step', () => {
           description: 'AR-J6 control — internal assignee completes the same ACTION step.',
           siteId: SITES.primary.id,
           departmentId: DEPARTMENTS.quality.id,
-          typeId: 'SUPPLIER',
           sourceId: 'INCOMING_INSPECTION',
           severityId: 'MAJOR',
           detectedAt: new Date().toISOString(),

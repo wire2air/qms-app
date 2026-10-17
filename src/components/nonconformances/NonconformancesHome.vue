@@ -37,7 +37,6 @@ const list = useListLayout({
     // (Free-text search now lives in the table toolbar, not here.)
     statusId: [],
     severityId: [],
-    typeId: [],
     supplierId: route.query.supplierId ? [route.query.supplierId] : [],
     createdAt: null,
     effectiveness: [],
@@ -68,10 +67,9 @@ function clearSupplierFilter() {
 const CLOSED_STATUSES = ['CLOSED']
 const OPEN_STATUSES = ['DRAFT', 'OPEN']
 
-function applyFilters(results, statusIds, severityIds, typeIds) {
+function applyFilters(results, statusIds, severityIds) {
   if (statusIds?.length) results = results.filter((r) => statusIds.includes(r.statusId))
   if (severityIds?.length) results = results.filter((r) => severityIds.includes(r.severityId))
-  if (typeIds?.length) results = results.filter((r) => typeIds.includes(r.typeId))
   return results
 }
 
@@ -105,14 +103,13 @@ const ncs = useLiveQueryWithDeps(
   [
     () => list.filters.value.statusId,
     () => list.filters.value.severityId,
-    () => list.filters.value.typeId,
     () => list.filters.value.activeFilter,
     () => list.filters.value.supplierId,
     () => list.filters.value.createdAt,
     () => list.filters.value.effectiveness,
     () => effectivenessIndex.value,
   ],
-  async (db, [statusIds, severityIds, typeIds, af, supplierIds, createdAt, effectiveness]) => {
+  async (db, [statusIds, severityIds, af, supplierIds, createdAt, effectiveness]) => {
     // 'deleted' is the one view that reads soft-deleted rows (paranoid hides
     // them from every other query) and shows ONLY those.
     let results =
@@ -121,7 +118,7 @@ const ncs = useLiveQueryWithDeps(
             (r) => !!r.deletedAt,
           )
         : await db.Nonconformance.where().exec()
-    results = applyFilters(results, statusIds, severityIds, typeIds)
+    results = applyFilters(results, statusIds, severityIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))
     if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))

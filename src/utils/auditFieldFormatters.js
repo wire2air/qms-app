@@ -242,7 +242,8 @@ export const AUDIT_FIELD_FORMATTERS = {
     title: { label: 'Title', type: 'text' },
     ncNumber: { label: 'NC Number', type: 'text' },
     statusId: { label: 'Status', type: 'status', statusModel: 'NcStatus' },
-    typeId: { label: 'Type', type: 'text' },
+    // typeId: NC Type removed 2026-10-17 — historical rows still show it under
+    // the raw key, which is accurate: the field no longer exists.
     severityId: { label: 'Severity', type: 'text' },
     sourceId: { label: 'Source', type: 'text' },
     description: { label: 'Description', type: 'text' },

@@ -4,7 +4,6 @@ import {
   IconTrash,
   IconCircleDot,
   IconAlertTriangle,
-  IconTag,
   IconBuildingFactory2,
   IconCalendar,
   IconTargetArrow,
@@ -50,7 +49,7 @@ const filterPills = [
 // The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
 // every non-empty value in the object it's given, so handing it the whole filter
 // bag made it report the quick view (`activeFilter`) as an active filter.
-const MENU_GROUPS = ['statusId', 'severityId', 'typeId', 'supplierId', 'createdAt', 'effectiveness']
+const MENU_GROUPS = ['statusId', 'severityId', 'supplierId', 'createdAt', 'effectiveness']
 const menuFilters = computed(() =>
   Object.fromEntries(MENU_GROUPS.map((k) => [k, filters.value?.[k] ?? null])),
 )
@@ -68,10 +67,6 @@ const severityDotClass = {
 // entity-column dropdowns (ordered so both read in the configured order).
 const ncStatuses = useLiveQuery((db) => db.NcStatus.where().orderBy('displayOrder').exec(), {
   models: ['NcStatus'],
-  initial: [],
-})
-const ncTypes = useLiveQuery((db) => db.NcType.where().orderBy('displayOrder').exec(), {
-  models: ['NcType'],
   initial: [],
 })
 const ncSeverities = useLiveQuery((db) => db.NcSeverity.where().orderBy('displayOrder').exec(), {
@@ -104,13 +99,6 @@ const filterItems = computed(() => [
     options: selectOpts(ncSeverities.value),
   },
   {
-    id: 'typeId',
-    label: 'Type',
-    icon: IconTag,
-    group: 'typeId',
-    options: selectOpts(ncTypes.value),
-  },
-  {
     id: 'supplierId',
     label: 'Supplier',
     icon: IconBuildingFactory2,
@@ -133,7 +121,6 @@ const columns = computed(() => {
   // column); Created is dropped to keep the table readable without overflow.
   const filterCfg = {
     status: { filterType: 'select', filterOptions: selectOpts(ncStatuses.value) },
-    type: { filterType: 'select', filterOptions: selectOpts(ncTypes.value) },
   }
   return [
     {
@@ -146,7 +133,6 @@ const columns = computed(() => {
     },
     { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
     { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: false },
-    { name: 'type', label: 'Type', field: 'typeId', align: 'left', sortable: false },
     { name: 'actions', label: '', field: 'actions', align: 'right' },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
@@ -239,10 +225,6 @@ function rowMenuItems(row) {
 
     <template #body-cell-status="{ row }">
       <NcStatusBadgeById :statusId="row.statusId" />
-    </template>
-
-    <template #body-cell-type="{ row }">
-      <NcTypeBadgeById :typeId="row.typeId" />
     </template>
 
     <template #body-cell-actions="{ row }">

@@ -105,7 +105,6 @@ import { NcStatus } from './ncStatus'
 import { InspectionLotStatus } from './inspectionLotStatus'
 import { QualityEventStatus } from './qualityEventStatus'
 import { AuditInstanceStatus } from './auditInstanceStatus'
-import { NcType } from './ncType'
 import { NcSeverity } from './ncSeverity'
 import { NcSource } from './ncSource'
 import { NcDispositionType } from './ncDispositionType'
@@ -356,7 +355,6 @@ export const db = {
   InspectionLotStatus,
   QualityEventStatus,
   AuditInstanceStatus,
-  NcType,
   NcSeverity,
   NcSource,
   NcDispositionType,

@@ -134,7 +134,6 @@ const form = ref({
   description: '',
   siteId: null,
   departmentId: null,
-  typeId: null,
   sourceId: null,
   severityId: 'MINOR',
   detectedAt: DateTime.now(),
@@ -210,7 +209,6 @@ watch(sourceFinding, (f) => {
   }
   if (!form.value.description) form.value.description = f.description ?? ''
   if (!form.value.sourceId) form.value.sourceId = 'AUDIT'
-  if (!form.value.typeId) form.value.typeId = 'AUDIT_FINDING'
   if (!form.value.departmentId && f.departmentId) {
     form.value.departmentId = f.departmentId
   }
@@ -237,7 +235,6 @@ const classificationComplete = computed(
   () =>
     !!form.value.siteId &&
     !!form.value.departmentId &&
-    !!form.value.typeId &&
     !!form.value.sourceId &&
     !!form.value.severityId &&
     !!form.value.detectedAt &&
@@ -644,17 +641,6 @@ async function handleReviewersConfirmed(reviewers) {
                 </template>
               </BaseField>
               <BaseField
-                id="nc-type"
-                label="NC Type"
-                required
-                :value="form.typeId"
-                :rules="[required()]"
-              >
-                <template #default="field">
-                  <NcTypeSelectMenu v-bind="field" v-model="form.typeId" required />
-                </template>
-              </BaseField>
-              <BaseField
                 id="nc-source"
                 label="Detection source"
                 required
@@ -781,12 +767,15 @@ async function handleReviewersConfirmed(reviewers) {
                   />
                 </template>
               </BaseField>
+              <!-- Same unit-of-measure lookup as the detail page (stored by code). -->
               <BaseField label="Unit of measure">
                 <template #default="field">
-                  <BaseTextInput
+                  <UomSelectMenu
                     v-bind="field"
                     v-model="form.unitOfMeasure"
-                    placeholder="e.g. sheets, units…"
+                    bindValue="code"
+                    nullLabel="— Select unit —"
+                    :allowCreate="false"
                   />
                 </template>
               </BaseField>

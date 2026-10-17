@@ -47,10 +47,10 @@ function seedDependents() {
        VALUES ('${DEPT}', '${COMPANY_ID}', '${SITE.id}', 'E2E J9 Dept', 'J9D', NOW(), NOW())
        ON CONFLICT (id) DO UPDATE SET deleted_at = NULL`)
   sql(`INSERT INTO nonconformances
-         (id, company_id, nc_number, title, status_id, severity_id, type_id, source_id,
+         (id, company_id, nc_number, title, status_id, severity_id, source_id,
           site_id, department_id, owner_id, detected_at, created_by, updated_by, created_at, updated_at)
        VALUES ('${NC}', '${COMPANY_ID}', 'E2E-J9-1', 'E2E J9 dependent record', 'DRAFT', 'MINOR',
-          'PROCESS', 'IN_PROCESS', '${SITE.id}', '${DEPT}', '${USERS.owner.id}',
+          'IN_PROCESS', '${SITE.id}', '${DEPT}', '${USERS.owner.id}',
           NOW(), '${USERS.owner.id}', '${USERS.owner.id}', NOW(), NOW())
        ON CONFLICT (id) DO UPDATE SET deleted_at = NULL, site_id = EXCLUDED.site_id`)
 }

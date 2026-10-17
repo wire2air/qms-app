@@ -67,7 +67,6 @@ export async function raiseNc(page, title, { severity = null, beforeSubmit, onRe
   // is why they stay pinned rather than left to auto-fill.
   await selectOption(page, 'Site', 'Primary Site')
   await selectOption(page, 'Department', 'Quality')
-  await selectFirstOption(page, 'NC Type')
   await selectFirstOption(page, 'Detection source')
   if (severity) {
     await page.getByRole('radio', { name: severity }).click()
