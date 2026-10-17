@@ -99,8 +99,8 @@ const saving = ref(false)
 const saveError = ref(null)
 
 // Picking an item fills in what the item master knows, where the NC has
-// nothing yet: Unit of measure (products.uomId → uoms.code) and Supplier (only
-// when the item has exactly ONE supplier). Rides the same autosave.
+// nothing yet: Unit of measure (products.uomId → uoms.code) and Supplier (the
+// item's preferred supplier, else its only one). Rides the same autosave.
 watch(
   () => nc.value?.productId,
   async (productId, prev) => {
@@ -112,8 +112,11 @@ watch(
     ])
     if (!nc.value) return
     if (uom?.code && !nc.value.unitOfMeasure) nc.value.unitOfMeasure = uom.code
-    if (links.length === 1 && !nc.value.supplierId && nc.value.statusId === 'DRAFT') {
-      nc.value.supplierId = links[0].supplierId
+    const supplierId =
+      links.find((l) => l.isPreferred)?.supplierId ??
+      (links.length === 1 ? links[0].supplierId : null)
+    if (supplierId && !nc.value.supplierId && nc.value.statusId === 'DRAFT') {
+      nc.value.supplierId = supplierId
     }
   },
 )

@@ -37,6 +37,7 @@ const tabs = [
   { value: 'overview', label: 'Overview' },
   { value: 'company-profile', label: 'Company Profile' },
   { value: 'locations', label: 'Locations & Contacts' },
+  { value: 'items', label: 'Items' },
   { value: 'quality-records', label: 'Quality Records' },
   { value: 'users', label: 'Users' },
   { value: 'documents', label: 'Documents' },
@@ -101,11 +102,7 @@ const supplierDetailConfig = computed(() =>
     </template>
 
     <template #status>
-      <SupplierStatusSelectMenu
-        v-if="canUpdate"
-        v-model="supplier.statusId"
-        :required="true"
-      />
+      <SupplierStatusSelectMenu v-if="canUpdate" v-model="supplier.statusId" :required="true" />
       <SupplierStatusBadgeById v-else :statusId="supplier.statusId" />
     </template>
 
@@ -140,6 +137,9 @@ const supplierDetailConfig = computed(() =>
           </BaseTabPanel>
           <BaseTabPanel value="users">
             <SuppliersUsersTab :supplierId="props.id" :canUpdate="canUpdate" />
+          </BaseTabPanel>
+          <BaseTabPanel value="items">
+            <SuppliersItemsTab :supplierId="props.id" :canUpdate="canUpdate" />
           </BaseTabPanel>
           <BaseTabPanel value="quality-records">
             <SuppliersPerformanceTab :supplierId="props.id" :canUpdate="canUpdate" />

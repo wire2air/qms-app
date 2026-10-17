@@ -195,8 +195,8 @@ const isDirty = ref(false)
 watch(form, () => (isDirty.value = true), { deep: true })
 
 // Picking an item fills in what the item master knows: Unit of measure
-// (products.uomId → uoms.code) and Supplier (Item ↔ Supplier M2M — only when
-// the item has exactly ONE supplier; with several we do not guess). Each only
+// (products.uomId → uoms.code) and Supplier (the item's PREFERRED supplier,
+// else its only supplier; with several unmarked we do not guess). Each only
 // when the user has not picked one already, and cleared again when the item
 // that supplied it is deselected. Supplier-facing is left alone: that is a
 // decision, not data.
@@ -226,7 +226,9 @@ watch(
       form.value.unitOfMeasure = code
     }
     uomFromProduct = code
-    const supplierId = links.length === 1 ? links[0].supplierId : null
+    const supplierId =
+      links.find((l) => l.isPreferred)?.supplierId ??
+      (links.length === 1 ? links[0].supplierId : null)
     if (supplierId && (!form.value.supplierId || form.value.supplierId === supplierFromProduct)) {
       form.value.supplierId = supplierId
     }
