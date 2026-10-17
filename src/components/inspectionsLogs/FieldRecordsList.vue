@@ -78,7 +78,8 @@ const supervisedIds = computed(() => reviewableBookIds.value)
 // `?scope=needs_review`.
 const route = useRoute()
 const rawScope = typeof route.query?.scope === 'string' ? route.query.scope : ''
-const initialScope = rawScope === 'needs_review' || rawScope === 'needs_review_all' ? 'needs_review' : 'all'
+const initialScope =
+  rawScope === 'needs_review' || rawScope === 'needs_review_all' ? 'needs_review' : 'all'
 const scope = ref(initialScope)
 const needsReviewOnly = computed({
   get: () => scope.value === 'needs_review',
@@ -146,8 +147,7 @@ const records = useLiveQueryWithDeps(
     if (scopeVal === 'needs_review') {
       // Reviewer inbox — UNDER_REVIEW on books I can review (owner sees all).
       rows = rows.filter(
-        (r) =>
-          r.statusId === 'UNDER_REVIEW' && (isOwnerReviewer.value || supIds.has(r.logBookId)),
+        (r) => r.statusId === 'UNDER_REVIEW' && (isOwnerReviewer.value || supIds.has(r.logBookId)),
       )
     }
     if (status !== 'all') {
@@ -194,7 +194,9 @@ const otsAvailable = computed(
     !!selectedTemplate.value?.overTheShoulderReview,
 )
 const showReviewControls = computed(() => canReviewSelected.value || otsAvailable.value)
-const showBulkColumn = computed(() => showReviewControls.value && selectableRecords.value.length > 0)
+const showBulkColumn = computed(
+  () => showReviewControls.value && selectableRecords.value.length > 0,
+)
 
 function toggleSelected(id) {
   const next = new Set(selectedIds.value)
@@ -505,7 +507,8 @@ function userNameById(id) {
 function exportCsv(exportRows) {
   const cols = isLogBookMode.value ? visibleColumns.value : []
   const header = [
-    isLogBookMode.value ? 'Log Entry ID' : 'Form',
+    'Entry #',
+    ...(isLogBookMode.value ? [] : ['Log Book']),
     'Submitted At',
     'Submitted By',
     'Status',
@@ -519,7 +522,8 @@ function exportCsv(exportRows) {
   const rows = sourceRows.map((r) => {
     const payload = payloadFor(r)
     return [
-      isLogBookMode.value ? (r.recordNumber ?? r.id) : templateTitle(r),
+      r.recordNumber ?? '',
+      ...(isLogBookMode.value ? [] : [templateTitle(r)]),
       r.submittedAt?.formatDate ? r.submittedAt.formatDate('datetime') : fmtDate(r.submittedAt),
       userNameById(r.submittedByUserId),
       r.statusId ?? '',
@@ -559,13 +563,25 @@ const columns = computed(() => {
       filterType: false,
     })
   }
+  // Entry # (the minted sequence, e.g. LOG-PD-V2-0001) is always the first
+  // column; across all books the book's title follows it. The row GUID is
+  // never shown (user 2026-10-18).
   cols.push({
     name: 'primary',
-    label: isLogBookMode.value ? 'Entry ID' : 'Form',
-    field: isLogBookMode.value ? 'recordNumber' : 'logBookId',
+    label: 'Entry #',
+    field: 'recordNumber',
     align: 'left',
     sortable: true,
   })
+  if (!isLogBookMode.value) {
+    cols.push({
+      name: 'logBook',
+      label: 'Log Book',
+      field: 'logBookId',
+      align: 'left',
+      sortable: true,
+    })
+  }
   if (!isLogBookMode.value) {
     cols.push({
       name: 'classification',
@@ -680,7 +696,13 @@ function printList() {
       </button>
       <div class="tw:flex tw:items-center tw:gap-2">
         <span class="tw:text-xs tw:text-secondary">Submitted</span>
-        <BaseDateField v-model="dateRange" mode="range" valueFormat="iso" clearable placeholder="All time" />
+        <BaseDateField
+          v-model="dateRange"
+          mode="range"
+          valueFormat="iso"
+          clearable
+          placeholder="All time"
+        />
       </div>
 
       <!-- Right-aligned actions: schema column picker (log-book mode only;
@@ -728,7 +750,9 @@ function printList() {
               @change="toggleColumn(f.name)"
             />
             <span class="tw:text-on-main">{{ f.label || f.name }}</span>
-            <span class="tw:text-caption tw:text-secondary tw:ml-auto tw:uppercase tw:tracking-wider">
+            <span
+              class="tw:text-caption tw:text-secondary tw:ml-auto tw:uppercase tw:tracking-wider"
+            >
               {{ f.type }}
             </span>
           </label>
@@ -776,19 +800,17 @@ function printList() {
         <button
           type="button"
           class="tw:text-left tw:hover:text-primary"
-          :aria-label="`Open log entry ${row.recordNumber || row.id}`"
+          :aria-label="`Open log entry ${row.recordNumber || ''}`"
           @click="openRecord(row.id)"
         >
-          <template v-if="isLogBookMode">
-            <span class="tw:text-on-main tw:text-xs">
-              {{ row.recordNumber || row.id }}
-            </span>
-          </template>
-          <template v-else>
-            <span class="tw:font-medium tw:text-on-main tw:block">{{ templateTitle(row) }}</span>
-            <span class="tw:text-xs tw:text-secondary tw:truncate tw:block">{{ row.id }}</span>
-          </template>
+          <span class="tw:font-medium tw:text-on-main tw:text-xs tw:whitespace-nowrap">
+            {{ row.recordNumber || '—' }}
+          </span>
         </button>
+      </template>
+
+      <template #body-cell-logBook="{ row }">
+        <span class="tw:text-on-main">{{ templateTitle(row) }}</span>
       </template>
 
       <template #body-cell-classification="{ row }">
@@ -836,7 +858,9 @@ function printList() {
           </span>
         </template>
         <template v-else-if="row.lockAt && lockCountdown(row.lockAt)">
-          <span class="tw:text-xs tw:text-amber-700">editable for {{ lockCountdown(row.lockAt) }}</span>
+          <span class="tw:text-xs tw:text-amber-700"
+            >editable for {{ lockCountdown(row.lockAt) }}</span
+          >
         </template>
         <template v-else-if="row.lockAt">
           <span class="tw:text-xs tw:text-secondary">expires {{ fmtDate(row.lockAt) }}</span>
@@ -861,7 +885,10 @@ function printList() {
           <div class="tw:flex tw:items-start tw:justify-between tw:gap-2">
             <div class="tw:min-w-0 tw:flex-1">
               <div class="tw:font-medium tw:text-on-main tw:truncate">
-                {{ isLogBookMode ? row.recordNumber || row.id : templateTitle(row) }}
+                {{ row.recordNumber || '—' }}
+                <span v-if="!isLogBookMode" class="tw:font-normal tw:text-secondary">
+                  · {{ templateTitle(row) }}
+                </span>
               </div>
               <div class="tw:text-caption tw:text-secondary tw:mt-0.5">
                 {{ fmtDate(row.submittedAt) }}
@@ -978,7 +1005,9 @@ function printList() {
               A reason is required — each entry becomes a final record with this reason on it, and
               its submitter is notified. One e-signature confirms the whole batch.
             </template>
-            <template v-else>Comment is optional. One e-signature confirms the whole batch.</template>
+            <template v-else
+              >Comment is optional. One e-signature confirms the whole batch.</template
+            >
           </p>
           <textarea
             v-model="bulkComment"

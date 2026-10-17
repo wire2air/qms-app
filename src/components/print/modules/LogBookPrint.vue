@@ -219,7 +219,7 @@ onMounted(() => {
       <table class="lb-print-entries">
         <thead>
           <tr>
-            <th>Entry ID</th>
+            <th>Entry #</th>
             <th>Submitted</th>
             <th>Submitter</th>
             <th>Status</th>
@@ -230,7 +230,7 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="r in records" :key="r.id">
-            <td class="lb-print-id">{{ r.recordNumber || r.id }}</td>
+            <td class="lb-print-id">{{ r.recordNumber || '—' }}</td>
             <td>{{ fmtDateTime(r.submittedAt) }}</td>
             <td>{{ userName(r.submittedByUserId) }}</td>
             <td>{{ fieldRecordStatusLabel(r.statusId) }}</td>
