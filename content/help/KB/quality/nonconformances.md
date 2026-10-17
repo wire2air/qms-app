@@ -48,7 +48,6 @@ it closes, however many steps it passes through.
 
 | Field                                               | Purpose                                                                                                                                             |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NC Type                                             | The nature of the nonconformance (configured by your admin). Required.                                                                              |
 | Detection source                                    | Where the issue was found (e.g. inspection, audit, customer). Required.                                                                             |
 | Category                                            | The shared quality taxonomy — the same list used by Quality Events and CAPAs, so an issue keeps its classification along the whole chain. Optional. |
 | Site / Department                                   | Where the issue occurred. Both required.                                                                                                            |
@@ -64,7 +63,7 @@ wherever it is being worked.
 
 1. On the Nonconformances home page, click **Raise NC**.
 2. Under **Basic information**, enter a **Title** and an optional rich-text **Description**. As you type, the Similar records panel may surface existing NCs so you can avoid duplicates.
-3. Under **Classification**, choose the **Site**, **Department**, **NC Type**, **Detection source**, **Severity**, and **Owner** (all required). Optionally set **Category**, **Priority** and **Detected date**.
+3. Under **Classification**, choose the **Site**, **Department**, **Detection source**, **Severity**, and **Owner** (all required). Optionally set **Category** (what kind of problem), **Priority** and **Detected date**.
 4. Under **Product & material** (optional), add the product, supplier, quantity affected, unit of measure, and any PO, order, or lot numbers. Tick **Supplier-facing NC** and pick a supplier if the review steps should be handled by that supplier's users.
 5. Under **Immediate containment action** (optional), describe anything done right away to contain the problem.
 6. Under **Initial investigation** (optional), record what you already know — first findings, who you spoke to, what you checked.
@@ -74,7 +73,7 @@ wherever it is being worked.
 You can also **Save as Draft** at any point and come back to it.
 
 :::note
-Title, Severity, NC Type, Detection source, Site, Department, Owner, Detected date and a workflow must all be filled in before the NC can be submitted. NCs no longer carry their own due date — timing lives on the workflow steps, which is what reminders and escalation actually run on.
+Title, Severity, Detection source, Site, Department, Owner, Detected date and a workflow must all be filled in before the NC can be submitted. NCs no longer carry their own due date — timing lives on the workflow steps, which is what reminders and escalation actually run on.
 :::
 
 ## How to open an NC for review

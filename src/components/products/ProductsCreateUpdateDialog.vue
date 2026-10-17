@@ -29,6 +29,8 @@ const EMPTY_FORM = () => ({
   erpItemCode: '',
   uomId: null,
   supplierIds: [],
+  // The one supplier an NC on this item pre-fills (must be in supplierIds).
+  preferredSupplierId: null,
   description: '',
   productTypeId: null,
   statusId: 'ACTIVE',
@@ -40,7 +42,7 @@ const EMPTY_FORM = () => ({
   criticality: null,
   inspectionRequired: false,
   defaultAql: '',
-  countryOfOrigin: '',
+  countryOfOriginId: null,
   storageConditions: '',
   isHazardous: false,
 })
@@ -108,6 +110,7 @@ watch(
         erpItemCode: p.erpItemCode ?? '',
         uomId: p.uomId ?? null,
         supplierIds: form.value.supplierIds, // preserve until links seed below
+        preferredSupplierId: form.value.preferredSupplierId,
         description: p.description || '',
         productTypeId: p.productTypeId,
         statusId: p.statusId,
@@ -118,7 +121,7 @@ watch(
         criticality: p.criticality ?? null,
         inspectionRequired: p.inspectionRequired ?? false,
         defaultAql: p.defaultAql ?? '',
-        countryOfOrigin: p.countryOfOrigin ?? '',
+        countryOfOriginId: p.countryOfOriginId ?? null,
         storageConditions: p.storageConditions ?? '',
         isHazardous: p.isHazardous ?? false,
       }
@@ -134,6 +137,7 @@ watch(
   ([p, links]) => {
     if (!isEdit.value || linksSeeded.value || !p) return
     form.value.supplierIds = (links || []).map((l) => l.supplierId)
+    form.value.preferredSupplierId = (links || []).find((l) => l.isPreferred)?.supplierId ?? null
     linksSeeded.value = true
   },
   { immediate: true },
@@ -145,22 +149,50 @@ const createProduct = useLiveMutation(async (db, data) => {
   return p
 })
 
-const createProductSupplier = useLiveMutation(async (db, { productId, supplierId }) => {
-  const row = db.ProductSupplier.create({ productId, supplierId })
-  await row.save()
-  return row
-})
+const createProductSupplier = useLiveMutation(
+  async (db, { productId, supplierId, isPreferred = false }) => {
+    const row = db.ProductSupplier.create({ productId, supplierId, isPreferred })
+    await row.save()
+    return row
+  },
+)
+
+// Deselecting the preferred supplier drops the preference with it.
+watch(
+  () => form.value.supplierIds,
+  (ids) => {
+    if (form.value.preferredSupplierId && !(ids || []).includes(form.value.preferredSupplierId)) {
+      form.value.preferredSupplierId = null
+    }
+  },
+)
 
 // Diff the selected suppliers against the existing links: create the new ones,
-// soft-delete the removed ones (join-table mutation pattern).
+// soft-delete the removed ones (join-table mutation pattern). The preferred
+// flag rides on the link rows: un-prefer before prefer, so the one-preferred
+// partial unique index never sees two at once.
 async function saveSuppliers(productId) {
   const selected = form.value.supplierIds || []
+  const preferred = form.value.preferredSupplierId
   const existing = isEdit.value ? supplierLinks.value || [] : []
   const existingIds = existing.map((l) => l.supplierId)
   const toAdd = selected.filter((sid) => !existingIds.includes(sid))
   const toRemove = existing.filter((l) => !selected.includes(l.supplierId))
-  for (const supplierId of toAdd) await createProductSupplier({ productId, supplierId })
   for (const link of toRemove) await link.delete()
+  for (const link of existing) {
+    if (link.isPreferred && link.supplierId !== preferred && selected.includes(link.supplierId)) {
+      link.isPreferred = false
+      await link.save()
+    }
+  }
+  for (const supplierId of toAdd) {
+    await createProductSupplier({ productId, supplierId, isPreferred: supplierId === preferred })
+  }
+  const keep = existing.find((l) => l.supplierId === preferred)
+  if (keep && !keep.isPreferred) {
+    keep.isPreferred = true
+    await keep.save()
+  }
 }
 
 async function onSubmit() {
@@ -186,7 +218,7 @@ async function onSubmit() {
       criticality: form.value.criticality || null,
       inspectionRequired: form.value.inspectionRequired,
       defaultAql: form.value.defaultAql?.trim() || null,
-      countryOfOrigin: form.value.countryOfOrigin?.trim() || null,
+      countryOfOriginId: form.value.countryOfOriginId || null,
       storageConditions: form.value.storageConditions?.trim() || null,
       isHazardous: form.value.isHazardous,
     }
@@ -287,28 +319,52 @@ watch(open, (val) => {
       </div>
 
       <div class="tw:flex tw:gap-4">
-        <BaseField label="Item Type" required :value="form.productTypeId" :rules="[required()]" class="tw:flex-1">
+        <BaseField
+          label="Item Type"
+          required
+          :value="form.productTypeId"
+          :rules="[required()]"
+          class="tw:flex-1"
+        >
           <ProductTypeSelectMenu v-model="form.productTypeId" :required="true" />
         </BaseField>
         <div class="tw:flex-1">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Category</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Item Category
+          </p>
           <ItemCategorySelectMenu v-model="form.itemCategoryId" />
         </div>
       </div>
 
       <div class="tw:flex tw:gap-4">
         <div class="tw:flex-1">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Group</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Item Group
+          </p>
           <ProductFamilySelectMenu v-model="form.productFamilyId" nullLabel="— No group —" />
         </div>
         <div class="tw:flex-1">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Unit of Measure</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Unit of Measure
+          </p>
           <UomSelectMenu v-model="form.uomId" />
         </div>
       </div>
 
       <div class="tw:flex tw:gap-4">
-        <BaseField label="Status" required :value="form.statusId" :rules="[required()]" class="tw:flex-1">
+        <BaseField
+          label="Status"
+          required
+          :value="form.statusId"
+          :rules="[required()]"
+          class="tw:flex-1"
+        >
           <ProductStatusSelectMenu v-model="form.statusId" :required="true" />
         </BaseField>
         <BaseField label="Revision" :value="form.revision" class="tw:flex-1">
@@ -319,13 +375,50 @@ watch(open, (val) => {
       </div>
 
       <div>
-        <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Suppliers</p>
+        <p
+          class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+        >
+          Suppliers
+        </p>
         <SupplierSelectMenu
           v-model="form.supplierIds"
           :multiple="true"
           :allStatuses="true"
           nullLabel="— No suppliers —"
         />
+        <!-- Preferred: the supplier an NC on this item pre-fills. Only asked
+             once there is a choice to make. -->
+        <div v-if="(form.supplierIds || []).length > 1" class="tw:mt-2">
+          <p class="tw:text-caption tw:text-secondary tw:mb-1">Preferred supplier</p>
+          <div class="tw:flex tw:flex-wrap tw:gap-x-4 tw:gap-y-1">
+            <label
+              v-for="sid in form.supplierIds"
+              :key="sid"
+              class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-on-main tw:cursor-pointer"
+            >
+              <input
+                v-model="form.preferredSupplierId"
+                type="radio"
+                name="preferred-supplier"
+                :value="sid"
+                class="tw:accent-primary"
+              />
+              <SupplierBadgeById :supplierId="sid" />
+            </label>
+            <label
+              class="tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:text-secondary tw:cursor-pointer"
+            >
+              <input
+                v-model="form.preferredSupplierId"
+                type="radio"
+                name="preferred-supplier"
+                :value="null"
+                class="tw:accent-primary"
+              />
+              None
+            </label>
+          </div>
+        </div>
       </div>
 
       <!-- Additional QMS item details — collapsed by default to keep the form light. -->
@@ -349,7 +442,13 @@ watch(open, (val) => {
             </label>
             <BaseField label="Shelf life (days)" :value="form.shelfLifeDays" class="tw:w-40">
               <template #default="field">
-                <BaseTextInput v-bind="field" v-model.number="form.shelfLifeDays" type="number" :min="0" placeholder="—" />
+                <BaseTextInput
+                  v-bind="field"
+                  v-model.number="form.shelfLifeDays"
+                  type="number"
+                  :min="0"
+                  placeholder="—"
+                />
               </template>
             </BaseField>
           </div>
@@ -357,7 +456,12 @@ watch(open, (val) => {
           <!-- Quality controls -->
           <div class="tw:flex tw:flex-wrap tw:gap-4 tw:items-end">
             <BaseField label="Criticality" class="tw:w-40">
-              <BaseInlineSelect v-model="form.criticality" :items="CRITICALITY_OPTIONS" :clearable="true" nullLabel="— None —" />
+              <BaseInlineSelect
+                v-model="form.criticality"
+                :items="CRITICALITY_OPTIONS"
+                :clearable="true"
+                nullLabel="— None —"
+              />
             </BaseField>
             <BaseField label="Default AQL" :value="form.defaultAql" class="tw:w-32">
               <template #default="field">
@@ -371,9 +475,13 @@ watch(open, (val) => {
 
           <!-- Compliance / logistics -->
           <div class="tw:flex tw:flex-wrap tw:gap-4 tw:items-end">
-            <BaseField label="Country of origin" :value="form.countryOfOrigin" class="tw:flex-1 tw:min-w-40">
+            <BaseField
+              label="Country of origin"
+              :value="form.countryOfOriginId"
+              class="tw:flex-1 tw:min-w-40"
+            >
               <template #default="field">
-                <BaseTextInput v-bind="field" v-model="form.countryOfOrigin" placeholder="e.g. USA" />
+                <CountrySelectMenu v-bind="field" v-model="form.countryOfOriginId" />
               </template>
             </BaseField>
             <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:text-on-main tw:pb-2">

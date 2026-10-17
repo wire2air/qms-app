@@ -130,5 +130,7 @@ watch(samples, (list) => {
   padding: 3px 6px;
   vertical-align: top;
 }
-.register tr { break-inside: avoid; }
+.register tr {
+  break-inside: avoid;
+}
 </style>

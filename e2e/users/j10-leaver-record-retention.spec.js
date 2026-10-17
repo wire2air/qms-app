@@ -153,12 +153,12 @@ function resetLeaverAndHistory() {
     `SELECT set_config('app.current_user_id', '${LEAVER.id}', false);
      SELECT set_config('app.current_user_ip', '198.51.100.10', false);
      INSERT INTO nonconformances (
-       id, company_id, nc_number, title, description, status_id, severity_id, type_id,
+       id, company_id, nc_number, title, description, status_id, severity_id,
        source_id, site_id, department_id, owner_id, detected_at,
        created_by, updated_by, created_at, updated_at)
      VALUES ('${LEGACY_NC.id}', '${COMPANY_ID}', '${LEGACY_NC.number}', '${LEGACY_NC.title}',
        'Owned by the users E2E suite (USER-J10). Retention subject.',
-       'CLOSED', 'MINOR', 'PROCESS', 'IN_PROCESS',
+       'CLOSED', 'MINOR', 'IN_PROCESS',
        '${SITES.primary.id}', '${DEPARTMENTS.quality.id}', '${LEAVER.id}', '2026-02-10',
        '${LEAVER.id}', '${LEAVER.id}', NOW(), NOW())
      ON CONFLICT (id) DO UPDATE

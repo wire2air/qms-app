@@ -38,7 +38,7 @@ const REGISTERS = {
   Capa: {
     title: 'CAPA Register',
     columns: [
-      { label: 'CAPA #', value: (r) => r.capaNumber },
+      { label: 'CAPA #', value: (r) => r.capaNumber || 'Draft' },
       { label: 'Title', value: (r) => r.title, wide: true },
       { label: 'Type', value: (r) => r.typeId },
       { label: 'Priority', value: (r) => r.priorityId },
@@ -50,7 +50,7 @@ const REGISTERS = {
   Nonconformance: {
     title: 'Nonconformance Register',
     columns: [
-      { label: 'NC #', value: (r) => r.ncNumber },
+      { label: 'NC #', value: (r) => r.ncNumber || 'Draft' },
       { label: 'Title', value: (r) => r.title, wide: true },
       { label: 'Severity', value: (r) => r.severityId },
       { label: 'Owner', value: (r, c) => c.userName(r.ownerId) },

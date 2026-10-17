@@ -29,7 +29,6 @@ const form = ref({
   title: '',
   siteId: null,
   departmentId: null,
-  typeId: 'CUSTOMER_RETURN',
   severityId: 'MINOR',
   detectedAt: DateTime.now(),
   ownerId: currentSession.value?.userId ?? null,
@@ -63,7 +62,6 @@ async function onValidSubmit() {
       title: form.value.title.trim(),
       siteId: form.value.siteId,
       departmentId: form.value.departmentId,
-      typeId: form.value.typeId,
       severityId: form.value.severityId,
       detectedAt: form.value.detectedAt?.toISODate?.() ?? String(form.value.detectedAt),
       ownerId: form.value.ownerId,
@@ -125,9 +123,6 @@ async function onValidSubmit() {
           </BaseField>
           <BaseField label="Department" required :value="form.departmentId" :rules="[required()]">
             <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" required />
-          </BaseField>
-          <BaseField label="NC Type">
-            <NcTypeSelectMenu v-model="form.typeId" required />
           </BaseField>
           <BaseField label="Owner" required :value="form.ownerId" :rules="[required()]">
             <UserSelectMenu v-model="form.ownerId" required />

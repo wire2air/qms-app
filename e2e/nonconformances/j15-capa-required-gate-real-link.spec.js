@@ -329,7 +329,6 @@ test.describe('PW-J15 · URS-NCR-07 — the CAPA-required gate and a REAL linked
         description: 'PW-J15 — raise with a linked 8D CAPA, then read the gate.',
         siteId: SITES.primary.id,
         departmentId: DEPARTMENTS.quality.id,
-        typeId: 'PROCESS',
         sourceId: 'IN_PROCESS',
         severityId: 'MAJOR',
         detectedAt: new Date().toISOString(),

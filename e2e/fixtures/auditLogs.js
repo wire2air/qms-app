@@ -242,7 +242,7 @@ export function removeProbeDepartment(dept) {
  *
  * The constraint (verified live) is
  *
- *   CHECK (status_id = 'DRAFT' OR (severity_id, type_id, source_id, site_id,
+ *   CHECK (status_id = 'DRAFT' OR (severity_id, source_id, site_id,
  *          department_id, owner_id, detected_at ARE ALL NOT NULL))
  *
  * — i.e. DRAFT is the only status a partially-filled NC may hold, and this row
@@ -261,11 +261,11 @@ export function seedProbeNc(actorId = USERS.owner.id) {
   sqlAsActor(
     actorId,
     `INSERT INTO nonconformances (
-       id, company_id, nc_number, title, description, status_id, severity_id, type_id,
+       id, company_id, nc_number, title, description, status_id, severity_id,
        source_id, site_id, department_id, owner_id, detected_at,
        created_by, updated_by, created_at, updated_at)
      VALUES (${q(PROBE_NC.id)}, ${q(COMPANY_ID)}, ${q(PROBE_NC.number)}, ${q(PROBE_NC.title)},
-       'Owned by the auditLogs E2E suite.', 'CLOSED', 'MINOR', 'PROCESS', 'IN_PROCESS',
+       'Owned by the auditLogs E2E suite.', 'CLOSED', 'MINOR', 'IN_PROCESS',
        ${q(SITES.primary.id)}, ${q(DEPARTMENTS.quality.id)}, ${q(USERS.author.id)}, '2026-02-10',
        ${q(USERS.author.id)}, ${q(USERS.author.id)}, NOW(), NOW());`,
   )

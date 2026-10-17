@@ -212,7 +212,7 @@ export function findProduct(id) {
     `SELECT name, sku, description, product_type_id, status_id, product_family_id,
             item_category_id, uom_id, erp_item_code, revision, criticality, default_aql,
             inspection_required, lot_controlled, serial_controlled, shelf_life_days,
-            is_hazardous, country_of_origin, storage_conditions, deleted_at
+            is_hazardous, country_of_origin_id, storage_conditions, deleted_at
        FROM products WHERE id = ${quote(id)}`,
   )
   if (!row) return null
@@ -235,7 +235,7 @@ export function findProduct(id) {
     serialControlled: row[14] === 't',
     shelfLifeDays: nz(row[15]) === null ? null : Number(row[15]),
     isHazardous: row[16] === 't',
-    countryOfOrigin: nz(row[17]),
+    countryOfOriginId: nz(row[17]),
     storageConditions: nz(row[18]),
     deletedAt: nz(row[19]),
   }
