@@ -52,7 +52,7 @@ When you request documents, each request and each document line tracks its own p
 3. Choose a **Category** (required).
 4. Optionally add the **Registered Address**, assign one or more **Sites**, set a **Risk Level**, and attach **Certificates** and **Licenses** under Compliance Documents.
 5. Add at least one contact (see below) and mark one as **Primary**.
-6. Click **Submit for Onboarding**. The supplier is created with a **Pending** status and appears in the list.
+6. Click **Create Supplier Profile**. The supplier is created with a **Pending** status and appears in the list.
 
 To open an existing supplier, click its row in the list. To delete one, use the delete action on the row and confirm.
 
