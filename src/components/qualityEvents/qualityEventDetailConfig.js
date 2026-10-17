@@ -69,6 +69,7 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
     cancelling,
     submitting,
     escalatedTo,
+    hasEscalations = !!escalatedTo,
     canViewAuditTrail,
   } = gates
   const isOpen = !['CLOSED', 'CANCELLED'].includes(statusId)
@@ -136,7 +137,11 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
       // Same claim as Close (`canClose` — assigned reviewer or a
       // quality_events:close grant), because POST /cancel is gated on the same
       // quality_events:update + quality_events:close pair.
-      visible: !!canClose && isOpen,
+      // Hidden once the event has spawned an NC / CAPA / CR / Complaint: a record
+      // with formal follow-ups is closed, not thrown away (cancelQualityEvent
+      // refuses too). `alreadyEscalated` is the same signal the Escalate button
+      // reads.
+      visible: !!canClose && isOpen && !hasEscalations,
       // …but a DIFFERENT server rule, which is why this gets its own blocked
       // reason instead of reusing `closeBlockedReason`. Close accepts only the
       // assigned reviewer, full stop. Cancel accepts the assigned reviewer when

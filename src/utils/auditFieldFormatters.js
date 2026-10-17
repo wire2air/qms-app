@@ -252,6 +252,33 @@ export const AUDIT_FIELD_FORMATTERS = {
     reportedById: { label: 'Reported By', type: 'fk', refModel: 'User' },
   },
 
+  // ── Quality Events ───────────────────────────────────────────────────────────
+  QualityEvent: {
+    eventNumber: { label: 'Event Number', type: 'text' },
+    title: { label: 'Title', type: 'text' },
+    description: { label: 'Issue', type: 'richtext' },
+    statusId: { label: 'Status', type: 'status', statusModel: 'QualityEventStatus' },
+    // 'status' = resolve by findByPk(...).name — no ENTITY_LABEL_RESOLVERS
+    // entry is needed for these lookups.
+    categoryId: { label: 'Category', type: 'status', statusModel: 'EventCategory' },
+    severityId: { label: 'Severity', type: 'status', statusModel: 'EventSeverity' },
+    siteId: { label: 'Site', type: 'fk', refModel: 'Site' },
+    departmentId: { label: 'Department', type: 'fk', refModel: 'Department' },
+    supplierId: { label: 'Supplier', type: 'fk', refModel: 'Supplier' },
+    reportedByUserId: { label: 'Reported By', type: 'fk', refModel: 'User' },
+    assignedToUserId: { label: 'Assigned To', type: 'fk', refModel: 'User' },
+    occurrenceDate: { label: 'Occurrence Date', type: 'date' },
+    reportedDate: { label: 'Reported Date', type: 'date' },
+    reviewDueDate: { label: 'Review Due', type: 'date' },
+    reviewSummary: { label: 'Review Summary', type: 'richtext' },
+    recommendedAction: { label: 'Recommended Action', type: 'richtext' },
+    decision: { label: 'Decision', type: 'richtext' },
+    anonymousSubmission: { label: 'Anonymous', type: 'boolean' },
+    notifyGroupIds: { label: 'Notify Groups', type: 'json' },
+    notifyUserIds: { label: 'Notify Users', type: 'json' },
+    notifyEmails: { label: 'Notify Emails', type: 'json' },
+  },
+
   // ── Customer Complaints ──────────────────────────────────────────────────────
   CustomerComplaint: {
     subject: { label: 'Subject', type: 'text' },
@@ -446,6 +473,7 @@ export const DISPLAY_TYPE_LABELS = {
   SupplierAsset: 'Supplier Asset',
   AssetRequest: 'Asset Request',
   Nonconformance: 'Nonconformance',
+  QualityEvent: 'Quality Event',
   CustomerComplaint: 'Customer Complaint',
   CustomerComplaintMessage: 'Complaint Message',
   User: 'User',

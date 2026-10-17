@@ -1,6 +1,7 @@
 <script setup>
 import { DateTime } from 'luxon'
 import { ENTITY_LABEL_RESOLVERS } from '@/utils/auditConstants.js'
+import { looksLikeHtml, richTextToPlain } from '@/utils/auditValueFormatter.js'
 
 const props = defineProps({
   value: { type: Object, default: null },
@@ -57,6 +58,10 @@ const displayValue = useLiveQuery(
       return props.fieldMeta.enumMap[value] ?? String(value)
     }
 
+    // Editor HTML (Review Summary, Decision, descriptions…) reads as words,
+    // not tags — see richTextToPlain.
+    if (type === 'richtext' || looksLikeHtml(value)) return richTextToPlain(value)
+
     if (type === 'json') {
       if (typeof value === 'object' && value !== null) {
         const count = Array.isArray(value) ? value.length : Object.keys(value).length
@@ -89,7 +94,11 @@ function humanizeCode(str) {
 
 <template>
   <span class="tw:inline-flex tw:items-start tw:gap-1 tw:flex-wrap">
-    <span class="tw:px-1.5 tw:py-0.5 tw:rounded tw:text-xs tw:border" :class="pillClass">
+    <!-- pre-wrap: richTextToPlain keeps paragraph breaks as newlines. -->
+    <span
+      class="tw:px-1.5 tw:py-0.5 tw:rounded tw:text-xs tw:border tw:whitespace-pre-wrap tw:break-words"
+      :class="pillClass"
+    >
       {{ displayValue }}
     </span>
     <button

@@ -14,7 +14,8 @@ import {
 const props = defineProps({ id: { type: String, required: true } })
 
 const toast = useToast()
-const canUpdate = computed(() => isAllowed(['quality_events:update']))
+const { confirm } = useConfirm()
+const hasUpdatePermission = computed(() => isAllowed(['quality_events:update']))
 const currentUserId = computed(
   () => currentSession.value?.userId ?? currentSession.value?.id ?? null,
 )
@@ -26,6 +27,10 @@ const event = useLiveQueryWithDeps(
   { models: ['QualityEvent'] },
 )
 const loading = computed(() => event.value === undefined)
+// A CLOSED or CANCELLED event is a record, not a work item: every inline
+// control (and the autosave behind it) goes read-only regardless of grant.
+const isEditableStatus = computed(() => ['DRAFT', 'OPEN'].includes(event.value?.statusId))
+const canUpdate = computed(() => hasUpdatePermission.value && isEditableStatus.value)
 const isAssignedReviewer = computed(
   () => !!event.value?.assignedToUserId && event.value.assignedToUserId === currentUserId.value,
 )
@@ -408,7 +413,7 @@ async function handleAssigneeChange(userId) {
 // writes a `signatures` row against signatures.quality_event_id, and only then
 // flips OPEN → CLOSED.
 const showCloseEsign = ref(false)
-function handleCloseClick() {
+async function handleCloseClick() {
   if (!event.value) return
   // The button is disabled in this case; this is the belt-and-braces path for
   // a keyboard/programmatic trigger. Says the same thing as the tooltip rather
@@ -430,6 +435,18 @@ function handleCloseClick() {
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
     return
+  }
+  // Escalated records still open: closing the event does not close them, so
+  // the closer confirms before the PIN prompt.
+  const stillOpen = openEscalatedRecords.value
+  if (stillOpen.length) {
+    const list = stillOpen.map((r) => `${r.kind} ${r.label}`).join(', ')
+    const ok = await confirm({
+      title: 'Escalated records are still open',
+      message: `This event was escalated to ${list}, which ${stillOpen.length === 1 ? 'is' : 'are'} not closed yet. Closing the event will not close ${stillOpen.length === 1 ? 'it' : 'them'}. Are you sure you want to close this event?`,
+      okLabel: 'Close event',
+    })
+    if (!ok) return
   }
   showCloseEsign.value = true
 }
@@ -559,6 +576,38 @@ const escalatedTo = computed(() => {
   return kinds.length ? kinds.join(', ') : null
 })
 
+// The escalated records themselves (NC / CAPA / CR / Complaint), live from IDB,
+// so Close can warn about the ones still open and Cancel can step aside once
+// any exist. Unified statuses: anything but CLOSED / CANCELLED is still open.
+const ESCALATION_TARGETS = {
+  Nonconformance: { model: 'Nonconformance', number: 'ncNumber' },
+  Capa: { model: 'Capa', number: 'capaNumber' },
+  ChangeRequest: { model: 'ChangeRequest', number: 'crNumber' },
+  CustomerComplaint: { model: 'CustomerComplaint', number: 'complaintNumber' },
+}
+const escalatedRecords = useLiveQueryWithDeps(
+  [() => escalationLinks.value.map((l) => `${l.toType}:${l.toId}`).join('|')],
+  async (db) => {
+    const out = []
+    for (const link of escalationLinks.value) {
+      const target = ESCALATION_TARGETS[link.toType]
+      const row = target && db[target.model] ? await db[target.model].findByPk(link.toId) : null
+      out.push({
+        link,
+        kind: TARGET_LABELS[link.toType] ?? link.toType,
+        label: row?.[target?.number] || row?.title || link.toId,
+        statusId: row?.statusId ?? null,
+        // Unknown status (record not synced / not visible) counts as open: the
+        // warning errs towards asking.
+        isOpen: !['CLOSED', 'CANCELLED'].includes(row?.statusId),
+      })
+    }
+    return out
+  },
+  { models: ['Nonconformance', 'Capa', 'ChangeRequest', 'CustomerComplaint'], initial: [] },
+)
+const openEscalatedRecords = computed(() => escalatedRecords.value.filter((r) => r.isOpen))
+
 function openPrintView() {
   if (!event.value?.id) return
   // Centralised print: /<companyCode>/print?module=QualityEvent&id=...
@@ -612,6 +661,7 @@ const qualityEventActions = computed(() =>
       cancelling: cancelling.value,
       submitting: submitting.value,
       escalatedTo: escalatedTo.value,
+      hasEscalations: escalationLinks.value.length > 0,
       canViewAuditTrail: canReadAuditTrail.value,
     },
     {

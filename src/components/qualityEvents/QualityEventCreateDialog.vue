@@ -53,38 +53,52 @@ function hasRichTextContent(value) {
   return text.length > 0
 }
 
+// The reporter's own site / department prefill the form. `User.siteId` is the
+// primary site; a user with only additional sites (UserSite rows) gets the
+// first of those, so the field is never left blank when something is known.
+const mySites = useLiveQueryWithDeps(
+  [() => currentSession.value?.userId ?? currentSession.value?.id],
+  async (db, [uid]) => (uid ? db.UserSite.where('userId', uid).exec() : []),
+  { models: ['UserSite'], initial: [] },
+)
+const myDefaultSiteId = computed(
+  () => currentUser.value?.siteId ?? mySites.value[0]?.siteId ?? null,
+)
 function applyUserDefaults(target) {
-  const me = currentUser.value
-  if (!me) return target
   return {
     ...target,
-    siteId: target.siteId ?? me.siteId ?? null,
-    departmentId: target.departmentId ?? me.departmentId ?? null,
+    siteId: target.siteId ?? myDefaultSiteId.value,
+    departmentId: target.departmentId ?? currentUser.value?.departmentId ?? null,
   }
 }
 
-watch(open, (v) => {
-  if (v) {
-    form.value = { ...applyUserDefaults(blank()), ...props.initialValues }
-    if (typeof form.value.occurrenceDate === 'string') {
-      const dt = DateTime.fromISO(form.value.occurrenceDate)
-      form.value.occurrenceDate = dt.isValid ? dt.startOf('day') : DateTime.now().startOf('day')
-    } else if (form.value.occurrenceDate instanceof Date) {
-      form.value.occurrenceDate = DateTime.fromJSDate(form.value.occurrenceDate).startOf('day')
-    } else if (!form.value.occurrenceDate) {
-      form.value.occurrenceDate = DateTime.now().startOf('day')
-    }
-  }
-})
-
+// `immediate`: callers mount the dialog with v-if once it is already open, so
+// an open→true transition never happens and the reset has to run on mount.
 watch(
-  () => currentUser.value,
-  (me) => {
-    if (!open.value || !me) return
-    if (!form.value.siteId && me.siteId) form.value.siteId = me.siteId
-    if (!form.value.departmentId && me.departmentId) form.value.departmentId = me.departmentId
+  open,
+  (v) => {
+    if (v) {
+      form.value = { ...applyUserDefaults(blank()), ...props.initialValues }
+      if (typeof form.value.occurrenceDate === 'string') {
+        const dt = DateTime.fromISO(form.value.occurrenceDate)
+        form.value.occurrenceDate = dt.isValid ? dt.startOf('day') : DateTime.now().startOf('day')
+      } else if (form.value.occurrenceDate instanceof Date) {
+        form.value.occurrenceDate = DateTime.fromJSDate(form.value.occurrenceDate).startOf('day')
+      } else if (!form.value.occurrenceDate) {
+        form.value.occurrenceDate = DateTime.now().startOf('day')
+      }
+    }
   },
+  { immediate: true },
 )
+
+// The user record / site rows usually land AFTER the reset above; fill the
+// blanks when they do, never overwriting a choice already made.
+watch([myDefaultSiteId, () => currentUser.value?.departmentId], ([siteId, departmentId]) => {
+  if (!open.value) return
+  if (!form.value.siteId && siteId) form.value.siteId = siteId
+  if (!form.value.departmentId && departmentId) form.value.departmentId = departmentId
+})
 
 // Per-field validation errors, anchored under their BaseFields. All fields are
 // checked in one pass so the user sees every gap at once, not one per click.

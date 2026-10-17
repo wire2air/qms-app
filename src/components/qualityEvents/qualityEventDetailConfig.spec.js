@@ -185,6 +185,17 @@ describe('buildQualityEventActions', () => {
       expect(vis({ canClose: true, statusId: 'CANCELLED' })).toBe(false)
     })
 
+    it('is hidden once the event has escalation records — it can only be closed', () => {
+      const vis = (gates) => byId(gates).cancel.visible
+      expect(vis({ canClose: true, statusId: 'OPEN', hasEscalations: true })).toBe(false)
+      // Falls back to the escalatedTo chip when the page passes only that.
+      expect(vis({ canClose: true, statusId: 'OPEN', escalatedTo: 'NC' })).toBe(false)
+      // Close is unaffected.
+      expect(byId({ canClose: true, statusId: 'OPEN', hasEscalations: true }).close.visible).toBe(
+        true,
+      )
+    })
+
     it('disables Cancel with a reason when the event is assigned to someone else', () => {
       const a = byId({
         canClose: true,
