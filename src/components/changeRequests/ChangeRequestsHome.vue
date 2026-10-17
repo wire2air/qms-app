@@ -73,7 +73,14 @@ const changeRequests = useLiveQueryWithDeps(
     () => list.filters.value.createdAt,
   ],
   async (db, [statusIds, priorityIds, changeTypeIds, af, createdAt]) => {
-    let results = await db.ChangeRequest.where().exec()
+    // 'deleted' is the one view that reads soft-deleted rows (paranoid hides
+    // them from every other query) and shows ONLY those.
+    let results =
+      af === 'deleted'
+        ? (await db.ChangeRequest.where(undefined, undefined, { force: true }).exec()).filter(
+            (r) => !!r.deletedAt,
+          )
+        : await db.ChangeRequest.where().exec()
     results = applyFilters(results, statusIds, priorityIds, changeTypeIds)
     results = applyActiveFilter(results, af)
     if (createdAt) results = results.filter((r) => matchesDateFilter(r.createdAt, createdAt))
