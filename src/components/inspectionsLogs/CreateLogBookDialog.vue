@@ -37,6 +37,12 @@ const props = defineProps({
   // site, suggests a title, and (when triggerSource is set) arms the
   // TRIGGER schedule so the book follows the equipment's due dates.
   preset: { type: Object, default: null },
+  // Which quick-create card opened the dialog. CONTROLLED_RECORD pre-sets the
+  // controls the card promises (e-signature on submit + second-person review);
+  // the classification is still derived from those toggles at save. Until
+  // 2026-10-18 this prop was passed by the cards but never declared, so the
+  // Controlled card created an Operational book with neither control.
+  initialClassification: { type: String, default: null },
 })
 const emit = defineEmits(['created'])
 const open = defineModel({ type: Boolean, default: false })
@@ -172,6 +178,10 @@ watch(open, (isOpen) => {
   }
   reviewRequired.value = false
   overTheShoulderReview.value = false
+  if (props.initialClassification === 'CONTROLLED_RECORD') {
+    signatureRequired.value = true
+    reviewRequired.value = true
+  }
   showReferences.value = false
   showCompliance.value = false
   isSubmitting.value = false
