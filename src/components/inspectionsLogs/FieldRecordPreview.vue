@@ -51,11 +51,6 @@ const toast = useToast()
 // the record's log book (loaded below).
 const { canReviewBook } = useLogBookReviewAuth()
 const canReview = computed(() => canReviewAsRoster.value || canReviewInScope.value)
-const supervisor = useLiveQueryWithDeps(
-  [() => template.value?.supervisorUserId],
-  async (db, [uid]) => (uid ? db.User.findByPk(uid) : null),
-  { models: ['User'] },
-)
 const supervisorName = computed(() => {
   const u = supervisor.value
   return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : ''
@@ -220,9 +215,15 @@ const template = useLiveQueryWithDeps(
   { models: ['LogBook'] },
 )
 
-// Declared AFTER `template`: bookSites' dep getter runs at setup, so reading
-// `template` above its declaration threw "Cannot access 'template' before
-// initialization" and the entry panel never opened (2026-10-18).
+// Declared AFTER `template`: these live queries' dep getters run
+// at setup, so reading `template` above its declaration threw "Cannot access
+// 'template' before initialization" and the entry panel never opened
+// (2026-10-18).
+const supervisor = useLiveQueryWithDeps(
+  [() => template.value?.supervisorUserId],
+  async (db, [uid]) => (uid ? db.User.findByPk(uid) : null),
+  { models: ['User'] },
+)
 // Roster review: the book's supervisor or an additional reviewer.
 const canReviewAsRoster = computed(() => (template.value ? canReviewBook(template.value) : false))
 // Review on behalf of an absent roster (2026-10-12): field_records:review held
