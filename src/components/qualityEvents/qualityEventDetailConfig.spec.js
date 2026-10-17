@@ -22,6 +22,27 @@ describe('buildQualityEventBanners', () => {
     expect(b.find((x) => x.id === 'status')?.title).toBe('Cancelled')
   })
 
+  it('the Cancelled banner carries the signed reason — list label plus specifics', () => {
+    const msg = (e) => buildQualityEventBanners(e).find((x) => x.id === 'status')?.message
+    expect(
+      msg({ statusId: 'CANCELLED', cancelReasonCode: 'DUPLICATE', cancelReason: 'See EV-000041' }),
+    ).toBe('This event was cancelled — Duplicate of an existing record: See EV-000041')
+    // No specifics: the label alone (the page sends the label as `reason` then,
+    // so it is not repeated).
+    expect(
+      msg({
+        statusId: 'CANCELLED',
+        cancelReasonCode: 'CREATED_IN_ERROR',
+        cancelReason: 'Created in error',
+      }),
+    ).toBe('This event was cancelled — Created in error')
+    // Pre-list rows: free text only.
+    expect(msg({ statusId: 'CANCELLED', cancelReason: 'Filed twice' })).toBe(
+      'This event was cancelled — Filed twice',
+    )
+    expect(msg({ statusId: 'CANCELLED' })).toBe('This event is cancelled.')
+  })
+
   it('no banner when open', () => {
     // Was asserted against 'IN_REVIEW' until 2026-08-31 — a status the
     // unified-statuses migration (20260823100000) deleted from the lookup, so

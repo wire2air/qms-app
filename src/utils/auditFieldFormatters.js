@@ -273,6 +273,18 @@ export const AUDIT_FIELD_FORMATTERS = {
     reviewSummary: { label: 'Review Summary', type: 'richtext' },
     recommendedAction: { label: 'Recommended Action', type: 'richtext' },
     decision: { label: 'Decision', type: 'richtext' },
+    cancelReasonCode: {
+      label: 'Cancel Reason',
+      type: 'enum',
+      enumMap: {
+        CREATED_IN_ERROR: 'Created in error',
+        DUPLICATE: 'Duplicate of an existing record',
+        OUT_OF_SCOPE: 'Not a quality event / out of scope',
+        WITHDRAWN: 'Withdrawn before investigation or escalation',
+        OTHER: 'Other',
+      },
+    },
+    cancelReason: { label: 'Cancel Comments', type: 'text' },
     anonymousSubmission: { label: 'Anonymous', type: 'boolean' },
     notifyGroupIds: { label: 'Notify Groups', type: 'json' },
     notifyUserIds: { label: 'Notify Users', type: 'json' },

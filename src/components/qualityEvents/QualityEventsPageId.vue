@@ -3,6 +3,10 @@ import { IconArrowUpRight } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import {
+  QUALITY_EVENT_CANCEL_REASONS,
+  qualityEventCancelReasonLabel,
+} from '@/constants/qualityEventCancelReasons.js'
 import { useDebounceFn } from '@vueuse/core'
 import { DateTime } from 'luxon'
 import {
@@ -500,23 +504,54 @@ async function onCloseEsignVerified({ method, provider, token }) {
 const showCancelDialog = ref(false)
 const showCancelEsign = ref(false)
 const cancelling = ref(false)
+// Reason = a code from the fixed list + free-text specifics. The specifics are
+// required for OTHER (the list said nothing) and optional otherwise — but the
+// server still needs a non-empty `reason`, so the label stands in when the
+// user adds nothing.
+const cancelReasonOptions = QUALITY_EVENT_CANCEL_REASONS.map((r) => ({
+  value: r.code,
+  label: r.label,
+}))
+const cancelReasonCode = ref(null)
+const cancelReasonCodeError = ref('')
 const cancelReason = ref('')
 const cancelReasonError = ref('')
+const cancelCommentsRequired = computed(() => cancelReasonCode.value === 'OTHER')
+const cancelCommentsPlaceholder = computed(() => {
+  switch (cancelReasonCode.value) {
+    case 'DUPLICATE':
+      return 'Which record does this duplicate? (e.g. EV-000123)'
+    case 'OUT_OF_SCOPE':
+      return 'Why is this outside the quality system’s scope?'
+    case 'WITHDRAWN':
+      return 'Who withdrew it, and why no investigation is needed'
+    case 'OTHER':
+      return 'Explain why this event is being cancelled'
+    default:
+      return 'Anything an auditor should know (optional)'
+  }
+})
+const canSubmitCancel = computed(
+  () => !!cancelReasonCode.value && (!cancelCommentsRequired.value || !!cancelReason.value.trim()),
+)
 function openCancelDialog() {
   if (!canClose.value || cancelBlockedReason.value) {
     toast.warning(cancelBlockedReason.value || 'You cannot cancel this event.')
     return
   }
+  cancelReasonCode.value = null
+  cancelReasonCodeError.value = ''
   cancelReason.value = ''
   cancelReasonError.value = ''
   showCancelDialog.value = true
 }
 function handleCancelClick() {
-  if (!cancelReason.value.trim()) {
-    cancelReasonError.value = 'A cancel reason is required'
-    return
-  }
-  cancelReasonError.value = ''
+  cancelReasonCodeError.value = cancelReasonCode.value ? '' : 'Pick a cancellation reason'
+  cancelReasonError.value =
+    cancelCommentsRequired.value && !cancelReason.value.trim()
+      ? 'Comments are required for “Other”'
+      : ''
+  if (cancelReasonCodeError.value || cancelReasonError.value) return
   showCancelDialog.value = false
   showCancelEsign.value = true
 }
@@ -529,7 +564,8 @@ async function onCancelEsignVerified({ method, provider, token }) {
       method,
       provider: provider || null,
       token,
-      reason: cancelReason.value.trim(),
+      reasonCode: cancelReasonCode.value,
+      reason: cancelReason.value.trim() || qualityEventCancelReasonLabel(cancelReasonCode.value),
     })
     if (res?.qualityEvent) {
       event.value.statusId = res.qualityEvent.statusId
@@ -658,7 +694,9 @@ const breadcrumbs = computed(() => [
   { label: 'Events', to: getCompanyPath('/qualityEvents') },
   {
     label:
-      event.value?.title || event.value?.eventNumber || (event.value === null ? 'Not found' : 'Loading…'),
+      event.value?.title ||
+      event.value?.eventNumber ||
+      (event.value === null ? 'Not found' : 'Loading…'),
   },
 ])
 const qualityEventBanners = computed(() => buildQualityEventBanners(event.value))
@@ -1109,12 +1147,26 @@ const qualityEventDetailConfig = computed(() =>
           Cancelling permanently terminates this event. The record stays in the audit log; you
           cannot re-open it.
         </p>
-        <BaseField v-slot="{ id: fieldId }" label="Reason" required :error="cancelReasonError">
+        <BaseField label="Reason" required :error="cancelReasonCodeError">
+          <BaseSelect
+            v-model="cancelReasonCode"
+            :options="cancelReasonOptions"
+            nullLabel="— Select a reason —"
+            :clearable="false"
+            @update:modelValue="cancelReasonCodeError = ''"
+          />
+        </BaseField>
+        <BaseField
+          v-slot="{ id: fieldId }"
+          label="Comments"
+          :required="cancelCommentsRequired"
+          :error="cancelReasonError"
+        >
           <BaseTextarea
             :id="fieldId"
             v-model="cancelReason"
             :rows="3"
-            placeholder="Why is this event being cancelled?"
+            :placeholder="cancelCommentsPlaceholder"
             @input="cancelReasonError = ''"
           />
         </BaseField>
@@ -1125,7 +1177,7 @@ const qualityEventDetailConfig = computed(() =>
           submitLabel="Sign & Cancel"
           submitVariant="danger"
           :loading="cancelling"
-          :disabled="!cancelReason.trim()"
+          :disabled="!canSubmitCancel"
           @cancel="close"
           @submit="handleCancelClick"
         />

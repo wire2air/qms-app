@@ -6,6 +6,7 @@ import {
   IconPrinter,
   IconSend,
 } from '@tabler/icons-vue'
+import { qualityEventCancelReasonLabel } from '@/constants/qualityEventCancelReasons.js'
 
 /**
  * Contextual banners, sections, and header actions for a Quality Event detail
@@ -18,12 +19,24 @@ import {
 export function buildQualityEventBanners(event) {
   if (!event) return []
   const banners = []
-  if (['CLOSED', 'CANCELLED'].includes(event.statusId)) {
+  if (event.statusId === 'CANCELLED') {
+    // The signed cancel reason lives on the row (2026-10-17): "<list label>:
+    // <specifics>" — the banner is where an auditor reads it first.
+    const label = qualityEventCancelReasonLabel(event.cancelReasonCode)
+    const detail = (event.cancelReason || '').trim()
+    const why = [label, detail && detail !== label ? detail : null].filter(Boolean).join(': ')
     banners.push({
       id: 'status',
       tone: 'neutral',
-      title: event.statusId === 'CLOSED' ? 'Closed' : 'Cancelled',
-      message: `This event is ${event.statusId.toLowerCase()}.`,
+      title: 'Cancelled',
+      message: why ? `This event was cancelled — ${why}` : 'This event is cancelled.',
+    })
+  } else if (event.statusId === 'CLOSED') {
+    banners.push({
+      id: 'status',
+      tone: 'neutral',
+      title: 'Closed',
+      message: 'This event is closed.',
     })
   }
   return banners
