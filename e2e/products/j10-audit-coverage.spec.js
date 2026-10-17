@@ -9,7 +9,7 @@
 // unaudited, therefore: sku, revision, erpItemCode, productTypeId,
 // itemCategoryId, productFamilyId, uomId, criticality, inspectionRequired,
 // defaultAql, lotControlled, serialControlled, shelfLifeDays, isHazardous,
-// countryOfOrigin, storageConditions. (`stateId` was a phantom — not a column on
+// countryOfOriginId, storageConditions. (`stateId` was a phantom — not a column on
 // this table at all — so it never matched anything either.)
 //
 // P2 widened the list to 18 curated fields. This file is the green gate on that
@@ -25,7 +25,7 @@
 // The claim under test is "changing ONLY field X writes an audit row". A UI save
 // sends whatever the dialog's patch contains — `updatedBy` always, plus any
 // field the form normalised on the way through ('' → null on erpItemCode,
-// defaultAql, countryOfOrigin…). That makes "only X changed" hard to guarantee
+// defaultAql, countryOfOriginId…). That makes "only X changed" hard to guarantee
 // and easy to get accidentally-green. `sqlAsAppUser` issues EXACTLY the same
 // statement PostGraphile would (SET ROLE app_user with the session GUCs), hits
 // the same `products_audit_trigger`, enqueues the same `audit_event` job and is
