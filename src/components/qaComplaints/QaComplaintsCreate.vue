@@ -245,7 +245,7 @@ async function onSubmit() {
       <template #title>
         <BaseBreadcrumbs
           :items="[
-            { label: 'Complaints', to: getCompanyPath('/complaints') },
+            { label: 'Customer Complaints', to: getCompanyPath('/complaints') },
             { label: 'New Complaint' },
           ]"
         />

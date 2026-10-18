@@ -40,7 +40,7 @@ watch(
 const loading = computed(() => complaint.value === undefined)
 
 const breadcrumbs = computed(() => [
-  { label: 'Complaints', to: getCompanyPath('/complaints') },
+  { label: 'Customer Complaints', to: getCompanyPath('/complaints') },
   {
     label:
       complaint.value?.complaintNumber ||

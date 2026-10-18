@@ -213,7 +213,7 @@ function handleExport({ format, fields, rows }) {
   const data = rows.map((row) => Object.fromEntries(fields.map((f) => [f.label, f.value(row)])))
   const sheet = xlsxUtils.json_to_sheet(data)
   const book = xlsxUtils.book_new()
-  xlsxUtils.book_append_sheet(book, sheet, 'Complaints')
+  xlsxUtils.book_append_sheet(book, sheet, 'Customer Complaints')
   const stamp = DateTime.now().toFormat('yyyyLLdd-HHmm')
   xlsxWriteFile(book, `complaints-${stamp}.${format}`, { bookType: format })
 }
@@ -222,7 +222,7 @@ function handleExport({ format, fields, rows }) {
 <template>
   <BaseListLayout
     helpSlug="KB/quality/complaints"
-    title="Complaints"
+    title="Customer Complaints"
     :icon="IconMessageReport"
     subtitle="Review, investigate and escalate customer complaints — sourced from manual entry, CSV import or the Zendesk integration."
     :state="list.state.value"

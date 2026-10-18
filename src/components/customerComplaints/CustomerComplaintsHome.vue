@@ -408,7 +408,7 @@ function onNewComplaint() {
 <template>
   <BaseListLayout
     helpSlug="KB/quality/customer-complaints"
-    title="Customer Complaints"
+    title="Support Desk"
     :icon="IconHeadset"
     subtitle="Manage customer complaint tickets from web, forms and email intake."
     :state="list.state.value"

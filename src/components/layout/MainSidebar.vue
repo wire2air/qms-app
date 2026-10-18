@@ -480,7 +480,9 @@ const navItems = computed(() => {
       // QA-review workflow — an independent module from the support Customer
       // Complaints entry (below, next to App Builder — it's the support-desk
       // surface, not a core QMS record).
-      label: 'Complaints',
+      // Renamed 2026-10-18: this is THE customer-complaint record; the old
+      // ticketing module below is now "Support Desk".
+      label: 'Customer Complaints',
       permissions: ['complaints:read'],
       icon: IconMessageReport,
       to: getCompanyPath('/complaints'),
@@ -705,7 +707,7 @@ const navItems = computed(() => {
     {
       // Support-desk complaint tickets (web/forms/email intake). Its module
       // settings live on the page itself (gear icon), not in Settings.
-      label: 'Customer Complaints',
+      label: 'Support Desk',
       permissions: ['complaint_management:read'],
       icon: IconHeadset,
       to: getCompanyPath('/customer-complaints'),

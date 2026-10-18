@@ -81,11 +81,11 @@ export const ROUTE_META = {
     parent: '/capas',
   },
   '/customer-complaints': {
-    title: 'Customer Complaints',
+    title: 'Support Desk',
     icon: IconHeadset,
   },
   '/customer-complaints/:id': {
-    title: (_p, ctx) => ctx.recordTitle ?? 'Complaint',
+    title: (_p, ctx) => ctx.recordTitle ?? 'Support ticket',
     icon: IconHeadset,
     parent: '/customer-complaints',
   },

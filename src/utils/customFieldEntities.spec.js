@@ -79,8 +79,8 @@ describe('customFieldEntityLabel', () => {
   it('resolves each registered entity type to its label', () => {
     expect(customFieldEntityLabel('Capa')).toBe('CAPA')
     expect(customFieldEntityLabel('AuditInstance')).toBe('Audit')
-    expect(customFieldEntityLabel('CustomerComplaint')).toBe('Customer Complaint')
-    expect(customFieldEntityLabel('Complaint')).toBe('Complaint')
+    expect(customFieldEntityLabel('CustomerComplaint')).toBe('Support Desk Ticket')
+    expect(customFieldEntityLabel('Complaint')).toBe('Customer Complaint')
   })
 
   it('falls back to the raw entity type rather than rendering blank', () => {
