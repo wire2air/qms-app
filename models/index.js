@@ -136,6 +136,7 @@ import { SupportBrand } from './supportBrand'
 import { SupportAgent } from './supportAgent'
 import { SupportAgentBrand } from './supportAgentBrand'
 import { SupportBlocklistEntry } from './supportBlocklistEntry'
+import { SupportOutboundMessage } from './supportOutboundMessage'
 import { Customer } from './customer'
 import { CustomerOrganization } from './customerOrganization'
 import { CapaCounter } from './capaCounter'
@@ -387,6 +388,7 @@ export const db = {
   SupportAgent,
   SupportAgentBrand,
   SupportBlocklistEntry,
+  SupportOutboundMessage,
   Customer,
   CustomerOrganization,
   Capa,

@@ -11,6 +11,7 @@ import {
   IconX,
   IconChartBar,
   IconUserCog,
+  IconSpeakerphone,
 } from '@tabler/icons-vue'
 import { currentSession, isAllowed, logoutCurrentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -193,6 +194,14 @@ function itemClass(active) {
 
     <!-- Footer: settings + user -->
     <div class="tw:border-t tw:border-divider tw:p-2 tw:flex tw:flex-col tw:gap-1">
+      <RouterLink
+        v-if="canConfigure"
+        :to="getCompanyPath('/complaint-settings?tab=outbound')"
+        :class="itemClass(false)"
+      >
+        <IconSpeakerphone :size="16" />
+        <span class="tw:flex-1">Outbound messages</span>
+      </RouterLink>
       <RouterLink
         v-if="canConfigure"
         :to="getCompanyPath('/complaint-settings')"

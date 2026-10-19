@@ -69,6 +69,8 @@ const visitorOnline = computed(() => {
 // ── Bubble helpers ──────────────────────────────────────────────────────────
 function kindOf(m) {
   if (m.kind === 'INTERNAL_NOTE') return 'note'
+  // An outbound (proactive) greeting is AUTO but spoken by an agent — a bubble.
+  if (m.kind === 'AUTO' && m.senderKind === 'AGENT') return 'agent'
   if (m.kind === 'SYSTEM' || m.kind === 'AUTO') return 'system'
   return m.direction === 'OUTBOUND' ? 'agent' : 'customer'
 }

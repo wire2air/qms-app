@@ -57,6 +57,7 @@ export class CustomerComplaint extends BaseModel {
   @Property({ type: String }) takeoverOfUserId = /** @type {String} */ (null)
   // ── Phase 2: chat (spec §2.4 / §4.3) ──────────────────────────────────
   @Property({ type: String }) visitorId = /** @type {String} */ (null)
+  @Property({ type: String }) outboundMessageId = /** @type {String} */ (null)
   @Property({ type: DateTime }) visitorLastSeenAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) lastCustomerReadAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) chatStartedAt = /** @type {DateTime} */ (null)

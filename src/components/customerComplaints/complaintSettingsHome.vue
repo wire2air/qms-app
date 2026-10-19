@@ -9,6 +9,7 @@ import {
   IconMailPause,
   IconTag,
   IconHeadphones,
+  IconSpeakerphone,
   IconMailOff,
 } from '@tabler/icons-vue'
 
@@ -27,6 +28,7 @@ const tabs = computed(() => [
   // Support Desk Phase 1 (spec §8): brands, agents, learned spam.
   { value: 'brands', label: 'Brands', icon: IconTag },
   { value: 'agents', label: 'Agents', icon: IconHeadphones },
+  { value: 'outbound', label: 'Outbound Messages', icon: IconSpeakerphone },
   { value: 'email-channels', label: 'Email Channels', icon: IconMailForward },
   { value: 'forms', label: 'Forms', icon: IconForms },
   { value: 'canned-responses', label: 'Canned Responses', icon: IconMessage2 },
@@ -66,6 +68,9 @@ watch(
           </BaseTabPanel>
           <BaseTabPanel value="agents">
             <SupportAgentsHome />
+          </BaseTabPanel>
+          <BaseTabPanel value="outbound">
+            <SupportOutboundHome />
           </BaseTabPanel>
           <BaseTabPanel value="blocklist">
             <SupportBlocklistHome />
