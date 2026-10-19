@@ -158,14 +158,7 @@ const placeholder = computed(() => {
       <span class="tw:ml-auto tw:text-micro tw:text-secondary">⌘↵ to send</span>
     </div>
 
-    <div
-      class="desk-composer tw:rounded-lg tw:border"
-      :class="
-        mode === 'INTERNAL_NOTE'
-          ? 'desk-composer--note tw:border-amber-200'
-          : 'tw:border-divider tw:focus-within:border-primary'
-      "
-    >
+    <div class="desk-composer" :class="mode === 'INTERNAL_NOTE' ? 'desk-composer--note' : ''">
       <!-- Keyed on mode: the editor's placeholder is fixed at mount, so a Reply ↔
            Note switch remounts it (the draft is carried in `html`). -->
       <BaseRichTextEditor
@@ -216,10 +209,32 @@ const placeholder = computed(() => {
 </template>
 
 <style scoped>
+/* Chat composer: one quiet box. The editor's own border carries focus; the
+   global *:focus-visible ring on the contenteditable is dropped so there is
+   no second outline inside, and the padding is chat-sized, not document-sized. */
+.desk-composer :deep(.tiptap-editor-wrapper) {
+  border-radius: 0.75rem;
+  background: var(--card);
+  min-height: 0;
+  transition: border-color 0.15s;
+}
+.desk-composer :deep(.tiptap-editor-wrapper:focus-within) {
+  border-color: var(--primary);
+}
 .desk-composer :deep(.rich-text-editor-content) {
-  min-height: 4.5rem;
+  padding: 0.5rem 0.75rem;
+  min-height: 3rem;
   max-height: 14rem;
   overflow-y: auto;
+}
+.desk-composer :deep(.ProseMirror:focus),
+.desk-composer :deep(.ProseMirror:focus-visible),
+.desk-composer :deep(.rich-text-editor-content:focus-within) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.desk-composer--note :deep(.tiptap-editor-wrapper) {
+  border-color: #fde68a;
 }
 .desk-composer--note :deep(.rich-text-editor-content) {
   background-color: #fffbeb;

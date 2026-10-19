@@ -46,6 +46,32 @@ const messages = useLiveQueryWithDeps(
   { models: ['CustomerComplaintMessage'], initial: [] },
 )
 
+// The brand's automated widget lines (welcome / away / rating prompts…) are
+// what the VISITOR saw; agents rarely need them. Hidden by default, one click
+// away. Agent-spoken AUTO lines (outbound greetings) and SYSTEM events
+// (assigned, taken over, ended) always show.
+const showAuto = ref(false)
+try {
+  showAuto.value = localStorage.getItem('desk:showAuto') === '1'
+} catch {
+  /* ignore */
+}
+watch(showAuto, (v) => {
+  try {
+    localStorage.setItem('desk:showAuto', v ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+})
+const hiddenAutoCount = computed(
+  () => messages.value.filter((m) => m.kind === 'AUTO' && m.senderKind !== 'AGENT').length,
+)
+const visibleMessages = computed(() =>
+  showAuto.value
+    ? messages.value
+    : messages.value.filter((m) => m.kind !== 'AUTO' || m.senderKind === 'AGENT'),
+)
+
 const ticket = useSupportTicketActions(complaint, {
   onConverted: (ncId) => router.push(getCompanyPath(`/nonconformances/${ncId}`)),
 })
@@ -105,15 +131,15 @@ function seenState(m) {
 }
 // Group consecutive messages by the same sender within 5 minutes — one header.
 function startsGroup(i) {
-  const m = messages.value[i]
-  const p = messages.value[i - 1]
+  const m = visibleMessages.value[i]
+  const p = visibleMessages.value[i - 1]
   if (!p) return true
   if (kindOf(p) !== kindOf(m) || p.senderName !== m.senderName) return true
   return (m.createdAt?.toMillis?.() ?? 0) - (p.createdAt?.toMillis?.() ?? 0) > 5 * 60_000
 }
 function dayLabel(i) {
-  const m = messages.value[i]
-  const p = messages.value[i - 1]
+  const m = visibleMessages.value[i]
+  const p = visibleMessages.value[i - 1]
   const d = m.createdAt
   if (!d?.hasSame) return null
   if (p?.createdAt?.hasSame?.(d, 'day')) return null
@@ -180,6 +206,24 @@ watch(
       </div>
 
       <DetailActionBar v-if="complaint" :actions="ticket.actions" :maxVisible="2" />
+      <BaseTooltip
+        v-if="hiddenAutoCount || showAuto"
+        :content="
+          showAuto
+            ? 'Hide automated widget messages'
+            : `Show ${hiddenAutoCount} automated widget message${hiddenAutoCount === 1 ? '' : 's'}`
+        "
+      >
+        <button
+          class="tw:rounded-md tw:p-1 tw:hover:bg-main-hover"
+          :class="showAuto ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-on-main'"
+          :aria-pressed="showAuto"
+          aria-label="Toggle automated messages"
+          @click="showAuto = !showAuto"
+        >
+          <IconRobot :size="18" />
+        </button>
+      </BaseTooltip>
       <BaseTooltip content="Open in ticket view">
         <RouterLink
           v-if="complaint"
@@ -257,7 +301,7 @@ watch(
         </div>
 
         <div class="tw:mx-auto tw:flex tw:max-w-3xl tw:flex-col tw:gap-1">
-          <template v-for="(m, i) in messages" :key="m.id">
+          <template v-for="(m, i) in visibleMessages" :key="m.id">
             <div v-if="dayLabel(i)" class="tw:my-3 tw:flex tw:items-center tw:gap-3">
               <span class="tw:h-px tw:flex-1 tw:bg-divider" />
               <span
