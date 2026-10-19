@@ -49,26 +49,8 @@ async function setStatus(status) {
   }
 }
 
-// Heartbeat while the desk is open and the agent is not OFFLINE.
-let timer = null
-async function beat() {
-  if (!me.value || me.value.manualStatus === 'OFFLINE') return
-  try {
-    await post('/v1/services/supportDesk/agents/me/heartbeat', {})
-  } catch {
-    /* transient — the next beat retries */
-  }
-}
-onMounted(() => {
-  timer = setInterval(beat, 30_000)
-})
-onBeforeUnmount(() => clearInterval(timer))
-watch(
-  () => me.value?.manualStatus,
-  (s) => {
-    if (s && s !== 'OFFLINE') beat()
-  },
-)
+// Heartbeat lives app-wide in useSupportAgentHeartbeat (App.vue); after a
+// status change the server already stamped last_seen_at, so nothing to do here.
 
 const menuItems = computed(() =>
   STATUSES.map((s) => ({

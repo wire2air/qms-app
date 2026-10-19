@@ -401,6 +401,7 @@ export default {
     "useStorage": true,
     "useStorageAsync": true,
     "useStyleTag": true,
+    "useSupportAgentHeartbeat": true,
     "useSupported": true,
     "useSwipe": true,
     "useTableFilters": true,

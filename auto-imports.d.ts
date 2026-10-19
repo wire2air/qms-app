@@ -396,6 +396,7 @@ declare global {
   const useStorage: typeof import('@vueuse/core').useStorage
   const useStorageAsync: typeof import('@vueuse/core').useStorageAsync
   const useStyleTag: typeof import('@vueuse/core').useStyleTag
+  const useSupportAgentHeartbeat: typeof import('./src/composables/useSupportAgentHeartbeat.js').useSupportAgentHeartbeat
   const useSupported: typeof import('@vueuse/core').useSupported
   const useSwipe: typeof import('@vueuse/core').useSwipe
   const useTableFilters: typeof import('./resource/js/shared/composables/useTableFilters.js').useTableFilters

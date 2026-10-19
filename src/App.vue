@@ -292,6 +292,10 @@ onMounted(async () => {
     <!-- Prompts a reload when an admin changes this user's permissions while
          they're signed in (the syncEngine only re-bootstraps IDB on reload). -->
     <PermissionChangeDialog />
+
+    <!-- Support Desk agents stay "available" app-wide, not only while the
+         desk page is open. Renderless; a no-op for users who are not agents. -->
+    <SupportAgentHeartbeat />
   </div>
 </template>
 
