@@ -22,6 +22,7 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
 })
 
+const emit = defineEmits(['typing'])
 const toast = useToast()
 const mode = ref('PUBLIC_REPLY')
 const html = ref('')
@@ -52,7 +53,15 @@ const canSend = computed(
 function reset() {
   html.value = ''
   editorRef.value?.editor?.commands.clearContent()
+  emit('typing', false)
 }
+// Typing indicator for live chats — only public replies, never notes.
+watch(html, (v) => {
+  if (isChat.value && mode.value === 'PUBLIC_REPLY') emit('typing', !!plainText(v))
+})
+watch(mode, (m) => {
+  if (m !== 'PUBLIC_REPLY') emit('typing', false)
+})
 
 async function send() {
   if (!canSend.value) return

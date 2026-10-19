@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { useSupportTicketActions } from '@/composables/useSupportTicketActions.js'
+import { useChatLive } from '@/composables/useChatLive.js'
 
 /**
  * The middle pane: one conversation as chat bubbles (customer left, agents
@@ -61,9 +62,23 @@ const displayName = computed(
 const now = ref(Date.now())
 const tick = setInterval(() => (now.value = Date.now()), 15_000)
 onBeforeUnmount(() => clearInterval(tick))
+// Live socket presence wins when known; otherwise fall back to last-seen.
+const isLiveChat = computed(
+  () => complaint.value?.channelKind === 'CHAT' && complaint.value?.chatState !== 'ENDED',
+)
+const { visitorTyping, visitorOnlineLive, sendTyping } = useChatLive(
+  computed(() => props.conversationId),
+  isLiveChat,
+)
 const visitorOnline = computed(() => {
+  if (visitorOnlineLive.value !== null) return visitorOnlineLive.value
   const t = complaint.value?.visitorLastSeenAt
   return !!t && now.value - (t.toMillis ? t.toMillis() : new Date(t).getTime()) < 120_000
+})
+watch(visitorTyping, async (on) => {
+  if (!on) return
+  await nextTick()
+  if (pinned.value && scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight
 })
 
 // ── Bubble helpers ──────────────────────────────────────────────────────────
@@ -319,6 +334,21 @@ watch(
               </div>
             </div>
           </template>
+          <!-- Visitor typing (live socket) -->
+          <div
+            v-if="visitorTyping"
+            class="tw:mt-3 tw:flex tw:flex-col tw:items-start"
+            aria-live="polite"
+          >
+            <div class="tw:mb-1 tw:text-xs tw:text-secondary">{{ displayName }} is typing…</div>
+            <div
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-2xl tw:rounded-tl-md tw:border tw:border-divider tw:bg-card tw:px-3.5 tw:py-2.5"
+            >
+              <span class="desk-typing-dot" /><span class="desk-typing-dot" /><span
+                class="desk-typing-dot"
+              />
+            </div>
+          </div>
         </div>
       </template>
     </div>
@@ -328,6 +358,7 @@ watch(
       v-if="complaint && ticket.isEditable && !complaint.isSpam"
       :complaint="complaint"
       :disabled="ticket.acting"
+      @typing="sendTyping"
     />
     <div
       v-else-if="complaint && ticket.canUpdate && !complaint.isSpam && ticket.isTerminal"
@@ -350,6 +381,32 @@ watch(
 </template>
 
 <style scoped>
+.desk-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-secondary, #6b7280);
+  display: inline-block;
+  animation: desk-blink 1.2s infinite ease-in-out;
+}
+.desk-typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.desk-typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes desk-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
 .desk-bubble-html :deep(p) {
   margin: 0;
 }
