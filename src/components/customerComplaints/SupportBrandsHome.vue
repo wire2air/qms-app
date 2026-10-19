@@ -72,6 +72,14 @@ const originsText = ref('')
 // under /api). Deployments set VITE_WIDGET_ORIGIN (e.g. https://api.acme.com);
 // locally the Vite proxy maps /api → the API, so /api/widget.js works.
 const WIDGET_ORIGIN = import.meta.env.VITE_WIDGET_ORIGIN || `${window.location.origin}/api`
+// The origin the test page runs on (what to add to Allowed origins to use it).
+const widgetOriginHost = (() => {
+  try {
+    return new URL(WIDGET_ORIGIN).origin
+  } catch {
+    return WIDGET_ORIGIN
+  }
+})()
 function snippetFor(b) {
   // Built from pieces: a literal "</" + "script>" inside an SFC <script> block
   // would end the block.
@@ -380,6 +388,19 @@ async function copyKey(b) {
                 >Copy</BaseButton
               >
             </div>
+            <p v-if="editing" class="tw:mt-2 tw:text-xs tw:text-secondary">
+              No site yet?
+              <a
+                :href="`${WIDGET_ORIGIN}/v1/public/chat/test?key=${editing.publishableKey}`"
+                target="_blank"
+                rel="noopener"
+                class="tw:text-primary tw:underline"
+                >Open the test page</a
+              >
+              (development only) — add
+              <code>{{ widgetOriginHost }}</code>
+              to the allowed origins above first.
+            </p>
           </BaseField>
           <BaseFieldRow :columns="2">
             <BaseField label="Launcher position">
