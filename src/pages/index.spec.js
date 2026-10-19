@@ -6,7 +6,13 @@ import { mount } from '@vue/test-utils'
 // EXTERNAL_SUPPLIER session's first screen after every login was the generic
 // internal dashboard rather than the purpose-built /supplier portal.
 const isSupplier = { value: false }
-vi.mock('@/utils/currentSession', () => ({ isSupplier }))
+// Support Desk population (2026-10-19): a support-only session (every role a
+// support role) lands in the inbox, as does anyone on the support host family.
+const currentSession = { value: { isSupportUser: false, isOwner: false, permissions: [] } }
+const isAllowed = (perms) => perms.every((p) => currentSession.value.permissions.includes(p))
+vi.mock('@/utils/currentSession', () => ({ isSupplier, currentSession, isAllowed }))
+const supportHost = { value: false }
+vi.mock('@/utils/tenant', () => ({ isSupportHost: () => supportHost.value }))
 
 const replace = vi.fn()
 const currentRoute = { query: {} }
@@ -21,7 +27,31 @@ describe('/ — universal post-login landing route (finding 1)', () => {
   beforeEach(() => {
     replace.mockClear()
     isSupplier.value = false
+    supportHost.value = false
+    currentSession.value = { isSupportUser: false, isOwner: false, permissions: [] }
     currentRoute.query = {}
+  })
+
+  it('sends a support-only session (Support Admin / Agent) to /desk', () => {
+    currentSession.value = { isSupportUser: true, isOwner: false, permissions: [] }
+    mount(IndexPage)
+    expect(replace).toHaveBeenCalledWith({ path: '/desk', query: {} })
+  })
+
+  it('sends anyone on the support host family to /desk', () => {
+    supportHost.value = true
+    mount(IndexPage)
+    expect(replace).toHaveBeenCalledWith({ path: '/desk', query: {} })
+  })
+
+  it('sends a user whose only readable module is the desk to /desk', () => {
+    currentSession.value = {
+      isSupportUser: false,
+      isOwner: false,
+      permissions: ['complaint_management:read', 'sites:read', 'users:read'],
+    }
+    mount(IndexPage)
+    expect(replace).toHaveBeenCalledWith({ path: '/desk', query: {} })
   })
 
   it('sends an ordinary session to /dashboard', () => {
