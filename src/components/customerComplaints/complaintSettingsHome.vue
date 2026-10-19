@@ -7,6 +7,9 @@ import {
   IconRoute,
   IconClockHour4,
   IconMailPause,
+  IconTag,
+  IconHeadphones,
+  IconMailOff,
 } from '@tabler/icons-vue'
 
 /**
@@ -21,12 +24,16 @@ import {
  *   routing         — trigger/rule engine (Phase 5)
  */
 const tabs = computed(() => [
+  // Support Desk Phase 1 (spec §8): brands, agents, learned spam.
+  { value: 'brands', label: 'Brands', icon: IconTag },
+  { value: 'agents', label: 'Agents', icon: IconHeadphones },
   { value: 'email-channels', label: 'Email Channels', icon: IconMailForward },
   { value: 'forms', label: 'Forms', icon: IconForms },
   { value: 'canned-responses', label: 'Canned Responses', icon: IconMessage2 },
   { value: 'routing', label: 'Routing', icon: IconRoute },
   { value: 'sla', label: 'SLA', icon: IconClockHour4 },
   { value: 'suspended', label: 'Suspended Emails', icon: IconMailPause },
+  { value: 'blocklist', label: 'Spam Blocklist', icon: IconMailOff },
 ])
 
 // Honor ?tab=<id> deep links (same pattern as Company Settings).
@@ -54,6 +61,16 @@ watch(
       <!-- Tabs -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Complaint settings sections">
         <div class="tw:mt-6">
+          <BaseTabPanel value="brands">
+            <SupportBrandsHome />
+          </BaseTabPanel>
+          <BaseTabPanel value="agents">
+            <SupportAgentsHome />
+          </BaseTabPanel>
+          <BaseTabPanel value="blocklist">
+            <SupportBlocklistHome />
+          </BaseTabPanel>
+
           <!-- Tab: Email Channels -->
           <BaseTabPanel value="email-channels">
             <EmailChannelsHome />

@@ -1,9 +1,34 @@
-import { IconClipboardList, IconTransform } from '@tabler/icons-vue'
+import {
+  IconClipboardList,
+  IconTransform,
+  IconUserShare,
+  IconClockPause,
+  IconMailOff,
+  IconMailCheck,
+} from '@tabler/icons-vue'
 
 /** Contextual banners for a Customer Complaint. Pure — caller resolves complaint + gate flags. */
-export function buildComplaintBanners(complaint, { isEditable } = {}) {
+export function buildComplaintBanners(complaint, { isEditable, snoozedUntilLabel } = {}) {
   if (!complaint) return []
   const banners = []
+  // Support Desk (spec §3): spam and snooze are states the agent must see first.
+  if (complaint.isSpam) {
+    banners.push({
+      id: 'spam',
+      tone: 'warning',
+      title: 'Spam',
+      message:
+        'This ticket is in the Spam box: no notifications, no auto-assign, no auto-replies. Use "Not spam" to restore it.',
+    })
+  }
+  if (snoozedUntilLabel) {
+    banners.push({
+      id: 'snoozed',
+      tone: 'neutral',
+      title: 'Snoozed',
+      message: `Hidden from the open views until ${snoozedUntilLabel}, or until the customer replies.`,
+    })
+  }
   if (!isEditable && ['CLOSED', 'CONVERTED_TO_NC'].includes(complaint.statusId)) {
     banners.push({
       id: 'read-only',
@@ -22,8 +47,20 @@ export function buildComplaintSections(_complaint) {
 
 /** Header action descriptors. gates = resolved booleans/strings; handlers = callbacks. */
 export function buildComplaintActions(gates = {}, handlers = {}) {
-  const { isEditable, canUpdate, canConvert, statusId, acting, hasAssignee, canViewAuditTrail } =
-    gates
+  const {
+    isEditable,
+    canUpdate,
+    canConvert,
+    statusId,
+    acting,
+    hasAssignee,
+    canViewAuditTrail,
+    // Support Desk (spec §3)
+    canTakeOver,
+    heldByOther,
+    isSpam,
+    isSnoozed,
+  } = gates
   return [
     {
       id: 'accept',
@@ -43,6 +80,39 @@ export function buildComplaintActions(gates = {}, handlers = {}) {
       visible: !!isEditable,
       disabled: !!acting,
       onSelect: handlers.openAssign,
+    },
+    {
+      // Take over is a DIFFERENT affordance from Assign on purpose (spec §3):
+      // it is offered only when a colleague holds the ticket, names the act,
+      // notifies them, and the audit row records both parties.
+      id: 'takeOver',
+      label: 'Take over',
+      icon: IconUserShare,
+      variant: 'outline',
+      priority: 85,
+      visible: !!isEditable && !!heldByOther && !!canTakeOver && !isSpam,
+      disabled: !!acting,
+      onSelect: handlers.takeOver,
+    },
+    {
+      id: 'snooze',
+      label: isSnoozed ? 'Unsnooze' : 'Snooze',
+      icon: IconClockPause,
+      variant: 'secondary',
+      priority: 40,
+      visible: !!isEditable && !isSpam,
+      disabled: !!acting,
+      onSelect: isSnoozed ? handlers.unsnooze : handlers.openSnooze,
+    },
+    {
+      id: 'spam',
+      label: isSpam ? 'Not spam' : 'Mark as spam',
+      icon: isSpam ? IconMailCheck : IconMailOff,
+      variant: isSpam ? 'secondary' : 'danger',
+      priority: 30,
+      visible: !!canUpdate && !['CLOSED', 'CONVERTED_TO_NC'].includes(statusId),
+      disabled: !!acting,
+      onSelect: isSpam ? handlers.unspam : handlers.openSpam,
     },
     {
       id: 'resolve',

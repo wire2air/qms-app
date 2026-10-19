@@ -27,7 +27,13 @@ export class CustomerComplaintMessage extends BaseModel {
   // INBOUND = customer message, OUTBOUND = agent reply.
   @Property({ type: String }) direction = 'INBOUND'
   // PUBLIC_REPLY (customer-visible) | INTERNAL_NOTE (agent-only).
+  // PUBLIC_REPLY | INTERNAL_NOTE | QA_NOTE | SYSTEM | AUTO
   @Property({ type: String }) kind = 'PUBLIC_REPLY'
+  // AGENT | CUSTOMER | SYSTEM
+  @Property({ type: String }) senderKind = /** @type {String} */ (null)
+  @Property({ type: DateTime }) deliveredAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) readAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) clientMessageId = /** @type {String} */ (null)
   @Property({ type: String }) senderUserId = /** @type {String} */ (null)
   @Property({ type: String }) senderName = /** @type {String} */ (null)
   @Property({ type: String }) senderEmail = /** @type {String} */ (null)

@@ -6,6 +6,8 @@ import {
   IconCircleDot,
   IconAlertTriangle,
   IconInbox,
+  IconMessageCircle,
+  IconTag,
   IconUser,
   IconMoodSmile,
   IconForms,
@@ -20,6 +22,8 @@ import { useComplaintFilterOptions } from './useComplaintFilterOptions.js'
 const props = defineProps({
   formOptions: { type: Array, default: () => [] },
   savedViews: { type: Array, default: () => [] },
+  // Live numbers per quick view (Support Desk inbox, spec §3) — keyed by pill value.
+  counts: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['saveView', 'applyView', 'deleteView'])
@@ -27,21 +31,27 @@ const emit = defineEmits(['saveView', 'applyView', 'deleteView'])
 const filters = defineModel('filters', { type: Object, required: true })
 const activeFilter = defineModel('activeFilter', { type: String, required: true })
 
-const filterPills = [
-  { value: 'all_open', label: 'All open' },
-  { value: 'mine', label: 'My tickets' },
-  // QA review queue: tickets assigned to me OR to a team I belong to.
-  { value: 'my_queue', label: 'QA Review' },
-  { value: 'unassigned', label: 'Unassigned' },
-  { value: 'waiting', label: 'Waiting customer' },
-  { value: 'resolved', label: 'Resolved' },
-  { value: 'closed', label: 'Closed' },
-  { value: 'spam', label: 'Spam', color: 'red' },
-]
+// Quick views = the Support Desk inbox (spec §3). Snoozed tickets leave
+// every open view until they wake; spam is its own box.
+const filterPills = computed(() => {
+  const n = (k) => props.counts?.[k]
+  return [
+    { value: 'mine', label: 'Your inbox', count: n('mine') },
+    { value: 'unassigned', label: 'Unassigned', count: n('unassigned') },
+    { value: 'all_open', label: 'All open', count: n('all_open') },
+    // QA review queue: tickets assigned to me OR to a team I belong to.
+    { value: 'my_queue', label: 'QA Review' },
+    { value: 'waiting', label: 'Waiting customer' },
+    { value: 'snoozed', label: 'Snoozed', count: n('snoozed') },
+    { value: 'resolved', label: 'Resolved' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'spam', label: 'Spam', color: 'red', count: n('spam') },
+  ]
+})
 
 // Option sources for the cascading filter menu — shared with the table's advanced
 // filter via useComplaintFilterOptions (single source of truth, no drift).
-const { PRIORITIES, SENTIMENTS, statuses, sources, users, teams, userLabel } =
+const { PRIORITIES, SENTIMENTS, CHANNELS, brands, statuses, sources, users, teams, userLabel } =
   useComplaintFilterOptions()
 
 // Multi-select dimensions use the default 'check' mode (arrays); single-value
@@ -69,6 +79,24 @@ const filterItems = computed(() => [
     group: 'sourceId',
     options: sources.value.map((s) => ({ value: s.id, label: s.name })),
   },
+  {
+    id: 'channelKind',
+    label: 'Channel',
+    icon: IconMessageCircle,
+    group: 'channelKind',
+    options: CHANNELS.map((c) => ({ value: c.id, label: c.name })),
+  },
+  ...(brands.value.length > 1
+    ? [
+        {
+          id: 'brandId',
+          label: 'Brand',
+          icon: IconTag,
+          group: 'brandId',
+          options: brands.value.map((b) => ({ value: b.id, label: b.name })),
+        },
+      ]
+    : []),
   {
     id: 'assignedTo',
     label: 'Assignee',
@@ -133,6 +161,8 @@ const hasChips = computed(
     arr('statusId').length ||
     arr('priorityId').length ||
     arr('sourceId').length ||
+    arr('channelKind').length ||
+    arr('brandId').length ||
     arr('assignedTo').length ||
     filters.value.sentiment ||
     filters.value.assignedTeamId ||
@@ -212,7 +242,9 @@ function clearAll() {
 
     <!-- Row 2 — applied filters as removable tokens -->
     <div v-if="hasChips" class="tw:flex tw:flex-wrap tw:items-center tw:gap-1.5">
-      <span class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary">
+      <span
+        class="tw:text-caption tw:font-semibold tw:uppercase tw:tracking-wider tw:text-secondary"
+      >
         Filters
       </span>
       <CustomerComplaintStatusBadgeById
@@ -236,6 +268,22 @@ function clearAll() {
         clearable
         @clear="removeValue('sourceId', id)"
       />
+      <BaseBadge
+        v-for="id in arr('channelKind')"
+        :key="`ch-${id}`"
+        clearable
+        @clear="removeValue('channelKind', id)"
+      >
+        {{ CHANNELS.find((c) => c.id === id)?.name ?? id }}
+      </BaseBadge>
+      <BaseBadge
+        v-for="id in arr('brandId')"
+        :key="`br-${id}`"
+        clearable
+        @clear="removeValue('brandId', id)"
+      >
+        {{ brands.find((b) => b.id === id)?.name ?? 'Brand' }}
+      </BaseBadge>
       <UserBadgeById
         v-for="id in arr('assignedTo')"
         :key="`as-${id}`"

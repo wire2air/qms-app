@@ -4,7 +4,7 @@ import {
   buildComplaintSections,
   buildComplaintActions,
 } from './customerComplaintDetailConfig.js'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -18,6 +18,7 @@ const props = defineProps({
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+const { confirm } = useConfirm()
 const { visit: visitTrail } = useRecordTrail()
 
 const complaint = useLiveQueryWithDeps(
@@ -82,6 +83,110 @@ async function runAction(path, body = {}) {
 const showAssignDialog = ref(false)
 const assignUserId = ref(null)
 
+// ── Support Desk inbox actions (spec §3): take over, snooze, spam-learn ──────
+// These hit /v1/services/supportDesk/tickets/:id/* (action RPCs, CLAUDE.md
+// rule #4 exception); the sync push refreshes the ticket afterwards.
+const currentUserId = computed(() => currentSession.value?.userId ?? null)
+const heldByOther = computed(
+  () => !!complaint.value?.assignedTo && complaint.value.assignedTo !== currentUserId.value,
+)
+const canTakeOver = computed(() => isVerbAllowed('complaint_management', 'takeover'))
+const isSnoozed = computed(() => {
+  const t = complaint.value?.snoozedUntil
+  return !!t && (t.toMillis ? t.toMillis() : new Date(t).getTime()) > Date.now()
+})
+const snoozedUntilLabel = computed(() =>
+  isSnoozed.value ? complaint.value.snoozedUntil?.formatDate?.('datetime') : null,
+)
+async function deskAction(path, body = {}) {
+  acting.value = true
+  saveError.value = null
+  try {
+    const res = await post(`/v1/services/supportDesk/tickets/${props.id}/${path}`, body)
+    return res
+  } catch (e) {
+    saveError.value = e.message || 'Action failed'
+    toast.error(saveError.value)
+    return null
+  } finally {
+    acting.value = false
+  }
+}
+async function takeOver() {
+  const ok = await confirm({
+    title: 'Take over this ticket?',
+    message: 'The current assignee will be notified and the hand-over is recorded on the thread.',
+    okLabel: 'Take over',
+  })
+  if (!ok) return
+  if (await deskAction('takeOver')) toast.success('You now hold this ticket')
+}
+
+const showSnoozeDialog = ref(false)
+const snoozeUntil = ref(null)
+const SNOOZE_PRESETS = [
+  { label: '1 hour', pick: () => DateTime.now().plus({ hours: 1 }) },
+  {
+    label: 'This afternoon (3 pm)',
+    pick: () => DateTime.now().set({ hour: 15, minute: 0, second: 0 }),
+  },
+  {
+    label: 'Tomorrow 9 am',
+    pick: () => DateTime.now().plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0 }),
+  },
+  {
+    label: 'Next Monday 9 am',
+    pick: () =>
+      DateTime.now().plus({ weeks: 1 }).set({ weekday: 1, hour: 9, minute: 0, second: 0 }),
+  },
+]
+function openSnooze() {
+  snoozeUntil.value = null
+  showSnoozeDialog.value = true
+}
+async function submitSnooze() {
+  const dt = snoozeUntil.value?.toISO
+    ? snoozeUntil.value
+    : DateTime.fromJSDate(new Date(snoozeUntil.value))
+  if (!dt?.isValid || dt <= DateTime.now()) {
+    toast.error('Pick a time in the future')
+    return
+  }
+  if (await deskAction('snooze', { until: dt.toISO() })) {
+    showSnoozeDialog.value = false
+    toast.success(`Snoozed until ${dt.formatDate('datetime')}`)
+  }
+}
+async function unsnooze() {
+  if (await deskAction('snooze', { until: null })) toast.success('Back in the inbox')
+}
+
+const showSpamDialog = ref(false)
+const spamLearn = ref({ email: true, domain: false, allBrands: false })
+function openSpam() {
+  spamLearn.value = { email: !!complaint.value?.customerEmail, domain: false, allBrands: false }
+  showSpamDialog.value = true
+}
+async function submitSpam() {
+  const res = await deskAction('spam', { learn: spamLearn.value })
+  if (res) {
+    showSpamDialog.value = false
+    const n = res.learned?.length ?? 0
+    toast.success(
+      n ? `Marked as spam — ${n} sender rule${n === 1 ? '' : 's'} learned` : 'Marked as spam',
+    )
+  }
+}
+async function unspam() {
+  if (await deskAction('unspam', { forget: true }))
+    toast.success('Restored — learned rules removed')
+}
+const senderDomain = computed(() => {
+  const e = complaint.value?.customerEmail || ''
+  const at = e.lastIndexOf('@')
+  return at >= 0 ? e.slice(at + 1).toLowerCase() : ''
+})
+
 async function handleAssign() {
   if (!assignUserId.value) return
   await runAction('assign', { userId: assignUserId.value })
@@ -144,7 +249,10 @@ const auditIncludeEntities = computed(() => [
 
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const complaintBanners = computed(() =>
-  buildComplaintBanners(complaint.value, { isEditable: isEditable.value }),
+  buildComplaintBanners(complaint.value, {
+    isEditable: isEditable.value,
+    snoozedUntilLabel: snoozedUntilLabel.value,
+  }),
 )
 const complaintSections = computed(() => buildComplaintSections(complaint.value))
 const complaintActions = computed(() =>
@@ -157,8 +265,17 @@ const complaintActions = computed(() =>
       acting: acting.value,
       hasAssignee: !!complaint.value?.assignedTo,
       canViewAuditTrail: isAllowed(['audit_trail:read']),
+      canTakeOver: canTakeOver.value,
+      heldByOther: heldByOther.value,
+      isSpam: !!complaint.value?.isSpam,
+      isSnoozed: isSnoozed.value,
     },
     {
+      takeOver,
+      openSnooze,
+      unsnooze,
+      openSpam,
+      unspam,
       accept() {
         runAction('accept')
       },
@@ -496,6 +613,70 @@ const complaintDetailConfig = computed(() =>
         :disabled="!assignUserId"
         @cancel="close"
         @submit="handleAssign"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Snooze -->
+  <BaseDialog v-model="showSnoozeDialog" title="Snooze ticket" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        Hides the ticket from the open views until the time you pick — or until the customer
+        replies, whichever comes first.
+      </p>
+      <div class="tw:flex tw:flex-wrap tw:gap-2">
+        <BaseButton
+          v-for="p in SNOOZE_PRESETS"
+          :key="p.label"
+          size="sm"
+          variant="secondary"
+          @click="snoozeUntil = p.pick()"
+        >
+          {{ p.label }}
+        </BaseButton>
+      </div>
+      <BaseField label="Until">
+        <BaseDateField v-model="snoozeUntil" mode="datetime" />
+      </BaseField>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Snooze"
+        :loading="acting"
+        :disabled="!snoozeUntil"
+        @cancel="close"
+        @submit="submitSnooze"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Mark as spam + learn -->
+  <BaseDialog v-model="showSpamDialog" title="Mark as spam" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        The ticket moves to the Spam box (kept, not deleted). Optionally remember the sender so
+        future messages land there automatically — you can undo this with “Not spam”.
+      </p>
+      <label v-if="complaint?.customerEmail" class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
+        <BaseCheckbox v-model="spamLearn.email" />
+        Block this address <span class="tw:text-secondary">({{ complaint.customerEmail }})</span>
+      </label>
+      <label v-if="senderDomain" class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
+        <BaseCheckbox v-model="spamLearn.domain" />
+        Block the whole domain <span class="tw:text-secondary">(@{{ senderDomain }})</span>
+      </label>
+      <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
+        <BaseCheckbox v-model="spamLearn.allBrands" />
+        Apply to every brand <span class="tw:text-secondary">(default: this ticket’s brand)</span>
+      </label>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Mark as spam"
+        submitVariant="danger"
+        :loading="acting"
+        @cancel="close"
+        @submit="submitSpam"
       />
     </template>
   </BaseDialog>

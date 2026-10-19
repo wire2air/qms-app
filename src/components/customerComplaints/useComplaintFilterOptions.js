@@ -18,6 +18,19 @@ export function useComplaintFilterOptions() {
     { id: 'NEGATIVE', name: 'Negative' },
     { id: 'URGENT', name: 'Urgent' },
   ]
+  // Support Desk (spec §3): which channel opened the ticket, and the brand.
+  const CHANNELS = [
+    { id: 'CHAT', name: 'Chat' },
+    { id: 'EMAIL', name: 'Email' },
+    { id: 'FORM', name: 'Web form' },
+  ]
+  const brands = useLiveQuery(
+    async (db) =>
+      (await db.SupportBrand.where().exec()).sort(
+        (a, b) => Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name),
+      ),
+    { models: ['SupportBrand'], initial: [] },
+  )
   const statuses = useLiveQuery(
     (db) => db.CustomerComplaintStatus.where().orderBy('displayOrder').exec(),
     { models: ['CustomerComplaintStatus'], initial: [] },
@@ -36,5 +49,5 @@ export function useComplaintFilterOptions() {
     return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
   }
 
-  return { PRIORITIES, SENTIMENTS, statuses, sources, users, teams, userLabel }
+  return { PRIORITIES, SENTIMENTS, CHANNELS, brands, statuses, sources, users, teams, userLabel }
 }

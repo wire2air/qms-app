@@ -44,6 +44,17 @@ export class CustomerComplaint extends BaseModel {
   @Property({ type: String }) sentiment = /** @type {String} */ (null)
   // Spam tickets hide from the default list and stats.
   @Property({ type: Boolean }) isSpam = false
+  // ── Support Desk Phase 1 (spec §2.3) ──────────────────────────────────
+  @Property({ type: String }) brandId = /** @type {String} */ (null)
+  // EMAIL | FORM | CHAT
+  @Property({ type: String }) channelKind = 'EMAIL'
+  // Chat only: WAITING | ACTIVE | IDLE | ENDED
+  @Property({ type: String }) chatState = /** @type {String} */ (null)
+  @Property({ type: DateTime }) snoozedUntil = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) lastAgentMessageAt = /** @type {DateTime} */ (null)
+  @Property({ type: DateTime }) assignedAt = /** @type {DateTime} */ (null)
+  @Property({ type: String }) assignedBy = /** @type {String} */ (null)
+  @Property({ type: String }) takeoverOfUserId = /** @type {String} */ (null)
   @Property({ type: String }) spamMarkedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) spamMarkedAt = /** @type {DateTime} */ (null)
   // Requester linkage (customer layer) — history/trending.
