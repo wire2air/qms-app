@@ -710,7 +710,22 @@ const navItems = computed(() => {
       label: 'Support Desk',
       permissions: ['complaint_management:read'],
       icon: IconHeadset,
-      to: getCompanyPath('/customer-complaints'),
+      children: [
+        {
+          // Intercom-style agent inbox — full-canvas workspace at /desk.
+          label: 'Inbox',
+          permissions: ['complaint_management:read'],
+          icon: IconInbox,
+          to: getCompanyPath('/desk'),
+        },
+        {
+          // The classic list + detail ticketing view over the same tickets.
+          label: 'Tickets',
+          permissions: ['complaint_management:read'],
+          icon: IconHeadset,
+          to: getCompanyPath('/customer-complaints'),
+        },
+      ],
     },
     {}, // Divider
     {

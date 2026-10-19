@@ -99,6 +99,8 @@ const RECORD_LIST_PERMISSIONS = {
   // reaching the URL directly would only be able to watch it fail.
   'document-imports': 'document_control:create',
   'customer-complaints': 'complaint_management:read',
+  // Support Desk workspace (Intercom-style inbox over the same tickets).
+  desk: 'complaint_management:read',
   // Standalone QMS quality complaints (the `complaints` table) — a separate
   // module from Customer Complaints above; mirrors the sidebar's `complaints:read`
   // gate so direct-URL access to /complaints is blocked without the permission.

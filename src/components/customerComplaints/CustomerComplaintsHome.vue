@@ -7,6 +7,7 @@ import {
   IconChevronDown,
   IconChartBar,
   IconSettings,
+  IconInbox,
 } from '@tabler/icons-vue'
 import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -438,8 +439,13 @@ function onNewComplaint() {
         <IconChartBar :size="18" class="tw:mr-1" />
         Reports
       </BaseButton>
+      <!-- The Intercom-style agent workspace over the same tickets (/desk). -->
+      <BaseButton variant="secondary" @click="router.push(getCompanyPath('/desk'))">
+        <IconInbox :size="18" class="tw:mr-1" />
+        Open inbox
+      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onNewComplaint">
-        New Complaint
+        New Ticket
       </BaseButton>
     </template>
 

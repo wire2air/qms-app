@@ -89,6 +89,9 @@ export const ROUTE_META = {
     icon: IconHeadset,
     parent: '/customer-complaints',
   },
+  '/desk': { title: 'Support Desk — Inbox', icon: IconHeadset },
+  '/desk/:view': { title: 'Support Desk — Inbox', icon: IconHeadset },
+  '/desk/:view/:id': { title: 'Support Desk — Conversation', icon: IconHeadset },
   '/change-requests': {
     title: 'Change Control',
     icon: IconReplace,
