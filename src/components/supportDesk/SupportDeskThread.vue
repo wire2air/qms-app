@@ -9,6 +9,7 @@ import {
   IconChecks,
   IconRobot,
   IconInfoCircle,
+  IconAt,
 } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { useSupportTicketActions } from '@/composables/useSupportTicketActions.js'
@@ -296,6 +297,13 @@ watch(
                   v-html="trustedHtml(m)"
                 />
                 <span v-else class="tw:whitespace-pre-wrap">{{ m.body }}</span>
+              </div>
+              <div
+                v-if="kindOf(m) === 'note' && m.mentionedUserIds?.length"
+                class="tw:mt-1 tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:text-micro tw:text-secondary"
+              >
+                <IconAt :size="11" />
+                <UserBadgeById v-for="uid in m.mentionedUserIds" :key="uid" :userId="uid" />
               </div>
               <div
                 class="tw:mt-0.5 tw:flex tw:items-center tw:gap-1 tw:text-micro tw:text-secondary"

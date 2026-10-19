@@ -5,6 +5,7 @@ import {
   IconClockPause,
   IconMailOff,
   IconPencil,
+  IconAt,
 } from '@tabler/icons-vue'
 
 /**
@@ -20,6 +21,7 @@ export const CLOSED_STATUSES = ['RESOLVED', 'CLOSED', 'CONVERTED_TO_NC']
 
 export const DESK_VIEWS = [
   { id: 'mine', label: 'Your inbox', icon: IconInbox },
+  { id: 'mentions', label: 'Mentions', icon: IconAt },
   { id: 'created', label: 'Created by you', icon: IconPencil },
   { id: 'all', label: 'All', icon: IconUsers },
   { id: 'unassigned', label: 'Unassigned', icon: IconUserQuestion },
@@ -41,7 +43,8 @@ export function parseView(view) {
 }
 
 /**
- * Does ticket `r` belong in `view`? Pure; `ctx.userId` is the signed-in user.
+ * Does ticket `r` belong in `view`? Pure; `ctx.userId` is the signed-in user,
+ * `ctx.mentioned` the Set of ticket ids whose notes @mention them.
  * Status narrowing (open/closed) is NOT applied here — see `matchesStatus`.
  */
 export function matchesView(r, view, ctx) {
@@ -54,6 +57,8 @@ export function matchesView(r, view, ctx) {
       return !r.isSpam && isSnoozed(r, ctx.now)
     case 'mine':
       return !r.isSpam && r.assignedTo === ctx.userId && !isSnoozed(r, ctx.now)
+    case 'mentions':
+      return !r.isSpam && !!ctx.mentioned?.has(r.id)
     case 'created':
       return !r.isSpam && r.createdBy === ctx.userId
     case 'unassigned':

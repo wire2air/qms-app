@@ -35,28 +35,37 @@ const brands = useLiveQuery(
   },
   { models: ['SupportBrand'], initial: [] },
 )
-// Latest message per ticket — the preview line + "who spoke last".
-const lastMessages = useLiveQuery(
-  async (db) => {
+// One pass over messages: latest per ticket (preview line + "who spoke last")
+// and the tickets whose internal notes @mention me (the Mentions view).
+const messageIndex = useLiveQueryWithDeps(
+  [() => userId.value],
+  async (db, [uid]) => {
     const rows = await db.CustomerComplaintMessage.where().exec()
-    const byTicket = new Map()
+    const last = new Map()
+    const mentioned = new Set()
     for (const m of rows) {
       if (m.kind === 'QA_NOTE') continue
-      const prev = byTicket.get(m.complaintId)
+      if (uid && m.mentionedUserIds?.includes?.(uid)) mentioned.add(m.complaintId)
+      const prev = last.get(m.complaintId)
       if (!prev || (m.createdAt?.toMillis?.() ?? 0) > (prev.createdAt?.toMillis?.() ?? 0))
-        byTicket.set(m.complaintId, m)
+        last.set(m.complaintId, m)
     }
-    return byTicket
+    return { last, mentioned }
   },
-  { models: ['CustomerComplaintMessage'], initial: new Map() },
+  { models: ['CustomerComplaintMessage'], initial: { last: new Map(), mentioned: new Set() } },
 )
+const lastMessages = computed(() => messageIndex.value.last)
 
 // "now" ticks once a minute so snoozes wake and ages roll without a sync event.
 const now = ref(Date.now())
 const tick = setInterval(() => (now.value = Date.now()), 60_000)
 onBeforeUnmount(() => clearInterval(tick))
 
-const ctx = computed(() => ({ userId: userId.value, now: now.value }))
+const ctx = computed(() => ({
+  userId: userId.value,
+  now: now.value,
+  mentioned: messageIndex.value.mentioned,
+}))
 const counts = computed(() => viewCounts(allTickets.value, brands.value, ctx.value))
 
 // ── List state (status toggle, search, sort) ────────────────────────────────

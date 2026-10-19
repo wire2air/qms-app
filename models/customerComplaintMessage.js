@@ -34,6 +34,7 @@ export class CustomerComplaintMessage extends BaseModel {
   @Property({ type: DateTime }) deliveredAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime }) readAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) clientMessageId = /** @type {String} */ (null)
+  @Property({ type: Array }) mentionedUserIds = /** @type {string[]} */ ([])
   @Property({ type: String }) senderUserId = /** @type {String} */ (null)
   @Property({ type: String }) senderName = /** @type {String} */ (null)
   @Property({ type: String }) senderEmail = /** @type {String} */ (null)

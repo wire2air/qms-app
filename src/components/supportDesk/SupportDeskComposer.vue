@@ -6,6 +6,7 @@ import {
   IconChevronDown,
   IconMessageCircle,
   IconMail,
+  IconAt,
 } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -24,6 +25,9 @@ const props = defineProps({
 const toast = useToast()
 const mode = ref('PUBLIC_REPLY')
 const html = ref('')
+// Teammates to @mention on an internal note — they get a notification and the
+// ticket shows in their Mentions view.
+const mentionIds = ref([])
 const sending = ref(false)
 const editorRef = ref(null)
 
@@ -58,8 +62,12 @@ async function send() {
       body: text.value,
       bodyHtml: html.value,
       kind: mode.value,
+      ...(mode.value === 'INTERNAL_NOTE' && mentionIds.value.length
+        ? { mentionedUserIds: mentionIds.value }
+        : {}),
     })
     reset()
+    mentionIds.value = []
   } catch (e) {
     toast.error(e.message || 'Failed to send')
   } finally {
@@ -158,6 +166,16 @@ const placeholder = computed(() => {
         :placeholder="placeholder"
         :editable="!disabled && (mode === 'INTERNAL_NOTE' || canPublicReply)"
       />
+    </div>
+
+    <div
+      v-if="mode === 'INTERNAL_NOTE'"
+      class="tw:mt-2 tw:flex tw:items-center tw:gap-2 tw:text-xs"
+    >
+      <IconAt :size="14" class="tw:shrink-0 tw:text-secondary" />
+      <div class="tw:min-w-0 tw:flex-1">
+        <UserSelectMenu v-model="mentionIds" multiple placeholder="Mention a teammate…" />
+      </div>
     </div>
 
     <div class="tw:mt-2 tw:flex tw:items-center tw:justify-between">

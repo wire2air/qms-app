@@ -10,6 +10,7 @@ import {
   IconBuildingStore,
   IconX,
   IconChartBar,
+  IconUserCog,
 } from '@tabler/icons-vue'
 import { currentSession, isAllowed, logoutCurrentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -47,6 +48,11 @@ const name = computed(() => {
 })
 
 const userMenu = computed(() => [
+  {
+    name: 'My preferences',
+    icon: IconUserCog,
+    click: () => router.push(getCompanyPath('/desk/me')),
+  },
   {
     name: 'Ticketing view',
     icon: IconListDetails,

@@ -1212,6 +1212,7 @@ declare module 'vue' {
     SuppliersUsersTab: typeof import('./src/components/suppliers/SuppliersUsersTab.vue')['default']
     SupplierUserSelectMenu: typeof import('./src/components/menus/SupplierUserSelectMenu.vue')['default']
     SupportAgentHeartbeat: typeof import('./src/components/customerComplaints/SupportAgentHeartbeat.vue')['default']
+    SupportAgentPreferences: typeof import('./src/components/supportDesk/SupportAgentPreferences.vue')['default']
     SupportAgentPresence: typeof import('./src/components/customerComplaints/SupportAgentPresence.vue')['default']
     SupportAgentsHome: typeof import('./src/components/customerComplaints/SupportAgentsHome.vue')['default']
     SupportBlocklistHome: typeof import('./src/components/customerComplaints/SupportBlocklistHome.vue')['default']

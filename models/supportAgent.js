@@ -37,6 +37,8 @@ export class SupportAgent extends BaseModel {
   @Property({ type: DateTime }) lastSeenAt = /** @type {DateTime} */ (null)
   // INSTANT | DIGEST | NONE
   @Property({ type: String }) notifyMode = 'INSTANT'
+  @Property({ type: String }) signatureHtml = /** @type {String} */ (null)
+  @Property({ type: Object }) notificationPrefs = /** @type {Object} */ ({})
   @Property({ type: String }) createdBy = /** @type {String} */ (null)
   @Property({ type: String }) updatedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
