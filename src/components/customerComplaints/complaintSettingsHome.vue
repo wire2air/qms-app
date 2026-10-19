@@ -53,8 +53,8 @@ watch(
   <BasePage width="standard">
     <PageHeader
       :icon="IconHeadset"
-      title="Complaint Settings"
-      subtitle="Configure how customer complaints reach and move through your support queue — email channels, intake forms, and ticket fields."
+      title="Support Desk Settings"
+      subtitle="Configure how tickets reach and move through the Support Desk — brands, agents, email channels, intake forms, chat widget and spam rules."
     />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">

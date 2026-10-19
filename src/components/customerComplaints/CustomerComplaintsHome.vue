@@ -410,7 +410,7 @@ function onNewComplaint() {
     helpSlug="KB/quality/customer-complaints"
     title="Support Desk"
     :icon="IconHeadset"
-    subtitle="Manage customer complaint tickets from web, forms and email intake."
+    subtitle="Tickets from chat, email and web forms — one inbox for every brand."
     :state="list.state.value"
     :emptyIcon="IconHeadset"
     :emptyTitle="
@@ -426,7 +426,7 @@ function onNewComplaint() {
       <BaseButton
         v-if="canConfigure"
         variant="ghost"
-        aria-label="Complaint settings"
+        aria-label="Support Desk settings"
         @click="router.push(getCompanyPath('/complaint-settings'))"
       >
         <IconSettings :size="18" />
