@@ -76,6 +76,11 @@ const ticket = useSupportTicketActions(complaint, {
   onConverted: (ncId) => router.push(getCompanyPath(`/nonconformances/${ncId}`)),
 })
 
+const visitor = useLiveQueryWithDeps(
+  [() => complaint.value?.visitorId ?? null],
+  async (db, [id]) => (id ? db.SupportVisitor.findByPk(id) : null),
+  { models: ['SupportVisitor'], initial: null },
+)
 const displayName = computed(
   () =>
     complaint.value?.customerName ||
@@ -184,6 +189,11 @@ watch(
         <div class="tw:min-w-0 tw:flex-1">
           <div class="tw:flex tw:items-center tw:gap-2">
             <h2 class="tw:truncate tw:text-sm tw:font-semibold">{{ displayName }}</h2>
+            <SupportVisitorKindBadge
+              v-if="visitor"
+              :kind="visitor.visitorKind"
+              :verified="visitor.identityVerified"
+            />
             <template v-if="complaint?.channelKind === 'CHAT'">
               <span
                 class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro"

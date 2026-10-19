@@ -1227,6 +1227,7 @@ declare module 'vue' {
     SupportHoursEditor: typeof import('./src/components/customerComplaints/SupportHoursEditor.vue')['default']
     SupportOutboundHome: typeof import('./src/components/supportDesk/SupportOutboundHome.vue')['default']
     SupportTicketDialogs: typeof import('./src/components/supportDesk/SupportTicketDialogs.vue')['default']
+    SupportVisitorKindBadge: typeof import('./src/components/supportDesk/SupportVisitorKindBadge.vue')['default']
     SuspendedEmailsHome: typeof import('./src/components/customerComplaints/SuspendedEmailsHome.vue')['default']
     Switchback: typeof import('./resource/js/shared/components/Switchback.vue')['default']
     TableBulkActionBar: typeof import('./resource/js/shared/components/dataTable/TableBulkActionBar.vue')['default']

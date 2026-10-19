@@ -91,6 +91,120 @@ async function copySnippet(b) {
   }
 }
 
+// ── Install wizard: signed-in users vs anonymous visitors ─────────────────────
+// Mirrors how the widget classifies people: USER (host-site user id), LEAD
+// (email only), VISITOR (nothing). The "users" snippet sets
+// window.qabilityChatSettings before the loader; the loader identifies the
+// person as soon as the frame is ready. userHash is the identity-verification
+// HMAC, computed on the customer's server with the brand secret below.
+const installMode = ref('users') // users | visitors
+const installFlavor = ref('basic') // basic | spa
+const SC = '<' + 'script>'
+const SCE = '<' + '/script>'
+function loaderTag(b) {
+  return `<script src="${WIDGET_ORIGIN}/widget.js" data-brand="${b.publishableKey}" async>${SCE}`
+}
+function usersSnippet(b) {
+  const verify = form.value?.widget?.identityVerification === 'required'
+  return [
+    SC,
+    "  // Replace the right-hand sides with the signed-in user's values.",
+    '  window.qabilityChatSettings = {',
+    '    userId: user.id,            // IMPORTANT: your stable user id',
+    '    email: user.email,',
+    '    name: user.name,',
+    '    company: user.company,      // optional',
+    verify
+      ? '    userHash: user.chatHash,    // REQUIRED: HMAC-SHA256(identity secret, userId), computed on your server'
+      : '    userHash: user.chatHash,    // recommended: HMAC-SHA256(identity secret, userId), computed on your server',
+    '    attributes: { plan: user.plan, accountId: user.accountId }  // anything your agents should see',
+    '  }',
+    SCE,
+    loaderTag(b),
+  ].join('\n')
+}
+function visitorsSnippet(b) {
+  return loaderTag(b)
+}
+function spaSnippet() {
+  return [
+    '// Single-page app: the loader is installed once; call these as state changes.',
+    "qabilityChat('identify', { userId, email, name, company, userHash, attributes })  // after sign-in",
+    "qabilityChat('update', { pageUrl: location.href })   // on each route change (drives outbound-message rules)",
+    "qabilityChat('shutdown')                             // on sign-out: forgets the visitor on this device",
+  ].join('\n')
+}
+const installSnippet = computed(() => {
+  if (!editing.value) return 'Save the brand first to get its key.'
+  if (installFlavor.value === 'spa') return spaSnippet()
+  return installMode.value === 'users'
+    ? usersSnippet(editing.value)
+    : visitorsSnippet(editing.value)
+})
+async function copyInstall() {
+  try {
+    await navigator.clipboard.writeText(installSnippet.value)
+    toast.success('Copied')
+  } catch {
+    toast.error('Copy failed')
+  }
+}
+const identitySecret = ref(null)
+const secretBusy = ref(false)
+async function revealSecret() {
+  if (!editing.value) return
+  secretBusy.value = true
+  try {
+    const out = await get(`/v1/services/supportDesk/brands/${editing.value.id}/identitySecret`)
+    identitySecret.value = out.secret
+  } catch (e) {
+    toast.error(e?.message || 'Could not load the secret')
+  } finally {
+    secretBusy.value = false
+  }
+}
+async function rotateSecret() {
+  if (!editing.value) return
+  const ok = await confirm({
+    title: 'Rotate the identity secret?',
+    message:
+      'Every hash your website currently produces stops validating the moment you rotate. Update your server with the new secret first, then rotate.',
+    okLabel: 'Rotate',
+  })
+  if (!ok) return
+  secretBusy.value = true
+  try {
+    const out = await post(
+      `/v1/services/supportDesk/brands/${editing.value.id}/rotateIdentitySecret`,
+    )
+    identitySecret.value = out.secret
+    toast.success('Secret rotated')
+  } catch (e) {
+    toast.error(e?.message || 'Could not rotate')
+  } finally {
+    secretBusy.value = false
+  }
+}
+async function copySecret() {
+  try {
+    await navigator.clipboard.writeText(identitySecret.value || '')
+    toast.success('Secret copied')
+  } catch {
+    toast.error('Copy failed')
+  }
+}
+const hashExample = computed(() =>
+  [
+    '// Node.js (server side — never in the browser)',
+    "const crypto = require('crypto')",
+    "const userHash = crypto.createHmac('sha256', IDENTITY_SECRET).update(String(user.id)).digest('hex')",
+    '',
+    '# PHP',
+    "$userHash = hash_hmac('sha256', (string) $user->id, $identitySecret);",
+  ].join('\n'),
+)
+watch(editing, () => (identitySecret.value = null))
+
 // Auto-messages + widget options (spec §4.4 / §5). Blank = platform default.
 const AUTO_KEYS = [
   ['welcome', 'Welcome (agents online)', 'Hi! Ask us anything — an agent will reply shortly.'],
@@ -118,6 +232,7 @@ const WIDGET_DEFAULTS = {
   autoEndMinutes: 30,
   ratingEnabled: true,
   transcriptEnabled: true,
+  identityVerification: 'off', // off | required
 }
 const tab = ref('general')
 
@@ -375,21 +490,91 @@ async function copyKey(b) {
           ariaLabel="Brand settings"
         />
         <template v-if="tab === 'widget'">
-          <BaseField
-            label="Install snippet"
-            help="Paste just before the closing body tag on every page of the sites listed under Allowed origins."
-          >
-            <div class="tw:flex tw:items-start tw:gap-2">
-              <code
-                class="tw:flex-1 tw:rounded-md tw:border tw:border-divider tw:bg-main-hover tw:p-2 tw:text-xs tw:break-all"
-                >{{ editing ? snippetFor(editing) : 'Save the brand first to get its key.' }}</code
+          <!-- Install wizard -->
+          <div class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
+            <BaseText variant="overline" class="tw:mb-2 tw:block">Install the messenger</BaseText>
+            <div class="tw:grid tw:gap-2 tw:sm:grid-cols-2">
+              <button
+                class="tw:rounded-lg tw:border tw:p-3 tw:text-left tw:transition-colors"
+                :class="
+                  installMode === 'users'
+                    ? 'tw:border-primary tw:bg-primary/5'
+                    : 'tw:border-divider tw:hover:bg-main-hover'
+                "
+                @click="installMode = 'users'"
               >
-              <BaseButton v-if="editing" size="sm" variant="secondary" @click="copySnippet(editing)"
+                <div class="tw:flex tw:items-center tw:gap-2 tw:text-sm tw:font-semibold">
+                  For users with logins
+                  <span
+                    class="tw:rounded tw:bg-blue-100 tw:px-1.5 tw:py-0.5 tw:text-micro tw:font-semibold tw:text-blue-800"
+                    >Recommended</span
+                  >
+                </div>
+                <p class="tw:mt-1 tw:text-xs tw:text-secondary">
+                  Your app passes the signed-in user's id, email, name and any attributes. Agents
+                  see who they are talking to and the person's history follows them across devices.
+                </p>
+              </button>
+              <button
+                class="tw:rounded-lg tw:border tw:p-3 tw:text-left tw:transition-colors"
+                :class="
+                  installMode === 'visitors'
+                    ? 'tw:border-primary tw:bg-primary/5'
+                    : 'tw:border-divider tw:hover:bg-main-hover'
+                "
+                @click="installMode = 'visitors'"
+              >
+                <div class="tw:text-sm tw:font-semibold">For website visitors without logins</div>
+                <p class="tw:mt-1 tw:text-xs tw:text-secondary">
+                  Anonymous visitors on a marketing site. They become a Lead once they leave an
+                  email in the pre-chat or offline form; conversations are kept in the browser.
+                </p>
+              </button>
+            </div>
+
+            <div class="tw:mt-3 tw:flex tw:items-center tw:gap-1 tw:text-xs">
+              <button
+                class="tw:rounded-md tw:px-2 tw:py-1 tw:font-medium"
+                :class="
+                  installFlavor === 'basic'
+                    ? 'tw:bg-main-selected'
+                    : 'tw:text-secondary tw:hover:bg-main-hover'
+                "
+                @click="installFlavor = 'basic'"
+              >
+                Basic JavaScript
+              </button>
+              <button
+                class="tw:rounded-md tw:px-2 tw:py-1 tw:font-medium"
+                :class="
+                  installFlavor === 'spa'
+                    ? 'tw:bg-main-selected'
+                    : 'tw:text-secondary tw:hover:bg-main-hover'
+                "
+                @click="installFlavor = 'spa'"
+              >
+                Single-page app
+              </button>
+              <span class="tw:ml-auto tw:text-secondary">
+                {{
+                  installFlavor === 'spa'
+                    ? 'After the loader is installed once'
+                    : 'Paste before the closing body tag on every page'
+                }}
+              </span>
+            </div>
+            <div class="tw:mt-2 tw:flex tw:items-start tw:gap-2">
+              <pre
+                class="tw:flex-1 tw:overflow-x-auto tw:rounded-md tw:border tw:border-divider tw:bg-main-hover tw:p-2 tw:text-xs tw:leading-relaxed"
+                >{{ installSnippet }}</pre
+              >
+              <BaseButton v-if="editing" size="sm" variant="secondary" @click="copyInstall"
                 >Copy</BaseButton
               >
             </div>
             <p v-if="editing" class="tw:mt-2 tw:text-xs tw:text-secondary">
-              No site yet?
+              The site's origin must be listed under
+              <strong>Allowed website origins</strong> (General tab). No site yet?
               <a
                 :href="`${WIDGET_ORIGIN}/v1/public/chat/test?key=${editing.publishableKey}`"
                 target="_blank"
@@ -397,11 +582,64 @@ async function copyKey(b) {
                 class="tw:text-primary tw:underline"
                 >Open the test page</a
               >
-              (development only) — add
-              <code>{{ widgetOriginHost }}</code>
-              to the allowed origins above first.
+              (development only) — add <code>{{ widgetOriginHost }}</code> to the allowed origins
+              first.
             </p>
-          </BaseField>
+          </div>
+
+          <!-- Identity verification -->
+          <div
+            v-if="installMode === 'users'"
+            class="tw:rounded-lg tw:border tw:border-divider tw:p-3"
+          >
+            <div class="tw:flex tw:items-start tw:justify-between tw:gap-3">
+              <div>
+                <BaseText variant="overline" class="tw:block">Identity verification</BaseText>
+                <p class="tw:mt-1 tw:text-xs tw:text-secondary">
+                  The user id arrives from the browser, so anyone could claim to be anyone. Your
+                  server signs the id with this brand's secret (<code>userHash</code>); when set to
+                  <em>Required</em>, an unsigned or mis-signed id is refused and the person stays
+                  anonymous.
+                </p>
+              </div>
+              <BaseSelect
+                v-model="form.widget.identityVerification"
+                class="tw:w-40 tw:shrink-0"
+                :options="[
+                  { value: 'off', label: 'Off (trust the page)' },
+                  { value: 'required', label: 'Required' },
+                ]"
+                required
+              />
+            </div>
+            <div v-if="editing" class="tw:mt-3 tw:flex tw:flex-wrap tw:items-center tw:gap-2">
+              <code
+                v-if="identitySecret"
+                class="tw:rounded-md tw:border tw:border-divider tw:bg-main-hover tw:px-2 tw:py-1 tw:text-xs tw:break-all"
+                >{{ identitySecret }}</code
+              >
+              <BaseButton
+                v-if="!identitySecret"
+                size="sm"
+                variant="secondary"
+                :disabled="secretBusy"
+                @click="revealSecret"
+              >
+                Reveal secret
+              </BaseButton>
+              <template v-else>
+                <BaseButton size="sm" variant="secondary" @click="copySecret">Copy</BaseButton>
+                <BaseButton size="sm" variant="outline" :disabled="secretBusy" @click="rotateSecret"
+                  >Rotate</BaseButton
+                >
+              </template>
+            </div>
+            <pre
+              class="tw:mt-3 tw:overflow-x-auto tw:rounded-md tw:border tw:border-divider tw:bg-main-hover tw:p-2 tw:text-xs tw:leading-relaxed"
+              >{{ hashExample }}</pre
+            >
+          </div>
+
           <BaseFieldRow :columns="2">
             <BaseField label="Launcher position">
               <BaseSelect

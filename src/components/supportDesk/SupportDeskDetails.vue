@@ -30,6 +30,15 @@ const isEditable = computed(
 )
 const { saveError } = useAutoSave(complaint)
 
+// The website visitor behind a chat (identity the host site passed).
+const visitor = useLiveQueryWithDeps(
+  [() => complaint.value?.visitorId ?? null],
+  async (db, [id]) => (id ? db.SupportVisitor.findByPk(id) : null),
+  { models: ['SupportVisitor'], initial: null },
+)
+const visitorAttributes = computed(() =>
+  Object.entries(visitor.value?.attributes || {}).filter(([, v]) => v !== '' && v != null),
+)
 const brand = useLiveQueryWithDeps(
   [() => complaint.value?.brandId ?? null],
   async (db, [id]) => (id ? db.SupportBrand.findByPk(id) : null),
@@ -87,10 +96,11 @@ const linkedNcs = useLiveQueryWithDeps(
   { models: ['Nonconformance'], initial: [] },
 )
 
-const open = ref(['assignment', 'attributes', 'customer', 'recent'])
+const open = ref(['assignment', 'attributes', 'user', 'customer', 'recent'])
 const sections = computed(() => [
   { value: 'assignment', title: 'Assignment' },
   { value: 'attributes', title: 'Conversation attributes' },
+  ...(visitor.value ? [{ value: 'user', title: 'User data' }] : []),
   { value: 'customer', title: 'Customer' },
   {
     value: 'recent',
@@ -276,6 +286,58 @@ const CHANNEL_LABEL = {
                 <dd class="tw:italic">“{{ complaint.csatComment }}”</dd>
               </template>
             </template>
+          </dl>
+        </template>
+
+        <!-- User data (chat visitor identity) -->
+        <template #user>
+          <dl
+            v-if="visitor"
+            class="tw:grid tw:grid-cols-[auto_1fr] tw:gap-x-4 tw:gap-y-1.5 tw:text-xs"
+          >
+            <dt class="tw:text-secondary">Type</dt>
+            <dd>
+              <SupportVisitorKindBadge
+                :kind="visitor.visitorKind"
+                :verified="visitor.identityVerified"
+              />
+              <span
+                v-if="visitor.visitorKind === 'USER' && !visitor.identityVerified"
+                class="tw:ml-1 tw:text-secondary"
+                >unverified</span
+              >
+            </dd>
+            <dt class="tw:text-secondary">Name</dt>
+            <dd>{{ visitor.identifiedName || '—' }}</dd>
+            <dt class="tw:text-secondary">Email</dt>
+            <dd class="tw:break-all">{{ visitor.identifiedEmail || '—' }}</dd>
+            <dt class="tw:text-secondary">Company</dt>
+            <dd>{{ visitor.externalCompany || '—' }}</dd>
+            <dt class="tw:text-secondary">User id</dt>
+            <dd class="tw:break-all tw:font-mono">{{ visitor.externalUserId || '—' }}</dd>
+            <template v-for="[k, v] in visitorAttributes" :key="k">
+              <dt class="tw:text-secondary tw:break-all">{{ k }}</dt>
+              <dd class="tw:break-all">{{ v }}</dd>
+            </template>
+            <dt class="tw:text-secondary">Last page</dt>
+            <dd class="tw:break-all">
+              <a
+                v-if="visitor.lastPageUrl"
+                :href="visitor.lastPageUrl"
+                target="_blank"
+                rel="noopener"
+                class="tw:text-primary tw:underline"
+              >
+                {{ visitor.lastPageUrl.replace(/^https?:\/\//, '') }}
+              </a>
+              <template v-else>—</template>
+            </dd>
+            <dt class="tw:text-secondary">Locale</dt>
+            <dd>{{ visitor.locale || '—' }}</dd>
+            <dt class="tw:text-secondary">First seen</dt>
+            <dd>{{ visitor.firstSeenAt?.formatDate('datetime') || '—' }}</dd>
+            <dt class="tw:text-secondary">Last seen</dt>
+            <dd>{{ visitor.lastSeenAt?.formatDate('datetime') || '—' }}</dd>
           </dl>
         </template>
 

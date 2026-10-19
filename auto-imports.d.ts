@@ -233,6 +233,7 @@ declare global {
   const useBroadcastChannel: typeof import('@vueuse/core').useBroadcastChannel
   const useBrowserLocation: typeof import('@vueuse/core').useBrowserLocation
   const useCached: typeof import('@vueuse/core').useCached
+  const useChatLive: typeof import('./src/composables/useChatLive.js').useChatLive
   const useChatPanel: typeof import('./src/composables/useChatPanel.js').useChatPanel
   const useChatStream: typeof import('./src/composables/useChatStream.js').useChatStream
   const useChatThreads: typeof import('./src/composables/useChatThreads.js').useChatThreads

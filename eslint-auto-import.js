@@ -241,6 +241,7 @@ export default {
     "useBroadcastChannel": true,
     "useBrowserLocation": true,
     "useCached": true,
+    "useChatLive": true,
     "useChatPanel": true,
     "useChatStream": true,
     "useChatThreads": true,
