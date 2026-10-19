@@ -68,6 +68,56 @@ const editing = ref(null)
 const saving = ref(false)
 const form = ref(blank())
 const originsText = ref('')
+// Where the public widget is served from. The API root hosts /widget.js (not
+// under /api). Deployments set VITE_WIDGET_ORIGIN (e.g. https://api.acme.com);
+// locally the Vite proxy maps /api → the API, so /api/widget.js works.
+const WIDGET_ORIGIN = import.meta.env.VITE_WIDGET_ORIGIN || `${window.location.origin}/api`
+function snippetFor(b) {
+  // Built from pieces: a literal "</" + "script>" inside an SFC <script> block
+  // would end the block.
+  return (
+    `<script src="${WIDGET_ORIGIN}/widget.js" data-brand="${b.publishableKey}" async><` + `/script>`
+  )
+}
+async function copySnippet(b) {
+  try {
+    await navigator.clipboard.writeText(snippetFor(b))
+    toast.success('Snippet copied — paste it just before the closing body tag of your site')
+  } catch {
+    toast.error('Copy failed')
+  }
+}
+
+// Auto-messages + widget options (spec §4.4 / §5). Blank = platform default.
+const AUTO_KEYS = [
+  ['welcome', 'Welcome (agents online)', 'Hi! Ask us anything — an agent will reply shortly.'],
+  [
+    'away',
+    'Away (offline / outside hours)',
+    "We're currently offline. Leave your email and your message and we'll reply as soon as we're back.",
+  ],
+  ['waiting', 'Still waiting', 'Still here — someone will be with you in a moment.'],
+  ['assigned', 'Agent joined ({agent})', "You're now chatting with {agent}."],
+  ['idle', 'Visitor idle', 'Are you still there?'],
+  ['ended', 'Chat ended', 'Thanks for chatting with us.'],
+  ['rating', 'Rating prompt', 'How was your experience? Rate this conversation.'],
+]
+const WIDGET_DEFAULTS = {
+  position: 'right',
+  greetingTitle: 'Chat with us',
+  greetingSubtitle: 'We usually reply in a few minutes.',
+  requireName: false,
+  requireEmail: false,
+  collectEmailWhenOffline: true,
+  showBusinessHours: true,
+  waitingDelaySeconds: 60,
+  idleMinutes: 10,
+  autoEndMinutes: 30,
+  ratingEnabled: true,
+  transcriptEnabled: true,
+}
+const tab = ref('general')
+
 function blank() {
   return {
     name: '',
@@ -84,9 +134,12 @@ function blank() {
     fallbackEmail: '',
     unansweredAlertMinutes: 5,
     stateId: 'ACTIVE',
+    autoMessages: {},
+    widget: { ...WIDGET_DEFAULTS },
   }
 }
 function openCreate() {
+  tab.value = 'general'
   editing.value = null
   form.value = blank()
   originsText.value = ''
@@ -109,7 +162,10 @@ function openEdit(b) {
     fallbackEmail: b.fallbackEmail || '',
     unansweredAlertMinutes: b.unansweredAlertMinutes ?? 5,
     stateId: b.stateId,
+    autoMessages: { ...(b.autoMessages || {}) },
+    widget: { ...WIDGET_DEFAULTS, ...(b.widget || {}) },
   }
+  tab.value = 'general'
   originsText.value = (b.allowedOrigins || []).join('\n')
   showDialog.value = true
 }
@@ -127,6 +183,16 @@ function payload() {
     fallbackEmail: form.value.fallbackEmail.trim() || null,
     unansweredAlertMinutes: Number(form.value.unansweredAlertMinutes) || 5,
     allowedOrigins: origins,
+    // Only overrides are stored; blanks fall back to the platform text.
+    autoMessages: Object.fromEntries(
+      Object.entries(form.value.autoMessages || {}).filter(([, v]) => String(v || '').trim()),
+    ),
+    widget: {
+      ...form.value.widget,
+      waitingDelaySeconds: Number(form.value.widget.waitingDelaySeconds) || 60,
+      idleMinutes: Number(form.value.widget.idleMinutes) || 10,
+      autoEndMinutes: Number(form.value.widget.autoEndMinutes) || 30,
+    },
   }
 }
 async function save() {
@@ -245,6 +311,13 @@ async function copyKey(b) {
             >
               <IconCopy :size="12" />
             </button>
+            <button
+              type="button"
+              class="tw:ml-2 tw:font-sans tw:text-primary tw:hover:underline"
+              @click="copySnippet(b)"
+            >
+              Copy install snippet
+            </button>
           </div>
         </div>
         <template v-if="canManage">
@@ -284,7 +357,91 @@ async function copyKey(b) {
       maxWidth="lg"
     >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
-        <BaseFieldRow :columns="2">
+        <BaseTabs
+          v-model="tab"
+          :tabs="[
+            { value: 'general', label: 'General' },
+            { value: 'widget', label: 'Chat widget' },
+            { value: 'messages', label: 'Auto-messages' },
+          ]"
+          ariaLabel="Brand settings"
+        />
+        <template v-if="tab === 'widget'">
+          <BaseField
+            label="Install snippet"
+            help="Paste just before the closing body tag on every page of the sites listed under Allowed origins."
+          >
+            <div class="tw:flex tw:items-start tw:gap-2">
+              <code
+                class="tw:flex-1 tw:rounded-md tw:border tw:border-divider tw:bg-main-hover tw:p-2 tw:text-xs tw:break-all"
+                >{{ editing ? snippetFor(editing) : 'Save the brand first to get its key.' }}</code
+              >
+              <BaseButton v-if="editing" size="sm" variant="secondary" @click="copySnippet(editing)"
+                >Copy</BaseButton
+              >
+            </div>
+          </BaseField>
+          <BaseFieldRow :columns="2">
+            <BaseField label="Launcher position">
+              <BaseSelect
+                v-model="form.widget.position"
+                :options="[
+                  { value: 'right', label: 'Bottom right' },
+                  { value: 'left', label: 'Bottom left' },
+                ]"
+              />
+            </BaseField>
+            <BaseField label="Greeting title"
+              ><BaseTextInput v-model="form.widget.greetingTitle"
+            /></BaseField>
+            <BaseField label="Greeting subtitle" class="tw:md:col-span-2"
+              ><BaseTextInput v-model="form.widget.greetingSubtitle"
+            /></BaseField>
+            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+              ><BaseCheckbox v-model="form.widget.requireName" /> Ask for a name before
+              chatting</label
+            >
+            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+              ><BaseCheckbox v-model="form.widget.requireEmail" /> Require an email before
+              chatting</label
+            >
+            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+              ><BaseCheckbox v-model="form.widget.collectEmailWhenOffline" /> Require an email on
+              the offline form</label
+            >
+            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+              ><BaseCheckbox v-model="form.widget.showBusinessHours" /> Show business hours in the
+              widget</label
+            >
+            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+              ><BaseCheckbox v-model="form.widget.ratingEnabled" /> Ask for a rating when a chat
+              ends</label
+            >
+            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+              ><BaseCheckbox v-model="form.widget.transcriptEnabled" /> Offer an emailed
+              transcript</label
+            >
+            <BaseField label="“Still waiting” after (seconds)"
+              ><BaseTextInput v-model="form.widget.waitingDelaySeconds" type="number" min="10"
+            /></BaseField>
+            <BaseField label="Idle prompt after (minutes of silence)"
+              ><BaseTextInput v-model="form.widget.idleMinutes" type="number" min="1"
+            /></BaseField>
+            <BaseField label="Auto-end after idle (minutes)"
+              ><BaseTextInput v-model="form.widget.autoEndMinutes" type="number" min="1"
+            /></BaseField>
+          </BaseFieldRow>
+        </template>
+        <template v-else-if="tab === 'messages'">
+          <p class="tw:text-sm tw:text-secondary">
+            What the widget says on its own. Leave a field blank to use the platform text shown as
+            its placeholder. <code>{agent}</code> becomes the agent's first name.
+          </p>
+          <BaseField v-for="[k, label, dflt] in AUTO_KEYS" :key="k" :label="label">
+            <BaseTextarea v-model="form.autoMessages[k]" :rows="2" :placeholder="dflt" />
+          </BaseField>
+        </template>
+        <BaseFieldRow v-if="tab === 'general'" :columns="2">
           <BaseField label="Name" required><BaseTextInput v-model="form.name" /></BaseField>
           <BaseField label="Slug"
             ><BaseTextInput v-model="form.slug" placeholder="auto from name"
@@ -321,6 +478,7 @@ async function copyKey(b) {
         </BaseFieldRow>
 
         <BaseField
+          v-if="tab === 'general'"
           label="Allowed website origins (one per line)"
           help="Where the chat widget may load from, e.g. https://www.acme.com"
         >
@@ -331,11 +489,11 @@ async function copyKey(b) {
           />
         </BaseField>
 
-        <BaseField label="Business hours">
+        <BaseField v-if="tab === 'general'" label="Business hours">
           <SupportHoursEditor v-model="form.businessHours" />
         </BaseField>
 
-        <BaseFieldRow :columns="2">
+        <BaseFieldRow v-if="tab === 'general'" :columns="2">
           <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
             ><BaseCheckbox v-model="form.autoAssign" /> Auto-assign new chats</label
           >

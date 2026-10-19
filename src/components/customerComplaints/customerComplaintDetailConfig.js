@@ -5,6 +5,7 @@ import {
   IconClockPause,
   IconMailOff,
   IconMailCheck,
+  IconMessageOff,
 } from '@tabler/icons-vue'
 
 /** Contextual banners for a Customer Complaint. Pure — caller resolves complaint + gate flags. */
@@ -60,6 +61,7 @@ export function buildComplaintActions(gates = {}, handlers = {}) {
     heldByOther,
     isSpam,
     isSnoozed,
+    isLiveChat,
   } = gates
   return [
     {
@@ -80,6 +82,19 @@ export function buildComplaintActions(gates = {}, handlers = {}) {
       visible: !!isEditable,
       disabled: !!acting,
       onSelect: handlers.openAssign,
+    },
+    {
+      // Live chat (spec §4.3): ending resolves the ticket and sends the
+      // closing + rating lines to the widget. Primary while the chat runs —
+      // it is the chat's natural terminal action, as Resolve is for email.
+      id: 'endChat',
+      label: 'End chat',
+      icon: IconMessageOff,
+      variant: 'primary',
+      priority: 95,
+      visible: !!isEditable && !!isLiveChat && !isSpam,
+      disabled: !!acting,
+      onSelect: handlers.endChat,
     },
     {
       // Take over is a DIFFERENT affordance from Assign on purpose (spec §3):

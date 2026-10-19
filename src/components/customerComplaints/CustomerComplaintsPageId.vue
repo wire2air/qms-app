@@ -112,6 +112,35 @@ async function deskAction(path, body = {}) {
     acting.value = false
   }
 }
+// Chat presence/state (spec §4.3). `now` ticks so "visitor online" expires
+// without a re-render from sync.
+const nowTick = ref(Date.now())
+const tick = setInterval(() => (nowTick.value = Date.now()), 15_000)
+onBeforeUnmount(() => clearInterval(tick))
+const visitorOnline = computed(() => {
+  const t = complaint.value?.visitorLastSeenAt
+  return !!t && nowTick.value - (t.toMillis ? t.toMillis() : new Date(t).getTime()) < 120_000
+})
+const chatStateClass = computed(
+  () =>
+    ({
+      WAITING: 'tw:bg-amber-50 tw:text-amber-700',
+      ACTIVE: 'tw:bg-green-50 tw:text-green-700',
+      IDLE: 'tw:bg-gray-100 tw:text-secondary',
+      ENDED: 'tw:bg-gray-100 tw:text-secondary',
+    })[complaint.value?.chatState] || 'tw:bg-amber-50 tw:text-amber-700',
+)
+async function endChat() {
+  const ok = await confirm({
+    title: 'End this chat?',
+    message:
+      'The visitor sees the closing message and rating prompt; the ticket is resolved. They can start a new chat any time.',
+    okLabel: 'End chat',
+  })
+  if (!ok) return
+  if (await deskAction('endChat')) toast.success('Chat ended')
+}
+
 async function takeOver() {
   const ok = await confirm({
     title: 'Take over this ticket?',
@@ -269,8 +298,10 @@ const complaintActions = computed(() =>
       heldByOther: heldByOther.value,
       isSpam: !!complaint.value?.isSpam,
       isSnoozed: isSnoozed.value,
+      isLiveChat: complaint.value?.channelKind === 'CHAT' && complaint.value?.chatState !== 'ENDED',
     },
     {
+      endChat,
       takeOver,
       openSnooze,
       unsnooze,
@@ -353,6 +384,32 @@ const complaintDetailConfig = computed(() =>
       <span class="">{{ complaint.complaintNumber }}</span>
       <template v-if="complaint.sourceId">
         · <CustomerComplaintSourceBadgeById :sourceId="complaint.sourceId" />
+      </template>
+      <!-- Live chat: state + whether the visitor still has the widget open
+           (seen within the last 2 minutes — the widget polls every 3 s). -->
+      <template v-if="complaint.channelKind === 'CHAT'">
+        ·
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:px-1.5 tw:py-0.5 tw:text-micro"
+          :class="chatStateClass"
+        >
+          Chat · {{ (complaint.chatState || 'WAITING').toLowerCase() }}
+        </span>
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro"
+          :class="visitorOnline ? 'tw:text-green-700' : 'tw:text-secondary'"
+          :title="
+            complaint.visitorLastSeenAt
+              ? `Visitor last seen ${complaint.visitorLastSeenAt.formatDate('datetime')}`
+              : ''
+          "
+        >
+          <span
+            class="tw:inline-block tw:h-2 tw:w-2 tw:rounded-full"
+            :class="visitorOnline ? 'tw:bg-green-500' : 'tw:bg-gray-400'"
+          />
+          {{ visitorOnline ? 'visitor online' : 'visitor away' }}
+        </span>
       </template>
       <template v-if="complaint.createdAt">
         · {{ complaint.createdAt.formatDate('date') }}
