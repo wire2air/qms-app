@@ -63,11 +63,6 @@ const TIMEZONES = (() => {
   }
 })()
 
-const showDialog = ref(false)
-const editing = ref(null)
-const saving = ref(false)
-const form = ref(blank())
-const originsText = ref('')
 // Where the public widget is served from. The API root hosts /widget.js (not
 // under /api). Deployments set VITE_WIDGET_ORIGIN (e.g. https://api.acme.com);
 // locally the Vite proxy maps /api → the API, so /api/widget.js works.
@@ -126,6 +121,11 @@ const WIDGET_DEFAULTS = {
 }
 const tab = ref('general')
 
+const showDialog = ref(false)
+const editing = ref(null)
+const saving = ref(false)
+const form = ref(blank())
+const originsText = ref('')
 function blank() {
   return {
     name: '',
