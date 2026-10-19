@@ -15,6 +15,7 @@ import {
 } from '@tabler/icons-vue'
 import { currentSession, isAllowed, logoutCurrentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
+import { isSupportHost } from '@/utils/tenant'
 import { DESK_VIEWS } from './deskViews.js'
 
 defineProps({
@@ -36,6 +37,7 @@ const BASELINE = new Set(['complaint_management', 'sites', 'departments', 'users
 const hasQmsAccess = computed(() => {
   const s = currentSession.value
   if (!s) return false
+  if (s.isSupportUser || isSupportHost()) return false
   if (s.isOwner) return true
   return (s.permissions || []).some((p) => {
     const [mod, verb] = p.split(':')

@@ -9,6 +9,7 @@
  */
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isSupplier, currentSession, isAllowed } from '@/utils/currentSession'
+import { isSupportHost } from '@/utils/tenant'
 
 const router = useRouter()
 const route = useRoute()
@@ -27,6 +28,10 @@ function isDeskOnly() {
     return verb === 'read' && !BASELINE.has(mod)
   })
 }
-const target = isSupplier.value ? 'supplier' : isDeskOnly() ? 'desk' : 'dashboard'
+const target = isSupplier.value
+  ? 'supplier'
+  : currentSession.value?.isSupportUser || isSupportHost() || isDeskOnly()
+    ? 'desk'
+    : 'dashboard'
 router.replace({ path: getCompanyPath(target), query })
 </script>
