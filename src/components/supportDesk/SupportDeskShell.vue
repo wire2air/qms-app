@@ -164,6 +164,64 @@ watch(detailsOpen, (v) => {
   }
 })
 
+// Resizable details rail. Default: a third of the thread+rail area (≈ the
+// thread at 75 % of its old width, the rail getting the rest), clamped so
+// neither pane collapses; persisted per browser.
+const RAIL_MIN = 300
+const RAIL_MAX = 760
+const detailsWidth = ref(0)
+const splitArea = ref(null) // thread + rail container
+function defaultRailWidth() {
+  const total = splitArea.value?.clientWidth || 1100
+  return Math.round(Math.min(RAIL_MAX, Math.max(RAIL_MIN, total * 0.34)))
+}
+onMounted(() => {
+  let saved = 0
+  try {
+    saved = Number(localStorage.getItem('desk:railWidth')) || 0
+  } catch {
+    /* ignore */
+  }
+  detailsWidth.value = saved ? Math.min(RAIL_MAX, Math.max(RAIL_MIN, saved)) : defaultRailWidth()
+})
+const resizing = ref(false)
+function startResize(e) {
+  e.preventDefault()
+  resizing.value = true
+  const area = splitArea.value
+  function onMove(ev) {
+    if (!area) return
+    const right = area.getBoundingClientRect().right
+    const x = ev.touches ? ev.touches[0].clientX : ev.clientX
+    const max = Math.min(RAIL_MAX, area.clientWidth - 360) // keep ≥ 360px for the thread
+    detailsWidth.value = Math.round(Math.min(max, Math.max(RAIL_MIN, right - x)))
+  }
+  function onUp() {
+    resizing.value = false
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+    window.removeEventListener('touchmove', onMove)
+    window.removeEventListener('touchend', onUp)
+    try {
+      localStorage.setItem('desk:railWidth', String(detailsWidth.value))
+    } catch {
+      /* ignore */
+    }
+  }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
+  window.addEventListener('touchmove', onMove, { passive: true })
+  window.addEventListener('touchend', onUp)
+}
+function resetResize() {
+  detailsWidth.value = defaultRailWidth()
+  try {
+    localStorage.removeItem('desk:railWidth')
+  } catch {
+    /* ignore */
+  }
+}
+
 // On phones the three panes stack: list OR thread, never both.
 const isNarrow = useMediaQuery('(max-width: 1023px)')
 const railOpen = ref(false)
@@ -204,8 +262,13 @@ watch(
       @menu="railOpen = true"
     />
 
-    <!-- Thread + details -->
-    <template v-if="conversationId">
+    <!-- Thread + details (resizable split) -->
+    <div
+      v-if="conversationId"
+      ref="splitArea"
+      class="tw:flex tw:min-w-0 tw:flex-1"
+      :class="resizing ? 'tw:select-none tw:cursor-col-resize' : ''"
+    >
       <SupportDeskThread
         v-show="!isNarrow || conversationId"
         :key="conversationId"
@@ -215,13 +278,33 @@ watch(
         @toggleDetails="detailsOpen = !detailsOpen"
         @back="closeConversation"
       />
-      <SupportDeskDetails
-        v-if="detailsOpen && !isNarrow"
-        :conversationId="conversationId"
-        @close="detailsOpen = false"
-        @openConversation="openConversation"
-      />
-    </template>
+      <template v-if="detailsOpen && !isNarrow">
+        <!-- Drag handle: resizes the details rail; double-click resets. -->
+        <div
+          class="tw:group tw:relative tw:z-10 tw:-mx-1 tw:w-2 tw:shrink-0 tw:cursor-col-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize details panel"
+          tabindex="0"
+          @mousedown="startResize"
+          @touchstart="startResize"
+          @dblclick="resetResize"
+          @keydown.left.prevent="detailsWidth = Math.min(RAIL_MAX, detailsWidth + 24)"
+          @keydown.right.prevent="detailsWidth = Math.max(RAIL_MIN, detailsWidth - 24)"
+        >
+          <div
+            class="tw:absolute tw:inset-y-0 tw:left-1/2 tw:w-px tw:-translate-x-1/2 tw:bg-divider tw:transition-colors tw:group-hover:w-0.5 tw:group-hover:bg-primary"
+            :class="resizing ? 'tw:w-0.5 tw:bg-primary' : ''"
+          />
+        </div>
+        <SupportDeskDetails
+          :conversationId="conversationId"
+          :style="{ width: detailsWidth ? detailsWidth + 'px' : undefined }"
+          @close="detailsOpen = false"
+          @openConversation="openConversation"
+        />
+      </template>
+    </div>
     <div
       v-else-if="!isNarrow"
       class="tw:flex tw:flex-1 tw:items-center tw:justify-center tw:text-secondary"

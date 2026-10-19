@@ -121,9 +121,7 @@ const CHANNEL_LABEL = {
 </script>
 
 <template>
-  <aside
-    class="tw:flex tw:h-full tw:w-80 tw:xl:w-[22rem] tw:shrink-0 tw:flex-col tw:border-l tw:border-divider tw:bg-main"
-  >
+  <aside class="tw:flex tw:h-full tw:w-80 tw:shrink-0 tw:flex-col tw:bg-main">
     <div
       class="tw:flex tw:items-center tw:justify-between tw:border-b tw:border-divider tw:bg-card tw:px-3 tw:py-2"
     >

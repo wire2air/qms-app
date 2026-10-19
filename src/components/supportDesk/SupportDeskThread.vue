@@ -165,262 +165,270 @@ watch(
 </script>
 
 <template>
-  <section class="tw:flex tw:h-full tw:min-w-0 tw:flex-1 tw:flex-col tw:bg-main">
-    <!-- Header -->
-    <header
-      class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-divider tw:bg-card tw:px-3 tw:py-2"
+  <section class="tw:flex tw:h-full tw:min-w-0 tw:flex-1 tw:flex-col tw:bg-main tw:p-3 tw:pr-2">
+    <div
+      class="tw:flex tw:min-h-0 tw:flex-1 tw:flex-col tw:overflow-hidden tw:rounded-xl tw:border tw:border-divider tw:bg-card tw:shadow-sm"
     >
-      <button
-        v-if="showBack"
-        class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover"
-        aria-label="Back to list"
-        @click="emit('back')"
+      <!-- Header -->
+      <header
+        class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-divider tw:bg-card tw:px-3 tw:py-2"
       >
-        <IconArrowLeft :size="18" />
-      </button>
-      <div class="tw:min-w-0 tw:flex-1">
-        <div class="tw:flex tw:items-center tw:gap-2">
-          <h2 class="tw:truncate tw:text-sm tw:font-semibold">{{ displayName }}</h2>
-          <template v-if="complaint?.channelKind === 'CHAT'">
-            <span
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro"
-              :class="visitorOnline ? 'tw:text-green-700' : 'tw:text-secondary'"
-            >
+        <button
+          v-if="showBack"
+          class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover"
+          aria-label="Back to list"
+          @click="emit('back')"
+        >
+          <IconArrowLeft :size="18" />
+        </button>
+        <div class="tw:min-w-0 tw:flex-1">
+          <div class="tw:flex tw:items-center tw:gap-2">
+            <h2 class="tw:truncate tw:text-sm tw:font-semibold">{{ displayName }}</h2>
+            <template v-if="complaint?.channelKind === 'CHAT'">
               <span
-                class="tw:inline-block tw:h-2 tw:w-2 tw:rounded-full"
-                :class="visitorOnline ? 'tw:bg-green-500' : 'tw:bg-gray-400'"
-              />
-              {{ visitorOnline ? 'online' : 'away' }}
-            </span>
-          </template>
-          <CustomerComplaintStatusBadgeById
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro"
+                :class="visitorOnline ? 'tw:text-green-700' : 'tw:text-secondary'"
+              >
+                <span
+                  class="tw:inline-block tw:h-2 tw:w-2 tw:rounded-full"
+                  :class="visitorOnline ? 'tw:bg-green-500' : 'tw:bg-gray-400'"
+                />
+                {{ visitorOnline ? 'online' : 'away' }}
+              </span>
+            </template>
+            <CustomerComplaintStatusBadgeById
+              v-if="complaint"
+              :statusId="complaint.statusId"
+              class="tw:text-micro"
+            />
+          </div>
+          <div class="tw:truncate tw:text-xs tw:text-secondary">
+            <span>{{ complaint?.complaintNumber }}</span>
+            <template v-if="complaint?.subject"> · {{ complaint.subject }}</template>
+          </div>
+        </div>
+
+        <DetailActionBar v-if="complaint" :actions="ticket.actions" :maxVisible="2" />
+        <BaseTooltip
+          v-if="hiddenAutoCount || showAuto"
+          :content="
+            showAuto
+              ? 'Hide automated widget messages'
+              : `Show ${hiddenAutoCount} automated widget message${hiddenAutoCount === 1 ? '' : 's'}`
+          "
+        >
+          <button
+            class="tw:rounded-md tw:p-1 tw:hover:bg-main-hover"
+            :class="showAuto ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-on-main'"
+            :aria-pressed="showAuto"
+            aria-label="Toggle automated messages"
+            @click="showAuto = !showAuto"
+          >
+            <IconRobot :size="18" />
+          </button>
+        </BaseTooltip>
+        <BaseTooltip content="Open in ticket view">
+          <RouterLink
             v-if="complaint"
-            :statusId="complaint.statusId"
-            class="tw:text-micro"
-          />
-        </div>
-        <div class="tw:truncate tw:text-xs tw:text-secondary">
-          <span>{{ complaint?.complaintNumber }}</span>
-          <template v-if="complaint?.subject"> · {{ complaint.subject }}</template>
-        </div>
-      </div>
+            :to="getCompanyPath(`/customer-complaints/${complaint.id}`)"
+            class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
+            aria-label="Open in ticket view"
+          >
+            <IconExternalLink :size="18" />
+          </RouterLink>
+        </BaseTooltip>
+        <BaseTooltip :content="detailsOpen ? 'Hide details' : 'Show details'">
+          <button
+            class="tw:hidden tw:lg:block tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
+            :aria-label="detailsOpen ? 'Hide details' : 'Show details'"
+            @click="emit('toggleDetails')"
+          >
+            <component
+              :is="detailsOpen ? IconLayoutSidebarRightCollapse : IconLayoutSidebarRightExpand"
+              :size="18"
+            />
+          </button>
+        </BaseTooltip>
+      </header>
 
-      <DetailActionBar v-if="complaint" :actions="ticket.actions" :maxVisible="2" />
-      <BaseTooltip
-        v-if="hiddenAutoCount || showAuto"
-        :content="
-          showAuto
-            ? 'Hide automated widget messages'
-            : `Show ${hiddenAutoCount} automated widget message${hiddenAutoCount === 1 ? '' : 's'}`
-        "
+      <!-- Banners -->
+      <div
+        v-if="complaint?.isSpam"
+        class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-red-200 tw:bg-red-50 tw:px-4 tw:py-1.5 tw:text-xs tw:text-red-700"
       >
-        <button
-          class="tw:rounded-md tw:p-1 tw:hover:bg-main-hover"
-          :class="showAuto ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-on-main'"
-          :aria-pressed="showAuto"
-          aria-label="Toggle automated messages"
-          @click="showAuto = !showAuto"
-        >
-          <IconRobot :size="18" />
-        </button>
-      </BaseTooltip>
-      <BaseTooltip content="Open in ticket view">
-        <RouterLink
-          v-if="complaint"
-          :to="getCompanyPath(`/customer-complaints/${complaint.id}`)"
-          class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
-          aria-label="Open in ticket view"
-        >
-          <IconExternalLink :size="18" />
-        </RouterLink>
-      </BaseTooltip>
-      <BaseTooltip :content="detailsOpen ? 'Hide details' : 'Show details'">
-        <button
-          class="tw:hidden tw:lg:block tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
-          :aria-label="detailsOpen ? 'Hide details' : 'Show details'"
-          @click="emit('toggleDetails')"
-        >
-          <component
-            :is="detailsOpen ? IconLayoutSidebarRightCollapse : IconLayoutSidebarRightExpand"
-            :size="18"
-          />
-        </button>
-      </BaseTooltip>
-    </header>
-
-    <!-- Banners -->
-    <div
-      v-if="complaint?.isSpam"
-      class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-red-200 tw:bg-red-50 tw:px-4 tw:py-1.5 tw:text-xs tw:text-red-700"
-    >
-      <IconInfoCircle :size="14" />
-      In the Spam box. Replies are disabled — use “Not spam” to restore it.
-    </div>
-    <div
-      v-else-if="ticket.isSnoozed"
-      class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-amber-200 tw:bg-amber-50 tw:px-4 tw:py-1.5 tw:text-xs tw:text-amber-800"
-    >
-      <IconInfoCircle :size="14" />
-      Snoozed until {{ ticket.snoozedUntilLabel }} — a customer reply wakes it early.
-    </div>
-    <div
-      v-else-if="complaint && ticket.isTerminal"
-      class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-divider tw:bg-main-hover tw:px-4 tw:py-1.5 tw:text-xs tw:text-secondary"
-    >
-      <IconInfoCircle :size="14" />
-      This conversation is
-      {{ complaint.statusId === 'CONVERTED_TO_NC' ? 'converted to an NC' : 'closed' }}. A customer
-      reply reopens it.
-    </div>
-
-    <!-- Messages -->
-    <div
-      ref="scroller"
-      class="tw:flex-1 tw:overflow-y-auto tw:px-4 tw:py-4"
-      @scroll.passive="onScroll"
-    >
-      <div v-if="complaint === undefined" class="tw:flex tw:justify-center tw:py-10">
-        <BaseSpinner />
+        <IconInfoCircle :size="14" />
+        In the Spam box. Replies are disabled — use “Not spam” to restore it.
       </div>
       <div
-        v-else-if="complaint === null"
-        class="tw:py-10 tw:text-center tw:text-sm tw:text-secondary"
+        v-else-if="ticket.isSnoozed"
+        class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-amber-200 tw:bg-amber-50 tw:px-4 tw:py-1.5 tw:text-xs tw:text-amber-800"
       >
-        This conversation no longer exists.
+        <IconInfoCircle :size="14" />
+        Snoozed until {{ ticket.snoozedUntilLabel }} — a customer reply wakes it early.
       </div>
-      <template v-else>
-        <!-- Ticket intro: subject + description as the first "message" -->
-        <div
-          v-if="complaint.description && !messages.length"
-          class="tw:mx-auto tw:mb-4 tw:max-w-2xl tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:p-3 tw:text-sm"
-        >
-          <div class="tw:mb-1 tw:text-xs tw:font-semibold tw:text-secondary">
-            {{ complaint.subject }}
-          </div>
-          <p class="tw:whitespace-pre-wrap">{{ complaint.description }}</p>
+      <div
+        v-else-if="complaint && ticket.isTerminal"
+        class="tw:flex tw:items-center tw:gap-2 tw:border-b tw:border-divider tw:bg-main-hover tw:px-4 tw:py-1.5 tw:text-xs tw:text-secondary"
+      >
+        <IconInfoCircle :size="14" />
+        This conversation is
+        {{ complaint.statusId === 'CONVERTED_TO_NC' ? 'converted to an NC' : 'closed' }}. A customer
+        reply reopens it.
+      </div>
+
+      <!-- Messages -->
+      <div
+        ref="scroller"
+        class="tw:flex-1 tw:overflow-y-auto tw:px-4 tw:py-4"
+        @scroll.passive="onScroll"
+      >
+        <div v-if="complaint === undefined" class="tw:flex tw:justify-center tw:py-10">
+          <BaseSpinner />
         </div>
-
-        <div class="tw:mx-auto tw:flex tw:max-w-3xl tw:flex-col tw:gap-1">
-          <template v-for="(m, i) in visibleMessages" :key="m.id">
-            <div v-if="dayLabel(i)" class="tw:my-3 tw:flex tw:items-center tw:gap-3">
-              <span class="tw:h-px tw:flex-1 tw:bg-divider" />
-              <span
-                class="tw:text-micro tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary"
-              >
-                {{ dayLabel(i) }}
-              </span>
-              <span class="tw:h-px tw:flex-1 tw:bg-divider" />
+        <div
+          v-else-if="complaint === null"
+          class="tw:py-10 tw:text-center tw:text-sm tw:text-secondary"
+        >
+          This conversation no longer exists.
+        </div>
+        <template v-else>
+          <!-- Ticket intro: subject + description as the first "message" -->
+          <div
+            v-if="complaint.description && !messages.length"
+            class="tw:mx-auto tw:mb-4 tw:max-w-2xl tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:p-3 tw:text-sm"
+          >
+            <div class="tw:mb-1 tw:text-xs tw:font-semibold tw:text-secondary">
+              {{ complaint.subject }}
             </div>
+            <p class="tw:whitespace-pre-wrap">{{ complaint.description }}</p>
+          </div>
 
-            <!-- System / auto line -->
-            <div v-if="kindOf(m) === 'system'" class="tw:my-1 tw:flex tw:justify-center">
-              <span
-                class="tw:inline-flex tw:max-w-[80%] tw:items-center tw:gap-1.5 tw:rounded-full tw:bg-main-hover tw:px-3 tw:py-1 tw:text-micro tw:text-secondary"
-                :title="m.createdAt?.formatDate('datetime')"
-              >
-                <IconRobot v-if="m.kind === 'AUTO'" :size="12" />
-                {{ m.body }}
-              </span>
-            </div>
-
-            <!-- Bubble -->
-            <div
-              v-else
-              class="tw:flex tw:flex-col"
-              :class="[
-                kindOf(m) === 'customer' ? 'tw:items-start' : 'tw:items-end',
-                startsGroup(i) ? 'tw:mt-3' : '',
-              ]"
-            >
-              <div
-                v-if="startsGroup(i)"
-                class="tw:mb-1 tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
-              >
-                <IconLock v-if="kindOf(m) === 'note'" :size="12" />
-                <span class="tw:font-medium">{{ sender(m) }}</span>
-                <span v-if="kindOf(m) === 'note'" class="tw:text-amber-700">· internal note</span>
+          <div class="tw:mx-auto tw:flex tw:max-w-3xl tw:flex-col tw:gap-1">
+            <template v-for="(m, i) in visibleMessages" :key="m.id">
+              <div v-if="dayLabel(i)" class="tw:my-3 tw:flex tw:items-center tw:gap-3">
+                <span class="tw:h-px tw:flex-1 tw:bg-divider" />
+                <span
+                  class="tw:text-micro tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary"
+                >
+                  {{ dayLabel(i) }}
+                </span>
+                <span class="tw:h-px tw:flex-1 tw:bg-divider" />
               </div>
+
+              <!-- System / auto line -->
+              <div v-if="kindOf(m) === 'system'" class="tw:my-1 tw:flex tw:justify-center">
+                <span
+                  class="tw:inline-flex tw:max-w-[80%] tw:items-center tw:gap-1.5 tw:rounded-full tw:bg-main-hover tw:px-3 tw:py-1 tw:text-micro tw:text-secondary"
+                  :title="m.createdAt?.formatDate('datetime')"
+                >
+                  <IconRobot v-if="m.kind === 'AUTO'" :size="12" />
+                  {{ m.body }}
+                </span>
+              </div>
+
+              <!-- Bubble -->
               <div
-                class="tw:max-w-[85%] tw:rounded-2xl tw:px-3.5 tw:py-2 tw:text-sm tw:leading-relaxed"
-                :class="
-                  kindOf(m) === 'note'
-                    ? 'tw:rounded-tr-md tw:border tw:border-amber-200 tw:bg-amber-50 tw:text-amber-900'
-                    : kindOf(m) === 'agent'
-                      ? 'tw:rounded-tr-md tw:bg-blue-600 tw:text-white'
-                      : 'tw:rounded-tl-md tw:bg-card tw:border tw:border-divider tw:text-on-main'
-                "
-                :title="m.createdAt?.formatDate('datetime')"
+                v-else
+                class="tw:flex tw:flex-col"
+                :class="[
+                  kindOf(m) === 'customer' ? 'tw:items-start' : 'tw:items-end',
+                  startsGroup(i) ? 'tw:mt-3' : '',
+                ]"
               >
                 <div
-                  v-if="trustedHtml(m)"
-                  class="desk-bubble-html tw:prose tw:prose-sm tw:max-w-none"
-                  :class="kindOf(m) === 'agent' ? 'desk-bubble-html--inverted' : ''"
-                  v-html="trustedHtml(m)"
-                />
-                <span v-else class="tw:whitespace-pre-wrap">{{ m.body }}</span>
+                  v-if="startsGroup(i)"
+                  class="tw:mb-1 tw:flex tw:items-center tw:gap-1.5 tw:text-xs tw:text-secondary"
+                >
+                  <IconLock v-if="kindOf(m) === 'note'" :size="12" />
+                  <span class="tw:font-medium">{{ sender(m) }}</span>
+                  <span v-if="kindOf(m) === 'note'" class="tw:text-amber-700">· internal note</span>
+                </div>
+                <div
+                  class="tw:max-w-[85%] tw:rounded-2xl tw:px-3.5 tw:py-2 tw:text-sm tw:leading-relaxed"
+                  :class="
+                    kindOf(m) === 'note'
+                      ? 'tw:rounded-tr-md tw:border tw:border-amber-200 tw:bg-amber-50 tw:text-amber-900'
+                      : kindOf(m) === 'agent'
+                        ? 'tw:rounded-tr-md tw:bg-blue-600 tw:text-white'
+                        : 'tw:rounded-tl-md tw:bg-main tw:border tw:border-divider tw:text-on-main'
+                  "
+                  :title="m.createdAt?.formatDate('datetime')"
+                >
+                  <div
+                    v-if="trustedHtml(m)"
+                    class="desk-bubble-html tw:prose tw:prose-sm tw:max-w-none"
+                    :class="kindOf(m) === 'agent' ? 'desk-bubble-html--inverted' : ''"
+                    v-html="trustedHtml(m)"
+                  />
+                  <span v-else class="tw:whitespace-pre-wrap">{{ m.body }}</span>
+                </div>
+                <div
+                  v-if="kindOf(m) === 'note' && m.mentionedUserIds?.length"
+                  class="tw:mt-1 tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:text-micro tw:text-secondary"
+                >
+                  <IconAt :size="11" />
+                  <UserBadgeById v-for="uid in m.mentionedUserIds" :key="uid" :userId="uid" />
+                </div>
+                <div
+                  class="tw:mt-0.5 tw:flex tw:items-center tw:gap-1 tw:text-micro tw:text-secondary"
+                >
+                  <span>{{ m.createdAt?.formatDate('time') }}</span>
+                  <template v-if="seenState(m)">
+                    <IconChecks
+                      v-if="seenState(m) === 'seen'"
+                      :size="12"
+                      class="tw:text-blue-600"
+                    />
+                    <IconCheck v-else :size="12" />
+                    <span v-if="seenState(m) === 'seen'">Seen</span>
+                  </template>
+                </div>
               </div>
-              <div
-                v-if="kindOf(m) === 'note' && m.mentionedUserIds?.length"
-                class="tw:mt-1 tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:text-micro tw:text-secondary"
-              >
-                <IconAt :size="11" />
-                <UserBadgeById v-for="uid in m.mentionedUserIds" :key="uid" :userId="uid" />
-              </div>
-              <div
-                class="tw:mt-0.5 tw:flex tw:items-center tw:gap-1 tw:text-micro tw:text-secondary"
-              >
-                <span>{{ m.createdAt?.formatDate('time') }}</span>
-                <template v-if="seenState(m)">
-                  <IconChecks v-if="seenState(m) === 'seen'" :size="12" class="tw:text-blue-600" />
-                  <IconCheck v-else :size="12" />
-                  <span v-if="seenState(m) === 'seen'">Seen</span>
-                </template>
-              </div>
-            </div>
-          </template>
-          <!-- Visitor typing (live socket) -->
-          <div
-            v-if="visitorTyping"
-            class="tw:mt-3 tw:flex tw:flex-col tw:items-start"
-            aria-live="polite"
-          >
-            <div class="tw:mb-1 tw:text-xs tw:text-secondary">{{ displayName }} is typing…</div>
+            </template>
+            <!-- Visitor typing (live socket) -->
             <div
-              class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-2xl tw:rounded-tl-md tw:border tw:border-divider tw:bg-card tw:px-3.5 tw:py-2.5"
+              v-if="visitorTyping"
+              class="tw:mt-3 tw:flex tw:flex-col tw:items-start"
+              aria-live="polite"
             >
-              <span class="desk-typing-dot" /><span class="desk-typing-dot" /><span
-                class="desk-typing-dot"
-              />
+              <div class="tw:mb-1 tw:text-xs tw:text-secondary">{{ displayName }} is typing…</div>
+              <div
+                class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded-2xl tw:rounded-tl-md tw:border tw:border-divider tw:bg-main tw:px-3.5 tw:py-2.5"
+              >
+                <span class="desk-typing-dot" /><span class="desk-typing-dot" /><span
+                  class="desk-typing-dot"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      </template>
-    </div>
+        </template>
+      </div>
 
-    <!-- Composer -->
-    <SupportDeskComposer
-      v-if="complaint && ticket.isEditable && !complaint.isSpam"
-      :complaint="complaint"
-      :disabled="ticket.acting"
-      @typing="sendTyping"
-    />
-    <div
-      v-else-if="complaint && ticket.canUpdate && !complaint.isSpam && ticket.isTerminal"
-      class="tw:flex tw:items-center tw:justify-center tw:gap-3 tw:border-t tw:border-divider tw:bg-card tw:px-4 tw:py-3 tw:text-sm tw:text-secondary"
-    >
-      Closed conversation.
-      <BaseButton
-        v-if="complaint.statusId === 'CLOSED'"
-        size="sm"
-        variant="outline"
+      <!-- Composer -->
+      <SupportDeskComposer
+        v-if="complaint && ticket.isEditable && !complaint.isSpam"
+        :complaint="complaint"
         :disabled="ticket.acting"
-        @click="ticket.reopen"
+        @typing="sendTyping"
+      />
+      <div
+        v-else-if="complaint && ticket.canUpdate && !complaint.isSpam && ticket.isTerminal"
+        class="tw:flex tw:items-center tw:justify-center tw:gap-3 tw:border-t tw:border-divider tw:bg-card tw:px-4 tw:py-3 tw:text-sm tw:text-secondary"
       >
-        Reopen
-      </BaseButton>
-    </div>
+        Closed conversation.
+        <BaseButton
+          v-if="complaint.statusId === 'CLOSED'"
+          size="sm"
+          variant="outline"
+          :disabled="ticket.acting"
+          @click="ticket.reopen"
+        >
+          Reopen
+        </BaseButton>
+      </div>
 
-    <SupportTicketDialogs :complaint="complaint" :ticket="ticket" />
+      <SupportTicketDialogs :complaint="complaint" :ticket="ticket" />
+    </div>
   </section>
 </template>
 
