@@ -155,7 +155,7 @@ function itemClass(active) {
           <span>Team inboxes</span>
           <RouterLink
             v-if="canConfigure"
-            :to="getCompanyPath('/complaint-settings')"
+            :to="getCompanyPath('/desk/settings')"
             class="tw:rounded tw:p-0.5 tw:hover:bg-main-hover"
             aria-label="Manage brands"
           >
@@ -185,7 +185,7 @@ function itemClass(active) {
       </template>
       <div v-else-if="brands.length === 1 && canConfigure" class="tw:mt-4 tw:px-2">
         <RouterLink
-          :to="getCompanyPath('/complaint-settings')"
+          :to="getCompanyPath('/desk/settings')"
           class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary tw:hover:text-primary"
         >
           <IconBuildingStore :size="14" />
@@ -198,7 +198,7 @@ function itemClass(active) {
     <div class="tw:border-t tw:border-divider tw:p-2 tw:flex tw:flex-col tw:gap-1">
       <RouterLink
         v-if="canConfigure"
-        :to="getCompanyPath('/complaint-settings?tab=outbound')"
+        :to="getCompanyPath('/desk/settings?tab=outbound')"
         :class="itemClass(false)"
       >
         <IconSpeakerphone :size="16" />
@@ -206,7 +206,7 @@ function itemClass(active) {
       </RouterLink>
       <RouterLink
         v-if="canConfigure"
-        :to="getCompanyPath('/complaint-settings')"
+        :to="getCompanyPath('/desk/settings')"
         :class="itemClass(false)"
       >
         <IconSettings :size="16" />

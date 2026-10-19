@@ -203,7 +203,6 @@ const hashExample = computed(() =>
     "$userHash = hash_hmac('sha256', (string) $user->id, $identitySecret);",
   ].join('\n'),
 )
-watch(editing, () => (identitySecret.value = null))
 
 // Auto-messages + widget options (spec §4.4 / §5). Blank = platform default.
 const AUTO_KEYS = [
@@ -240,6 +239,9 @@ const showDialog = ref(false)
 const editing = ref(null)
 const saving = ref(false)
 const form = ref(blank())
+// Declared after `editing`/`form` (setup runs top-down): forget the revealed
+// secret whenever a different brand is opened.
+watch(editing, () => (identitySecret.value = null))
 const originsText = ref('')
 function blank() {
   return {

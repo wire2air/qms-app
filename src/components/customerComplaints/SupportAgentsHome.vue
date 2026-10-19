@@ -1,7 +1,10 @@
 <script setup>
 import {
+  IconUserPlus,
+  IconMailForward,
+  IconLockOff,
+  IconLockOpen,
   IconHeadphones,
-  IconPlus,
   IconPencil,
   IconTrash,
   IconCircleFilled,
@@ -116,6 +119,71 @@ async function save() {
     saving.value = false
   }
 }
+// ── Invite from the desk (separate population) ──────────────────────────────
+// Creates the person as a user with a SUPPORT role only + seats them as an
+// agent — no trip to QMS Users. Existing QMS users are refused by the server.
+const showInvite = ref(false)
+const inviting = ref(false)
+const invite = ref(blankInvite())
+function blankInvite() {
+  return {
+    email: '',
+    firstName: '',
+    lastName: '',
+    level: 'AGENT',
+    brandIds: brands.value.length === 1 ? [brands.value[0].id] : [],
+    maxConcurrentChats: 3,
+  }
+}
+function openInvite() {
+  invite.value = blankInvite()
+  showInvite.value = true
+}
+async function sendInvite() {
+  if (!invite.value.email.trim() || !invite.value.firstName.trim())
+    return toast.error('Email and first name are required')
+  inviting.value = true
+  try {
+    const out = await post('/v1/services/supportDesk/agents/invite', {
+      ...invite.value,
+      email: invite.value.email.trim(),
+      firstName: invite.value.firstName.trim(),
+      lastName: invite.value.lastName.trim(),
+      maxConcurrentChats: Number(invite.value.maxConcurrentChats) || 3,
+    })
+    showInvite.value = false
+    toast.success(
+      out.created
+        ? `Invitation sent to ${invite.value.email.trim()}`
+        : `${invite.value.email.trim()} added as an agent`,
+    )
+    await loadRoster()
+  } catch (e) {
+    toast.error(e?.message || 'Could not invite')
+  } finally {
+    inviting.value = false
+  }
+}
+async function setAccess(a, active) {
+  const ok = await confirm({
+    title: active
+      ? `Turn sign-in on for ${userName(a.user)}?`
+      : `Turn sign-in off for ${userName(a.user)}?`,
+    message: active
+      ? 'They can sign in to the Support Desk again.'
+      : 'They are signed out everywhere now and cannot sign in until turned back on. Their tickets stay assigned; set them offline too if you want chats re-queued.',
+    okLabel: active ? 'Turn on' : 'Turn off',
+    danger: !active,
+  })
+  if (!ok) return
+  try {
+    await post(`/v1/services/supportDesk/agents/${a.id}/access`, { active })
+    toast.success(active ? 'Sign-in enabled' : 'Sign-in disabled')
+    await loadRoster()
+  } catch (e) {
+    toast.error(e?.message || 'Could not update access')
+  }
+}
 async function forceOffline(a) {
   const ok = await confirm({
     title: `Set ${userName(a.user)} offline?`,
@@ -154,8 +222,11 @@ async function remove(a) {
 <template>
   <PageSection title="Agents" :icon="IconHeadphones" variant="card">
     <template #actions>
-      <BaseButton v-if="canManage" variant="primary" size="sm" @click="openCreate">
-        <IconPlus :size="16" class="tw:mr-1" /> Add agent
+      <BaseButton v-if="canManage" variant="secondary" size="sm" @click="openCreate">
+        <IconUserPlus :size="16" class="tw:mr-1" /> Add existing user
+      </BaseButton>
+      <BaseButton v-if="canManage" variant="primary" size="sm" @click="openInvite">
+        <IconMailForward :size="16" class="tw:mr-1" /> Invite agent
       </BaseButton>
     </template>
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
@@ -180,6 +251,12 @@ async function remove(a) {
             {{ userName(a.user) }}
             <BaseBadge v-if="a.role === 'LEAD'" class="tw:bg-indigo-50 tw:text-indigo-700"
               >Lead</BaseBadge
+            >
+            <BaseBadge
+              v-if="a.user?.userStatusId === 'INACTIVE'"
+              class="tw:bg-amber-50 tw:text-amber-700"
+              :title="a.user?.inviteSent ? 'Invitation sent, not accepted yet' : 'Sign-in is off'"
+              >{{ a.user?.inviteSent ? 'Invited' : 'Sign-in off' }}</BaseBadge
             >
             <BaseBadge v-if="a.available" class="tw:bg-green-50 tw:text-green-700"
               >Available</BaseBadge
@@ -211,6 +288,22 @@ async function remove(a) {
           >
             <IconPower :size="16" />
           </button>
+          <button
+            v-if="a.user?.userStatusId === 'ACTIVE'"
+            class="tw:text-secondary tw:hover:text-red-600"
+            title="Turn sign-in off"
+            @click="setAccess(a, false)"
+          >
+            <IconLockOff :size="16" />
+          </button>
+          <button
+            v-else-if="a.user && !a.user.inviteSent"
+            class="tw:text-secondary tw:hover:text-green-600"
+            title="Turn sign-in on"
+            @click="setAccess(a, true)"
+          >
+            <IconLockOpen :size="16" />
+          </button>
           <button class="tw:text-secondary tw:hover:text-primary" title="Edit" @click="openEdit(a)">
             <IconPencil :size="16" />
           </button>
@@ -223,6 +316,49 @@ async function remove(a) {
     <div v-else-if="!loading" class="tw:text-sm tw:text-secondary tw:italic">
       No agents yet — add the people who work the inbox.
     </div>
+
+    <!-- Invite: user + support role + agent seat in one step -->
+    <BaseDialog v-model="showInvite" title="Invite agent" maxWidth="md">
+      <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <p class="tw:text-sm tw:text-secondary">
+          They get the usual invitation email and sign in with the same login as everyone else, but
+          hold a <strong>Support Desk role only</strong> — never QMS access.
+        </p>
+        <BaseFieldRow :columns="2">
+          <BaseTextInput v-model="invite.firstName" label="First name" />
+          <BaseTextInput v-model="invite.lastName" label="Last name" />
+        </BaseFieldRow>
+        <BaseTextInput v-model="invite.email" type="email" label="Email" />
+        <BaseField label="Role">
+          <BaseSelect
+            v-model="invite.level"
+            :options="[
+              { value: 'AGENT', label: 'Support Agent — works tickets and chats' },
+              { value: 'ADMIN', label: 'Support Admin — also manages brands, agents and settings' },
+            ]"
+            required
+          />
+        </BaseField>
+        <BaseField label="Brands">
+          <BaseSelect
+            v-model="invite.brandIds"
+            :options="brands.map((b) => ({ value: b.id, label: b.name }))"
+            multiple
+          />
+        </BaseField>
+        <BaseField label="Max concurrent chats">
+          <BaseTextInput v-model="invite.maxConcurrentChats" type="number" min="1" max="50" />
+        </BaseField>
+      </div>
+      <template #footer="{ close }">
+        <BaseDialogFooter
+          submitLabel="Send invitation"
+          :loading="inviting"
+          @cancel="close"
+          @submit="sendInvite"
+        />
+      </template>
+    </BaseDialog>
 
     <BaseDialog
       v-model="showDialog"

@@ -303,6 +303,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/desk/settings': RouteRecordInfo<
+      '/desk/settings',
+      '/desk/settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/docs/': RouteRecordInfo<
       '/docs/',
       '/docs',
@@ -1162,6 +1169,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/desk/me.vue': {
       routes:
         | '/desk/me'
+      views:
+        | never
+    }
+    'src/pages/desk/settings.vue': {
+      routes:
+        | '/desk/settings'
       views:
         | never
     }
