@@ -96,7 +96,7 @@ const linkedNcs = useLiveQueryWithDeps(
   { models: ['Nonconformance'], initial: [] },
 )
 
-const open = ref(['assignment', 'attributes', 'user', 'customer', 'recent'])
+const open = ref(['assignment', 'attributes', 'user', 'customer', 'recent', 'quality'])
 const sections = computed(() => [
   { value: 'assignment', title: 'Assignment' },
   { value: 'attributes', title: 'Conversation attributes' },
@@ -108,6 +108,7 @@ const sections = computed(() => [
   },
   ...(complaint.value?.formId ? [{ value: 'form', title: 'Form answers' }] : []),
   { value: 'attachments', title: 'Attachments' },
+  ...(ticket.qaComplaint ? [{ value: 'quality', title: 'Quality' }] : []),
   {
     value: 'nc',
     title: `Linked NC${linkedNcs.value.length ? ` (${linkedNcs.value.length})` : ''}`,
@@ -428,6 +429,32 @@ const CHANNEL_LABEL = {
         <!-- Attachments -->
         <template #attachments>
           <CustomerComplaintAttachmentsPanel :complaintId="complaint.id" :canUpdate="isEditable" />
+        </template>
+
+        <!-- Quality (escalated QMS complaint, read-only here) -->
+        <template #quality>
+          <RouterLink
+            v-if="ticket.qaComplaint"
+            :to="getCompanyPath(`/complaints/${ticket.qaComplaint.id}`)"
+            class="tw:flex tw:items-center tw:justify-between tw:gap-2 tw:rounded-md tw:border tw:border-divider tw:px-2 tw:py-1.5 tw:hover:bg-main-hover"
+          >
+            <div class="tw:min-w-0">
+              <div class="tw:text-micro tw:text-secondary">
+                {{ ticket.qaComplaint.complaintNumber }}
+              </div>
+              <div class="tw:truncate tw:text-xs tw:font-medium">
+                {{ ticket.qaComplaint.subject }}
+              </div>
+              <div class="tw:text-micro tw:text-secondary">
+                {{
+                  ticket.qaComplaint.ownerId
+                    ? 'Accepted by Quality'
+                    : 'Waiting for Quality to accept'
+                }}
+              </div>
+            </div>
+            <ComplaintStatusBadgeById :statusId="ticket.qaComplaint.statusId" />
+          </RouterLink>
         </template>
 
         <!-- Linked NC -->

@@ -230,6 +230,33 @@ async function handleClose() {
   showCloseDialog.value = false
 }
 
+// ─── Escalate to Quality (Support → QMS bridge) ──────────────────────────────
+const showEscalateDialog = ref(false)
+const escalateNote = ref('')
+const qaLink = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ticketId]) => {
+    const rows = await db.RecordLink.where('[fromType+fromId]', [
+      'CustomerComplaint',
+      ticketId,
+    ]).exec()
+    return rows.find((l) => l.toType === 'Complaint') || null
+  },
+  { models: ['RecordLink'], initial: null },
+)
+const qaComplaint = useLiveQueryWithDeps(
+  [() => qaLink.value?.toId ?? null],
+  async (db, [qid]) => (qid ? db.Complaint.findByPk(qid) : null),
+  { models: ['Complaint'], initial: null },
+)
+async function submitEscalate() {
+  const res = await deskAction('escalate', { note: escalateNote.value.trim() || null })
+  if (res) {
+    showEscalateDialog.value = false
+    toast.success(`Escalated to Quality as ${res.complaint?.complaintNumber || 'a complaint'}`)
+  }
+}
+
 // ─── Convert to NC ────────────────────────────────────────────────────────────
 const showConvertDialog = ref(false)
 
@@ -299,8 +326,13 @@ const complaintActions = computed(() =>
       isSpam: !!complaint.value?.isSpam,
       isSnoozed: isSnoozed.value,
       isLiveChat: complaint.value?.channelKind === 'CHAT' && complaint.value?.chatState !== 'ENDED',
+      escalatedTo: qaComplaint.value?.complaintNumber || (qaLink.value ? 'Quality' : null),
     },
     {
+      openEscalate() {
+        escalateNote.value = ''
+        showEscalateDialog.value = true
+      },
       endChat,
       takeOver,
       openSnooze,
@@ -629,6 +661,23 @@ const complaintDetailConfig = computed(() =>
         </div>
       </div>
 
+      <!-- 5b. Quality (escalated QMS complaint) -->
+      <div v-if="qaComplaint" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
+        <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+          Quality
+        </BaseText>
+        <RouterLink
+          :to="getCompanyPath(`/complaints/${qaComplaint.id}`)"
+          class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+        >
+          <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
+            <span class="tw:text-xs tw:text-secondary">{{ qaComplaint.complaintNumber }}</span>
+            <span class="tw:text-sm tw:font-medium tw:truncate">{{ qaComplaint.subject }}</span>
+          </div>
+          <ComplaintStatusBadgeById :statusId="qaComplaint.statusId" />
+        </RouterLink>
+      </div>
+
       <!-- 6. Linked NC -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
         <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
@@ -734,6 +783,25 @@ const complaintDetailConfig = computed(() =>
         :loading="acting"
         @cancel="close"
         @submit="submitSpam"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Escalate to Quality -->
+  <BaseDialog v-model="showEscalateDialog" title="Escalate to Quality" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        Creates a Quality complaint for the QA team with this ticket's subject, description and
+        customer details. QA accepts it and decides whether it becomes an NC or CAPA.
+      </p>
+      <BaseTextarea v-model="escalateNote" :rows="4" placeholder="Note for Quality (optional)…" />
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Escalate"
+        :loading="acting"
+        @cancel="close"
+        @submit="submitEscalate"
       />
     </template>
   </BaseDialog>

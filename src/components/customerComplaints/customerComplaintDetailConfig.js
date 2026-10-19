@@ -1,4 +1,5 @@
 import {
+  IconArrowUpRight,
   IconClipboardList,
   IconTransform,
   IconUserShare,
@@ -62,6 +63,8 @@ export function buildComplaintActions(gates = {}, handlers = {}) {
     isSpam,
     isSnoozed,
     isLiveChat,
+    // QA complaint number when already escalated (action becomes a marker).
+    escalatedTo,
   } = gates
   return [
     {
@@ -164,6 +167,19 @@ export function buildComplaintActions(gates = {}, handlers = {}) {
       visible: !!canUpdate && ['CLOSED', 'RESOLVED'].includes(statusId),
       disabled: !!acting,
       onSelect: handlers.reopen,
+    },
+    {
+      // The Support → Quality bridge (2026-10-19): any ticket-updater (agents
+      // included) can hand a ticket to QA as a NEW QMS complaint. Convert to
+      // NC below stays for people who hold ncr:create themselves.
+      id: 'escalate',
+      label: escalatedTo ? `Escalated · ${escalatedTo}` : 'Escalate to Quality',
+      icon: IconArrowUpRight,
+      variant: 'primary',
+      priority: 52,
+      visible: !!canUpdate && !isSpam && !!statusId && statusId !== 'CONVERTED_TO_NC',
+      disabled: !!acting || !!escalatedTo,
+      onSelect: handlers.openEscalate,
     },
     {
       id: 'convertToNc',

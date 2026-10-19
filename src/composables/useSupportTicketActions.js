@@ -90,6 +90,7 @@ export function useSupportTicketActions(complaint, { onConverted } = {}) {
 
   // ── Dialog state ─────────────────────────────────────────────────────────
   const dialogs = reactive({
+    escalate: false,
     assign: false,
     snooze: false,
     spam: false,
@@ -101,6 +102,26 @@ export function useSupportTicketActions(complaint, { onConverted } = {}) {
   const snoozeUntil = ref(null)
   const spamLearn = ref({ email: true, domain: false, allBrands: false })
   const closeComment = ref('')
+  const escalateNote = ref('')
+
+  // The QA complaint this ticket was escalated to (record_links ESCALATED).
+  const qaLink = useLiveQueryWithDeps(
+    [() => id.value],
+    async (db, [ticketId]) => {
+      if (!ticketId) return null
+      const rows = await db.RecordLink.where('[fromType+fromId]', [
+        'CustomerComplaint',
+        ticketId,
+      ]).exec()
+      return rows.find((l) => l.toType === 'Complaint') || null
+    },
+    { models: ['RecordLink'], initial: null },
+  )
+  const qaComplaint = useLiveQueryWithDeps(
+    [() => qaLink.value?.toId ?? null],
+    async (db, [qid]) => (qid ? db.Complaint.findByPk(qid) : null),
+    { models: ['Complaint'], initial: null },
+  )
 
   // ── Verbs ────────────────────────────────────────────────────────────────
   function openAssign() {
@@ -196,6 +217,16 @@ export function useSupportTicketActions(complaint, { onConverted } = {}) {
   async function reopen() {
     if (await lifecycle('reopen')) toast.success('Reopened')
   }
+  function openEscalate() {
+    escalateNote.value = ''
+    dialogs.escalate = true
+  }
+  async function submitEscalate() {
+    const res = await desk('escalate', { note: escalateNote.value.trim() || null })
+    if (!res) return
+    dialogs.escalate = false
+    toast.success(`Escalated to Quality as ${res.complaint?.complaintNumber || 'a complaint'}`)
+  }
   function openConvert() {
     dialogs.convert = true
   }
@@ -229,8 +260,10 @@ export function useSupportTicketActions(complaint, { onConverted } = {}) {
         isSpam: !!complaint.value?.isSpam,
         isSnoozed: isSnoozed.value,
         isLiveChat: isLiveChat.value,
+        escalatedTo: qaComplaint.value?.complaintNumber || (qaLink.value ? 'Quality' : null),
       },
       {
+        openEscalate,
         endChat,
         takeOver,
         openSnooze,
@@ -260,6 +293,8 @@ export function useSupportTicketActions(complaint, { onConverted } = {}) {
     snoozeUntil,
     spamLearn,
     closeComment,
+    escalateNote,
+    qaComplaint,
     senderDomain,
     // gates
     canUpdate,
@@ -289,6 +324,8 @@ export function useSupportTicketActions(complaint, { onConverted } = {}) {
     openClose,
     submitClose,
     reopen,
+    openEscalate,
+    submitEscalate,
     openConvert,
     converted,
     openAudit,

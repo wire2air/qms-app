@@ -106,6 +106,30 @@ const auditIncludeEntities = computed(() =>
     </template>
   </BaseDialog>
 
+  <!-- Escalate to Quality -->
+  <BaseDialog v-model="ticket.dialogs.escalate" title="Escalate to Quality" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        Creates a Quality complaint for the QA team with this ticket's subject, description and
+        customer details. QA accepts it and decides whether it becomes an NC or CAPA; you keep
+        working the ticket here and can follow the complaint's status in the details.
+      </p>
+      <BaseTextarea
+        v-model="ticket.escalateNote"
+        :rows="4"
+        placeholder="Note for Quality (optional) — what the customer reported, lot numbers, what you already told them…"
+      />
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Escalate"
+        :loading="ticket.acting"
+        @cancel="close"
+        @submit="ticket.submitEscalate"
+      />
+    </template>
+  </BaseDialog>
+
   <!-- Close -->
   <BaseDialog v-model="ticket.dialogs.close" title="Close ticket" maxWidth="md">
     <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
