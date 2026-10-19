@@ -20,6 +20,31 @@ const me = useLiveQueryWithDeps(
   { models: ['SupportAgent'] },
 )
 
+// Brands this agent serves — one optional signature override each.
+const brandLinks = useLiveQueryWithDeps(
+  [() => me.value?.id ?? null],
+  async (db, [agentId]) => (agentId ? db.SupportAgentBrand.where('agentId', agentId).exec() : []),
+  { models: ['SupportAgentBrand'], initial: [] },
+)
+const brands = useLiveQuery((db) => db.SupportBrand.where().exec(), {
+  models: ['SupportBrand'],
+  initial: [],
+})
+const myBrands = computed(() =>
+  brandLinks.value
+    .map((l) => ({ link: l, brand: brands.value.find((b) => b.id === l.brandId) }))
+    .filter((x) => x.brand),
+)
+const brandSignatures = ref({})
+watch(
+  brandLinks,
+  (links) => {
+    const next = { ...brandSignatures.value }
+    for (const l of links) if (!(l.brandId in next)) next[l.brandId] = l.signatureHtml || ''
+    brandSignatures.value = next
+  },
+  { immediate: true },
+)
 const form = ref(null)
 const loadedFor = ref(null)
 watch(
@@ -57,7 +82,13 @@ async function save() {
       signatureHtml: form.value.signatureHtml || null,
       notifyMode: form.value.notifyMode,
       notificationPrefs: form.value.notificationPrefs,
+      brandSignatures: Object.fromEntries(
+        Object.entries(brandSignatures.value).map(([k, v]) => [k, v?.trim() || null]),
+      ),
     })
+    for (const l of brandLinks.value)
+      if (l.brandId in brandSignatures.value)
+        l.signatureHtml = brandSignatures.value[l.brandId]?.trim() || null
     // The signature is not an audited field, so no sync event follows — patch
     // the local record so the page (and the composer) see it right away.
     if (me.value && agent) {
@@ -144,11 +175,37 @@ const name = computed(() => {
           <BaseCard>
             <BaseText variant="overline" class="tw:mb-1 tw:block">Email signature</BaseText>
             <p class="tw:mb-3 tw:text-xs tw:text-secondary">
-              Appended to the replies you send by email. Chat replies never carry it.
+              Appended to the replies you send by email; chat replies never carry it. Order: your
+              signature for the ticket's brand → this general one → the brand's default. Variables
+              work everywhere: <code>{agent.name}</code> <code>{brand.name}</code>.
             </p>
             <div class="tw:rounded-lg tw:border tw:border-divider">
               <BaseRichTextEditor v-model="form.signatureHtml" placeholder="Kind regards, …" />
             </div>
+            <template v-if="myBrands.length > 1">
+              <BaseText variant="overline" class="tw:mb-1 tw:mt-4 tw:block">Per brand</BaseText>
+              <p class="tw:mb-3 tw:text-xs tw:text-secondary">
+                You serve more than one brand — sign differently for each. Leave one empty to fall
+                back to the general signature above.
+              </p>
+              <div class="tw:flex tw:flex-col tw:gap-3">
+                <div v-for="x in myBrands" :key="x.brand.id">
+                  <div class="tw:mb-1 tw:flex tw:items-center tw:gap-1.5 tw:text-sm tw:font-medium">
+                    <span
+                      class="tw:inline-block tw:h-2 tw:w-2 tw:rounded-full"
+                      :style="{ background: x.brand.accentColor || '#1f6feb' }"
+                    />
+                    {{ x.brand.name }}
+                  </div>
+                  <div class="tw:rounded-lg tw:border tw:border-divider">
+                    <BaseRichTextEditor
+                      v-model="brandSignatures[x.brand.id]"
+                      :placeholder="`Signature when replying as ${x.brand.name}…`"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
           </BaseCard>
 
           <BaseCard>

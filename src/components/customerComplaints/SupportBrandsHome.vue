@@ -249,6 +249,7 @@ function blank() {
     slug: '',
     fromName: '',
     fromEmail: '',
+    signatureHtml: '',
     defaultChannelId: null,
     accentColor: '#1f6feb',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
@@ -277,6 +278,7 @@ function openEdit(b) {
     slug: b.slug,
     fromName: b.fromName || '',
     fromEmail: b.fromEmail || '',
+    signatureHtml: b.signatureHtml || '',
     defaultChannelId: b.defaultChannelId,
     accentColor: b.accentColor || '#1f6feb',
     timezone: b.timezone || 'UTC',
@@ -305,6 +307,7 @@ function payload() {
     slug: form.value.slug.trim() || undefined,
     fromName: form.value.fromName.trim() || null,
     fromEmail: form.value.fromEmail.trim() || null,
+    signatureHtml: form.value.signatureHtml?.trim() || null,
     fallbackEmail: form.value.fallbackEmail.trim() || null,
     unansweredAlertMinutes: Number(form.value.unansweredAlertMinutes) || 5,
     allowedOrigins: origins,
@@ -324,8 +327,13 @@ async function save() {
   if (!form.value.name.trim()) return toast.error('Name is required')
   saving.value = true
   try {
-    if (editing.value) await put(`/v1/services/supportDesk/brands/${editing.value.id}`, payload())
-    else await post('/v1/services/supportDesk/brands', payload())
+    if (editing.value) {
+      await put(`/v1/services/supportDesk/brands/${editing.value.id}`, payload())
+      // signature_html is not an audited field (worker lint forbids *Html
+      // diffs), so a signature-only change produces no sync event — patch the
+      // local record so the next open shows what was just saved.
+      editing.value.signatureHtml = payload().signatureHtml
+    } else await post('/v1/services/supportDesk/brands', payload())
     showDialog.value = false
     toast.success(editing.value ? 'Brand updated' : 'Brand created')
   } catch (e) {
@@ -713,6 +721,18 @@ async function copyKey(b) {
           <BaseField label="From email"
             ><BaseTextInput v-model="form.fromEmail" placeholder="support@acme.com"
           /></BaseField>
+          <BaseField
+            label="Default email signature"
+            class="tw:md:col-span-2"
+            help="Appended to email replies sent as this brand when the agent has no signature of their own. Variables: {agent.name} {agent.firstName} {agent.email} {brand.name}"
+          >
+            <div class="tw:rounded-lg tw:border tw:border-divider">
+              <BaseRichTextEditor
+                v-model="form.signatureHtml"
+                placeholder="Kind regards, {agent.name} · {brand.name} Support"
+              />
+            </div>
+          </BaseField>
           <BaseField label="Default email channel">
             <BaseSelect
               v-model="form.defaultChannelId"

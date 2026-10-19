@@ -1,16 +1,7 @@
 <script setup>
-import {
-  IconSend,
-  IconLock,
-  IconMessage2,
-  IconChevronDown,
-  IconMessageCircle,
-  IconMail,
-  IconAt,
-} from '@tabler/icons-vue'
+import { IconSend, IconLock, IconMessageCircle, IconMail, IconAt } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
-import { currentSession } from '@/utils/currentSession.js'
 
 /**
  * Inbox composer: Reply ↔ Note, rich text, canned responses, ⌘/Ctrl+Enter to
@@ -91,30 +82,35 @@ function onKeydown(e) {
   }
 }
 
-// ── Canned responses ────────────────────────────────────────────────────────
-const canned = useLiveQuery(
-  async (db) =>
-    (await db.ComplaintCannedResponse.where().exec()).sort((a, b) => a.name.localeCompare(b.name)),
-  { models: ['ComplaintCannedResponse'], initial: [] },
-)
-function substitute(t) {
-  const s = currentSession.value
-  const agent = [s?.firstName, s?.lastName].filter(Boolean).join(' ') || 'Support'
-  return String(t ?? '')
-    .replaceAll('{{customer.name}}', props.complaint.customerName || 'there')
-    .replaceAll('{{ticket.number}}', props.complaint.complaintNumber || '')
-    .replaceAll('{{agent.name}}', agent)
+// ── Macros (canned responses) + the identity we reply with ─────────────────
+function insertMacro(snippet) {
+  html.value = html.value?.trim() ? `${html.value}${snippet}` : snippet
+  editorRef.value?.editor?.commands.setContent(html.value)
 }
-const cannedMenu = computed(() =>
-  canned.value.map((r) => ({
-    name: r.name,
-    click: () => {
-      const c = substitute(r.bodyHtml || r.body)
-      html.value = html.value?.trim() ? `${html.value}${c}` : c
-      editorRef.value?.editor?.commands.setContent(html.value)
-    },
-  })),
+const brand = useLiveQueryWithDeps(
+  [() => props.complaint.brandId ?? null],
+  async (db, [id]) => (id ? db.SupportBrand.findByPk(id) : null),
+  { models: ['SupportBrand'], initial: null },
 )
+// Email tickets reply from the channel that received them (REST
+// GET /customerComplaints/emailChannels is the admin list; the ticket's own
+// channel is enough here) — show agents which address and brand they sign as.
+const channels = ref([])
+onMounted(async () => {
+  if (props.complaint.channelKind === 'CHAT') return
+  try {
+    const { get } = await import('@/api')
+    const out = await get('/v1/services/customerComplaints/emailChannels', { showError: false })
+    channels.value = out.channels || out.emailChannels || []
+  } catch {
+    /* hint only */
+  }
+})
+const replyFrom = computed(() => {
+  const ch = channels.value.find((c) => c.id === props.complaint.channelId)
+  if (!ch) return null
+  return ch.publicEmail || ch.fromAddress || ch.address || ch.name || null
+})
 
 const placeholder = computed(() => {
   if (mode.value === 'INTERNAL_NOTE') return 'Internal note — only your team sees this…'
@@ -181,16 +177,19 @@ const placeholder = computed(() => {
     </div>
 
     <div class="tw:mt-2 tw:flex tw:items-center tw:justify-between">
-      <BaseMenu v-if="cannedMenu.length" :items="cannedMenu" flip>
-        <template #trigger>
-          <BaseButton variant="outline" size="sm">
-            <IconMessage2 :size="14" class="tw:mr-1" />
-            Canned
-            <IconChevronDown :size="12" class="tw:ml-1" />
-          </BaseButton>
-        </template>
-      </BaseMenu>
-      <span v-else />
+      <div class="tw:flex tw:min-w-0 tw:items-center tw:gap-3">
+        <SupportMacroPicker :complaint="complaint" @insert="insertMacro" />
+        <span
+          v-if="mode === 'PUBLIC_REPLY' && (brand || replyFrom)"
+          class="tw:truncate tw:text-micro tw:text-secondary"
+          :title="replyFrom ? `Sent from ${replyFrom}` : ''"
+        >
+          <template v-if="brand"
+            >as <strong class="tw:font-medium tw:text-on-main">{{ brand.name }}</strong></template
+          >
+          <template v-if="replyFrom"> · from {{ replyFrom }}</template>
+        </span>
+      </div>
       <BaseButton
         :variant="mode === 'INTERNAL_NOTE' ? 'secondary' : 'primary'"
         size="sm"

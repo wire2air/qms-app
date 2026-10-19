@@ -81,6 +81,15 @@ const visitor = useLiveQueryWithDeps(
   async (db, [id]) => (id ? db.SupportVisitor.findByPk(id) : null),
   { models: ['SupportVisitor'], initial: null },
 )
+const brand = useLiveQueryWithDeps(
+  [() => complaint.value?.brandId ?? null],
+  async (db, [id]) => (id ? db.SupportBrand.findByPk(id) : null),
+  { models: ['SupportBrand'], initial: null },
+)
+const brandCount = useLiveQuery(async (db) => (await db.SupportBrand.where().exec()).length, {
+  models: ['SupportBrand'],
+  initial: 0,
+})
 const displayName = computed(
   () =>
     complaint.value?.customerName ||
@@ -189,6 +198,17 @@ watch(
         <div class="tw:min-w-0 tw:flex-1">
           <div class="tw:flex tw:items-center tw:gap-2">
             <h2 class="tw:truncate tw:text-sm tw:font-semibold">{{ displayName }}</h2>
+            <span
+              v-if="brand && brandCount > 1"
+              class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:text-micro tw:text-secondary"
+              :title="`Brand: ${brand.name}`"
+            >
+              <span
+                class="tw:inline-block tw:h-1.5 tw:w-1.5 tw:rounded-full"
+                :style="{ background: brand.accentColor || '#1f6feb' }"
+              />
+              {{ brand.name }}
+            </span>
             <SupportVisitorKindBadge
               v-if="visitor"
               :kind="visitor.visitorKind"

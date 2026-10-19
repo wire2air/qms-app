@@ -1226,6 +1226,7 @@ declare module 'vue' {
     SupportDeskShell: typeof import('./src/components/supportDesk/SupportDeskShell.vue')['default']
     SupportDeskThread: typeof import('./src/components/supportDesk/SupportDeskThread.vue')['default']
     SupportHoursEditor: typeof import('./src/components/customerComplaints/SupportHoursEditor.vue')['default']
+    SupportMacroPicker: typeof import('./src/components/supportDesk/SupportMacroPicker.vue')['default']
     SupportOutboundHome: typeof import('./src/components/supportDesk/SupportOutboundHome.vue')['default']
     SupportTicketDialogs: typeof import('./src/components/supportDesk/SupportTicketDialogs.vue')['default']
     SupportVisitorKindBadge: typeof import('./src/components/supportDesk/SupportVisitorKindBadge.vue')['default']

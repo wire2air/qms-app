@@ -43,6 +43,7 @@ export class SupportBrand extends BaseModel {
   @Property({ type: Object }) settings = /** @type {Object} */ ({})
   @Property({ type: Object }) autoMessages = /** @type {Object} */ ({})
   @Property({ type: Object }) widget = /** @type {Object} */ ({})
+  @Property({ type: String }) signatureHtml = /** @type {String} */ (null)
   @Property({ type: Boolean }) isDefault = false
   @Property({ type: String }) stateId = 'ACTIVE'
   @Property({ type: String }) createdBy = /** @type {String} */ (null)
