@@ -31,6 +31,7 @@ export class SupportVisitor extends BaseModel {
   @Property({ type: String }) visitorKind = 'VISITOR'
   @Property({ type: Object }) attributes = /** @type {Object} */ ({})
   @Property({ type: Boolean }) identityVerified = false
+  @Property({ type: String }) mergedIntoId = /** @type {String} */ (null)
   @Property({ type: String }) customerId = /** @type {String} */ (null)
   @Property({ type: String }) organizationId = /** @type {String} */ (null)
   @Property({ type: String }) lastPageUrl = /** @type {String} */ (null)
