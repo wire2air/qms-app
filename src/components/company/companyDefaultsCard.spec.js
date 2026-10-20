@@ -91,10 +91,17 @@ function workerDefaults() {
   }
 }
 
+// Fake timers for EVERY test, drained before teardown. The card's 500 ms
+// debounced save survives unmount and reads the shared ref when it fires, so a
+// real-timer edit in one test used to land its save() on the NEXT test's
+// company once the runner was slow enough (CI) — a phantom call in
+// "a row already loaded at mount".
 beforeEach(() => {
+  vi.useFakeTimers()
   h.company.value = undefined
 })
-afterEach(() => {
+afterEach(async () => {
+  await vi.runOnlyPendingTimersAsync()
   for (const w of mounted.splice(0)) w.unmount()
   vi.useRealTimers()
   document.body.innerHTML = ''
@@ -181,7 +188,6 @@ describe('companyDefaultsCard — overdue reminders', () => {
 
 describe('companyDefaultsCard — autosave', () => {
   it('saves once, after the debounce, when a field changes', async () => {
-    vi.useFakeTimers()
     const company = makeCompany({})
     const w = await mountWith(company)
     await inputByLabel(w, 'Default SLA (days)').setValue('7')
@@ -194,7 +200,6 @@ describe('companyDefaultsCard — autosave', () => {
   // BL-03: opening the Defaults tab sent two updateCompany mutations. Nothing
   // the user did — the writes came from the engine and the page shell.
   it('looking writes nothing: a foreign-key backfill and an engine re-hydration are not edits', async () => {
-    vi.useFakeTimers()
     const company = makeCompany({ defaultSla: 5 })
     await mountWith(company)
     // companySettingsHome's live query backfills this on every re-run.
@@ -211,7 +216,6 @@ describe('companyDefaultsCard — autosave', () => {
   })
 
   it('an edit after a re-hydration still saves (the new object becomes the baseline)', async () => {
-    vi.useFakeTimers()
     const company = makeCompany({ defaultSla: 5 })
     const w = await mountWith(company)
     company.settings = { defaultSla: 6 }
@@ -223,7 +227,6 @@ describe('companyDefaultsCard — autosave', () => {
   })
 
   it('a row already loaded at mount: the FIRST edit saves (no skipped trigger)', async () => {
-    vi.useFakeTimers()
     const company = makeCompany({})
     h.company.value = company
     const w = mount(CompanyDefaultsCard, { attachTo: document.body })
@@ -237,7 +240,6 @@ describe('companyDefaultsCard — autosave', () => {
   })
 
   it('switching the chase off autosaves', async () => {
-    vi.useFakeTimers()
     const company = makeCompany({})
     const w = await mountWith(company)
     await switchByName(w, 'Chase overdue tasks').trigger('click')
@@ -246,7 +248,6 @@ describe('companyDefaultsCard — autosave', () => {
   })
 
   it('surfaces a failed save in the card header, with the reason', async () => {
-    vi.useFakeTimers()
     const company = makeCompany({}, vi.fn(async () => Promise.reject(new Error('Network request failed'))))
     const w = await mountWith(company)
     await inputByLabel(w, 'Default SLA (days)').setValue('9')
