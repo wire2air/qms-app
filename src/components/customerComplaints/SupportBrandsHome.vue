@@ -264,7 +264,12 @@ function blank() {
     widget: { ...WIDGET_DEFAULTS },
   }
 }
+const errors = ref({})
+const validationErrors = computed(() =>
+  errors.value.name ? [{ id: 'brand-name', label: 'Name', message: errors.value.name }] : [],
+)
 function openCreate() {
+  errors.value = {}
   tab.value = 'general'
   editing.value = null
   form.value = blank()
@@ -272,6 +277,7 @@ function openCreate() {
   showDialog.value = true
 }
 function openEdit(b) {
+  errors.value = {}
   editing.value = b
   form.value = {
     name: b.name,
@@ -324,7 +330,12 @@ function payload() {
   }
 }
 async function save() {
-  if (!form.value.name.trim()) return toast.error('Name is required')
+  errors.value = {}
+  if (!form.value.name.trim()) {
+    errors.value = { name: 'Name is required' }
+    tab.value = 'general'
+    return
+  }
   saving.value = true
   try {
     if (editing.value) {
@@ -432,9 +443,7 @@ async function copyKey(b) {
               }}</template
             >
           </div>
-          <div
-            class="tw:mt-1 tw:flex tw:items-center tw:gap-1 tw:font-mono tw:text-xs tw:text-secondary"
-          >
+          <div class="tw:mt-1 tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary">
             <IconKey :size="12" /> {{ b.publishableKey }}
             <button
               type="button"
@@ -499,6 +508,7 @@ async function copyKey(b) {
           ]"
           ariaLabel="Brand settings"
         />
+        <ValidationSummary v-if="validationErrors.length" :errors="validationErrors" />
         <template v-if="tab === 'widget'">
           <!-- Install wizard -->
           <div class="tw:rounded-lg tw:border tw:border-divider tw:p-3">
@@ -666,29 +676,23 @@ async function copyKey(b) {
             <BaseField label="Greeting subtitle" class="tw:md:col-span-2"
               ><BaseTextInput v-model="form.widget.greetingSubtitle"
             /></BaseField>
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-              ><BaseCheckbox v-model="form.widget.requireName" /> Ask for a name before
-              chatting</label
+            <BaseCheckbox v-model="form.widget.requireName"
+              >Ask for a name before chatting</BaseCheckbox
             >
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-              ><BaseCheckbox v-model="form.widget.requireEmail" /> Require an email before
-              chatting</label
+            <BaseCheckbox v-model="form.widget.requireEmail"
+              >Require an email before chatting</BaseCheckbox
             >
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-              ><BaseCheckbox v-model="form.widget.collectEmailWhenOffline" /> Require an email on
-              the offline form</label
+            <BaseCheckbox v-model="form.widget.collectEmailWhenOffline"
+              >Require an email on the offline form</BaseCheckbox
             >
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-              ><BaseCheckbox v-model="form.widget.showBusinessHours" /> Show business hours in the
-              widget</label
+            <BaseCheckbox v-model="form.widget.showBusinessHours"
+              >Show business hours in the widget</BaseCheckbox
             >
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-              ><BaseCheckbox v-model="form.widget.ratingEnabled" /> Ask for a rating when a chat
-              ends</label
+            <BaseCheckbox v-model="form.widget.ratingEnabled"
+              >Ask for a rating when a chat ends</BaseCheckbox
             >
-            <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-              ><BaseCheckbox v-model="form.widget.transcriptEnabled" /> Offer an emailed
-              transcript</label
+            <BaseCheckbox v-model="form.widget.transcriptEnabled"
+              >Offer an emailed transcript</BaseCheckbox
             >
             <BaseField label="“Still waiting” after (seconds)"
               ><BaseTextInput v-model="form.widget.waitingDelaySeconds" type="number" min="10"
@@ -711,7 +715,9 @@ async function copyKey(b) {
           </BaseField>
         </template>
         <BaseFieldRow v-if="tab === 'general'" :columns="2">
-          <BaseField label="Name" required><BaseTextInput v-model="form.name" /></BaseField>
+          <BaseField id="brand-name" label="Name" required :error="errors.name">
+            <BaseTextInput v-model="form.name" />
+          </BaseField>
           <BaseField label="Slug"
             ><BaseTextInput v-model="form.slug" placeholder="auto from name"
           /></BaseField>
@@ -775,15 +781,12 @@ async function copyKey(b) {
         </BaseField>
 
         <BaseFieldRow v-if="tab === 'general'" :columns="2">
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-            ><BaseCheckbox v-model="form.autoAssign" /> Auto-assign new chats</label
+          <BaseCheckbox v-model="form.autoAssign">Auto-assign new chats</BaseCheckbox>
+          <BaseCheckbox v-model="form.autoAssignEmail"
+            >Auto-assign email / form tickets</BaseCheckbox
           >
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-            ><BaseCheckbox v-model="form.autoAssignEmail" /> Auto-assign email / form tickets</label
-          >
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
-            ><BaseCheckbox v-model="form.requeueChatOnOffline" /> Re-queue open chats when an agent
-            goes offline</label
+          <BaseCheckbox v-model="form.requeueChatOnOffline"
+            >Re-queue open chats when an agent goes offline</BaseCheckbox
           >
           <BaseField label="Unanswered chat alert after (minutes)">
             <BaseTextInput v-model="form.unansweredAlertMinutes" type="number" min="1" max="1440" />

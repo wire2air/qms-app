@@ -138,7 +138,9 @@ const name = computed(() => {
         <IconArrowLeft :size="18" />
       </button>
       <div class="tw:flex-1">
-        <h1 class="tw:text-sm tw:font-semibold">My support preferences</h1>
+        <BaseHeading :level="1" class="tw:text-sm tw:font-semibold"
+          >My support preferences</BaseHeading
+        >
         <p class="tw:text-xs tw:text-secondary">{{ name }}</p>
       </div>
       <SupportAgentPresence />
@@ -211,14 +213,13 @@ const name = computed(() => {
           <BaseCard>
             <BaseText variant="overline" class="tw:mb-3 tw:block">Notifications</BaseText>
             <div class="tw:flex tw:flex-col tw:gap-2">
-              <label
+              <BaseCheckbox
                 v-for="t in TOGGLES"
                 :key="t.key"
-                class="tw:flex tw:items-center tw:gap-2 tw:text-sm"
+                v-model="form.notificationPrefs[t.key]"
               >
-                <BaseCheckbox v-model="form.notificationPrefs[t.key]" />
                 {{ t.label }}
-              </label>
+              </BaseCheckbox>
             </div>
             <BaseField label="Email cadence" class="tw:mt-3">
               <BaseSelect

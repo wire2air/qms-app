@@ -61,7 +61,9 @@ watch(
       >
         <IconArrowLeft :size="18" />
       </button>
-      <h1 class="tw:flex-1 tw:text-sm tw:font-semibold">Support Desk settings</h1>
+      <BaseHeading :level="1" class="tw:flex-1 tw:text-sm tw:font-semibold"
+        >Support Desk settings</BaseHeading
+      >
       <SupportAgentPresence />
     </header>
 

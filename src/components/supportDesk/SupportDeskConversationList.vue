@@ -159,7 +159,9 @@ watch(
         </div>
       </template>
       <template v-else>
-        <h1 class="tw:flex-1 tw:truncate tw:text-base tw:font-semibold">{{ title }}</h1>
+        <BaseHeading :level="1" class="tw:flex-1 tw:truncate tw:text-base tw:font-semibold">{{
+          title
+        }}</BaseHeading>
         <button
           class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
           aria-label="Search"

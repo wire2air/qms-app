@@ -197,7 +197,9 @@ watch(
         </button>
         <div class="tw:min-w-0 tw:flex-1">
           <div class="tw:flex tw:items-center tw:gap-2">
-            <h2 class="tw:truncate tw:text-sm tw:font-semibold">{{ displayName }}</h2>
+            <BaseHeading :level="2" class="tw:truncate tw:text-sm tw:font-semibold">{{
+              displayName
+            }}</BaseHeading>
             <span
               v-if="brand && brandCount > 1"
               class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:bg-main-hover tw:px-1.5 tw:py-0.5 tw:text-micro tw:text-secondary"

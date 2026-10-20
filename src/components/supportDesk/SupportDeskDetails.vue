@@ -315,7 +315,7 @@ const CHANNEL_LABEL = {
             <dt class="tw:text-secondary">Company</dt>
             <dd>{{ visitor.externalCompany || '—' }}</dd>
             <dt class="tw:text-secondary">User id</dt>
-            <dd class="tw:break-all tw:font-mono">{{ visitor.externalUserId || '—' }}</dd>
+            <dd class="tw:break-all">{{ visitor.externalUserId || '—' }}</dd>
             <template v-for="[k, v] in visitorAttributes" :key="k">
               <dt class="tw:text-secondary tw:break-all">{{ k }}</dt>
               <dd class="tw:break-all">{{ v }}</dd>

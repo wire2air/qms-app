@@ -31,12 +31,23 @@ const KIND_LABEL = { EMAIL: 'Email', DOMAIN: 'Domain', VISITOR: 'Visitor', IP_HA
 const showDialog = ref(false)
 const saving = ref(false)
 const form = ref({ kind: 'EMAIL', value: '', brandId: null, reason: '' })
+const errors = ref({})
+const validationErrors = computed(() =>
+  errors.value.value
+    ? [{ id: 'blocklist-value', label: 'Value', message: errors.value.value }]
+    : [],
+)
 function openCreate() {
+  errors.value = {}
   form.value = { kind: 'EMAIL', value: '', brandId: null, reason: '' }
   showDialog.value = true
 }
 async function save() {
-  if (!form.value.value.trim()) return toast.error('Value is required')
+  errors.value = {}
+  if (!form.value.value.trim()) {
+    errors.value = { value: 'Value is required' }
+    return
+  }
   saving.value = true
   try {
     await post('/v1/services/supportDesk/blocklist', {
@@ -91,7 +102,7 @@ async function remove(e) {
           KIND_LABEL[e.kind] || e.kind
         }}</BaseBadge>
         <div class="tw:min-w-0 tw:flex-1">
-          <div class="tw:truncate tw:font-mono tw:text-sm">{{ e.value }}</div>
+          <div class="tw:truncate tw:text-sm">{{ e.value }}</div>
           <div class="tw:text-xs tw:text-secondary">
             {{ brandName(e.brandId) }}<template v-if="e.reason"> · {{ e.reason }}</template>
             <template v-if="e.createdAt"> · {{ e.createdAt.formatDate('date') }}</template>
@@ -111,6 +122,7 @@ async function remove(e) {
 
     <BaseDialog v-model="showDialog" title="Block sender" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <ValidationSummary v-if="validationErrors.length" :errors="validationErrors" />
         <BaseField label="Kind">
           <BaseSelect
             v-model="form.kind"
@@ -120,7 +132,7 @@ async function remove(e) {
             ]"
           />
         </BaseField>
-        <BaseField label="Value" required>
+        <BaseField id="blocklist-value" label="Value" required :error="errors.value">
           <BaseTextInput
             v-model="form.value"
             :placeholder="form.kind === 'DOMAIN' ? 'spammer.example' : 'someone@spammer.example'"

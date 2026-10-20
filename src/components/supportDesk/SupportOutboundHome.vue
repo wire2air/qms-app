@@ -495,10 +495,9 @@ function ruleSummary(r) {
               />
             </BaseField>
           </div>
-          <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-            <BaseCheckbox v-model="form.rules.officeHoursOnly" />
-            Only during the brand's business hours
-          </label>
+          <BaseCheckbox v-model="form.rules.officeHoursOnly"
+            >Only during the brand's business hours</BaseCheckbox
+          >
           <div class="tw:grid tw:gap-3 tw:sm:grid-cols-2">
             <BaseField label="Start sending">
               <BaseDateField v-model="form.startsAt" mode="datetime" placeholder="Immediately" />

@@ -66,6 +66,15 @@ function userName(u) {
   return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '—'
 }
 
+// Required-field validation surfaces through ValidationSummary + per-field
+// errors (form-system rule), never through a toast.
+const errors = ref({})
+const ERROR_LABELS = { userId: 'User', firstName: 'First name', email: 'Email' }
+const validationErrors = computed(() =>
+  Object.entries(errors.value)
+    .filter(([, m]) => m)
+    .map(([k, m]) => ({ id: `agent-${k}`, label: ERROR_LABELS[k] || k, message: m })),
+)
 const showDialog = ref(false)
 const editing = ref(null)
 const saving = ref(false)
@@ -82,11 +91,13 @@ function blank() {
   }
 }
 function openCreate() {
+  errors.value = {}
   editing.value = null
   form.value = blank()
   showDialog.value = true
 }
 function openEdit(a) {
+  errors.value = {}
   editing.value = a
   form.value = {
     userId: a.userId,
@@ -100,7 +111,11 @@ function openEdit(a) {
   showDialog.value = true
 }
 async function save() {
-  if (!editing.value && !form.value.userId) return toast.error('Pick a user')
+  errors.value = {}
+  if (!editing.value && !form.value.userId) {
+    errors.value = { userId: 'Pick a user' }
+    return
+  }
   saving.value = true
   const body = {
     ...form.value,
@@ -136,12 +151,18 @@ function blankInvite() {
   }
 }
 function openInvite() {
+  errors.value = {}
   invite.value = blankInvite()
   showInvite.value = true
 }
 async function sendInvite() {
-  if (!invite.value.email.trim() || !invite.value.firstName.trim())
-    return toast.error('Email and first name are required')
+  errors.value = {
+    firstName: invite.value.firstName.trim() ? '' : 'First name is required',
+    email: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(invite.value.email.trim())
+      ? ''
+      : 'Enter a valid email',
+  }
+  if (validationErrors.value.length) return
   inviting.value = true
   try {
     const out = await post('/v1/services/supportDesk/agents/invite', {
@@ -320,15 +341,27 @@ async function remove(a) {
     <!-- Invite: user + support role + agent seat in one step -->
     <BaseDialog v-model="showInvite" title="Invite agent" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+        <ValidationSummary v-if="validationErrors.length" :errors="validationErrors" />
         <p class="tw:text-sm tw:text-secondary">
           They get the usual invitation email and sign in with the same login as everyone else, but
           hold a <strong>Support Desk role only</strong> — never QMS access.
         </p>
         <BaseFieldRow :columns="2">
-          <BaseTextInput v-model="invite.firstName" label="First name" />
+          <BaseTextInput
+            id="agent-firstName"
+            v-model="invite.firstName"
+            label="First name"
+            :errorMsg="errors.firstName"
+          />
           <BaseTextInput v-model="invite.lastName" label="Last name" />
         </BaseFieldRow>
-        <BaseTextInput v-model="invite.email" type="email" label="Email" />
+        <BaseTextInput
+          id="agent-email"
+          v-model="invite.email"
+          type="email"
+          label="Email"
+          :errorMsg="errors.email"
+        />
         <BaseField label="Role">
           <BaseSelect
             v-model="invite.level"
@@ -366,8 +399,9 @@ async function remove(a) {
       maxWidth="lg"
     >
       <div class="tw:flex tw:flex-col tw:gap-4 tw:p-1">
+        <ValidationSummary v-if="validationErrors.length" :errors="validationErrors" />
         <BaseFieldRow :columns="2">
-          <BaseField v-if="!editing" label="User" required>
+          <BaseField v-if="!editing" id="agent-userId" label="User" required :error="errors.userId">
             <UserSelectMenu v-model="form.userId" required />
           </BaseField>
           <BaseField label="Role">

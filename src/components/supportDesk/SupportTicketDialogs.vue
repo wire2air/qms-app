@@ -82,18 +82,18 @@ const auditIncludeEntities = computed(() =>
         The ticket moves to the Spam box (kept, not deleted). Optionally remember the sender so
         future messages land there automatically — you can undo this with “Not spam”.
       </p>
-      <label v-if="complaint?.customerEmail" class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-        <BaseCheckbox v-model="ticket.spamLearn.email" />
-        Block this address <span class="tw:text-secondary">({{ complaint.customerEmail }})</span>
-      </label>
-      <label v-if="ticket.senderDomain" class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-        <BaseCheckbox v-model="ticket.spamLearn.domain" />
-        Block the whole domain <span class="tw:text-secondary">(@{{ ticket.senderDomain }})</span>
-      </label>
-      <label class="tw:flex tw:items-center tw:gap-2 tw:text-sm">
-        <BaseCheckbox v-model="ticket.spamLearn.allBrands" />
-        Apply to every brand <span class="tw:text-secondary">(default: this ticket’s brand)</span>
-      </label>
+      <BaseCheckbox v-if="complaint?.customerEmail" v-model="ticket.spamLearn.email"
+        >Block this address
+        <span class="tw:text-secondary">({{ complaint.customerEmail }})</span></BaseCheckbox
+      >
+      <BaseCheckbox v-if="ticket.senderDomain" v-model="ticket.spamLearn.domain"
+        >Block the whole domain
+        <span class="tw:text-secondary">(@{{ ticket.senderDomain }})</span></BaseCheckbox
+      >
+      <BaseCheckbox v-model="ticket.spamLearn.allBrands"
+        >Apply to every brand
+        <span class="tw:text-secondary">(default: this ticket’s brand)</span></BaseCheckbox
+      >
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter
