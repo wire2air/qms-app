@@ -1,5 +1,6 @@
 <script setup>
 import {
+  IconCode,
   IconTag,
   IconPlus,
   IconPencil,
@@ -276,6 +277,11 @@ function openCreate() {
   originsText.value = ''
   showDialog.value = true
 }
+// "Install messenger" on a brand row: same editor, opened on the install tab.
+function openInstall(b) {
+  openEdit(b)
+  tab.value = 'widget'
+}
 function openEdit(b) {
   errors.value = {}
   editing.value = b
@@ -456,9 +462,16 @@ async function copyKey(b) {
             <button
               type="button"
               class="tw:ml-2 tw:font-sans tw:text-primary tw:hover:underline"
+              @click="openInstall(b)"
+            >
+              Install messenger
+            </button>
+            <button
+              type="button"
+              class="tw:ml-2 tw:font-sans tw:text-secondary tw:hover:underline"
               @click="copySnippet(b)"
             >
-              Copy install snippet
+              Copy snippet
             </button>
           </div>
         </div>
@@ -477,6 +490,13 @@ async function copyKey(b) {
             @click="rotateKey(b)"
           >
             <IconKey :size="16" />
+          </button>
+          <button
+            class="tw:text-secondary tw:hover:text-primary"
+            title="Install messenger"
+            @click="openInstall(b)"
+          >
+            <IconCode :size="16" />
           </button>
           <button class="tw:text-secondary tw:hover:text-primary" title="Edit" @click="openEdit(b)">
             <IconPencil :size="16" />
@@ -503,7 +523,7 @@ async function copyKey(b) {
           v-model="tab"
           :tabs="[
             { value: 'general', label: 'General' },
-            { value: 'widget', label: 'Chat widget' },
+            { value: 'widget', label: 'Messenger · Install' },
             { value: 'messages', label: 'Auto-messages' },
           ]"
           ariaLabel="Brand settings"
