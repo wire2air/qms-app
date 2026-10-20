@@ -23,6 +23,7 @@
  *    instances, …) — same as the sidebar showing them with no permission gate.
  */
 import { isAllowed, currentSession, isSupplier, isPlatformAdmin } from '@/utils/currentSession'
+import { isSupportHost } from '@/utils/tenant'
 
 // Admin / configuration modules — guarded across the whole subtree (list + detail).
 // key = first path segment, value = required permission.
@@ -99,6 +100,8 @@ const RECORD_LIST_PERMISSIONS = {
   // reaching the URL directly would only be able to watch it fail.
   'document-imports': 'document_control:create',
   'customer-complaints': 'complaint_management:read',
+  // Support Desk workspace (Intercom-style inbox over the same tickets).
+  desk: 'complaint_management:read',
   // Standalone QMS quality complaints (the `complaints` table) — a separate
   // module from Customer Complaints above; mirrors the sidebar's `complaints:read`
   // gate so direct-URL access to /complaints is blocked without the permission.
@@ -253,6 +256,9 @@ export function requiredPermissionFor(to) {
  * Decide whether navigation to `to` is permitted for the current session.
  * Returns `true` to allow, or a redirect location to block.
  */
+// Account-level pages a Support Desk user may still open from /desk.
+const SUPPORT_ALLOWED_SEGMENTS = new Set(['profile', 'security', 'notifications', 'no-access', ''])
+
 export function evaluateRoute(to) {
   // Never guard the no-access page itself (avoid redirect loops).
   if (to.path === NO_ACCESS_PATH) return true
@@ -262,6 +268,19 @@ export function evaluateRoute(to) {
   if (!currentSession.value) return true
 
   const seg = firstSegment(to.path)
+
+  // Support Desk population + host family (2026-10-19): a support-only user
+  // (every role a support role), or anyone on acme.support.<domain>, lives in
+  // /desk. QMS routes are not theirs — the inbox is the whole product, so
+  // bounce there rather than to a "no access" page. Account pages (profile,
+  // security, notifications) stay reachable: they are the person's, not QMS's.
+  if (
+    (currentSession.value.isSupportUser || isSupportHost()) &&
+    seg !== 'desk' &&
+    !SUPPORT_ALLOWED_SEGMENTS.has(seg)
+  ) {
+    return { path: '/desk' }
+  }
 
   // Platform-admin control plane — the /platform console AND impersonation
   // (/admin/impersonate) are cross-tenant capabilities gated on platform-admin

@@ -32,7 +32,6 @@ export class Nonconformance extends BaseModel {
   // .save() can't attempt a lifecycle change (which the DB would reject anyway).
   @Property({ type: String, excludeFromGraphQL: ['update'] }) statusId = 'DRAFT'
   @Property({ type: String, required: true }) severityId = ''
-  @Property({ type: String, required: true }) typeId = ''
   @Property({ type: String, required: true }) sourceId = ''
   @Property({ type: String, required: true }) siteId = ''
   @Property({ type: String, required: true }) departmentId = ''
@@ -51,10 +50,9 @@ export class Nonconformance extends BaseModel {
   @Property({ type: Array }) notifyGroupIds = /** @type {Array} */ ([])
   @Property({ type: Array }) notifyUserIds = /** @type {Array} */ ([])
   @Property({ type: Array }) notifyEmails = /** @type {Array} */ ([])
-  // Top-section classification (added 2026-05-29). Independent of the
-  // existing typeId — issue-type captures the discovery dimension
-  // (out-of-spec / receiving / missing standard), typeId stays the
-  // nature of the NC. priorityId mirrors CAPA's enum.
+  // Top-section classification (added 2026-05-29). categoryId is the shared
+  // QE/NC/CAPA taxonomy; NC Type was removed 2026-10-17. priorityId mirrors
+  // CAPA's enum.
   @Property({ type: String }) categoryId = null
   @Property({ type: String }) priorityId = null
   @Property({ type: String }) poNumber = ''

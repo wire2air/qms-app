@@ -38,6 +38,9 @@ provideDataTablePersist(() => !loading.value)
 const showFormBuilder = computed(() => {
   return route.name === '/templates/[[id]]' && route.query.mode === 'schema'
 })
+// Support Desk workspace (/desk/*) is a full-canvas app of its own: no QMS
+// sidebar or header, the inbox shell owns the viewport.
+const isDeskRoute = computed(() => /^\/desk(\/|$)/.test(route.path))
 const currentPath = window.location.pathname
 const isOpenRoute = openRoutes.some(
   (route) => currentPath === route || currentPath.startsWith(`${route}/`),
@@ -273,6 +276,8 @@ onMounted(async () => {
   <div v-else class="tw:flex tw:flex-col tw:h-screen tw:w-full">
     <FormTemplateSchemaBuilder v-if="showFormBuilder" :id="route.params.id" />
 
+    <RouterView v-else-if="isDeskRoute" />
+
     <main v-else class="tw:flex! tw:flex-1 tw:overflow-hidden">
       <MainSidebar />
 
@@ -292,6 +297,10 @@ onMounted(async () => {
     <!-- Prompts a reload when an admin changes this user's permissions while
          they're signed in (the syncEngine only re-bootstraps IDB on reload). -->
     <PermissionChangeDialog />
+
+    <!-- Support Desk agents stay "available" app-wide, not only while the
+         desk page is open. Renderless; a no-op for users who are not agents. -->
+    <SupportAgentHeartbeat />
   </div>
 </template>
 

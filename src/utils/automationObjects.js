@@ -232,7 +232,7 @@ export const AUTOMATION_OBJECTS = [
     // that and not this, so a rule about the complaints people actually raise
     // could not be written (reported 2026-08-20).
     value: 'Complaint',
-    label: 'Complaints',
+    label: 'Customer Complaints',
     supplierField: 'supplier_id',
     siteField: 'site_id',
     departmentField: null,

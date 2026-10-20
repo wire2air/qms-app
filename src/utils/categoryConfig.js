@@ -169,9 +169,9 @@ export const CATEGORY_METADATA = {
   },
   // Quality records
   customerComplaints: {
-    label: 'Customer Complaints',
+    label: 'Support Desk',
     icon: IconHeadset,
-    description: 'Manage access for Customer Complaints',
+    description: 'Manage access for the Support Desk (customer tickets)',
   },
   changeRequests: {
     label: 'Change Control',

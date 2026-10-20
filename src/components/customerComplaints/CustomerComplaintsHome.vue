@@ -7,6 +7,7 @@ import {
   IconChevronDown,
   IconChartBar,
   IconSettings,
+  IconInbox,
 } from '@tabler/icons-vue'
 import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -47,6 +48,9 @@ const list = useListLayout({
     priorityId: [],
     sourceId: [],
     assignedTo: [],
+    // Support Desk: which channel opened the ticket, and the brand (spec §3).
+    channelKind: [],
+    brandId: [],
     // CC-specific single-select dimensions (folded into the filter menu).
     assignedTeamId: null,
     formId: null,
@@ -131,6 +135,8 @@ function applyFilters(results, f) {
       matchesDim(f.statusId, r.statusId) &&
       matchesDim(f.priorityId, r.priorityId) &&
       matchesDim(f.sourceId, r.sourceId) &&
+      matchesDim(f.channelKind, r.channelKind) &&
+      matchesDim(f.brandId, r.brandId) &&
       matchesDim(f.assignedTo, r.assignedTo),
   )
   if (f.assignedTeamId) results = results.filter((r) => r.assignedTeamId === f.assignedTeamId)
@@ -140,14 +146,26 @@ function applyFilters(results, f) {
   return results
 }
 
+// A snoozed ticket (snoozedUntil in the future) leaves every open view until
+// it wakes; "Snoozed" is where it waits (spec §3).
+function isSnoozed(r, now = Date.now()) {
+  const t =
+    r.snoozedUntil?.toMillis?.() ?? (r.snoozedUntil ? new Date(r.snoozedUntil).getTime() : 0)
+  return t > now
+}
+
 function applyActiveFilter(results, af, teamIds = []) {
   const userId = currentSession.value?.userId
   // Spam is its own view — every other view excludes spam tickets.
   if (af === 'spam') return results.filter((r) => r.isSpam)
   results = results.filter((r) => !r.isSpam)
-  if (af === 'all_open') return results.filter((r) => OPEN_STATUSES.includes(r.statusId))
+  if (af === 'snoozed') return results.filter((r) => isSnoozed(r))
+  if (af === 'all_open')
+    return results.filter((r) => OPEN_STATUSES.includes(r.statusId) && !isSnoozed(r))
   if (af === 'mine')
-    return results.filter((r) => r.assignedTo === userId && OPEN_STATUSES.includes(r.statusId))
+    return results.filter(
+      (r) => r.assignedTo === userId && OPEN_STATUSES.includes(r.statusId) && !isSnoozed(r),
+    )
   // QA review queue: active tickets assigned to me OR to a team I'm on.
   if (af === 'my_queue') {
     const teamSet = new Set(teamIds)
@@ -158,7 +176,9 @@ function applyActiveFilter(results, af, teamIds = []) {
     )
   }
   if (af === 'unassigned')
-    return results.filter((r) => !r.assignedTo && OPEN_STATUSES.includes(r.statusId))
+    return results.filter(
+      (r) => !r.assignedTo && OPEN_STATUSES.includes(r.statusId) && !isSnoozed(r),
+    )
   if (af === 'waiting') return results.filter((r) => r.statusId === 'WAITING_CUSTOMER')
   if (af === 'resolved') return results.filter((r) => r.statusId === 'RESOLVED')
   if (af === 'closed')
@@ -180,6 +200,20 @@ const myTeamIds = useLiveQuery(
   },
   { models: ['UserOnTeam'], initial: [] },
 )
+
+// Pill counts: the SAME predicates as the views, over the unfiltered list, so
+// the number on a pill is what clicking it shows.
+const viewCounts = computed(() => {
+  const all = allComplaints.value || []
+  const n = (af) => applyActiveFilter(all, af, myTeamIds.value).length
+  return {
+    mine: n('mine'),
+    unassigned: n('unassigned'),
+    all_open: n('all_open'),
+    snoozed: n('snoozed'),
+    spam: n('spam'),
+  }
+})
 
 const complaints = useLiveQueryWithDeps(
   [
@@ -375,9 +409,9 @@ function onNewComplaint() {
 <template>
   <BaseListLayout
     helpSlug="KB/quality/customer-complaints"
-    title="Customer Complaints"
+    title="Support Desk"
     :icon="IconHeadset"
-    subtitle="Manage customer complaint tickets from web, forms and email intake."
+    subtitle="Tickets from chat, email and web forms — one inbox for every brand."
     :state="list.state.value"
     :emptyIcon="IconHeadset"
     :emptyTitle="
@@ -386,12 +420,14 @@ function onNewComplaint() {
     :selectedCount="selectedIds.length"
   >
     <template #actions>
+      <!-- Agent presence (Support Desk spec §6) — only renders for agents. -->
+      <SupportAgentPresence />
       <!-- Module settings (email channels, intake forms…) — lives here instead
            of the global Settings menu (user decision 2026-07-24). -->
       <BaseButton
         v-if="canConfigure"
         variant="ghost"
-        aria-label="Complaint settings"
+        aria-label="Support Desk settings"
         @click="router.push(getCompanyPath('/complaint-settings'))"
       >
         <IconSettings :size="18" />
@@ -403,8 +439,13 @@ function onNewComplaint() {
         <IconChartBar :size="18" class="tw:mr-1" />
         Reports
       </BaseButton>
+      <!-- The Intercom-style agent workspace over the same tickets (/desk). -->
+      <BaseButton variant="secondary" @click="router.push(getCompanyPath('/desk'))">
+        <IconInbox :size="18" class="tw:mr-1" />
+        Open inbox
+      </BaseButton>
       <BaseButton v-if="canCreate" variant="primary" @click="onNewComplaint">
-        New Complaint
+        New Ticket
       </BaseButton>
     </template>
 
@@ -416,6 +457,7 @@ function onNewComplaint() {
       <CustomerComplaintsFilterToolbar
         v-model:filters="filters"
         v-model:activeFilter="activeFilter"
+        :counts="viewCounts"
         :formOptions="formOptions"
         :savedViews="savedViews"
         @saveView="saveCurrentView"

@@ -1,6 +1,6 @@
 ---
 id: complaints
-title: Complaints
+title: Customer Complaints
 sidebar_position: 8
 description: The quality view of customer complaints — investigate, decide, and escalate to a nonconformance when a complaint reveals a real problem.
 keywords:
@@ -15,7 +15,7 @@ keywords:
   ]
 ---
 
-# Complaints
+# Customer Complaints
 
 ## Overview
 
@@ -29,8 +29,8 @@ us something is wrong?" Most complaints are handled and closed. Some reveal a
 genuine problem, and those become nonconformances with the complaint linked as
 their origin.
 
-:::note Complaints and Customer Complaints are two views, not two inboxes
-[Customer Complaints](./customer-complaints.md) is the **support** side — the
+:::note Customer Complaints and the Support Desk are two views, not two inboxes
+The [Support Desk](./customer-complaints.md) is the **support** side — the
 conversation, the SLA clock, the reply to the customer.
 
 Complaints is the **quality** side — investigation, decision and escalation.
@@ -102,6 +102,6 @@ See [Roles and Permissions](../administration/roles-and-permissions.md).
 
 ## Related
 
-- [Customer Complaints](./customer-complaints.md) — the support-side conversation and SLA
+- [Support Desk](./customer-complaints.md) — the support-side conversation and SLA
 - [Nonconformances](./nonconformances.md) — where an escalated complaint goes
 - [Quality Events](./quality-events.md) — internal observations, same idea

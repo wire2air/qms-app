@@ -674,13 +674,25 @@ defineExpose({
   min-height: 100px;
   display: flex;
   flex-direction: column;
+  transition: border-color 0.15s;
+}
+/* Focus is shown ONCE, on the wrapper — the same treatment as BaseTextInput.
+   The contenteditable inside must not also paint the global *:focus-visible
+   ring, or the editor shows a second box within the box. */
+.tiptap-editor-wrapper:focus-within {
+  border-color: var(--primary);
 }
 
 .rich-text-editor-content {
-  padding: 1rem;
+  padding: 0.625rem 0.875rem;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
+}
+.rich-text-editor-content :deep(.ProseMirror:focus),
+.rich-text-editor-content :deep(.ProseMirror:focus-visible) {
+  outline: none;
+  box-shadow: none;
 }
 
 /* Force active button styling */
