@@ -242,7 +242,8 @@ export const AUDIT_FIELD_FORMATTERS = {
     title: { label: 'Title', type: 'text' },
     ncNumber: { label: 'NC Number', type: 'text' },
     statusId: { label: 'Status', type: 'status', statusModel: 'NcStatus' },
-    typeId: { label: 'Type', type: 'text' },
+    // typeId: NC Type removed 2026-10-17 — historical rows still show it under
+    // the raw key, which is accurate: the field no longer exists.
     severityId: { label: 'Severity', type: 'text' },
     sourceId: { label: 'Source', type: 'text' },
     description: { label: 'Description', type: 'text' },
@@ -250,6 +251,45 @@ export const AUDIT_FIELD_FORMATTERS = {
     siteId: { label: 'Site', type: 'fk', refModel: 'Site' },
     departmentId: { label: 'Department', type: 'fk', refModel: 'Department' },
     reportedById: { label: 'Reported By', type: 'fk', refModel: 'User' },
+  },
+
+  // ── Quality Events ───────────────────────────────────────────────────────────
+  QualityEvent: {
+    eventNumber: { label: 'Event Number', type: 'text' },
+    title: { label: 'Title', type: 'text' },
+    description: { label: 'Issue', type: 'richtext' },
+    statusId: { label: 'Status', type: 'status', statusModel: 'QualityEventStatus' },
+    // 'status' = resolve by findByPk(...).name — no ENTITY_LABEL_RESOLVERS
+    // entry is needed for these lookups.
+    categoryId: { label: 'Category', type: 'status', statusModel: 'EventCategory' },
+    severityId: { label: 'Severity', type: 'status', statusModel: 'EventSeverity' },
+    siteId: { label: 'Site', type: 'fk', refModel: 'Site' },
+    departmentId: { label: 'Department', type: 'fk', refModel: 'Department' },
+    supplierId: { label: 'Supplier', type: 'fk', refModel: 'Supplier' },
+    reportedByUserId: { label: 'Reported By', type: 'fk', refModel: 'User' },
+    assignedToUserId: { label: 'Assigned To', type: 'fk', refModel: 'User' },
+    occurrenceDate: { label: 'Occurrence Date', type: 'date' },
+    reportedDate: { label: 'Reported Date', type: 'date' },
+    reviewDueDate: { label: 'Review Due', type: 'date' },
+    reviewSummary: { label: 'Review Summary', type: 'richtext' },
+    recommendedAction: { label: 'Recommended Action', type: 'richtext' },
+    decision: { label: 'Decision', type: 'richtext' },
+    cancelReasonCode: {
+      label: 'Cancel Reason',
+      type: 'enum',
+      enumMap: {
+        CREATED_IN_ERROR: 'Created in error',
+        DUPLICATE: 'Duplicate of an existing record',
+        OUT_OF_SCOPE: 'Not a quality event / out of scope',
+        WITHDRAWN: 'Withdrawn before investigation or escalation',
+        OTHER: 'Other',
+      },
+    },
+    cancelReason: { label: 'Cancel Comments', type: 'text' },
+    anonymousSubmission: { label: 'Anonymous', type: 'boolean' },
+    notifyGroupIds: { label: 'Notify Groups', type: 'json' },
+    notifyUserIds: { label: 'Notify Users', type: 'json' },
+    notifyEmails: { label: 'Notify Emails', type: 'json' },
   },
 
   // ── Customer Complaints ──────────────────────────────────────────────────────
@@ -446,8 +486,10 @@ export const DISPLAY_TYPE_LABELS = {
   SupplierAsset: 'Supplier Asset',
   AssetRequest: 'Asset Request',
   Nonconformance: 'Nonconformance',
-  CustomerComplaint: 'Customer Complaint',
-  CustomerComplaintMessage: 'Complaint Message',
+  QualityEvent: 'Quality Event',
+  CustomerComplaint: 'Support Desk Ticket',
+  Complaint: 'Customer Complaint',
+  CustomerComplaintMessage: 'Support Desk Message',
   User: 'User',
   Role: 'Role',
   PermissionOnRole: 'Permission',

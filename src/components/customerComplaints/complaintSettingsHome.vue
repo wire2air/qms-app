@@ -7,6 +7,10 @@ import {
   IconRoute,
   IconClockHour4,
   IconMailPause,
+  IconTag,
+  IconHeadphones,
+  IconSpeakerphone,
+  IconMailOff,
 } from '@tabler/icons-vue'
 
 /**
@@ -21,12 +25,17 @@ import {
  *   routing         — trigger/rule engine (Phase 5)
  */
 const tabs = computed(() => [
+  // Support Desk Phase 1 (spec §8): brands, agents, learned spam.
+  { value: 'brands', label: 'Brands', icon: IconTag },
+  { value: 'agents', label: 'Agents', icon: IconHeadphones },
+  { value: 'outbound', label: 'Outbound Messages', icon: IconSpeakerphone },
   { value: 'email-channels', label: 'Email Channels', icon: IconMailForward },
   { value: 'forms', label: 'Forms', icon: IconForms },
   { value: 'canned-responses', label: 'Canned Responses', icon: IconMessage2 },
   { value: 'routing', label: 'Routing', icon: IconRoute },
   { value: 'sla', label: 'SLA', icon: IconClockHour4 },
   { value: 'suspended', label: 'Suspended Emails', icon: IconMailPause },
+  { value: 'blocklist', label: 'Spam Blocklist', icon: IconMailOff },
 ])
 
 // Honor ?tab=<id> deep links (same pattern as Company Settings).
@@ -46,14 +55,27 @@ watch(
   <BasePage width="standard">
     <PageHeader
       :icon="IconHeadset"
-      title="Complaint Settings"
-      subtitle="Configure how customer complaints reach and move through your support queue — email channels, intake forms, and ticket fields."
+      title="Support Desk Settings"
+      subtitle="Configure how tickets reach and move through the Support Desk — brands, agents, email channels, intake forms, chat widget and spam rules."
     />
 
     <div class="tw:flex tw:flex-col tw:gap-6 tw:max-w-6xl">
       <!-- Tabs -->
       <BaseTabs v-model="activeTab" :tabs="tabs" ariaLabel="Complaint settings sections">
         <div class="tw:mt-6">
+          <BaseTabPanel value="brands">
+            <SupportBrandsHome />
+          </BaseTabPanel>
+          <BaseTabPanel value="agents">
+            <SupportAgentsHome />
+          </BaseTabPanel>
+          <BaseTabPanel value="outbound">
+            <SupportOutboundHome />
+          </BaseTabPanel>
+          <BaseTabPanel value="blocklist">
+            <SupportBlocklistHome />
+          </BaseTabPanel>
+
           <!-- Tab: Email Channels -->
           <BaseTabPanel value="email-channels">
             <EmailChannelsHome />

@@ -76,16 +76,16 @@ export function ensureProbeNc() {
 
   // Column list mirrors the table's actual NOT NULL / no-default set — do not
   // guess it; `nonconformances` has several required lookups whose names differ
-  // from the obvious (type_id not issue_type_id, detected_at not detected_date).
+  // from the obvious (detected_at not detected_date).
   return sqlValue(`
     INSERT INTO nonconformances (
-      id, company_id, nc_number, title, severity_id, type_id, source_id,
+      id, company_id, nc_number, title, severity_id, source_id,
       site_id, department_id, owner_id, detected_at, created_by, updated_by,
       created_at, updated_at
     )
     SELECT gen_random_uuid(), company_id,
            'E2E-MS-' || substr(gen_random_uuid()::text, 1, 8),
-           ${q(PROBE_NC_TITLE)}, severity_id, type_id, source_id,
+           ${q(PROBE_NC_TITLE)}, severity_id, source_id,
            '${SITES.secondary.id}', '${dept}', owner_id, detected_at,
            created_by, updated_by, now(), now()
       FROM nonconformances WHERE id = '${template}'

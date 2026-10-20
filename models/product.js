@@ -44,7 +44,8 @@ export class Product extends BaseModel {
   // Change control
   @Property({ type: String }) revision = null
   // Compliance / logistics
-  @Property({ type: String }) countryOfOrigin = null
+  // FK to the global countries lookup (free text until 2026-10-17).
+  @Property({ type: String }) countryOfOriginId = null
   @Property({ type: String }) storageConditions = null
   @Property({ type: Boolean }) isHazardous = false
   @Property({ type: String, required: true }) statusId = 'ACTIVE'

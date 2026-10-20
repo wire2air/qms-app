@@ -1435,10 +1435,6 @@ defineExpose({ exportCsv })
             class="tw:text-sm tw:text-secondary"
             >—</span
           >
-          <NcTypeBadgeById
-            v-else-if="row.entityType === 'Nonconformance' && getNc(row)?.typeId"
-            :typeId="getNc(row).typeId"
-          />
           <CapaTypeBadgeById
             v-else-if="row.entityType === 'Capa' && getCapa(row)?.typeId"
             :typeId="getCapa(row).typeId"

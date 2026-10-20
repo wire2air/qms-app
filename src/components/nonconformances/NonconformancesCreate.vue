@@ -1,4 +1,5 @@
 <script setup>
+import { db } from '@models/index'
 import { DateTime } from 'luxon'
 import {
   IconInfoCircle,
@@ -134,7 +135,6 @@ const form = ref({
   description: '',
   siteId: null,
   departmentId: null,
-  typeId: null,
   sourceId: null,
   severityId: 'MINOR',
   detectedAt: DateTime.now(),
@@ -194,6 +194,48 @@ const selectedWorkflowLabel = computed(() => {
 const isDirty = ref(false)
 watch(form, () => (isDirty.value = true), { deep: true })
 
+// Picking an item fills in what the item master knows: Unit of measure
+// (products.uomId → uoms.code) and Supplier (the item's PREFERRED supplier,
+// else its only supplier; with several unmarked we do not guess). Each only
+// when the user has not picked one already, and cleared again when the item
+// that supplied it is deselected. Supplier-facing is left alone: that is a
+// decision, not data.
+let uomFromProduct = null
+let supplierFromProduct = null
+watch(
+  () => form.value.productId,
+  async (productId) => {
+    if (!productId) {
+      if (uomFromProduct && form.value.unitOfMeasure === uomFromProduct) {
+        form.value.unitOfMeasure = ''
+      }
+      if (supplierFromProduct && form.value.supplierId === supplierFromProduct) {
+        form.value.supplierId = null
+      }
+      uomFromProduct = null
+      supplierFromProduct = null
+      return
+    }
+    const product = await db.Product.findByPk(productId)
+    const [uom, links] = await Promise.all([
+      product?.uomId ? db.Uom.findByPk(product.uomId) : null,
+      db.ProductSupplier.where('productId', productId).exec(),
+    ])
+    const code = uom?.code || null
+    if (code && (!form.value.unitOfMeasure || form.value.unitOfMeasure === uomFromProduct)) {
+      form.value.unitOfMeasure = code
+    }
+    uomFromProduct = code
+    const supplierId =
+      links.find((l) => l.isPreferred)?.supplierId ??
+      (links.length === 1 ? links[0].supplierId : null)
+    if (supplierId && (!form.value.supplierId || form.value.supplierId === supplierFromProduct)) {
+      form.value.supplierId = supplierId
+    }
+    supplierFromProduct = supplierId
+  },
+)
+
 // Confirm before abandoning a half-filled NC via in-app navigation (Cancel,
 // back, sidebar). allowLeave() is called before the post-save redirect so a
 // successful raise doesn't prompt. BaseForm covers the browser-level exit.
@@ -210,7 +252,6 @@ watch(sourceFinding, (f) => {
   }
   if (!form.value.description) form.value.description = f.description ?? ''
   if (!form.value.sourceId) form.value.sourceId = 'AUDIT'
-  if (!form.value.typeId) form.value.typeId = 'AUDIT_FINDING'
   if (!form.value.departmentId && f.departmentId) {
     form.value.departmentId = f.departmentId
   }
@@ -237,7 +278,6 @@ const classificationComplete = computed(
   () =>
     !!form.value.siteId &&
     !!form.value.departmentId &&
-    !!form.value.typeId &&
     !!form.value.sourceId &&
     !!form.value.severityId &&
     !!form.value.detectedAt &&
@@ -644,17 +684,6 @@ async function handleReviewersConfirmed(reviewers) {
                 </template>
               </BaseField>
               <BaseField
-                id="nc-type"
-                label="NC Type"
-                required
-                :value="form.typeId"
-                :rules="[required()]"
-              >
-                <template #default="field">
-                  <NcTypeSelectMenu v-bind="field" v-model="form.typeId" required />
-                </template>
-              </BaseField>
-              <BaseField
                 id="nc-source"
                 label="Detection source"
                 required
@@ -781,12 +810,15 @@ async function handleReviewersConfirmed(reviewers) {
                   />
                 </template>
               </BaseField>
+              <!-- Same unit-of-measure lookup as the detail page (stored by code). -->
               <BaseField label="Unit of measure">
                 <template #default="field">
-                  <BaseTextInput
+                  <UomSelectMenu
                     v-bind="field"
                     v-model="form.unitOfMeasure"
-                    placeholder="e.g. sheets, units…"
+                    bindValue="code"
+                    nullLabel="— Select unit —"
+                    :allowCreate="false"
                   />
                 </template>
               </BaseField>

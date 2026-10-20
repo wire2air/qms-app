@@ -4,7 +4,6 @@ import {
   IconTrash,
   IconCircleDot,
   IconAlertTriangle,
-  IconTag,
   IconBuildingFactory2,
   IconCalendar,
   IconTargetArrow,
@@ -40,12 +39,17 @@ const filterPills = [
   { value: 'critical', label: 'Critical' },
   { value: 'major', label: 'Major' },
   { value: 'closed', label: 'Closed' },
+  // Soft-deleted drafts (deletedAt set). They are kept, not purged — the
+  // register must be able to show that a record existed and was removed
+  // (ISO 9001 §7.5.3 / ISO 13485 §4.2.5 control of records; 21 CFR 11.10(e)
+  // audit trail). Read-only here: the row's page is the audit log.
+  { value: 'deleted', label: 'Deleted' },
 ]
 
 // The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
 // every non-empty value in the object it's given, so handing it the whole filter
 // bag made it report the quick view (`activeFilter`) as an active filter.
-const MENU_GROUPS = ['statusId', 'severityId', 'typeId', 'supplierId', 'createdAt', 'effectiveness']
+const MENU_GROUPS = ['statusId', 'severityId', 'supplierId', 'createdAt', 'effectiveness']
 const menuFilters = computed(() =>
   Object.fromEntries(MENU_GROUPS.map((k) => [k, filters.value?.[k] ?? null])),
 )
@@ -63,10 +67,6 @@ const severityDotClass = {
 // entity-column dropdowns (ordered so both read in the configured order).
 const ncStatuses = useLiveQuery((db) => db.NcStatus.where().orderBy('displayOrder').exec(), {
   models: ['NcStatus'],
-  initial: [],
-})
-const ncTypes = useLiveQuery((db) => db.NcType.where().orderBy('displayOrder').exec(), {
-  models: ['NcType'],
   initial: [],
 })
 const ncSeverities = useLiveQuery((db) => db.NcSeverity.where().orderBy('displayOrder').exec(), {
@@ -99,13 +99,6 @@ const filterItems = computed(() => [
     options: selectOpts(ncSeverities.value),
   },
   {
-    id: 'typeId',
-    label: 'Type',
-    icon: IconTag,
-    group: 'typeId',
-    options: selectOpts(ncTypes.value),
-  },
-  {
     id: 'supplierId',
     label: 'Supplier',
     icon: IconBuildingFactory2,
@@ -128,7 +121,6 @@ const columns = computed(() => {
   // column); Created is dropped to keep the table readable without overflow.
   const filterCfg = {
     status: { filterType: 'select', filterOptions: selectOpts(ncStatuses.value) },
-    type: { filterType: 'select', filterOptions: selectOpts(ncTypes.value) },
   }
   return [
     {
@@ -141,7 +133,6 @@ const columns = computed(() => {
     },
     { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
     { name: 'status', label: 'Status', field: 'statusId', align: 'left', sortable: false },
-    { name: 'type', label: 'Type', field: 'typeId', align: 'left', sortable: false },
     { name: 'actions', label: '', field: 'actions', align: 'right' },
   ].map((c) => ({ ...c, ...(filterCfg[c.name] || {}) }))
 })
@@ -154,6 +145,8 @@ const density = ref('compact')
 
 function rowMenuItems(row) {
   const items = []
+  // A deleted draft is history: nothing to edit or delete again.
+  if (row.deletedAt) return items
   if (props.canUpdate) {
     items.push({ name: 'Edit', icon: IconEdit, click: () => emit('edit', row) })
   }
@@ -193,17 +186,32 @@ function rowMenuItems(row) {
       <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
     </template>
 
+    <!-- A deleted row has no page (findByPk hides soft-deleted rows), so the
+         number and title render as text with a Deleted chip. -->
     <template #body-cell-ncNumber="{ row }">
+      <span v-if="row.deletedAt" class="tw:text-xs tw:text-secondary tw:line-through">
+        {{ row.ncNumber || 'Draft' }}
+      </span>
       <RouterLink
+        v-else
         :to="getCompanyPath(`/nonconformances/${row.id}`)"
         class="tw:text-xs tw:text-secondary tw:hover:text-primary"
       >
-        {{ row.ncNumber || '—' }}
+        {{ row.ncNumber || 'Draft' }}
       </RouterLink>
     </template>
 
     <template #body-cell-title="{ row }">
+      <div v-if="row.deletedAt" class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
+        <span class="tw:font-medium">{{ row.title }}</span>
+        <span
+          class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200"
+        >
+          Deleted {{ row.deletedAt?.formatDate?.('date') }}
+        </span>
+      </div>
       <RouterLink
+        v-else
         :to="getCompanyPath(`/nonconformances/${row.id}`)"
         class="tw:flex tw:items-center tw:gap-2 tw:text-on-main tw:hover:text-primary"
       >
@@ -217,10 +225,6 @@ function rowMenuItems(row) {
 
     <template #body-cell-status="{ row }">
       <NcStatusBadgeById :statusId="row.statusId" />
-    </template>
-
-    <template #body-cell-type="{ row }">
-      <NcTypeBadgeById :typeId="row.typeId" />
     </template>
 
     <template #body-cell-actions="{ row }">

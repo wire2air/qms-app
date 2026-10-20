@@ -40,7 +40,7 @@ watch(
 const loading = computed(() => complaint.value === undefined)
 
 const breadcrumbs = computed(() => [
-  { label: 'Complaints', to: getCompanyPath('/complaints') },
+  { label: 'Customer Complaints', to: getCompanyPath('/complaints') },
   {
     label:
       complaint.value?.complaintNumber ||
@@ -338,6 +338,18 @@ const complaintActions = computed(() => {
       visible: canConvert.value && !isTerminal.value,
       disabled: acting.value,
       onSelect: () => (showConvertDialog.value = true),
+    },
+    {
+      // Escalated from the Support Desk (or imported): nobody owns it yet. The
+      // accepter becomes owner, the complaint opens and the QA-review workflow
+      // starts — POST /complaints/:id/accept (complaints:update).
+      id: 'accept',
+      label: 'Accept',
+      variant: 'primary',
+      priority: 99,
+      visible: canUpdate.value && !complaint.value?.ownerId && !isTerminal.value,
+      disabled: acting.value,
+      onSelect: () => runAction('accept', {}),
     },
     {
       // Fallback: start the QA-review workflow if one isn't running yet
@@ -874,9 +886,19 @@ const complaintDetailConfig = computed(() =>
       <!-- Ownership, assignment & SLA -->
 
       <BaseRailCard title="Ownership & SLA" grid>
+        <BaseDetailField v-if="complaint.sourceComplaintId" label="Escalated from">
+          <RouterLink
+            :to="getCompanyPath(`/customer-complaints/${complaint.sourceComplaintId}`)"
+            class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
+          >
+            Support ticket →
+          </RouterLink>
+        </BaseDetailField>
         <BaseDetailField label="Owner">
           <UserBadgeById v-if="complaint.ownerId" :userId="complaint.ownerId" />
-          <BaseText v-else color="secondary" class="tw:italic">Unassigned</BaseText>
+          <BaseText v-else color="secondary" class="tw:italic">
+            Unassigned — accept to own it
+          </BaseText>
         </BaseDetailField>
         <BaseDetailField
           v-if="complaint.investigationStartedAt"

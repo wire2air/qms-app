@@ -36,6 +36,9 @@ const filterPills = [
   { value: 'awaiting_approval', label: 'Awaiting approval' },
   { value: 'urgent', label: 'Urgent' },
   { value: 'closed', label: 'Closed' },
+  // Soft-deleted drafts (deletedAt set): kept, not purged — the register must
+  // show that a record existed and was removed. Read-only; no row actions.
+  { value: 'deleted', label: 'Deleted' },
 ]
 
 // The menu is bound to ONLY its own groups: BaseFilterMenu's count badge counts
@@ -181,8 +184,14 @@ const exportColumns = computed(() => [
       <BaseQuickFilterPills v-model="activeFilter" :pills="filterPills" ariaLabel="Quick views" />
     </template>
 
+    <!-- A deleted row has no page (findByPk hides soft-deleted rows): number
+         and title render as text with a Deleted chip. -->
     <template #body-cell-crNumber="{ row }">
+      <span v-if="row.deletedAt" class="tw:text-xs tw:text-secondary tw:line-through">
+        {{ row.crNumber || 'Draft' }}
+      </span>
       <RouterLink
+        v-else
         :to="getCompanyPath(`/change-requests/${row.id}`)"
         class="tw:text-xs tw:font-medium tw:text-primary tw:hover:underline"
       >
@@ -191,7 +200,16 @@ const exportColumns = computed(() => [
     </template>
 
     <template #body-cell-title="{ row }">
+      <div v-if="row.deletedAt" class="tw:flex tw:items-center tw:gap-2 tw:text-secondary">
+        <span class="tw:text-sm tw:font-semibold">{{ row.title }}</span>
+        <span
+          class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5 tw:bg-red-50 tw:text-red-700 tw:border tw:border-red-200"
+        >
+          Deleted {{ row.deletedAt?.formatDate?.('date') }}
+        </span>
+      </div>
       <RouterLink
+        v-else
         :to="getCompanyPath(`/change-requests/${row.id}`)"
         class="tw:text-sm tw:font-semibold tw:text-on-main tw:hover:text-primary"
       >
@@ -222,7 +240,8 @@ const exportColumns = computed(() => [
     </template>
 
     <template #body-cell-actions="{ row }">
-      <div class="tw:flex tw:items-center tw:gap-2 tw:justify-end">
+      <!-- A deleted draft is history: nothing to edit or delete again. -->
+      <div v-if="!row.deletedAt" class="tw:flex tw:items-center tw:gap-2 tw:justify-end">
         <button
           v-if="canUpdate"
           class="tw:text-secondary tw:hover:text-primary tw:cursor-pointer"

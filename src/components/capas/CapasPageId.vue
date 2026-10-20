@@ -26,7 +26,8 @@ const capa = useLiveQueryWithDeps([() => props.id], async (db, [id]) => db.Capa.
 watch(
   capa,
   (c) => {
-    if (c?.id) visitTrail({ type: 'CAPA', id: c.id, label: c.capaNumber, path: route.path })
+    if (c?.id)
+      visitTrail({ type: 'CAPA', id: c.id, label: c.capaNumber || 'Draft CAPA', path: route.path })
   },
   { immediate: true },
 )
@@ -403,7 +404,9 @@ const capaDetailConfig = computed(() =>
       { label: 'CAPAs', to: getCompanyPath('/capas') },
       {
         label:
-          capa.value?.capaNumber || capa.value?.title || (capa.value === null ? 'Not found' : 'Loading…'),
+          capa.value?.capaNumber ||
+          capa.value?.title ||
+          (capa.value === null ? 'Not found' : 'Loading…'),
       },
     ],
     banners: () => capaBanners.value,
@@ -456,7 +459,7 @@ const capaDetailConfig = computed(() =>
     </template>
 
     <template v-if="capa" #meta>
-      <span class="">{{ capa.capaNumber }}</span>
+      <span class="">{{ capa.capaNumber || 'Draft' }}</span>
       <template v-if="capa.typeId"> · <CapaTypeBadgeById :typeId="capa.typeId" /></template>
       <template v-if="capa.initiatedAt">
         · Initiated {{ capa.initiatedAt.formatDate('date') }}</template
@@ -471,7 +474,7 @@ const capaDetailConfig = computed(() =>
           entityType="Capa"
           :entityId="capa.id"
           :entityTitle="capa.title"
-          :entityNumber="capa.capaNumber"
+          :entityNumber="capa.capaNumber || 'Draft CAPA'"
         />
       </div>
     </template>
@@ -558,7 +561,7 @@ const capaDetailConfig = computed(() =>
         <div class="tw:grid tw:gap-x-4 tw:gap-y-3 tw:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
           <BaseDetailField label="Number">
             <BaseText variant="body" weight="medium" class="tw:break-words">
-              {{ capa.capaNumber }}
+              {{ capa.capaNumber || 'Draft' }}
             </BaseText>
           </BaseDetailField>
           <BaseDetailField label="Status">

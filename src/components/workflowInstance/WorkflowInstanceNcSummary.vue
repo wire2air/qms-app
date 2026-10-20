@@ -77,11 +77,6 @@ defineEmits(['viewNc'])
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </BaseDetailField>
 
-        <BaseDetailField label="Type">
-          <NcTypeBadgeById v-if="nc?.typeId" :typeId="nc.typeId" />
-          <span v-else class="tw:text-sm tw:text-secondary">—</span>
-        </BaseDetailField>
-
         <BaseDetailField label="Source">
           <NcSourceBadgeById v-if="nc?.sourceId" :sourceId="nc.sourceId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>

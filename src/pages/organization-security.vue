@@ -88,6 +88,8 @@ async function save() {
     sessionAbsoluteHours: Number(f.sessionAbsoluteHours),
     rememberMeEnabled: f.rememberMeEnabled,
     rememberMeAbsoluteHours: Number(f.rememberMeAbsoluteHours),
+    supportSessionIdleMinutes: Number(f.supportSessionIdleMinutes ?? 0),
+    supportSessionAbsoluteHours: Number(f.supportSessionAbsoluteHours ?? 168),
   }
   const pp = f.passwordPolicy
   if (pp) {
@@ -176,15 +178,20 @@ async function save() {
           class="tw:flex tw:flex-col tw:gap-4"
         >
           <p class="tw:text-sm tw:text-secondary">
-            Rules every member's password must satisfy. Applies to sign-up, password
-            resets, and forced changes. Tightening these does not retroactively
-            invalidate existing passwords until they next change.
+            Rules every member's password must satisfy. Applies to sign-up, password resets, and
+            forced changes. Tightening these does not retroactively invalidate existing passwords
+            until they next change.
           </p>
 
           <div class="tw:grid tw:grid-cols-1 tw:gap-4 tw:sm:grid-cols-2">
             <div>
               <p class="tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">Minimum length</p>
-              <BaseTextInput v-model="form.passwordPolicy.minLength" type="number" :min="6" :max="128" />
+              <BaseTextInput
+                v-model="form.passwordPolicy.minLength"
+                type="number"
+                :min="6"
+                :max="128"
+              />
             </div>
             <div>
               <p class="tw:text-sm tw:font-medium tw:text-on-main tw:mb-1">Minimum strength</p>
@@ -227,7 +234,10 @@ async function save() {
                 Reject passwords found in known data breaches (HaveIBeenPwned).
               </p>
             </div>
-            <BaseSwitch v-model="form.passwordPolicy.blockBreached" label="Block breached passwords" />
+            <BaseSwitch
+              v-model="form.passwordPolicy.blockBreached"
+              label="Block breached passwords"
+            />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
             <div>
@@ -245,12 +255,22 @@ async function save() {
           <div class="tw:grid tw:grid-cols-1 tw:gap-4 tw:sm:grid-cols-2">
             <div>
               <p class="tw:text-sm tw:text-on-main tw:mb-1">Password expires after (days)</p>
-              <BaseTextInput v-model="form.passwordPolicy.expiryDays" type="number" :min="0" :max="3650" />
+              <BaseTextInput
+                v-model="form.passwordPolicy.expiryDays"
+                type="number"
+                :min="0"
+                :max="3650"
+              />
               <p class="tw:text-caption tw:text-secondary tw:mt-1">0 = never expires.</p>
             </div>
             <div>
               <p class="tw:text-sm tw:text-on-main tw:mb-1">Remember last N passwords</p>
-              <BaseTextInput v-model="form.passwordPolicy.historyDepth" type="number" :min="0" :max="50" />
+              <BaseTextInput
+                v-model="form.passwordPolicy.historyDepth"
+                type="number"
+                :min="0"
+                :max="50"
+              />
               <p class="tw:text-caption tw:text-secondary tw:mt-1">
                 Block reuse of this many recent passwords. 0 = off.
               </p>
@@ -301,7 +321,9 @@ async function save() {
             />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
-            <span class="tw:text-sm tw:text-on-main">Also require MFA after Google/Microsoft sign-in</span>
+            <span class="tw:text-sm tw:text-on-main"
+              >Also require MFA after Google/Microsoft sign-in</span
+            >
             <BaseSwitch v-model="form.mfaAppliesToSso" label="Require MFA for SSO" />
           </div>
           <div class="tw:flex tw:items-center tw:justify-between">
@@ -344,6 +366,26 @@ async function save() {
           <div v-if="form.rememberMeEnabled">
             <p class="tw:text-sm tw:text-on-main tw:mb-1">Remembered session lasts (hours)</p>
             <BaseTextInput v-model="form.rememberMeAbsoluteHours" type="number" />
+          </div>
+
+          <!-- Support Desk population: its own, laxer policy. -->
+          <div class="tw:mt-2 tw:rounded-lg tw:border tw:border-divider tw:p-3">
+            <p class="tw:text-sm tw:font-medium tw:text-on-main">Support Desk users</p>
+            <p class="tw:mb-3 tw:text-caption tw:text-secondary">
+              Applies to users whose roles are all Support Desk roles (Support Admin / Support
+              Agent). They cannot open QMS records, and an agent watching the inbox is not “idle” —
+              so no idle cut-off by default and a week-long session. QMS users are unaffected.
+            </p>
+            <div class="tw:grid tw:grid-cols-2 tw:gap-4">
+              <div>
+                <p class="tw:text-sm tw:text-on-main tw:mb-1">Idle timeout (minutes, 0 = none)</p>
+                <BaseTextInput v-model="form.supportSessionIdleMinutes" type="number" min="0" />
+              </div>
+              <div>
+                <p class="tw:text-sm tw:text-on-main tw:mb-1">Absolute timeout (hours)</p>
+                <BaseTextInput v-model="form.supportSessionAbsoluteHours" type="number" min="1" />
+              </div>
+            </div>
           </div>
         </div>
 

@@ -153,11 +153,6 @@ function userName(id) {
 }
 
 // Label lookups — each a cheap findByPk against its own store.
-const ncType = useLiveQueryWithDeps(
-  [() => nc.value?.typeId],
-  async (db, [id]) => (id ? db.NcType.findByPk(id) : null),
-  { models: ['NcType'] },
-)
 const ncSource = useLiveQueryWithDeps(
   [() => nc.value?.sourceId],
   async (db, [id]) => (id ? db.NcSource.findByPk(id) : null),
@@ -206,7 +201,7 @@ const ncDisposition = useLiveQueryWithDeps(
   { models: ['NcDispositionType'] },
 )
 
-const identifier = computed(() => nc.value?.ncNumber ?? '')
+const identifier = computed(() => nc.value?.ncNumber || 'Draft')
 
 // Commercial references only earn a row when at least one is set — most NCs
 // carry none and an all-dashes row is noise on a printed page.
@@ -258,7 +253,7 @@ onMounted(() => {
 <template>
   <PrintLayout :status="nc?.statusId" :identifier="identifier" :auditEntities="auditEntities">
     <template #title>
-      <div class="qp-num">{{ nc?.ncNumber }}</div>
+      <div class="qp-num">{{ nc?.ncNumber || 'Draft' }}</div>
       <h1 class="qp-title">{{ nc?.title }}</h1>
       <table class="qp-meta">
         <tbody>
@@ -269,16 +264,16 @@ onMounted(() => {
             <td>{{ ncStatus?.name || nc?.statusId || '—' }}</td>
           </tr>
           <tr>
-            <th>Type</th>
-            <td>{{ ncType?.name || nc?.typeId || '—' }}</td>
+            <th>Category</th>
+            <td>{{ ncCategory?.name || '—' }}</td>
             <th>Severity</th>
             <td>{{ ncSeverity?.name || nc?.severityId || '—' }}</td>
           </tr>
           <tr>
-            <th>Category</th>
-            <td>{{ ncCategory?.name || '—' }}</td>
             <th>Detection Source</th>
             <td>{{ ncSource?.name || nc?.sourceId || '—' }}</td>
+            <th></th>
+            <td></td>
           </tr>
           <tr>
             <th>Site</th>

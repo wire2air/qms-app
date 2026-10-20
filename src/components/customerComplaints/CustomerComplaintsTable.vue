@@ -178,7 +178,34 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     </template>
 
     <template #body-cell-source="{ row }">
-      <CustomerComplaintSourceBadgeById :sourceId="row.sourceId" />
+      <!-- A live chat shows its state instead of the generic source; the dot
+           means the visitor still has the widget open (seen < 2 min). -->
+      <span
+        v-if="row.channelKind === 'CHAT'"
+        class="tw:inline-flex tw:items-center tw:gap-1.5 tw:rounded tw:px-1.5 tw:py-0.5 tw:text-micro"
+        :class="
+          {
+            WAITING: 'tw:bg-amber-50 tw:text-amber-700',
+            ACTIVE: 'tw:bg-green-50 tw:text-green-700',
+          }[row.chatState] || 'tw:bg-gray-100 tw:text-secondary'
+        "
+        :title="
+          row.visitorLastSeenAt
+            ? `Visitor last seen ${row.visitorLastSeenAt.formatDate('datetime')}`
+            : ''
+        "
+      >
+        <span
+          class="tw:inline-block tw:h-1.5 tw:w-1.5 tw:rounded-full"
+          :class="
+            row.visitorLastSeenAt && Date.now() - row.visitorLastSeenAt.toMillis() < 120000
+              ? 'tw:bg-green-500'
+              : 'tw:bg-gray-400'
+          "
+        />
+        Chat · {{ (row.chatState || 'waiting').toLowerCase() }}
+      </span>
+      <CustomerComplaintSourceBadgeById v-else :sourceId="row.sourceId" />
     </template>
 
     <template #body-cell-priority="{ row }">

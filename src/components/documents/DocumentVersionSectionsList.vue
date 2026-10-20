@@ -33,6 +33,19 @@ const sections = useLiveQueryWithDeps(
   { models: ['DocumentSection'], initial: [] },
 )
 
+// A document built from a template takes its structure from the template:
+// the sections ARE the controlled layout, so authors may not bolt extra ones
+// on (user decision 2026-10-17). Add-on sections remain for template-less
+// documents.
+const document = useLiveQueryWithDeps(
+  [() => props.documentId],
+  async (db, [id]) => (id ? db.Document.findByPk(id) : null),
+  { models: ['Document'] },
+)
+const canAddSection = computed(
+  () => props.canEdit && !!document.value && !document.value.documentTemplateId,
+)
+
 const showAddSectionDialog = ref(false)
 </script>
 
@@ -57,8 +70,8 @@ const showAddSectionDialog = ref(false)
       dense
     />
 
-    <!-- Add Section Button -->
-    <div v-if="canEdit" class="tw:border-t tw:border-divider tw:print:hidden">
+    <!-- Add Section Button — template-less documents only (see canAddSection). -->
+    <div v-if="canAddSection" class="tw:border-t tw:border-divider tw:print:hidden">
       <BaseButton variant="outline" class="tw:w-full" @click="showAddSectionDialog = true">
         <template #icon>
           <IconPlus :size="20" />
@@ -68,6 +81,7 @@ const showAddSectionDialog = ref(false)
     </div>
 
     <DocumentsAddSectionDialog
+      v-if="canAddSection"
       v-model="showAddSectionDialog"
       :documentVersionId="documentVersionId"
       :documentId="documentId"

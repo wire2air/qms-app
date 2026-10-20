@@ -6,6 +6,7 @@ import {
   IconPrinter,
   IconSend,
 } from '@tabler/icons-vue'
+import { qualityEventCancelReasonLabel } from '@/constants/qualityEventCancelReasons.js'
 
 /**
  * Contextual banners, sections, and header actions for a Quality Event detail
@@ -18,12 +19,24 @@ import {
 export function buildQualityEventBanners(event) {
   if (!event) return []
   const banners = []
-  if (['CLOSED', 'CANCELLED'].includes(event.statusId)) {
+  if (event.statusId === 'CANCELLED') {
+    // The signed cancel reason lives on the row (2026-10-17): "<list label>:
+    // <specifics>" — the banner is where an auditor reads it first.
+    const label = qualityEventCancelReasonLabel(event.cancelReasonCode)
+    const detail = (event.cancelReason || '').trim()
+    const why = [label, detail && detail !== label ? detail : null].filter(Boolean).join(': ')
     banners.push({
       id: 'status',
       tone: 'neutral',
-      title: event.statusId === 'CLOSED' ? 'Closed' : 'Cancelled',
-      message: `This event is ${event.statusId.toLowerCase()}.`,
+      title: 'Cancelled',
+      message: why ? `This event was cancelled — ${why}` : 'This event is cancelled.',
+    })
+  } else if (event.statusId === 'CLOSED') {
+    banners.push({
+      id: 'status',
+      tone: 'neutral',
+      title: 'Closed',
+      message: 'This event is closed.',
     })
   }
   return banners
@@ -69,6 +82,7 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
     cancelling,
     submitting,
     escalatedTo,
+    hasEscalations = !!escalatedTo,
     canViewAuditTrail,
   } = gates
   const isOpen = !['CLOSED', 'CANCELLED'].includes(statusId)
@@ -136,7 +150,11 @@ export function buildQualityEventActions(gates = {}, handlers = {}) {
       // Same claim as Close (`canClose` — assigned reviewer or a
       // quality_events:close grant), because POST /cancel is gated on the same
       // quality_events:update + quality_events:close pair.
-      visible: !!canClose && isOpen,
+      // Hidden once the event has spawned an NC / CAPA / CR / Complaint: a record
+      // with formal follow-ups is closed, not thrown away (cancelQualityEvent
+      // refuses too). `alreadyEscalated` is the same signal the Escalate button
+      // reads.
+      visible: !!canClose && isOpen && !hasEscalations,
       // …but a DIFFERENT server rule, which is why this gets its own blocked
       // reason instead of reusing `closeBlockedReason`. Close accepts only the
       // assigned reviewer, full stop. Cancel accepts the assigned reviewer when

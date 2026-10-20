@@ -169,9 +169,9 @@ export const CATEGORY_METADATA = {
   },
   // Quality records
   customerComplaints: {
-    label: 'Customer Complaints',
+    label: 'Support Desk',
     icon: IconHeadset,
-    description: 'Manage access for Customer Complaints',
+    description: 'Manage access for the Support Desk (customer tickets)',
   },
   changeRequests: {
     label: 'Change Control',
@@ -347,7 +347,7 @@ export const PERMISSION_SECTIONS = [
     // the seeded permission rows: `fieldRecords:create`,
     // `logBooks:update`, `equipment:create`, etc. Without this section
     // the rows exist in PG but the Roles UI hides them.
-    name: 'Inspections & Logs',
+    name: 'Log Books',
     categories: ['fieldRecords', 'logBooks', 'inspections', 'equipment'],
   },
   {

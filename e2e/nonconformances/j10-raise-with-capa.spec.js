@@ -99,7 +99,6 @@ test.describe('PW-J10 · raise an NC with a linked 8D CAPA', () => {
         description: 'PW-J10 — raise with a linked 8D CAPA.',
         siteId: SITES.primary.id,
         departmentId: DEPARTMENTS.quality.id,
-        typeId: 'PROCESS',
         sourceId: 'IN_PROCESS',
         severityId: 'MAJOR',
         detectedAt: new Date().toISOString(),

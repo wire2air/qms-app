@@ -108,23 +108,43 @@ const productDetailConfig = computed(() =>
     <template v-if="product" #tab-overview>
       <div class="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-5 tw:max-w-3xl">
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Name</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Name
+          </p>
           <p class="tw:text-on-sidebar">{{ product.name }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">SKU</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            SKU
+          </p>
           <p class="tw:text-on-sidebar">{{ product.sku }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">ERP Item Code</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            ERP Item Code
+          </p>
           <p class="tw:text-on-sidebar">{{ product.erpItemCode || '—' }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Unit of Measure</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Unit of Measure
+          </p>
           <p class="tw:text-on-sidebar">{{ uomName || 'N/A' }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Type</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Item Type
+          </p>
           <ProductTypeBadgeById
             v-if="product.productTypeId"
             :productTypeId="product.productTypeId"
@@ -132,11 +152,19 @@ const productDetailConfig = computed(() =>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Category</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Item Category
+          </p>
           <p class="tw:text-on-sidebar">{{ itemCategoryName || '—' }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Item Group</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Item Group
+          </p>
           <ProductFamilyBadgeById
             v-if="product.productFamilyId"
             :productFamilyId="product.productFamilyId"
@@ -144,56 +172,112 @@ const productDetailConfig = computed(() =>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Revision</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Revision
+          </p>
           <p class="tw:text-on-sidebar">{{ product.revision || '—' }}</p>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Status</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Status
+          </p>
           <ProductStatusBadgeById v-if="product.statusId" :statusId="product.statusId" />
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div>
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Criticality</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Criticality
+          </p>
           <p class="tw:text-on-sidebar">{{ product.criticality || '—' }}</p>
         </div>
         <div class="tw:md:col-span-2">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Controls</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Controls
+          </p>
           <div class="tw:flex tw:flex-wrap tw:gap-1.5">
             <BaseChip v-if="product.lotControlled" size="sm">Lot controlled</BaseChip>
             <BaseChip v-if="product.serialControlled" size="sm">Serial controlled</BaseChip>
             <BaseChip v-if="product.inspectionRequired" size="sm">Inspection required</BaseChip>
             <BaseChip v-if="product.isHazardous" size="sm" color="red">Hazardous</BaseChip>
+            <span v-if="product.shelfLifeDays" class="tw:text-sm tw:text-secondary"
+              >Shelf life: {{ product.shelfLifeDays }} days</span
+            >
             <span
-              v-if="product.shelfLifeDays"
+              v-if="
+                !product.lotControlled &&
+                !product.serialControlled &&
+                !product.inspectionRequired &&
+                !product.isHazardous &&
+                !product.shelfLifeDays
+              "
               class="tw:text-sm tw:text-secondary"
-            >Shelf life: {{ product.shelfLifeDays }} days</span>
-            <span
-              v-if="!product.lotControlled && !product.serialControlled && !product.inspectionRequired && !product.isHazardous && !product.shelfLifeDays"
-              class="tw:text-sm tw:text-secondary"
-            >—</span>
+              >—</span
+            >
           </div>
         </div>
         <div v-if="product.defaultAql">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Default AQL</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Default AQL
+          </p>
           <p class="tw:text-on-sidebar">{{ product.defaultAql }}</p>
         </div>
-        <div v-if="product.countryOfOrigin">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Country of Origin</p>
-          <p class="tw:text-on-sidebar">{{ product.countryOfOrigin }}</p>
+        <div v-if="product.countryOfOriginId">
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Country of Origin
+          </p>
+          <CountryBadgeById :countryId="product.countryOfOriginId" />
         </div>
         <div v-if="product.storageConditions" class="tw:md:col-span-2">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Storage Conditions</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Storage Conditions
+          </p>
           <p class="tw:text-on-sidebar tw:whitespace-pre-wrap">{{ product.storageConditions }}</p>
         </div>
         <div class="tw:md:col-span-2">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Suppliers</p>
-          <div v-if="supplierLinks.length" class="tw:flex tw:flex-wrap tw:gap-1">
-            <SupplierBadgeById v-for="l in supplierLinks" :key="l.id" :supplierId="l.supplierId" />
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Suppliers
+          </p>
+          <div v-if="supplierLinks.length" class="tw:flex tw:flex-wrap tw:gap-1 tw:items-center">
+            <span
+              v-for="l in supplierLinks"
+              :key="l.id"
+              class="tw:inline-flex tw:items-center tw:gap-1"
+            >
+              <SupplierBadgeById :supplierId="l.supplierId" />
+              <!-- The supplier an NC on this item pre-fills. -->
+              <span
+                v-if="l.isPreferred"
+                class="tw:text-micro tw:rounded tw:px-1 tw:py-0.5 tw:bg-amber-50 tw:text-amber-700 tw:border tw:border-amber-200"
+                title="Preferred supplier — pre-filled on nonconformances for this item"
+              >
+                Preferred
+              </span>
+            </span>
           </div>
           <span v-else class="tw:text-sm tw:text-secondary">—</span>
         </div>
         <div class="tw:md:col-span-2">
-          <p class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1">Description</p>
+          <p
+            class="tw:text-caption tw:uppercase tw:tracking-wider tw:font-semibold tw:text-secondary tw:mb-1"
+          >
+            Description
+          </p>
           <p class="tw:text-on-sidebar tw:whitespace-pre-wrap">{{ product.description || '—' }}</p>
         </div>
       </div>

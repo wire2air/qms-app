@@ -31,7 +31,7 @@ Author controlled **Documents** with versioning and approvals, and standardize
 with **Document Templates**.
 
 ### Inspections & Operations
-Run **Inspections & Logs**, capture entries with **Mobile Logging**, track
+Run **Log Books**, capture entries with **Mobile Logging**, track
 **Submissions**, manage **My Tasks**, and register **Equipment**.
 
 ### Training

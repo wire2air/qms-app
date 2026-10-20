@@ -37,9 +37,35 @@ export function rootDomain() {
 /**
  * The tenant slug for the current host, or null on apex / reserved hosts.
  */
+/**
+ * The Support Desk host family: `acme.support.<apex>` beside `acme.app.<apex>`
+ * (dev: `acme.support.localhost`). Mirrors supportRootDomain() in
+ * backend/shared/constants/tenancy.js; VITE_SUPPORT_ROOT_DOMAIN overrides.
+ */
+export function supportRootDomain() {
+  const override = import.meta.env.VITE_SUPPORT_ROOT_DOMAIN
+  if (override) return String(override).toLowerCase()
+  const root = rootDomain()
+  return root.startsWith('app.') ? `support.${root.slice(4)}` : `support.${root}`
+}
+
+/** True when this tab is on the Support Desk host family. */
+export function isSupportHost() {
+  const host = window.location.hostname.toLowerCase()
+  const sroot = supportRootDomain()
+  return sroot !== rootDomain() && host.endsWith(`.${sroot}`)
+}
+
 export function currentSubdomain() {
   const host = window.location.hostname.toLowerCase() // no port
   const root = rootDomain()
+
+  // Support host: the same tenant, served as its own product.
+  if (isSupportHost()) {
+    const label = host.slice(0, -(supportRootDomain().length + 1))
+    if (!label || label.includes('.') || RESERVED.has(label)) return null
+    return label
+  }
 
   if (host === root || !host.endsWith(`.${root}`)) return null
 
@@ -56,10 +82,11 @@ export function currentSubdomain() {
  *   dev  → http://acme.localhost:5173
  *   prod → https://acme.qability.com
  */
-export function tenantOrigin(code) {
+export function tenantOrigin(code, surface = isSupportHost() ? 'support' : 'app') {
   const { protocol, port } = window.location
   const portSuffix = port ? `:${port}` : ''
-  return `${protocol}//${code}.${rootDomain()}${portSuffix}`
+  const root = surface === 'support' ? supportRootDomain() : rootDomain()
+  return `${protocol}//${code}.${root}${portSuffix}`
 }
 
 /**

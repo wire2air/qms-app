@@ -25,6 +25,8 @@ export class ProductSupplier extends BaseModel {
   @Property({ type: String, required: true }) productId = ''
   @Property({ type: String, required: true }) supplierId = ''
   @Property({ type: String, required: true }) companyId = ''
+  // At most one live preferred link per item; the supplier an NC pre-fills.
+  @Property({ type: Boolean }) isPreferred = false
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

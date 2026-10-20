@@ -480,7 +480,9 @@ const navItems = computed(() => {
       // QA-review workflow — an independent module from the support Customer
       // Complaints entry (below, next to App Builder — it's the support-desk
       // surface, not a core QMS record).
-      label: 'Complaints',
+      // Renamed 2026-10-18: this is THE customer-complaint record; the old
+      // ticketing module below is now "Support Desk".
+      label: 'Customer Complaints',
       permissions: ['complaints:read'],
       icon: IconMessageReport,
       to: getCompanyPath('/complaints'),
@@ -557,17 +559,20 @@ const navItems = computed(() => {
       // Submenu like QC Inspection (user request 2026-08-05): ?tab= children,
       // each gated on its tab's module; the group header auto-hides when every
       // child is filtered away, which subsumes the old anyPermissions gate.
-      label: 'Inspections & Logs',
-      icon: IconClipboardList,
+      // Renamed from "Inspections & Logs" (user 2026-10-17): the group IS the
+      // log book module, and the old name collided with QC Inspection and with
+      // a since-removed workflow module of the same name.
+      label: 'Log Books',
+      icon: IconBook,
       children: [
         {
-          label: 'Logs',
+          label: 'Entries',
           permissions: ['field_records:read'],
           icon: IconClipboardText,
           to: getCompanyPath('/inspections-logs?tab=logs'),
         },
         {
-          label: 'Log Books',
+          label: 'Books',
           permissions: ['log_books:read'],
           icon: IconBook,
           to: getCompanyPath('/inspections-logs?tab=log-books'),
@@ -702,10 +707,25 @@ const navItems = computed(() => {
     {
       // Support-desk complaint tickets (web/forms/email intake). Its module
       // settings live on the page itself (gear icon), not in Settings.
-      label: 'Customer Complaints',
+      label: 'Support Desk',
       permissions: ['complaint_management:read'],
       icon: IconHeadset,
-      to: getCompanyPath('/customer-complaints'),
+      children: [
+        {
+          // Intercom-style agent inbox — full-canvas workspace at /desk.
+          label: 'Inbox',
+          permissions: ['complaint_management:read'],
+          icon: IconInbox,
+          to: getCompanyPath('/desk'),
+        },
+        {
+          // The classic list + detail ticketing view over the same tickets.
+          label: 'Tickets',
+          permissions: ['complaint_management:read'],
+          icon: IconHeadset,
+          to: getCompanyPath('/customer-complaints'),
+        },
+      ],
     },
     {}, // Divider
     {

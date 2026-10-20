@@ -108,7 +108,14 @@ const capas = useLiveQueryWithDeps(
     () => effectivenessIndex.value,
   ],
   async (db, [statusIds, priorityIds, typeIds, af, supplierIds, createdAt, effectiveness]) => {
-    let results = await db.Capa.where().exec()
+    // 'deleted' is the one view that reads soft-deleted rows (paranoid hides
+    // them from every other query) and shows ONLY those.
+    let results =
+      af === 'deleted'
+        ? (await db.Capa.where(undefined, undefined, { force: true }).exec()).filter(
+            (r) => !!r.deletedAt,
+          )
+        : await db.Capa.where().exec()
     results = applyFilters(results, statusIds, priorityIds, typeIds)
     results = applyActiveFilter(results, af)
     if (supplierIds?.length) results = results.filter((r) => supplierIds.includes(r.supplierId))

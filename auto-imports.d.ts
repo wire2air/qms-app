@@ -13,6 +13,7 @@ declare global {
   const PREVIEW_ERROR: typeof import('./src/composables/useAnalytics.js').PREVIEW_ERROR
   const PdfImportLimitError: typeof import('./src/composables/usePdfImport.js').PdfImportLimitError
   const SEARCH_THRESHOLD: typeof import('./resource/js/shared/composables/filterMenuHelpers.js').SEARCH_THRESHOLD
+  const SNOOZE_PRESETS: typeof import('./src/composables/useSupportTicketActions.js').SNOOZE_PRESETS
   const STEP_GROUPING_ENABLED: typeof import('./src/composables/useWorkflowStepGrouping.js').STEP_GROUPING_ENABLED
   const WARN_BEFORE_MS: typeof import('./src/composables/useIdleLogout.js').WARN_BEFORE_MS
   const approvalPendingBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').approvalPendingBanner
@@ -232,6 +233,7 @@ declare global {
   const useBroadcastChannel: typeof import('@vueuse/core').useBroadcastChannel
   const useBrowserLocation: typeof import('@vueuse/core').useBrowserLocation
   const useCached: typeof import('@vueuse/core').useCached
+  const useChatLive: typeof import('./src/composables/useChatLive.js').useChatLive
   const useChatPanel: typeof import('./src/composables/useChatPanel.js').useChatPanel
   const useChatStream: typeof import('./src/composables/useChatStream.js').useChatStream
   const useChatThreads: typeof import('./src/composables/useChatThreads.js').useChatThreads
@@ -396,6 +398,8 @@ declare global {
   const useStorage: typeof import('@vueuse/core').useStorage
   const useStorageAsync: typeof import('@vueuse/core').useStorageAsync
   const useStyleTag: typeof import('@vueuse/core').useStyleTag
+  const useSupportAgentHeartbeat: typeof import('./src/composables/useSupportAgentHeartbeat.js').useSupportAgentHeartbeat
+  const useSupportTicketActions: typeof import('./src/composables/useSupportTicketActions.js').useSupportTicketActions
   const useSupported: typeof import('@vueuse/core').useSupported
   const useSwipe: typeof import('@vueuse/core').useSwipe
   const useTableFilters: typeof import('./resource/js/shared/composables/useTableFilters.js').useTableFilters

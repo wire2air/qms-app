@@ -105,7 +105,6 @@ import { NcStatus } from './ncStatus'
 import { InspectionLotStatus } from './inspectionLotStatus'
 import { QualityEventStatus } from './qualityEventStatus'
 import { AuditInstanceStatus } from './auditInstanceStatus'
-import { NcType } from './ncType'
 import { NcSeverity } from './ncSeverity'
 import { NcSource } from './ncSource'
 import { NcDispositionType } from './ncDispositionType'
@@ -133,6 +132,12 @@ import { Complaint } from './complaint'
 import { ComplaintRecord } from './complaintRecord'
 import { ComplaintStatus } from './complaintStatus'
 import { ComplaintCannedResponse } from './complaintCannedResponse'
+import { SupportBrand } from './supportBrand'
+import { SupportAgent } from './supportAgent'
+import { SupportAgentBrand } from './supportAgentBrand'
+import { SupportBlocklistEntry } from './supportBlocklistEntry'
+import { SupportOutboundMessage } from './supportOutboundMessage'
+import { SupportVisitor } from './supportVisitor'
 import { Customer } from './customer'
 import { CustomerOrganization } from './customerOrganization'
 import { CapaCounter } from './capaCounter'
@@ -356,7 +361,6 @@ export const db = {
   InspectionLotStatus,
   QualityEventStatus,
   AuditInstanceStatus,
-  NcType,
   NcSeverity,
   NcSource,
   NcDispositionType,
@@ -381,6 +385,12 @@ export const db = {
   ComplaintRecord,
   ComplaintStatus,
   ComplaintCannedResponse,
+  SupportBrand,
+  SupportAgent,
+  SupportAgentBrand,
+  SupportBlocklistEntry,
+  SupportOutboundMessage,
+  SupportVisitor,
   Customer,
   CustomerOrganization,
   Capa,

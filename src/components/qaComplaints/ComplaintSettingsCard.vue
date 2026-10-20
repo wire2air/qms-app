@@ -58,7 +58,7 @@ async function handleSave() {
   <BaseCard>
     <div class="tw:flex tw:items-center tw:gap-2 tw:mb-1">
       <IconMessageReport :size="18" class="tw:text-secondary" />
-      <h3 class="tw:text-base tw:font-semibold tw:text-on-main">Complaints</h3>
+      <h3 class="tw:text-base tw:font-semibold tw:text-on-main">Customer Complaints</h3>
     </div>
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Resolution SLA for quality complaints. The resolution target is stamped at

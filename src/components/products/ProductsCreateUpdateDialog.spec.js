@@ -272,7 +272,6 @@ describe('the create payload', () => {
       erpItemCode: '   ',
       revision: '  ',
       defaultAql: '',
-      countryOfOrigin: '  ',
       storageConditions: '',
       shelfLifeDays: null,
       criticality: null,
@@ -283,7 +282,7 @@ describe('the create payload', () => {
     expect(payload.erpItemCode, 'erp_item_code is under a partial unique index').toBeNull()
     expect(payload.revision).toBeNull()
     expect(payload.defaultAql).toBeNull()
-    expect(payload.countryOfOrigin).toBeNull()
+    expect(payload.countryOfOriginId).toBeNull()
     expect(payload.storageConditions).toBeNull()
     expect(payload.shelfLifeDays).toBeNull()
     expect(payload.criticality, 'NULL stays legal — the CHECK allows it').toBeNull()
@@ -415,7 +414,7 @@ describe('edit mode', () => {
         shelfLifeDays: null,
         inspectionRequired: false,
         defaultAql: null,
-        countryOfOrigin: null,
+        countryOfOriginId: null,
         storageConditions: null,
         isHazardous: false,
         save: vi.fn(async () => {}),

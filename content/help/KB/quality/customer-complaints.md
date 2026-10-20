@@ -1,17 +1,17 @@
 ---
 id: customer-complaints
-title: Customer Complaints
+title: Support Desk
 sidebar_position: 9
 description: Receive, acknowledge, and answer customer complaints — intake forms, the conversation thread, SLA targets and canned responses.
 keywords:
   [customer complaints, support, sla, intake form, conversation, canned responses, acknowledgement]
 ---
 
-# Customer Complaints
+# Support Desk
 
 ## Overview
 
-Customer Complaints is the **support** side of complaint handling: receiving what
+The Support Desk is the **support** side of complaint handling: receiving what
 the customer said, acknowledging it, working it, and replying. It carries the
 conversation, the clock and the customer relationship.
 

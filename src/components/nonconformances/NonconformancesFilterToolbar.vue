@@ -20,7 +20,6 @@ const hasChips = computed(
   () =>
     arr('statusId').length ||
     arr('severityId').length ||
-    arr('typeId').length ||
     arr('supplierId').length ||
     arr('effectiveness').length ||
     filters.value.createdAt,
@@ -35,7 +34,6 @@ function clearAll() {
     ...filters.value,
     statusId: [],
     severityId: [],
-    typeId: [],
     supplierId: [],
     effectiveness: [],
     createdAt: null,
@@ -65,13 +63,6 @@ function clearAll() {
       :severityId="id"
       clearable
       @clear="removeValue('severityId', id)"
-    />
-    <NcTypeBadgeById
-      v-for="id in arr('typeId')"
-      :key="`ty-${id}`"
-      :typeId="id"
-      clearable
-      @clear="removeValue('typeId', id)"
     />
     <SupplierBadgeById
       v-for="id in arr('supplierId')"

@@ -4,7 +4,7 @@ import {
   buildComplaintSections,
   buildComplaintActions,
 } from './customerComplaintDetailConfig.js'
-import { isAllowed } from '@/utils/currentSession.js'
+import { isAllowed, isVerbAllowed, currentSession } from '@/utils/currentSession.js'
 import { DateTime } from 'luxon'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
@@ -18,6 +18,7 @@ const props = defineProps({
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+const { confirm } = useConfirm()
 const { visit: visitTrail } = useRecordTrail()
 
 const complaint = useLiveQueryWithDeps(
@@ -37,7 +38,7 @@ watch(
 const loading = computed(() => complaint.value === undefined)
 
 const breadcrumbs = computed(() => [
-  { label: 'Customer Complaints', to: getCompanyPath('/customer-complaints') },
+  { label: 'Support Desk', to: getCompanyPath('/customer-complaints') },
   {
     label:
       complaint.value?.complaintNumber ||
@@ -82,6 +83,139 @@ async function runAction(path, body = {}) {
 const showAssignDialog = ref(false)
 const assignUserId = ref(null)
 
+// ── Support Desk inbox actions (spec §3): take over, snooze, spam-learn ──────
+// These hit /v1/services/supportDesk/tickets/:id/* (action RPCs, CLAUDE.md
+// rule #4 exception); the sync push refreshes the ticket afterwards.
+const currentUserId = computed(() => currentSession.value?.userId ?? null)
+const heldByOther = computed(
+  () => !!complaint.value?.assignedTo && complaint.value.assignedTo !== currentUserId.value,
+)
+const canTakeOver = computed(() => isVerbAllowed('complaint_management', 'takeover'))
+const isSnoozed = computed(() => {
+  const t = complaint.value?.snoozedUntil
+  return !!t && (t.toMillis ? t.toMillis() : new Date(t).getTime()) > Date.now()
+})
+const snoozedUntilLabel = computed(() =>
+  isSnoozed.value ? complaint.value.snoozedUntil?.formatDate?.('datetime') : null,
+)
+async function deskAction(path, body = {}) {
+  acting.value = true
+  saveError.value = null
+  try {
+    const res = await post(`/v1/services/supportDesk/tickets/${props.id}/${path}`, body)
+    return res
+  } catch (e) {
+    saveError.value = e.message || 'Action failed'
+    toast.error(saveError.value)
+    return null
+  } finally {
+    acting.value = false
+  }
+}
+// Chat presence/state (spec §4.3). `now` ticks so "visitor online" expires
+// without a re-render from sync.
+const nowTick = ref(Date.now())
+const tick = setInterval(() => (nowTick.value = Date.now()), 15_000)
+onBeforeUnmount(() => clearInterval(tick))
+const visitorOnline = computed(() => {
+  const t = complaint.value?.visitorLastSeenAt
+  return !!t && nowTick.value - (t.toMillis ? t.toMillis() : new Date(t).getTime()) < 120_000
+})
+const chatStateClass = computed(
+  () =>
+    ({
+      WAITING: 'tw:bg-amber-50 tw:text-amber-700',
+      ACTIVE: 'tw:bg-green-50 tw:text-green-700',
+      IDLE: 'tw:bg-gray-100 tw:text-secondary',
+      ENDED: 'tw:bg-gray-100 tw:text-secondary',
+    })[complaint.value?.chatState] || 'tw:bg-amber-50 tw:text-amber-700',
+)
+async function endChat() {
+  const ok = await confirm({
+    title: 'End this chat?',
+    message:
+      'The visitor sees the closing message and rating prompt; the ticket is resolved. They can start a new chat any time.',
+    okLabel: 'End chat',
+  })
+  if (!ok) return
+  if (await deskAction('endChat')) toast.success('Chat ended')
+}
+
+async function takeOver() {
+  const ok = await confirm({
+    title: 'Take over this ticket?',
+    message: 'The current assignee will be notified and the hand-over is recorded on the thread.',
+    okLabel: 'Take over',
+  })
+  if (!ok) return
+  if (await deskAction('takeOver')) toast.success('You now hold this ticket')
+}
+
+const showSnoozeDialog = ref(false)
+const snoozeUntil = ref(null)
+const SNOOZE_PRESETS = [
+  { label: '1 hour', pick: () => DateTime.now().plus({ hours: 1 }) },
+  {
+    label: 'This afternoon (3 pm)',
+    pick: () => DateTime.now().set({ hour: 15, minute: 0, second: 0 }),
+  },
+  {
+    label: 'Tomorrow 9 am',
+    pick: () => DateTime.now().plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0 }),
+  },
+  {
+    label: 'Next Monday 9 am',
+    pick: () =>
+      DateTime.now().plus({ weeks: 1 }).set({ weekday: 1, hour: 9, minute: 0, second: 0 }),
+  },
+]
+function openSnooze() {
+  snoozeUntil.value = null
+  showSnoozeDialog.value = true
+}
+async function submitSnooze() {
+  const dt = snoozeUntil.value?.toISO
+    ? snoozeUntil.value
+    : DateTime.fromJSDate(new Date(snoozeUntil.value))
+  if (!dt?.isValid || dt <= DateTime.now()) {
+    toast.error('Pick a time in the future')
+    return
+  }
+  if (await deskAction('snooze', { until: dt.toISO() })) {
+    showSnoozeDialog.value = false
+    toast.success(`Snoozed until ${dt.formatDate('datetime')}`)
+  }
+}
+async function unsnooze() {
+  if (await deskAction('snooze', { until: null })) toast.success('Back in the inbox')
+}
+
+const showSpamDialog = ref(false)
+const spamLearn = ref({ email: true, domain: false, allBrands: false })
+function openSpam() {
+  spamLearn.value = { email: !!complaint.value?.customerEmail, domain: false, allBrands: false }
+  showSpamDialog.value = true
+}
+async function submitSpam() {
+  const res = await deskAction('spam', { learn: spamLearn.value })
+  if (res) {
+    showSpamDialog.value = false
+    const n = res.learned?.length ?? 0
+    toast.success(
+      n ? `Marked as spam — ${n} sender rule${n === 1 ? '' : 's'} learned` : 'Marked as spam',
+    )
+  }
+}
+async function unspam() {
+  if (await deskAction('unspam', { forget: true }))
+    toast.success('Restored — learned rules removed')
+}
+const senderDomain = computed(() => {
+  const e = complaint.value?.customerEmail || ''
+  const at = e.lastIndexOf('@')
+  return at >= 0 ? e.slice(at + 1).toLowerCase() : ''
+})
+
 async function handleAssign() {
   if (!assignUserId.value) return
   await runAction('assign', { userId: assignUserId.value })
@@ -94,6 +228,33 @@ const closeComment = ref('')
 async function handleClose() {
   await runAction('close', { comment: closeComment.value.trim() || null })
   showCloseDialog.value = false
+}
+
+// ─── Escalate to Quality (Support → QMS bridge) ──────────────────────────────
+const showEscalateDialog = ref(false)
+const escalateNote = ref('')
+const qaLink = useLiveQueryWithDeps(
+  [() => props.id],
+  async (db, [ticketId]) => {
+    const rows = await db.RecordLink.where('[fromType+fromId]', [
+      'CustomerComplaint',
+      ticketId,
+    ]).exec()
+    return rows.find((l) => l.toType === 'Complaint') || null
+  },
+  { models: ['RecordLink'], initial: null },
+)
+const qaComplaint = useLiveQueryWithDeps(
+  [() => qaLink.value?.toId ?? null],
+  async (db, [qid]) => (qid ? db.Complaint.findByPk(qid) : null),
+  { models: ['Complaint'], initial: null },
+)
+async function submitEscalate() {
+  const res = await deskAction('escalate', { note: escalateNote.value.trim() || null })
+  if (res) {
+    showEscalateDialog.value = false
+    toast.success(`Escalated to Quality as ${res.complaint?.complaintNumber || 'a complaint'}`)
+  }
 }
 
 // ─── Convert to NC ────────────────────────────────────────────────────────────
@@ -144,7 +305,10 @@ const auditIncludeEntities = computed(() => [
 
 // ─── BaseDetailLayout config ──────────────────────────────────────────────────
 const complaintBanners = computed(() =>
-  buildComplaintBanners(complaint.value, { isEditable: isEditable.value }),
+  buildComplaintBanners(complaint.value, {
+    isEditable: isEditable.value,
+    snoozedUntilLabel: snoozedUntilLabel.value,
+  }),
 )
 const complaintSections = computed(() => buildComplaintSections(complaint.value))
 const complaintActions = computed(() =>
@@ -157,8 +321,24 @@ const complaintActions = computed(() =>
       acting: acting.value,
       hasAssignee: !!complaint.value?.assignedTo,
       canViewAuditTrail: isAllowed(['audit_trail:read']),
+      canTakeOver: canTakeOver.value,
+      heldByOther: heldByOther.value,
+      isSpam: !!complaint.value?.isSpam,
+      isSnoozed: isSnoozed.value,
+      isLiveChat: complaint.value?.channelKind === 'CHAT' && complaint.value?.chatState !== 'ENDED',
+      escalatedTo: qaComplaint.value?.complaintNumber || (qaLink.value ? 'Quality' : null),
     },
     {
+      openEscalate() {
+        escalateNote.value = ''
+        showEscalateDialog.value = true
+      },
+      endChat,
+      takeOver,
+      openSnooze,
+      unsnooze,
+      openSpam,
+      unspam,
       accept() {
         runAction('accept')
       },
@@ -236,6 +416,32 @@ const complaintDetailConfig = computed(() =>
       <span class="">{{ complaint.complaintNumber }}</span>
       <template v-if="complaint.sourceId">
         · <CustomerComplaintSourceBadgeById :sourceId="complaint.sourceId" />
+      </template>
+      <!-- Live chat: state + whether the visitor still has the widget open
+           (seen within the last 2 minutes — the widget polls every 3 s). -->
+      <template v-if="complaint.channelKind === 'CHAT'">
+        ·
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:rounded tw:px-1.5 tw:py-0.5 tw:text-micro"
+          :class="chatStateClass"
+        >
+          Chat · {{ (complaint.chatState || 'WAITING').toLowerCase() }}
+        </span>
+        <span
+          class="tw:inline-flex tw:items-center tw:gap-1 tw:text-micro"
+          :class="visitorOnline ? 'tw:text-green-700' : 'tw:text-secondary'"
+          :title="
+            complaint.visitorLastSeenAt
+              ? `Visitor last seen ${complaint.visitorLastSeenAt.formatDate('datetime')}`
+              : ''
+          "
+        >
+          <span
+            class="tw:inline-block tw:h-2 tw:w-2 tw:rounded-full"
+            :class="visitorOnline ? 'tw:bg-green-500' : 'tw:bg-gray-400'"
+          />
+          {{ visitorOnline ? 'visitor online' : 'visitor away' }}
+        </span>
       </template>
       <template v-if="complaint.createdAt">
         · {{ complaint.createdAt.formatDate('date') }}
@@ -455,6 +661,23 @@ const complaintDetailConfig = computed(() =>
         </div>
       </div>
 
+      <!-- 5b. Quality (escalated QMS complaint) -->
+      <div v-if="qaComplaint" class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
+        <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
+          Quality
+        </BaseText>
+        <RouterLink
+          :to="getCompanyPath(`/complaints/${qaComplaint.id}`)"
+          class="tw:flex tw:items-center tw:justify-between tw:rounded-lg tw:border tw:border-divider tw:px-3 tw:py-2 tw:hover:bg-main-hover"
+        >
+          <div class="tw:flex tw:items-center tw:gap-2 tw:min-w-0">
+            <span class="tw:text-xs tw:text-secondary">{{ qaComplaint.complaintNumber }}</span>
+            <span class="tw:text-sm tw:font-medium tw:truncate">{{ qaComplaint.subject }}</span>
+          </div>
+          <ComplaintStatusBadgeById :statusId="qaComplaint.statusId" />
+        </RouterLink>
+      </div>
+
       <!-- 6. Linked NC -->
       <div class="tw:bg-white tw:border tw:border-divider tw:rounded-lg tw:p-4">
         <BaseText variant="overline" class="tw:block tw:pb-2 tw:border-b tw:border-divider tw:mb-3">
@@ -496,6 +719,89 @@ const complaintDetailConfig = computed(() =>
         :disabled="!assignUserId"
         @cancel="close"
         @submit="handleAssign"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Snooze -->
+  <BaseDialog v-model="showSnoozeDialog" title="Snooze ticket" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        Hides the ticket from the open views until the time you pick — or until the customer
+        replies, whichever comes first.
+      </p>
+      <div class="tw:flex tw:flex-wrap tw:gap-2">
+        <BaseButton
+          v-for="p in SNOOZE_PRESETS"
+          :key="p.label"
+          size="sm"
+          variant="secondary"
+          @click="snoozeUntil = p.pick()"
+        >
+          {{ p.label }}
+        </BaseButton>
+      </div>
+      <BaseField label="Until">
+        <BaseDateField v-model="snoozeUntil" mode="datetime" />
+      </BaseField>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Snooze"
+        :loading="acting"
+        :disabled="!snoozeUntil"
+        @cancel="close"
+        @submit="submitSnooze"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Mark as spam + learn -->
+  <BaseDialog v-model="showSpamDialog" title="Mark as spam" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        The ticket moves to the Spam box (kept, not deleted). Optionally remember the sender so
+        future messages land there automatically — you can undo this with “Not spam”.
+      </p>
+      <BaseCheckbox v-if="complaint?.customerEmail" v-model="spamLearn.email"
+        >Block this address
+        <span class="tw:text-secondary">({{ complaint.customerEmail }})</span></BaseCheckbox
+      >
+      <BaseCheckbox v-if="senderDomain" v-model="spamLearn.domain"
+        >Block the whole domain
+        <span class="tw:text-secondary">(@{{ senderDomain }})</span></BaseCheckbox
+      >
+      <BaseCheckbox v-model="spamLearn.allBrands"
+        >Apply to every brand
+        <span class="tw:text-secondary">(default: this ticket’s brand)</span></BaseCheckbox
+      >
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Mark as spam"
+        submitVariant="danger"
+        :loading="acting"
+        @cancel="close"
+        @submit="submitSpam"
+      />
+    </template>
+  </BaseDialog>
+
+  <!-- Escalate to Quality -->
+  <BaseDialog v-model="showEscalateDialog" title="Escalate to Quality" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-secondary">
+        Creates a Quality complaint for the QA team with this ticket's subject, description and
+        customer details. QA accepts it and decides whether it becomes an NC or CAPA.
+      </p>
+      <BaseTextarea v-model="escalateNote" :rows="4" placeholder="Note for Quality (optional)…" />
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        submitLabel="Escalate"
+        :loading="acting"
+        @cancel="close"
+        @submit="submitEscalate"
       />
     </template>
   </BaseDialog>

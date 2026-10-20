@@ -1,4 +1,5 @@
 <script setup>
+import { db } from '@models/index'
 import { currentSession, isAllowed, isAllowedOnRecord, canUseAi } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { post } from '@/api'
@@ -23,7 +24,8 @@ const nc = useLiveQueryWithDeps(
 watch(
   nc,
   (n) => {
-    if (n?.id) visitTrail({ type: 'NC', id: n.id, label: n.ncNumber, path: route.path })
+    if (n?.id)
+      visitTrail({ type: 'NC', id: n.id, label: n.ncNumber || 'Draft NC', path: route.path })
   },
   { immediate: true },
 )
@@ -95,6 +97,29 @@ const initialInvestigationAttachments = computed({
 
 const saving = ref(false)
 const saveError = ref(null)
+
+// Picking an item fills in what the item master knows, where the NC has
+// nothing yet: Unit of measure (products.uomId → uoms.code) and Supplier (the
+// item's preferred supplier, else its only one). Rides the same autosave.
+watch(
+  () => nc.value?.productId,
+  async (productId, prev) => {
+    if (!productId || prev === undefined || !isEditable.value) return
+    const product = await db.Product.findByPk(productId)
+    const [uom, links] = await Promise.all([
+      product?.uomId ? db.Uom.findByPk(product.uomId) : null,
+      db.ProductSupplier.where('productId', productId).exec(),
+    ])
+    if (!nc.value) return
+    if (uom?.code && !nc.value.unitOfMeasure) nc.value.unitOfMeasure = uom.code
+    const supplierId =
+      links.find((l) => l.isPreferred)?.supplierId ??
+      (links.length === 1 ? links[0].supplierId : null)
+    if (supplierId && !nc.value.supplierId && nc.value.statusId === 'DRAFT') {
+      nc.value.supplierId = supplierId
+    }
+  },
+)
 
 // ─── NC-level Approve and Close (the single terminal action) ────────────────
 // Reviewer per-step Mark Complete advances the workflow; THIS button is
@@ -537,8 +562,7 @@ const ncDetailConfig = computed(() =>
     </template>
 
     <template v-if="nc" #meta>
-      <span class="">{{ nc.ncNumber }}</span>
-      <template v-if="nc.typeId"> · <NcTypeBadgeById :typeId="nc.typeId" /></template>
+      <span class="">{{ nc.ncNumber || 'Draft' }}</span>
       <template v-if="nc.detectedAt"> · Detected {{ nc.detectedAt.formatDate('date') }}</template>
     </template>
 
@@ -550,7 +574,7 @@ const ncDetailConfig = computed(() =>
           entityType="Nonconformance"
           :entityId="nc.id"
           :entityTitle="nc.title"
-          :entityNumber="nc.ncNumber"
+          :entityNumber="nc.ncNumber || 'Draft NC'"
         />
       </div>
     </template>
@@ -588,78 +612,96 @@ const ncDetailConfig = computed(() =>
         "
         title="Product impact"
       >
-        <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
-          <SupplierSelectMenu
-            v-if="isEditable && nc.statusId === 'DRAFT'"
-            v-model="nc.supplierId"
-          />
-          <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <!-- Supplier facing — free toggle while DRAFT; once OPEN the
-             owner can still CONVERT internal → supplier-facing. -->
-        <BaseDetailField label="Supplier facing">
-          <BaseInlineSelect
-            v-if="isEditable && nc.statusId === 'DRAFT'"
-            v-model="audienceModel"
-            :items="[
-              { id: 'INTERNAL', name: 'No — internal' },
-              { id: 'SUPPLIER', name: 'Yes — supplier facing' },
-            ]"
-            :required="true"
-          />
-          <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-            <span
-              class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
-              :class="
-                nc.isSupplierFacing
-                  ? 'tw:bg-violet-100 tw:text-violet-700'
-                  : 'tw:bg-gray-100 tw:text-secondary'
-              "
-            >
-              {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
-            </span>
-            <button
-              v-if="canConvertToSupplier"
-              class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
-              @click="openConvertDialog"
-            >
-              Convert…
-            </button>
-          </div>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.productId" label="Product">
-          <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
-          <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
-          <div v-if="isEditable" class="tw:flex tw:gap-1">
-            <BaseTextInput v-model="qtyAffectedModel" type="number" size="sm" class="tw:flex-1" />
-            <BaseTextInput v-model="nc.unitOfMeasure" size="sm" placeholder="UOM" class="tw:w-16" />
-          </div>
-          <BaseText v-else variant="body" weight="medium">
-            {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
-          <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-            {{ nc.poNumber }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
-          <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-            {{ nc.orderNumber }}
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
-          <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
-          <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-            {{ nc.lotNumber }}
-          </BaseText>
-        </BaseDetailField>
+        <!-- Two 3-up rows instead of one field per line: supplier / facing /
+             product, then qty+UOM / PO / Order / Lot. UOM comes from the
+             unit-of-measure lookup (stored by code, as QC specs do). -->
+        <BaseFieldRow :columns="3">
+          <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
+            <SupplierSelectMenu
+              v-if="isEditable && nc.statusId === 'DRAFT'"
+              v-model="nc.supplierId"
+            />
+            <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+          <!-- Supplier facing — free toggle while DRAFT; once OPEN the
+               owner can still CONVERT internal → supplier-facing. -->
+          <BaseDetailField label="Supplier facing">
+            <BaseInlineSelect
+              v-if="isEditable && nc.statusId === 'DRAFT'"
+              v-model="audienceModel"
+              :items="[
+                { id: 'INTERNAL', name: 'No — internal' },
+                { id: 'SUPPLIER', name: 'Yes — supplier facing' },
+              ]"
+              :required="true"
+            />
+            <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+              <span
+                class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
+                :class="
+                  nc.isSupplierFacing
+                    ? 'tw:bg-violet-100 tw:text-violet-700'
+                    : 'tw:bg-gray-100 tw:text-secondary'
+                "
+              >
+                {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
+              </span>
+              <button
+                v-if="canConvertToSupplier"
+                class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+                @click="openConvertDialog"
+              >
+                Convert…
+              </button>
+            </div>
+          </BaseDetailField>
+          <BaseDetailField v-if="isEditable || nc.productId" label="Product">
+            <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
+            <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
+            <BaseText v-else color="secondary">—</BaseText>
+          </BaseDetailField>
+        </BaseFieldRow>
+        <BaseFieldRow :columns="4">
+          <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
+            <div v-if="isEditable" class="tw:flex tw:gap-1">
+              <BaseTextInput
+                v-model="qtyAffectedModel"
+                type="number"
+                size="sm"
+                class="tw:min-w-0 tw:flex-1"
+              />
+              <UomSelectMenu
+                v-model="nc.unitOfMeasure"
+                bindValue="code"
+                nullLabel="UOM"
+                :allowCreate="false"
+                class="tw:w-28 tw:shrink-0"
+              />
+            </div>
+            <BaseText v-else variant="body" weight="medium">
+              {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
+            <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
+            <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+              {{ nc.poNumber }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
+            <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
+            <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+              {{ nc.orderNumber }}
+            </BaseText>
+          </BaseDetailField>
+          <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
+            <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
+            <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+              {{ nc.lotNumber }}
+            </BaseText>
+          </BaseDetailField>
+        </BaseFieldRow>
       </FormSection>
 
       <!-- NC Details card -->
@@ -772,7 +814,11 @@ const ncDetailConfig = computed(() =>
                   class="tw:flex-1 tw:justify-center"
                   :variant="nc.capaRequired === false ? 'primary' : 'outline'"
                   :disabled="capaRequiredLocked"
-                  :title="capaRequiredLocked ? 'A CAPA is linked — CAPA required cannot be turned off.' : undefined"
+                  :title="
+                    capaRequiredLocked
+                      ? 'A CAPA is linked — CAPA required cannot be turned off.'
+                      : undefined
+                  "
                   @click="nc.capaRequired = false"
                   >No</BaseButton
                 >
@@ -998,10 +1044,6 @@ const ncDetailConfig = computed(() =>
               <NcSeverityBadgeById :severityId="nc.severityId" />
             </BaseClickableRow>
           </BaseDetailField>
-          <BaseDetailField label="Type">
-            <NcTypeBadgeById v-if="nc.typeId" :typeId="nc.typeId" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
           <BaseDetailField label="Source">
             <NcSourceBadgeById v-if="nc.sourceId" :sourceId="nc.sourceId" />
             <BaseText v-else color="secondary">—</BaseText>
@@ -1190,14 +1232,20 @@ const ncDetailConfig = computed(() =>
           class="tw:flex tw:flex-col tw:gap-2 tw:p-3 tw:rounded-lg tw:border tw:bg-amber-50 tw:border-amber-200"
         >
           <div class="tw:flex tw:items-start tw:gap-3">
-            <IconAlertTriangle :size="18" class="tw:shrink-0 tw:mt-0.5 tw:text-amber-600" aria-hidden="true" />
+            <IconAlertTriangle
+              :size="18"
+              class="tw:shrink-0 tw:mt-0.5 tw:text-amber-600"
+              aria-hidden="true"
+            />
             <div class="tw:text-sm tw:text-amber-900">
               <strong
-                >{{ unresolvedCapas.length }} linked CAPA{{ unresolvedCapas.length === 1 ? ' is' : 's are' }}
+                >{{ unresolvedCapas.length }} linked CAPA{{
+                  unresolvedCapas.length === 1 ? ' is' : 's are'
+                }}
                 still unresolved.</strong
               >
-              Closing this NC does not close them — they stay open and tracked on their own. Are
-              you sure you want to close the NC?
+              Closing this NC does not close them — they stay open and tracked on their own. Are you
+              sure you want to close the NC?
             </div>
           </div>
           <ul class="tw:flex tw:flex-col tw:gap-1 tw:pl-8">

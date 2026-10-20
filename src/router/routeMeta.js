@@ -81,14 +81,17 @@ export const ROUTE_META = {
     parent: '/capas',
   },
   '/customer-complaints': {
-    title: 'Customer Complaints',
+    title: 'Support Desk',
     icon: IconHeadset,
   },
   '/customer-complaints/:id': {
-    title: (_p, ctx) => ctx.recordTitle ?? 'Complaint',
+    title: (_p, ctx) => ctx.recordTitle ?? 'Support ticket',
     icon: IconHeadset,
     parent: '/customer-complaints',
   },
+  '/desk': { title: 'Support Desk — Inbox', icon: IconHeadset },
+  '/desk/:view': { title: 'Support Desk — Inbox', icon: IconHeadset },
+  '/desk/:view/:id': { title: 'Support Desk — Conversation', icon: IconHeadset },
   '/change-requests': {
     title: 'Change Control',
     icon: IconReplace,
@@ -176,7 +179,7 @@ export const ROUTE_META = {
   // ── Operations ───────────────────────────────────────────────────
   '/equipment': { title: 'Equipment', icon: IconTool },
   '/inspections-logs': {
-    title: 'Inspections & Logs',
+    title: 'Log Books',
     icon: IconClipboardList,
   },
   '/qc-inspection': {

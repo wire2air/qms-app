@@ -108,7 +108,6 @@ export const CR_CREATE_STORES = [
 
 /** Reference stores the NC create form's required selects read from. */
 export const NC_CREATE_STORES = [
-  'ncTypes',
   'ncSources',
   'sites',
   'departments',

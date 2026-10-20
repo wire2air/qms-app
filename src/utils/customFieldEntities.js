@@ -16,8 +16,8 @@ export const CUSTOM_FIELD_ENTITIES = [
   { value: 'AuditInstance', label: 'Audit' },
   { value: 'Document', label: 'Document' },
   { value: 'Training', label: 'Training' },
-  { value: 'CustomerComplaint', label: 'Customer Complaint' },
-  { value: 'Complaint', label: 'Complaint' },
+  { value: 'CustomerComplaint', label: 'Support Desk Ticket' },
+  { value: 'Complaint', label: 'Customer Complaint' },
 ]
 
 export function customFieldEntityLabel(entityType) {
