@@ -2,7 +2,7 @@
 import { IconPaperclip, IconX, IconInfoCircle, IconUser } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
-import { uploadFile } from '@/composables/useFileUpload'
+import { uploadSupportFile } from '@/composables/useSupportFileUpload'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { required } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
@@ -74,7 +74,8 @@ async function onFilesSelected(event) {
   uploading.value = true
   try {
     for (const file of files) {
-      const result = await uploadFile(file, 'ASSET')
+      // The Support Desk's own storage, never the QMS buckets.
+      const result = await uploadSupportFile(file)
       if (result.success) {
         pendingAssets.value.push(result.asset)
       } else {

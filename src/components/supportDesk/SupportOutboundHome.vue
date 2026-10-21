@@ -1,4 +1,5 @@
 <script setup>
+import { uploadSupportEditorImage } from '@/composables/useSupportFileUpload'
 import {
   IconPlus,
   IconPlayerPlay,
@@ -364,6 +365,7 @@ function ruleSummary(r) {
             <div class="tw:rounded-lg tw:border tw:border-divider">
               <BaseRichTextEditor
                 v-model="form.contentHtml"
+                :uploadImage="uploadSupportEditorImage"
                 placeholder="Hi there 👋 Welcome! Anything we can help with?"
               />
             </div>

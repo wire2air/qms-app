@@ -1,4 +1,5 @@
 <script setup>
+import { uploadSupportEditorImage } from '@/composables/useSupportFileUpload'
 import {
   IconCode,
   IconTag,
@@ -755,6 +756,7 @@ async function copyKey(b) {
             <div class="tw:rounded-lg tw:border tw:border-divider">
               <BaseRichTextEditor
                 v-model="form.signatureHtml"
+                :uploadImage="uploadSupportEditorImage"
                 placeholder="Kind regards, {agent.name} · {brand.name} Support"
               />
             </div>

@@ -1,4 +1,5 @@
 <script setup>
+import { uploadSupportEditorImage } from '@/composables/useSupportFileUpload'
 import { IconMessage2, IconPlus, IconPencil, IconTrash } from '@tabler/icons-vue'
 import { required } from '@shared/components/form/validators.js'
 
@@ -163,7 +164,11 @@ async function handleDelete(response) {
           >
             <template #default="field">
               <div class="canned-editor" v-bind="field">
-                <BaseRichTextEditor v-model="draft.bodyHtml" :placeholder="editorPlaceholder" />
+                <BaseRichTextEditor
+                  v-model="draft.bodyHtml"
+                  :uploadImage="uploadSupportEditorImage"
+                  :placeholder="editorPlaceholder"
+                />
               </div>
             </template>
           </BaseField>
