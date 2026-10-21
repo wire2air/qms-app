@@ -209,6 +209,8 @@ export default {
     "unsavedChangesBanner": true,
     "until": true,
     "uploadFile": true,
+    "uploadSupportEditorImage": true,
+    "uploadSupportFile": true,
     "useActiveElement": true,
     "useActiveWorkflowEntries": true,
     "useAiUsage": true,

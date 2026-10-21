@@ -201,6 +201,8 @@ declare global {
   const unsavedChangesBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').unsavedChangesBanner
   const until: typeof import('@vueuse/core').until
   const uploadFile: typeof import('./src/composables/useFileUpload.js').uploadFile
+  const uploadSupportEditorImage: typeof import('./src/composables/useSupportFileUpload.js').uploadSupportEditorImage
+  const uploadSupportFile: typeof import('./src/composables/useSupportFileUpload.js').uploadSupportFile
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
   const useActiveWorkflowEntries: typeof import('./src/composables/useActiveWorkflowEntries.js').useActiveWorkflowEntries
   const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage

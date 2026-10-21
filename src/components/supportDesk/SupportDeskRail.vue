@@ -12,6 +12,7 @@ import {
   IconChartBar,
   IconUserCog,
   IconSpeakerphone,
+  IconBook2,
 } from '@tabler/icons-vue'
 import { currentSession, isAllowed, logoutCurrentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -30,6 +31,7 @@ const router = useRouter()
 
 const canCreate = computed(() => isAllowed(['complaint_management:create']))
 const canConfigure = computed(() => isAllowed(['complaint_management:update']))
+const canReadKb = computed(() => isAllowed(['knowledge_base:read']))
 
 // "Back to QMS" only makes sense for people who have somewhere else to go: any
 // readable module besides the desk itself and the baseline org lookups.
@@ -196,6 +198,10 @@ function itemClass(active) {
 
     <!-- Footer: settings + user -->
     <div class="tw:border-t tw:border-divider tw:p-2 tw:flex tw:flex-col tw:gap-1">
+      <RouterLink v-if="canReadKb" :to="getCompanyPath('/desk/kb')" :class="itemClass(false)">
+        <IconBook2 :size="16" />
+        <span class="tw:flex-1">Knowledge base</span>
+      </RouterLink>
       <RouterLink
         v-if="canConfigure"
         :to="getCompanyPath('/desk/settings?tab=outbound')"
