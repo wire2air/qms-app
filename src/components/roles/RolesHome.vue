@@ -31,7 +31,11 @@ const canCreateRole = computed(() => isAllowed(['role_permission_management:crea
 const canUpdateRole = computed(() => isAllowed(['role_permission_management:update']))
 
 // Live data.
-const roleList = useLiveQuery((db) => db.Role.where().exec(), { models: ['Role'] })
+// Support Desk roles are the desk's (Desk → Settings → Agents), not listed here.
+const roleList = useLiveQuery(
+  async (db) => (await db.Role.where().exec()).filter((r) => !r.isSupportRole),
+  { models: ['Role'] },
+)
 const roleUsers = useLiveQuery((db) => db.RoleOnUser.where().exec(), {
   models: ['RoleOnUser'],
   initial: [],
