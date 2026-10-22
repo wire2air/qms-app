@@ -194,6 +194,15 @@ useEventListener(window, 'keydown', (e) => {
   }
 })
 
+// "Written by": the chosen agent, or the agent who created the article.
+const writtenBy = computed({
+  get: () => draft.value?.writtenById || article.value?.authorId || null,
+  set: (v) => {
+    if (!draft.value) return
+    draft.value.writtenById = v && v !== article.value?.authorId ? v : null
+  },
+})
+
 // ── History ──────────────────────────────────────────────────────────────────
 const historyOpen = ref(false)
 function onRestored(a) {
@@ -392,14 +401,17 @@ const publishDisabled = computed(() => {
         </div>
         <div>
           <p class="tw:mb-1 tw:text-sm tw:font-medium">Written by</p>
-          <UserSelectMenu
-            v-model="draft.writtenById"
+          <SupportAgentUserSelectMenu
+            v-model="writtenBy"
+            :includeUserId="article.authorId"
+            :required="!!article.authorId"
             :disabled="!canEdit"
-            nullLabel="— The author —"
+            nullLabel="— Not set —"
             aria-label="Written by"
           />
           <p class="tw:mt-1 tw:text-xs tw:text-secondary">
-            Shown on the help center. Changing it makes no new version.
+            The agent shown as the writer on the help center. It starts as whoever created the
+            article. Changing it makes no new version.
           </p>
         </div>
 
