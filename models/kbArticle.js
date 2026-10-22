@@ -46,6 +46,10 @@ export class KbArticle extends BaseModel {
   @Property({ type: Object }) seo = /** @type {Object} */ ({})
   @Property({ type: Number }) position = 0
   @Property({ type: String }) authorId = /** @type {String} */ (null)
+  /** "Written by" on the help center (null = the author). */
+  @Property({ type: String }) writtenById = /** @type {String} */ (null)
+  /** "Article ID": a number for people (bigint, so a string over GraphQL). */
+  @Property({ type: String }) number = /** @type {String} */ (null)
   @Property({ type: String }) updatedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) publishedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) publishedBy = /** @type {String} */ (null)

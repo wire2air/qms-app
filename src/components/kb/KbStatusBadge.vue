@@ -13,7 +13,7 @@ const scheme = computed(() => SCHEME_MAP[props.status] || SCHEME_MAP.DRAFT)
 </script>
 
 <template>
-  <span class="tw:inline-flex tw:items-center tw:gap-1">
+  <span class="tw:inline-flex tw:flex-wrap tw:items-center tw:gap-1 tw:whitespace-nowrap">
     <BaseBadge size="sm" :class="scheme.class">{{ scheme.label }}</BaseBadge>
     <BaseBadge
       v-if="pendingChanges"
