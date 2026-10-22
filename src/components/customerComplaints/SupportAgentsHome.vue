@@ -146,6 +146,7 @@ function blankInvite() {
     firstName: '',
     lastName: '',
     level: 'AGENT',
+    kbAccess: 'READ',
     brandIds: brands.value.length === 1 ? [brands.value[0].id] : [],
     maxConcurrentChats: 3,
   }
@@ -183,6 +184,28 @@ async function sendInvite() {
     toast.error(e?.message || 'Could not invite')
   } finally {
     inviting.value = false
+  }
+}
+// ── Knowledge base access: a role per agent (backend supportAgentService) ───
+const KB_LEVELS = [
+  { value: 'READ', label: 'Read only' },
+  { value: 'EDITOR', label: 'Editor — writes and publishes' },
+  { value: 'ADMIN', label: 'Admin — also folders, settings, theme' },
+]
+const KB_SHORT = { READ: 'Read only', EDITOR: 'Editor', ADMIN: 'Admin' }
+function kbLockedLabel(a) {
+  if (a.kbAccess?.managedIn === 'QMS') return 'Set in QMS roles'
+  return 'Admin (Support Admin)'
+}
+async function setKbAccess(a, level) {
+  if (!level || level === a.kbAccess?.level) return
+  try {
+    const out = await put(`/v1/services/supportDesk/agents/${a.id}/kb-access`, { level })
+    a.kbAccess = out.kbAccess
+    toast.success(`${userName(a.user)}: knowledge base ${KB_SHORT[level].toLowerCase()}`)
+  } catch (e) {
+    toast.error(e?.message || 'Could not change knowledge base access')
+    await loadRoster()
   }
 }
 async function setAccess(a, active) {
@@ -300,6 +323,20 @@ async function remove(a) {
             <template v-if="a.schedule && Object.keys(a.schedule).length"> · scheduled</template>
           </div>
         </div>
+        <div class="tw:w-56 tw:shrink-0" :title="'Knowledge base access'">
+          <p class="tw:mb-0.5 tw:text-xs tw:text-secondary">Knowledge base</p>
+          <BaseSelect
+            v-if="canManage && a.kbAccess && !a.kbAccess.locked"
+            :modelValue="a.kbAccess.level"
+            :options="KB_LEVELS"
+            required
+            :aria-label="`Knowledge base access for ${userName(a.user)}`"
+            @update:modelValue="(v) => setKbAccess(a, v)"
+          />
+          <span v-else class="tw:text-sm">{{
+            a.kbAccess?.locked ? kbLockedLabel(a) : KB_SHORT[a.kbAccess?.level] || '—'
+          }}</span>
+        </div>
         <template v-if="canManage">
           <button
             v-if="a.manualStatus !== 'OFFLINE'"
@@ -371,6 +408,9 @@ async function remove(a) {
             ]"
             required
           />
+        </BaseField>
+        <BaseField v-if="invite.level === 'AGENT'" label="Knowledge base">
+          <BaseSelect v-model="invite.kbAccess" :options="KB_LEVELS" required />
         </BaseField>
         <BaseField label="Brands">
           <BaseSelect
