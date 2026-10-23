@@ -175,7 +175,7 @@ async function unpublish(archive = false) {
 async function remove() {
   const ok = await confirm({
     title: `Delete “${article.value?.title}”?`,
-    message: 'The article and its history are removed.',
+    message: 'This draft was never published. It and its history are removed.',
     okLabel: 'Delete',
   })
   if (!ok) return
@@ -231,7 +231,10 @@ const menuItems = computed(() => [
   ...(canPublish.value && article.value?.status !== 'ARCHIVED'
     ? [{ name: 'Archive', icon: IconArchive, click: () => unpublish(true) }]
     : []),
-  ...(canDelete.value ? [{ name: 'Delete', icon: IconTrash, click: remove }] : []),
+  // Only a never-published article is deleted; once live it is archived instead.
+  ...(canDelete.value && !article.value?.firstPublishedAt
+    ? [{ name: 'Delete', icon: IconTrash, click: remove }]
+    : []),
 ])
 const publishLabel = computed(() => {
   const a = article.value

@@ -52,6 +52,8 @@ export class KbArticle extends BaseModel {
   @Property({ type: String }) number = /** @type {String} */ (null)
   @Property({ type: String }) updatedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) publishedAt = /** @type {DateTime} */ (null)
+  /** Set the first time any version went live; never cleared. Such an article is archived, not deleted. */
+  @Property({ type: DateTime }) firstPublishedAt = /** @type {DateTime} */ (null)
   @Property({ type: String }) publishedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)
   @Property({ type: DateTime, required: true, timestamp: true })
