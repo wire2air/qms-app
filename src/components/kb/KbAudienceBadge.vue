@@ -1,20 +1,20 @@
 <script setup>
-import { IconLock, IconWorld } from '@tabler/icons-vue'
+import { IconLock, IconWorld, IconUserCheck } from '@tabler/icons-vue'
+import { AUDIENCE_SHORT, AUDIENCE_HELP } from './kbAudience.js'
 
-/** PUBLIC (help center) or AGENTS (desk only). */
+/** PUBLIC (help center), CUSTOMERS (signed-in product users) or AGENTS (desk only). */
 const props = defineProps({ audience: { type: String, default: 'PUBLIC' } })
-const agents = computed(() => props.audience === 'AGENTS')
+const STYLE = {
+  PUBLIC: { icon: IconWorld, class: 'tw:bg-sky-100 tw:text-sky-800' },
+  CUSTOMERS: { icon: IconUserCheck, class: 'tw:bg-violet-100 tw:text-violet-800' },
+  AGENTS: { icon: IconLock, class: 'tw:bg-amber-100 tw:text-amber-800' },
+}
+const s = computed(() => STYLE[props.audience] || STYLE.PUBLIC)
 </script>
 
 <template>
-  <BaseBadge
-    size="sm"
-    :class="agents ? 'tw:bg-amber-100 tw:text-amber-800' : 'tw:bg-sky-100 tw:text-sky-800'"
-    :title="
-      agents ? 'Only agents see it, in the desk' : 'Shown on the public help center once published'
-    "
-  >
-    <component :is="agents ? IconLock : IconWorld" :size="12" class="tw:mr-1" />
-    {{ agents ? 'Agents only' : 'Public' }}
+  <BaseBadge size="sm" :class="s.class" :title="AUDIENCE_HELP[audience] || ''">
+    <component :is="s.icon" :size="12" class="tw:mr-1" />
+    {{ AUDIENCE_SHORT[audience] || audience }}
   </BaseBadge>
 </template>

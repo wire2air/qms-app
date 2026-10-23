@@ -7,7 +7,8 @@ const pageInfo = usePageInfo()
 pageInfo.value = { showHeader: true }
 
 const { grouped } = useHelpContent()
-const groups = grouped()
+// Recomputed when the knowledge base replaces the bundled help.
+const groups = computed(() => grouped())
 </script>
 
 <template>

@@ -60,6 +60,7 @@ declare global {
   const extendRef: typeof import('@vueuse/core').extendRef
   const extractHeaderFields: typeof import('./src/composables/usePdfImport.js').extractHeaderFields
   const extractPdfHeader: typeof import('./src/composables/usePdfImport.js').extractPdfHeader
+  const fetchHelpArticleHtml: typeof import('./src/composables/useHelpContent.js').fetchHelpArticleHtml
   const fetchStepReviewerPool: typeof import('./src/composables/useStepReviewerPool.js').fetchStepReviewerPool
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
@@ -95,6 +96,7 @@ declare global {
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const loadHelpFromKb: typeof import('./src/composables/useHelpContent.js').loadHelpFromKb
   const lockedBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').lockedBanner
   const makeDestructurable: typeof import('@vueuse/core').makeDestructurable
   const markRaw: typeof import('vue').markRaw

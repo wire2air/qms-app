@@ -28,6 +28,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const canManage = computed(() => isAllowed(['knowledge_base:manage_settings']))
+const canDomains = computed(() => isAllowed(['knowledge_base:manage_domains']))
 
 const bases = useLiveQuery((db) => db.KbKnowledgeBase.where().exec(), {
   models: ['KbKnowledgeBase'],
@@ -393,11 +394,13 @@ function back() {
                 />
                 <p class="tw:mt-1 tw:text-xs tw:text-secondary">
                   Address: <span class="tw:font-medium">{{ address?.host || '…' }}</span
-                  >. Your own domain (like help.example.com) comes with the domains step.
+                  >. To use your own domain (like help.example.com), see Custom domains.
                 </p>
               </div>
             </div>
           </PageSection>
+
+          <KbDomainsCard v-if="canDomains && kbId" :kbId="kbId" />
 
           <PageSection title="Home page" variant="card">
             <div class="tw:flex tw:flex-col tw:gap-4">
@@ -643,6 +646,8 @@ function back() {
               </div>
             </div>
           </PageSection>
+
+          <KbApiAccessCard v-if="kbId" :kbId="kbId" />
         </div>
       </div>
 

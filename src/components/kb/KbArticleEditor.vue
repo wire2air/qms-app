@@ -16,6 +16,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 import KbEditor from './editor/KbEditor.vue'
 import { kbCollectionOptions } from './kbCollections.js'
+import { AUDIENCE_OPTIONS, AUDIENCE_HELP, AUDIENCE_TYPE } from './kbAudience.js'
 
 /**
  * ONE KNOWLEDGE BASE ARTICLE (backend services/kbArticleService.js).
@@ -145,9 +146,10 @@ async function publish() {
   try {
     await post(`/v1/services/kb/articles/${props.articleId}/publish`, {})
     toast.success(
-      article.value?.audience === 'AGENTS'
-        ? 'Published for agents'
-        : 'Published to the help center',
+      {
+        AGENTS: 'Published for agents',
+        CUSTOMERS: 'Published for signed-in customers',
+      }[article.value?.audience] || 'Published to the help center',
     )
   } catch (e) {
     toast.error(e.message || 'The article could not be published')
@@ -353,21 +355,15 @@ const publishDisabled = computed(() => {
       >
         <div>
           <p class="tw:mb-1 tw:text-sm tw:font-medium">Who sees it</p>
-          <SegmentedControl
+          <BaseSelect
             v-model="draft.audience"
-            :options="[
-              { value: 'PUBLIC', label: 'Public' },
-              { value: 'AGENTS', label: 'Agents only' },
-            ]"
+            :options="AUDIENCE_OPTIONS"
+            required
             :readonly="!canEdit"
-            ariaLabel="Who sees it"
+            aria-label="Who sees it"
           />
           <p class="tw:mt-1 tw:text-xs tw:text-secondary">
-            {{
-              draft.audience === 'AGENTS'
-                ? 'Internal: only agents, in the desk. Never on the help center.'
-                : 'On the public help center, once published.'
-            }}
+            {{ AUDIENCE_HELP[draft.audience] }}
           </p>
         </div>
         <div>
@@ -425,7 +421,7 @@ const publishDisabled = computed(() => {
           <p id="kb-additional" class="tw:text-sm tw:font-semibold">Additional information</p>
           <dl class="tw:grid tw:grid-cols-[7.5rem_1fr] tw:gap-x-3 tw:gap-y-2 tw:text-sm">
             <dt class="tw:text-secondary">Type</dt>
-            <dd>{{ article.audience === 'AGENTS' ? 'Internal article' : 'Public article' }}</dd>
+            <dd>{{ AUDIENCE_TYPE[article.audience] || 'Article' }}</dd>
             <dt class="tw:text-secondary">Status</dt>
             <dd>
               <KbStatusBadge

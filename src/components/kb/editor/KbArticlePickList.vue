@@ -49,7 +49,9 @@ defineExpose({ onKeyDown })
     >
       <IconFileText :size="15" class="tw:shrink-0 tw:text-secondary" />
       <span class="tw:flex-1 tw:truncate">{{ a.title }}</span>
-      <span v-if="a.audience === 'AGENTS'" class="tw:text-xs tw:text-secondary">Agents</span>
+      <span v-if="a.audience !== 'PUBLIC'" class="tw:text-xs tw:text-secondary">{{
+        a.audience === 'AGENTS' ? 'Agents' : 'Customers'
+      }}</span>
       <span v-if="a.status !== 'PUBLISHED'" class="tw:text-xs tw:text-secondary">{{
         a.status === 'DRAFT' ? 'Draft' : 'Archived'
       }}</span>

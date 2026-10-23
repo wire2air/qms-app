@@ -28,6 +28,7 @@ import {
   kbDescendantIds,
   KB_FOLDER_MAX_DEPTH,
 } from './kbCollections.js'
+import { AUDIENCE_OPTIONS } from './kbAudience.js'
 
 /**
  * THE KNOWLEDGE BASE, IN THE SUPPORT DESK (backend services/kbArticleService.js)
@@ -145,11 +146,7 @@ const STATE_OPTIONS = [
   { value: 'PENDING', label: 'Changes not published' },
   { value: 'ARCHIVED', label: 'Archived' },
 ]
-const AUDIENCE_OPTIONS = [
-  { value: 'all', label: 'Everyone' },
-  { value: 'PUBLIC', label: 'Public' },
-  { value: 'AGENTS', label: 'Agents only' },
-]
+const AUDIENCE_FILTERS = [{ value: 'all', label: 'Everyone' }, ...AUDIENCE_OPTIONS]
 
 const inFolder = computed(() =>
   ['all', 'none'].includes(collectionFilter.value)
@@ -447,7 +444,7 @@ const itemClass = (active) => [
                 class="tw:shrink-0"
               />
               <span class="tw:flex-1 tw:truncate">{{ t.c.title }}</span>
-              <KbAudienceBadge v-if="t.c.audience === 'AGENTS'" audience="AGENTS" />
+              <KbAudienceBadge v-if="t.c.audience !== 'PUBLIC'" :audience="t.c.audience" />
               <span class="tw:text-xs tw:text-secondary">{{ counts.get(t.c.id) || 0 }}</span>
             </button>
             <BaseMenu
@@ -486,7 +483,7 @@ const itemClass = (active) => [
           />
           <SegmentedControl
             v-model="audienceFilter"
-            :options="AUDIENCE_OPTIONS"
+            :options="AUDIENCE_FILTERS"
             size="sm"
             :equalWidth="false"
             ariaLabel="Audience"
@@ -568,16 +565,15 @@ const itemClass = (active) => [
         </div>
         <div>
           <p class="tw:mb-1 tw:text-sm tw:font-medium">Who sees it</p>
-          <SegmentedControl
+          <BaseSelect
             v-model="collectionDialog.audience"
-            :options="[
-              { value: 'PUBLIC', label: 'Public' },
-              { value: 'AGENTS', label: 'Agents only' },
-            ]"
-            ariaLabel="Who sees it"
+            :options="AUDIENCE_OPTIONS"
+            required
+            aria-label="Who sees it"
           />
           <p class="tw:mt-1 tw:text-xs tw:text-secondary">
-            A public folder is a category of the help center; agents-only folders never show there.
+            A public folder is a category of the help center. Customer folders appear only in your
+            product's in-app help; agents-only folders only in the desk.
           </p>
         </div>
       </div>

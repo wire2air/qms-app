@@ -181,7 +181,7 @@ function submit() {
             >
               <IconFileText :size="15" class="tw:shrink-0 tw:text-secondary" />
               <span class="tw:flex-1 tw:truncate">{{ a.title }}</span>
-              <KbAudienceBadge v-if="a.audience === 'AGENTS'" audience="AGENTS" />
+              <KbAudienceBadge v-if="a.audience !== 'PUBLIC'" :audience="a.audience" />
               <span v-if="a.status !== 'PUBLISHED'" class="tw:text-xs tw:text-secondary">{{
                 a.status === 'DRAFT' ? 'Draft' : 'Archived'
               }}</span>

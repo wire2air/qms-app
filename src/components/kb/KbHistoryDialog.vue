@@ -5,6 +5,7 @@ import { IconRestore, IconWorldUpload, IconRobot, IconUpload, IconUser } from '@
 import { get, post } from '@/api'
 import { isAllowed } from '@/utils/currentSession.js'
 import { lineDiff, foldDiff, diffStats } from './kbDiff.js'
+import { AUDIENCE_LABEL } from './kbAudience.js'
 
 const props = defineProps({
   articleId: { type: String, required: true },
@@ -104,8 +105,8 @@ const fieldChanges = computed(() => {
   if (c.audience !== p.audience)
     out.push({
       label: 'Who sees it',
-      from: p.audience === 'AGENTS' ? 'Agents only' : 'Public',
-      to: c.audience === 'AGENTS' ? 'Agents only' : 'Public',
+      from: AUDIENCE_LABEL[p.audience] || p.audience,
+      to: AUDIENCE_LABEL[c.audience] || c.audience,
     })
   if (c.slug !== p.slug)
     out.push({ label: 'Address', from: `/articles/${p.slug}`, to: `/articles/${c.slug}` })
