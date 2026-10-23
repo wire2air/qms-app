@@ -74,7 +74,7 @@ async function onValidSubmit() {
               channelType === 'SYSTEM'
                 ? 'tw:border-primary tw:bg-primary/5'
                 : 'tw:border-divider tw:hover:border-primary/50'
-           "
+            "
             aria-label="Create system address"
             @click="selectType('SYSTEM')"
           >
@@ -95,7 +95,7 @@ async function onValidSubmit() {
               channelType === 'FORWARDING'
                 ? 'tw:border-primary tw:bg-primary/5'
                 : 'tw:border-divider tw:hover:border-primary/50'
-           "
+            "
             aria-label="Connect external address"
             @click="selectType('FORWARDING')"
           >

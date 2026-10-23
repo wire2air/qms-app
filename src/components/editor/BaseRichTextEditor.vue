@@ -34,6 +34,15 @@ import { UserMention } from './extensions/userMention/userMention.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 const props = defineProps({
+  /**
+   * Optional image uploader `(file) => Promise<{ url, id, width, height }>`. Omitted: the
+   * QMS upload (/v1/files/upload). Support Desk screens pass their own
+   * (useSupportFileUpload.js uploadSupportEditorImage) so their images never reach QMS storage.
+   */
+  uploadImage: {
+    type: Function,
+    default: null,
+  },
   placeholder: {
     type: String,
     default: 'Start typing...',
@@ -87,6 +96,8 @@ const toast = useToast()
 async function uploadImageFile(file) {
   imageUploading.value = true
   try {
+    // A screen with its own store (the Support Desk: useSupportFileUpload.js) passes `uploadImage`.
+    if (props.uploadImage) return await props.uploadImage(file)
     const result = await uploadFile(file, 'ASSET')
     if (!result.success || !result.asset?.url) {
       throw new Error(result.error || 'Upload failed')

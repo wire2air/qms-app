@@ -705,27 +705,12 @@ const navItems = computed(() => {
       to: getCompanyPath('/records'),
     },
     {
-      // Support-desk complaint tickets (web/forms/email intake). Its module
-      // settings live on the page itself (gear icon), not in Settings.
+      // The Support Desk portal (inbox, tickets, reports, knowledge base) at
+      // /desk, outside the QMS shell. Shown to whoever may read the desk.
       label: 'Support Desk',
       permissions: ['complaint_management:read'],
       icon: IconHeadset,
-      children: [
-        {
-          // Intercom-style agent inbox — full-canvas workspace at /desk.
-          label: 'Inbox',
-          permissions: ['complaint_management:read'],
-          icon: IconInbox,
-          to: getCompanyPath('/desk'),
-        },
-        {
-          // The classic list + detail ticketing view over the same tickets.
-          label: 'Tickets',
-          permissions: ['complaint_management:read'],
-          icon: IconHeadset,
-          to: getCompanyPath('/customer-complaints'),
-        },
-      ],
+      to: getCompanyPath('/desk'),
     },
     {}, // Divider
     {

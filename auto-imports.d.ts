@@ -60,6 +60,7 @@ declare global {
   const extendRef: typeof import('@vueuse/core').extendRef
   const extractHeaderFields: typeof import('./src/composables/usePdfImport.js').extractHeaderFields
   const extractPdfHeader: typeof import('./src/composables/usePdfImport.js').extractPdfHeader
+  const fetchHelpArticleHtml: typeof import('./src/composables/useHelpContent.js').fetchHelpArticleHtml
   const fetchStepReviewerPool: typeof import('./src/composables/useStepReviewerPool.js').fetchStepReviewerPool
   const fillPattern: typeof import('./resource/js/shared/composables/routeMetaHelpers.js').fillPattern
   const filterCommands: typeof import('./resource/js/shared/composables/commandHelpers.js').filterCommands
@@ -95,6 +96,7 @@ declare global {
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const loadHelpFromKb: typeof import('./src/composables/useHelpContent.js').loadHelpFromKb
   const lockedBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').lockedBanner
   const makeDestructurable: typeof import('@vueuse/core').makeDestructurable
   const markRaw: typeof import('vue').markRaw
@@ -201,6 +203,8 @@ declare global {
   const unsavedChangesBanner: typeof import('./resource/js/shared/composables/bannerFactories.js').unsavedChangesBanner
   const until: typeof import('@vueuse/core').until
   const uploadFile: typeof import('./src/composables/useFileUpload.js').uploadFile
+  const uploadSupportEditorImage: typeof import('./src/composables/useSupportFileUpload.js').uploadSupportEditorImage
+  const uploadSupportFile: typeof import('./src/composables/useSupportFileUpload.js').uploadSupportFile
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
   const useActiveWorkflowEntries: typeof import('./src/composables/useActiveWorkflowEntries.js').useActiveWorkflowEntries
   const useAiUsage: typeof import('./src/composables/useAiUsage.js').useAiUsage

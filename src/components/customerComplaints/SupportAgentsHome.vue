@@ -83,6 +83,8 @@ function blank() {
   return {
     userId: null,
     role: 'AGENT',
+    level: 'AGENT',
+    kbAccess: 'READ',
     brandIds: brands.value.length === 1 ? [brands.value[0].id] : [],
     maxConcurrentChats: 3,
     schedule: {},
@@ -102,6 +104,8 @@ function openEdit(a) {
   form.value = {
     userId: a.userId,
     role: a.role,
+    level: a.deskRole || 'AGENT',
+    kbAccess: a.kbAccess?.level || 'READ',
     brandIds: [...(a.brandIds || [])],
     maxConcurrentChats: a.maxConcurrentChats,
     schedule: { ...(a.schedule || {}) },
@@ -123,8 +127,18 @@ async function save() {
     schedule: Object.keys(form.value.schedule || {}).length ? form.value.schedule : null,
   }
   try {
-    if (editing.value) await put(`/v1/services/supportDesk/agents/${editing.value.id}`, body)
-    else await post('/v1/services/supportDesk/agents', body)
+    if (editing.value) {
+      const a = editing.value
+      const { level, kbAccess, ...rest } = body
+      await put(`/v1/services/supportDesk/agents/${a.id}`, rest)
+      // Desk role and knowledge base access are roles, set by their own routes.
+      if (level !== (a.deskRole || null))
+        await put(`/v1/services/supportDesk/agents/${a.id}/desk-role`, { level })
+      if (level === 'AGENT' && kbAccess !== a.kbAccess?.level)
+        await put(`/v1/services/supportDesk/agents/${a.id}/kb-access`, { level: kbAccess })
+    } else {
+      await post('/v1/services/supportDesk/agents', body)
+    }
     showDialog.value = false
     toast.success(editing.value ? 'Agent updated' : 'Agent added')
     await loadRoster()
@@ -134,9 +148,10 @@ async function save() {
     saving.value = false
   }
 }
-// ── Invite from the desk (separate population) ──────────────────────────────
-// Creates the person as a user with a SUPPORT role only + seats them as an
-// agent — no trip to QMS Users. Existing QMS users are refused by the server.
+// ── Invite from the desk ─────────────────────────────────────────────────────
+// Creates the person as a user (or, for an existing email, uses that person —
+// a QMS user too) and seats them as an agent with their desk role. What they
+// may do in the desk is decided here only (migration 20261022120000).
 const showInvite = ref(false)
 const inviting = ref(false)
 const invite = ref(blankInvite())
@@ -146,6 +161,7 @@ function blankInvite() {
     firstName: '',
     lastName: '',
     level: 'AGENT',
+    kbAccess: 'READ',
     brandIds: brands.value.length === 1 ? [brands.value[0].id] : [],
     maxConcurrentChats: 3,
   }
@@ -183,6 +199,31 @@ async function sendInvite() {
     toast.error(e?.message || 'Could not invite')
   } finally {
     inviting.value = false
+  }
+}
+// ── Knowledge base access: a role per agent (backend supportAgentService) ───
+const KB_LEVELS = [
+  { value: 'READ', label: 'Read only' },
+  { value: 'EDITOR', label: 'Editor — writes and publishes' },
+  { value: 'ADMIN', label: 'Admin — also folders, settings, theme' },
+]
+const KB_SHORT = { READ: 'Read only', EDITOR: 'Editor', ADMIN: 'Admin' }
+const DESK_ROLES = [
+  { value: 'AGENT', label: 'Support Agent' },
+  { value: 'ADMIN', label: 'Support Admin' },
+]
+function kbLockedLabel() {
+  return 'Admin (Support Admin)'
+}
+async function setKbAccess(a, level) {
+  if (!level || level === a.kbAccess?.level) return
+  try {
+    const out = await put(`/v1/services/supportDesk/agents/${a.id}/kb-access`, { level })
+    a.kbAccess = out.kbAccess
+    toast.success(`${userName(a.user)}: knowledge base ${KB_SHORT[level].toLowerCase()}`)
+  } catch (e) {
+    toast.error(e?.message || 'Could not change knowledge base access')
+    await loadRoster()
   }
 }
 async function setAccess(a, active) {
@@ -270,8 +311,23 @@ async function remove(a) {
         <div class="tw:min-w-0 tw:flex-1">
           <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-2 tw:text-sm tw:font-medium">
             {{ userName(a.user) }}
+            <BaseBadge v-if="a.deskRole === 'ADMIN'" class="tw:bg-teal-50 tw:text-teal-700"
+              >Support Admin</BaseBadge
+            >
+            <BaseBadge
+              v-else-if="!a.deskRole"
+              class="tw:bg-amber-50 tw:text-amber-700"
+              title="Edit the agent to give them a desk role"
+              >No desk role</BaseBadge
+            >
             <BaseBadge v-if="a.role === 'LEAD'" class="tw:bg-indigo-50 tw:text-indigo-700"
               >Lead</BaseBadge
+            >
+            <BaseBadge
+              v-if="a.qmsUser"
+              class="tw:bg-gray-100 tw:text-secondary"
+              title="Also uses QMS. Their desk permissions are set here; QMS ones under QMS Users."
+              >Also in QMS</BaseBadge
             >
             <BaseBadge
               v-if="a.user?.userStatusId === 'INACTIVE'"
@@ -300,6 +356,20 @@ async function remove(a) {
             <template v-if="a.schedule && Object.keys(a.schedule).length"> · scheduled</template>
           </div>
         </div>
+        <div class="tw:w-56 tw:shrink-0" :title="'Knowledge base access'">
+          <p class="tw:mb-0.5 tw:text-xs tw:text-secondary">Knowledge base</p>
+          <BaseSelect
+            v-if="canManage && a.kbAccess && !a.kbAccess.locked"
+            :modelValue="a.kbAccess.level"
+            :options="KB_LEVELS"
+            required
+            :aria-label="`Knowledge base access for ${userName(a.user)}`"
+            @update:modelValue="(v) => setKbAccess(a, v)"
+          />
+          <span v-else class="tw:text-sm">{{
+            a.kbAccess?.locked ? kbLockedLabel() : KB_SHORT[a.kbAccess?.level] || '—'
+          }}</span>
+        </div>
         <template v-if="canManage">
           <button
             v-if="a.manualStatus !== 'OFFLINE'"
@@ -310,7 +380,7 @@ async function remove(a) {
             <IconPower :size="16" />
           </button>
           <button
-            v-if="a.user?.userStatusId === 'ACTIVE'"
+            v-if="!a.qmsUser && a.user?.userStatusId === 'ACTIVE'"
             class="tw:text-secondary tw:hover:text-red-600"
             title="Turn sign-in off"
             @click="setAccess(a, false)"
@@ -318,7 +388,7 @@ async function remove(a) {
             <IconLockOff :size="16" />
           </button>
           <button
-            v-else-if="a.user && !a.user.inviteSent"
+            v-else-if="!a.qmsUser && a.user && !a.user.inviteSent"
             class="tw:text-secondary tw:hover:text-green-600"
             title="Turn sign-in on"
             @click="setAccess(a, true)"
@@ -344,7 +414,8 @@ async function remove(a) {
         <ValidationSummary v-if="validationErrors.length" :errors="validationErrors" />
         <p class="tw:text-sm tw:text-secondary">
           They get the usual invitation email and sign in with the same login as everyone else, but
-          hold a <strong>Support Desk role only</strong> — never QMS access.
+          get only the desk role you pick here. If the email belongs to a QMS user, they keep their
+          QMS access and become an agent too; their desk permissions are then managed here.
         </p>
         <BaseFieldRow :columns="2">
           <BaseTextInput
@@ -371,6 +442,9 @@ async function remove(a) {
             ]"
             required
           />
+        </BaseField>
+        <BaseField v-if="invite.level === 'AGENT'" label="Knowledge base">
+          <BaseSelect v-model="invite.kbAccess" :options="KB_LEVELS" required />
         </BaseField>
         <BaseField label="Brands">
           <BaseSelect
@@ -404,7 +478,13 @@ async function remove(a) {
           <BaseField v-if="!editing" id="agent-userId" label="User" required :error="errors.userId">
             <UserSelectMenu v-model="form.userId" required />
           </BaseField>
-          <BaseField label="Role">
+          <BaseField label="Desk role">
+            <BaseSelect v-model="form.level" :options="DESK_ROLES" required />
+          </BaseField>
+          <BaseField v-if="form.level === 'AGENT'" label="Knowledge base">
+            <BaseSelect v-model="form.kbAccess" :options="KB_LEVELS" required />
+          </BaseField>
+          <BaseField label="Inbox role">
             <BaseSelect
               v-model="form.role"
               :options="[

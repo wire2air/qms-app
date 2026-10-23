@@ -133,6 +133,10 @@ import { ComplaintRecord } from './complaintRecord'
 import { ComplaintStatus } from './complaintStatus'
 import { ComplaintCannedResponse } from './complaintCannedResponse'
 import { SupportBrand } from './supportBrand'
+import { KbKnowledgeBase } from './kbKnowledgeBase'
+import { KbCollection } from './kbCollection'
+import { KbArticle } from './kbArticle'
+import { KbSnippet } from './kbSnippet'
 import { SupportAgent } from './supportAgent'
 import { SupportAgentBrand } from './supportAgentBrand'
 import { SupportBlocklistEntry } from './supportBlocklistEntry'
@@ -386,6 +390,10 @@ export const db = {
   ComplaintStatus,
   ComplaintCannedResponse,
   SupportBrand,
+  KbKnowledgeBase,
+  KbCollection,
+  KbArticle,
+  KbSnippet,
   SupportAgent,
   SupportAgentBrand,
   SupportBlocklistEntry,

@@ -83,12 +83,41 @@ const BASE_ALLOWED_ATTR = ['href', 'title', 'target', 'rel', 'class', 'colspan',
 const IMAGE_ALLOWED_ATTR = ['src', 'alt']
 const FORBID_TAGS = ['style', 'script', 'iframe', 'object', 'embed', 'form']
 
-export function sanitizeHtml(html, { allowImages = false } = {}) {
+// Knowledge base articles embed videos from these hosts only (backend
+// services/kbMarkdown.js KB_VIDEO_HOSTS); any other frame is dropped.
+const VIDEO_HOSTS = new Set(['www.youtube-nocookie.com', 'player.vimeo.com', 'www.loom.com'])
+const VIDEO_ATTR = ['src', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'title']
+
+function keepOnlyVideoFrames(node) {
+  if (node.nodeName !== 'IFRAME') return
+  let host = ''
+  try {
+    host = new URL(node.getAttribute('src') || '').host
+  } catch {
+    host = ''
+  }
+  if (!VIDEO_HOSTS.has(host) || !/^https:/i.test(node.getAttribute('src') || ''))
+    node.parentNode?.removeChild(node)
+}
+
+/**
+ * `allowVideoEmbeds`: knowledge base HTML (in-app help) keeps its YouTube /
+ * Vimeo / Loom frames; every other iframe is still removed.
+ */
+export function sanitizeHtml(html, { allowImages = false, allowVideoEmbeds = false } = {}) {
   if (!html) return ''
-  return DOMPurify.sanitize(html, {
-    ALLOWED_ATTR: allowImages ? [...BASE_ALLOWED_ATTR, ...IMAGE_ALLOWED_ATTR] : BASE_ALLOWED_ATTR,
-    FORBID_TAGS,
-  })
+  const attrs = allowImages ? [...BASE_ALLOWED_ATTR, ...IMAGE_ALLOWED_ATTR] : BASE_ALLOWED_ATTR
+  if (!allowVideoEmbeds) return DOMPurify.sanitize(html, { ALLOWED_ATTR: attrs, FORBID_TAGS })
+  DOMPurify.addHook('afterSanitizeElements', keepOnlyVideoFrames)
+  try {
+    return DOMPurify.sanitize(html, {
+      ALLOWED_ATTR: [...new Set([...attrs, ...VIDEO_ATTR, 'id', 'open', 'download'])],
+      ADD_TAGS: ['iframe', 'details', 'summary'],
+      FORBID_TAGS: FORBID_TAGS.filter((t) => t !== 'iframe'),
+    })
+  } finally {
+    DOMPurify.removeHook('afterSanitizeElements')
+  }
 }
 
 export function markdownToHtml(md, { breaks = false, allowImages = false } = {}) {

@@ -1,0 +1,380 @@
+/* Knowledge base article content, in the editor and in read-only views. */
+/* One column for the toolbar, the title and the text, so they line up. */
+.kb-editor-column,
+.kb-editor-content {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+.kb-editor-content {
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
+}
+.kb-prose {
+  outline: none;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--on-main);
+}
+/* The app's global paragraph and heading margins would add to this rhythm. */
+.kb-prose p,
+.kb-prose h2,
+.kb-prose h3,
+.kb-prose h4,
+.kb-prose ul,
+.kb-prose ol,
+.kb-prose blockquote,
+.kb-prose pre {
+  margin: 0;
+}
+.kb-prose > * + *,
+.kb-callout__body > * + *,
+.kb-details__body > * + * {
+  margin-top: 0.85em;
+}
+.kb-prose h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.6em;
+}
+.kb-prose h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 1.4em;
+}
+.kb-prose h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.2em;
+}
+.kb-prose ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.kb-prose ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.kb-prose li > p {
+  margin: 0;
+}
+.kb-prose li + li {
+  margin-top: 0.25em;
+}
+.kb-prose blockquote {
+  border-left: 3px solid var(--divider);
+  padding-left: 1rem;
+  color: var(--secondary);
+}
+.kb-prose code {
+  background: var(--main-hover);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.875em;
+}
+.kb-prose pre {
+  background: var(--color-neutral-900, #0f172a);
+  color: var(--color-neutral-50, #f8fafc);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.kb-prose pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+.kb-prose hr {
+  border: 0;
+  border-top: 1px solid var(--divider);
+  margin: 1.75em 0;
+}
+.kb-prose a,
+.kb-prose .kb-link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.kb-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--divider);
+}
+.kb-prose img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+}
+.kb-prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+}
+.kb-prose th,
+.kb-prose td {
+  border: 1px solid var(--divider);
+  padding: 0.4rem 0.6rem;
+  vertical-align: top;
+  text-align: left;
+}
+.kb-prose th {
+  background: var(--main-hover);
+  font-weight: 600;
+}
+.kb-prose td p,
+.kb-prose th p {
+  margin: 0;
+}
+.kb-prose .selectedCell {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.kb-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--placeholder, #94a3b8);
+}
+
+/* Node views */
+.kb-node-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  color: var(--secondary);
+  flex-shrink: 0;
+}
+.kb-node-remove:hover {
+  background: var(--main-hover);
+  color: var(--on-main);
+}
+
+.kb-callout {
+  border-left: 4px solid var(--kb-tone, var(--color-info-500));
+  background: var(--kb-tone-bg, var(--color-info-50));
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem 0.6rem;
+}
+.kb-callout--tip {
+  --kb-tone: var(--color-success-500);
+  --kb-tone-bg: var(--color-success-50);
+}
+.kb-callout--warning,
+.kb-callout--caution {
+  --kb-tone: var(--color-warning-500);
+  --kb-tone-bg: var(--color-warning-50);
+}
+.kb-callout--danger {
+  --kb-tone: var(--color-danger-500);
+  --kb-tone-bg: var(--color-danger-50);
+}
+.kb-callout__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.15rem;
+}
+.kb-callout__icon {
+  color: var(--kb-tone, var(--color-info-500));
+  flex-shrink: 0;
+}
+.kb-callout__kind {
+  border: 0;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--on-main);
+  cursor: pointer;
+}
+.kb-callout__title {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  outline: none;
+}
+.kb-callout__body > * + * {
+  margin-top: 0.6em;
+}
+
+.kb-details {
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--card);
+}
+.kb-details__head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--divider);
+}
+.kb-details--closed .kb-details__head {
+  border-bottom: 0;
+}
+.kb-details__toggle {
+  display: inline-flex;
+  padding: 0.15rem;
+  border-radius: 0.25rem;
+  color: var(--secondary);
+}
+.kb-details__toggle svg {
+  transition: transform 0.15s;
+}
+.kb-details__title {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  outline: none;
+}
+.kb-details__body {
+  padding: 0.6rem 0.9rem 0.75rem;
+}
+.kb-details__body > * + * {
+  margin-top: 0.6em;
+}
+
+.kb-embed {
+  border: 1px dashed transparent;
+  border-radius: 8px;
+}
+.kb-editor .kb-embed:hover,
+.kb-embed--selected {
+  border-color: var(--divider);
+}
+.kb-embed--selected {
+  border-style: solid;
+  border-color: var(--primary);
+}
+.kb-video-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+.kb-video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.kb-embed__empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--main-hover);
+  color: var(--secondary);
+  font-size: 0.875rem;
+}
+.kb-embed__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem;
+}
+.kb-embed__bar--wrap {
+  flex-wrap: wrap;
+}
+.kb-embed__input {
+  flex: 1;
+  min-width: 10rem;
+  height: 2rem;
+  border: 1px solid var(--input-border, var(--divider));
+  border-radius: 0.375rem;
+  background: var(--card);
+  padding: 0 0.5rem;
+  font-size: 0.8125rem;
+}
+.kb-embed__input--short {
+  flex: 0 1 12rem;
+}
+.kb-embed__error {
+  color: var(--color-danger-600);
+  font-size: 0.75rem;
+  padding: 0 0.5rem 0.4rem;
+}
+.kb-embed__hint {
+  margin-left: 0.75rem;
+  color: var(--secondary);
+  font-size: 0.8125rem;
+}
+.kb-button-preview {
+  padding: 0.4rem;
+}
+.kb-button {
+  display: inline-block;
+  background: var(--primary);
+  color: var(--on-primary, #fff);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.kb-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--card);
+  max-width: 28rem;
+}
+.kb-file-name {
+  flex: 1;
+  border-color: transparent;
+  font-weight: 500;
+}
+
+.kb-dc-chip {
+  display: inline-block;
+  padding: 0 0.35em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary-text, var(--primary));
+  font-weight: 500;
+}
+.kb-dc-chip--missing {
+  background: var(--color-danger-50);
+  color: var(--color-danger-700);
+}
+.ProseMirror-selectednode.kb-dc-chip {
+  outline: 2px solid var(--primary);
+}
+
+/* The text area itself has no focus frame (the caret shows where you are). */
+.kb-prose.ProseMirror,
+.kb-prose.ProseMirror:focus,
+.kb-prose.ProseMirror:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+.kb-prose {
+  min-height: 40vh;
+}
+/* The title and summary read as the article's own heading, not as form boxes. */
+.kb-title-input,
+.kb-title-input:focus {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  background: transparent !important;
+}

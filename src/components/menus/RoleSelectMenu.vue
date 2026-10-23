@@ -12,6 +12,11 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  // Support Desk roles are given in Desk → Settings → Agents, not here.
+  includeSupportRoles: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const modelValue = defineModel({
@@ -25,11 +30,11 @@ const allRoles = useLiveQuery(async (db) => db.Role.where('statusId', 'ACTIVE').
 })
 
 const roles = computed(() => {
-  if (!props.excludeIds?.length) return allRoles.value
-  const excluded = new Set(props.excludeIds)
-  return allRoles.value.filter((r) => !excluded.has(r.id))
+  const excluded = new Set(props.excludeIds || [])
+  return allRoles.value.filter(
+    (r) => !excluded.has(r.id) && (props.includeSupportRoles || !r.isSupportRole),
+  )
 })
-
 </script>
 
 <template>

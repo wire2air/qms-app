@@ -296,9 +296,37 @@ declare module 'vue-router/auto-routes' {
       { view: ParamValue<false>, id?: ParamValueZeroOrOne<false> },
       | never
     >,
+    '/desk/kb/': RouteRecordInfo<
+      '/desk/kb/',
+      '/desk/kb',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/desk/kb/[id]': RouteRecordInfo<
+      '/desk/kb/[id]',
+      '/desk/kb/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/desk/kb/settings': RouteRecordInfo<
+      '/desk/kb/settings',
+      '/desk/kb/settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/desk/me': RouteRecordInfo<
       '/desk/me',
       '/desk/me',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/desk/reports': RouteRecordInfo<
+      '/desk/reports',
+      '/desk/reports',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -308,6 +336,13 @@ declare module 'vue-router/auto-routes' {
       '/desk/settings',
       Record<never, never>,
       Record<never, never>,
+      | never
+    >,
+    '/desk/tickets/[[id]]': RouteRecordInfo<
+      '/desk/tickets/[[id]]',
+      '/desk/tickets/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
       | never
     >,
     '/docs/': RouteRecordInfo<
@@ -1166,15 +1201,45 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/desk/kb/index.vue': {
+      routes:
+        | '/desk/kb/'
+      views:
+        | never
+    }
+    'src/pages/desk/kb/[id].vue': {
+      routes:
+        | '/desk/kb/[id]'
+      views:
+        | never
+    }
+    'src/pages/desk/kb/settings.vue': {
+      routes:
+        | '/desk/kb/settings'
+      views:
+        | never
+    }
     'src/pages/desk/me.vue': {
       routes:
         | '/desk/me'
       views:
         | never
     }
+    'src/pages/desk/reports.vue': {
+      routes:
+        | '/desk/reports'
+      views:
+        | never
+    }
     'src/pages/desk/settings.vue': {
       routes:
         | '/desk/settings'
+      views:
+        | never
+    }
+    'src/pages/desk/tickets/[[id]].vue': {
+      routes:
+        | '/desk/tickets/[[id]]'
       views:
         | never
     }

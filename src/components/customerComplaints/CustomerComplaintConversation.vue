@@ -1,4 +1,5 @@
 <script setup>
+import { uploadSupportEditorImage } from '@/composables/useSupportFileUpload'
 import {
   IconSend,
   IconMail,
@@ -213,6 +214,7 @@ function trustedHtml(message) {
         <BaseRichTextEditor
           ref="replyEditorRef"
           v-model="replyHtml"
+          :uploadImage="uploadSupportEditorImage"
           :placeholder="
             replyMode === 'INTERNAL_NOTE'
               ? 'Internal note — only your team sees this…'

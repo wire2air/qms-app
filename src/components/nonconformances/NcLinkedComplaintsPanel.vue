@@ -67,7 +67,7 @@ const complaints = useLiveQueryWithDeps(
         :to="
           getCompanyPath(
             entry.type === 'CustomerComplaint'
-              ? `/customer-complaints/${entry.row.id}`
+              ? `/desk/tickets/${entry.row.id}`
               : `/complaints/${entry.row.id}`,
           )
         "

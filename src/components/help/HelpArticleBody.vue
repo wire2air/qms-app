@@ -1,7 +1,7 @@
 <script setup>
-import { markdownToHtml } from '@/utils/markdown.js'
+import { markdownToHtml, sanitizeHtml } from '@/utils/markdown.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
-import { useHelpContent } from '@/composables/useHelpContent.js'
+import { useHelpContent, fetchHelpArticleHtml } from '@/composables/useHelpContent.js'
 
 /**
  * Renders a single help article's body (sanitized markdown via `markdownToHtml`)
@@ -18,7 +18,31 @@ const { getArticle } = useHelpContent()
 const router = useRouter()
 
 const article = computed(() => getArticle(props.slug))
-const bodyHtml = computed(() => (article.value ? markdownToHtml(article.value.body) : ''))
+// A knowledge base article's HTML comes from the help service when it opens;
+// a bundled one is rendered from its Markdown here.
+const kbHtml = ref('')
+const kbError = ref(false)
+watch(
+  () => [article.value?.source, props.slug],
+  async ([source, slug]) => {
+    kbHtml.value = ''
+    kbError.value = false
+    if (source !== 'kb') return
+    try {
+      const html = await fetchHelpArticleHtml(slug)
+      if (slug === props.slug) kbHtml.value = html
+    } catch {
+      kbError.value = true
+    }
+  },
+  { immediate: true },
+)
+const bodyHtml = computed(() => {
+  if (!article.value) return ''
+  if (article.value.source === 'kb')
+    return sanitizeHtml(kbHtml.value, { allowImages: true, allowVideoEmbeds: true })
+  return markdownToHtml(article.value.body)
+})
 
 function onBodyClick(e) {
   const a = e.target.closest('a')
@@ -36,11 +60,11 @@ function onBodyClick(e) {
     <p v-if="showDescription && article.description" class="tw:text-secondary tw:mb-4">
       {{ article.description }}
     </p>
-    <div class="help-prose tw:text-on-main" @click="onBodyClick" v-html="bodyHtml" />
+    <p v-if="kbError" class="tw:text-sm tw:text-secondary">This article could not be loaded.</p>
+    <BaseSpinner v-else-if="article.source === 'kb' && !kbHtml" />
+    <div v-else class="help-prose tw:text-on-main" @click="onBodyClick" v-html="bodyHtml" />
   </div>
-  <p v-else class="tw:text-sm tw:text-secondary">
-    Help article “{{ slug }}” not found.
-  </p>
+  <p v-else class="tw:text-sm tw:text-secondary">Help article “{{ slug }}” not found.</p>
 </template>
 
 <style scoped>
