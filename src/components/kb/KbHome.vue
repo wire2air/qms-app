@@ -14,6 +14,7 @@ import {
   IconArrowUp,
   IconArrowDown,
   IconFolderOpen,
+  IconWorldCog,
 } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception: KB writes go
 // through /v1/services/kb (versions, slugs, redirects are the server's).
@@ -354,6 +355,13 @@ const itemClass = (active) => [
         Help center {{ kb.status === 'LIVE' ? 'live' : 'not live yet' }}
       </BaseBadge>
       <div class="tw:flex-1" />
+      <BaseButton
+        v-if="canManage && kb"
+        variant="outline"
+        @click="router.push(getCompanyPath(`/desk/kb/settings?kb=${kb.id}`))"
+      >
+        <IconWorldCog :size="16" class="tw:mr-1" /> Help center
+      </BaseButton>
       <BaseButton v-if="canCreate && kb" :isLoading="creating" @click="newArticle">
         <IconPlus :size="16" class="tw:mr-1" /> New article
       </BaseButton>

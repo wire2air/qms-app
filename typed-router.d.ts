@@ -310,6 +310,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/desk/kb/settings': RouteRecordInfo<
+      '/desk/kb/settings',
+      '/desk/kb/settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/desk/me': RouteRecordInfo<
       '/desk/me',
       '/desk/me',
@@ -1189,6 +1196,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/desk/kb/[id].vue': {
       routes:
         | '/desk/kb/[id]'
+      views:
+        | never
+    }
+    'src/pages/desk/kb/settings.vue': {
+      routes:
+        | '/desk/kb/settings'
       views:
         | never
     }

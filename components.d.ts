@@ -860,6 +860,7 @@ declare module 'vue' {
     KbEditor: typeof import('./src/components/kb/editor/KbEditor.vue')['default']
     KbExtensions: typeof import('./src/components/kb/editor/kbExtensions.js')['default']
     KbFileView: typeof import('./src/components/kb/editor/KbFileView.vue')['default']
+    KbHelpCenterSettings: typeof import('./src/components/kb/KbHelpCenterSettings.vue')['default']
     KbHistoryDialog: typeof import('./src/components/kb/KbHistoryDialog.vue')['default']
     KbHome: typeof import('./src/components/kb/KbHome.vue')['default']
     KbLinkDialog: typeof import('./src/components/kb/editor/KbLinkDialog.vue')['default']
