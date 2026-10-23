@@ -392,169 +392,174 @@ defineExpose({ focus: () => editor.value?.commands.focus() })
   <div class="kb-editor tw:flex tw:min-h-0 tw:flex-1 tw:flex-col">
     <div
       v-if="!bare && editable"
-      class="tw:sticky tw:top-0 tw:z-10 tw:flex tw:flex-wrap tw:items-center tw:gap-0.5 tw:border-b tw:border-divider tw:bg-card tw:px-3 tw:py-1.5"
-      role="toolbar"
-      aria-label="Formatting"
+      class="tw:sticky tw:top-0 tw:z-10 tw:border-b tw:border-divider tw:bg-card"
     >
-      <template v-if="mode === 'visual'">
-        <BaseMenu :items="styleItems">
-          <template #trigger>
-            <button
-              type="button"
-              class="kb-tb-btn tw:w-32 tw:justify-between"
-              aria-label="Text style"
-            >
-              <span class="tw:text-sm">{{ currentStyle }}</span>
-              <IconChevronDown :size="14" />
-            </button>
-          </template>
-        </BaseMenu>
-        <span class="kb-tb-sep" />
+      <!-- Same column as the title and the text (kbProse.css .kb-editor-content). -->
+      <div
+        class="kb-editor-column tw:flex tw:flex-wrap tw:items-center tw:gap-0.5 tw:py-1.5"
+        role="toolbar"
+        aria-label="Formatting"
+      >
+        <template v-if="mode === 'visual'">
+          <BaseMenu :items="styleItems">
+            <template #trigger>
+              <button
+                type="button"
+                class="kb-tb-btn tw:-ml-1.5 tw:min-w-24 tw:justify-between tw:gap-1"
+                aria-label="Text style"
+              >
+                <span class="tw:text-sm">{{ currentStyle }}</span>
+                <IconChevronDown :size="14" />
+              </button>
+            </template>
+          </BaseMenu>
+          <span class="kb-tb-sep" />
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('bold') }"
+            aria-label="Bold (Ctrl+B)"
+            title="Bold (Ctrl+B)"
+            @click="run((c) => c.toggleBold())"
+          >
+            <IconBold :size="16" />
+          </button>
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('italic') }"
+            aria-label="Italic (Ctrl+I)"
+            title="Italic (Ctrl+I)"
+            @click="run((c) => c.toggleItalic())"
+          >
+            <IconItalic :size="16" />
+          </button>
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('strike') }"
+            aria-label="Strikethrough"
+            title="Strikethrough"
+            @click="run((c) => c.toggleStrike())"
+          >
+            <IconStrikethrough :size="16" />
+          </button>
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('code') }"
+            aria-label="Inline code"
+            title="Inline code"
+            @click="run((c) => c.toggleCode())"
+          >
+            <IconCode :size="16" />
+          </button>
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('link') }"
+            aria-label="Link (Ctrl+K)"
+            title="Link (Ctrl+K)"
+            @click="openLink"
+          >
+            <IconLink :size="16" />
+          </button>
+          <span class="kb-tb-sep" />
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('bulletList') }"
+            aria-label="Bulleted list"
+            title="Bulleted list"
+            @click="run((c) => c.toggleBulletList())"
+          >
+            <IconList :size="16" />
+          </button>
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('orderedList') }"
+            aria-label="Numbered list"
+            title="Numbered list"
+            @click="run((c) => c.toggleOrderedList())"
+          >
+            <IconListNumbers :size="16" />
+          </button>
+          <button
+            type="button"
+            class="kb-tb-btn"
+            :class="{ 'is-active': is('blockquote') }"
+            aria-label="Quote"
+            title="Quote"
+            @click="run((c) => c.toggleBlockquote())"
+          >
+            <IconBlockquote :size="16" />
+          </button>
+          <span class="kb-tb-sep" />
+          <BaseMenu :items="insertItems">
+            <template #trigger>
+              <button type="button" class="kb-tb-btn tw:gap-1 tw:px-2" aria-label="Insert">
+                <IconPlus :size="16" /> <span class="tw:text-sm">Insert</span>
+                <IconChevronDown :size="14" />
+              </button>
+            </template>
+          </BaseMenu>
+          <span class="kb-tb-sep" />
+          <button
+            type="button"
+            class="kb-tb-btn"
+            aria-label="Undo"
+            title="Undo (Ctrl+Z)"
+            :disabled="!editor?.can().undo()"
+            @click="run((c) => c.undo())"
+          >
+            <IconArrowBackUp :size="16" />
+          </button>
+          <button
+            type="button"
+            class="kb-tb-btn"
+            aria-label="Redo"
+            title="Redo (Ctrl+Shift+Z)"
+            :disabled="!editor?.can().redo()"
+            @click="run((c) => c.redo())"
+          >
+            <IconArrowForwardUp :size="16" />
+          </button>
+          <BaseSpinner v-if="uploading" size="sm" class="tw:ml-2" />
+        </template>
+        <span v-else class="tw:text-xs tw:text-secondary">
+          Markdown. Callouts <code>:::tip</code>, sections <code>:::details</code>, videos
+          <code>::video{src="…"}</code>, buttons <code>::button[Text]{href="…"}</code>.
+        </span>
+        <div class="tw:flex-1" />
         <button
           type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('bold') }"
-          aria-label="Bold (Ctrl+B)"
-          title="Bold (Ctrl+B)"
-          @click="run((c) => c.toggleBold())"
+          class="kb-tb-btn tw:-mr-1.5 tw:gap-1 tw:px-2"
+          :class="{ 'is-active': mode === 'markdown' }"
+          :aria-pressed="mode === 'markdown'"
+          :title="mode === 'markdown' ? 'Back to the visual editor' : 'Show and edit the Markdown'"
+          @click="setMode(mode === 'markdown' ? 'visual' : 'markdown')"
         >
-          <IconBold :size="16" />
+          <component :is="mode === 'markdown' ? IconEye : IconMarkdown" :size="16" />
+          <span class="tw:text-sm">{{ mode === 'markdown' ? 'Visual' : 'Markdown' }}</span>
         </button>
-        <button
-          type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('italic') }"
-          aria-label="Italic (Ctrl+I)"
-          title="Italic (Ctrl+I)"
-          @click="run((c) => c.toggleItalic())"
-        >
-          <IconItalic :size="16" />
-        </button>
-        <button
-          type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('strike') }"
-          aria-label="Strikethrough"
-          title="Strikethrough"
-          @click="run((c) => c.toggleStrike())"
-        >
-          <IconStrikethrough :size="16" />
-        </button>
-        <button
-          type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('code') }"
-          aria-label="Inline code"
-          title="Inline code"
-          @click="run((c) => c.toggleCode())"
-        >
-          <IconCode :size="16" />
-        </button>
-        <button
-          type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('link') }"
-          aria-label="Link (Ctrl+K)"
-          title="Link (Ctrl+K)"
-          @click="openLink"
-        >
-          <IconLink :size="16" />
-        </button>
-        <span class="kb-tb-sep" />
-        <button
-          type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('bulletList') }"
-          aria-label="Bulleted list"
-          title="Bulleted list"
-          @click="run((c) => c.toggleBulletList())"
-        >
-          <IconList :size="16" />
-        </button>
-        <button
-          type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('orderedList') }"
-          aria-label="Numbered list"
-          title="Numbered list"
-          @click="run((c) => c.toggleOrderedList())"
-        >
-          <IconListNumbers :size="16" />
-        </button>
-        <button
-          type="button"
-          class="kb-tb-btn"
-          :class="{ 'is-active': is('blockquote') }"
-          aria-label="Quote"
-          title="Quote"
-          @click="run((c) => c.toggleBlockquote())"
-        >
-          <IconBlockquote :size="16" />
-        </button>
-        <span class="kb-tb-sep" />
-        <BaseMenu :items="insertItems">
-          <template #trigger>
-            <button type="button" class="kb-tb-btn tw:gap-1 tw:px-2" aria-label="Insert">
-              <IconPlus :size="16" /> <span class="tw:text-sm">Insert</span>
-              <IconChevronDown :size="14" />
-            </button>
-          </template>
-        </BaseMenu>
-        <span class="kb-tb-sep" />
-        <button
-          type="button"
-          class="kb-tb-btn"
-          aria-label="Undo"
-          title="Undo (Ctrl+Z)"
-          :disabled="!editor?.can().undo()"
-          @click="run((c) => c.undo())"
-        >
-          <IconArrowBackUp :size="16" />
-        </button>
-        <button
-          type="button"
-          class="kb-tb-btn"
-          aria-label="Redo"
-          title="Redo (Ctrl+Shift+Z)"
-          :disabled="!editor?.can().redo()"
-          @click="run((c) => c.redo())"
-        >
-          <IconArrowForwardUp :size="16" />
-        </button>
-        <BaseSpinner v-if="uploading" size="sm" class="tw:ml-2" />
-      </template>
-      <span v-else class="tw:text-xs tw:text-secondary">
-        Markdown. Callouts <code>:::tip</code>, sections <code>:::details</code>, videos
-        <code>::video{src="…"}</code>, buttons <code>::button[Text]{href="…"}</code>.
-      </span>
-      <div class="tw:flex-1" />
-      <SegmentedControl
-        :modelValue="mode"
-        :options="[
-          { value: 'visual', label: 'Visual', icon: IconEye },
-          { value: 'markdown', label: 'Markdown', icon: IconMarkdown },
-        ]"
-        size="sm"
-        :equalWidth="false"
-        ariaLabel="Editor view"
-        @update:modelValue="setMode"
-      />
-      <input
-        ref="imageInput"
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        multiple
-        class="tw:hidden"
-        @change="onPicked"
-      />
-      <input
-        ref="fileInput"
-        type="file"
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip"
-        multiple
-        class="tw:hidden"
-        @change="onPicked"
-      />
+        <input
+          ref="imageInput"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          multiple
+          class="tw:hidden"
+          @change="onPicked"
+        />
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip"
+          multiple
+          class="tw:hidden"
+          @change="onPicked"
+        />
+      </div>
     </div>
 
     <div v-show="mode === 'visual'" class="tw:min-h-0 tw:flex-1 tw:overflow-y-auto">

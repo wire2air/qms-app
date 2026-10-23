@@ -1,8 +1,15 @@
 /* Knowledge base article content, in the editor and in read-only views. */
+/* One column for the toolbar, the title and the text, so they line up. */
+.kb-editor-column,
 .kb-editor-content {
   max-width: 52rem;
   margin: 0 auto;
-  padding: 1.5rem 2rem 6rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+.kb-editor-content {
+  padding-top: 1.5rem;
+  padding-bottom: 6rem;
 }
 .kb-prose {
   outline: none;
@@ -10,7 +17,20 @@
   line-height: 1.7;
   color: var(--on-main);
 }
-.kb-prose > * + * {
+/* The app's global paragraph and heading margins would add to this rhythm. */
+.kb-prose p,
+.kb-prose h2,
+.kb-prose h3,
+.kb-prose h4,
+.kb-prose ul,
+.kb-prose ol,
+.kb-prose blockquote,
+.kb-prose pre {
+  margin: 0;
+}
+.kb-prose > * + *,
+.kb-callout__body > * + *,
+.kb-details__body > * + * {
   margin-top: 0.85em;
 }
 .kb-prose h2 {
