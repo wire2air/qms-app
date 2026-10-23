@@ -10,7 +10,7 @@ import { DateTime } from 'luxon'
  * `backTo` points the back button at whichever list opened it.
  */
 const props = defineProps({
-  backTo: { type: String, default: '/customer-complaints' },
+  backTo: { type: String, default: '/desk/tickets' },
   backLabel: { type: String, default: 'Back to tickets' },
 })
 

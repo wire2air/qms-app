@@ -10,6 +10,7 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
+import { TICKETS_PATH } from '@/utils/supportDeskPaths.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -38,7 +39,7 @@ watch(
 const loading = computed(() => complaint.value === undefined)
 
 const breadcrumbs = computed(() => [
-  { label: 'Support Desk', to: getCompanyPath('/customer-complaints') },
+  { label: 'Tickets', to: getCompanyPath(TICKETS_PATH) },
   {
     label:
       complaint.value?.complaintNumber ||

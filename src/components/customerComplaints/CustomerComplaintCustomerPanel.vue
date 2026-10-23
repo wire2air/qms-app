@@ -75,7 +75,7 @@ const history = useLiveQueryWithDeps(
         <RouterLink
           v-for="prev in history"
           :key="prev.id"
-          :to="getCompanyPath(`/customer-complaints/${prev.id}`)"
+          :to="getCompanyPath(`/desk/tickets/${prev.id}`)"
           class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:hover:bg-main-hover tw:rounded tw:px-1.5 tw:py-1"
         >
           <span class="tw:text-secondary tw:shrink-0">{{ prev.complaintNumber }}</span>

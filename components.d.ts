@@ -1244,6 +1244,7 @@ declare module 'vue' {
     SupportDeskComposer: typeof import('./src/components/supportDesk/SupportDeskComposer.vue')['default']
     SupportDeskConversationList: typeof import('./src/components/supportDesk/SupportDeskConversationList.vue')['default']
     SupportDeskDetails: typeof import('./src/components/supportDesk/SupportDeskDetails.vue')['default']
+    SupportDeskFrame: typeof import('./src/components/supportDesk/SupportDeskFrame.vue')['default']
     SupportDeskRail: typeof import('./src/components/supportDesk/SupportDeskRail.vue')['default']
     SupportDeskSettings: typeof import('./src/components/supportDesk/SupportDeskSettings.vue')['default']
     SupportDeskShell: typeof import('./src/components/supportDesk/SupportDeskShell.vue')['default']

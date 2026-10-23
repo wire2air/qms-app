@@ -324,11 +324,25 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/desk/reports': RouteRecordInfo<
+      '/desk/reports',
+      '/desk/reports',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/desk/settings': RouteRecordInfo<
       '/desk/settings',
       '/desk/settings',
       Record<never, never>,
       Record<never, never>,
+      | never
+    >,
+    '/desk/tickets/[[id]]': RouteRecordInfo<
+      '/desk/tickets/[[id]]',
+      '/desk/tickets/:id?',
+      { id?: ParamValueZeroOrOne<true> },
+      { id?: ParamValueZeroOrOne<false> },
       | never
     >,
     '/docs/': RouteRecordInfo<
@@ -1211,9 +1225,21 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/desk/reports.vue': {
+      routes:
+        | '/desk/reports'
+      views:
+        | never
+    }
     'src/pages/desk/settings.vue': {
       routes:
         | '/desk/settings'
+      views:
+        | never
+    }
+    'src/pages/desk/tickets/[[id]].vue': {
+      routes:
+        | '/desk/tickets/[[id]]'
       views:
         | never
     }

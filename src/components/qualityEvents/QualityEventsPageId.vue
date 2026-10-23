@@ -715,7 +715,7 @@ function targetRoute(link) {
     Nonconformance: 'nonconformances',
     Capa: 'capas',
     ChangeRequest: 'change-requests',
-    CustomerComplaint: 'customer-complaints',
+    CustomerComplaint: 'desk/tickets',
   }
   const seg = map[link.toType]
   return seg ? getCompanyPath(`/${seg}/${link.toId}`) : null

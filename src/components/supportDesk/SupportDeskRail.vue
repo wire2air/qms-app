@@ -18,6 +18,7 @@ import { currentSession, isAllowed, logoutCurrentSession } from '@/utils/current
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { isSupportHost } from '@/utils/tenant'
 import { DESK_VIEWS } from './deskViews.js'
+import { NEW_TICKET_PATH, TICKET_REPORTS_PATH, TICKETS_PATH } from '@/utils/supportDeskPaths.js'
 
 defineProps({
   view: { type: String, required: true },
@@ -57,16 +58,6 @@ const userMenu = computed(() => [
     name: 'My preferences',
     icon: IconUserCog,
     click: () => router.push(getCompanyPath('/desk/me')),
-  },
-  {
-    name: 'Ticketing view',
-    icon: IconListDetails,
-    click: () => router.push(getCompanyPath('/customer-complaints')),
-  },
-  {
-    name: 'Reports',
-    icon: IconChartBar,
-    click: () => router.push(getCompanyPath('/customer-complaints/reports')),
   },
   ...(hasQmsAccess.value
     ? [
@@ -109,7 +100,7 @@ function itemClass(active) {
       <span class="tw:text-base tw:font-semibold tw:flex-1">Inbox</span>
       <BaseTooltip v-if="canCreate" content="New ticket">
         <RouterLink
-          :to="getCompanyPath('/customer-complaints/create')"
+          :to="getCompanyPath(NEW_TICKET_PATH)"
           class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
           aria-label="New ticket"
         >
@@ -146,6 +137,25 @@ function itemClass(active) {
               {{ counts[v.id] }}
             </span>
           </button>
+        </li>
+      </ul>
+
+      <!-- The list view of every ticket, and reports (desk pages, not the inbox) -->
+      <ul class="tw:mt-3 tw:flex tw:flex-col tw:gap-0.5 tw:border-t tw:border-divider tw:pt-3">
+        <li>
+          <RouterLink :to="getCompanyPath(TICKETS_PATH)" :class="itemClass(view === 'tickets')">
+            <IconListDetails :size="16" class="tw:shrink-0" />
+            <span class="tw:flex-1 tw:truncate">Tickets</span>
+          </RouterLink>
+        </li>
+        <li>
+          <RouterLink
+            :to="getCompanyPath(TICKET_REPORTS_PATH)"
+            :class="itemClass(view === 'reports')"
+          >
+            <IconChartBar :size="16" class="tw:shrink-0" />
+            <span class="tw:flex-1 tw:truncate">Reports</span>
+          </RouterLink>
         </li>
       </ul>
 

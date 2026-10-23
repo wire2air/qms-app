@@ -124,9 +124,9 @@ async function handleDelete() {
 
     <p class="tw:text-sm tw:text-secondary tw:mb-4">
       Emails sent to any of these addresses become complaint tickets. System addresses on
-      <span class="">{{ companyMailDomain || '…' }}</span> work immediately; external
-      addresses need forwarding set up and verified before they receive tickets. Agent replies are
-      sent from the address the ticket arrived on.
+      <span class="">{{ companyMailDomain || '…' }}</span> work immediately; external addresses need
+      forwarding set up and verified before they receive tickets. Agent replies are sent from the
+      address the ticket arrived on.
     </p>
 
     <div v-if="loading" class="tw:text-sm tw:text-secondary">Loading…</div>

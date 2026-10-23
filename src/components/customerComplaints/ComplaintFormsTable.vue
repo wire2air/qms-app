@@ -93,9 +93,7 @@ function rowMenuItems(row) {
 
     <template #body-cell-url="{ row }">
       <div class="tw:flex tw:items-center tw:gap-1.5">
-        <code class="tw:text-xs tw:text-secondary tw:truncate">
-          /support/{{ row.slug }}
-        </code>
+        <code class="tw:text-xs tw:text-secondary tw:truncate"> /support/{{ row.slug }} </code>
         <button class="tw:text-secondary tw:hover:text-primary tw:shrink-0" @click="copyUrl(row)">
           <IconCopy :size="14" />
         </button>
@@ -109,10 +107,7 @@ function rowMenuItems(row) {
       >
         {{ row.fieldCount === 1 ? '1 field' : `${row.fieldCount} fields` }}
       </span>
-      <FormTemplateBadgeById
-        v-else-if="row.formTemplateId"
-        :formTemplateId="row.formTemplateId"
-      />
+      <FormTemplateBadgeById v-else-if="row.formTemplateId" :formTemplateId="row.formTemplateId" />
       <span v-else class="tw:text-sm tw:text-secondary tw:italic">System fields only</span>
     </template>
 
@@ -122,7 +117,7 @@ function rowMenuItems(row) {
           row.stateId === 'ACTIVE'
             ? 'tw:bg-green-100 tw:text-green-700'
             : 'tw:bg-gray-100 tw:text-gray-600'
-       "
+        "
       >
         {{ row.stateId === 'ACTIVE' ? 'Active' : 'Disabled' }}
       </BaseBadge>

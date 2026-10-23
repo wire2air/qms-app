@@ -94,7 +94,9 @@ async function handleVerify() {
       <div
         class="tw:bg-blue-50 tw:border tw:border-blue-200 tw:rounded-md tw:p-3 tw:text-sm tw:text-blue-800"
       >
-        <BaseText as="h3" weight="semibold" color="inherit" class="tw:mb-1">How verification works</BaseText>
+        <BaseText as="h3" weight="semibold" color="inherit" class="tw:mb-1"
+          >How verification works</BaseText
+        >
         <p>
           Click <em>Send verification email</em> — we email a verification message to
           <span class="">{{ channel.publicEmail }}</span

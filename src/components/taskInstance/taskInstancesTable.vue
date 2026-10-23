@@ -979,7 +979,7 @@ function entityRoute(row) {
     return getCompanyPath(`capas/${row.entityId}`)
   }
   if (row.entityType === 'CustomerComplaint') {
-    return getCompanyPath(`customer-complaints/${row.entityId}`)
+    return getCompanyPath(`desk/tickets/${row.entityId}`)
   }
   if (row.entityType === 'Complaint') {
     return getCompanyPath(`complaints/${row.entityId}`)

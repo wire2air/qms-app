@@ -14,7 +14,7 @@ const props = defineProps({
   // Where a row navigates on click. Defaults to the support detail page; the QA
   // Complaints list overrides this to '/complaints' so rows open the QA
   // investigation page instead.
-  detailBasePath: { type: String, default: '/customer-complaints' },
+  detailBasePath: { type: String, default: '/desk/tickets' },
   // QA complaints track the responsible party in `ownerId`, not the support
   // agent `assignedTo`. When true the ASSIGNED column resolves the owner (with
   // assignedTo as fallback) and is labelled OWNER.
