@@ -4,6 +4,8 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
+import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
+import { COMPLAINT_MODULE } from '@/components/workflow/workflowModule.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 /**
@@ -172,6 +174,28 @@ const myApprovalTask = useLiveQueryWithDeps(
   },
   { models: ['WorkflowInstanceStep', 'TaskInstance'], initial: null },
 )
+
+// The live approval step itself, for the header's Reject: it opens the step
+// menu's own reject dialog (reject the record / send back for rework, with the
+// e-signature the step demands), so the header and the step card do the same thing.
+const myApprovalStep = useLiveQueryWithDeps(
+  [() => workflowInstanceId.value],
+  async (db, [wiId]) => {
+    if (!wiId) return null
+    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
+    return steps.find((s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS') || null
+  },
+  { models: ['WorkflowInstanceStep'], initial: null },
+)
+const myApprovalStepDef = useLiveQueryWithDeps(
+  [() => myApprovalStep.value?.stepId],
+  async (db, [stepId]) => (stepId ? db.WorkflowStep.findByPk(stepId) : null),
+  { models: ['WorkflowStep'], initial: null },
+)
+const approvalRequiresEsign = computed(
+  () => !!(myApprovalStep.value?.requireEsignature ?? myApprovalStepDef.value?.requireEsignature),
+)
+const approvalMenu = ref(null)
 
 // ─── Convert to NC ────────────────────────────────────────────────────────────
 const showConvertDialog = ref(false)
@@ -372,6 +396,17 @@ const complaintActions = computed(() => {
       visible: !!myApprovalTask.value && !isTerminal.value,
       disabled: acting.value,
       onSelect: () => (showEsignDialog.value = true),
+    },
+    {
+      // Beside Approve & Close: the gate's other outcome. Reject the record, or
+      // send chosen steps back for rework (WorkflowStepActionsMenu's dialog).
+      id: 'rejectApproval',
+      label: 'Reject',
+      variant: 'danger',
+      priority: 99,
+      visible: !!myApprovalTask.value && !!myApprovalStep.value && !isTerminal.value,
+      disabled: acting.value,
+      onSelect: () => approvalMenu.value?.start('SEND_BACK'),
     },
     {
       id: 'reopen',
@@ -922,6 +957,17 @@ const complaintDetailConfig = computed(() =>
 
   <!-- Approver signs off at the top → workflow completes → complaint auto-closes. -->
   <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onApprovalEsign" />
+  <!-- Only its dialogs render (every item hidden): the header's Reject opens them. -->
+  <WorkflowStepActionsMenu
+    v-if="myApprovalStep"
+    ref="approvalMenu"
+    :module="COMPLAINT_MODULE"
+    :instanceStepId="myApprovalStep.id"
+    :resourceId="id"
+    :isOwner="isOwner"
+    :requireEsignature="approvalRequiresEsign"
+    :hideOutcomes="['COMPLETE_AND_ADVANCE', 'SEND_BACK', 'REQUEST_INFO', 'REASSIGN', 'CANCEL']"
+  />
 
   <!-- Convert to NC -->
   <CustomerComplaintConvertToNcDialog

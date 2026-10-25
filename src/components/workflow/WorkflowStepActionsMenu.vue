@@ -319,7 +319,9 @@ defineExpose({ start: onOutcomeClick })
 </script>
 
 <template>
-  <div v-if="items.length" class="tw:contents">
+  <!-- The dialogs stay mounted whatever the dropdown offers: a button outside
+       (WorkflowStep's inline Reject, `start()`) opens them while every item is hidden. -->
+  <div class="tw:contents">
     <!--
       `flip` — this menu is the reported off-screen case. Step cards sit low on
       a long workflow page, and without it the panel opens below the fold and
@@ -331,7 +333,7 @@ defineExpose({ start: onOutcomeClick })
       and CAPA's richer one (CapaWorkflowChildStep.vue) all render it, so this
       fixes the same defect everywhere at once.
     -->
-    <BaseMenu :items="items" flip />
+    <BaseMenu v-if="items.length" :items="items" flip />
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <BaseForm ref="confirmFormRef" hideFooter @submit="onConfirmDialog">
