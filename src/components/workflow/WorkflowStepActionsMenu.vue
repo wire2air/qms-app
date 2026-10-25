@@ -116,6 +116,54 @@ const showConfirmDialog = ref(false)
 const showEsignDialog = ref(false)
 const pendingOutcomeId = ref(null)
 const comment = ref('')
+
+// ── Rejecting an APPROVAL step: two outcomes in one dialog (2026-10-25) ──────
+//   'reject'  the whole record: the workflow ends REJECTED, the owner gets a
+//             task with the reason and decides which steps to reopen (or, for a
+//             workflow with one working step, it reopens by itself).
+//   'rework'  send back: the approver picks the completed steps to redo, with a
+//             comment on each; the workflow stays in progress and this approval
+//             comes round again once the work is done.
+const rejectMode = ref('reject')
+/** The completed root steps of this workflow the approver may send back (not the approval gates). */
+const reworkCandidates = useLiveQueryWithDeps(
+  [() => instanceStep.value?.workflowInstanceId, () => props.instanceStepId],
+  async (db, [workflowInstanceId, selfId]) => {
+    if (!workflowInstanceId) return []
+    const rows = await db.WorkflowInstanceStep.where('workflowInstanceId', workflowInstanceId).exec()
+    return rows
+      .filter(
+        (r) =>
+          r.id !== selfId &&
+          !r.parentInstanceStepId &&
+          r.stepType !== 'APPROVAL' &&
+          ['APPROVED', 'COMPLETED'].includes(r.statusId),
+      )
+      .sort((a, b) => a.stepOrder - b.stepOrder || a.stepNumber - b.stepNumber)
+  },
+  { models: ['WorkflowInstanceStep'], initial: [] },
+)
+/** instanceStepId → { picked, comment } */
+const reworkPicks = ref({})
+const reworkSelection = computed(() =>
+  reworkCandidates.value
+    .filter((r) => reworkPicks.value[r.id]?.picked)
+    .map((r) => ({ instanceStepId: r.id, comment: (reworkPicks.value[r.id]?.comment ?? '').trim() })),
+)
+function togglePick(id, on) {
+  reworkPicks.value = { ...reworkPicks.value, [id]: { ...(reworkPicks.value[id] ?? { comment: '' }), picked: on } }
+}
+function setPickComment(id, text) {
+  reworkPicks.value = { ...reworkPicks.value, [id]: { ...(reworkPicks.value[id] ?? { picked: true }), comment: text } }
+}
+const isRework = computed(() => isRejectAction.value && isApprovalStep.value && rejectMode.value === 'rework')
+/** Rework needs at least one step, and a comment on each picked step (or one for all). */
+const reworkProblem = computed(() => {
+  if (!isRework.value) return ''
+  if (!reworkSelection.value.length) return 'Pick at least one step to send back.'
+  if (!comment.value.trim() && reworkSelection.value.some((r) => !r.comment)) return 'Say what to rework on each step, or in the comment below.'
+  return ''
+})
 const actionLoading = ref(false)
 const confirmFormRef = ref(null)
 
@@ -150,6 +198,8 @@ function onOutcomeClick(outcomeId) {
   if (!canActOnStep.value) return
   pendingOutcomeId.value = outcomeId
   comment.value = ''
+  rejectMode.value = 'reject'
+  reworkPicks.value = {}
   if (OUTCOME_CONFIG.value[outcomeId]?.needsComment) {
     showConfirmDialog.value = true
   } else if (needsEsignFor(outcomeId)) {
@@ -160,6 +210,7 @@ function onOutcomeClick(outcomeId) {
 }
 
 function onConfirmDialog() {
+  if (reworkProblem.value) return toast.error(reworkProblem.value)
   showConfirmDialog.value = false
   if (needsEsignFor(pendingOutcomeId.value)) {
     showEsignDialog.value = true
@@ -198,6 +249,8 @@ async function submitAction(esign = null) {
       const sendBackBody = {
         workflowInstanceStepId: props.instanceStepId,
         comment: comment.value,
+        // "Send back for rework": the steps to reopen, each with its comment. Empty: reject the record.
+        ...(isRework.value ? { reopen: reworkSelection.value } : {}),
       }
       // F-16: /rejectStepTask now enforces the e-signature on an e-sign-required
       // APPROVAL step and returns 400 ESIGNATURE_REQUIRED without credentials.
@@ -213,9 +266,11 @@ async function submitAction(esign = null) {
         sendBackBody,
       )
       toast.success(
-        isApprovalStep.value
-          ? 'Approval rejected — the owner has been notified'
-          : 'Sent back — the owner has been notified',
+        isRework.value
+          ? 'Sent back for rework — the approval will come round again once the work is done'
+          : isApprovalStep.value
+            ? 'Approval rejected — the owner has been notified'
+            : 'Sent back — the owner has been notified',
       )
       emit('done')
       return
@@ -280,18 +335,64 @@ defineExpose({ start: onOutcomeClick })
 
     <BaseDialog v-model="showConfirmDialog" :title="confirmTitle" maxWidth="md" persistent>
       <BaseForm ref="confirmFormRef" hideFooter @submit="onConfirmDialog">
+        <template v-if="isRejectAction && isApprovalStep">
+          <div class="tw:flex tw:flex-col tw:gap-2 tw:mb-4" role="radiogroup" aria-label="What happens to the record">
+            <BaseRadio v-model="rejectMode" value="reject" name="reject-mode">
+              <span class="tw:font-medium">Reject the record</span>
+              <span class="tw:block tw:text-xs tw:text-secondary">
+                The workflow ends as rejected. The owner is told why and decides which steps to reopen.
+              </span>
+            </BaseRadio>
+            <BaseRadio v-model="rejectMode" value="rework" name="reject-mode" :disabled="!reworkCandidates.length">
+              <span class="tw:font-medium">Send back for rework</span>
+              <span class="tw:block tw:text-xs tw:text-secondary">
+                Pick the steps to redo. The workflow stays open and this approval comes round again once they are done.
+              </span>
+            </BaseRadio>
+          </div>
+          <div v-if="isRework" class="tw:flex tw:flex-col tw:gap-3 tw:mb-4" data-rework-picker>
+            <div
+              v-for="r in reworkCandidates"
+              :key="r.id"
+              class="tw:rounded-lg tw:border tw:border-divider tw:p-3"
+              :class="reworkPicks[r.id]?.picked ? 'tw:bg-main' : ''"
+            >
+              <div class="tw:flex tw:items-center tw:gap-2">
+                <BaseCheckbox
+                  :modelValue="!!reworkPicks[r.id]?.picked"
+                  :aria-label="`Send back ${r.name}`"
+                  @update:modelValue="(on) => togglePick(r.id, on)"
+                />
+                <span class="tw:text-sm tw:font-medium">{{ r.name }}</span>
+                <WorkflowInstanceStepStatusBadgeById :statusId="r.statusId" size="sm" class="tw:ml-auto" />
+              </div>
+              <textarea
+                v-if="reworkPicks[r.id]?.picked"
+                :value="reworkPicks[r.id]?.comment ?? ''"
+                rows="2"
+                class="tw:mt-2 tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-card tw:text-on-main tw:text-sm tw:p-2 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
+                :placeholder="`What to rework in ${r.name}`"
+                :aria-label="`What to rework in ${r.name}`"
+                @input="setPickComment(r.id, $event.target.value)"
+              />
+            </div>
+            <p v-if="reworkProblem" class="tw:text-xs tw:text-amber-700">{{ reworkProblem }}</p>
+          </div>
+        </template>
         <BaseField
-          :required="!!pendingConfig?.commentRequired"
+          :required="!!pendingConfig?.commentRequired && !isRework"
           :value="comment"
-          :rules="pendingConfig?.commentRequired ? [required()] : []"
+          :rules="pendingConfig?.commentRequired && !isRework ? [required()] : []"
         >
           <template #label>
             {{
-              isRejectAction
-                ? isApprovalStep
-                  ? 'Reason for rejection'
-                  : 'Reason for sending back'
-                : 'Comment'
+              isRework
+                ? 'Comment for every step (optional)'
+                : isRejectAction
+                  ? isApprovalStep
+                    ? 'Reason for rejection'
+                    : 'Reason for sending back'
+                  : 'Comment'
             }}
           </template>
           <template #default="{ id: fieldId }">
@@ -301,11 +402,13 @@ defineExpose({ start: onOutcomeClick })
               rows="3"
               class="tw:w-full tw:rounded-lg tw:border tw:border-divider tw:bg-main tw:text-on-main tw:text-sm tw:p-3 tw:resize-none tw:focus:outline-none tw:focus:ring-2 tw:focus:ring-primary/50"
               :placeholder="
-                isRejectAction
-                  ? isApprovalStep
-                    ? 'Why are you rejecting?'
-                    : 'Why are you sending this back to the owner?'
-                  : 'Add a comment…'
+                isRework
+                  ? 'Anything that applies to all the steps you picked'
+                  : isRejectAction
+                    ? isApprovalStep
+                      ? 'Why are you rejecting?'
+                      : 'Why are you sending this back to the owner?'
+                    : 'Add a comment…'
               "
             />
           </template>
@@ -313,7 +416,7 @@ defineExpose({ start: onOutcomeClick })
       </BaseForm>
       <template #footer="{ close }">
         <BaseDialogFooter
-          submitLabel="Confirm"
+          :submitLabel="isRework ? 'Send back for rework' : isRejectAction && isApprovalStep ? 'Reject the record' : 'Confirm'"
           :loading="actionLoading"
           @cancel="close"
           @submit="confirmFormRef?.submit()"
