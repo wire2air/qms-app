@@ -258,6 +258,9 @@ const items = computed(() => {
   }
   return list
 })
+
+/** A button outside this menu (WorkflowStep's inline Reject) starts an outcome through the same dialogs. */
+defineExpose({ start: onOutcomeClick })
 </script>
 
 <template>

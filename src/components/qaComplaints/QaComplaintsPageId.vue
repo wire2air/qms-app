@@ -730,6 +730,10 @@ const complaintDetailConfig = computed(() =>
           <ComplaintLookupBadge v-else :id="complaint.sourceId" model="ComplaintSourceType" />
         </BaseDetailField>
         <BaseDetailField label="Received" :value="complaint.createdAt?.formatDate('date')" />
+        <BaseDetailField label="Created by">
+          <UserBadgeById v-if="complaint.createdBy" :userId="complaint.createdBy" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
       </BaseRailCard>
 
       <!-- Customer information -->
@@ -749,7 +753,7 @@ const complaintDetailConfig = computed(() =>
             <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
             <BaseText v-else color="secondary">—</BaseText>
           </BaseDetailField>
-          <BaseDetailField label="Supplier">
+          <BaseDetailField label="Supplier" class="tw:sm:col-span-2">
             <SupplierSelectMenu
               v-if="isEditable"
               v-model="complaint.supplierId"
@@ -822,18 +826,6 @@ const complaintDetailConfig = computed(() =>
       </BaseRailCard>
 
       <BaseRailCard title="Classification" grid>
-        <BaseDetailField label="Complaint source">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.complaintSourceId"
-            model="ComplaintSourceType"
-          />
-          <ComplaintLookupBadge
-            v-else
-            :id="complaint.complaintSourceId"
-            model="ComplaintSourceType"
-          />
-        </BaseDetailField>
         <BaseDetailField label="Category">
           <ComplaintLookupSelectMenu
             v-if="isEditable"

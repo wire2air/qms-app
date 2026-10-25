@@ -122,3 +122,13 @@ export function onBehalfOfLabel(baseLabel, assigneeName) {
   if (!assigneeName) return `${baseLabel} on behalf of the assignee`
   return `${baseLabel} on behalf of ${assigneeName}`
 }
+
+/**
+ * The same, short, for a button that would otherwise run too wide:
+ * `Approve` → `Approve OBO Sam Patel`. Pair it with a `title` that spells
+ * "on behalf of" out (onBehalfOfLabel), so the abbreviation is never the
+ * only explanation on screen.
+ */
+export function onBehalfOfShortLabel(baseLabel, assigneeName) {
+  return `${baseLabel} OBO ${assigneeName || 'assignee'}`
+}

@@ -26,6 +26,7 @@
  */
 import {
   IconCheck,
+  IconX,
   IconRefreshAlert,
   IconUserCheck,
   IconBan,
@@ -40,6 +41,7 @@ import {
   pickActionableTask,
   mayActOnStepType,
   onBehalfOfLabel,
+  onBehalfOfShortLabel,
 } from '@/components/workflow/stepTakeover.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -147,9 +149,8 @@ const childrenBlock = computed(
 // ─── Current user's task ─────────────────────────────────────────────────────
 // Filter to APPROVAL tasks only — protects against the owner=assignee
 // post-rejection edge case: when the owner rejects their own approval
-// task, rejectStepTask creates a new ACTION task on the same step
-// (owner-notification, not a reviewer task). Without the kind filter,
-// the form would re-enable on that ACTION task. PENDING is included
+// task, the step's other tasks are not reviewer tasks. Without the kind
+// filter, the form could re-enable on one of them. PENDING is included
 // alongside ASSIGNED + FORM_SUBMITTED for the same reason — the owner
 // task can land in PENDING before it's activated.
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING']
@@ -204,8 +205,27 @@ const canActOnStep = computed(() => !!currentUserTask.value)
 const completeActionLabel = computed(() => {
   if (completing.value) return isApprovalStep.value ? 'Approving…' : 'Completing…'
   const base = isApprovalStep.value ? 'Approve' : 'Mark Complete'
-  return isStepTakeover.value ? onBehalfOfLabel(base, takeoverAssigneeName.value) : base
+  if (!isStepTakeover.value) return base
+  // An approval step shows Approve and Reject side by side: the short form
+  // keeps both on one line; the full wording is the button's title.
+  return isApprovalStep.value
+    ? onBehalfOfShortLabel(base, takeoverAssigneeName.value)
+    : onBehalfOfLabel(base, takeoverAssigneeName.value)
 })
+/** The full "on behalf of" wording, as the button's title, whenever the label is abbreviated. */
+const completeActionTitle = computed(() =>
+  isStepTakeover.value && isApprovalStep.value
+    ? onBehalfOfLabel('Approve', takeoverAssigneeName.value)
+    : null,
+)
+/** The inline Reject beside Approve on an APPROVAL step; the menu runs the dialog and the call. */
+const rejectActionLabel = computed(() =>
+  isStepTakeover.value ? onBehalfOfShortLabel('Reject', takeoverAssigneeName.value) : 'Reject',
+)
+const rejectActionTitle = computed(() =>
+  isStepTakeover.value ? onBehalfOfLabel('Reject', takeoverAssigneeName.value) : 'Reject this approval',
+)
+const actionsMenu = ref(null)
 
 // True when the task belongs to someone else. Drives the distinct affordance:
 // the label names them, so the action cannot be taken without reading whose it
@@ -835,11 +855,24 @@ function activityLabel(statusId) {
           v-if="canActOnStep"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-green-700 tw:hover:underline tw:cursor-pointer tw:font-medium tw:disabled:opacity-50 tw:disabled:cursor-not-allowed tw:disabled:hover:no-underline"
           :disabled="completeDisabled || completing"
-          :title="completeDisabledReason || undefined"
+          :title="completeDisabledReason || completeActionTitle || undefined"
           @click="onCompleteAndAdvanceClick"
         >
           <IconCheck :size="14" />
           {{ completeActionLabel }}
+        </button>
+        <!-- Reject sits beside Approve on an approval step, not in the menu:
+             the two outcomes of the gate are read together. -->
+        <button
+          v-if="canActOnStep && isApprovalStep"
+          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-red-700 tw:hover:underline tw:cursor-pointer tw:font-medium tw:disabled:opacity-50 tw:disabled:cursor-not-allowed tw:disabled:hover:no-underline"
+          :disabled="completing"
+          :title="rejectActionTitle"
+          data-step-reject
+          @click="actionsMenu?.start('SEND_BACK')"
+        >
+          <IconX :size="14" />
+          {{ rejectActionLabel }}
         </button>
         <button
           v-if="canRescheduleDelay"
@@ -901,6 +934,7 @@ function activityLabel(statusId) {
         <!-- Dropdown for the rest: REQUEST_INFO, reviewer-side SEND_BACK, etc.
              COMPLETE_AND_ADVANCE is hidden here (rendered inline above). -->
         <WorkflowStepActionsMenu
+          ref="actionsMenu"
           :module="module"
           :instanceStepId="instanceStepId"
           :resourceId="resourceId"
@@ -909,7 +943,9 @@ function activityLabel(statusId) {
           :hideOutcomes="
             isDelayStep
               ? ['COMPLETE_AND_ADVANCE', 'SEND_BACK', 'REQUEST_INFO', 'REASSIGN', 'CANCEL']
-              : ['COMPLETE_AND_ADVANCE']
+              : isApprovalStep
+                ? ['COMPLETE_AND_ADVANCE', 'SEND_BACK']
+                : ['COMPLETE_AND_ADVANCE']
           "
         />
       </div>
