@@ -25,6 +25,7 @@
  *     description / comment area).
  */
 import {
+  IconArrowBackUp,
   IconCheck,
   IconX,
   IconRefreshAlert,
@@ -170,6 +171,50 @@ const stepTasks = useLiveQueryWithDeps(
 
   { models: ['TaskInstance'], initial: [] },
 )
+
+// ── Rounds: this row follows an earlier one of the same step ─────────────────
+// Sent back for rework, or reopened after a rejection, a step gets a fresh row
+// (the engine never rewinds a completed one). The card shows the latest row;
+// this names the round and why it exists, from the latest row's tasks (their
+// comment is the approver's or the owner's note) or, for the approval gate,
+// from the previous round's closing task.
+const previousRounds = useLiveQueryWithDeps(
+  [() => instanceStep.value?.id, () => instanceStep.value?.workflowInstanceId, () => instanceStep.value?.stepId],
+  async (db, [id, workflowInstanceId, stepId]) => {
+    if (!id || !workflowInstanceId || !stepId) return []
+    const me = instanceStep.value
+    const all = await db.WorkflowInstanceStep.where('workflowInstanceId', workflowInstanceId).exec()
+    return all
+      .filter((r) => r.id !== id && r.stepId === stepId && r.parentInstanceStepId === me?.parentInstanceStepId && r.createdAt < me?.createdAt)
+      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+  },
+  { models: ['WorkflowInstanceStep'], initial: [] },
+)
+const previousRoundTasks = useLiveQueryWithDeps(
+  [() => previousRounds.value[0]?.id],
+  async (db, [id]) => (id ? db.TaskInstance.where('[sourceType+sourceId]', ['WorkflowInstanceStep', id]).exec() : []),
+  { models: ['TaskInstance'], initial: [] },
+)
+const roundNumber = computed(() => previousRounds.value.length + 1)
+const reworkBanner = computed(() => {
+  const prev = previousRounds.value[0]
+  if (!prev || ['APPROVED', 'COMPLETED', 'CANCELLED', 'SKIPPED'].includes(instanceStep.value?.statusId)) return null
+  if (isApprovalStep.value) {
+    const closing = previousRoundTasks.value.find((t) => ['SENT_BACK', 'REJECTED'].includes(t.statusId))
+    const how = prev.statusId === 'REJECTED' ? 'rejected' : 'sent back for rework'
+    return {
+      title: `Approval round ${roundNumber.value}: the previous round was ${how}`,
+      note: closing?.comment || null,
+      detail: 'It comes round again once the reopened steps are done.',
+    }
+  }
+  const note = stepTasks.value.find((t) => t.comment)?.comment || null
+  return {
+    title: `Reopened for rework (round ${roundNumber.value})`,
+    note,
+    detail: 'Review the note, redo what it asks, then complete the step; the approval follows.',
+  }
+})
 
 // May a NON-assignee act here? Assignment is routing, not a lock — see
 // stepTakeover.js. The server decides for real (utils/workflowStepAccess.js);
@@ -951,6 +996,20 @@ function activityLabel(statusId) {
                 : ['COMPLETE_AND_ADVANCE']
           "
         />
+      </div>
+    </div>
+
+    <!-- Rework banner — this row follows an earlier round of the same step. -->
+    <div
+      v-if="reworkBanner"
+      class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:mb-4 tw:rounded-lg tw:bg-orange-50 tw:border tw:border-orange-200"
+      data-step-rework
+    >
+      <IconArrowBackUp :size="16" class="tw:text-orange-600 tw:shrink-0 tw:mt-0.5" />
+      <div class="tw:min-w-0 tw:text-sm">
+        <p class="tw:font-medium tw:text-orange-900">{{ reworkBanner.title }}</p>
+        <p v-if="reworkBanner.note" class="tw:mt-1 tw:whitespace-pre-line tw:text-orange-900">{{ reworkBanner.note }}</p>
+        <p class="tw:mt-1 tw:text-xs tw:text-orange-800">{{ reworkBanner.detail }}</p>
       </div>
     </div>
 
