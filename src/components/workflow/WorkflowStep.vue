@@ -680,6 +680,9 @@ const canCancelStep = computed(
   () =>
     props.isOwner &&
     !isDelayStep.value &&
+    // An approval gate is never cancelled from the record: its outcomes are
+    // Approve and Reject (the approver's), and Reassign (the owner's).
+    !isApprovalStep.value &&
     REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
 )
 
