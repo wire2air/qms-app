@@ -366,7 +366,7 @@ defineExpose({ start: onOutcomeClick })
                   @update:modelValue="(on) => togglePick(r.id, on)"
                 />
                 <span class="tw:text-sm tw:font-medium">{{ r.name }}</span>
-                <WorkflowInstanceStepStatusBadgeById :statusId="r.statusId" size="sm" class="tw:ml-auto" />
+                <WorkflowInstanceStepStatusBadgeById :statusId="r.statusId" :stepType="r.stepType" size="sm" class="tw:ml-auto" />
               </div>
               <textarea
                 v-if="reworkPicks[r.id]?.picked"
