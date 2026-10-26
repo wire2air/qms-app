@@ -37,6 +37,10 @@ const props = defineProps({
   isSupplierFacing: { type: Boolean, default: false },
   supplierId: { type: String, default: null },
   ownerId: { type: String, default: null },
+  // Separation of duties: on an APPROVAL step the owner is not a candidate
+  // (complaints). Off by default — a supplier-facing NC wants the owner as
+  // its internal approver (see the auto-default below).
+  excludeOwnerFromApproval: { type: Boolean, default: false },
   // Synthesized steps (admin-defined modules) have no WorkflowStepRole rows yet
   // — pass their role ids directly. When null, fall back to querying by step.id.
   roleIds: { type: Array, default: null },
@@ -231,9 +235,13 @@ const supplierCandidates = useLiveQueryWithDeps(
 // Eligibility is the step's ROLE membership (+ pickers' site visibility) —
 // no submitter exclusion: a user may review their own submission and hold
 // multiple steps (user decision 2026-08-07).
-const candidateUsers = computed(() =>
-  usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value,
-)
+const candidateUsers = computed(() => {
+  const pool = usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value
+  if (props.excludeOwnerFromApproval && isApprovalStep.value && props.ownerId) {
+    return pool.filter((u) => u.id !== props.ownerId)
+  }
+  return pool
+})
 
 // Smart-default support: the preferred user + their department supervisor.
 // (No `initial` on supervisorId so we can wait for it to resolve before

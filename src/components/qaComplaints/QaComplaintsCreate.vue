@@ -17,6 +17,9 @@ import { currentSession } from '@/utils/currentSession.js'
 import { required } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
 import DynamicForm from '@/components/form/DynamicForm.js'
+import WorkflowReviewerPickerDialog from '@/components/workflow/WorkflowReviewerPickerDialog.vue'
+import { COMPLAINT_MODULE } from '@/components/workflow/workflowModule.js'
+import { useActiveWorkflowEntries } from '@/composables/useActiveWorkflowEntries.js'
 import { freezeOptionLabels } from '@/utils/freezeFormPayloadLabels.js'
 
 /**
@@ -42,6 +45,9 @@ const form = ref({
   customerPhone: '',
   // Responsible party (Owner). Empty → the creator becomes owner.
   ownerId: null,
+  // The QA review to start: the starred workflow, or the only active one;
+  // with several and none starred the creator picks (WorkflowReviewerPickerDialog's select).
+  workflowVersionId: null,
   // QMS first-class fields.
   regionId: null,
   countryId: null,
@@ -88,6 +94,25 @@ const customFieldSchema = computed(() =>
 const hasCustomFields = computed(() => customFieldSchema.value.length > 0)
 const customFields = ref({})
 watch(customFields, () => (isDirty.value = true), { deep: true })
+
+// ── QA review: which workflow, and who takes each step ───────────────────────
+// Like NC: Create opens the per-step reviewer dialog (owner by default, the
+// supervisor for the approval; the owner is never offered as approver) and the
+// picks go with the create. The workflow select shows only when there is a choice.
+const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id ?? null)
+const effectiveOwnerId = computed(() => form.value.ownerId || currentUserId.value)
+const { entries: workflowEntries } = useActiveWorkflowEntries(COMPLAINT_MODULE.workflowVersionModuleId)
+const workflowChoice = computed(() => workflowEntries.value.length > 1)
+watch(
+  workflowEntries,
+  (entries) => {
+    if (form.value.workflowVersionId && entries.some((e) => e.version.id === form.value.workflowVersionId)) return
+    const starred = entries.find((e) => e.workflow?.isDefault) ?? (entries.length === 1 ? entries[0] : null)
+    form.value.workflowVersionId = starred?.version.id ?? null
+  },
+  { immediate: true },
+)
+const workflowPickerRef = ref(null)
 
 // Default the Site to the logged-in user's site (overridable).
 const currentUser = useLiveQueryWithDeps(
@@ -175,11 +200,23 @@ function goBack() {
   router.push(getCompanyPath('/complaints'))
 }
 
-async function onSubmit() {
+/** Create: the form is valid, so pick who takes each step, then create with the picks. */
+function onSubmit() {
+  if (workflowEntries.value.length && !form.value.workflowVersionId) {
+    submitError.value = 'Pick the QA review workflow first.'
+    return
+  }
+  if (!form.value.workflowVersionId) return createComplaint({})
+  workflowPickerRef.value?.submit()
+}
+
+async function createComplaint(pickedReviewers) {
   saving.value = true
   submitError.value = ''
   try {
     const response = await post('/v1/services/complaints', {
+      workflowVersionId: form.value.workflowVersionId || null,
+      pickedReviewers: Object.keys(pickedReviewers || {}).length ? pickedReviewers : null,
       subject: form.value.subject.trim(),
       description: form.value.description || null,
       sourceId: form.value.sourceId || null,
@@ -290,10 +327,37 @@ async function onSubmit() {
             </BaseField>
             <BaseField
               label="Owner (responsible party)"
-              hint="Any user; leave empty to own it yourself. The QA review workflow starts assigned to the owner."
+              hint="Any user; leave empty to own it yourself. On Create you assign each review step; the owner can't be the approver."
             >
               <UserSelectMenu v-model="form.ownerId" :required="false" />
             </BaseField>
+            <BaseField
+              v-if="workflowChoice"
+              label="QA review workflow"
+              hint="Several are active and none is starred: pick the one this complaint follows."
+            >
+              <WorkflowReviewerPickerDialog
+                ref="workflowPickerRef"
+                v-model="form.workflowVersionId"
+                :module="COMPLAINT_MODULE"
+                :ownerId="effectiveOwnerId"
+                :preferUserId="effectiveOwnerId"
+                excludeOwnerFromApproval
+                @submit="createComplaint"
+              />
+            </BaseField>
+            <!-- One workflow (or a starred one): no select, only the submit-time reviewer dialog. -->
+            <WorkflowReviewerPickerDialog
+              v-else
+              ref="workflowPickerRef"
+              v-model="form.workflowVersionId"
+              hideSelect
+              :module="COMPLAINT_MODULE"
+              :ownerId="effectiveOwnerId"
+              :preferUserId="effectiveOwnerId"
+              excludeOwnerFromApproval
+              @submit="createComplaint"
+            />
           </div>
         </FormSection>
 
