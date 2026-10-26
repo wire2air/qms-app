@@ -1218,10 +1218,23 @@ function activityLabel(statusId) {
         <template #icon><IconDeviceFloppy :size="16" /></template>
         Save draft
       </BaseButton>
+      <!-- An approval gate's other outcome, beside Approve: reject the record, or
+           send chosen steps back for rework (the menu's own dialog + e-signature). -->
+      <BaseButton
+        v-if="isApprovalStep && canActOnStep"
+        variant="danger"
+        :disabled="completing"
+        :title="rejectActionTitle"
+        data-step-reject-main
+        @click="actionsMenu?.start('SEND_BACK')"
+      >
+        <template #icon><IconX :size="16" /></template>
+        {{ rejectActionLabel }}
+      </BaseButton>
       <BaseButton
         :disabled="completeDisabled || completing"
         :isLoading="completing"
-        :title="completeDisabledReason || undefined"
+        :title="completeDisabledReason || completeActionTitle || undefined"
         @click="onCompleteAndAdvanceClick"
       >
         <template #icon><IconCheck :size="16" /></template>

@@ -4,8 +4,6 @@ import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { DateTime } from 'luxon'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
-import WorkflowStepActionsMenu from '@/components/workflow/WorkflowStepActionsMenu.vue'
-import { COMPLAINT_MODULE } from '@/components/workflow/workflowModule.js'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
 
 /**
@@ -118,13 +116,13 @@ async function runAction(path, body = {}) {
   }
 }
 
-// ─── Owner + approval (approve = close) ───────────────────────────────────────
+// ─── Owner ───────────────────────────────────────────────────────────────────
 const currentUserId = computed(() => currentSession.value?.userId)
 const isOwner = computed(
   () => complaint.value?.ownerId && complaint.value.ownerId === currentUserId.value,
 )
 
-// QA-review workflow instance — declared BEFORE myApprovalTask because that
+// QA-review workflow instance — declared early because the close gate below
 // query's deps read workflowInstanceId; a later `const` would hit the temporal
 // dead zone and crash the whole page on setup.
 const workflowInstance = useLiveQueryWithDeps(
@@ -144,58 +142,6 @@ const workflowInstance = useLiveQueryWithDeps(
   { models: ['WorkflowInstance'], initial: null },
 )
 const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
-
-// The current user's actionable task on the active APPROVAL step — drives the
-// top "Approve & Close" action. Approving it completes the workflow, which
-// auto-closes the complaint (see complaintHandler.onComplete).
-const showEsignDialog = ref(false)
-
-const myApprovalTask = useLiveQueryWithDeps(
-  [() => workflowInstanceId.value, () => currentUserId.value],
-  async (db, [wiId, uid]) => {
-    if (!wiId || !uid) return null
-    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
-    const approvalStep = steps.find(
-      (s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS',
-    )
-    if (!approvalStep) return null
-    const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
-      'WorkflowInstanceStep',
-      approvalStep.id,
-    ]).exec()
-    return (
-      tasks.find(
-        (t) =>
-          t.assignedTo === uid &&
-          t.taskKindId === 'APPROVAL' &&
-          ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING'].includes(t.statusId),
-      ) || null
-    )
-  },
-  { models: ['WorkflowInstanceStep', 'TaskInstance'], initial: null },
-)
-
-// The live approval step itself, for the header's Reject: it opens the step
-// menu's own reject dialog (reject the record / send back for rework, with the
-// e-signature the step demands), so the header and the step card do the same thing.
-const myApprovalStep = useLiveQueryWithDeps(
-  [() => workflowInstanceId.value],
-  async (db, [wiId]) => {
-    if (!wiId) return null
-    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
-    return steps.find((s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS') || null
-  },
-  { models: ['WorkflowInstanceStep'], initial: null },
-)
-const myApprovalStepDef = useLiveQueryWithDeps(
-  [() => myApprovalStep.value?.stepId],
-  async (db, [stepId]) => (stepId ? db.WorkflowStep.findByPk(stepId) : null),
-  { models: ['WorkflowStep'], initial: null },
-)
-const approvalRequiresEsign = computed(
-  () => !!(myApprovalStep.value?.requireEsignature ?? myApprovalStepDef.value?.requireEsignature),
-)
-const approvalMenu = ref(null)
 
 // ─── Convert to NC ────────────────────────────────────────────────────────────
 const showConvertDialog = ref(false)
@@ -315,31 +261,33 @@ async function removeSimilarLink(targetId) {
   await runAction('unlinkSimilar', { targetComplaintId: targetId })
 }
 
-// ─── QA-review workflow close gating (workflowInstance/workflowInstanceId are
-// declared earlier, above myApprovalTask) ────────────────────────────────────
+// ─── QA-review workflow: submit, and the record-level Close ──────────────────
 async function handleSubmitForReview() {
   await runAction('submitForReview', {})
 }
 
-// Approve the pending approval task (e-signed) → workflow completes → auto-close.
-async function onApprovalEsign(esign) {
-  showEsignDialog.value = false
-  if (!myApprovalTask.value) return
-  acting.value = true
-  saveError.value = null
-  try {
-    const body = { action: 'COMPLETE_AND_ADVANCE', outcomeId: 'COMPLETE_AND_ADVANCE' }
-    if (esign?.method) body.method = esign.method
-    if (esign?.token) body.token = esign.token
-    if (esign?.provider) body.provider = esign.provider
-    await post(`/v1/services/taskInstances/${myApprovalTask.value.id}/action`, body)
-    toast.notify({ type: 'positive', message: 'Approved and closed' })
-  } catch (e) {
-    saveError.value = e.message || 'Approval failed'
-    toast.notify({ type: 'negative', message: saveError.value })
-  } finally {
-    acting.value = false
-  }
+// Approval is the workflow's (the approval step's Approve / Reject): approving
+// the last step auto-closes the complaint (complaintHandler.onComplete). The
+// header's Close is the record-level act for whatever is left: a workflow
+// that completed without closing, with no step open. The server holds the
+// same rule (markComplaintComplete → complaints:close).
+const canClose = computed(
+  () =>
+    isAllowed(['complaints:close']) &&
+    !isTerminal.value &&
+    !!workflowInstance.value &&
+    workflowInstance.value.statusId === 'COMPLETED',
+)
+const { confirm } = useConfirm()
+async function handleClose() {
+  const ok = await confirm({
+    title: `Close ${complaint.value?.complaintNumber || 'this complaint'}?`,
+    message: 'The review is complete. Closing records the closure under your name.',
+    okLabel: 'Close complaint',
+  })
+  if (!ok) return
+  await runAction('markComplete', {})
+  toast.notify({ type: 'positive', message: 'Complaint closed' })
 }
 
 // ─── Audit log ────────────────────────────────────────────────────────────────
@@ -387,26 +335,13 @@ const complaintActions = computed(() => {
       onSelect: handleSubmitForReview,
     },
     {
-      // Approve = close: the pending approver signs off at the top (Document-
-      // control style) — approving the final step auto-closes the complaint.
-      id: 'approveClose',
-      label: 'Approve & Close',
+      id: 'close',
+      label: 'Close',
       variant: 'primary',
       priority: 100,
-      visible: !!myApprovalTask.value && !isTerminal.value,
+      visible: canClose.value,
       disabled: acting.value,
-      onSelect: () => (showEsignDialog.value = true),
-    },
-    {
-      // Beside Approve & Close: the gate's other outcome. Reject the record, or
-      // send chosen steps back for rework (WorkflowStepActionsMenu's dialog).
-      id: 'rejectApproval',
-      label: 'Reject',
-      variant: 'danger',
-      priority: 99,
-      visible: !!myApprovalTask.value && !!myApprovalStep.value && !isTerminal.value,
-      disabled: acting.value,
-      onSelect: () => approvalMenu.value?.start('SEND_BACK'),
+      onSelect: handleClose,
     },
     {
       id: 'reopen',
@@ -952,20 +887,6 @@ const complaintDetailConfig = computed(() =>
       <!-- Glanceable summary; detailed fields live in the tabs. -->
     </template>
   </BaseDetailLayout>
-
-  <!-- Approver signs off at the top → workflow completes → complaint auto-closes. -->
-  <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onApprovalEsign" />
-  <!-- Only its dialogs render (every item hidden): the header's Reject opens them. -->
-  <WorkflowStepActionsMenu
-    v-if="myApprovalStep"
-    ref="approvalMenu"
-    :module="COMPLAINT_MODULE"
-    :instanceStepId="myApprovalStep.id"
-    :resourceId="id"
-    :isOwner="isOwner"
-    :requireEsignature="approvalRequiresEsign"
-    :hideOutcomes="['COMPLETE_AND_ADVANCE', 'SEND_BACK', 'REQUEST_INFO', 'REASSIGN', 'CANCEL']"
-  />
 
   <!-- Convert to NC -->
   <CustomerComplaintConvertToNcDialog
