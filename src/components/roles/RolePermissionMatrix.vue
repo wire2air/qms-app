@@ -54,12 +54,18 @@ const sourceRoles = computed(() =>
 
 const readActionId = computed(() => catalog.value.actions.find((a) => a.isRead)?.id || 'read')
 const capabilityColumns = computed(() => catalog.value.actions.filter((a) => !a.isRead))
-const scopeRank = computed(() => Object.fromEntries(catalog.value.scopes.map((s) => [s.id, s.rank])))
+const scopeRank = computed(() =>
+  Object.fromEntries(catalog.value.scopes.map((s) => [s.id, s.rank])),
+)
 
 function scopeOptionsFor(m) {
   return [
     { label: NO_ACCESS_LABEL, value: null },
-    ...m.scopes.map((sid) => ({ label: SCOPE_LABELS[sid] || sid, value: sid, description: SCOPE_HINTS[sid] })),
+    ...m.scopes.map((sid) => ({
+      label: SCOPE_LABELS[sid] || sid,
+      value: sid,
+      description: SCOPE_HINTS[sid],
+    })),
   ]
 }
 // Write reach can be as wide as read, never wider.
@@ -105,7 +111,9 @@ function moduleModified(id) {
 }
 
 const grantedCount = computed(() => catalog.value.modules.filter((m) => moduleGranted(m.id)).length)
-const modifiedCount = computed(() => catalog.value.modules.filter((m) => moduleModified(m.id)).length)
+const modifiedCount = computed(
+  () => catalog.value.modules.filter((m) => moduleModified(m.id)).length,
+)
 
 const filterChips = computed(() => [
   { id: 'all', label: 'All', count: catalog.value.modules.length },
@@ -203,7 +211,12 @@ function levelOptionsFor(m) {
   // The select must be able to DISPLAY a custom row; picking a concrete level
   // normalizes it, so 'custom' is never offered as a choice.
   if (levelFor(m) === 'custom') {
-    options.push({ label: LEVEL_LABELS.custom, value: 'custom', description: LEVEL_HINTS.custom, disabled: true })
+    options.push({
+      label: LEVEL_LABELS.custom,
+      value: 'custom',
+      description: LEVEL_HINTS.custom,
+      disabled: true,
+    })
   }
   return options
 }
@@ -281,14 +294,18 @@ function setAllCollapsed(val) {
   for (const s of catalog.value.sections) collapsed[s] = val
 }
 
+const SUPPORT_DESK_SECTION = 'Support Desk'
+
 // ── Data ────────────────────────────────────────────────────────────────────
 async function load() {
   loading.value = true
   try {
     const cat = await get('/v1/services/authz/catalog', { loader: loading })
+    // Support Desk modules (tickets, knowledge base) come from desk roles, set
+    // in Desk → Settings → Agents; QMS roles never carry them.
     catalog.value = {
-      sections: cat.sections || [],
-      modules: cat.modules || [],
+      sections: (cat.sections || []).filter((sec) => sec !== SUPPORT_DESK_SECTION),
+      modules: (cat.modules || []).filter((m) => m.section !== SUPPORT_DESK_SECTION),
       actions: cat.actions || [],
       scopes: cat.scopes || [],
     }
@@ -342,7 +359,11 @@ async function save() {
       readActionId.value,
       scopeRank.value,
     )
-    await put(`/v1/services/authz/roles/${props.roleId}/permissions`, { permissions }, { loader: saving })
+    await put(
+      `/v1/services/authz/roles/${props.roleId}/permissions`,
+      { permissions },
+      { loader: saving },
+    )
     await load() // reflect canonical stored state
   } finally {
     saving.value = false
@@ -370,8 +391,8 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
       <IconInfoCircle :size="15" class="tw:mt-0.5 tw:shrink-0" />
       <span>
         <b>Level</b> is what the role can do in a module — view, edit, approve, or full control.
-        <b>Scope</b> is how far that reach extends — from a user's own records to company-wide.
-        Use <b>Customize</b> to hand-pick capabilities or give reading a wider reach than editing.
+        <b>Scope</b> is how far that reach extends — from a user's own records to company-wide. Use
+        <b>Customize</b> to hand-pick capabilities or give reading a wider reach than editing.
       </span>
     </div>
 
@@ -404,7 +425,13 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
         <div v-if="canUpdate" class="tw:w-44">
           <BaseSelect
             :modelValue="null"
-            :options="PERMISSION_PRESETS.map((p) => ({ label: p.name, value: p.id, description: p.description }))"
+            :options="
+              PERMISSION_PRESETS.map((p) => ({
+                label: p.name,
+                value: p.id,
+                description: p.description,
+              }))
+            "
             placeholder="Apply preset…"
             size="sm"
             dense
@@ -439,11 +466,17 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
           Clear all
         </button>
         <div class="tw:flex tw:items-center tw:gap-2 tw:text-xs tw:text-secondary">
-          <button class="tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline" @click="setAllCollapsed(false)">
+          <button
+            class="tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
+            @click="setAllCollapsed(false)"
+          >
             Expand
           </button>
           <span>/</span>
-          <button class="tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline" @click="setAllCollapsed(true)">
+          <button
+            class="tw:bg-transparent tw:border-0 tw:cursor-pointer tw:hover:underline"
+            @click="setAllCollapsed(true)"
+          >
             Collapse
           </button>
         </div>
@@ -467,17 +500,23 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
           :class="collapsed[group.name] ? '' : 'tw:rotate-90'"
         />
         <span class="tw:text-sm tw:font-semibold tw:text-on-sidebar">{{ group.name }}</span>
-        <span class="tw:text-xs tw:text-secondary">{{ sectionGranted(group) }} / {{ group.modules.length }}</span>
+        <span class="tw:text-xs tw:text-secondary"
+          >{{ sectionGranted(group) }} / {{ group.modules.length }}</span
+        >
       </button>
 
       <div v-show="!collapsed[group.name]" class="tw:overflow-x-auto">
         <table class="tw:w-full tw:text-sm tw:border-collapse">
           <thead class="tw:sticky tw:top-0 tw:bg-card tw:z-10">
-            <tr class="tw:text-left tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:border-b tw:border-divider">
+            <tr
+              class="tw:text-left tw:text-xs tw:uppercase tw:tracking-wide tw:text-secondary tw:border-b tw:border-divider"
+            >
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Module</th>
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Level</th>
               <th class="tw:p-2 tw:font-medium tw:whitespace-nowrap">Scope</th>
-              <th class="tw:p-2 tw:font-medium tw:w-10"><span class="tw:sr-only">Customize</span></th>
+              <th class="tw:p-2 tw:font-medium tw:w-10">
+                <span class="tw:sr-only">Customize</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -529,7 +568,9 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                     :searchable="false"
                     :clearable="false"
                     :disabled="!canUpdate || levelFor(m) === 'custom'"
-                    :title="levelFor(m) === 'custom' ? 'Read reach — adjust via Customize' : undefined"
+                    :title="
+                      levelFor(m) === 'custom' ? 'Read reach — adjust via Customize' : undefined
+                    "
                     @update:modelValue="(v) => onScopeChange(m, v)"
                   />
                   <span v-else class="tw:text-secondary tw:opacity-30">—</span>
@@ -538,7 +579,11 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                   <button
                     type="button"
                     class="tw:inline-flex tw:items-center tw:justify-center tw:rounded-md tw:border-0 tw:bg-transparent tw:p-1 tw:cursor-pointer"
-                    :class="expandedRows[m.id] ? 'tw:text-primary' : 'tw:text-secondary tw:hover:text-on-sidebar'"
+                    :class="
+                      expandedRows[m.id]
+                        ? 'tw:text-primary'
+                        : 'tw:text-secondary tw:hover:text-on-sidebar'
+                    "
                     :aria-expanded="!!expandedRows[m.id]"
                     :aria-label="`Customize ${m.name}`"
                     :title="`Customize ${m.name}`"
@@ -552,7 +597,9 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                 <td colspan="4" class="tw:p-3">
                   <div class="tw:flex tw:flex-wrap tw:items-start tw:gap-6">
                     <div class="tw:w-44">
-                      <p class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary">
+                      <p
+                        class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary"
+                      >
                         Access <span class="tw:normal-case tw:opacity-60">(read)</span>
                       </p>
                       <BaseSelect
@@ -568,7 +615,9 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                       />
                     </div>
                     <div class="tw:w-44">
-                      <p class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary">
+                      <p
+                        class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary"
+                      >
                         Can edit <span class="tw:normal-case tw:opacity-60">(write)</span>
                       </p>
                       <BaseSelect
@@ -586,13 +635,18 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                       <span v-else class="tw:text-sm tw:text-secondary tw:opacity-40">—</span>
                     </div>
                     <div class="tw:min-w-56 tw:flex-1">
-                      <p class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary">
+                      <p
+                        class="tw:mb-1 tw:text-xs tw:font-medium tw:uppercase tw:tracking-wide tw:text-secondary"
+                      >
                         Capabilities
                       </p>
                       <p v-if="needsCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
                         No read-only access — select a capability.
                       </p>
-                      <p v-else-if="needsWriteCapability(m)" class="tw:mb-1 tw:text-xs tw:text-warning-700">
+                      <p
+                        v-else-if="needsWriteCapability(m)"
+                        class="tw:mb-1 tw:text-xs tw:text-warning-700"
+                      >
                         Can-edit level needs at least one capability to take effect.
                       </p>
                       <div v-if="moduleCaps(m).length" class="tw:flex tw:flex-wrap tw:gap-1.5">
@@ -612,10 +666,18 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                           :disabled="!canUpdate || !state[m.id]?.readScope"
                           :aria-pressed="!!state[m.id]?.caps[a.id]"
                           :aria-label="`${a.name} — ${m.name}`"
-                          :title="!state[m.id]?.readScope ? 'Set an access level first' : `${a.name} ${m.name}`"
+                          :title="
+                            !state[m.id]?.readScope
+                              ? 'Set an access level first'
+                              : `${a.name} ${m.name}`
+                          "
                           @click="toggleCap(m.id, a.id, !state[m.id]?.caps[a.id])"
                         >
-                          <IconCheck v-if="state[m.id]?.caps[a.id]" :size="13" class="tw:shrink-0" />
+                          <IconCheck
+                            v-if="state[m.id]?.caps[a.id]"
+                            :size="13"
+                            class="tw:shrink-0"
+                          />
                           {{ a.name }}
                         </button>
                       </div>

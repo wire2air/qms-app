@@ -888,7 +888,7 @@ const complaintDetailConfig = computed(() =>
       <BaseRailCard title="Ownership & SLA" grid>
         <BaseDetailField v-if="complaint.sourceComplaintId" label="Escalated from">
           <RouterLink
-            :to="getCompanyPath(`/customer-complaints/${complaint.sourceComplaintId}`)"
+            :to="getCompanyPath(`/desk/tickets/${complaint.sourceComplaintId}`)"
             class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
           >
             Support ticket →

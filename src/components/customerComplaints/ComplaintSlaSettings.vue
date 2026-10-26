@@ -55,7 +55,14 @@ async function handleSave() {
     for (const [key, fallback] of Object.entries(DEFAULTS)) {
       const n = Number(draft.value[key])
       // resolutionDays may legitimately be 0 (no QMS target); others clamp > 0.
-      clean[key] = Number.isFinite(n) && n >= 0 ? (key === 'resolutionDays' ? n : n > 0 ? n : fallback) : fallback
+      clean[key] =
+        Number.isFinite(n) && n >= 0
+          ? key === 'resolutionDays'
+            ? n
+            : n > 0
+              ? n
+              : fallback
+          : fallback
     }
     clean.requireClosureApproval = !!draft.value.requireClosureApproval
     company.value.settings = {
@@ -123,7 +130,10 @@ const FIELDS = [
         label="Require owner approval to close"
         hint="When on, closing a complaint routes to the owner for approval; the owner must e-sign (PIN) to close."
       >
-        <BaseCheckbox v-model="draft.requireClosureApproval" label="Owner e-sign approval required on close" />
+        <BaseCheckbox
+          v-model="draft.requireClosureApproval"
+          label="Owner e-sign approval required on close"
+        />
       </BaseField>
 
       <div class="tw:flex tw:justify-end tw:pt-2 tw:border-t tw:border-divider">

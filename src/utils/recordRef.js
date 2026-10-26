@@ -10,20 +10,70 @@
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 
 export const RECORD_REF = {
-  InspectionLot: { model: 'InspectionLot', numberField: 'lotNumber', label: 'Lot', path: (id) => `/qc-inspection/lots/${id}` },
-  QualityEvent: { model: 'QualityEvent', numberField: 'eventNumber', label: 'Event', path: (id) => `/qualityEvents/${id}` },
-  Nonconformance: { model: 'Nonconformance', numberField: 'ncNumber', label: 'NC', path: (id) => `/nonconformances/${id}` },
+  InspectionLot: {
+    model: 'InspectionLot',
+    numberField: 'lotNumber',
+    label: 'Lot',
+    path: (id) => `/qc-inspection/lots/${id}`,
+  },
+  QualityEvent: {
+    model: 'QualityEvent',
+    numberField: 'eventNumber',
+    label: 'Event',
+    path: (id) => `/qualityEvents/${id}`,
+  },
+  Nonconformance: {
+    model: 'Nonconformance',
+    numberField: 'ncNumber',
+    label: 'NC',
+    path: (id) => `/nonconformances/${id}`,
+  },
   Capa: { model: 'Capa', numberField: 'capaNumber', label: 'CAPA', path: (id) => `/capas/${id}` },
-  ChangeRequest: { model: 'ChangeRequest', numberField: 'crNumber', label: 'CR', path: (id) => `/change-requests/${id}` },
-  CustomerComplaint: { model: 'CustomerComplaint', numberField: 'complaintNumber', label: 'Complaint', path: (id) => `/customer-complaints/${id}` },
-  Complaint: { model: 'Complaint', numberField: 'complaintNumber', label: 'Complaint', path: (id) => `/complaints/${id}` },
+  ChangeRequest: {
+    model: 'ChangeRequest',
+    numberField: 'crNumber',
+    label: 'CR',
+    path: (id) => `/change-requests/${id}`,
+  },
+  CustomerComplaint: {
+    model: 'CustomerComplaint',
+    numberField: 'complaintNumber',
+    label: 'Complaint',
+    path: (id) => `/desk/tickets/${id}`,
+  },
+  Complaint: {
+    model: 'Complaint',
+    numberField: 'complaintNumber',
+    label: 'Complaint',
+    path: (id) => `/complaints/${id}`,
+  },
   // Findings live inside an audit — no standalone detail route.
-  AuditFinding: { model: 'AuditFinding', numberField: 'findingNumber', label: 'Finding', path: null },
-  TrainingInstance: { model: 'TrainingInstance', numberField: 'title', label: 'Training', path: (id) => `/training-instances/${id}` },
+  AuditFinding: {
+    model: 'AuditFinding',
+    numberField: 'findingNumber',
+    label: 'Finding',
+    path: null,
+  },
+  TrainingInstance: {
+    model: 'TrainingInstance',
+    numberField: 'title',
+    label: 'Training',
+    path: (id) => `/training-instances/${id}`,
+  },
   // Audit Records Packages anchor share links on the audit; the auditor page
   // redirects EXTERNAL audits to /auditee/:id.
-  AuditInstance: { model: 'AuditInstance', numberField: 'auditNumber', label: 'Audit', path: (id) => `/audits/instances/${id}` },
-  Document: { model: 'Document', numberField: 'docNumber', label: 'Doc', path: (id) => `/documents/${id}` },
+  AuditInstance: {
+    model: 'AuditInstance',
+    numberField: 'auditNumber',
+    label: 'Audit',
+    path: (id) => `/audits/instances/${id}`,
+  },
+  Document: {
+    model: 'Document',
+    numberField: 'docNumber',
+    label: 'Doc',
+    path: (id) => `/documents/${id}`,
+  },
 }
 
 export function recordRefConfig(type) {
@@ -44,7 +94,7 @@ NUMBER_FIELD_TO_TYPE.docNumber = 'Document'
 
 // Document has a detail page but isn't in RECORD_REF (a record_links registry).
 const PATH_FOR = (type, id) =>
-  type === 'Document' ? `/documents/${id}` : RECORD_REF[type]?.path?.(id) ?? null
+  type === 'Document' ? `/documents/${id}` : (RECORD_REF[type]?.path?.(id) ?? null)
 
 /**
  * Build a lookup of record number → navigable target from the AI chat's

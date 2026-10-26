@@ -1,4 +1,5 @@
 <script setup>
+import { uploadSupportEditorImage } from '@/composables/useSupportFileUpload'
 import { IconArrowLeft, IconDeviceFloppy } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { put } from '@/api'
@@ -182,7 +183,11 @@ const name = computed(() => {
               work everywhere: <code>{agent.name}</code> <code>{brand.name}</code>.
             </p>
             <div class="tw:rounded-lg tw:border tw:border-divider">
-              <BaseRichTextEditor v-model="form.signatureHtml" placeholder="Kind regards, …" />
+              <BaseRichTextEditor
+                v-model="form.signatureHtml"
+                :uploadImage="uploadSupportEditorImage"
+                placeholder="Kind regards, …"
+              />
             </div>
             <template v-if="myBrands.length > 1">
               <BaseText variant="overline" class="tw:mb-1 tw:mt-4 tw:block">Per brand</BaseText>
@@ -202,6 +207,7 @@ const name = computed(() => {
                   <div class="tw:rounded-lg tw:border tw:border-divider">
                     <BaseRichTextEditor
                       v-model="brandSignatures[x.brand.id]"
+                      :uploadImage="uploadSupportEditorImage"
                       :placeholder="`Signature when replying as ${x.brand.name}…`"
                     />
                   </div>

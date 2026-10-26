@@ -2,10 +2,11 @@
 import { IconPaperclip, IconX, IconInfoCircle, IconUser } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
-import { uploadFile } from '@/composables/useFileUpload'
+import { uploadSupportFile } from '@/composables/useSupportFileUpload'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
 import { required } from '@shared/components/form/validators.js'
 import { useUnsavedChangesGuard } from '@shared/composables/useUnsavedChangesGuard.js'
+import { ticketPath, TICKETS_PATH } from '@/utils/supportDeskPaths.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -74,7 +75,8 @@ async function onFilesSelected(event) {
   uploading.value = true
   try {
     for (const file of files) {
-      const result = await uploadFile(file, 'ASSET')
+      // The Support Desk's own storage, never the QMS buckets.
+      const result = await uploadSupportFile(file)
       if (result.success) {
         pendingAssets.value.push(result.asset)
       } else {
@@ -91,7 +93,7 @@ function removePendingAsset(assetId) {
 }
 
 function goBack() {
-  router.push(getCompanyPath('/customer-complaints'))
+  router.push(getCompanyPath(TICKETS_PATH))
 }
 
 // Fires only after BaseForm's per-field rules pass.
@@ -111,7 +113,7 @@ async function onSubmit() {
       assetIds: pendingAssets.value.map((a) => a.id),
     })
     allowLeave() // saved — don't prompt on the redirect
-    router.push(getCompanyPath(`/customer-complaints/${response.customerComplaint.id}`))
+    router.push(getCompanyPath(ticketPath(response.customerComplaint.id)))
   } catch (e) {
     submitError.value = e.message || 'Failed to create complaint'
   } finally {
@@ -126,8 +128,8 @@ async function onSubmit() {
       <template #title>
         <BaseBreadcrumbs
           :items="[
-            { label: 'Support Desk', to: getCompanyPath('/customer-complaints') },
-            { label: 'New Complaint' },
+            { label: 'Tickets', to: getCompanyPath(TICKETS_PATH) },
+            { label: 'New ticket' },
           ]"
         />
       </template>
@@ -142,12 +144,12 @@ async function onSubmit() {
         :dirty="isDirty"
         :loading="saving || uploading"
         :submitError="submitError"
-        submitLabel="Create Complaint"
+        submitLabel="Create ticket"
         @submit="onSubmit"
         @cancel="goBack"
       >
         <!-- Complaint details -->
-        <FormSection id="cc-details" title="Complaint details" :icon="IconInfoCircle">
+        <FormSection id="cc-details" title="Ticket details" :icon="IconInfoCircle">
           <div class="tw:flex tw:flex-col tw:gap-3">
             <BaseField
               id="cc-subject"
@@ -160,14 +162,14 @@ async function onSubmit() {
                 <BaseTextInput
                   v-bind="field"
                   v-model="form.subject"
-                  placeholder="Short summary of the complaint…"
+                  placeholder="Short summary of the request…"
                 />
               </template>
             </BaseField>
             <BaseField label="Description">
               <BaseTextarea
                 v-model="form.description"
-                placeholder="Describe the complaint in the customer's words…"
+                placeholder="Describe the request in the customer's words…"
                 :rows="5"
               />
             </BaseField>

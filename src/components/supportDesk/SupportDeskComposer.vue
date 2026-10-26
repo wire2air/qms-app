@@ -1,4 +1,5 @@
 <script setup>
+import { uploadSupportEditorImage } from '@/composables/useSupportFileUpload'
 import { IconSend, IconLock, IconMessageCircle, IconMail, IconAt } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { post } from '@/api'
@@ -161,6 +162,7 @@ const placeholder = computed(() => {
         ref="editorRef"
         :key="mode"
         v-model="html"
+        :uploadImage="uploadSupportEditorImage"
         :placeholder="placeholder"
         :editable="!disabled && (mode === 'INTERNAL_NOTE' || canPublicReply)"
       />

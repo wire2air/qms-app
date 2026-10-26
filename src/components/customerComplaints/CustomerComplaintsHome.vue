@@ -16,6 +16,7 @@ import { post, get } from '@/api'
 import { utils as xlsxUtils, writeFile as xlsxWriteFile } from 'xlsx'
 import { DateTime } from 'luxon'
 import { matchesDateFilter } from '@/utils/dateRanges.js'
+import { ticketPath, NEW_TICKET_PATH, TICKET_REPORTS_PATH } from '@/utils/supportDeskPaths.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -402,20 +403,20 @@ function handleExport({ format, fields, scope, rows }) {
 }
 
 function onNewComplaint() {
-  router.push(getCompanyPath('/customer-complaints/create'))
+  router.push(getCompanyPath(NEW_TICKET_PATH))
 }
 </script>
 
 <template>
   <BaseListLayout
     helpSlug="KB/quality/customer-complaints"
-    title="Support Desk"
+    title="Tickets"
     :icon="IconHeadset"
     subtitle="Tickets from chat, email and web forms — one inbox for every brand."
     :state="list.state.value"
     :emptyIcon="IconHeadset"
     :emptyTitle="
-      list.hasActiveFilters.value ? 'No complaints match your filters' : 'No complaints yet'
+      list.hasActiveFilters.value ? 'No tickets match your filters' : 'No tickets yet'
     "
     :selectedCount="selectedIds.length"
   >
@@ -432,10 +433,7 @@ function onNewComplaint() {
       >
         <IconSettings :size="18" />
       </BaseButton>
-      <BaseButton
-        variant="secondary"
-        @click="router.push(getCompanyPath('/customer-complaints/reports'))"
-      >
+      <BaseButton variant="secondary" @click="router.push(getCompanyPath(TICKET_REPORTS_PATH))">
         <IconChartBar :size="18" class="tw:mr-1" />
         Reports
       </BaseButton>
@@ -540,7 +538,7 @@ function onNewComplaint() {
       :customFieldKeys="customFieldKeys"
       :exportColumns="exportColumns"
       :exportFormats="['csv', 'xlsx']"
-      @open="(row) => router.push(getCompanyPath(`/customer-complaints/${row.id}`))"
+      @open="(row) => router.push(getCompanyPath(ticketPath(row.id)))"
       @export="handleExport"
     />
 

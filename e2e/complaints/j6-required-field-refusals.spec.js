@@ -179,11 +179,10 @@ test.describe('CMP-J6 · Customer Complaints required-field refusals', () => {
     const ctx = await browser.newContext({ storageState: AUTH.supportAgent })
     const page = await ctx.newPage()
 
-    // Same button label as the internal form ('Create Complaint') on a
-    // different route — the URL is what disambiguates them.
+    // The Support Desk's ticket form, inside the desk portal (2026-10-23).
     await expectEmptyFormRefused(page, {
-      createPath: '/customer-complaints/create',
-      submitLabel: 'Create Complaint',
+      createPath: '/desk/tickets/new',
+      submitLabel: 'Create ticket',
       countRows: customerComplaintCount,
     })
 

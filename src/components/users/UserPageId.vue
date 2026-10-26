@@ -106,7 +106,22 @@ async function setOwnership(next) {
   }
 }
 
-const assignedRoleIds = computed(() => [...new Set(roleAssignments.value.map((ra) => ra.roleId))])
+// Support Desk roles (Support Agent / Admin, KB Editor / Admin) are given in
+// Desk → Settings → Agents: shown here, never edited or removed from here.
+const supportRoleIds = useLiveQuery(
+  async (db) =>
+    new Set((await db.Role.where().exec()).filter((r) => r.isSupportRole).map((r) => r.id)),
+  { models: ['Role'], initial: new Set() },
+)
+const allAssignedRoleIds = computed(() => [
+  ...new Set(roleAssignments.value.map((ra) => ra.roleId)),
+])
+const assignedRoleIds = computed(() =>
+  allAssignedRoleIds.value.filter((id) => !supportRoleIds.value.has(id)),
+)
+const deskRoleIds = computed(() =>
+  allAssignedRoleIds.value.filter((id) => supportRoleIds.value.has(id)),
+)
 
 const addRoleOnUser = useLiveMutation(async (db, { userId, roleId }) => {
   const assignment = db.RoleOnUser.create({ userId, roleId })
@@ -682,6 +697,14 @@ const userDetailConfig = computed(() =>
           </template>
           <div v-else class="tw:text-center tw:py-4">
             <p class="tw:text-sm tw:text-secondary">No roles assigned yet</p>
+          </div>
+          <div
+            v-if="deskRoleIds.length"
+            class="tw:flex tw:flex-col tw:gap-2 tw:border-t tw:border-divider tw:pt-3"
+          >
+            <p class="tw:text-xs tw:font-medium tw:text-secondary">Support Desk</p>
+            <UserRoleListItemById v-for="roleId in deskRoleIds" :key="roleId" :roleId="roleId" />
+            <BaseCaption>Set in the Support Desk: Desk → Settings → Agents.</BaseCaption>
           </div>
         </div>
       </BaseRailCard>

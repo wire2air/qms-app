@@ -140,7 +140,7 @@ const CHANNEL_LABEL = {
       <div class="tw:flex tw:items-center tw:gap-1">
         <RouterLink
           v-if="complaint"
-          :to="getCompanyPath(`/customer-complaints/${complaint.id}`)"
+          :to="getCompanyPath(`/desk/tickets/${complaint.id}`)"
           class="tw:rounded-md tw:p-1 tw:text-secondary tw:hover:bg-main-hover tw:hover:text-on-main"
           aria-label="Open full ticket"
         >

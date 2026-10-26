@@ -11,6 +11,7 @@ import {
   IconClockHour4,
   IconMailPause,
   IconMailOff,
+  IconShieldLock,
 } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -27,6 +28,7 @@ const canConfigure = computed(() => isAllowed(['complaint_management:update']))
 const tabs = [
   { value: 'brands', label: 'Brands', icon: IconTag },
   { value: 'agents', label: 'Agents', icon: IconHeadphones },
+  { value: 'roles', label: 'Roles', icon: IconShieldLock },
   { value: 'outbound', label: 'Outbound Messages', icon: IconSpeakerphone },
   { value: 'email-channels', label: 'Email Channels', icon: IconMailForward },
   { value: 'forms', label: 'Forms', icon: IconForms },
@@ -83,6 +85,7 @@ watch(
           <div class="tw:mt-6">
             <BaseTabPanel value="brands"><SupportBrandsHome /></BaseTabPanel>
             <BaseTabPanel value="agents"><SupportAgentsHome /></BaseTabPanel>
+            <BaseTabPanel value="roles"><SupportRolesHome /></BaseTabPanel>
             <BaseTabPanel value="outbound"><SupportOutboundHome /></BaseTabPanel>
             <BaseTabPanel value="email-channels"><EmailChannelsHome /></BaseTabPanel>
             <BaseTabPanel value="forms"><ComplaintFormsHome /></BaseTabPanel>
