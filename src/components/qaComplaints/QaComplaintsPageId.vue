@@ -769,6 +769,43 @@ const complaintDetailConfig = computed(() =>
           <UserBadgeById v-if="complaint.createdBy" :userId="complaint.createdBy" />
           <BaseText v-else color="secondary">—</BaseText>
         </BaseDetailField>
+        <!-- Ownership & SLA, in the same card (2026-10-26): one glance for who
+             raised it, who owns it and when it is due. -->
+        <BaseDetailField v-if="complaint.sourceComplaintId" label="Escalated from">
+          <RouterLink
+            :to="getCompanyPath(`/desk/tickets/${complaint.sourceComplaintId}`)"
+            class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
+          >
+            Support ticket →
+          </RouterLink>
+        </BaseDetailField>
+        <BaseDetailField label="Owner">
+          <UserBadgeById v-if="complaint.ownerId" :userId="complaint.ownerId" />
+          <BaseText v-else color="secondary" class="tw:italic">
+            Unassigned — accept to own it
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField
+          v-if="complaint.investigationStartedAt"
+          label="Investigation started"
+          :value="complaint.investigationStartedAt.formatDate('date')"
+        />
+        <BaseDetailField label="Resolution target">
+          <BaseText
+            v-if="complaint.resolutionTargetAt"
+            variant="body"
+            weight="medium"
+            :class="
+              !isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''
+            "
+          >
+            {{ complaint.resolutionTargetAt.formatDate('date') }}
+          </BaseText>
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="complaint.closureApprovedBy" label="Closure approved by">
+          <UserBadgeById :userId="complaint.closureApprovedBy" />
+        </BaseDetailField>
       </BaseRailCard>
 
       <!-- Customer information -->
@@ -910,45 +947,6 @@ const complaintDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- Ownership, assignment & SLA -->
-
-      <BaseRailCard title="Ownership & SLA" grid>
-        <BaseDetailField v-if="complaint.sourceComplaintId" label="Escalated from">
-          <RouterLink
-            :to="getCompanyPath(`/desk/tickets/${complaint.sourceComplaintId}`)"
-            class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
-          >
-            Support ticket →
-          </RouterLink>
-        </BaseDetailField>
-        <BaseDetailField label="Owner">
-          <UserBadgeById v-if="complaint.ownerId" :userId="complaint.ownerId" />
-          <BaseText v-else color="secondary" class="tw:italic">
-            Unassigned — accept to own it
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField
-          v-if="complaint.investigationStartedAt"
-          label="Investigation started"
-          :value="complaint.investigationStartedAt.formatDate('date')"
-        />
-        <BaseDetailField label="Resolution target">
-          <BaseText
-            v-if="complaint.resolutionTargetAt"
-            variant="body"
-            weight="medium"
-            :class="
-              !isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''
-            "
-          >
-            {{ complaint.resolutionTargetAt.formatDate('date') }}
-          </BaseText>
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="complaint.closureApprovedBy" label="Closure approved by">
-          <UserBadgeById :userId="complaint.closureApprovedBy" />
-        </BaseDetailField>
-      </BaseRailCard>
 
       <CustomFieldsCard entityType="Complaint" :entityId="id" :editable="isEditable" />
       <!-- Glanceable summary; detailed fields live in the tabs. -->
