@@ -30,6 +30,7 @@
  * rejection was a mistake).
  */
 import { post } from '@/api'
+import { isQualityUser } from '@/constants/userTypes.js'
 
 const props = defineProps({
   module: { type: Object, required: true },
@@ -114,7 +115,7 @@ const reassignCandidates = useLiveQueryWithDeps(
     if (!loaded) return []
     if (!roleIdsStr) {
       const all = await db.User.where().exec()
-      return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+      return all.filter((u) => u.userStatusId === 'ACTIVE' && isQualityUser(u))
     }
     const roleIds = roleIdsStr.split(',')
     const rolesOnUsers = await Promise.all(
@@ -122,7 +123,7 @@ const reassignCandidates = useLiveQueryWithDeps(
     )
     const userIds = [...new Set(rolesOnUsers.flat().map((r) => r.userId))]
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
-    return users.filter((u) => u && u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+    return users.filter((u) => u && u.userStatusId === 'ACTIVE' && isQualityUser(u))
   },
 
   { models: ['User', 'RoleOnUser'], initial: [] },

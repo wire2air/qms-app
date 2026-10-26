@@ -1,5 +1,6 @@
 import { db } from '@models/index'
 import { currentSession } from '@/utils/currentSession.js'
+import { isQualityUser } from '@/constants/userTypes.js'
 
 /**
  * Log-entry review authorization (2026-08-09) — the FE mirror of the backend
@@ -125,7 +126,7 @@ export async function resolveAuthorizedReviewerUserIds(logBook) {
  * Powers the site-gated user picker in the Additional Reviewers section.
  */
 export async function resolveSiteEligibleUserIds(logBook) {
-  const users = (await db.User.where().exec()).filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
+  const users = (await db.User.where().exec()).filter((u) => isQualityUser(u))
   const bookSiteRows = logBook?.id ? await db.SiteOnLogBook.where('logBookId', logBook.id).exec() : []
   const bookSites = new Set(bookSiteRows.map((s) => s.siteId))
   if (!bookSites.size) return users.map((u) => u.id) // global book → everyone

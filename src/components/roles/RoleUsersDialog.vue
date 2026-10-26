@@ -1,6 +1,7 @@
 <script setup>
 import { IconSearch, IconUserOff } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession'
+import { roleTierAllowedForUserType } from '@/constants/userTypes.js'
 
 const props = defineProps({
   roleId: {
@@ -46,10 +47,20 @@ const searchTerm = ref('')
 // they are managed from Suppliers → Users, and they are not role subjects here.
 // No `initial` — the undefined phase is what distinguishes "still loading" from
 // "you can see nobody", and this dialog shows a different thing for each.
-const allUsers = useLiveQuery(
-  async (db) => {
+// And only people who may hold a role of this tier (src/constants/userTypes.js):
+// an Operator is never offered a Quality role.
+const dialogRole = useLiveQueryWithDeps(
+  [() => props.roleId],
+  async (db, [id]) => (id ? db.Role.findByPk(id) : null),
+  { models: ['Role'] },
+)
+const allUsers = useLiveQueryWithDeps(
+  [() => dialogRole.value?.tier ?? 'QUALITY'],
+  async (db, [tier]) => {
     const rows = await db.User.where().exec()
-    return rows.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
+    return rows.filter(
+      (u) => u.kind !== 'EXTERNAL_SUPPLIER' && roleTierAllowedForUserType(tier, u.userType),
+    )
   },
   { models: ['User'] },
 )

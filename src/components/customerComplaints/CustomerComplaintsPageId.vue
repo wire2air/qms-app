@@ -711,7 +711,7 @@ const complaintDetailConfig = computed(() =>
       <p class="tw:text-sm tw:text-secondary">
         Pick the agent responsible for this complaint. They'll be notified.
       </p>
-      <UserSelectMenu v-model="assignUserId" required />
+      <UserSelectMenu v-model="assignUserId" allTypes required />
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter

@@ -95,7 +95,7 @@ async function onSubmit() {
             </BaseField>
 
             <BaseField label="Members">
-              <UserSelectMenu v-model="form.userIds" multiple />
+              <UserSelectMenu v-model="form.userIds" allTypes multiple />
             </BaseField>
           </div>
         </div>

@@ -50,6 +50,11 @@ export class User extends BaseModel {
   // INTERNAL — staff. EXTERNAL_SUPPLIER — supplier user (scoped + lands
   // on /supplier dashboard at login). Drives sidebar + routing.
   @Property({ type: String }) kind = 'INTERNAL'
+  // QUALITY | OPERATOR | TRAINEE | SUPPORT | SUPPLIER | SERVICE
+  // (src/constants/userTypes.js). Only Quality users are offered for quality
+  // work and only they use a license. Changed through PUT /users/:id (seat
+  // and role checks live there), never through the GraphQL update.
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) userType = 'QUALITY'
   // Nullable UUID FKs default to null, not '', so PostGraphile's UUID
   // type validation doesn't reject "" → "Invalid UUID" on createUser.
   @Property({ type: String }) supplierId = null

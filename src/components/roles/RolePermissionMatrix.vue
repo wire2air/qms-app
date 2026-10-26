@@ -11,6 +11,11 @@ import {
 // permission matrix is a decision-plane outcome, not a synced model record.
 import { get, put } from '@/api'
 import {
+  TIER_PERMISSION_ALLOWLIST,
+  permissionsOutsideTier,
+  roleTierLabel,
+} from '@/constants/userTypes.js'
+import {
   PERMISSION_PRESETS,
   SCOPE_LABELS,
   SCOPE_HINTS,
@@ -33,7 +38,20 @@ const props = defineProps({
   roleId: { type: String, required: true },
   canUpdate: { type: Boolean, default: false },
   search: { type: String, default: '' },
+  // QUALITY | OPERATOR | TRAINEE | SUPPORT — an Operator / Trainee role may
+  // only hold its allowlist (src/constants/userTypes.js); the server refuses
+  // the rest, this greys it out and says so before the save.
+  tier: { type: String, default: 'QUALITY' },
 })
+
+const tierAllow = computed(() => {
+  const list = TIER_PERMISSION_ALLOWLIST[props.tier]
+  return list ? new Set(list) : null
+})
+function moduleTierAllowed(m) {
+  if (!tierAllow.value) return true
+  return (m.actions || []).some((a) => tierAllow.value.has(`${m.id}:${a}`))
+}
 
 const loading = ref(false)
 const saving = ref(false)
@@ -332,6 +350,24 @@ async function load() {
 // caps at read = write); they arise only via the Customize controls, so the
 // offending rows are auto-expanded to put the blocked controls on screen.
 function validate() {
+  if (tierAllow.value) {
+    const desired = buildDesiredPermissions(
+      catalog.value.modules,
+      state,
+      readActionId.value,
+      scopeRank.value,
+    )
+    const outside = permissionsOutsideTier(
+      props.tier,
+      desired.map((p) => `${p.module}:${p.action}`),
+    )
+    if (outside.length) {
+      throw new Error(
+        `A ${roleTierLabel(props.tier).toLowerCase()} role cannot hold ${outside.join(', ')}. ` +
+          'Remove those, or change the role tier to Quality.',
+      )
+    }
+  }
   const unstorable = modulesNeedingCapability.value
   const capless = modulesNeedingWriteCapability.value
   for (const m of [...unstorable, ...capless]) expandedRows[m.id] = true
@@ -394,6 +430,15 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
         <b>Scope</b> is how far that reach extends — from a user's own records to company-wide. Use
         <b>Customize</b> to hand-pick capabilities or give reading a wider reach than editing.
       </span>
+    </div>
+
+    <div
+      v-if="tierAllow"
+      class="tw:rounded-md tw:border tw:border-amber-200 tw:bg-amber-50 tw:px-3 tw:py-2 tw:text-xs tw:text-amber-800"
+    >
+      <b>{{ roleTierLabel(tier) }} role.</b> Held by free users, so it can only be granted:
+      {{ [...tierAllow].join(', ') }}. Modules outside that list are greyed out; change the role
+      tier to Quality to grant more.
     </div>
 
     <!-- Toolbar -->
@@ -553,7 +598,12 @@ defineExpose({ save, validate, hasUnsavedChanges: () => modifiedCount.value > 0 
                     dense
                     :searchable="false"
                     :clearable="false"
-                    :disabled="!canUpdate"
+                    :disabled="!canUpdate || !moduleTierAllowed(m)"
+                    :title="
+                      !moduleTierAllowed(m)
+                        ? `Not available to ${roleTierLabel(tier).toLowerCase()} roles`
+                        : undefined
+                    "
                     @update:modelValue="(v) => onLevelChange(m, v)"
                   />
                 </td>

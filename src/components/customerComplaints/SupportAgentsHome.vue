@@ -476,7 +476,7 @@ async function remove(a) {
         <ValidationSummary v-if="validationErrors.length" :errors="validationErrors" />
         <BaseFieldRow :columns="2">
           <BaseField v-if="!editing" id="agent-userId" label="User" required :error="errors.userId">
-            <UserSelectMenu v-model="form.userId" required />
+            <UserSelectMenu v-model="form.userId" allTypes required />
           </BaseField>
           <BaseField label="Desk role">
             <BaseSelect v-model="form.level" :options="DESK_ROLES" required />

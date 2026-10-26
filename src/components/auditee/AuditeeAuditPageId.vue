@@ -676,7 +676,7 @@ const detailConfig = computed(() =>
             No one assigned yet.
           </p>
           <div v-if="isEditable" class="tw:flex tw:items-center tw:gap-1.5 tw:mt-1">
-            <UserSelectMenu v-model="addMemberUserId" class="tw:flex-1" />
+            <UserSelectMenu v-model="addMemberUserId" allTypes class="tw:flex-1" />
             <BaseButton size="sm" variant="outline" :disabled="!addMemberUserId" @click="addMember">
               Add
             </BaseButton>

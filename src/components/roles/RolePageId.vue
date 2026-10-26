@@ -1,8 +1,10 @@
 <script setup>
 import { IconHistory, IconSearch, IconLock } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { put } from '@/api'
 import { isAllowed } from '@/utils/currentSession.js'
 import { buildRoleSections, buildRoleActions } from './roleDetailConfig.js'
+import { ROLE_TIER_OPTIONS, roleTierLabel } from '@/constants/userTypes.js'
 
 const props = defineProps({
   id: {
@@ -56,6 +58,8 @@ watch(
         id: r.id,
         name: r.name,
         description: r.description,
+        tier: r.tier ?? 'QUALITY',
+        isSupportRole: !!r.isSupportRole,
         statusId: r.statusId,
         locked: r.locked,
         companyId: r.companyId,
@@ -145,6 +149,17 @@ async function persistField(patch, successMsg) {
     toast.success(successMsg)
   } catch (err) {
     toast.error(err?.message || 'Failed to update role')
+  }
+}
+
+async function changeTier(tier) {
+  if (!role.value || tier === role.value.tier) return
+  try {
+    await put(`/v1/services/roles/${props.id}`, { tier })
+    role.value = { ...role.value, tier }
+    toast.success('Role tier updated')
+  } catch (err) {
+    toast.error(err?.message || 'Failed to change the tier')
   }
 }
 
@@ -352,6 +367,30 @@ const roleDetailConfig = computed(() =>
         </BaseClickableRow>
       </BaseRailCard>
 
+      <!-- Tier: who may hold the role and what it may be granted
+           (src/constants/userTypes.js). Through REST: the server checks the
+           role's grants fit the new tier, the DB checks its holders can. -->
+      <BaseRailCard title="Tier">
+        <BaseSelect
+          v-if="canEdit && !role.isSupportRole"
+          :modelValue="role.tier"
+          :options="ROLE_TIER_OPTIONS"
+          optionDescription="description"
+          :clearable="false"
+          :searchable="false"
+          @update:modelValue="changeTier"
+        />
+        <p v-else class="tw:text-sm tw:text-secondary">{{ roleTierLabel(role.tier) }}</p>
+        <p class="tw:text-xs tw:text-secondary tw:mt-2">
+          <template v-if="role.tier === 'QUALITY'">Held by Quality users (a license each).</template>
+          <template v-else-if="role.tier === 'SUPPORT'">Given in Desk → Settings → Agents.</template>
+          <template v-else>
+            Free users: only {{ roleTierLabel(role.tier).toLowerCase() }}-tier permissions can be
+            granted.
+          </template>
+        </p>
+      </BaseRailCard>
+
       <!-- Assigned Users -->
       <BaseRailCard title="Assigned Users">
         <div class="tw:flex tw:items-center tw:gap-3">
@@ -398,6 +437,7 @@ const roleDetailConfig = computed(() =>
         :roleId="id"
         :canUpdate="canEdit"
         :search="permSearch"
+        :tier="role?.tier ?? 'QUALITY'"
       />
     </template>
   </BaseDetailLayout>

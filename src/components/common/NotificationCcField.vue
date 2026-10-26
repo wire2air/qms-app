@@ -61,7 +61,7 @@ function validateEmail(value) {
         <GroupSelectMenu v-model="groupIds" multiple class="tw:w-full" />
       </BaseField>
       <BaseField label="Notify people">
-        <UserSelectMenu v-model="userIds" multiple class="tw:w-full" />
+        <UserSelectMenu v-model="userIds" allTypes multiple class="tw:w-full" />
       </BaseField>
       <!-- The old copy here said these people "get no access to the record".
            That stopped being true when notifications started minting share

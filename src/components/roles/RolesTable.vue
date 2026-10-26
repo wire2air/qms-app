@@ -1,6 +1,7 @@
 <script setup>
 import { IconCircleCheck, IconBan, IconCopy, IconLock } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
+import { roleTierLabel } from '@/constants/userTypes.js'
 
 const props = defineProps({
   rows: {
@@ -32,6 +33,7 @@ const columns = computed(() => {
   return [
     { name: 'name', label: 'ROLE NAME', field: 'name', align: 'left', sortable: true },
     { name: 'description', label: 'DESCRIPTION', field: 'description', align: 'left' },
+    { name: 'tier', label: 'TIER', field: 'tier', align: 'left', sortable: true },
     { name: 'userCount', label: 'USERS', field: 'userCount', align: 'left', sortable: true },
     { name: 'statusId', label: 'STATUS', field: 'statusId', align: 'left', sortable: true },
     { name: 'updatedAt', label: 'LAST MODIFIED', field: 'updatedAt', align: 'left', sortable: true },
@@ -98,6 +100,10 @@ function rowMenuItems(row) {
 
     <template #body-cell-userCount="{ row }">
       <span class="tw:text-sm tw:text-on-main">{{ row.userCount || 0 }}</span>
+    </template>
+
+    <template #body-cell-tier="{ row }">
+      <span class="tw:text-sm">{{ roleTierLabel(row.tier ?? 'QUALITY') }}</span>
     </template>
 
     <template #body-cell-statusId="{ row }">

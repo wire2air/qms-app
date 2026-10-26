@@ -26,6 +26,9 @@ export class Role extends BaseModel {
   @Property({ type: Boolean }) locked = false
   // Support Desk population: never held together with a QMS role (DB trigger).
   @Property({ type: Boolean }) isSupportRole = false
+  // QUALITY | OPERATOR | TRAINEE | SUPPORT (src/constants/userTypes.js). Changed
+  // through PUT /roles/:id, which checks the role's grants against the tier.
+  @Property({ type: String, excludeFromGraphQL: ['update'] }) tier = 'QUALITY'
   @Property({ type: DateTime }) deletedAt = null
   @Property({ type: DateTime, required: true, timestamp: true })
   createdAt = /** @type {DateTime} */ (null)

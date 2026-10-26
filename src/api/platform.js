@@ -71,6 +71,11 @@ export function setCompanyPlan(id, planId) {
   return post(`/v1/platform/companies/${id}/plan`, { planId }, { showSuccess: 'Plan updated' })
 }
 
+// { qualitySeatsOverride?, supportSeatsOverride? } — a whole number, or null for the plan's.
+export function setCompanySeats(id, body) {
+  return post(`/v1/platform/companies/${id}/seats`, body, { showSuccess: 'Seat limits updated' })
+}
+
 // enabled: true (add-on) · false (remove) · null (clear override → revert to plan)
 export function setCompanyModule(id, moduleId, enabled) {
   return post(

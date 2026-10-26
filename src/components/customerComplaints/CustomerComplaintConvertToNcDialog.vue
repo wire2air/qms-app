@@ -125,7 +125,7 @@ async function onValidSubmit() {
             <DepartmentSelectMenu v-model="form.departmentId" :siteId="form.siteId" required />
           </BaseField>
           <BaseField label="Owner" required :value="form.ownerId" :rules="[required()]">
-            <UserSelectMenu v-model="form.ownerId" required />
+            <UserSelectMenu v-model="form.ownerId" allTypes required />
           </BaseField>
           <BaseField label="Severity" required>
             <div class="tw:flex tw:gap-2">
