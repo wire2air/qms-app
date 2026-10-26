@@ -92,6 +92,10 @@ export class Complaint extends BaseModel {
   @Property({ type: String }) ownerId = /** @type {String} */ (null)
   @Property({ type: String }) closureApprovedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) closureApprovedAt = /** @type {DateTime} */ (null)
+  // Written only by POST /cancel (signed). Code from
+  // src/constants/complaintCancelReasons.js; free-text specifics alongside.
+  @Property({ type: String }) cancelReasonCode = /** @type {String} */ (null)
+  @Property({ type: String }) cancelReason = /** @type {String} */ (null)
 
   // Workflow.
   @Property({ type: String }) workflowVersionId = /** @type {String} */ (null)

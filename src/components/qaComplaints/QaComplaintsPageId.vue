@@ -5,6 +5,10 @@ import { DateTime } from 'luxon'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
+import {
+  COMPLAINT_CANCEL_REASONS,
+  complaintCancelReasonLabel,
+} from '@/constants/complaintCancelReasons.js'
 
 /**
  * QA investigation view of a customer complaint. Same record as the support
@@ -266,17 +270,16 @@ async function handleSubmitForReview() {
   await runAction('submitForReview', {})
 }
 
-// Approval is the workflow's (the approval step's Approve / Reject): approving
-// the last step auto-closes the complaint (complaintHandler.onComplete). The
-// header's Close is the record-level act for whatever is left: a workflow
-// that completed without closing, with no step open. The server holds the
-// same rule (markComplaintComplete → complaints:close).
+// Approval is the workflow's (the approval step's Approve / Reject). When the
+// last step completes the complaint stays OPEN and the owner gets a task to
+// close it (complaintHandler.onComplete); the header's Close is that act, and
+// it is offered only once every step is done. The server holds the same rule
+// (markComplaintComplete → complaints:close + no open step).
+const reviewComplete = computed(
+  () => !!workflowInstance.value && workflowInstance.value.statusId === 'COMPLETED',
+)
 const canClose = computed(
-  () =>
-    isAllowed(['complaints:close']) &&
-    !isTerminal.value &&
-    !!workflowInstance.value &&
-    workflowInstance.value.statusId === 'COMPLETED',
+  () => isAllowed(['complaints:close']) && !isTerminal.value && reviewComplete.value,
 )
 const { confirm } = useConfirm()
 async function handleClose() {
@@ -288,6 +291,79 @@ async function handleClose() {
   if (!ok) return
   await runAction('markComplete', {})
   toast.notify({ type: 'positive', message: 'Complaint closed' })
+}
+
+// Cancel is the way out BEFORE the review is complete: a duplicate, a record
+// created in error, a complaint the complainant withdrew. Same gate as Close;
+// a reason from the fixed list, comments (required for "Other"), then an
+// e-signature — the QE pattern (QualityEventsPageId). Once the review is
+// complete the record is closed, not thrown away.
+const canCancel = computed(
+  () => isAllowed(['complaints:close']) && !isTerminal.value && !reviewComplete.value,
+)
+const showCancelDialog = ref(false)
+const showCancelEsign = ref(false)
+const cancelling = ref(false)
+const cancelReasonOptions = COMPLAINT_CANCEL_REASONS.map((r) => ({ value: r.code, label: r.label }))
+const cancelReasonCode = ref(null)
+const cancelReasonCodeError = ref('')
+const cancelReason = ref('')
+const cancelReasonError = ref('')
+const cancelCommentsRequired = computed(() => cancelReasonCode.value === 'OTHER')
+const cancelCommentsPlaceholder = computed(() => {
+  switch (cancelReasonCode.value) {
+    case 'DUPLICATE':
+      return 'Which complaint does this duplicate? (e.g. CMP-000123)'
+    case 'OUT_OF_SCOPE':
+      return 'Why is this outside the quality system’s scope?'
+    case 'WITHDRAWN':
+      return 'Who withdrew it, and how was that confirmed'
+    case 'OTHER':
+      return 'Explain why this complaint is being cancelled'
+    default:
+      return 'Anything an auditor should know (optional)'
+  }
+})
+const canSubmitCancel = computed(
+  () => !!cancelReasonCode.value && (!cancelCommentsRequired.value || !!cancelReason.value.trim()),
+)
+function openCancelDialog() {
+  cancelReasonCode.value = null
+  cancelReasonCodeError.value = ''
+  cancelReason.value = ''
+  cancelReasonError.value = ''
+  showCancelDialog.value = true
+}
+function handleCancelClick() {
+  cancelReasonCodeError.value = cancelReasonCode.value ? '' : 'Pick a cancellation reason'
+  cancelReasonError.value =
+    cancelCommentsRequired.value && !cancelReason.value.trim()
+      ? 'Comments are required for “Other”'
+      : ''
+  if (cancelReasonCodeError.value || cancelReasonError.value) return
+  showCancelDialog.value = false
+  showCancelEsign.value = true
+}
+async function onCancelEsignVerified({ method, provider, token }) {
+  if (!complaint.value) return
+  showCancelEsign.value = false
+  cancelling.value = true
+  try {
+    await post(`/v1/services/complaints/${complaint.value.id}/cancel`, {
+      method,
+      provider: provider || null,
+      token,
+      reasonCode: cancelReasonCode.value,
+      reason: cancelReason.value.trim() || complaintCancelReasonLabel(cancelReasonCode.value),
+    })
+    toast.notify({ type: 'positive', message: 'Complaint cancelled' })
+  } catch (e) {
+    toast.notify({ type: 'negative', message: e.message || 'Failed to cancel complaint' })
+    // Reopen the reason dialog so the typed reason isn't lost to a failed sign.
+    showCancelDialog.value = true
+  } finally {
+    cancelling.value = false
+  }
 }
 
 // ─── Audit log ────────────────────────────────────────────────────────────────
@@ -342,6 +418,15 @@ const complaintActions = computed(() => {
       visible: canClose.value,
       disabled: acting.value,
       onSelect: handleClose,
+    },
+    {
+      id: 'cancel',
+      label: 'Cancel',
+      variant: 'danger',
+      priority: 90,
+      visible: canCancel.value,
+      disabled: acting.value || cancelling.value,
+      onSelect: openCancelDialog,
     },
     {
       id: 'reopen',
@@ -445,6 +530,21 @@ const complaintDetailConfig = computed(() =>
         class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
       >
         {{ saveError }}
+      </div>
+      <div
+        v-if="complaint.statusId === 'CANCELLED'"
+        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-800 tw:rounded-md tw:p-3 tw:text-sm tw:mb-3"
+      >
+        <span class="tw:font-semibold">Cancelled</span>
+        <template v-if="complaint.cancelReasonCode">
+          — {{ complaintCancelReasonLabel(complaint.cancelReasonCode) }}
+        </template>
+        <p
+          v-if="complaint.cancelReason && complaint.cancelReason !== complaintCancelReasonLabel(complaint.cancelReasonCode)"
+          class="tw:mt-1 tw:whitespace-pre-line"
+        >
+          {{ complaint.cancelReason }}
+        </p>
       </div>
 
       <!-- The complaint itself stays in the body; its metadata moved to the
@@ -897,6 +997,52 @@ const complaintDetailConfig = computed(() =>
   />
 
   <!-- Audit log -->
+  <!-- Reason first, then the signature: the typed reason survives a failed
+       sign because handleCancelClick closes this one before opening that one. -->
+  <BaseDialog v-model="showCancelDialog" title="Cancel Complaint" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-on-main">
+        Cancelling ends this complaint without a review outcome: its open steps and tasks are
+        cancelled. The record stays in the audit log; you cannot reopen it.
+      </p>
+      <BaseField label="Reason" required :error="cancelReasonCodeError">
+        <BaseSelect
+          v-model="cancelReasonCode"
+          :options="cancelReasonOptions"
+          nullLabel="— Select a reason —"
+          :clearable="false"
+          @update:modelValue="cancelReasonCodeError = ''"
+        />
+      </BaseField>
+      <BaseField
+        v-slot="{ id: fieldId }"
+        label="Comments"
+        :required="cancelCommentsRequired"
+        :error="cancelReasonError"
+      >
+        <BaseTextarea
+          :id="fieldId"
+          v-model="cancelReason"
+          :rows="3"
+          :placeholder="cancelCommentsPlaceholder"
+          @input="cancelReasonError = ''"
+        />
+      </BaseField>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        cancelLabel="Back"
+        submitLabel="Sign & Cancel"
+        submitVariant="danger"
+        :loading="cancelling"
+        :disabled="!canSubmitCancel"
+        @cancel="close"
+        @submit="handleCancelClick"
+      />
+    </template>
+  </BaseDialog>
+  <WorkflowInstanceEsignAuthDialog v-model="showCancelEsign" @verified="onCancelEsignVerified" />
+
   <AuditLogDialog
     v-model="showAuditLog"
     :includeEntities="auditIncludeEntities"
