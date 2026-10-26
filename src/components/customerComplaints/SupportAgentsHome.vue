@@ -34,11 +34,22 @@ const presence = useLiveQuery((db) => db.SupportAgent.where().exec(), {
   initial: [],
 })
 const roster = ref([])
+// Support seats (plans.support_seats): every agent is one; limit null = unlimited.
+const seats = ref(null)
+const seatsLine = computed(() => {
+  const s = seats.value
+  if (!s) return ''
+  if (s.limit == null) return `${s.used} ${s.used === 1 ? 'agent' : 'agents'} · no seat limit on this plan.`
+  return `Support licenses: ${s.used} of ${s.limit} in use.`
+})
+const seatsFull = computed(() => !!seats.value && seats.value.limit != null && seats.value.used >= seats.value.limit)
 const loading = ref(false)
 async function loadRoster() {
   loading.value = true
   try {
-    roster.value = (await get('/v1/services/supportDesk/agents')).agents || []
+    const data = await get('/v1/services/supportDesk/agents')
+    roster.value = data.agents || []
+    seats.value = data.seats || null
   } catch (e) {
     toast.error(e?.message || 'Could not load agents')
   } finally {
@@ -295,6 +306,10 @@ async function remove(a) {
       Agents work the inbox. <strong>Available</strong> means: set to Online, inside their schedule,
       recently active in the app, and under their chat limit — that is who auto-assign picks from.
       Leads can set an agent offline.
+    </p>
+    <p v-if="seatsLine" class="tw:text-sm tw:mb-4" :class="seatsFull ? 'tw:text-amber-700' : 'tw:text-secondary'">
+      {{ seatsLine }}
+      <template v-if="seatsFull"> Remove an agent or raise the plan's Support seats to add another.</template>
     </p>
 
     <div v-if="roster.length" class="tw:flex tw:flex-col tw:gap-2">

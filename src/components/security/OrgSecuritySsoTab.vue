@@ -16,6 +16,7 @@
  */
 // Action RPCs (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post, patch, del } from '@/api'
+import { ASSIGNABLE_USER_TYPE_OPTIONS } from '@/constants/userTypes.js'
 import { IconCopy, IconPlus, IconTrash, IconFileImport } from '@tabler/icons-vue'
 
 const toast = useToast()
@@ -25,6 +26,8 @@ const sp = ref(null)
 // also checks this — without it here an admin configures a connection, sees it
 // ACTIVE, and still gets bounced with "SSO is disabled".
 const ssoEnabled = ref(false)
+// The user type a person provisioned by SSO starts with (src/constants/userTypes.js).
+const ssoProvisionedUserType = ref('TRAINEE')
 const connections = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -56,6 +59,7 @@ async function load() {
     sp.value = spData?.sp ?? null
     connections.value = list?.connections ?? []
     ssoEnabled.value = !!settings?.settings?.ssoEnabled
+    ssoProvisionedUserType.value = settings?.settings?.ssoProvisionedUserType || 'TRAINEE'
   } catch (e) {
     toast.error(e?.message || 'Could not load SSO configuration')
   } finally {
@@ -120,6 +124,18 @@ async function save({ activate = false } = {}) {
     toast.error(e?.message || 'Could not save the connection')
   } finally {
     saving.value = false
+  }
+}
+
+async function setProvisionedUserType(value) {
+  const previous = ssoProvisionedUserType.value
+  ssoProvisionedUserType.value = value
+  try {
+    await patch('/v1/admin/security/settings', { ssoProvisionedUserType: value })
+    toast.success('Default user type saved')
+  } catch (e) {
+    ssoProvisionedUserType.value = previous
+    toast.error(e?.message || 'Could not change the setting')
   }
 }
 
@@ -199,6 +215,28 @@ const certsText = computed({
           misconfigured provider is being fixed — without deleting anything.
         </span>
       </BaseLabel>
+    </div>
+
+    <!-- What a person provisioned by the IdP starts as. Trainee (free) by
+         default so SSO never uses a Quality license by itself. -->
+    <div class="tw:flex tw:flex-col tw:gap-2 tw:rounded-lg tw:border tw:border-divider tw:p-3 tw:sm:flex-row tw:sm:items-center tw:sm:justify-between">
+      <BaseLabel size="sm" class="tw:text-on-main">
+        Default user type for people provisioned by SSO
+        <span class="tw:block tw:text-xs tw:text-secondary">
+          Someone signing in through your identity provider for the first time starts as this.
+          Trainee and Operator are free; Quality uses a license. Promote people under Users.
+        </span>
+      </BaseLabel>
+      <div class="tw:w-56 tw:shrink-0">
+        <BaseSelect
+          :modelValue="ssoProvisionedUserType"
+          :options="ASSIGNABLE_USER_TYPE_OPTIONS"
+          optionDescription="description"
+          :clearable="false"
+          :searchable="false"
+          @update:modelValue="setProvisionedUserType"
+        />
+      </div>
     </div>
 
     <!-- 1. Our half — what the customer types into their IdP. -->
