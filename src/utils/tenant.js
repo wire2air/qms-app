@@ -28,10 +28,91 @@ const RESERVED = new Set([
   'portal',
   'grafana',
   'traefik',
+  'dev',
+  'support',
+  'cms',
+  'blog',
+  'inbound',
+  'email',
+  'smtp',
+  'imap',
+  'pop',
+  'pop3',
+  'mx',
+  'webmail',
+  'autodiscover',
+  'autoconfig',
+  'ns1',
+  'ns2',
+  'ftp',
+  'sftp',
+  'vpn',
+  'edge',
+  'help-edge',
+  'ws',
+  'sync',
+  'files',
+  'media',
+  'img',
+  'images',
+  'storage',
+  'monitor',
+  'sentry',
+  'staging',
+  'stage',
+  'prod',
+  'preview',
+  'beta',
+  'sandbox',
+  'test',
+  'qa',
+  'uat',
+  'login',
+  'signin',
+  'signup',
+  'sso',
+  'id',
+  'account',
+  'accounts',
+  'billing',
+  'secure',
+  'www2',
+  'shop',
+  'store',
+  'news',
+  'careers',
+  'jobs',
+  'legal',
+  'privacy',
+  'terms',
+  'trust',
+  'security',
+  'academy',
+  'learn',
+  'community',
+  'partners',
+  'events',
+  'platform',
+  'console',
+  'dashboard',
+  'internal',
+  'system',
+  'root',
 ])
 
 export function rootDomain() {
   return (import.meta.env.VITE_ROOT_DOMAIN || 'localhost').toLowerCase()
+}
+
+/**
+ * Host of the platform apex (sign-in, signup, workspace picker, /platform).
+ * Defaults to the root, where tenants are `<code>.<apex>` (local, dev).
+ * VITE_APP_HOST separates the two when tenants sit on the bare domain:
+ * VITE_ROOT_DOMAIN=qability.com + VITE_APP_HOST=app.qability.com. Mirrors
+ * appHostDomain() in backend/shared/constants/tenancy.js.
+ */
+export function appHost() {
+  return (import.meta.env.VITE_APP_HOST || rootDomain()).toLowerCase()
 }
 
 /**
@@ -67,7 +148,7 @@ export function currentSubdomain() {
     return label
   }
 
-  if (host === root || !host.endsWith(`.${root}`)) return null
+  if (host === root || host === appHost() || !host.endsWith(`.${root}`)) return null
 
   const label = host.slice(0, -(root.length + 1))
   if (label.includes('.')) return null // multi-label → not a flat tenant host
@@ -94,17 +175,17 @@ export function tenantOrigin(code, surface = isSupportHost() ? 'support' : 'app'
  * protocol and port. Use this to send a user back from a tenant's /signin to
  * "choose a different workspace".
  *
- * Targets the reserved `app.` host rather than the bare root: in production the
- * bare apex isn't routed (Traefik only matches `*.${DOMAIN}` tenant subdomains —
- * see compose.production.yaml), whereas `app` is a reserved label that renders
- * the picker. The same host shows the picker locally too.
- *   dev  → http://app.localhost:5173
- *   prod → https://app.qability.com
+ * Targets appHost(): the root itself locally and on dev, and `app.<domain>` in
+ * production, where tenants sit on the bare domain and the bare domain is the
+ * marketing site.
+ *   local → http://localhost:5173
+ *   dev   → https://dev.qability.net
+ *   prod  → https://app.qability.com
  */
 export function apexOrigin() {
   const { protocol, port } = window.location
   const portSuffix = port ? `:${port}` : ''
-  return `${protocol}//${rootDomain()}${portSuffix}`
+  return `${protocol}//${appHost()}${portSuffix}`
 }
 
 /**
