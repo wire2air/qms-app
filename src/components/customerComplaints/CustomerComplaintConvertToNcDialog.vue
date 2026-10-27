@@ -25,6 +25,23 @@ const saving = ref(false)
 const saveError = ref('')
 const formRef = ref(null)
 
+// A QMS complaint carries product-impact information the NC inherits
+// server-side (item, supplier, quantity, lot, order; the flags go into the
+// description). Said here so the person converting knows what comes along.
+const carriesImpact = computed(
+  () =>
+    props.apiPath === 'complaints' &&
+    props.complaints.some(
+      (c) =>
+        c.productId ||
+        c.batchLotSerial ||
+        c.quantityAffected ||
+        c.safetyIssue ||
+        c.regulatoryReportable ||
+        c.potentialRecall,
+    ),
+)
+
 const form = ref({
   title: '',
   siteId: null,
@@ -99,6 +116,11 @@ async function onValidSubmit() {
           <p class="tw:text-xs tw:text-secondary">
             A single draft NC is created and each complaint is linked to it and marked
             <strong>Converted to NC</strong>.
+          </p>
+          <p v-if="carriesImpact" class="tw:text-xs tw:text-secondary">
+            The product impact recorded on the complaint comes along: item, supplier, quantity,
+            batch/lot and order number land on the NC, and the safety, regulatory and recall
+            flags go into its description.
           </p>
         </div>
 
