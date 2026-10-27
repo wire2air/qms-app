@@ -35,6 +35,9 @@ const props = defineProps({
   // parent renders the workflow selection elsewhere (NC create's
   // workflow-first screen) but still needs the submit-time reviewer dialog.
   hideSelect: { type: Boolean, default: false },
+  // Separation of duties, forwarded to every step row: the owner is not a
+  // candidate for an APPROVAL step.
+  excludeOwnerFromApproval: { type: Boolean, default: false },
 })
 const emit = defineEmits(['submit'])
 const modelValue = defineModel({ type: String })
@@ -136,6 +139,7 @@ defineExpose({ submit })
         v-for="entry in orderedSteps"
         :key="entry.step.id"
         v-model="selections[entry.step.id]"
+        :excludeOwnerFromApproval="excludeOwnerFromApproval"
         :module="module"
         :step="entry.step"
         :stepIndex="entry.isChild ? entry.childIndex : entry.index"

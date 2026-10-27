@@ -1,5 +1,6 @@
 <script setup>
 import { IconSearch } from '@tabler/icons-vue'
+import { isQualityUser } from '@/constants/userTypes.js'
 
 const props = defineProps({
   stepId: { type: String, required: true },
@@ -15,7 +16,7 @@ const search = ref('')
 const users = useLiveQuery(
   async (db) =>
     (await db.User.where().exec()).filter(
-      (u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER',
+      (u) => u.userStatusId === 'ACTIVE' && isQualityUser(u),
     ),
 
   { models: ['User'], initial: [] },

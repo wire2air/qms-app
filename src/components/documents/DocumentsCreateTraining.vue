@@ -223,7 +223,7 @@ const hasAssessment = computed({
                 >
                   Specific Users
                 </p>
-                <UserSelectMenu v-model="config.userIds" :multiple="true" :disabled="readonly" />
+                <UserSelectMenu v-model="config.userIds" allTypes :multiple="true" :disabled="readonly" />
               </div>
             </div>
           </div>
@@ -378,7 +378,8 @@ const hasAssessment = computed({
                 Training manager
               </BaseLabel>
               <UserSelectMenu
-                v-model="config.managerId"
+v-model="config.managerId"
+                allTypes
                 nullLabel="Select a manager"
                 :disabled="readonly"
               />

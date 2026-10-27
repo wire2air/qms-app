@@ -351,11 +351,12 @@ function ruleSummary(r) {
               />
             </BaseField>
             <BaseField label="From">
-              <UserSelectMenu v-model="form.fromUserId" required />
+              <UserSelectMenu v-model="form.fromUserId" allTypes required />
             </BaseField>
             <BaseField label="Assign replies to">
               <UserSelectMenu
-                v-model="form.assignRepliesToUserId"
+v-model="form.assignRepliesToUserId"
+                allTypes
                 nullLabel="Auto-assign (brand rules)"
               />
             </BaseField>

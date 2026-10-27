@@ -1,6 +1,7 @@
 <script setup>
 import { IconCirclePlus, IconInfoCircle } from '@tabler/icons-vue'
 import { required } from '@shared/components/form/validators.js'
+import { ROLE_TIER_OPTIONS } from '@/constants/userTypes.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Copies the
 // source role's scoped permission grants (authz model) into the new role.
 import { get, put } from '@/api'
@@ -38,6 +39,7 @@ const grantCopyFailed = ref(false)
 const form = ref({
   name: '',
   description: '',
+  tier: 'QUALITY',
   copyFromRoleId: 'custom',
 })
 
@@ -114,6 +116,7 @@ async function onSubmit() {
         name: form.value.name.trim(),
         description: form.value.description.trim() || '',
         statusId: 'ACTIVE',
+        tier: form.value.tier || 'QUALITY',
       })
     }
   } catch (err) {
@@ -167,10 +170,11 @@ watch(show, (val) => {
     form.value = {
       name: `Copy of ${props.cloneSource.name}`,
       description: props.cloneSource.description || '',
+      tier: props.cloneSource.tier || 'QUALITY',
       copyFromRoleId: props.cloneSource.id,
     }
   } else {
-    form.value = { name: '', description: '', copyFromRoleId: 'custom' }
+    form.value = { name: '', description: '', tier: 'QUALITY', copyFromRoleId: 'custom' }
   }
   saveError.value = ''
 })
@@ -221,6 +225,19 @@ watch(show, (val) => {
         placeholder="Describe the purpose and responsibilities of this role"
         class="tw:min-h-24"
       />
+
+      <!-- Tier (src/constants/userTypes.js): who may hold the role and what it
+           may be granted. Operator / Trainee roles are bounded to their
+           allowlist — that is what keeps a free user free of quality verbs. -->
+      <BaseField label="Tier" required :value="form.tier">
+        <BaseSelect
+          v-model="form.tier"
+          :options="ROLE_TIER_OPTIONS"
+          optionDescription="description"
+          :clearable="false"
+          :searchable="false"
+        />
+      </BaseField>
 
       <BaseField label="Copy From">
         <BaseSelect

@@ -121,7 +121,7 @@ function printReport() {
         </div>
         <div>
           <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Employee</label>
-          <UserSelectMenu v-model="userId" nullLabel="All employees" />
+          <UserSelectMenu v-model="userId" allTypes nullLabel="All employees" />
         </div>
         <div class="tw:sm:col-span-2">
           <label class="tw:text-xs tw:font-medium tw:text-secondary tw:mb-1 tw:block">Completed</label>

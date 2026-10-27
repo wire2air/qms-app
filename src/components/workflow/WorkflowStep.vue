@@ -25,7 +25,9 @@
  *     description / comment area).
  */
 import {
+  IconArrowBackUp,
   IconCheck,
+  IconX,
   IconRefreshAlert,
   IconUserCheck,
   IconBan,
@@ -40,6 +42,7 @@ import {
   pickActionableTask,
   mayActOnStepType,
   onBehalfOfLabel,
+  onBehalfOfShortLabel,
 } from '@/components/workflow/stepTakeover.js'
 import { currentSession } from '@/utils/currentSession.js'
 import { getCompanyPath } from '@/utils/routeHelpers.js'
@@ -147,9 +150,8 @@ const childrenBlock = computed(
 // ─── Current user's task ─────────────────────────────────────────────────────
 // Filter to APPROVAL tasks only — protects against the owner=assignee
 // post-rejection edge case: when the owner rejects their own approval
-// task, rejectStepTask creates a new ACTION task on the same step
-// (owner-notification, not a reviewer task). Without the kind filter,
-// the form would re-enable on that ACTION task. PENDING is included
+// task, the step's other tasks are not reviewer tasks. Without the kind
+// filter, the form could re-enable on one of them. PENDING is included
 // alongside ASSIGNED + FORM_SUBMITTED for the same reason — the owner
 // task can land in PENDING before it's activated.
 const ACTIONABLE_STATUSES = ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING']
@@ -169,6 +171,50 @@ const stepTasks = useLiveQueryWithDeps(
 
   { models: ['TaskInstance'], initial: [] },
 )
+
+// ── Rounds: this row follows an earlier one of the same step ─────────────────
+// Sent back for rework, or reopened after a rejection, a step gets a fresh row
+// (the engine never rewinds a completed one). The card shows the latest row;
+// this names the round and why it exists, from the latest row's tasks (their
+// comment is the approver's or the owner's note) or, for the approval gate,
+// from the previous round's closing task.
+const previousRounds = useLiveQueryWithDeps(
+  [() => instanceStep.value?.id, () => instanceStep.value?.workflowInstanceId, () => instanceStep.value?.stepId],
+  async (db, [id, workflowInstanceId, stepId]) => {
+    if (!id || !workflowInstanceId || !stepId) return []
+    const me = instanceStep.value
+    const all = await db.WorkflowInstanceStep.where('workflowInstanceId', workflowInstanceId).exec()
+    return all
+      .filter((r) => r.id !== id && r.stepId === stepId && r.parentInstanceStepId === me?.parentInstanceStepId && r.createdAt < me?.createdAt)
+      .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+  },
+  { models: ['WorkflowInstanceStep'], initial: [] },
+)
+const previousRoundTasks = useLiveQueryWithDeps(
+  [() => previousRounds.value[0]?.id],
+  async (db, [id]) => (id ? db.TaskInstance.where('[sourceType+sourceId]', ['WorkflowInstanceStep', id]).exec() : []),
+  { models: ['TaskInstance'], initial: [] },
+)
+const roundNumber = computed(() => previousRounds.value.length + 1)
+const reworkBanner = computed(() => {
+  const prev = previousRounds.value[0]
+  if (!prev || ['APPROVED', 'COMPLETED', 'CANCELLED', 'SKIPPED'].includes(instanceStep.value?.statusId)) return null
+  if (isApprovalStep.value) {
+    const closing = previousRoundTasks.value.find((t) => ['SENT_BACK', 'REJECTED'].includes(t.statusId))
+    const how = prev.statusId === 'REJECTED' ? 'rejected' : 'sent back for rework'
+    return {
+      title: `Approval round ${roundNumber.value}: the previous round was ${how}`,
+      note: closing?.comment || null,
+      detail: 'It comes round again once the reopened steps are done.',
+    }
+  }
+  const note = stepTasks.value.find((t) => t.comment)?.comment || null
+  return {
+    title: `Reopened for rework (round ${roundNumber.value})`,
+    note,
+    detail: 'Review the note, redo what it asks, then complete the step; the approval follows.',
+  }
+})
 
 // May a NON-assignee act here? Assignment is routing, not a lock — see
 // stepTakeover.js. The server decides for real (utils/workflowStepAccess.js);
@@ -204,8 +250,27 @@ const canActOnStep = computed(() => !!currentUserTask.value)
 const completeActionLabel = computed(() => {
   if (completing.value) return isApprovalStep.value ? 'Approving…' : 'Completing…'
   const base = isApprovalStep.value ? 'Approve' : 'Mark Complete'
-  return isStepTakeover.value ? onBehalfOfLabel(base, takeoverAssigneeName.value) : base
+  if (!isStepTakeover.value) return base
+  // An approval step shows Approve and Reject side by side: the short form
+  // keeps both on one line; the full wording is the button's title.
+  return isApprovalStep.value
+    ? onBehalfOfShortLabel(base, takeoverAssigneeName.value)
+    : onBehalfOfLabel(base, takeoverAssigneeName.value)
 })
+/** The full "on behalf of" wording, as the button's title, whenever the label is abbreviated. */
+const completeActionTitle = computed(() =>
+  isStepTakeover.value && isApprovalStep.value
+    ? onBehalfOfLabel('Approve', takeoverAssigneeName.value)
+    : null,
+)
+/** The inline Reject beside Approve on an APPROVAL step; the menu runs the dialog and the call. */
+const rejectActionLabel = computed(() =>
+  isStepTakeover.value ? onBehalfOfShortLabel('Reject', takeoverAssigneeName.value) : 'Reject',
+)
+const rejectActionTitle = computed(() =>
+  isStepTakeover.value ? onBehalfOfLabel('Reject', takeoverAssigneeName.value) : 'Reject this approval',
+)
+const actionsMenu = ref(null)
 
 // True when the task belongs to someone else. Drives the distinct affordance:
 // the label names them, so the action cannot be taken without reading whose it
@@ -660,6 +725,9 @@ const canCancelStep = computed(
   () =>
     props.isOwner &&
     !isDelayStep.value &&
+    // An approval gate is never cancelled from the record: its outcomes are
+    // Approve and Reject (the approver's), and Reassign (the owner's).
+    !isApprovalStep.value &&
     REASSIGNABLE_STATUSES.includes(instanceStep.value?.statusId),
 )
 
@@ -835,11 +903,24 @@ function activityLabel(statusId) {
           v-if="canActOnStep"
           class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-green-700 tw:hover:underline tw:cursor-pointer tw:font-medium tw:disabled:opacity-50 tw:disabled:cursor-not-allowed tw:disabled:hover:no-underline"
           :disabled="completeDisabled || completing"
-          :title="completeDisabledReason || undefined"
+          :title="completeDisabledReason || completeActionTitle || undefined"
           @click="onCompleteAndAdvanceClick"
         >
           <IconCheck :size="14" />
           {{ completeActionLabel }}
+        </button>
+        <!-- Reject sits beside Approve on an approval step, not in the menu:
+             the two outcomes of the gate are read together. -->
+        <button
+          v-if="canActOnStep && isApprovalStep"
+          class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-red-700 tw:hover:underline tw:cursor-pointer tw:font-medium tw:disabled:opacity-50 tw:disabled:cursor-not-allowed tw:disabled:hover:no-underline"
+          :disabled="completing"
+          :title="rejectActionTitle"
+          data-step-reject
+          @click="actionsMenu?.start('SEND_BACK')"
+        >
+          <IconX :size="14" />
+          {{ rejectActionLabel }}
         </button>
         <button
           v-if="canRescheduleDelay"
@@ -901,6 +982,7 @@ function activityLabel(statusId) {
         <!-- Dropdown for the rest: REQUEST_INFO, reviewer-side SEND_BACK, etc.
              COMPLETE_AND_ADVANCE is hidden here (rendered inline above). -->
         <WorkflowStepActionsMenu
+          ref="actionsMenu"
           :module="module"
           :instanceStepId="instanceStepId"
           :resourceId="resourceId"
@@ -909,9 +991,25 @@ function activityLabel(statusId) {
           :hideOutcomes="
             isDelayStep
               ? ['COMPLETE_AND_ADVANCE', 'SEND_BACK', 'REQUEST_INFO', 'REASSIGN', 'CANCEL']
-              : ['COMPLETE_AND_ADVANCE']
+              : isApprovalStep
+                ? ['COMPLETE_AND_ADVANCE', 'SEND_BACK']
+                : ['COMPLETE_AND_ADVANCE']
           "
         />
+      </div>
+    </div>
+
+    <!-- Rework banner — this row follows an earlier round of the same step. -->
+    <div
+      v-if="reworkBanner"
+      class="tw:flex tw:items-start tw:gap-3 tw:p-3 tw:mb-4 tw:rounded-lg tw:bg-orange-50 tw:border tw:border-orange-200"
+      data-step-rework
+    >
+      <IconArrowBackUp :size="16" class="tw:text-orange-600 tw:shrink-0 tw:mt-0.5" />
+      <div class="tw:min-w-0 tw:text-sm">
+        <p class="tw:font-medium tw:text-orange-900">{{ reworkBanner.title }}</p>
+        <p v-if="reworkBanner.note" class="tw:mt-1 tw:whitespace-pre-line tw:text-orange-900">{{ reworkBanner.note }}</p>
+        <p class="tw:mt-1 tw:text-xs tw:text-orange-800">{{ reworkBanner.detail }}</p>
       </div>
     </div>
 
@@ -1120,10 +1218,23 @@ function activityLabel(statusId) {
         <template #icon><IconDeviceFloppy :size="16" /></template>
         Save draft
       </BaseButton>
+      <!-- An approval gate's other outcome, beside Approve: reject the record, or
+           send chosen steps back for rework (the menu's own dialog + e-signature). -->
+      <BaseButton
+        v-if="isApprovalStep && canActOnStep"
+        variant="danger"
+        :disabled="completing"
+        :title="rejectActionTitle"
+        data-step-reject-main
+        @click="actionsMenu?.start('SEND_BACK')"
+      >
+        <template #icon><IconX :size="16" /></template>
+        {{ rejectActionLabel }}
+      </BaseButton>
       <BaseButton
         :disabled="completeDisabled || completing"
         :isLoading="completing"
-        :title="completeDisabledReason || undefined"
+        :title="completeDisabledReason || completeActionTitle || undefined"
         @click="onCompleteAndAdvanceClick"
       >
         <template #icon><IconCheck :size="16" /></template>

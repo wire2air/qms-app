@@ -174,7 +174,7 @@ const placeholder = computed(() => {
     >
       <IconAt :size="14" class="tw:shrink-0 tw:text-secondary" />
       <div class="tw:min-w-0 tw:flex-1">
-        <UserSelectMenu v-model="mentionIds" multiple placeholder="Mention a teammate…" />
+        <UserSelectMenu v-model="mentionIds" allTypes multiple placeholder="Mention a teammate…" />
       </div>
     </div>
 

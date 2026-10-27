@@ -158,7 +158,7 @@ function loadMoreEvents() {
         <BaseCard>
           <div class="tw:max-w-md">
             <p class="tw:text-sm tw:text-secondary tw:mb-1">Select a user</p>
-            <UserSelectMenu v-model="selectedUserId" :required="false" />
+            <UserSelectMenu v-model="selectedUserId" allTypes :required="false" />
           </div>
 
           <div v-if="loadingOverview" class="tw:mt-4 tw:flex tw:items-center tw:gap-2">

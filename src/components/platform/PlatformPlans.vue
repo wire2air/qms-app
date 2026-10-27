@@ -25,7 +25,12 @@ const moduleCount = computed(() => modules.value.length)
 
 // ── Create ───────────────────────────────────────────────────────────────────
 const createDialog = ref(false)
-const createForm = ref({ id: '', name: '', description: '', entitlesAllModules: false })
+const EMPTY_PLAN = { id: '', name: '', description: '', entitlesAllModules: false, qualitySeats: '', supportSeats: '' }
+const createForm = ref({ ...EMPTY_PLAN })
+// '' = unlimited (sent as null); otherwise a whole number.
+const seatsOrNull = (v) => (v === '' || v === null || v === undefined ? null : Number(v))
+const seatsLabel = (plan) =>
+  `Seats: ${plan.qualitySeats ?? '∞'} Quality · ${plan.supportSeats ?? '∞'} Support · operators & trainees free`
 const createNameError = ref('')
 const editNameError = ref('')
 const creating = ref(false)
@@ -49,7 +54,7 @@ async function load() {
 onMounted(load)
 
 function openCreate() {
-  createForm.value = { id: '', name: '', description: '', entitlesAllModules: false }
+  createForm.value = { ...EMPTY_PLAN }
   createDialog.value = true
 }
 
@@ -73,6 +78,8 @@ async function handleCreate() {
       name: f.name.trim(),
       description: f.description.trim() || null,
       entitlesAllModules: f.entitlesAllModules,
+      qualitySeats: seatsOrNull(f.qualitySeats),
+      supportSeats: seatsOrNull(f.supportSeats),
     })
     createDialog.value = false
     await load()
@@ -88,6 +95,8 @@ function openEdit(plan) {
     description: plan.description || '',
     isActive: plan.isActive,
     entitlesAllModules: plan.entitlesAllModules,
+    qualitySeats: plan.qualitySeats ?? '',
+    supportSeats: plan.supportSeats ?? '',
     moduleIds: [...plan.moduleIds],
     originalModuleIds: [...plan.moduleIds],
   }
@@ -107,6 +116,8 @@ async function handleEdit() {
       description: f.description.trim() || null,
       isActive: f.isActive,
       entitlesAllModules: f.entitlesAllModules,
+      qualitySeats: seatsOrNull(f.qualitySeats),
+      supportSeats: seatsOrNull(f.supportSeats),
     })
     // Diff the module bundle (skipped when the plan entitles all modules).
     if (!f.entitlesAllModules) {
@@ -181,6 +192,7 @@ function moduleLabel(plan) {
             <IconInfinity v-if="plan.entitlesAllModules" :size="16" class="tw:text-primary" />
             <span class="tw:text-on-main">{{ moduleLabel(plan) }}</span>
           </div>
+          <p class="tw:text-xs tw:text-secondary">{{ seatsLabel(plan) }}</p>
 
           <div class="tw:flex tw:items-center tw:gap-1 tw:text-xs tw:text-secondary">
             <span class="tw:font-semibold tw:text-on-main">{{ plan.subscriberCount }}</span>
@@ -210,6 +222,24 @@ function moduleLabel(plan) {
         <p v-if="createNameError" class="tw:text-xs tw:text-bad">{{ createNameError }}</p>
         <BaseTextarea v-model="createForm.description" label="Description" :rows="2" />
         <BaseSwitch v-model="createForm.entitlesAllModules" label="Entitle all modules" />
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <BaseTextInput
+            v-model="createForm.qualitySeats"
+            label="Quality seats"
+            type="number"
+            min="0"
+            placeholder="Unlimited"
+            hint="Named Quality users. Empty = unlimited."
+          />
+          <BaseTextInput
+            v-model="createForm.supportSeats"
+            label="Support seats"
+            type="number"
+            min="0"
+            placeholder="Unlimited"
+            hint="Support Desk agents. Empty = unlimited."
+          />
+        </div>
         <p class="tw:text-xs tw:text-secondary">
           "Entitle all modules" covers every current and future module — use it for an Unlimited
           tier. Otherwise pick the bundled modules after creating, via Edit.
@@ -237,6 +267,24 @@ function moduleLabel(plan) {
         <div class="tw:flex tw:items-center tw:gap-6">
           <BaseSwitch v-model="editForm.isActive" label="Active" />
           <BaseSwitch v-model="editForm.entitlesAllModules" label="Entitle all modules" />
+        </div>
+        <div class="tw:grid tw:grid-cols-2 tw:gap-3">
+          <BaseTextInput
+            v-model="editForm.qualitySeats"
+            label="Quality seats"
+            type="number"
+            min="0"
+            placeholder="Unlimited"
+            hint="Named Quality users. Empty = unlimited."
+          />
+          <BaseTextInput
+            v-model="editForm.supportSeats"
+            label="Support seats"
+            type="number"
+            min="0"
+            placeholder="Unlimited"
+            hint="Support Desk agents. Empty = unlimited."
+          />
         </div>
         <div v-if="!editForm.entitlesAllModules">
           <p class="tw:text-secondary tw:text-xs tw:mb-1">Bundled modules</p>

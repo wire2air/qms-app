@@ -149,6 +149,33 @@ const otherDrafts = computed(() =>
   records.value.filter((r) => !r.submittedAt && r.userId !== currentUserId.value),
 )
 
+/**
+ * The previous round's record of this step (sent back for rework, or reopened
+ * after a rejection: the engine gives the step a fresh row, so this row has no
+ * record yet). The assignee's own last answer first, else the latest one; it
+ * seeds the form so the rework starts from what was there, never from blank.
+ * The old record stays as it was — the new one is a new row on the new task.
+ */
+const previousRoundRecord = useLiveQueryWithDeps(
+  [() => props.instanceStepId, () => props.resourceId, () => currentUserId.value],
+  async (db, [stepInstanceId, resourceId, userId]) => {
+    if (!stepInstanceId || !resourceId) return null
+    const me = await db.WorkflowInstanceStep.findByPk(stepInstanceId)
+    if (!me) return null
+    const rows = (await db.WorkflowInstanceStep.where('workflowInstanceId', me.workflowInstanceId).exec()).filter(
+      (r) => r.id !== me.id && r.stepId === me.stepId && r.parentInstanceStepId === me.parentInstanceStepId && r.createdAt < me.createdAt,
+    )
+    if (!rows.length) return null
+    const lists = await Promise.all(rows.map((r) => db[props.module.recordModelName].where('workflowInstanceStepId', r.id).exec()))
+    const recs = lists
+      .flat()
+      .filter((r) => r[props.module.recordResourceFk] === resourceId)
+      .sort((a, b) => (b.updatedAt?.toMillis?.() ?? 0) - (a.updatedAt?.toMillis?.() ?? 0))
+    return recs.find((r) => r.userId === userId) ?? recs[0] ?? null
+  },
+  { initial: null },
+)
+
 // Pick the user's CURRENTLY-ACTIONABLE APPROVAL task on this step. A
 // step can host multiple TaskInstances for the same user across its
 // lifecycle: an old APPROVED row from a prior completion (reopen
@@ -260,7 +287,7 @@ const seedRecord = computed(() => {
   if (currentUserRecord.value) return currentUserRecord.value
   if (isApprovalStep.value) return null
   if (!isEditable.value) return null
-  return otherDrafts.value[0] ?? null
+  return otherDrafts.value[0] ?? previousRoundRecord.value ?? null
 })
 
 watch(

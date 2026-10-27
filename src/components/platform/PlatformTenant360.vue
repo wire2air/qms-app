@@ -29,6 +29,7 @@ import {
   resetUserMfa,
   getCompanyEntitlements,
   setCompanyPlan,
+  setCompanySeats,
   setCompanyModule,
   getBlastRadius,
   requestCompanyPurge,
@@ -64,7 +65,40 @@ const canSupport = computed(() => hasPlatformRole('support'))
 const canAdmin = computed(() => hasPlatformRole('admin'))
 
 // ── Entitlements (C2) ────────────────────────────────────────────────────────
-const entitlement = ref({ subscription: null, plans: [], modules: [] })
+const entitlement = ref({ subscription: null, plans: [], modules: [], seats: null })
+// Seat overrides ('' = the plan's number). Operators and trainees are never counted.
+const seatDraft = ref({ quality: '', support: '' })
+const savingSeats = ref(false)
+const normSeats = (v) => (v === '' || v === null || v === undefined ? null : Number(v))
+const seatRows = computed(() => {
+  const s = entitlement.value.seats
+  if (!s) return []
+  return [
+    { key: 'quality', label: 'Quality users', ...s.QUALITY },
+    { key: 'support', label: 'Support agents', ...s.SUPPORT },
+  ]
+})
+const seatsDirty = computed(() => {
+  const s = entitlement.value.seats
+  if (!s) return false
+  return (
+    normSeats(seatDraft.value.quality) !== (s.QUALITY.override ?? null) ||
+    normSeats(seatDraft.value.support) !== (s.SUPPORT.override ?? null)
+  )
+})
+async function onSaveSeats() {
+  if (!seatsDirty.value) return
+  savingSeats.value = true
+  try {
+    await setCompanySeats(props.companyId, {
+      qualitySeatsOverride: normSeats(seatDraft.value.quality),
+      supportSeatsOverride: normSeats(seatDraft.value.support),
+    })
+    await loadEntitlements()
+  } finally {
+    savingSeats.value = false
+  }
+}
 const planDraft = ref(null)
 const savingPlan = ref(false)
 const modulePagination = ref({ page: 1, pageSize: 25 })
@@ -104,8 +138,13 @@ async function loadEntitlements() {
     subscription: data?.subscription || null,
     plans: data?.plans || [],
     modules: data?.modules || [],
+    seats: data?.seats || null,
   }
   planDraft.value = data?.subscription?.planId || null
+  seatDraft.value = {
+    quality: data?.seats?.QUALITY?.override ?? '',
+    support: data?.seats?.SUPPORT?.override ?? '',
+  }
 }
 
 async function onSavePlan() {
@@ -427,6 +466,52 @@ function onStatusUpdated(newStatus) {
                 @click="onSavePlan"
               >
                 Save
+              </BaseButton>
+            </div>
+          </div>
+        </BaseCard>
+
+        <!-- Seats: the plan's number, this tenant's override, and what is in use. -->
+        <BaseCard v-if="seatRows.length" class="tw:mt-4">
+          <p class="tw:text-secondary tw:text-xs tw:mb-2">Seats</p>
+          <div class="tw:flex tw:flex-col tw:gap-3">
+            <div
+              v-for="row in seatRows"
+              :key="row.key"
+              class="tw:flex tw:flex-col tw:gap-2 tw:sm:flex-row tw:sm:items-end tw:sm:justify-between"
+            >
+              <div>
+                <p class="tw:font-semibold tw:text-on-main">{{ row.label }}</p>
+                <p class="tw:text-sm tw:text-secondary">
+                  {{ row.used }} in use ·
+                  {{ row.limit == null ? 'unlimited' : `${row.limit} allowed` }}
+                  <template v-if="row.override != null">
+                    (override; plan: {{ row.planLimit ?? '∞' }})
+                  </template>
+                  <template v-else>(from the plan)</template>
+                </p>
+              </div>
+              <div v-if="canAdmin" class="tw:w-44">
+                <BaseTextInput
+                  v-model="seatDraft[row.key]"
+                  type="number"
+                  min="0"
+                  :placeholder="row.planLimit == null ? 'Unlimited (plan)' : `${row.planLimit} (plan)`"
+                  label="Override"
+                />
+              </div>
+            </div>
+            <p class="tw:text-xs tw:text-secondary">
+              Operators and trainees are free and not counted.
+            </p>
+            <div v-if="canAdmin" class="tw:flex tw:justify-end">
+              <BaseButton
+                variant="primary"
+                :disabled="!seatsDirty || savingSeats"
+                :loading="savingSeats"
+                @click="onSaveSeats"
+              >
+                Save seats
               </BaseButton>
             </div>
           </div>

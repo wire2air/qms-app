@@ -2,6 +2,7 @@
 import { IconUsersPlus, IconMapPinPlus } from '@tabler/icons-vue'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { userTypeLabel } from '@/constants/userTypes.js'
 
 defineProps({
   rows: {
@@ -118,6 +119,7 @@ const columns = computed(() => [
   { name: 'name', label: 'NAME', field: 'firstName', align: 'left', sortable: true },
   { name: 'email', label: 'EMAIL', field: 'email', align: 'left', sortable: true },
   { name: 'roles', label: 'ROLES', field: 'roles', align: 'left' },
+  { name: 'userType', label: 'TYPE', field: 'userType', align: 'left', sortable: true },
   { name: 'userStatusId', label: 'STATUS', field: 'userStatusId', align: 'left', sortable: true },
   ...(canImpersonate.value
     ? [{ name: 'impersonate', label: '', field: 'id', align: 'right' }]
@@ -223,6 +225,10 @@ function openUser(row) {
 
     <template #body-cell-roles="{ row }">
       <UserRolesCell :userId="row.id" />
+    </template>
+
+    <template #body-cell-userType="{ row }">
+      <span class="tw:text-sm">{{ userTypeLabel(row.userType) }}</span>
     </template>
 
     <template #body-cell-userStatusId="{ row }">

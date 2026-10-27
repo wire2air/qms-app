@@ -29,7 +29,7 @@ const auditIncludeEntities = computed(() =>
       <p class="tw:text-sm tw:text-secondary">
         Pick the agent responsible for this ticket. They'll be notified.
       </p>
-      <UserSelectMenu v-model="ticket.assignUserId" required />
+      <UserSelectMenu v-model="ticket.assignUserId" allTypes required />
     </div>
     <template #footer="{ close }">
       <BaseDialogFooter

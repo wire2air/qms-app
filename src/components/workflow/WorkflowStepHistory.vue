@@ -52,34 +52,60 @@ const open = ref(false)
 // Governs the AuditLog half of the timeline — see the header comment.
 const canReadAuditTrail = computed(() => isAllowed(['audit_trail:read']))
 
-const tasks = useLiveQueryWithDeps(
+// ── Rounds ────────────────────────────────────────────────────────────────
+// A step sent back for rework, or reopened after a rejection, gets a FRESH
+// instance-step row each time (the engine never rewinds a completed row, so
+// its signatures stay as they were). The card shows the latest row, so this
+// history reads every row of the same step on the instance — round 1, 2, … —
+// and marks each entry with its round when there is more than one.
+const rounds = useLiveQueryWithDeps(
   [() => props.instanceStepId],
   async (db, [stepId]) => {
     if (!stepId) return []
+    const me = await db.WorkflowInstanceStep.findByPk(stepId)
+    if (!me) return []
+    const all = await db.WorkflowInstanceStep.where('workflowInstanceId', me.workflowInstanceId).exec()
+    return all
+      .filter((r) => r.stepId === me.stepId && r.parentInstanceStepId === me.parentInstanceStepId)
+      .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
+      .map((r, i) => ({ id: r.id, round: i + 1 }))
+  },
+  { models: ['WorkflowInstanceStep'], initial: [] },
+)
+const roundOf = (rowId) => rounds.value.find((r) => r.id === rowId)?.round ?? 1
+const multiRound = computed(() => rounds.value.length > 1)
+
+const tasks = useLiveQueryWithDeps(
+  [() => rounds.value.map((r) => r.id).join(',')],
+  async (db, [ids]) => {
+    if (!ids) return []
     // force: reassigned/superseded rows are the history — excluding
     // soft-deleted ones would erase exactly what this panel exists to show.
-    const rows = await db.TaskInstance.where('[sourceType+sourceId]', [
-      'WorkflowInstanceStep',
-      stepId,
-    ]).exec()
-    return rows
-      .slice()
+    const lists = await Promise.all(
+      ids.split(',').map((id) => db.TaskInstance.where('[sourceType+sourceId]', ['WorkflowInstanceStep', id]).exec()),
+    )
+    return lists
+      .flat()
       .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0))
   },
   { models: ['TaskInstance'], initial: [] },
 )
 
 const auditRows = useLiveQueryWithDeps(
-  [() => props.instanceStepId],
-  async (db, [stepId]) => {
-    if (!stepId) return []
+  [() => rounds.value.map((r) => r.id).join(',')],
+  async (db, [ids]) => {
+    if (!ids) return []
     // audit_logs carries BOTH spellings for this table — 'WorkflowInstanceStep'
     // and 'WorkflowInstanceSteps' — depending on which writer produced the row.
     // Querying one silently drops half the history.
     const lists = await Promise.all(
-      ['WorkflowInstanceStep', 'WorkflowInstanceSteps'].map((et) =>
-        db.AuditLog.where('[entityType+entityId]', [et, stepId]).exec(),
-      ),
+      ids
+        .split(',')
+        .flatMap((id) =>
+          ['WorkflowInstanceStep', 'WorkflowInstanceSteps'].map((et) =>
+            db.AuditLog.where('[entityType+entityId]', [et, id]).exec(),
+          ),
+        ),
     )
     return lists.flat()
   },
@@ -203,6 +229,8 @@ const AUDIT_EVENTS = {
   STEP_DELAY_EXTENDED: { kind: 'scheduled', label: 'Delay extended by' },
   STEP_DELAY_SKIPPED: { kind: 'sent_back', label: 'Delay skipped by' },
   REOPEN: { kind: 'scheduled', label: 'Reopened by' },
+  STEP_SEND_BACK: { kind: 'sent_back', label: 'Sent back for rework by' },
+  STEP_REJECTED: { kind: 'rejected', label: 'Rejected by' },
 }
 
 const timeline = computed(() => {
@@ -215,6 +243,7 @@ const timeline = computed(() => {
       label: 'Assigned to',
       who: userName(t.assignedTo),
       note: t.comment || null,
+      round: roundOf(t.sourceId),
     })
     const end = TASK_END_EVENT[t.statusId]
     if (end) {
@@ -230,6 +259,7 @@ const timeline = computed(() => {
             : onBehalfOf
               ? `on behalf of ${userName(onBehalfOf)}`
               : null,
+        round: roundOf(t.sourceId),
       })
     }
   }
@@ -244,6 +274,7 @@ const timeline = computed(() => {
         label: 'Signed by',
         who: userName(a.performedBy),
         note: a.newValueJson?.esignMethod ? `${a.newValueJson.esignMethod} e-signature` : null,
+        round: roundOf(a.entityId),
       })
     }
     const ev = AUDIT_EVENTS[a.action]
@@ -252,6 +283,8 @@ const timeline = computed(() => {
       // without them the entry said only WHO (user report 2026-08-28).
       const nv = a.newValueJson || {}
       const bits = []
+      // A rejection / send-back / reopen says why in `reason`; the delay acts in `comment`.
+      if (nv.reason) bits.push(nv.reason)
       if (nv.comment) bits.push(nv.comment)
       if (nv.newDelayUntil) {
         const d = DateTime.fromISO(String(nv.newDelayUntil))
@@ -263,6 +296,7 @@ const timeline = computed(() => {
         label: ev.label,
         who: userName(a.performedBy),
         note: bits.join(' — ') || null,
+        round: roundOf(a.entityId),
       })
     }
   }
@@ -302,6 +336,11 @@ const timeline = computed(() => {
              whitespace inside an element, so "Assigned to" and the name ran
              together. The name still needs its own span to be emphasised. -->
         <span class="tw:min-w-0">
+          <span
+            v-if="multiRound"
+            class="tw:me-1 tw:rounded tw:bg-main tw:px-1 tw:text-micro tw:font-medium tw:text-secondary"
+            :title="`Round ${e.round} of this step`"
+          >R{{ e.round }}</span>
           <span class="tw:text-secondary">{{ e.label }}&nbsp;</span>
           <span class="tw:text-on-main tw:font-medium">{{ e.who }}</span>
           <span class="tw:text-secondary">
