@@ -431,11 +431,12 @@ const complaintActions = computed(() => {
       onSelect: openCancelDialog,
     },
     {
+      // Undoes a close: POST /reopen carries the close verb, as Close does.
       id: 'reopen',
       label: 'Reopen',
       variant: 'outline',
       priority: 60,
-      visible: canUpdate.value && statusId === 'CLOSED',
+      visible: isAllowed(['complaints:close']) && statusId === 'CLOSED',
       disabled: acting.value,
       onSelect: () => runAction('reopen'),
     },
