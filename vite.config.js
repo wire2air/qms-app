@@ -164,6 +164,8 @@ export default defineConfig(({ mode }) => {
       Components({
         dirs: ['src/components', 'resource/js/shared/components'],
         extensions: ['vue', 'js'],
+        // A unit test beside its module is not a component.
+        globsExclude: ['**/*.{spec,test}.{js,mjs}'],
         dts: true,
       }),
 

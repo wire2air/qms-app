@@ -611,97 +611,126 @@ const ncDetailConfig = computed(() =>
           nc.lotNumber
         "
         title="Product impact"
+        description="The item and lot this nonconformance is about, and where it came from."
       >
-        <!-- Two 3-up rows instead of one field per line: supplier / facing /
-             product, then qty+UOM / PO / Order / Lot. UOM comes from the
-             unit-of-measure lookup (stored by code, as QC specs do). -->
-        <BaseFieldRow :columns="3">
-          <BaseDetailField v-if="isEditable || nc.supplierId" label="Supplier">
-            <SupplierSelectMenu
-              v-if="isEditable && nc.statusId === 'DRAFT'"
-              v-model="nc.supplierId"
-            />
-            <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-          <!-- Supplier facing — free toggle while DRAFT; once OPEN the
-               owner can still CONVERT internal → supplier-facing. -->
-          <BaseDetailField label="Supplier facing">
-            <BaseInlineSelect
-              v-if="isEditable && nc.statusId === 'DRAFT'"
-              v-model="audienceModel"
-              :items="[
-                { id: 'INTERNAL', name: 'No — internal' },
-                { id: 'SUPPLIER', name: 'Yes — supplier facing' },
-              ]"
-              :required="true"
-            />
-            <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
-              <span
-                class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
-                :class="
-                  nc.isSupplierFacing
-                    ? 'tw:bg-violet-100 tw:text-violet-700'
-                    : 'tw:bg-gray-100 tw:text-secondary'
-                "
-              >
-                {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
-              </span>
-              <button
-                v-if="canConvertToSupplier"
-                class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
-                @click="openConvertDialog"
-              >
-                Convert…
-              </button>
-            </div>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.productId" label="Product">
-            <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
-            <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
-            <BaseText v-else color="secondary">—</BaseText>
-          </BaseDetailField>
-        </BaseFieldRow>
-        <BaseFieldRow :columns="4">
-          <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
-            <div v-if="isEditable" class="tw:flex tw:gap-1">
+        <!-- Three rows that read as three questions, each with room to breathe:
+             WHAT (item, how much), WHO (supplier, whether they see it) and the
+             REFERENCES (PO / order / lot). The wide field in each row spans two
+             of three columns so a long item or supplier name is not squeezed
+             beside a toggle. UOM comes from the unit-of-measure lookup (stored
+             by code, as QC specs do). -->
+        <div class="tw:flex tw:flex-col tw:gap-5">
+          <BaseFieldRow :columns="3">
+            <BaseDetailField
+              v-if="isEditable || nc.productId"
+              label="Product"
+              class="tw:sm:col-span-2"
+            >
+              <ProductSelectMenu v-if="isEditable" v-model="nc.productId" :allowCreate="false" />
+              <ProductBadgeById v-else-if="nc.productId" :productId="nc.productId" />
+              <BaseText v-else color="secondary">—</BaseText>
+            </BaseDetailField>
+            <BaseDetailField v-if="isEditable || nc.qtyAffected" label="Qty affected">
+              <div v-if="isEditable" class="tw:flex tw:items-center tw:gap-2">
+                <BaseTextInput
+                  v-model="qtyAffectedModel"
+                  type="number"
+                  placeholder="0"
+                  class="tw:min-w-0 tw:flex-1"
+                />
+                <UomSelectMenu
+                  v-model="nc.unitOfMeasure"
+                  bindValue="code"
+                  nullLabel="Unit"
+                  :allowCreate="false"
+                  class="tw:w-36 tw:shrink-0"
+                />
+              </div>
+              <BaseText v-else variant="body" weight="medium">
+                {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
+              </BaseText>
+            </BaseDetailField>
+          </BaseFieldRow>
+
+          <BaseFieldRow :columns="3">
+            <BaseDetailField
+              v-if="isEditable || nc.supplierId"
+              label="Supplier"
+              class="tw:sm:col-span-2"
+            >
+              <SupplierSelectMenu
+                v-if="isEditable && nc.statusId === 'DRAFT'"
+                v-model="nc.supplierId"
+              />
+              <SupplierBadgeById v-else-if="nc.supplierId" :supplierId="nc.supplierId" />
+              <BaseText v-else color="secondary">—</BaseText>
+            </BaseDetailField>
+            <!-- Supplier facing — free toggle while DRAFT; once OPEN the
+                 owner can still CONVERT internal → supplier-facing. -->
+            <BaseDetailField label="Supplier facing">
+              <BaseInlineSelect
+                v-if="isEditable && nc.statusId === 'DRAFT'"
+                v-model="audienceModel"
+                :items="[
+                  { id: 'INTERNAL', name: 'No — internal' },
+                  { id: 'SUPPLIER', name: 'Yes — supplier facing' },
+                ]"
+                :required="true"
+              />
+              <div v-else class="tw:flex tw:items-center tw:gap-2 tw:flex-wrap">
+                <span
+                  class="tw:text-micro tw:rounded tw:px-1.5 tw:py-0.5"
+                  :class="
+                    nc.isSupplierFacing
+                      ? 'tw:bg-violet-100 tw:text-violet-700'
+                      : 'tw:bg-gray-100 tw:text-secondary'
+                  "
+                >
+                  {{ nc.isSupplierFacing ? 'Supplier-facing' : 'Internal' }}
+                </span>
+                <button
+                  v-if="canConvertToSupplier"
+                  class="tw:text-caption tw:font-medium tw:text-violet-700 tw:underline tw:bg-transparent tw:border-0 tw:cursor-pointer tw:p-0"
+                  @click="openConvertDialog"
+                >
+                  Convert…
+                </button>
+              </div>
+            </BaseDetailField>
+          </BaseFieldRow>
+
+          <BaseFieldRow
+            v-if="isEditable || nc.poNumber || nc.orderNumber || nc.lotNumber"
+            :columns="3"
+          >
+            <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
+              <BaseTextInput v-if="isEditable" v-model="nc.poNumber" placeholder="Purchase order" />
+              <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+                {{ nc.poNumber }}
+              </BaseText>
+            </BaseDetailField>
+            <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
               <BaseTextInput
-                v-model="qtyAffectedModel"
-                type="number"
-                size="sm"
-                class="tw:min-w-0 tw:flex-1"
+                v-if="isEditable"
+                v-model="nc.orderNumber"
+                placeholder="Sales order / invoice"
               />
-              <UomSelectMenu
-                v-model="nc.unitOfMeasure"
-                bindValue="code"
-                nullLabel="UOM"
-                :allowCreate="false"
-                class="tw:w-28 tw:shrink-0"
+              <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+                {{ nc.orderNumber }}
+              </BaseText>
+            </BaseDetailField>
+            <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
+              <BaseTextInput
+                v-if="isEditable"
+                v-model="nc.lotNumber"
+                placeholder="Batch / lot / serial"
               />
-            </div>
-            <BaseText v-else variant="body" weight="medium">
-              {{ nc.qtyAffected }} {{ nc.unitOfMeasure }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.poNumber" label="PO #">
-            <BaseTextInput v-if="isEditable" v-model="nc.poNumber" size="sm" />
-            <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-              {{ nc.poNumber }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.orderNumber" label="Order #">
-            <BaseTextInput v-if="isEditable" v-model="nc.orderNumber" size="sm" />
-            <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-              {{ nc.orderNumber }}
-            </BaseText>
-          </BaseDetailField>
-          <BaseDetailField v-if="isEditable || nc.lotNumber" label="Lot #">
-            <BaseTextInput v-if="isEditable" v-model="nc.lotNumber" size="sm" />
-            <BaseText v-else variant="body" weight="medium" class="tw:break-words">
-              {{ nc.lotNumber }}
-            </BaseText>
-          </BaseDetailField>
-        </BaseFieldRow>
+              <BaseText v-else variant="body" weight="medium" class="tw:break-words">
+                {{ nc.lotNumber }}
+              </BaseText>
+            </BaseDetailField>
+          </BaseFieldRow>
+        </div>
       </FormSection>
 
       <!-- NC Details card -->
