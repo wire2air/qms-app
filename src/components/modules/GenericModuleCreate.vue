@@ -46,6 +46,34 @@ watch(
     if (id && !ownerUserId.value) ownerUserId.value = id
   },
 )
+
+// The creator's own site / department prefill the envelope (user 2026-10-27),
+// as the quality-event dialog does: `User.siteId` is the primary site; a user
+// with only additional sites (UserSite rows) gets the first of those. The rows
+// usually land after mount, so the blanks are filled when they do — never
+// overwriting a choice already made.
+const currentUserId = computed(() => currentSession.value?.userId ?? currentSession.value?.id)
+const currentUser = useLiveQueryWithDeps(
+  [currentUserId],
+  async (db, [uid]) => (uid ? db.User.findByPk(uid) : null),
+  { models: ['User'] },
+)
+const mySites = useLiveQueryWithDeps(
+  [currentUserId],
+  async (db, [uid]) => (uid ? db.UserSite.where('userId', uid).exec() : []),
+  { models: ['UserSite'], initial: [] },
+)
+const myDefaultSiteId = computed(
+  () => currentUser.value?.siteId ?? mySites.value[0]?.siteId ?? null,
+)
+watch(
+  [myDefaultSiteId, () => currentUser.value?.departmentId],
+  ([site, department]) => {
+    if (!siteId.value && site) siteId.value = site
+    if (!departmentId.value && department) departmentId.value = department
+  },
+  { immediate: true },
+)
 const formRef = ref(null)
 // Which button is in flight — 'draft' | 'start' | null. One at a time.
 const savingMode = ref(null)
