@@ -379,11 +379,13 @@ const complaintActions = computed(() => {
   return [
     {
       // Escalation — shown last of the primary actions (after Close / Hold).
+      // The complaint stays open with the NC as a link; one NC per complaint
+      // (the server refuses a second), so the action goes once one is linked.
       id: 'convert',
       label: 'Create NC',
       variant: 'primary',
       priority: 80,
-      visible: canConvert.value && !isTerminal.value,
+      visible: canConvert.value && !isTerminal.value && !ncLinks.value.length,
       disabled: acting.value,
       onSelect: () => (showConvertDialog.value = true),
     },
@@ -647,7 +649,7 @@ const complaintDetailConfig = computed(() =>
         <!-- ══ Escalations ══ -->
         <BaseTabPanel value="escalations">
           <div class="tw:flex tw:flex-col tw:gap-4">
-            <div v-if="canConvert && !isTerminal" class="tw:flex tw:justify-end">
+            <div v-if="canConvert && !isTerminal && !ncLinks.length" class="tw:flex tw:justify-end">
               <BaseButton variant="primary" :disabled="acting" @click="showConvertDialog = true">
                 Create NC
               </BaseButton>
