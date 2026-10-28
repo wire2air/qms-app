@@ -4,6 +4,7 @@ title: Training Matrix Report
 sidebar_position: 3
 description: Read the people-by-training compliance grid — who has completed what, where the gaps are, and how to print it for an audit.
 keywords: [training matrix, training report, compliance, gaps, completion, audit evidence]
+access: public
 ---
 
 # Training Matrix Report

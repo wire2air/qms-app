@@ -5,6 +5,7 @@ sidebar_position: 2
 description: Low-friction intake for observations, near misses, concerns and suggestions — reviewed, then escalated into a formal record only when they warrant it.
 keywords:
   [quality events, observations, near miss, intake, escalation, triage, continuous improvement]
+access: public
 ---
 
 # Quality Events

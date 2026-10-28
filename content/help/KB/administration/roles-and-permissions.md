@@ -4,6 +4,7 @@ title: Roles & Permissions
 sidebar_position: 2
 description: Create roles, choose what each role can do and how far that access reaches, and assign roles to the people on your team.
 keywords: [roles, permissions, access control, user roles, administration, security, scope, level]
+access: public
 ---
 
 # Roles & Permissions

@@ -4,6 +4,7 @@ title: Nonconformances
 sidebar_position: 1
 description: Log, investigate, disposition, and close nonconformances (NCs) through their full review workflow in Qability QMS.
 keywords: [nonconformance, NC, disposition, root cause, CAPA, quality]
+access: public
 ---
 
 # Nonconformances

@@ -5,6 +5,7 @@ sidebar_position: 7
 description: Run internal and supplier audits — plan them, walk the requirements, record findings, and close out.
 keywords:
   [audit, internal audit, supplier audit, auditor, findings, OFI, audit plan, calendar, standards]
+access: public
 ---
 
 # Audits — Auditor

@@ -4,6 +4,7 @@ title: Audit Snapshots
 sidebar_position: 3
 description: Understand the immutable, fingerprinted PDF copy Qability captures of every document version the moment it becomes Effective — your evidence for ISO 13485 and 21 CFR Part 11 audits.
 keywords: [audit snapshot, document snapshot, effective copy, Part 11, ISO 13485, immutable record, SHA-256, controlled copy]
+access: public
 ---
 
 # Audit Snapshots

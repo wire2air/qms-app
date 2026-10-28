@@ -4,6 +4,7 @@ title: Risk Assessments
 sidebar_position: 5
 description: Build reusable risk matrix templates, manage hazard categories, and score risks consistently across NC and CAPA workflows.
 keywords: [risk assessment, risk matrix, hazard category, likelihood, severity, FMEA]
+access: public
 ---
 
 # Risk Assessments

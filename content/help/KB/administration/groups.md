@@ -4,6 +4,7 @@ title: Groups & Teams
 sidebar_position: 3
 description: Create groups and teams, add members, and use groups to organize people for assignments in your QMS.
 keywords: [groups, teams, members, leadership team, assignments, administration]
+access: public
 ---
 
 # Groups & Teams

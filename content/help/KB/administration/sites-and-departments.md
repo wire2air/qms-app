@@ -4,6 +4,7 @@ title: Sites & Departments
 sidebar_position: 4
 description: Set up your organization's sites and departments to organize locations, scope records, and group the people who work in them.
 keywords: [sites, departments, locations, organization structure, administration, scoping]
+access: public
 ---
 
 # Sites & Departments

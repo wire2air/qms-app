@@ -15,6 +15,7 @@ keywords:
     chat,
     quiz generation,
   ]
+access: public
 ---
 
 # AI Assistant

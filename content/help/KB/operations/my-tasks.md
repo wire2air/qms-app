@@ -4,6 +4,7 @@ title: My Tasks
 sidebar_position: 4
 description: Use the My Tasks inbox to find, prioritize, and complete the quality work assigned to you across the Qability QMS.
 keywords: [my tasks, task inbox, due dates, task status, approvals, assignments, team tasks, supervisor, department]
+access: public
 ---
 
 # My Tasks

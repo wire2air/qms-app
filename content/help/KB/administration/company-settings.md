@@ -4,6 +4,7 @@ title: Company Settings
 sidebar_position: 8
 description: Manage your organization's profile, branding, regional preferences, module defaults, print customization, and shared lookup lists from one place.
 keywords: [company settings, branding, defaults, lookups, regional settings, administration]
+access: public
 ---
 
 # Company Settings

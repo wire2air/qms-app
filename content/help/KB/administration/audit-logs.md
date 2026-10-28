@@ -4,6 +4,7 @@ title: Audit Logs
 sidebar_position: 7
 description: Review, filter, and export the tamper-evident record of every action taken across your Qability QMS workspace.
 keywords: [audit log, compliance, traceability, change history, investigation, export]
+access: public
 ---
 
 # Audit Logs

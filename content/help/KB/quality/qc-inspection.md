@@ -19,6 +19,7 @@ keywords:
     test library,
     inspection plan,
   ]
+access: public
 ---
 
 # QC Inspection
