@@ -4,6 +4,7 @@ title: Forms & Form Templates
 sidebar_position: 2
 description: Build, publish, assign, and fill in reusable form templates using the drag-and-drop form builder in Qability QMS.
 keywords: [form templates, form builder, field types, publish form, fill in form]
+access: public
 ---
 
 # Forms & Form Templates

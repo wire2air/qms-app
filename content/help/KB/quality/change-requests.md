@@ -4,6 +4,7 @@ title: Change Control
 sidebar_position: 3
 description: Plan, approve, implement, and verify controlled changes with Change Control in Qability QMS.
 keywords: [change control, change request, approval workflow, implementation, effectiveness check]
+access: public
 ---
 
 # Change Control

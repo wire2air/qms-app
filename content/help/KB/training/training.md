@@ -4,6 +4,7 @@ title: Training Library
 sidebar_position: 2
 description: Build training programs, assign them to your team, complete assigned trainings, and verify competency through manager sign-off.
 keywords: [training, training library, assignment, assessment, verification, competency]
+access: public
 ---
 
 # Training

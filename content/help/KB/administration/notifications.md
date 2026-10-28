@@ -4,6 +4,7 @@ title: Notifications
 sidebar_position: 6
 description: Stay on top of activity in your QMS by viewing, filtering, and clearing notifications from the bell menu and the Notifications center.
 keywords: [notifications, notification center, unread, mark as read, alerts, bell]
+access: public
 ---
 
 # Notifications

@@ -4,6 +4,7 @@ title: Submissions
 sidebar_position: 3
 description: View, search, preview, and manage submitted form records and their statuses from the Submissions tab in App Builder.
 keywords: [records, record number, record status, approve, draft, form submissions]
+access: public
 ---
 
 # Submissions

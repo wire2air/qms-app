@@ -13,6 +13,7 @@ keywords:
     customer feedback,
     vigilance,
   ]
+access: public
 ---
 
 # Customer Complaints

@@ -4,6 +4,7 @@ title: Item Master
 sidebar_position: 2
 description: Create and manage the central catalog of items your organization makes, buys, or uses, including their SKUs, families, types, and lifecycle statuses.
 keywords: [item master, products, SKU, product type, product status, catalog]
+access: public
 ---
 
 # Item Master

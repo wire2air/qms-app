@@ -4,6 +4,7 @@ title: Mobile Logging
 sidebar_position: 2
 description: Capture inspection and log entries from a phone or tablet using the simplified mobile Logging dashboard.
 keywords: [mobile logging, log books, field records, flags, inspections, log entry]
+access: public
 ---
 
 # Mobile Logging
