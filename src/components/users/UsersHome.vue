@@ -1,8 +1,35 @@
 <script setup>
 import { IconUsers } from '@tabler/icons-vue'
 import { isAllowed } from '@/utils/currentSession.js'
+import { get } from '@/api'
 
 const showCreateDialog = ref(false)
+
+// Seat usage (plan limits; null = unlimited) — refreshed as the list changes.
+const seats = ref(null)
+async function loadSeats() {
+  try {
+    seats.value = (await get('/v1/services/users/seats', { loader: false }))?.seats ?? null
+  } catch {
+    seats.value = null
+  }
+}
+onMounted(loadSeats)
+watch(showCreateDialog, (open) => !open && loadSeats())
+const seatsSubtitle = computed(() => {
+  const q = seats.value?.QUALITY
+  if (!q) return "Manage your organization's users."
+  const quality =
+    q.limit == null
+      ? `${q.used} Quality ${q.used === 1 ? 'user' : 'users'}`
+      : `Quality licenses: ${q.used} of ${q.limit} in use`
+  const s = seats.value?.SUPPORT
+  const support =
+    s && (s.limit != null || s.used)
+      ? ` · Support: ${s.used}${s.limit == null ? '' : ` of ${s.limit}`}`
+      : ''
+  return `Manage your organization's users. ${quality}${support}. Operators and trainees are free.`
+})
 
 const canCreateUser = computed(() => isAllowed(['user_management:create']))
 
@@ -90,7 +117,7 @@ const users = useLiveQueryWithDeps(
     helpSlug="KB/administration/users"
     title="Users"
     :icon="IconUsers"
-    subtitle="Manage your organization's users."
+    :subtitle="seatsSubtitle"
     :state="list.state.value"
     :emptyIcon="IconUsers"
     :emptyTitle="list.hasActiveFilters.value ? 'No users match your filters' : 'No users found'"

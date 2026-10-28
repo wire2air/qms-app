@@ -23,6 +23,7 @@
  */
 import { fetchStepReviewerPool } from '@/composables/useStepReviewerPool.js'
 import { resolvePickerRoleIds, isRoleUnstaffed } from './stepReviewerPool.js'
+import { isQualityUser } from '@/constants/userTypes.js'
 
 const props = defineProps({
   module: { type: Object, required: true },
@@ -37,6 +38,10 @@ const props = defineProps({
   isSupplierFacing: { type: Boolean, default: false },
   supplierId: { type: String, default: null },
   ownerId: { type: String, default: null },
+  // Separation of duties: on an APPROVAL step the owner is not a candidate
+  // (complaints). Off by default — a supplier-facing NC wants the owner as
+  // its internal approver (see the auto-default below).
+  excludeOwnerFromApproval: { type: Boolean, default: false },
   // Synthesized steps (admin-defined modules) have no WorkflowStepRole rows yet
   // — pass their role ids directly. When null, fall back to querying by step.id.
   roleIds: { type: Array, default: null },
@@ -190,15 +195,15 @@ const internalCandidates = useLiveQueryWithDeps(
       if (!serverPool.value.unrestricted) {
         const users = await Promise.all(serverPool.value.userIds.map((id) => db.User.findByPk(id)))
         return users.filter(
-          (u) => u && u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER',
+          (u) => u && u.userStatusId === 'ACTIVE' && isQualityUser(u),
         )
       }
       const all = await db.User.where().exec()
-      return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+      return all.filter((u) => u.userStatusId === 'ACTIVE' && isQualityUser(u))
     }
     if (!roleIdsStr) {
       const all = await db.User.where().exec()
-      return all.filter((u) => u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+      return all.filter((u) => u.userStatusId === 'ACTIVE' && isQualityUser(u))
     }
     const roleIds = roleIdsStr.split(',')
     const rolesOnUsers = await Promise.all(
@@ -206,7 +211,7 @@ const internalCandidates = useLiveQueryWithDeps(
     )
     const userIds = [...new Set(rolesOnUsers.flat().map((r) => r.userId))]
     const users = await Promise.all(userIds.map((id) => db.User.findByPk(id)))
-    return users.filter((u) => u && u.userStatusId === 'ACTIVE' && u.kind !== 'EXTERNAL_SUPPLIER')
+    return users.filter((u) => u && u.userStatusId === 'ACTIVE' && isQualityUser(u))
   },
 
   { models: ['User', 'RoleOnUser'], initial: [] },
@@ -231,9 +236,13 @@ const supplierCandidates = useLiveQueryWithDeps(
 // Eligibility is the step's ROLE membership (+ pickers' site visibility) —
 // no submitter exclusion: a user may review their own submission and hold
 // multiple steps (user decision 2026-08-07).
-const candidateUsers = computed(() =>
-  usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value,
-)
+const candidateUsers = computed(() => {
+  const pool = usesSupplierPicker.value ? supplierCandidates.value : internalCandidates.value
+  if (props.excludeOwnerFromApproval && isApprovalStep.value && props.ownerId) {
+    return pool.filter((u) => u.id !== props.ownerId)
+  }
+  return pool
+})
 
 // Smart-default support: the preferred user + their department supervisor.
 // (No `initial` on supervisorId so we can wait for it to resolve before

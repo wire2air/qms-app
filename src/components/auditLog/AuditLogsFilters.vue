@@ -62,7 +62,7 @@ const hasActiveFilters = computed(
       </BaseSelect>
 
       <!-- Performed by -->
-      <UserSelectMenu v-model="filters.performedBy" nullLabel="Any user" style="min-width: 140px" />
+      <UserSelectMenu v-model="filters.performedBy" allTypes nullLabel="Any user" style="min-width: 140px" />
 
       <!-- Date from -->
       <div class="tw:flex tw:flex-col tw:gap-0.5">

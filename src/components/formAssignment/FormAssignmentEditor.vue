@@ -404,7 +404,7 @@ function back() {
           label="Users"
           hint="Click each user you want to assign — the menu stays open so you can pick multiple (e.g. one per shift)."
         >
-          <UserSelectMenu v-model="form.assignedUserIds" :multiple="true" />
+          <UserSelectMenu v-model="form.assignedUserIds" allTypes :multiple="true" />
         </BaseField>
       </BaseCard>
 

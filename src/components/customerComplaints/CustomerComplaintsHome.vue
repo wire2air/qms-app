@@ -552,7 +552,7 @@ function onNewComplaint() {
     <BaseDialog v-model="showBulkAssignDialog" title="Assign Tickets" maxWidth="md">
       <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
         <BaseField label="Assign to agent">
-          <UserSelectMenu v-model="bulkAssignUserId" />
+          <UserSelectMenu v-model="bulkAssignUserId" allTypes />
         </BaseField>
         <div class="tw:text-center tw:text-xs tw:text-secondary">— or —</div>
         <BaseField label="Assign to group">

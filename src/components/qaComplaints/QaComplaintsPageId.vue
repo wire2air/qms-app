@@ -5,6 +5,10 @@ import { DateTime } from 'luxon'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception.
 import { get, post } from '@/api'
 import { useRecordTrail } from '@/composables/useRecordTrail.js'
+import {
+  COMPLAINT_CANCEL_REASONS,
+  complaintCancelReasonLabel,
+} from '@/constants/complaintCancelReasons.js'
 
 /**
  * QA investigation view of a customer complaint. Same record as the support
@@ -116,13 +120,13 @@ async function runAction(path, body = {}) {
   }
 }
 
-// ─── Owner + approval (approve = close) ───────────────────────────────────────
+// ─── Owner ───────────────────────────────────────────────────────────────────
 const currentUserId = computed(() => currentSession.value?.userId)
 const isOwner = computed(
   () => complaint.value?.ownerId && complaint.value.ownerId === currentUserId.value,
 )
 
-// QA-review workflow instance — declared BEFORE myApprovalTask because that
+// QA-review workflow instance — declared early because the close gate below
 // query's deps read workflowInstanceId; a later `const` would hit the temporal
 // dead zone and crash the whole page on setup.
 const workflowInstance = useLiveQueryWithDeps(
@@ -142,36 +146,6 @@ const workflowInstance = useLiveQueryWithDeps(
   { models: ['WorkflowInstance'], initial: null },
 )
 const workflowInstanceId = computed(() => workflowInstance.value?.id ?? null)
-
-// The current user's actionable task on the active APPROVAL step — drives the
-// top "Approve & Close" action. Approving it completes the workflow, which
-// auto-closes the complaint (see complaintHandler.onComplete).
-const showEsignDialog = ref(false)
-
-const myApprovalTask = useLiveQueryWithDeps(
-  [() => workflowInstanceId.value, () => currentUserId.value],
-  async (db, [wiId, uid]) => {
-    if (!wiId || !uid) return null
-    const steps = await db.WorkflowInstanceStep.where('workflowInstanceId', wiId).exec()
-    const approvalStep = steps.find(
-      (s) => s.stepType === 'APPROVAL' && s.statusId === 'IN_PROGRESS',
-    )
-    if (!approvalStep) return null
-    const tasks = await db.TaskInstance.where('[sourceType+sourceId]', [
-      'WorkflowInstanceStep',
-      approvalStep.id,
-    ]).exec()
-    return (
-      tasks.find(
-        (t) =>
-          t.assignedTo === uid &&
-          t.taskKindId === 'APPROVAL' &&
-          ['ASSIGNED', 'FORM_SUBMITTED', 'PENDING'].includes(t.statusId),
-      ) || null
-    )
-  },
-  { models: ['WorkflowInstanceStep', 'TaskInstance'], initial: null },
-)
 
 // ─── Convert to NC ────────────────────────────────────────────────────────────
 const showConvertDialog = ref(false)
@@ -291,30 +265,104 @@ async function removeSimilarLink(targetId) {
   await runAction('unlinkSimilar', { targetComplaintId: targetId })
 }
 
-// ─── QA-review workflow close gating (workflowInstance/workflowInstanceId are
-// declared earlier, above myApprovalTask) ────────────────────────────────────
+// ─── QA-review workflow: submit, and the record-level Close ──────────────────
 async function handleSubmitForReview() {
   await runAction('submitForReview', {})
 }
 
-// Approve the pending approval task (e-signed) → workflow completes → auto-close.
-async function onApprovalEsign(esign) {
-  showEsignDialog.value = false
-  if (!myApprovalTask.value) return
-  acting.value = true
-  saveError.value = null
+// Approval is the workflow's (the approval step's Approve / Reject). When the
+// last step completes the complaint stays OPEN and the owner gets a task to
+// close it (complaintHandler.onComplete); the header's Close is that act, and
+// it is offered only once every step is done. The server holds the same rule
+// (markComplaintComplete → complaints:close + no open step).
+const reviewComplete = computed(
+  () => !!workflowInstance.value && workflowInstance.value.statusId === 'COMPLETED',
+)
+const canClose = computed(
+  () => isAllowed(['complaints:close']) && !isTerminal.value && reviewComplete.value,
+)
+const { confirm } = useConfirm()
+async function handleClose() {
+  const ok = await confirm({
+    title: `Close ${complaint.value?.complaintNumber || 'this complaint'}?`,
+    message: 'The review is complete. Closing records the closure under your name.',
+    okLabel: 'Close complaint',
+  })
+  if (!ok) return
+  await runAction('markComplete', {})
+  toast.notify({ type: 'positive', message: 'Complaint closed' })
+}
+
+// Cancel is the way out BEFORE the review is complete: a duplicate, a record
+// created in error, a complaint the complainant withdrew. Same gate as Close;
+// a reason from the fixed list, comments (required for "Other"), then an
+// e-signature — the QE pattern (QualityEventsPageId). Once the review is
+// complete the record is closed, not thrown away.
+const canCancel = computed(
+  () => isAllowed(['complaints:close']) && !isTerminal.value && !reviewComplete.value,
+)
+const showCancelDialog = ref(false)
+const showCancelEsign = ref(false)
+const cancelling = ref(false)
+const cancelReasonOptions = COMPLAINT_CANCEL_REASONS.map((r) => ({ value: r.code, label: r.label }))
+const cancelReasonCode = ref(null)
+const cancelReasonCodeError = ref('')
+const cancelReason = ref('')
+const cancelReasonError = ref('')
+const cancelCommentsRequired = computed(() => cancelReasonCode.value === 'OTHER')
+const cancelCommentsPlaceholder = computed(() => {
+  switch (cancelReasonCode.value) {
+    case 'DUPLICATE':
+      return 'Which complaint does this duplicate? (e.g. CMP-000123)'
+    case 'OUT_OF_SCOPE':
+      return 'Why is this outside the quality system’s scope?'
+    case 'WITHDRAWN':
+      return 'Who withdrew it, and how was that confirmed'
+    case 'OTHER':
+      return 'Explain why this complaint is being cancelled'
+    default:
+      return 'Anything an auditor should know (optional)'
+  }
+})
+const canSubmitCancel = computed(
+  () => !!cancelReasonCode.value && (!cancelCommentsRequired.value || !!cancelReason.value.trim()),
+)
+function openCancelDialog() {
+  cancelReasonCode.value = null
+  cancelReasonCodeError.value = ''
+  cancelReason.value = ''
+  cancelReasonError.value = ''
+  showCancelDialog.value = true
+}
+function handleCancelClick() {
+  cancelReasonCodeError.value = cancelReasonCode.value ? '' : 'Pick a cancellation reason'
+  cancelReasonError.value =
+    cancelCommentsRequired.value && !cancelReason.value.trim()
+      ? 'Comments are required for “Other”'
+      : ''
+  if (cancelReasonCodeError.value || cancelReasonError.value) return
+  showCancelDialog.value = false
+  showCancelEsign.value = true
+}
+async function onCancelEsignVerified({ method, provider, token }) {
+  if (!complaint.value) return
+  showCancelEsign.value = false
+  cancelling.value = true
   try {
-    const body = { action: 'COMPLETE_AND_ADVANCE', outcomeId: 'COMPLETE_AND_ADVANCE' }
-    if (esign?.method) body.method = esign.method
-    if (esign?.token) body.token = esign.token
-    if (esign?.provider) body.provider = esign.provider
-    await post(`/v1/services/taskInstances/${myApprovalTask.value.id}/action`, body)
-    toast.notify({ type: 'positive', message: 'Approved and closed' })
+    await post(`/v1/services/complaints/${complaint.value.id}/cancel`, {
+      method,
+      provider: provider || null,
+      token,
+      reasonCode: cancelReasonCode.value,
+      reason: cancelReason.value.trim() || complaintCancelReasonLabel(cancelReasonCode.value),
+    })
+    toast.notify({ type: 'positive', message: 'Complaint cancelled' })
   } catch (e) {
-    saveError.value = e.message || 'Approval failed'
-    toast.notify({ type: 'negative', message: saveError.value })
+    toast.notify({ type: 'negative', message: e.message || 'Failed to cancel complaint' })
+    // Reopen the reason dialog so the typed reason isn't lost to a failed sign.
+    showCancelDialog.value = true
   } finally {
-    acting.value = false
+    cancelling.value = false
   }
 }
 
@@ -331,11 +379,13 @@ const complaintActions = computed(() => {
   return [
     {
       // Escalation — shown last of the primary actions (after Close / Hold).
+      // The complaint stays open with the NC as a link; one NC per complaint
+      // (the server refuses a second), so the action goes once one is linked.
       id: 'convert',
       label: 'Create NC',
       variant: 'primary',
       priority: 80,
-      visible: canConvert.value && !isTerminal.value,
+      visible: canConvert.value && !isTerminal.value && !ncLinks.value.length,
       disabled: acting.value,
       onSelect: () => (showConvertDialog.value = true),
     },
@@ -363,22 +413,30 @@ const complaintActions = computed(() => {
       onSelect: handleSubmitForReview,
     },
     {
-      // Approve = close: the pending approver signs off at the top (Document-
-      // control style) — approving the final step auto-closes the complaint.
-      id: 'approveClose',
-      label: 'Approve & Close',
+      id: 'close',
+      label: 'Close',
       variant: 'primary',
       priority: 100,
-      visible: !!myApprovalTask.value && !isTerminal.value,
+      visible: canClose.value,
       disabled: acting.value,
-      onSelect: () => (showEsignDialog.value = true),
+      onSelect: handleClose,
     },
     {
+      id: 'cancel',
+      label: 'Cancel',
+      variant: 'danger',
+      priority: 90,
+      visible: canCancel.value,
+      disabled: acting.value || cancelling.value,
+      onSelect: openCancelDialog,
+    },
+    {
+      // Undoes a close: POST /reopen carries the close verb, as Close does.
       id: 'reopen',
       label: 'Reopen',
       variant: 'outline',
       priority: 60,
-      visible: canUpdate.value && statusId === 'CLOSED',
+      visible: isAllowed(['complaints:close']) && statusId === 'CLOSED',
       disabled: acting.value,
       onSelect: () => runAction('reopen'),
     },
@@ -475,6 +533,21 @@ const complaintDetailConfig = computed(() =>
         class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-700 tw:rounded-md tw:p-2 tw:text-sm tw:mb-3"
       >
         {{ saveError }}
+      </div>
+      <div
+        v-if="complaint.statusId === 'CANCELLED'"
+        class="tw:bg-red-50 tw:border tw:border-red-200 tw:text-red-800 tw:rounded-md tw:p-3 tw:text-sm tw:mb-3"
+      >
+        <span class="tw:font-semibold">Cancelled</span>
+        <template v-if="complaint.cancelReasonCode">
+          — {{ complaintCancelReasonLabel(complaint.cancelReasonCode) }}
+        </template>
+        <p
+          v-if="complaint.cancelReason && complaint.cancelReason !== complaintCancelReasonLabel(complaint.cancelReasonCode)"
+          class="tw:mt-1 tw:whitespace-pre-line"
+        >
+          {{ complaint.cancelReason }}
+        </p>
       </div>
 
       <!-- The complaint itself stays in the body; its metadata moved to the
@@ -577,7 +650,7 @@ const complaintDetailConfig = computed(() =>
         <!-- ══ Escalations ══ -->
         <BaseTabPanel value="escalations">
           <div class="tw:flex tw:flex-col tw:gap-4">
-            <div v-if="canConvert && !isTerminal" class="tw:flex tw:justify-end">
+            <div v-if="canConvert && !isTerminal && !ncLinks.length" class="tw:flex tw:justify-end">
               <BaseButton variant="primary" :disabled="acting" @click="showConvertDialog = true">
                 Create NC
               </BaseButton>
@@ -730,6 +803,47 @@ const complaintDetailConfig = computed(() =>
           <ComplaintLookupBadge v-else :id="complaint.sourceId" model="ComplaintSourceType" />
         </BaseDetailField>
         <BaseDetailField label="Received" :value="complaint.createdAt?.formatDate('date')" />
+        <BaseDetailField label="Created by">
+          <UserBadgeById v-if="complaint.createdBy" :userId="complaint.createdBy" />
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <!-- Ownership & SLA, in the same card (2026-10-26): one glance for who
+             raised it, who owns it and when it is due. -->
+        <BaseDetailField v-if="complaint.sourceComplaintId" label="Escalated from">
+          <RouterLink
+            :to="getCompanyPath(`/desk/tickets/${complaint.sourceComplaintId}`)"
+            class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
+          >
+            Support ticket →
+          </RouterLink>
+        </BaseDetailField>
+        <BaseDetailField label="Owner">
+          <UserBadgeById v-if="complaint.ownerId" :userId="complaint.ownerId" />
+          <BaseText v-else color="secondary" class="tw:italic">
+            Unassigned — accept to own it
+          </BaseText>
+        </BaseDetailField>
+        <BaseDetailField
+          v-if="complaint.investigationStartedAt"
+          label="Investigation started"
+          :value="complaint.investigationStartedAt.formatDate('date')"
+        />
+        <BaseDetailField label="Resolution target">
+          <BaseText
+            v-if="complaint.resolutionTargetAt"
+            variant="body"
+            weight="medium"
+            :class="
+              !isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''
+            "
+          >
+            {{ complaint.resolutionTargetAt.formatDate('date') }}
+          </BaseText>
+          <BaseText v-else color="secondary">—</BaseText>
+        </BaseDetailField>
+        <BaseDetailField v-if="complaint.closureApprovedBy" label="Closure approved by">
+          <UserBadgeById :userId="complaint.closureApprovedBy" />
+        </BaseDetailField>
       </BaseRailCard>
 
       <!-- Customer information -->
@@ -749,7 +863,7 @@ const complaintDetailConfig = computed(() =>
             <ProductBadgeById v-else-if="complaint.productId" :productId="complaint.productId" />
             <BaseText v-else color="secondary">—</BaseText>
           </BaseDetailField>
-          <BaseDetailField label="Supplier">
+          <BaseDetailField label="Supplier" class="tw:sm:col-span-2">
             <SupplierSelectMenu
               v-if="isEditable"
               v-model="complaint.supplierId"
@@ -822,18 +936,6 @@ const complaintDetailConfig = computed(() =>
       </BaseRailCard>
 
       <BaseRailCard title="Classification" grid>
-        <BaseDetailField label="Complaint source">
-          <ComplaintLookupSelectMenu
-            v-if="isEditable"
-            v-model="complaint.complaintSourceId"
-            model="ComplaintSourceType"
-          />
-          <ComplaintLookupBadge
-            v-else
-            :id="complaint.complaintSourceId"
-            model="ComplaintSourceType"
-          />
-        </BaseDetailField>
         <BaseDetailField label="Category">
           <ComplaintLookupSelectMenu
             v-if="isEditable"
@@ -883,53 +985,11 @@ const complaintDetailConfig = computed(() =>
         </BaseDetailField>
       </BaseRailCard>
 
-      <!-- Ownership, assignment & SLA -->
-
-      <BaseRailCard title="Ownership & SLA" grid>
-        <BaseDetailField v-if="complaint.sourceComplaintId" label="Escalated from">
-          <RouterLink
-            :to="getCompanyPath(`/desk/tickets/${complaint.sourceComplaintId}`)"
-            class="tw:text-sm tw:font-medium tw:text-primary tw:hover:underline"
-          >
-            Support ticket →
-          </RouterLink>
-        </BaseDetailField>
-        <BaseDetailField label="Owner">
-          <UserBadgeById v-if="complaint.ownerId" :userId="complaint.ownerId" />
-          <BaseText v-else color="secondary" class="tw:italic">
-            Unassigned — accept to own it
-          </BaseText>
-        </BaseDetailField>
-        <BaseDetailField
-          v-if="complaint.investigationStartedAt"
-          label="Investigation started"
-          :value="complaint.investigationStartedAt.formatDate('date')"
-        />
-        <BaseDetailField label="Resolution target">
-          <BaseText
-            v-if="complaint.resolutionTargetAt"
-            variant="body"
-            weight="medium"
-            :class="
-              !isTerminal && complaint.resolutionTargetAt < DateTime.now() ? 'tw:text-red-600' : ''
-            "
-          >
-            {{ complaint.resolutionTargetAt.formatDate('date') }}
-          </BaseText>
-          <BaseText v-else color="secondary">—</BaseText>
-        </BaseDetailField>
-        <BaseDetailField v-if="complaint.closureApprovedBy" label="Closure approved by">
-          <UserBadgeById :userId="complaint.closureApprovedBy" />
-        </BaseDetailField>
-      </BaseRailCard>
 
       <CustomFieldsCard entityType="Complaint" :entityId="id" :editable="isEditable" />
       <!-- Glanceable summary; detailed fields live in the tabs. -->
     </template>
   </BaseDetailLayout>
-
-  <!-- Approver signs off at the top → workflow completes → complaint auto-closes. -->
-  <WorkflowInstanceEsignAuthDialog v-model="showEsignDialog" @verified="onApprovalEsign" />
 
   <!-- Convert to NC -->
   <CustomerComplaintConvertToNcDialog
@@ -940,6 +1000,52 @@ const complaintDetailConfig = computed(() =>
   />
 
   <!-- Audit log -->
+  <!-- Reason first, then the signature: the typed reason survives a failed
+       sign because handleCancelClick closes this one before opening that one. -->
+  <BaseDialog v-model="showCancelDialog" title="Cancel Complaint" maxWidth="md">
+    <div class="tw:flex tw:flex-col tw:gap-3 tw:p-1">
+      <p class="tw:text-sm tw:text-on-main">
+        Cancelling ends this complaint without a review outcome: its open steps and tasks are
+        cancelled. The record stays in the audit log; you cannot reopen it.
+      </p>
+      <BaseField label="Reason" required :error="cancelReasonCodeError">
+        <BaseSelect
+          v-model="cancelReasonCode"
+          :options="cancelReasonOptions"
+          nullLabel="— Select a reason —"
+          :clearable="false"
+          @update:modelValue="cancelReasonCodeError = ''"
+        />
+      </BaseField>
+      <BaseField
+        v-slot="{ id: fieldId }"
+        label="Comments"
+        :required="cancelCommentsRequired"
+        :error="cancelReasonError"
+      >
+        <BaseTextarea
+          :id="fieldId"
+          v-model="cancelReason"
+          :rows="3"
+          :placeholder="cancelCommentsPlaceholder"
+          @input="cancelReasonError = ''"
+        />
+      </BaseField>
+    </div>
+    <template #footer="{ close }">
+      <BaseDialogFooter
+        cancelLabel="Back"
+        submitLabel="Sign & Cancel"
+        submitVariant="danger"
+        :loading="cancelling"
+        :disabled="!canSubmitCancel"
+        @cancel="close"
+        @submit="handleCancelClick"
+      />
+    </template>
+  </BaseDialog>
+  <WorkflowInstanceEsignAuthDialog v-model="showCancelEsign" @verified="onCancelEsignVerified" />
+
   <AuditLogDialog
     v-model="showAuditLog"
     :includeEntities="auditIncludeEntities"

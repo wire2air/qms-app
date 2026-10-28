@@ -19,6 +19,11 @@ const props = defineProps({
   // agent `assignedTo`. When true the ASSIGNED column resolves the owner (with
   // assignedTo as fallback) and is labelled OWNER.
   ownerAsAssignee: { type: Boolean, default: false },
+  // QA complaints (the QMS `complaints` table) speak the unified parent
+  // vocabulary — DRAFT / OPEN / CLOSED / CANCELLED — not the support ticket
+  // statuses, so their badge resolves through ComplaintStatusBadgeById.
+  // Without this a CANCELLED QA complaint rendered no badge at all.
+  qmsStatus: { type: Boolean, default: false },
   // Copy for the in-card empty state (the page's filters produced no rows).
   // Pages that set `contentOwnsEmpty` keep the table mounted when empty so the
   // controls in its toolbar (search, quick views) stay reachable.
@@ -229,7 +234,8 @@ const sort = ref([{ id: 'createdAt', desc: true }])
     </template>
 
     <template #body-cell-status="{ row }">
-      <CustomerComplaintStatusBadgeById :statusId="row.statusId" />
+      <ComplaintStatusBadgeById v-if="qmsStatus" :statusId="row.statusId" />
+      <CustomerComplaintStatusBadgeById v-else :statusId="row.statusId" />
     </template>
 
     <template #body-cell-createdAt="{ row }">

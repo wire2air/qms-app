@@ -143,10 +143,10 @@ function submit(navigate) {
 
         <div class="tw:grid tw:grid-cols-1 tw:sm:grid-cols-2 tw:gap-3">
           <BaseField label="Lead POC (our company)">
-            <UserSelectMenu v-model="form.leadAuditorUserId" />
+            <UserSelectMenu v-model="form.leadAuditorUserId" allTypes />
           </BaseField>
           <BaseField label="Involved people">
-            <UserSelectMenu v-model="form.teamUserIds" :multiple="true" />
+            <UserSelectMenu v-model="form.teamUserIds" allTypes :multiple="true" />
           </BaseField>
         </div>
 

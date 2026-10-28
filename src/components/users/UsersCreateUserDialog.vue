@@ -1,7 +1,8 @@
 <script setup>
 import { required, email } from '@shared/components/form/validators.js'
+import { ASSIGNABLE_USER_TYPE_OPTIONS } from '@/constants/userTypes.js'
 // Action RPC (not entity CRUD — POST /v1/services/users/:id/invite) — see CLAUDE.md rule #4 exception.
-import { post } from '@/api'
+import { post, get } from '@/api'
 import { isAllowed } from '@/utils/currentSession.js'
 
 const open = defineModel({
@@ -54,6 +55,7 @@ const form = ref({
   firstName: '',
   lastName: '',
   email: '',
+  userType: 'QUALITY',
   roleIds: [],
   color: '#2563eb',
   inviteSent: false,
@@ -92,6 +94,7 @@ watch(open, (val) => {
       firstName: '',
       lastName: '',
       email: '',
+      userType: 'QUALITY',
       roleIds: [],
       color: '#2563eb',
       inviteSent: false,
@@ -103,6 +106,27 @@ watch(open, (val) => {
     saveError.value = ''
   }
 })
+
+// Seat usage for the hint under the type ("7 of 10 Quality licenses in use").
+const seats = ref(null)
+watch(open, async (val) => {
+  if (!val) return
+  try {
+    seats.value = (await get('/v1/services/users/seats', { loader: false }))?.seats ?? null
+  } catch {
+    seats.value = null
+  }
+})
+const seatHint = computed(() => {
+  if (form.value.userType !== 'QUALITY') return 'Free — operators and trainees never use a license.'
+  const q = seats.value?.QUALITY
+  if (!q || q.limit == null) return 'Uses a Quality license.'
+  return `Uses a Quality license (${q.used} of ${q.limit} in use).`
+})
+// Roles are per tier: switching the type clears picks the new type cannot hold.
+function onUserTypeChange() {
+  form.value.roleIds = []
+}
 
 async function onSubmit() {
   if (isSubmitting.value) return
@@ -167,6 +191,18 @@ async function onSubmit() {
               </template>
             </BaseField>
 
+            <BaseField label="User type" required :value="form.userType">
+              <BaseSelect
+                v-model="form.userType"
+                :options="ASSIGNABLE_USER_TYPE_OPTIONS"
+                optionDescription="description"
+                :clearable="false"
+                :searchable="false"
+                @update:modelValue="onUserTypeChange"
+              />
+              <p class="tw:text-xs tw:text-secondary tw:mt-1">{{ seatHint }}</p>
+            </BaseField>
+
             <BaseField
               v-if="canAssignRoles"
               label="Roles"
@@ -174,7 +210,12 @@ async function onSubmit() {
               :value="form.roleIds"
               :rules="[required()]"
             >
-              <RoleSelectMenu v-model="form.roleIds" :required="true" multiple />
+              <RoleSelectMenu
+                v-model="form.roleIds"
+                :required="true"
+                multiple
+                :userType="form.userType"
+              />
             </BaseField>
 
             <!-- `users.site_id` is the PRIMARY site since multi-site

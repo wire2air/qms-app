@@ -1,4 +1,5 @@
 <script setup>
+import { roleTierAllowedForUserType } from '@/constants/userTypes.js'
 const props = defineProps({
   required: {
     type: Boolean,
@@ -11,6 +12,11 @@ const props = defineProps({
   excludeIds: {
     type: Array,
     default: () => [],
+  },
+  // Only roles this user type may hold (src/constants/userTypes.js); null = all.
+  userType: {
+    type: String,
+    default: null,
   },
   // Support Desk roles are given in Desk → Settings → Agents, not here.
   includeSupportRoles: {
@@ -32,7 +38,10 @@ const allRoles = useLiveQuery(async (db) => db.Role.where('statusId', 'ACTIVE').
 const roles = computed(() => {
   const excluded = new Set(props.excludeIds || [])
   return allRoles.value.filter(
-    (r) => !excluded.has(r.id) && (props.includeSupportRoles || !r.isSupportRole),
+    (r) =>
+      !excluded.has(r.id) &&
+      (props.includeSupportRoles || !r.isSupportRole) &&
+      (!props.userType || roleTierAllowedForUserType(r.tier ?? 'QUALITY', props.userType)),
   )
 })
 </script>

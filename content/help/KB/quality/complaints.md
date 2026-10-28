@@ -51,12 +51,16 @@ passes through both.
 The same four words used by Nonconformances, CAPAs, Quality Events and Change
 Requests.
 
-:::note A converted complaint is Closed, and linked
-Converting does not give the complaint a status of its own. It closes, and the
-nonconformance it produced is recorded as a **link** on the record.
+:::note A converted complaint stays open, and is linked
+Converting does not give the complaint a status of its own, and it does not
+close it. The complaint stays open with its QA review running, and the
+nonconformance it produced is recorded as a **link** on the record (Escalations
+tab). The owner closes the complaint when the investigation is complete, as
+usual. A complaint produces one nonconformance; once one is linked, Create NC
+is no longer offered.
 
-Keeping it as a link rather than a status means you can navigate from either end,
-and one complaint can produce more than one nonconformance.
+Keeping it as a link rather than a status means you can navigate from either
+end.
 :::
 
 ## Investigating

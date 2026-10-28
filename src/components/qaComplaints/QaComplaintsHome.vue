@@ -40,6 +40,7 @@ const VIEWS = [
   { value: 'qa_review', label: 'QA Review' },
   { value: 'open', label: 'Open' },
   { value: 'closed', label: 'Closed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 // Unified parent statuses (2026-08-28): active vs finished. Workflow phases
 // live on the steps, and conversion-to-NC is a record LINK, not a status.
@@ -82,7 +83,9 @@ const complaints = useLiveQueryWithDeps(
     } else if (af === 'open') {
       results = results.filter((r) => OPEN_STATUSES.includes(r.statusId))
     } else if (af === 'closed') {
-      results = results.filter((r) => CLOSED_STATUSES.includes(r.statusId))
+      results = results.filter((r) => r.statusId === 'CLOSED')
+    } else if (af === 'cancelled') {
+      results = results.filter((r) => r.statusId === 'CANCELLED')
     }
 
     return results.sort(
@@ -252,6 +255,7 @@ function handleExport({ format, fields, rows }) {
       :selectable="canConvert || canUpdate"
       detailBasePath="/complaints"
       :ownerAsAssignee="true"
+      qmsStatus
       :emptyLabel="activeFilter === 'all' ? 'No complaints yet' : 'No complaints match this view'"
       :exportColumns="exportColumns"
       :exportFormats="['csv', 'xlsx']"

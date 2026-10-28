@@ -91,7 +91,8 @@ let loading = null
 /** Switch to the knowledge base when the help service is configured. Once per session. */
 export function loadHelpFromKb() {
   if (!loading)
-    loading = get('/v1/services/help/index')
+    // Silent: not configured (503) is a normal state, not an error to show.
+    loading = get('/v1/services/help/index', { silent: true })
       .then((idx) => {
         const { articles, categories } = fromKbIndex(idx)
         if (!articles.length) return
@@ -109,7 +110,7 @@ export function loadHelpFromKb() {
 /** A KB article's rendered HTML (server-sanitized; sanitized again where shown). */
 export async function fetchHelpArticleHtml(slug) {
   if (htmlCache.has(slug)) return htmlCache.get(slug)
-  const res = await get('/v1/services/help/article', { params: { key: slug } })
+  const res = await get('/v1/services/help/article', { params: { key: slug }, silent: true })
   const html = res?.article?.html ?? res?.html ?? ''
   htmlCache.set(slug, html)
   return html

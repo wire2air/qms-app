@@ -78,6 +78,7 @@ const total = computed(function count() {
     >
       <template #default="field">
         <UserSelectMenu
+allTypes
           v-bind="field"
           multiple
           :modelValue="userIds"

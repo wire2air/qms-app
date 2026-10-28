@@ -381,8 +381,9 @@ async function handleDelete(rule) {
                 class="tw:w-44"
               />
               <UserSelectMenu
-                v-if="['ASSIGN_USER', 'NOTIFY_USER'].includes(action.type)"
+v-if="['ASSIGN_USER', 'NOTIFY_USER'].includes(action.type)"
                 v-model="action.userId"
+                allTypes
                 required
                 class="tw:flex-1 tw:min-w-40"
               />

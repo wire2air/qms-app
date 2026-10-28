@@ -1,5 +1,6 @@
 <script setup>
 import { IconPlus } from '@tabler/icons-vue'
+import { isQualityUser } from '@/constants/userTypes.js'
 
 const props = defineProps({
   required: {
@@ -68,6 +69,14 @@ const props = defineProps({
     type: Array,
     default: null,
   },
+  // Internal users are Quality users only by default — this menu picks owners,
+  // supervisors, assignees and approvers, which operators and trainees never
+  // are (src/constants/userTypes.js). Pass `allTypes` where everyone belongs:
+  // training audiences, log-book performers, notification cc, desk agents.
+  allTypes: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const modelValue = defineModel({
@@ -83,8 +92,9 @@ const users = useLiveQueryWithDeps(
     () => props.departmentId,
     () => props.siteId,
     () => (props.userIds ? [...props.userIds] : null),
+    () => props.allTypes,
   ],
-  async (db, [kind, supplierId, includeInactive, departmentId, siteId, userIds]) => {
+  async (db, [kind, supplierId, includeInactive, departmentId, siteId, userIds, allTypes]) => {
     const all = await db.User.where().exec()
     const whitelist = userIds ? new Set(userIds) : null
     return all
@@ -93,6 +103,7 @@ const users = useLiveQueryWithDeps(
       .filter((u) => (whitelist ? whitelist.has(u.id) : true))
       .filter((u) => includeInactive || u.userStatusId === 'ACTIVE')
       .filter((u) => (kind ? u.kind === kind : true))
+      .filter((u) => allTypes || u.kind === 'EXTERNAL_SUPPLIER' || isQualityUser(u))
       .filter((u) =>
         kind === 'EXTERNAL_SUPPLIER' && supplierId ? u.supplierId === supplierId : true,
       )

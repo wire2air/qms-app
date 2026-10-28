@@ -69,7 +69,7 @@ const props = defineProps({
     </div>
 
     <BaseField v-if="editable" label="Training Manager">
-      <UserSelectMenu v-model="props.training.managerId" nullLabel="No manager" />
+      <UserSelectMenu v-model="props.training.managerId" allTypes nullLabel="No manager" />
     </BaseField>
     <BaseDetailField v-else label="Training Manager">
       <UserBadgeById v-if="training.managerId" :userId="training.managerId" />

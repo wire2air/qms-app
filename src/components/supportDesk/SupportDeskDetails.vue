@@ -169,7 +169,7 @@ const CHANNEL_LABEL = {
         <template #assignment>
           <div class="tw:flex tw:flex-col tw:gap-2.5">
             <BaseDetailField label="Assignee">
-              <UserSelectMenu v-if="isEditable" v-model="assigneeModel" nullLabel="Unassigned" />
+              <UserSelectMenu v-if="isEditable" v-model="assigneeModel" allTypes nullLabel="Unassigned" />
               <UserBadgeById v-else-if="complaint.assignedTo" :userId="complaint.assignedTo" />
               <BaseText v-else color="secondary" class="tw:italic">Unassigned</BaseText>
             </BaseDetailField>

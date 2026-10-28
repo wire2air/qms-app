@@ -197,7 +197,7 @@ function handleClose() {
           <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5 tw:block">
             Add specific users
           </label>
-          <UserSelectMenu v-model="additionalUserIds" :multiple="true" />
+          <UserSelectMenu v-model="additionalUserIds" allTypes :multiple="true" />
         </div>
 
         <!-- Effective assignees -->
@@ -230,7 +230,7 @@ function handleClose() {
           <label class="tw:text-xs tw:font-semibold tw:text-secondary tw:uppercase tw:tracking-wide tw:mb-1.5 tw:block">
             Training manager (verifier)
           </label>
-          <UserSelectMenu v-model="managerId" nullLabel="Select a manager" />
+          <UserSelectMenu v-model="managerId" allTypes nullLabel="Select a manager" />
           <p class="tw:text-caption tw:text-secondary tw:mt-1">
             Defaults to the assignees' supervisor when they share one; otherwise select who verifies.
           </p>

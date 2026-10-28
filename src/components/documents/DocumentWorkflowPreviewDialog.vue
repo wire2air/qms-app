@@ -2,6 +2,7 @@
 import { submitReadiness } from './workflowSubmitReadiness.js'
 import { IconPlus } from '@tabler/icons-vue'
 import { useDocuments } from '@/composables/useDocuments.js'
+import { isQualityUser } from '@/constants/userTypes.js'
 
 const props = defineProps({
   documentId: { type: String, required: true },
@@ -99,7 +100,7 @@ const steps = computed(() => {
     if (stepRoleIds.length === 0) {
       // Role-less step → every active internal user. Documents don't
       // run supplier-facing pickers, so kind=INTERNAL is implicit.
-      candidateUsers = allUsers.value.filter((u) => u.kind !== 'EXTERNAL_SUPPLIER')
+      candidateUsers = allUsers.value.filter((u) => isQualityUser(u))
     } else {
       const candidateIdSet = new Set()
       for (const ru of rolesOnUsers.value) {

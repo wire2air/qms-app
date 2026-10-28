@@ -463,8 +463,9 @@ async function save() {
         <BaseText weight="medium">Who is told</BaseText>
 
         <UserSelectMenu
-          v-if="canNameOthers"
+v-if="canNameOthers"
           v-model="form.recipients"
+          allTypes
           multiple
         />
         <BaseText v-else variant="caption" color="secondary">
@@ -567,7 +568,8 @@ async function save() {
                   Also notify on this band
                 </BaseText>
                 <UserSelectMenu
-                  v-model="band.recipients"
+v-model="band.recipients"
+                  allTypes
                   multiple
                 />
               </div>

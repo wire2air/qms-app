@@ -3,6 +3,7 @@ import { IconMail, IconPlus, IconCamera, IconCrown } from '@tabler/icons-vue'
 import { post } from '@/api'
 import { getCompanyPath } from '@/utils/routeHelpers'
 import { isAllowed, currentSession } from '@/utils/currentSession.js'
+import { ASSIGNABLE_USER_TYPES, ASSIGNABLE_USER_TYPE_OPTIONS, userTypeLabel } from '@/constants/userTypes.js'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception. Ownership is
 // not a field on the user form: it is an authority change with its own audit.
 import { put } from '@/api'
@@ -302,8 +303,24 @@ async function handleAvatarDelete() {
   }
 }
 
-// Persist an inline field edit (title / hire date / supervisor).
 const userSaveToast = useToast()
+
+// User type: Quality / Operator / Trainee. The server refuses a demotion while
+// the person holds higher-tier roles and a promotion without a free seat; the
+// live row is left as it was so the select snaps back.
+const canChangeUserType = computed(
+  () => !!user.value && !user.value.isOwner && ASSIGNABLE_USER_TYPES.includes(user.value.userType),
+)
+async function changeUserType(userType) {
+  if (!user.value || userType === user.value.userType) return
+  try {
+    await put(`/v1/services/users/${props.id}`, { userType })
+  } catch (e) {
+    userSaveToast.error(e?.message || 'Failed to change the user type')
+  }
+}
+
+// Persist an inline field edit (title / hire date / supervisor).
 async function saveUser() {
   if (!user.value) return
   try {
@@ -457,6 +474,29 @@ const userDetailConfig = computed(() =>
               <UserStatusBadgeById v-else :statusId="user?.userStatusId" />
             </div>
 
+            <!-- User type (src/constants/userTypes.js). Through REST, not the
+                 GraphQL save: the server checks the seat and the held roles
+                 and says which to change. Owners, desk-only agents, supplier
+                 and service accounts are not a choice. -->
+            <div v-if="user?.kind === 'INTERNAL' && !user?.isServiceAccount">
+              <p class="tw:text-secondary tw:mb-1">User type</p>
+              <BaseSelect
+                v-if="canUpdateUser && canChangeUserType"
+                :modelValue="user.userType"
+                :options="ASSIGNABLE_USER_TYPE_OPTIONS"
+                optionDescription="description"
+                :clearable="false"
+                :searchable="false"
+                @update:modelValue="changeUserType"
+              />
+              <BaseText v-else class="tw:text-sm">{{ userTypeLabel(user?.userType) }}</BaseText>
+              <BaseCaption v-if="user?.userType === 'QUALITY'">Uses a Quality license.</BaseCaption>
+              <BaseCaption v-else-if="user?.userType === 'SUPPORT'">
+                Support Desk only — managed in Desk → Settings → Agents.
+              </BaseCaption>
+              <BaseCaption v-else>Free — no license used.</BaseCaption>
+            </div>
+
             <!-- Supplier point of contact.
                  Only meaningful for supplier users, so it only renders for
                  them — a CHECK on the column refuses the flag on anyone else,
@@ -539,8 +579,9 @@ const userDetailConfig = computed(() =>
             <div>
               <p class="tw:text-secondary tw:mb-1">Supervisor</p>
               <UserSelectMenu
-                v-if="canUpdateUser"
+v-if="canUpdateUser"
                 v-model="user.supervisorId"
+                allTypes
                 nullLabel="— No supervisor —"
                 @update:modelValue="saveUser"
               />
@@ -677,6 +718,7 @@ const userDetailConfig = computed(() =>
               :modelValue="assignedRoleIds"
               :required="false"
               multiple
+              :userType="user?.userType"
               @update:modelValue="handleRolesChange"
             >
               <template #button>
