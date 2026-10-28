@@ -4,6 +4,7 @@ title: Document Templates
 sidebar_position: 2
 description: Create reusable document templates that define numbering, default settings, and section structure for new controlled documents.
 keywords: [document templates, document control, template status, document prefix, sections, publish template]
+access: public
 ---
 
 # Document Templates

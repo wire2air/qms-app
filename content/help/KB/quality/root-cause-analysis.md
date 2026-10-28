@@ -4,6 +4,7 @@ title: Root Cause Analysis
 sidebar_position: 4
 description: Set up reusable Root Cause Analysis templates and use Fishbone, 5 Whys, Is/Is Not, and Why Tree methods to record root causes inside nonconformances and CAPAs.
 keywords: [root cause analysis, RCA template, fishbone, 5 whys, nonconformance, CAPA]
+access: public
 ---
 
 # Root Cause Analysis

@@ -4,6 +4,7 @@ title: Log Books
 sidebar_position: 1
 description: Build log books, schedule who fills them, complete entries from your task inbox, and review the records they produce.
 keywords: [inspections, log books, field records, assignments, scheduling, review]
+access: public
 ---
 
 # Log Books

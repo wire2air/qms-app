@@ -4,6 +4,7 @@ title: Option Sets & Lookups
 sidebar_position: 5
 description: Create and manage reusable lists of dropdown choices that power forms across your Qability workspace.
 keywords: [option sets, lookups, dropdown values, picklists, form options, administration]
+access: public
 ---
 
 # Option Sets & Lookups

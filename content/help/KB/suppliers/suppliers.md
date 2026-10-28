@@ -5,6 +5,7 @@ sidebar_position: 1
 description: Onboard suppliers, manage contacts and documents, give suppliers portal access, and request documents through asset requests.
 keywords:
   [suppliers, supplier portal, asset requests, document requests, supplier contacts, onboarding]
+access: public
 ---
 
 # Suppliers

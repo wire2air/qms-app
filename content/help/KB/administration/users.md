@@ -4,6 +4,7 @@ title: Users & Invitations
 sidebar_position: 1
 description: Add people to your Qability workspace, send invitations, set their status, and assign the roles that control what they can do.
 keywords: [users, invitations, invite user, user status, roles, administration]
+access: public
 ---
 
 # Users & Invitations

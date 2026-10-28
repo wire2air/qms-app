@@ -4,6 +4,7 @@ title: Service Accounts
 sidebar_position: 9
 description: Create machine identities that own API keys, so external systems and scripts can access your Qability QMS programmatically without borrowing a person's account.
 keywords: [service account, API key, integration, machine-to-machine, automation, bearer token, authentication]
+access: public
 ---
 
 # Service Accounts

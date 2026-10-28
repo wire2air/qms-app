@@ -4,6 +4,7 @@ title: Equipment
 sidebar_position: 5
 description: Register and track instruments, machines, and other equipment, set calibration and maintenance due dates, and manage service status.
 keywords: [equipment, calibration, calibration interval, calibration gate, preventive maintenance, asset tag, service status, log books, QC inspection, instrument, pH meter]
+access: public
 ---
 
 # Equipment

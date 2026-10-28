@@ -4,6 +4,7 @@ title: Document Control
 sidebar_position: 1
 description: Author, review, approve, release, and control SOPs and other quality documents — with versioning, e-signatures, training, and a tamper-evident PDF of every effective revision.
 keywords: [document control, sop, versions, approval workflow, effective date, controlled copy, collaborators, e-signature, periodic review, iso 9001, iso 13485]
+access: public
 ---
 
 # Document Control

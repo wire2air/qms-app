@@ -4,6 +4,7 @@ title: AI Access & Usage
 sidebar_position: 2
 description: Control who can use Qability AI, review AI usage and cost, and create personal access tokens that connect external AI tools to your QMS.
 keywords: [AI usage, AI access, AI permission, personal access token, MCP, AI cost, governance, AI tokens]
+access: public
 ---
 
 # AI Access & Usage

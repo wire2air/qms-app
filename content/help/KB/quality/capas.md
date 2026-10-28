@@ -4,6 +4,7 @@ title: CAPAs
 sidebar_position: 2
 description: Raise, investigate, action, and close corrective and preventive actions (CAPAs) and verify they worked.
 keywords: [CAPA, corrective action, preventive action, effectiveness check, root cause, closure]
+access: public
 ---
 
 # CAPAs
