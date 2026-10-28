@@ -16,7 +16,8 @@ import { get, post, put, del } from '@/api'
  * add help.example.com, set the two DNS records shown, and the domain is
  * checked (now, and every 15 minutes until it works). The primary domain is
  * the help center's address; the others redirect to it. Certificates are
- * issued automatically once a domain is verified.
+ * issued automatically once a domain is verified (at Cloudflare for SaaS where
+ * the platform uses it: `certificate` on each domain says how far it is).
  */
 const props = defineProps({ kbId: { type: String, required: true } })
 const toast = useToast()
@@ -180,8 +181,23 @@ function when(d) {
               <IconTrash :size="16" />
             </button>
           </div>
-          <p v-if="d.status !== 'ACTIVE' && d.error" class="tw:text-xs tw:text-red-700">
+          <p
+            v-if="d.status !== 'ACTIVE' && d.error"
+            class="tw:text-xs"
+            :class="d.certificate && !d.certificate.active && d.error.startsWith('The DNS records are right') ? 'tw:text-amber-700' : 'tw:text-red-700'"
+          >
             {{ d.error }}
+          </p>
+          <!-- Cloudflare for SaaS: the certificate is issued and renewed there; the domain serves once it is active. -->
+          <p v-if="d.certificate" class="tw:text-xs" :class="d.certificate.active ? 'tw:text-green-700' : 'tw:text-secondary'">
+            Certificate (Cloudflare):
+            {{
+              d.certificate.active
+                ? 'active'
+                : d.certificate.registered
+                  ? `${d.certificate.status || 'pending'} · ${d.certificate.sslStatus || 'pending'}`
+                  : 'registering…'
+            }}<template v-if="d.certificate.error && !d.certificate.active"> — {{ d.certificate.error }}</template>
           </p>
           <p class="tw:text-xs tw:text-secondary">
             <template v-if="d.verifiedAt">Verified {{ when(d.verifiedAt) }}. </template>
