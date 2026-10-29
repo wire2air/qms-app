@@ -113,7 +113,11 @@ async function loadAddress() {
 const saving = ref(false)
 function cleanLinks(list) {
   return list
-    .map((l) => ({ label: String(l.label || '').trim(), url: String(l.url || '').trim() }))
+    .map((l) => ({
+      label: String(l.label || '').trim(),
+      url: String(l.url || '').trim(),
+      ...(l.button ? { button: true } : {}),
+    }))
     .filter((l) => l.label && l.url)
 }
 async function save() {
@@ -442,6 +446,12 @@ function back() {
                     v-model="l.url"
                     placeholder="https://example.com/pricing"
                     class="tw:flex-1"
+                  />
+                  <!-- A header link can read as a button (an outlined call to action). -->
+                  <BaseSwitch
+                    v-if="key === 'headerLinks'"
+                    v-model="l.button"
+                    label="Button"
                   />
                   <button
                     type="button"
