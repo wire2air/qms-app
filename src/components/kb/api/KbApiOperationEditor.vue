@@ -40,6 +40,7 @@ const ADMIN_FIELDS = [
   'groupId',
   'audience',
   'published',
+  'descriptionMd',
   'introMd',
   'notesMd',
   'requestExampleMd',
@@ -48,6 +49,7 @@ const ADMIN_FIELDS = [
 function setDraft(o) {
   draft.value = {
     title: o.title || '',
+    descriptionMd: o.descriptionMd || '',
     slug: o.slug || '',
     groupId: o.groupId || null,
     audience: o.audience || 'PUBLIC',
@@ -220,7 +222,7 @@ const security = computed(() => {
       </div>
       <div
         v-else
-        class="tw:grid tw:min-h-0 tw:flex-1 tw:gap-6 tw:overflow-y-auto tw:lg:grid-cols-2"
+        class="kb-api-compact tw:grid tw:min-h-0 tw:flex-1 tw:gap-6 tw:overflow-y-auto tw:lg:grid-cols-2"
       >
         <!-- What the page shows, from the spec -->
         <section
@@ -415,6 +417,11 @@ const security = computed(() => {
 
           <div
             v-for="f in [
+              {
+                key: 'descriptionMd',
+                label: 'Description',
+                help: 'Replaces the description from the file on the public page',
+              },
               { key: 'introMd', label: 'Intro', help: 'Above the generated block' },
               { key: 'notesMd', label: 'Notes', help: 'Below it: gotchas, limits, tips' },
               {
@@ -478,6 +485,10 @@ const security = computed(() => {
 </template>
 
 <style scoped>
+/* Several short fields in one dialog: the editor's article-sized minimum (40vh) would stack to pages. */
+.kb-api-compact :deep(.kb-prose) {
+  min-height: 6rem;
+}
 .kb-api-pre {
   max-height: 18rem;
   overflow: auto;
