@@ -7,7 +7,7 @@ import { DateTime } from 'luxon'
   primaryKey: 'id',
   syncField: 'updatedAt',
   customIndex: 'kbId',
-  schemaVersion: 1,
+  schemaVersion: 2,
 })
 export class KbCollection extends BaseModel {
   static paranoid = true
@@ -28,6 +28,8 @@ export class KbCollection extends BaseModel {
   @Property({ type: String }) icon = /** @type {String} */ (null)
   @Property({ type: Number }) position = 0
   @Property({ type: String }) audience = 'PUBLIC'
+  /** 'HELP' (the help center) or 'API_HELP' (a page of the API docs portal). */
+  @Property({ type: String }) kind = 'HELP'
   @Property({ type: String }) createdBy = /** @type {String} */ (null)
   @Property({ type: String }) updatedBy = /** @type {String} */ (null)
   @Property({ type: DateTime }) deletedAt = /** @type {DateTime} */ (null)

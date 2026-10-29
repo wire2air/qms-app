@@ -7,6 +7,7 @@ import {
   IconWorldDownload,
   IconPhoto,
   IconX,
+  IconApi,
 } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception: knowledge
 // base settings, theme import and uploads go through /v1/services/kb.
@@ -355,6 +356,14 @@ function back() {
       </a>
       <div class="tw:flex-1" />
       <span v-if="dirty" class="tw:text-xs tw:font-medium tw:text-amber-700">Unsaved changes</span>
+      <BaseButton
+        v-if="kbId"
+        variant="outline"
+        size="sm"
+        @click="router.push(getCompanyPath(`/desk/kb/api-docs?kb=${kbId}`))"
+      >
+        <IconApi :size="16" class="tw:mr-1" /> API docs
+      </BaseButton>
       <BaseButton v-if="canManage" :disabled="!dirty" :isLoading="saving" @click="save"
         >Save</BaseButton
       >
