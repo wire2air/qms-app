@@ -23,9 +23,14 @@ const SCOPES = [
   },
   { id: 'kb:write', label: 'Write drafts', help: 'Create and update articles, upload files' },
   { id: 'kb:publish', label: 'Publish', help: 'Publish, unpublish and archive' },
+  {
+    id: 'kb:api_docs',
+    label: 'API docs',
+    help: 'Upload an OpenAPI file, annotate endpoints (publishing still needs Publish)',
+  },
 ]
 const PRESETS = [
-  { label: 'Claude or a script', scopes: ['kb:read', 'kb:write', 'kb:publish'] },
+  { label: 'Claude or a script', scopes: ['kb:read', 'kb:write', 'kb:publish', 'kb:api_docs'] },
   { label: 'Product app (in-app help)', scopes: ['kb:read_customers'] },
 ]
 

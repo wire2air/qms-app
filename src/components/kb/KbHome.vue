@@ -15,6 +15,7 @@ import {
   IconArrowDown,
   IconFolderOpen,
   IconWorldCog,
+  IconApi,
 } from '@tabler/icons-vue'
 // Action RPC (not entity CRUD) — see CLAUDE.md rule #4 exception: KB writes go
 // through /v1/services/kb (versions, slugs, redirects are the server's).
@@ -47,6 +48,7 @@ const router = useRouter()
 const toast = useToast()
 const { confirm } = useConfirm()
 
+const canRead = computed(() => isAllowed(['knowledge_base:read']))
 const canCreate = computed(() => isAllowed(['knowledge_base:create']))
 const canManage = computed(() => isAllowed(['knowledge_base:manage_settings']))
 const canDelete = computed(() => isAllowed(['knowledge_base:delete']) || canManage.value)
@@ -358,6 +360,13 @@ const itemClass = (active) => [
         @click="router.push(getCompanyPath(`/desk/kb/settings?kb=${kb.id}`))"
       >
         <IconWorldCog :size="16" class="tw:mr-1" /> Help center
+      </BaseButton>
+      <BaseButton
+        v-if="canRead && kb"
+        variant="outline"
+        @click="router.push(getCompanyPath(`/desk/kb/api-docs?kb=${kb.id}`))"
+      >
+        <IconApi :size="16" class="tw:mr-1" /> API docs
       </BaseButton>
       <BaseButton v-if="canCreate && kb" :isLoading="creating" @click="newArticle">
         <IconPlus :size="16" class="tw:mr-1" /> New article
